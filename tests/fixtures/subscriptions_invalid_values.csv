@@ -1,0 +1,3 @@
+service_name,provider,billing_cycle,amount,currency,start_date,end_date
+Netflix,Netflix Inc.,monthly,NOT_A_NUMBER,EUR,2023-01-15,
+Spotify,Spotify AB,monthly,9.99,EUR,not-a-date,

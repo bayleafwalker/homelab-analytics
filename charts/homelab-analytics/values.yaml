@@ -1,0 +1,55 @@
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/bayleafwalker/homelab-analytics
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+commonEnv:
+  HOMELAB_ANALYTICS_DATA_DIR: /data
+  HOMELAB_ANALYTICS_API_HOST: 0.0.0.0
+  HOMELAB_ANALYTICS_API_PORT: "8080"
+  HOMELAB_ANALYTICS_WEB_HOST: 0.0.0.0
+  HOMELAB_ANALYTICS_WEB_PORT: "8081"
+  HOMELAB_ANALYTICS_WORKER_POLL_INTERVAL: "30"
+
+extraEnv: []
+
+service:
+  type: ClusterIP
+
+persistence:
+  enabled: true
+  existingClaim: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 5Gi
+  storageClass: ""
+
+api:
+  enabled: true
+  replicas: 1
+  port: 8080
+  resources: {}
+
+web:
+  enabled: true
+  replicas: 1
+  port: 8081
+  resources: {}
+
+worker:
+  enabled: true
+  replicas: 1
+  command:
+    - homelab-analytics-worker
+    - watch-account-transactions-inbox
+  resources: {}

@@ -1,0 +1,52 @@
+{{- if .Values.api.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "homelab-analytics.fullname" . }}-api
+  labels:
+    {{- include "homelab-analytics.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      {{- include "homelab-analytics.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "homelab-analytics.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "homelab-analytics.serviceAccountName" . }}
+      containers:
+        - name: api
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - homelab-analytics-api
+          ports:
+            - name: http
+              containerPort: {{ .Values.api.port }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "homelab-analytics.fullname" . }}-config
+          {{- with .Values.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "homelab-analytics.dataClaimName" . }}
+{{- end }}

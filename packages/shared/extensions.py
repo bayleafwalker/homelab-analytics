@@ -1,0 +1,242 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+import importlib
+import sys
+from typing import Any, Callable
+
+
+VALID_EXTENSION_LAYERS = (
+    "landing",
+    "transformation",
+    "reporting",
+    "application",
+)
+
+
+@dataclass(frozen=True)
+class LayerExtension:
+    layer: str
+    key: str
+    kind: str
+    description: str
+    module: str
+    source: str
+    handler: Callable[..., object] | None = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
+
+
+BUILTIN_EXTENSIONS = (
+    LayerExtension(
+        layer="landing",
+        key="account_transactions_csv_contract",
+        kind="contract",
+        description="Built-in CSV contract validation for account transaction imports.",
+        module="packages.pipelines.csv_validation",
+        source="builtin",
+    ),
+    LayerExtension(
+        layer="landing",
+        key="account_transaction_manual_ingest",
+        kind="connector",
+        description="Built-in manual file ingestion flow for account transaction CSV files.",
+        module="packages.pipelines.account_transaction_service",
+        source="builtin",
+        handler=lambda *, service, source_path, source_name="manual-upload": (
+            service.ingest_file(Path(source_path), source_name=source_name)
+        ),
+    ),
+    LayerExtension(
+        layer="landing",
+        key="account_transaction_folder_watch",
+        kind="connector",
+        description="Built-in watched-folder ingestion flow for account transaction CSV files.",
+        module="packages.pipelines.account_transaction_inbox",
+        source="builtin",
+        handler=lambda *,
+        service,
+        inbox_dir,
+        processed_dir,
+        failed_dir,
+        source_name="folder-watch": _run_account_transaction_folder_watch(
+            service=service,
+            inbox_dir=Path(inbox_dir),
+            processed_dir=Path(processed_dir),
+            failed_dir=Path(failed_dir),
+            source_name=source_name,
+        ),
+    ),
+    LayerExtension(
+        layer="transformation",
+        key="account_transactions_canonical",
+        kind="transformation",
+        description="Built-in canonical transaction normalization from landed account transaction CSV data.",
+        module="packages.pipelines.account_transactions",
+        source="builtin",
+        handler=lambda *, service, run_id: service.get_canonical_transactions(run_id),
+    ),
+    LayerExtension(
+        layer="reporting",
+        key="monthly_cashflow_summary",
+        kind="mart",
+        description="Built-in monthly cash-flow mart derived from canonical account transactions.",
+        module="packages.analytics.cashflow",
+        source="builtin",
+        handler=lambda *, service, run_id: service.get_monthly_cashflow(run_id),
+    ),
+    LayerExtension(
+        layer="application",
+        key="ingestion_runs_api",
+        kind="api",
+        description="Built-in API surface for ingestion run listing and reporting access.",
+        module="apps.api.app",
+        source="builtin",
+    ),
+    LayerExtension(
+        layer="application",
+        key="cashflow_dashboard",
+        kind="web",
+        description="Built-in dashboard surface for the current cash-flow reporting view.",
+        module="apps.web.app",
+        source="builtin",
+    ),
+)
+
+
+class ExtensionRegistry:
+    def __init__(self) -> None:
+        self._extensions_by_layer: dict[str, dict[str, LayerExtension]] = {
+            layer: {} for layer in VALID_EXTENSION_LAYERS
+        }
+
+    def register(self, extension: LayerExtension) -> None:
+        if extension.layer not in self._extensions_by_layer:
+            raise ValueError(f"Unsupported extension layer: {extension.layer}")
+
+        existing = self._extensions_by_layer[extension.layer].get(extension.key)
+        if existing is not None and existing != extension:
+            raise ValueError(
+                f"Extension already registered for layer={extension.layer} key={extension.key}"
+            )
+
+        self._extensions_by_layer[extension.layer][extension.key] = extension
+
+    def list_extensions(self, layer: str | None = None) -> list[LayerExtension]:
+        if layer is None:
+            extensions: list[LayerExtension] = []
+            for layer_name in VALID_EXTENSION_LAYERS:
+                extensions.extend(self.list_extensions(layer_name))
+            return extensions
+
+        if layer not in self._extensions_by_layer:
+            raise ValueError(f"Unsupported extension layer: {layer}")
+
+        return sorted(
+            self._extensions_by_layer[layer].values(),
+            key=lambda extension: extension.key,
+        )
+
+    def get_extension(self, layer: str, key: str) -> LayerExtension:
+        if layer not in self._extensions_by_layer:
+            raise ValueError(f"Unsupported extension layer: {layer}")
+
+        extension = self._extensions_by_layer[layer].get(key)
+        if extension is None:
+            raise KeyError(f"Unknown extension for layer={layer}: {key}")
+        return extension
+
+    def execute(self, layer: str, key: str, **kwargs: Any) -> object:
+        extension = self.get_extension(layer, key)
+        if extension.handler is None:
+            raise ValueError(
+                f"Extension is not executable for layer={layer} key={key}"
+            )
+        return extension.handler(**kwargs)
+
+    def to_mapping(self) -> dict[str, list[LayerExtension]]:
+        return {
+            layer: self.list_extensions(layer) for layer in VALID_EXTENSION_LAYERS
+        }
+
+
+def build_builtin_extension_registry() -> ExtensionRegistry:
+    registry = ExtensionRegistry()
+    for extension in BUILTIN_EXTENSIONS:
+        registry.register(extension)
+    return registry
+
+
+def load_extension_registry(
+    *,
+    extension_paths: tuple[Path, ...] = (),
+    extension_modules: tuple[str, ...] = (),
+) -> ExtensionRegistry:
+    registry = build_builtin_extension_registry()
+    _install_extension_paths(extension_paths)
+    importlib.invalidate_caches()
+
+    for module_name in extension_modules:
+        module = importlib.import_module(module_name)
+        register_extensions = getattr(module, "register_extensions", None)
+        if not callable(register_extensions):
+            raise ValueError(
+                f"Extension module {module_name!r} must define register_extensions(registry)"
+            )
+        register_extensions(registry)
+
+    return registry
+
+
+def serialize_extension(extension: LayerExtension) -> dict[str, str]:
+    return {
+        "layer": extension.layer,
+        "key": extension.key,
+        "kind": extension.kind,
+        "description": extension.description,
+        "module": extension.module,
+        "source": extension.source,
+        "executable": "true" if extension.handler is not None else "false",
+    }
+
+
+def serialize_extension_registry(
+    registry: ExtensionRegistry,
+) -> dict[str, list[dict[str, str]]]:
+    return {
+        layer: [serialize_extension(extension) for extension in registry.list_extensions(layer)]
+        for layer in VALID_EXTENSION_LAYERS
+    }
+
+
+def _install_extension_paths(extension_paths: tuple[Path, ...]) -> None:
+    for path in extension_paths:
+        resolved_path = str(path)
+        if not path.exists():
+            raise FileNotFoundError(f"Extension path does not exist: {path}")
+        if resolved_path not in sys.path:
+            sys.path.insert(0, resolved_path)
+
+
+def _run_account_transaction_folder_watch(
+    *,
+    service,
+    inbox_dir: Path,
+    processed_dir: Path,
+    failed_dir: Path,
+    source_name: str,
+):
+    from packages.pipelines.account_transaction_inbox import (
+        process_account_transaction_inbox,
+    )
+
+    return process_account_transaction_inbox(
+        service=service,
+        inbox_dir=inbox_dir,
+        processed_dir=processed_dir,
+        failed_dir=failed_dir,
+        source_name=source_name,
+    )

@@ -49,18 +49,140 @@ homelab-analytics/
 
 ## Documentation
 
-- `docs/README.md` contains the document index.
-- `docs/plans/homelab-analytics-platform-plan.md` is the primary delivery and implementation plan.
+- `requirements/` contains the baseline requirements across five domains: data ingestion, data platform, analytics and reporting, application services, and security and operations. Each requirement is phased, status-tracked, and linked to acceptance criteria.
+- `docs/README.md` contains the document index for architecture, decisions, plans, and notes.
 - `docs/architecture/data-platform-architecture.md` defines the source-to-reporting data architecture.
 - `docs/decisions/compute-and-orchestration-options.md` compares Spark and other execution/orchestration options and records the recommended initial path.
 - `docs/notes/appservice-cluster-integration-notes.md` captures cluster deployment assumptions.
 
 ## Current status
 
-This repository is now bootstrapped as a planning and scaffolding home:
+This repository now has a working end-to-end bootstrap aligned to the target architecture:
 
 - the initial runtime/package/chart directory structure exists
 - repository-contract tests protect the agreed starting shape
 - architecture and decision docs define the first implementation path
+- the first landing-layer CSV contract validation module exists with project-specific fixture tests
+- a local landing-store flow now copies raw CSV files and writes per-run manifests with validation results
+- ingestion run metadata can now be persisted in a small SQL-backed repository for worker/control-plane use
+- the first transformation and reporting slice exists for account transactions and monthly cash-flow summaries
+- a FastAPI-based API and worker-facing service now expose ingestion runs, config surfaces, and monthly cash-flow reporting
+- shared settings and executable `apps/api` and `apps/worker` entrypoints now make the current slice runnable locally
+- project metadata, console scripts, and Docker/Compose bootstrap files now make the slice installable and containerizable
+- a watched-folder worker loop and a minimal Helm chart now cover the first Kubernetes deployment path
+- a minimal web dashboard now publishes the first reporting view through an online UI and is deployable as a separate workload
+- landing now uses explicit blob-store and metadata-store boundaries, with the current local filesystem and SQLite path kept as the default backend
+- the transaction transform and reporting path now consume landed bytes directly, so reporting no longer depends on staging artifacts back to the local filesystem
+- built-in landing, transformation, reporting, and application capabilities are now exposed through a shared extension registry that can also load external modules from configured custom paths
+- executable extension handlers can now be invoked through the worker CLI and API for landing, transformation, and reporting layers
+- source systems, dataset contracts, column mappings, source assets, ingestion definitions, transformation packages, and publication definitions now exist as persisted ingestion configuration entities
+- config-driven CSV onboarding can land a new mapped dataset without new Python modules, and source-asset promotion now dispatches through the configured transformation package instead of account-specific heuristics
+- filesystem and HTTP ingestion definitions can now execute through the same runtime config path, and HTTP request headers are stored as secret references resolved only at runtime
+- the transaction transformation layer now persists UTC-normalized timestamps and normalized currency codes in DuckDB, and the reporting layer publishes current-dimension snapshots for the implemented SCD dimensions
+- config-driven sources now preserve original bronze payload bytes while storing a canonical projection artifact for validation and promotion
+- manual and config-driven account-transaction ingests now share the same retry-safe promotion path into DuckDB-backed marts and current-dimension views
+- explicit subscription and temporal contract-pricing domains now exist alongside transactions, including `mart_subscription_summary`, `mart_contract_price_current`, and `mart_electricity_price_current`
 
-Application code, Helm manifests, and production-ready connectors still need to be implemented.
+The main remaining gaps are production backends and product hardening: S3-compatible bronze storage, Postgres metadata/gold publication, authenticated admin surfaces, and a richer web UI.
+
+## Run locally
+
+Current API entrypoints use FastAPI; worker and web remain lightweight Python entrypoints.
+
+When a DuckDB transformation service is configured, built-in datasets auto-promote successful runs into the current silver/gold path through source-asset transformation bindings and publication definitions. Re-running promotion for the same run is idempotent and refreshes marts without duplicating facts.
+
+Environment variables:
+
+- `HOMELAB_ANALYTICS_DATA_DIR` defaults to `.local/homelab-analytics` under the current working directory
+- `HOMELAB_ANALYTICS_API_HOST` defaults to `0.0.0.0`
+- `HOMELAB_ANALYTICS_API_PORT` defaults to `8080`
+- `HOMELAB_ANALYTICS_ANALYTICS_DATABASE_PATH` overrides the DuckDB warehouse path (default: `<data_dir>/analytics/warehouse.duckdb`)
+- `HOMELAB_ANALYTICS_EXTENSION_PATHS` adds custom import roots for external extension repositories or mounted code paths
+- `HOMELAB_ANALYTICS_EXTENSION_MODULES` lists Python modules to import and register into the layer extension registry
+- `HOMELAB_ANALYTICS_SECRET__<SECRET_NAME>__<SECRET_KEY>` provides runtime values for secret references used by HTTP ingestion definitions
+
+Examples:
+
+```bash
+python -m apps.worker.main ingest-account-transactions tests/fixtures/account_transactions_valid.csv
+python -m apps.worker.main ingest-subscriptions tests/fixtures/subscriptions_valid.csv
+python -m apps.worker.main ingest-contract-prices tests/fixtures/contract_prices_valid.csv
+python -m apps.worker.main list-runs
+python -m apps.worker.main list-ingestion-definitions
+python -m apps.worker.main list-extensions
+python -m apps.worker.main report-subscription-summary
+python -m apps.worker.main report-contract-prices
+python -m apps.worker.main report-electricity-prices
+python -m apps.worker.main run-transformation-extension account_transactions_canonical <run_id>
+python -m apps.worker.main run-reporting-extension monthly_cashflow_summary <run_id>
+python -m apps.worker.main process-ingestion-definition <ingestion_definition_id>
+python -m apps.worker.main process-account-transactions-inbox
+python -m apps.worker.main watch-account-transactions-inbox
+python -m apps.api.main
+python -m apps.web.main
+```
+
+## Extension model
+
+The application keeps core ingestion, transformation, and reporting logic in-repo, but it now also supports external extension modules.
+
+- built-in features remain the default and are registered in a shared layer registry
+- external repositories or mounted custom paths can be added with `HOMELAB_ANALYTICS_EXTENSION_PATHS`
+- extension modules are imported from `HOMELAB_ANALYTICS_EXTENSION_MODULES`
+- each extension module must define `register_extensions(registry)` and register one or more entries for `landing`, `transformation`, `reporting`, or `application`
+- executable landing, transformation, and reporting extensions can be run through the worker CLI and selected API endpoints once they register a handler
+
+That pattern keeps key product logic inside this repository while allowing custom source connectors, transformations, marts, and UI/API additions to live outside the main codebase.
+
+Current execution surfaces:
+
+- `POST /landing/{extension_key}` for executable landing extensions
+- `GET /sources` for the current source-system and source-asset catalog
+- `GET` and `POST /config/source-systems` for source-system configuration
+- `GET` and `POST /config/dataset-contracts` for dataset-contract configuration
+- `GET` and `POST /config/column-mappings` for column-mapping configuration
+- `GET` and `POST /config/transformation-packages` for binding source assets to canonical transforms
+- `GET` and `POST /config/publication-definitions` for declaring published reporting outputs
+- `GET` and `POST /config/source-assets` for source-asset configuration
+- `GET` and `POST /config/ingestion-definitions` for transport, watch-folder, direct-API, and batch-extract configuration
+- `POST /ingest` for JSON path-based ingestion and multipart file uploads
+- `POST /ingest/configured-csv` for config-driven CSV ingestion
+- `POST /ingest/subscriptions` and `POST /ingest/contract-prices` for built-in non-transaction domains
+- `POST /ingest/ingestion-definitions/{id}/process` for config-driven watch-folder, direct-API, and batch-extract execution
+- `GET /reports/current-dimensions/{dimension_name}` for current SCD-dimension snapshots from the reporting layer
+- `GET /reports/subscription-summary`, `GET /reports/contract-prices`, and `GET /reports/electricity-prices` for built-in domain marts
+- `GET /transformations/{extension_key}?run_id=...` for executable transformation extensions
+- `GET /reports/{extension_key}?run_id=...` for executable reporting extensions
+
+## Install locally
+
+The repository now includes `pyproject.toml` with console scripts.
+
+```bash
+python -m pip install -e .
+homelab-analytics-worker list-runs
+homelab-analytics-api
+homelab-analytics-web
+```
+
+## Run with Docker
+
+Bootstrap artifacts now exist for image and Compose-based execution.
+
+```bash
+docker build -f infra/docker/Dockerfile -t homelab-analytics .
+docker run --rm -p 8080:8080 -v "$(pwd)/.local/homelab-analytics:/data" homelab-analytics
+
+docker compose -f infra/examples/compose.yaml up --build
+docker compose -f infra/examples/compose.yaml run --rm worker ingest-account-transactions /data/input.csv
+```
+
+## Run with Helm
+
+The repository now includes a minimal chart for the current API and watched-folder worker slice.
+
+```bash
+helm lint charts/homelab-analytics
+helm template homelab-analytics charts/homelab-analytics
+helm install homelab-analytics charts/homelab-analytics
+```

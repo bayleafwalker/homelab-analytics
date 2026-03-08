@@ -1,0 +1,5 @@
+contract_name,provider,contract_type,price_component,billing_cycle,unit_price,currency,quantity_unit,valid_from,valid_to
+Helen Spot,Helen,electricity,energy,per_kwh,0.0825,EUR,kWh,2026-01-01,
+Helen Spot,Helen,electricity,base_fee,monthly,5.99,EUR,,2026-01-01,
+Fiber 1000,ISP Oy,broadband,monthly_fee,monthly,39.90,EUR,,2025-06-01,
+Home Insurance,Mutual Insure,insurance,annual_fee,annual,240.00,EUR,,2025-01-01,2025-12-31

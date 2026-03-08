@@ -1,0 +1,19 @@
+{{- if .Values.web.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "homelab-analytics.fullname" . }}-web
+  labels:
+    {{- include "homelab-analytics.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "homelab-analytics.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+  ports:
+    - name: http
+      port: {{ .Values.web.port }}
+      protocol: TCP
+      targetPort: http
+{{- end }}

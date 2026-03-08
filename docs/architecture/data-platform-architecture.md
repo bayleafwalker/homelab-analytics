@@ -8,6 +8,7 @@ The platform needs one architecture that supports:
 - reusable transformation logic instead of dashboard-specific wrangling
 - household and homelab datasets under one model
 - publishable outputs through both API and dashboard surfaces
+- built-in product logic with explicit extension points for external code
 
 ## Source classes
 
@@ -55,6 +56,12 @@ Typical landing checks:
 
 If a landing contract fails, the payload remains queryable for troubleshooting but is not promoted.
 
+Landing extensibility:
+
+- keep core ingestion contracts and baseline connectors in the application itself
+- allow external connectors, source adapters, and dataset contracts to be loaded from external repositories or custom paths
+- treat landing extensions as registration-based plugins rather than direct edits to application code
+
 ### 2. Transformation
 
 The transformation layer turns source-shaped data into reusable domain models. This is the silver layer and should be dashboard-agnostic.
@@ -71,7 +78,7 @@ Transformation responsibilities:
 Recommended transformation outputs:
 
 - canonical dimensions such as `dim_account`, `dim_counterparty`, `dim_contract`, `dim_meter`, `dim_loan`, `dim_asset`, `dim_household_member`
-- canonical facts such as `fact_transaction`, `fact_balance_snapshot`, `fact_utility_usage`, `fact_bill`, `fact_loan_repayment`, `fact_cluster_metric`
+- canonical facts such as `fact_transaction`, `fact_subscription_charge`, `fact_contract_price`, `fact_balance_snapshot`, `fact_utility_usage`, `fact_bill`, `fact_loan_repayment`, `fact_cluster_metric`
 - bridge or helper models for tags, categories, budgets, and source mappings
 
 SCD handling:
@@ -79,6 +86,12 @@ SCD handling:
 - dimensions should be stored as Type 2 SCD by default when attributes can change historically
 - use `valid_from`, `valid_to`, `is_current`, and source lineage columns
 - keep natural keys and surrogate keys separate
+
+Transformation extensibility:
+
+- keep key canonical transformations inside the application as the reference implementation
+- allow external transformation packages to register additional canonical models, enrichments, and mapping logic
+- require every external transformation to publish its canonical target, version, and lineage metadata
 
 ### 3. Reporting
 
@@ -95,6 +108,7 @@ Typical reporting outputs:
 
 - current household budget status
 - monthly electricity cost and usage summaries
+- current electricity tariff and contract price views
 - loan repayment plan vs actual
 - recurring cost baseline
 - homelab service cost and profitability assessment
@@ -106,6 +120,33 @@ Reporting publication forms:
 - Parquet extracts for reproducible snapshots
 - API endpoints for downstream tools
 - dashboard datasets for interactive charts
+
+Reporting extensibility:
+
+- keep primary marts and shared metrics in the application repository
+- allow external marts, publication handlers, and report-specific enrichments to be loaded from external repositories or custom paths
+- publish built-in and external reporting assets through the same registry and contract model
+
+## Extensibility model
+
+The application should remain useful on its own, so core transformations and reports belong in-repo. External code is an additive mechanism, not a replacement for the core product.
+
+Recommended loading pattern:
+
+- load built-in landing, transformation, reporting, and application entries first
+- extend the import path with operator-configured custom paths or checked-out external repositories
+- import explicitly configured extension modules
+- require each extension module to register itself into a shared layer registry
+- allow executable extensions to expose handlers that can be invoked by worker jobs or application APIs
+
+Layer expectations:
+
+- landing extensions can add source connectors, contract presets, and ingestion orchestration helpers
+- transformation extensions can add canonical transforms, enrichment steps, and custom dimension or fact builders
+- reporting extensions can add marts, publication jobs, API resources, and dashboard-facing aggregates
+- application extensions can add online UI, API, or operational integration surfaces that consume the same reporting contracts
+
+This keeps the platform auditable while still allowing household-specific or community-contributed logic to live outside the main repository.
 
 ## Mapping and ingestion configuration model
 
@@ -127,6 +168,13 @@ Configuration entities:
 - `column_mapping`
 - `transformation_package`
 - `publication_definition`
+
+Binding rules:
+
+- a `source_asset` binds one landed dataset to one canonical mapping and one transformation package
+- an `ingestion_definition` describes only how bytes arrive; it must not hard-code downstream transformation behavior
+- `publication_definition` declares which gold outputs a transformation package publishes
+- worker and API promotion should dispatch from source-asset configuration, not inferred file headers or route-specific heuristics
 
 For folder-like external systems, prefer sync-to-folder first:
 
@@ -193,6 +241,7 @@ Separate runtime concerns by trust level:
 - reporting services can read published gold models but should not mutate landing
 
 Secrets should come from cluster-native secret management, not checked-in values files.
+Application configuration should persist only secret references. Resolved secret values belong to runtime secret providers such as Kubernetes Secrets, External Secrets Operator, SOPS-managed env injection, or equivalent operator-controlled mechanisms.
 
 ## Initial design constraints
 

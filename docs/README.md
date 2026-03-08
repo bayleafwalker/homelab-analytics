@@ -1,5 +1,9 @@
 # Documentation
 
+## Requirements
+
+The authoritative requirements baseline lives at `requirements/` in the repository root. See `requirements/README.md` for the template, phase definitions, and document index.
+
 ## Architecture
 
 - `architecture/data-platform-architecture.md` — source ingestion pattern, landing/bronze, transformation/silver, reporting/gold, SCD handling, and API/UI publishing model.
@@ -10,7 +14,8 @@
 
 ## Plans
 
-- `plans/homelab-analytics-platform-plan.md` — project bootstrap plan covering scope, missing notes, implementation phases, security posture, packaging, and testing approach.
+- `plans/homelab-analytics-platform-plan.md` — strategic decisions and rationale from the bootstrap phase. Detailed requirements now live in `requirements/` at the repository root.
+- `plans/additional-data-domains.md` — planned data domains beyond account transactions, with source systems, canonical models, and marts for each.
 
 ## Notes
 

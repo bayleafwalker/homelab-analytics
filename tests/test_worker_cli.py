@@ -1,0 +1,951 @@
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import io
+import json
+import os
+import unittest
+from unittest.mock import patch
+
+from apps.worker.main import build_service, main
+from packages.pipelines.csv_validation import ColumnType
+from packages.shared.secrets import build_secret_env_var_name
+from packages.storage.ingestion_config import (
+    ColumnMappingCreate,
+    ColumnMappingRule,
+    DatasetColumnConfig,
+    DatasetContractConfigCreate,
+    IngestionConfigRepository,
+    IngestionDefinitionCreate,
+    RequestHeaderSecretRef,
+    SourceAssetCreate,
+    SourceSystemCreate,
+)
+from packages.shared.settings import AppSettings
+
+
+ROOT = Path(__file__).resolve().parents[1]
+FIXTURES = ROOT / "tests" / "fixtures"
+
+
+class WorkerCliTests(unittest.TestCase):
+    def test_build_service_uses_settings_paths(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+
+            service = build_service(settings)
+
+            self.assertEqual(settings.landing_root, service.landing_root)
+            self.assertEqual(
+                settings.metadata_database_path,
+                service.metadata_repository.database_path,
+            )
+
+    def test_cli_ingest_and_report_commands_emit_json(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            exit_code = main(
+                [
+                    "ingest-account-transactions",
+                    str(FIXTURES / "account_transactions_valid.csv"),
+                    "--source-name",
+                    "manual-upload",
+                ],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+            self.assertEqual(0, exit_code)
+
+            ingest_payload = json.loads(stdout.getvalue())
+            self.assertEqual("landed", ingest_payload["run"]["status"])
+            self.assertIn("promotion", ingest_payload)
+            self.assertFalse(ingest_payload["promotion"]["skipped"])
+            run_id = ingest_payload["run"]["run_id"]
+
+            stdout = io.StringIO()
+            exit_code = main(
+                ["report-monthly-cashflow", run_id],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+            self.assertEqual(0, exit_code)
+            report_payload = json.loads(stdout.getvalue())
+            self.assertEqual("2365.85", report_payload["summaries"][0]["net"])
+
+    def test_cli_lists_loaded_extensions(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            exit_code = main(
+                ["list-extensions"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            payload = json.loads(stdout.getvalue())
+            self.assertIn("landing", payload["extensions"])
+            self.assertTrue(
+                any(
+                    extension["key"] == "account_transactions_canonical"
+                    for extension in payload["extensions"]["transformation"]
+                )
+            )
+
+    def test_cli_runs_transformation_extension(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            exit_code = main(
+                [
+                    "ingest-account-transactions",
+                    str(FIXTURES / "account_transactions_valid.csv"),
+                ],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+            self.assertEqual(0, exit_code)
+            run_id = json.loads(stdout.getvalue())["run"]["run_id"]
+
+            stdout = io.StringIO()
+            exit_code = main(
+                [
+                    "run-transformation-extension",
+                    "account_transactions_canonical",
+                    run_id,
+                ],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual("CHK-001", payload["result"][0]["account_id"])
+            self.assertEqual("2450.00", payload["result"][1]["amount"])
+
+    def test_cli_runs_reporting_extension(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            exit_code = main(
+                [
+                    "ingest-account-transactions",
+                    str(FIXTURES / "account_transactions_valid.csv"),
+                ],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+            self.assertEqual(0, exit_code)
+            run_id = json.loads(stdout.getvalue())["run"]["run_id"]
+
+            stdout = io.StringIO()
+            exit_code = main(
+                [
+                    "run-reporting-extension",
+                    "monthly_cashflow_summary",
+                    run_id,
+                ],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual("2365.85", payload["result"][0]["net"])
+
+    def test_cli_processes_persisted_ingestion_definition(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+            inbox_dir = Path(temp_dir) / "configured-inbox"
+            processed_dir = Path(temp_dir) / "configured-processed"
+            failed_dir = Path(temp_dir) / "configured-failed"
+            inbox_dir.mkdir()
+            (inbox_dir / "valid.csv").write_text(
+                (FIXTURES / "configured_account_transactions_source.csv").read_text()
+            )
+
+            config_repository = IngestionConfigRepository(
+                settings.landing_root.parent / "config.db"
+            )
+            config_repository.create_source_system(
+                SourceSystemCreate(
+                    source_system_id="bank_partner_export",
+                    name="Bank Partner Export",
+                    source_type="file-drop",
+                    transport="filesystem",
+                    schedule_mode="manual",
+                )
+            )
+            config_repository.create_dataset_contract(
+                DatasetContractConfigCreate(
+                    dataset_contract_id="household_account_transactions_v1",
+                    dataset_name="household_account_transactions",
+                    version=1,
+                    allow_extra_columns=False,
+                    columns=(
+                        DatasetColumnConfig("booked_at", ColumnType.DATE),
+                        DatasetColumnConfig("account_id", ColumnType.STRING),
+                        DatasetColumnConfig("counterparty_name", ColumnType.STRING),
+                        DatasetColumnConfig("amount", ColumnType.DECIMAL),
+                        DatasetColumnConfig("currency", ColumnType.STRING),
+                        DatasetColumnConfig(
+                            "description",
+                            ColumnType.STRING,
+                            required=False,
+                        ),
+                    ),
+                )
+            )
+            config_repository.create_column_mapping(
+                ColumnMappingCreate(
+                    column_mapping_id="bank_partner_export_v1",
+                    source_system_id="bank_partner_export",
+                    dataset_contract_id="household_account_transactions_v1",
+                    version=1,
+                    rules=(
+                        ColumnMappingRule("booked_at", source_column="booking_date"),
+                        ColumnMappingRule("account_id", source_column="account_number"),
+                        ColumnMappingRule("counterparty_name", source_column="payee"),
+                        ColumnMappingRule("amount", source_column="amount_eur"),
+                        ColumnMappingRule("currency", default_value="EUR"),
+                        ColumnMappingRule("description", source_column="memo"),
+                    ),
+                )
+            )
+            config_repository.create_source_asset(
+                SourceAssetCreate(
+                    source_asset_id="bank_partner_transactions",
+                    source_system_id="bank_partner_export",
+                    dataset_contract_id="household_account_transactions_v1",
+                    column_mapping_id="bank_partner_export_v1",
+                    name="Bank Partner Transactions",
+                    asset_type="dataset",
+                    transformation_package_id="builtin_account_transactions",
+                )
+            )
+            config_repository.create_ingestion_definition(
+                IngestionDefinitionCreate(
+                    ingestion_definition_id="bank_partner_watch_folder",
+                    source_asset_id="bank_partner_transactions",
+                    transport="filesystem",
+                    schedule_mode="watch-folder",
+                    source_path=str(inbox_dir),
+                    file_pattern="*.csv",
+                    processed_path=str(processed_dir),
+                    failed_path=str(failed_dir),
+                    poll_interval_seconds=30,
+                    enabled=True,
+                    source_name="folder-watch",
+                )
+            )
+
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            exit_code = main(
+                ["process-ingestion-definition", "bank_partner_watch_folder"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(1, payload["result"]["processed_files"])
+            self.assertEqual(0, payload["result"]["rejected_files"])
+
+    def test_cli_processes_http_ingestion_definition(self) -> None:
+        from tests.test_configured_ingestion_definition import run_csv_server
+
+        with TemporaryDirectory() as temp_dir, run_csv_server(
+            response_body=(
+                FIXTURES / "configured_account_transactions_source.csv"
+            ).read_bytes(),
+            expected_authorization="Bearer worker-token",
+        ) as server:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+
+            config_repository = IngestionConfigRepository(
+                settings.landing_root.parent / "config.db"
+            )
+            config_repository.create_source_system(
+                SourceSystemCreate(
+                    source_system_id="utility_api",
+                    name="Utility API",
+                    source_type="api",
+                    transport="http",
+                    schedule_mode="scheduled",
+                )
+            )
+            config_repository.create_dataset_contract(
+                DatasetContractConfigCreate(
+                    dataset_contract_id="household_account_transactions_v1",
+                    dataset_name="household_account_transactions",
+                    version=1,
+                    allow_extra_columns=False,
+                    columns=(
+                        DatasetColumnConfig("booked_at", ColumnType.DATE),
+                        DatasetColumnConfig("account_id", ColumnType.STRING),
+                        DatasetColumnConfig("counterparty_name", ColumnType.STRING),
+                        DatasetColumnConfig("amount", ColumnType.DECIMAL),
+                        DatasetColumnConfig("currency", ColumnType.STRING),
+                        DatasetColumnConfig(
+                            "description",
+                            ColumnType.STRING,
+                            required=False,
+                        ),
+                    ),
+                )
+            )
+            config_repository.create_column_mapping(
+                ColumnMappingCreate(
+                    column_mapping_id="utility_api_v1",
+                    source_system_id="utility_api",
+                    dataset_contract_id="household_account_transactions_v1",
+                    version=1,
+                    rules=(
+                        ColumnMappingRule("booked_at", source_column="booking_date"),
+                        ColumnMappingRule("account_id", source_column="account_number"),
+                        ColumnMappingRule("counterparty_name", source_column="payee"),
+                        ColumnMappingRule("amount", source_column="amount_eur"),
+                        ColumnMappingRule("currency", default_value="EUR"),
+                        ColumnMappingRule("description", source_column="memo"),
+                    ),
+                )
+            )
+            config_repository.create_source_asset(
+                SourceAssetCreate(
+                    source_asset_id="utility_api_asset",
+                    source_system_id="utility_api",
+                    dataset_contract_id="household_account_transactions_v1",
+                    column_mapping_id="utility_api_v1",
+                    name="Utility API Asset",
+                    asset_type="dataset",
+                    transformation_package_id="builtin_account_transactions",
+                )
+            )
+            config_repository.create_ingestion_definition(
+                IngestionDefinitionCreate(
+                    ingestion_definition_id="utility_api_pull",
+                    source_asset_id="utility_api_asset",
+                    transport="http",
+                    schedule_mode="direct-api",
+                    source_path="",
+                    request_url=f"http://127.0.0.1:{server.server_address[1]}/api.csv",
+                    request_method="GET",
+                    request_headers=(
+                        RequestHeaderSecretRef(
+                            name="Authorization",
+                            secret_name="utility-api",
+                            secret_key="bearer-token",
+                        ),
+                    ),
+                    response_format="csv",
+                    output_file_name="api.csv",
+                    request_timeout_seconds=30,
+                    enabled=True,
+                    source_name="scheduled-api-pull",
+                )
+            )
+
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            with patch.dict(
+                os.environ,
+                {
+                    build_secret_env_var_name(
+                        "utility-api",
+                        "bearer-token",
+                    ): "Bearer worker-token"
+                },
+                clear=False,
+            ):
+                exit_code = main(
+                    ["process-ingestion-definition", "utility_api_pull"],
+                    stdout=stdout,
+                    stderr=stderr,
+                    settings=settings,
+                )
+
+            self.assertEqual(0, exit_code)
+            self.assertEqual("Bearer worker-token", server.seen_authorization)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(1, payload["result"]["processed_files"])
+            self.assertEqual(0, payload["result"]["rejected_files"])
+
+    def test_cli_ingest_configured_csv_command(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+
+            config_repository = IngestionConfigRepository(
+                settings.resolved_config_database_path
+            )
+            config_repository.create_source_system(
+                SourceSystemCreate(
+                    source_system_id="bank_partner_export",
+                    name="Bank Partner Export",
+                    source_type="file-drop",
+                    transport="filesystem",
+                    schedule_mode="manual",
+                )
+            )
+            config_repository.create_dataset_contract(
+                DatasetContractConfigCreate(
+                    dataset_contract_id="household_account_transactions_v1",
+                    dataset_name="household_account_transactions",
+                    version=1,
+                    allow_extra_columns=False,
+                    columns=(
+                        DatasetColumnConfig("booked_at", ColumnType.DATE),
+                        DatasetColumnConfig("account_id", ColumnType.STRING),
+                        DatasetColumnConfig("counterparty_name", ColumnType.STRING),
+                        DatasetColumnConfig("amount", ColumnType.DECIMAL),
+                        DatasetColumnConfig("currency", ColumnType.STRING),
+                        DatasetColumnConfig(
+                            "description",
+                            ColumnType.STRING,
+                            required=False,
+                        ),
+                    ),
+                )
+            )
+            config_repository.create_column_mapping(
+                ColumnMappingCreate(
+                    column_mapping_id="bank_partner_export_v1",
+                    source_system_id="bank_partner_export",
+                    dataset_contract_id="household_account_transactions_v1",
+                    version=1,
+                    rules=(
+                        ColumnMappingRule("booked_at", source_column="booking_date"),
+                        ColumnMappingRule("account_id", source_column="account_number"),
+                        ColumnMappingRule("counterparty_name", source_column="payee"),
+                        ColumnMappingRule("amount", source_column="amount_eur"),
+                        ColumnMappingRule("currency", default_value="EUR"),
+                        ColumnMappingRule("description", source_column="memo"),
+                    ),
+                )
+            )
+            config_repository.create_source_asset(
+                SourceAssetCreate(
+                    source_asset_id="bank_partner_transactions",
+                    source_system_id="bank_partner_export",
+                    dataset_contract_id="household_account_transactions_v1",
+                    column_mapping_id="bank_partner_export_v1",
+                    transformation_package_id="builtin_account_transactions",
+                    name="Bank Partner Transactions",
+                    asset_type="dataset",
+                )
+            )
+
+            source_file = FIXTURES / "configured_account_transactions_source.csv"
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            exit_code = main(
+                [
+                    "ingest-configured-csv",
+                    str(source_file),
+                    "--source-asset-id", "bank_partner_transactions",
+                    "--source-name", "manual-upload",
+                ],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual("landed", payload["run"]["status"])
+            self.assertEqual("manual-upload", payload["run"]["source_name"])
+            self.assertIn("promotion", payload)
+            self.assertFalse(payload["promotion"]["skipped"])
+
+    def test_promote_run_command_loads_facts_and_refreshes_marts(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                analytics_database_path=Path(temp_dir) / "analytics" / "warehouse.duckdb",
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            # Ingest first
+            exit_code = main(
+                [
+                    "ingest-account-transactions",
+                    str(FIXTURES / "account_transactions_valid.csv"),
+                    "--source-name",
+                    "manual-upload",
+                ],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+            self.assertEqual(0, exit_code)
+            run_id = json.loads(stdout.getvalue())["run"]["run_id"]
+
+            # Re-promoting the same run should be a no-op.
+            stdout = io.StringIO()
+            exit_code = main(
+                ["promote-run", run_id],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+            self.assertEqual(0, exit_code)
+            promo_payload = json.loads(stdout.getvalue())
+            promo = promo_payload["promotion"]
+            self.assertEqual(run_id, promo["run_id"])
+            self.assertTrue(promo["skipped"])
+            self.assertEqual("run already promoted", promo["skip_reason"])
+            self.assertEqual(0, promo["facts_loaded"])
+            self.assertIn("mart_monthly_cashflow", promo["marts_refreshed"])
+            self.assertIn("mart_monthly_cashflow_by_counterparty", promo["marts_refreshed"])
+
+    def test_process_ingestion_definition_command_returns_promotions(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                analytics_database_path=Path(temp_dir) / "analytics" / "warehouse.duckdb",
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+            inbox_dir = Path(temp_dir) / "configured-inbox"
+            processed_dir = Path(temp_dir) / "configured-processed"
+            failed_dir = Path(temp_dir) / "configured-failed"
+            inbox_dir.mkdir()
+            (inbox_dir / "valid.csv").write_text(
+                (FIXTURES / "configured_account_transactions_source.csv").read_text()
+            )
+
+            config_repository = IngestionConfigRepository(
+                settings.resolved_config_database_path
+            )
+            config_repository.create_source_system(
+                SourceSystemCreate(
+                    source_system_id="bank_partner_export",
+                    name="Bank Partner Export",
+                    source_type="file-drop",
+                    transport="filesystem",
+                    schedule_mode="manual",
+                )
+            )
+            config_repository.create_dataset_contract(
+                DatasetContractConfigCreate(
+                    dataset_contract_id="household_account_transactions_v1",
+                    dataset_name="household_account_transactions",
+                    version=1,
+                    allow_extra_columns=False,
+                    columns=(
+                        DatasetColumnConfig("booked_at", ColumnType.DATE),
+                        DatasetColumnConfig("account_id", ColumnType.STRING),
+                        DatasetColumnConfig("counterparty_name", ColumnType.STRING),
+                        DatasetColumnConfig("amount", ColumnType.DECIMAL),
+                        DatasetColumnConfig("currency", ColumnType.STRING),
+                        DatasetColumnConfig(
+                            "description",
+                            ColumnType.STRING,
+                            required=False,
+                        ),
+                    ),
+                )
+            )
+            config_repository.create_column_mapping(
+                ColumnMappingCreate(
+                    column_mapping_id="bank_partner_export_v1",
+                    source_system_id="bank_partner_export",
+                    dataset_contract_id="household_account_transactions_v1",
+                    version=1,
+                    rules=(
+                        ColumnMappingRule("booked_at", source_column="booking_date"),
+                        ColumnMappingRule("account_id", source_column="account_number"),
+                        ColumnMappingRule("counterparty_name", source_column="payee"),
+                        ColumnMappingRule("amount", source_column="amount_eur"),
+                        ColumnMappingRule("currency", default_value="EUR"),
+                        ColumnMappingRule("description", source_column="memo"),
+                    ),
+                )
+            )
+            config_repository.create_source_asset(
+                SourceAssetCreate(
+                    source_asset_id="bank_partner_transactions",
+                    source_system_id="bank_partner_export",
+                    dataset_contract_id="household_account_transactions_v1",
+                    column_mapping_id="bank_partner_export_v1",
+                    name="Bank Partner Transactions",
+                    asset_type="dataset",
+                    transformation_package_id="builtin_account_transactions",
+                )
+            )
+            config_repository.create_ingestion_definition(
+                IngestionDefinitionCreate(
+                    ingestion_definition_id="bank_partner_watch_folder",
+                    source_asset_id="bank_partner_transactions",
+                    transport="filesystem",
+                    schedule_mode="watch-folder",
+                    source_path=str(inbox_dir),
+                    file_pattern="*.csv",
+                    processed_path=str(processed_dir),
+                    failed_path=str(failed_dir),
+                    poll_interval_seconds=30,
+                    enabled=True,
+                    source_name="folder-watch",
+                )
+            )
+
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            exit_code = main(
+                ["process-ingestion-definition", "bank_partner_watch_folder"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(1, payload["result"]["processed_files"])
+            self.assertEqual(1, len(payload["promotions"]))
+            self.assertFalse(payload["promotions"][0]["skipped"])
+
+    def test_ingest_subscriptions_and_report_summary_commands(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                analytics_database_path=Path(temp_dir) / "analytics" / "warehouse.duckdb",
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            # Ingest subscriptions file
+            exit_code = main(
+                [
+                    "ingest-subscriptions",
+                    str(FIXTURES / "subscriptions_valid.csv"),
+                    "--source-name",
+                    "manual-upload",
+                ],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+            self.assertEqual(0, exit_code)
+            ingest_payload = json.loads(stdout.getvalue())
+            self.assertEqual("landed", ingest_payload["run"]["status"])
+            self.assertIn("promotion", ingest_payload)
+            promo = ingest_payload["promotion"]
+            self.assertFalse(promo["skipped"])
+            self.assertEqual(5, promo["facts_loaded"])
+            self.assertEqual(["mart_subscription_summary"], promo["marts_refreshed"])
+
+            # Report subscription summary
+            stdout = io.StringIO()
+            exit_code = main(
+                ["report-subscription-summary"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+            self.assertEqual(0, exit_code)
+            report_payload = json.loads(stdout.getvalue())
+            self.assertIn("rows", report_payload)
+            self.assertEqual(5, len(report_payload["rows"]))
+
+            # Filter by active status
+            stdout = io.StringIO()
+            exit_code = main(
+                ["report-subscription-summary", "--status", "active"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+            self.assertEqual(0, exit_code)
+            active_payload = json.loads(stdout.getvalue())
+            self.assertTrue(
+                all(r["status"] == "active" for r in active_payload["rows"])
+            )
+
+    def test_ingest_contract_prices_and_report_commands(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                analytics_database_path=Path(temp_dir) / "analytics" / "warehouse.duckdb",
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            exit_code = main(
+                [
+                    "ingest-contract-prices",
+                    str(FIXTURES / "contract_prices_valid.csv"),
+                    "--source-name",
+                    "manual-upload",
+                ],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+            self.assertEqual(0, exit_code)
+            ingest_payload = json.loads(stdout.getvalue())
+            self.assertEqual("landed", ingest_payload["run"]["status"])
+            self.assertIn("promotion", ingest_payload)
+            self.assertFalse(ingest_payload["promotion"]["skipped"])
+            self.assertEqual(
+                ["mart_contract_price_current", "mart_electricity_price_current"],
+                ingest_payload["promotion"]["marts_refreshed"],
+            )
+
+            stdout = io.StringIO()
+            exit_code = main(
+                ["report-contract-prices"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+            self.assertEqual(0, exit_code)
+            contract_payload = json.loads(stdout.getvalue())
+            self.assertEqual(3, len(contract_payload["rows"]))
+            self.assertEqual(
+                {"broadband", "electricity"},
+                {row["contract_type"] for row in contract_payload["rows"]},
+            )
+
+            stdout = io.StringIO()
+            exit_code = main(
+                ["report-electricity-prices"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+            self.assertEqual(0, exit_code)
+            electricity_payload = json.loads(stdout.getvalue())
+            self.assertEqual(2, len(electricity_payload["rows"]))
+            self.assertTrue(
+                all(
+                    row["contract_type"] == "electricity"
+                    for row in electricity_payload["rows"]
+                )
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

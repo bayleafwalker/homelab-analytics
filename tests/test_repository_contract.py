@@ -58,6 +58,8 @@ class RepositoryContractTests(unittest.TestCase):
             "contract",
             "API",
             "dashboard",
+            "extension",
+            "external",
         ]:
             self.assertIn(term, content, f"Architecture doc missing term: {term}")
 
@@ -73,6 +75,8 @@ class RepositoryContractTests(unittest.TestCase):
             "Nextcloud",
             "Google Drive",
             "Home Assistant",
+            "custom paths",
+            "external repositories",
         ]:
             self.assertIn(term, content, f"Plan missing term: {term}")
 

@@ -1,0 +1,402 @@
+# Data Platform Requirements
+
+## Overview
+
+The platform implements a three-layer data architecture — landing (bronze), transformation (silver), and reporting (gold) — with explicit contracts between layers. Landing owns immutability and validation. Transformation owns normalization, SCD dimensions, and canonical models. Reporting owns consumer-facing views, marts, and API datasets.
+
+---
+
+## Requirements
+
+### PLT-01: Immutable raw payload storage
+
+**Description:** Every ingestion run persists the original payload unchanged to immutable storage. Raw payloads must never be modified after landing.
+
+**Rationale:** Immutability ensures auditability, reprocessing capability, and source-of-truth preservation.
+
+**Phase:** 0–1
+**Status:** implemented (filesystem blob store; manual, config-driven filesystem, and config-driven HTTP ingestion now preserve original payload bytes in landing; S3 adapter not yet built)
+
+**Acceptance criteria:**
+- Raw file bytes are written to blob storage exactly as received.
+- No downstream process modifies or deletes landed payloads.
+- Payloads are addressable by dataset, date partition, and run ID.
+- S3-compatible blob store adapter is available for production use (Phase 1).
+
+**Dependencies:** none
+
+---
+
+### PLT-02: Run identification and metadata
+
+**Description:** Each ingestion run receives a unique run ID. Metadata includes: source, dataset, timestamp, file hash (SHA-256), schema fingerprint, row count, source metadata, and status (received/landed/rejected/failed).
+
+**Rationale:** Run-level metadata enables lineage tracking, reprocessing, deduplication, and operational monitoring.
+
+**Phase:** 0
+**Status:** implemented (SQLite-backed; Postgres adapter needed for Phase 1)
+
+**Acceptance criteria:**
+- Every ingestion writes a run record with all specified metadata fields.
+- Run records are queryable by status, dataset, and date range.
+- Postgres adapter is available for production use (Phase 1).
+
+**Dependencies:** none
+
+---
+
+### PLT-03: Data quality and contract validation
+
+**Description:** Each ingestion run is validated against its dataset contract before promotion. Validation checks include: required columns, column type compatibility, duplicate columns, unexpected columns, row-level type validation with row/column error references, duplicate file detection by content hash, row count thresholds, value enumeration checks, and source freshness checks.
+
+**Rationale:** Catching data problems at landing prevents bad data from contaminating transformation and reporting layers.
+
+**Phase:** 0
+**Status:** implemented (6 type validators, contract-driven, row-level reporting; config-driven sources validate a canonical mapped projection while still persisting the raw payload unchanged)
+
+**Acceptance criteria:**
+- Valid files pass and are promoted; invalid files are rejected with specific issue details.
+- Validation issues include row number, column name, issue type, and message.
+- Failed runs remain queryable but are not promoted.
+- Tests cover valid, missing-column, and invalid-value scenarios.
+
+**Dependencies:** none
+
+---
+
+### PLT-04: Landing storage layout
+
+**Description:** Raw payloads are stored in a date-partitioned path: `{dataset}/{YYYY}/{MM}/{DD}/{run_id}/`. A JSON manifest with validation results and metadata accompanies each payload.
+
+**Rationale:** Consistent partitioning enables efficient browsing, retention policies, and reprocessing of specific time windows.
+
+**Phase:** 0
+**Status:** implemented
+
+**Acceptance criteria:**
+- Landed files follow the partitioned path convention.
+- JSON manifest includes run ID, file hash, row count, validation status, and issue list.
+- Manifest is written atomically alongside the raw payload.
+
+**Dependencies:** PLT-01
+
+---
+
+### PLT-05: Canonical fact models
+
+**Description:** The transformation layer produces reusable, source-agnostic fact tables.
+
+| Fact | Description | Phase |
+|---|---|---|
+| `fact_transaction` | All monetary transactions (account + card) | 1 |
+| `fact_subscription_charge` | Subscription and recurring-service charge records | 2 |
+| `fact_contract_price` | Temporal contract pricing and tariff rows | 2 |
+| `fact_balance_snapshot` | Point-in-time account and loan balances | 2 |
+| `fact_utility_usage` | Metered utility consumption | 3 |
+| `fact_bill` | Invoiced charges from providers | 3 |
+| `fact_loan_repayment` | Actual and planned repayment events | 3 |
+| `fact_cluster_metric` | Homelab infrastructure metrics | 3 |
+
+**Rationale:** Canonical facts decouple source-specific formats from downstream analytics and enable cross-source joining.
+
+**Phase:** 1–3
+**Status:** in-progress (`fact_transaction`, `fact_subscription_charge`, and `fact_contract_price` are persisted in DuckDB via `TransformationService`; remaining facts are not started)
+
+**Acceptance criteria:**
+- Each fact table is persisted in DuckDB/Parquet with documented schema.
+- Fact tables are source-agnostic — the same fact schema accepts data from multiple sources via column mappings.
+- Tests verify fact population from at least two different source formats per fact (where applicable).
+
+**Dependencies:** PLT-07, ING-08
+
+---
+
+### PLT-06: Canonical dimension models
+
+**Description:** The transformation layer produces reusable, source-agnostic dimension tables.
+
+| Dimension | Description | Phase |
+|---|---|---|
+| `dim_account` | Bank, investment, and loan accounts | 1 |
+| `dim_counterparty` | Payees, merchants, transfer targets | 1 |
+| `dim_contract` | Service contracts, subscriptions, and temporal tariffs | 2–3 |
+| `dim_meter` | Utility meters | 3 |
+| `dim_loan` | Loan instruments with terms | 3 |
+| `dim_asset` | Physical and digital assets | 3 |
+| `dim_household_member` | Household members for attribution | 2 |
+| `dim_category` | Transaction/cost categories | 2 |
+| `dim_budget` | Budget definitions and periods | 3 |
+
+**Rationale:** Canonical dimensions enable consistent attribution across all facts and support SCD-based historical analysis.
+
+**Phase:** 1–3
+**Status:** in-progress (`dim_account` and `dim_counterparty` are implemented with SCD-2 in DuckDB; `dim_contract` now supports both subscriptions and temporal contract-pricing domains; `dim_category` is implemented for shared category use; remaining dimensions are not started)
+
+**Acceptance criteria:**
+- Each dimension is persisted with SCD Type 2 handling (see PLT-07).
+- Natural keys and surrogate keys are separate.
+- Tests verify dimension creation, update (new version), and current-view accuracy.
+
+**Dependencies:** PLT-07
+
+---
+
+### PLT-07: Slowly changing dimension handling
+
+**Description:** Dimensions with attributes that can change over time are persisted as SCD Type 2 with: `valid_from`, `valid_to`, `is_current`, surrogate key, and source lineage columns (`source_system`, `source_run_id`).
+
+**Rationale:** SCD Type 2 preserves historical context for point-in-time reporting without losing current state.
+
+**Phase:** 1
+**Status:** implemented (`DuckDBStore` SCD-2 engine with insert, update, close, current-view, and point-in-time queries; 9 tests passing)
+
+**Acceptance criteria:**
+- Inserting a new dimension record sets `is_current = TRUE` and `valid_to = NULL` (or far-future sentinel).
+- Updating an existing dimension record closes the previous version (`is_current = FALSE`, `valid_to = update_date`) and inserts a new current version.
+- Current-dimension views return only `is_current = TRUE` rows.
+- Tests verify insert, update, and point-in-time query behavior.
+
+**Dependencies:** none
+
+---
+
+### PLT-08: Source-agnostic normalization
+
+**Description:** Transformation standardizes: naming conventions, data types, time semantics (UTC), currencies (original preserved, normalized if applicable), units (kWh, liters), and identifiers (natural keys mapped to surrogate keys).
+
+**Rationale:** Consistent representation enables cross-source analytics and simplifies reporting logic.
+
+**Phase:** 1
+**Status:** in-progress (`TransformationService` now persists UTC timestamps, preserves original currency while deriving `normalized_currency`, and standardizes quantity units used by the contract-pricing domain; broader multi-domain normalization is still pending)
+
+**Acceptance criteria:**
+- All timestamps are stored in UTC.
+- Amounts preserve original currency and include a normalized currency field.
+- Unit fields use standardized enumeration values.
+- Tests verify normalization from at least two differently formatted source files.
+
+**Dependencies:** ING-08, PLT-05, PLT-06
+
+---
+
+### PLT-09: Transformation independence
+
+**Description:** Transformation logic is independent of any specific dashboard layout or reporting requirement. Models serve multiple downstream consumers.
+
+**Rationale:** Tight coupling between transformation and reporting prevents reuse and forces rework when dashboards change.
+
+**Phase:** 1
+**Status:** not applicable (architectural constraint, not a feature)
+
+**Acceptance criteria:**
+- No transformation module imports from reporting modules.
+- Fact and dimension schemas are documented independently of any specific mart.
+- At least two different reporting marts consume the same fact table in tests.
+
+**Dependencies:** none
+
+---
+
+### PLT-10: Bridge and helper models
+
+**Description:** Support supplementary models: tag/category mappings, budget allocations, source column mapping references, and reconciliation/lineage metadata.
+
+**Rationale:** Bridge tables enable many-to-many relationships (e.g. transaction-to-category) and lineage tables enable auditability beyond run metadata.
+
+**Phase:** 2–3
+**Status:** not-started
+
+**Acceptance criteria:**
+- Category mapping bridge persists user-defined or rule-inferred category assignments.
+- Budget allocation bridge links budget definitions to categories and periods.
+- Lineage metadata records which source run populated which fact/dimension rows.
+
+**Dependencies:** PLT-05, PLT-06
+
+---
+
+### PLT-11: Current dimension views (reporting)
+
+**Description:** The reporting layer publishes current-time snapshots of SCD dimensions (`WHERE is_current = TRUE`).
+
+**Rationale:** Dashboard and API consumers need simple, current-state views without knowing SCD mechanics.
+
+**Phase:** 1
+**Status:** in-progress (reporting views now publish current snapshots for `dim_account`, `dim_counterparty`, `dim_contract`, and `dim_category`, and FastAPI exposes them via `GET /reports/current-dimensions/{dimension_name}`; remaining dimensions are not yet implemented)
+
+**Acceptance criteria:**
+- Each SCD dimension has a corresponding current-view in the reporting layer.
+- Current views are queryable via the API and used by dashboard marts.
+- Tests verify that current views return exactly one row per natural key.
+
+**Dependencies:** PLT-07
+
+---
+
+### PLT-12: Dashboard-oriented reporting marts
+
+**Description:** The reporting layer produces consumer-facing analytical models:
+
+| Mart | Phase |
+|---|---|
+| Monthly household cash-flow | 1 |
+| Subscription summary | 2 |
+| Current contract prices | 2 |
+| Current electricity tariffs | 2 |
+| Monthly electricity cost and usage | 3 |
+| Loan repayment plan vs. actual | 3 |
+| Recurring cost baseline | 3 |
+| Budget vs. actual | 3 |
+| Household cost summary | 3 |
+| Homelab service cost | 3 |
+| Net worth estimate | 3 |
+
+**Rationale:** Marts provide the stable query surfaces that dashboards and APIs consume.
+
+**Phase:** 1–3
+**Status:** in-progress (`TransformationService` materialises `mart_monthly_cashflow`, `mart_subscription_summary`, `mart_contract_price_current`, and `mart_electricity_price_current` in DuckDB; remaining marts and Postgres persistence are not yet implemented)
+
+**Acceptance criteria:**
+- Each mart is materialized in Postgres with a documented schema.
+- Marts are refreshable from transformation-layer inputs.
+- The API exposes each mart through a reporting endpoint.
+- Tests verify mart content from known fixture data.
+
+**Dependencies:** PLT-05, PLT-06, PLT-11
+
+---
+
+### PLT-13: Exportable datasets
+
+**Description:** Users can export reporting datasets as CSV or Parquet for offline analysis.
+
+**Rationale:** Power users and external tools need raw data access beyond dashboard views.
+
+**Phase:** 2
+**Status:** in-progress (DuckDB is the active transformation store, and `pyproject.toml` declares DuckDB, Polars, and PyArrow dependencies; Postgres metadata/reporting adapters and broad Polars-based transforms are still pending)
+
+**Acceptance criteria:**
+- API endpoint accepts a mart name and optional filters, returns CSV or Parquet.
+- Export respects the same access controls as the dashboard.
+
+**Dependencies:** PLT-12
+
+---
+
+### PLT-14: Persistent analytical store
+
+**Description:** Replace current SQLite metadata store with Postgres for metadata and reporting, and use DuckDB/Parquet for transformation-layer intermediate storage.
+
+**Rationale:** SQLite is inadequate for concurrent access, multi-process workers, and production-scale metadata. DuckDB provides efficient columnar analytics without Spark overhead.
+
+**Phase:** 1
+**Status:** not-started
+
+**Acceptance criteria:**
+- Postgres adapter implements `RunMetadataStore` protocol and passes existing tests.
+- DuckDB is used for transformation-layer reads and writes (fact/dimension persistence).
+- Polars is used for in-process data manipulation replacing stdlib CSV processing.
+- Existing SQLite path remains as a development fallback.
+
+**Dependencies:** none
+
+---
+
+### PLT-15: Atomic run processing
+
+**Description:** A failed transformation must not leave partial results in the reporting layer. Processing is atomic at the run level.
+
+**Rationale:** Partial writes corrupt downstream analytics and are difficult to debug or repair.
+
+**Phase:** 1
+**Status:** implemented (`DuckDBStore.atomic()` context manager wraps all statements in a DuckDB transaction; `TransformationService.load_transactions()` runs dimension upserts and fact inserts inside a single `atomic()` block — a failure before commit rolls back all partial writes; test verifies that an injected failure during fact insert leaves zero dimension and fact rows)
+
+**Acceptance criteria:**
+- Transformation writes are atomic; only a successful run commits results to the published layer.
+- A simulated mid-transformation failure leaves no partial fact or dimension rows.
+- Tests verify atomicity by injecting a failure during transformation.
+
+**Dependencies:** PLT-05, PLT-14
+
+---
+
+### PLT-16: Idempotent ingestion
+
+**Description:** Re-submitting the same file is detected by content hash and handled gracefully: rejected as duplicate or accepted with deduplication metadata.
+
+**Rationale:** Users and automated systems may inadvertently submit the same file twice. Silent duplication corrupts analytics.
+
+**Phase:** 1
+**Status:** implemented (`RunMetadataRepository.find_run_by_sha256(sha256, dataset_name=...)` scopes duplicate detection to the target dataset; `LandingService` injects a `duplicate_file` ValidationIssue when a matching passed run is found, causing the second submission to be stored as REJECTED with a reference to the original run ID)
+
+**Acceptance criteria:**
+- Submitting an identical file (by SHA-256) to the same dataset returns a duplicate status.
+- The duplicate run references the original run ID.
+- Tests verify duplicate detection for identical file contents.
+
+**Dependencies:** PLT-02
+
+---
+
+### PLT-17: Audit trail
+
+**Description:** Every ingestion run, transformation execution, and reporting materialization is logged with sufficient metadata for debugging and lineage reconstruction.
+
+**Rationale:** A complete audit trail is essential for trust in derived analytics and for debugging data issues.
+
+**Phase:** 1–2
+**Status:** in-progress (ingestion audit is complete via `RunMetadataRepository`; transformation audit is now implemented — `transformation_audit` table in DuckDB records input run ID, fact/dimension counts, and duration for every `load_transactions()` call; `GET /transformation-audit` API endpoint is queryable by run ID; reporting mart refresh audit is not yet implemented)
+
+**Acceptance criteria:**
+- Ingestion audit: run ID, timestamp, source, file hash, validation status, issue count.
+- Transformation audit: input run IDs, output fact/dimension counts, processing duration.
+- Reporting audit: mart name, refresh timestamp, input transformation runs.
+- Audit records are queryable via the API.
+
+**Dependencies:** PLT-02, PLT-05, PLT-12
+
+---
+
+### PLT-18: Run promotion orchestration
+
+**Description:** The runtime exposes one supported path to promote landed runs into transformation and reporting storage. Built-in datasets must not require separate ad hoc execution paths for landing versus silver/gold publication.
+
+**Rationale:** Split execution paths create drift between what ingestion stores and what reporting publishes, which breaks lineage and makes operational behavior harder to reason about.
+
+**Phase:** 1
+**Status:** implemented (manual and config-driven built-in runs now promote through one source-asset-driven path; `transformation_package` selects the canonical promotion handler, `publication_definition` constrains which marts refresh, config-driven sources preserve raw bronze bytes while storing a canonical projection artifact for promotion, and re-promoting the same run is a retry-safe no-op)
+
+**Acceptance criteria:**
+- A worker or API entrypoint can promote a landed run into the configured transformation store.
+- Promotion dispatch is driven by persisted source-asset configuration rather than route-local or header-inference heuristics.
+- Config-driven runs that preserve source-shaped bronze payloads can still promote through a canonical projection artifact without reparsing the raw source format.
+- Re-promoting an already promoted run does not duplicate fact rows or fail with a primary-key error.
+- Built-in reporting views and marts refresh from promoted runs without requiring a separate manual code path.
+- Tests verify that a landed built-in dataset appears in published current-dimension views or marts through the supported promotion flow.
+
+**Dependencies:** PLT-05, PLT-06, PLT-11
+
+---
+
+## Traceability
+
+| Requirement | Architecture doc section | Implementation module | Test file |
+|---|---|---|---|
+| PLT-01 | Input and landing, Storage pattern | `packages/storage/local_landing.py`, `packages/storage/blob.py` | `tests/test_local_landing_storage.py`, `tests/test_blob_store.py` |
+| PLT-02 | Input and landing | `packages/storage/run_metadata.py` | `tests/test_run_metadata_repository.py` |
+| PLT-03 | Input and landing, Typical landing checks | `packages/pipelines/csv_validation.py` | `tests/test_csv_landing_validation.py` |
+| PLT-04 | Input and landing | `packages/storage/landing_service.py` | `tests/test_landing_service.py` |
+| PLT-05 | Transformation | `packages/pipelines/transaction_models.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/contract_price_models.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_service.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py` |
+| PLT-06 | Transformation | `packages/pipelines/transaction_models.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/contract_price_models.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_service.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py` |
+| PLT-07 | SCD handling | — | — |
+| PLT-08 | Transformation | `packages/pipelines/normalization.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_normalization.py` |
+| PLT-09 | Transformation | — | — |
+| PLT-10 | Transformation, Bridge models | — | — |
+| PLT-11 | Reporting | `packages/storage/duckdb_store.py`, `packages/pipelines/transformation_service.py`, `apps/api/app.py` | `tests/test_transformation_normalization.py`, `tests/test_subscription_domain.py`, `tests/test_api_app.py` |
+| PLT-12 | Reporting | `packages/pipelines/transformation_service.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_monthly_cashflow_reporting.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py` |
+| PLT-13 | Reporting publication forms | — | — |
+| PLT-14 | Storage pattern, Compute model | `pyproject.toml`, `packages/storage/duckdb_store.py`, `packages/pipelines/transformation_service.py` | `tests/test_project_metadata.py`, `tests/test_transformation_service.py` |
+| PLT-15 | Transformation, Atomicity | `packages/storage/duckdb_store.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_service.py` |
+| PLT-16 | Input and landing | `packages/storage/run_metadata.py`, `packages/storage/landing_service.py` | `tests/test_landing_service.py`, `tests/test_run_metadata_repository.py` |
+| PLT-17 | Audit trail | `packages/pipelines/transformation_service.py`, `packages/pipelines/transaction_models.py` | `tests/test_transformation_service.py`, `tests/test_api_app.py` |
+| PLT-18 | Canonical data flow | `packages/pipelines/promotion.py`, `packages/pipelines/account_transaction_service.py`, `packages/pipelines/subscription_service.py`, `packages/pipelines/contract_price_service.py`, `packages/storage/landing_service.py`, `packages/storage/ingestion_config.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_promotion.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py` |

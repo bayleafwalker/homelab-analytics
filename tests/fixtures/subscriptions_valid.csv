@@ -1,0 +1,6 @@
+service_name,provider,billing_cycle,amount,currency,start_date,end_date
+Netflix,Netflix Inc.,monthly,15.99,EUR,2023-01-15,
+Spotify,Spotify AB,monthly,9.99,EUR,2022-06-01,
+GitHub Pro,GitHub Inc.,annual,48.00,USD,2023-07-01,
+iCloud 50GB,Apple Inc.,monthly,1.29,EUR,2021-03-10,
+Adobe Creative Cloud,Adobe Systems,annual,660.00,EUR,2024-01-10,2024-12-31

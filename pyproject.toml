@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "homelab-analytics"
+version = "0.1.0"
+description = "Self-hosted household and homelab analytics platform."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "duckdb>=1.0",
+    "fastapi>=0.100",
+    "httpx>=0.24",
+    "polars>=1.0",
+    "python-multipart>=0.0.9",
+    "pytz>=2024.1",
+    "pyarrow>=17.0",
+    "uvicorn[standard]>=0.20",
+]
+
+[project.scripts]
+homelab-analytics-api = "apps.api.main:main"
+homelab-analytics-web = "apps.web.main:main"
+homelab-analytics-worker = "apps.worker.main:main"
+
+[project.urls]
+Repository = "https://github.com/bayleafwalker/homelab-analytics"
+
+[tool.setuptools]
+packages = { find = { include = ["apps*", "packages*"] } }

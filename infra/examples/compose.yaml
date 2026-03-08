@@ -1,0 +1,43 @@
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+    environment:
+      HOMELAB_ANALYTICS_DATA_DIR: /data
+      HOMELAB_ANALYTICS_API_HOST: 0.0.0.0
+      HOMELAB_ANALYTICS_API_PORT: 8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - homelab_analytics_data:/data
+    command: ["homelab-analytics-api"]
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+    environment:
+      HOMELAB_ANALYTICS_DATA_DIR: /data
+      HOMELAB_ANALYTICS_WEB_HOST: 0.0.0.0
+      HOMELAB_ANALYTICS_WEB_PORT: 8081
+    ports:
+      - "8081:8081"
+    volumes:
+      - homelab_analytics_data:/data
+    command: ["homelab-analytics-web"]
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+    profiles: ["worker"]
+    environment:
+      HOMELAB_ANALYTICS_DATA_DIR: /data
+    volumes:
+      - homelab_analytics_data:/data
+    entrypoint: ["homelab-analytics-worker"]
+    command: ["list-runs"]
+
+volumes:
+  homelab_analytics_data:

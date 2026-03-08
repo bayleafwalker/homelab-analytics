@@ -1,0 +1,2 @@
+booking_date,account_number,payee,amount_eur,memo
+not-a-date,CHK-001,Electric Utility,not-a-decimal,Monthly bill
