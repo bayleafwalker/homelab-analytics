@@ -8,8 +8,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
+from apps.web.app import create_app as create_web_app
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.csv_validation import ColumnType
+from packages.pipelines.promotion import promote_run
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.extensions import ExtensionPublication, ExtensionRegistry, LayerExtension
@@ -27,6 +29,7 @@ from packages.storage.ingestion_config import (
 from packages.storage.postgres_reporting import PostgresReportingStore
 from packages.storage.run_metadata import RunMetadataRepository
 from tests.postgres_test_support import running_postgres_container
+from tests.test_web_app import invoke_wsgi_app
 
 pytestmark = [pytest.mark.integration, pytest.mark.slow]
 ROOT = Path(__file__).resolve().parents[1]
@@ -348,3 +351,45 @@ def test_configured_source_asset_publications_can_include_extension_relations() 
             "net": Decimal("2365.8500"),
         }
     ]
+
+
+def test_web_dashboard_reads_published_cashflow_from_postgres() -> None:
+    with TemporaryDirectory() as temp_dir, running_postgres_container() as dsn:
+        temp_root = Path(temp_dir)
+        service = AccountTransactionService(
+            landing_root=temp_root / "landing",
+            metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
+        )
+        transformation_service = TransformationService(
+            DuckDBStore.open(str(temp_root / "warehouse.duckdb"))
+        )
+        run = service.ingest_file(
+            FIXTURES / "account_transactions_valid.csv",
+            source_name="manual-upload",
+        )
+        promote_run(
+            run.run_id,
+            account_service=service,
+            transformation_service=transformation_service,
+        )
+        publisher = ReportingService(
+            transformation_service,
+            publication_store=PostgresReportingStore(dsn),
+        )
+        publisher.publish_publications(["mart_monthly_cashflow"])
+
+        web_app = create_web_app(
+            service,
+            reporting_service=ReportingService(
+                _FailingTransformationService(),  # type: ignore[arg-type]
+                publication_store=PostgresReportingStore(dsn),
+            ),
+        )
+
+        status_code, headers, body = invoke_wsgi_app(web_app, "GET", "/")
+
+    assert status_code == 200
+    assert headers["Content-Type"] == "text/html; charset=utf-8"
+    assert "2365.85" in body
+    assert "Recent ingestion runs" in body
+    assert "manual-upload" in body
