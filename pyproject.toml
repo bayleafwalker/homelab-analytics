@@ -9,10 +9,12 @@ description = "Self-hosted household and homelab analytics platform."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "boto3>=1.36",
     "duckdb>=1.0",
     "fastapi>=0.100",
     "httpx>=0.24",
     "polars>=1.0",
+    "psycopg[binary]>=3.2",
     "python-multipart>=0.0.9",
     "pytz>=2024.1",
     "pyarrow>=17.0",
@@ -27,5 +29,31 @@ homelab-analytics-worker = "apps.worker.main:main"
 [project.urls]
 Repository = "https://github.com/bayleafwalker/homelab-analytics"
 
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.11",
+    "pip-audit>=2.8",
+    "pytest>=8.0",
+    "ruff>=0.11",
+]
+
 [tool.setuptools]
 packages = { find = { include = ["apps*", "packages*"] } }
+
+[tool.mypy]
+python_version = "3.11"
+files = ["apps", "packages"]
+ignore_missing_imports = true
+warn_unused_configs = true
+explicit_package_bases = true
+namespace_packages = true
+exclude = '(^\.venv/|^tests/fixtures/|^docs/|^infra/)'
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [".git", ".local", ".venv", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]

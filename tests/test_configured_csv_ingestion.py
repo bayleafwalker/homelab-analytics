@@ -1,7 +1,7 @@
-from pathlib import Path
-from tempfile import TemporaryDirectory
 import json
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
 from packages.pipelines.csv_validation import ColumnType
@@ -14,7 +14,6 @@ from packages.storage.ingestion_config import (
     SourceSystemCreate,
 )
 from packages.storage.run_metadata import IngestionRunStatus, RunMetadataRepository
-
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"

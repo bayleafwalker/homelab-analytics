@@ -1,6 +1,5 @@
-from pathlib import Path
 import unittest
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -20,6 +19,7 @@ class RepositoryContractTests(unittest.TestCase):
             "infra/docker",
             "infra/examples",
             "docs/architecture",
+            "docs/agents",
             "docs/decisions",
             "docs/notes",
             "docs/plans",
@@ -34,6 +34,10 @@ class RepositoryContractTests(unittest.TestCase):
             "README.md",
             "AGENTS.md",
             "docs/README.md",
+            "docs/agents/planning.md",
+            "docs/agents/implementation.md",
+            "docs/agents/review.md",
+            "docs/agents/release-ops.md",
             "docs/plans/homelab-analytics-platform-plan.md",
             "docs/architecture/data-platform-architecture.md",
             "docs/decisions/compute-and-orchestration-options.md",

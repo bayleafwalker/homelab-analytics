@@ -146,6 +146,10 @@ Layer expectations:
 - reporting extensions can add marts, publication jobs, API resources, and dashboard-facing aggregates
 - application extensions can add online UI, API, or operational integration surfaces that consume the same reporting contracts
 
+Executable reporting extensions must declare whether they are `published` or `warehouse` backed. Application-facing execution should not infer that contract from handler internals or silently fall back to landed bytes.
+
+If a reporting extension is `published`, it may also declare one or more named publication relations with schema and source SQL so those relations can be copied into the Postgres publication store through the same publication-key contract used by built-in marts. Source-asset publication definitions may reference those relation names directly, and config/admin publication-definition creation should reject unknown relation names before they are persisted.
+
 This keeps the platform auditable while still allowing household-specific or community-contributed logic to live outside the main repository.
 
 ## Mapping and ingestion configuration model

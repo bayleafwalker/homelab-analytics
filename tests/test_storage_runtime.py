@@ -1,0 +1,146 @@
+from __future__ import annotations
+
+from dataclasses import replace
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import Any
+from unittest.mock import patch
+
+import pytest
+
+from packages.shared.settings import AppSettings
+from packages.storage.blob import FilesystemBlobStore
+from packages.storage.run_metadata import RunMetadataRepository
+from packages.storage.runtime import (
+    build_blob_store,
+    build_reporting_store,
+    build_run_metadata_store,
+)
+
+
+def _build_settings(temp_dir: str, **overrides: Any) -> AppSettings:
+    settings = AppSettings(
+        data_dir=Path(temp_dir),
+        landing_root=Path(temp_dir) / "landing",
+        metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+        account_transactions_inbox_dir=Path(temp_dir) / "inbox" / "account-transactions",
+        processed_files_dir=Path(temp_dir) / "processed" / "account-transactions",
+        failed_files_dir=Path(temp_dir) / "failed" / "account-transactions",
+        api_host="127.0.0.1",
+        api_port=8080,
+        web_host="127.0.0.1",
+        web_port=8081,
+        worker_poll_interval_seconds=30,
+    )
+    return replace(settings, **overrides)
+
+
+def test_build_blob_store_defaults_to_filesystem() -> None:
+    with TemporaryDirectory() as temp_dir:
+        store = build_blob_store(_build_settings(temp_dir))
+
+    assert isinstance(store, FilesystemBlobStore)
+
+
+def test_build_blob_store_requires_bucket_for_s3() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(temp_dir, blob_backend="s3")
+
+        with pytest.raises(
+            ValueError, match="S3 blob backend requires HOMELAB_ANALYTICS_S3_BUCKET"
+        ):
+            build_blob_store(settings)
+
+
+def test_build_blob_store_constructs_s3_store() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(
+            temp_dir,
+            blob_backend="S3",
+            s3_bucket="landing",
+            s3_endpoint_url="http://minio.local",
+            s3_region="eu-west-1",
+            s3_access_key_id="minio",
+            s3_secret_access_key="password",
+            s3_prefix="bronze",
+        )
+
+        with patch("packages.storage.runtime.S3BlobStore") as s3_store:
+            build_blob_store(settings)
+
+    s3_store.assert_called_once_with(
+        bucket="landing",
+        endpoint_url="http://minio.local",
+        region_name="eu-west-1",
+        access_key_id="minio",
+        secret_access_key="password",
+        prefix="bronze",
+    )
+
+
+def test_build_run_metadata_store_defaults_to_sqlite() -> None:
+    with TemporaryDirectory() as temp_dir:
+        store = build_run_metadata_store(_build_settings(temp_dir))
+
+    assert isinstance(store, RunMetadataRepository)
+
+
+def test_build_run_metadata_store_requires_dsn_for_postgres() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(temp_dir, metadata_backend="postgres")
+
+        with pytest.raises(
+            ValueError,
+            match="Postgres metadata backend requires HOMELAB_ANALYTICS_POSTGRES_DSN",
+        ):
+            build_run_metadata_store(settings)
+
+
+def test_build_run_metadata_store_constructs_postgres_repository() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(
+            temp_dir,
+            metadata_backend="POSTGRES",
+            postgres_dsn="postgresql://homelab:homelab@postgres:5432/homelab",
+        )
+
+        with patch("packages.storage.runtime.PostgresRunMetadataRepository") as repository:
+            build_run_metadata_store(settings)
+
+    repository.assert_called_once_with(
+        "postgresql://homelab:homelab@postgres:5432/homelab"
+    )
+
+
+def test_build_reporting_store_defaults_to_duckdb() -> None:
+    with TemporaryDirectory() as temp_dir:
+        store = build_reporting_store(_build_settings(temp_dir))
+
+    assert store is None
+
+
+def test_build_reporting_store_requires_dsn_for_postgres() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(temp_dir, reporting_backend="postgres")
+
+        with pytest.raises(
+            ValueError,
+            match="Postgres reporting backend requires HOMELAB_ANALYTICS_POSTGRES_DSN",
+        ):
+            build_reporting_store(settings)
+
+
+def test_build_reporting_store_constructs_postgres_store() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(
+            temp_dir,
+            reporting_backend="POSTGRES",
+            postgres_dsn="postgresql://homelab:homelab@postgres:5432/homelab",
+        )
+
+        with patch("packages.storage.runtime.PostgresReportingStore") as store_factory:
+            build_reporting_store(settings)
+
+    store_factory.assert_called_once_with(
+        "postgresql://homelab:homelab@postgres:5432/homelab"
+    )

@@ -14,7 +14,6 @@ from packages.pipelines.transaction_models import (
 )
 from packages.storage.duckdb_store import DuckDBStore
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

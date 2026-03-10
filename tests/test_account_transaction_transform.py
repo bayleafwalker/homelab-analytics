@@ -1,12 +1,11 @@
+import unittest
 from decimal import Decimal
 from pathlib import Path
-import unittest
 
 from packages.pipelines.account_transactions import (
     load_canonical_transactions,
     load_canonical_transactions_bytes,
 )
-
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"

@@ -9,6 +9,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from starlette.datastructures import UploadFile
 
 from apps.api.models import (
     ColumnMappingRequest,
@@ -22,17 +23,21 @@ from apps.api.models import (
 )
 from packages.analytics.cashflow import MonthlyCashflowSummary
 from packages.pipelines.account_transaction_service import AccountTransactionService
-from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
 from packages.pipelines.configured_ingestion_definition import (
     ConfiguredIngestionDefinitionService,
 )
+from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.promotion import (
     PromotionResult,
     promote_contract_price_run,
     promote_run,
     promote_source_asset_run,
     promote_subscription_run,
+)
+from packages.pipelines.reporting_service import (
+    ReportingService,
+    publish_promotion_reporting,
 )
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
@@ -46,8 +51,8 @@ from packages.storage.ingestion_config import (
     ColumnMappingRule,
     DatasetColumnConfig,
     DatasetContractConfigCreate,
-    IngestionDefinitionCreate,
     IngestionConfigRepository,
+    IngestionDefinitionCreate,
     PublicationDefinitionCreate,
     RequestHeaderSecretRef,
     SourceAssetCreate,
@@ -62,6 +67,7 @@ def create_app(
     extension_registry: ExtensionRegistry | None = None,
     config_repository: IngestionConfigRepository | None = None,
     transformation_service: TransformationService | None = None,
+    reporting_service: ReportingService | None = None,
     subscription_service: SubscriptionService | None = None,
     contract_price_service: ContractPriceService | None = None,
 ) -> FastAPI:
@@ -81,7 +87,21 @@ def create_app(
         config_repository=resolved_config_repository,
         blob_store=service.blob_store,
     )
+    resolved_reporting_service = (
+        reporting_service
+        or (
+            ReportingService(
+                transformation_service,
+                extension_registry=registry,
+            )
+            if transformation_service is not None
+            else None
+        )
+    )
     app = FastAPI(title="Homelab Analytics API")
+
+    def publish_reporting(promotion: PromotionResult | None) -> None:
+        publish_promotion_reporting(resolved_reporting_service, promotion)
 
     @app.exception_handler(FileNotFoundError)
     async def handle_missing_file(_, exc: FileNotFoundError) -> JSONResponse:
@@ -275,7 +295,8 @@ def create_app(
                 publication_key=payload.publication_key,
                 name=payload.name,
                 description=payload.description,
-            )
+            ),
+            extension_registry=registry,
         )
         return {"publication_definition": _to_jsonable(publication_definition)}
 
@@ -357,13 +378,19 @@ def create_app(
     @app.post("/ingest", status_code=201)
     async def ingest_account_transactions(request: Request) -> JSONResponse:
         return await _handle_account_transaction_ingest(
-            request, service, transformation_service
+            request,
+            service,
+            transformation_service,
+            resolved_reporting_service,
         )
 
     @app.post("/ingest/account-transactions", status_code=201)
     async def ingest_account_transactions_alias(request: Request) -> JSONResponse:
         return await _handle_account_transaction_ingest(
-            request, service, transformation_service
+            request,
+            service,
+            transformation_service,
+            resolved_reporting_service,
         )
 
     @app.post("/ingest/configured-csv", status_code=201)
@@ -409,7 +436,9 @@ def create_app(
                     metadata_repository=service.metadata_repository,
                     transformation_service=transformation_service,
                     blob_store=service.blob_store,
+                    extension_registry=registry,
                 )
+                publish_reporting(promotion)
         return _build_run_response(run, promotion=promotion)
 
     @app.post("/ingest/subscriptions", status_code=201)
@@ -419,9 +448,7 @@ def create_app(
         content_type = request.headers.get("content-type", "")
         if content_type.startswith("multipart/form-data"):
             form = await request.form()
-            upload = form.get("file")
-            if upload is None or not hasattr(upload, "read"):
-                raise ValueError("multipart request must include file")
+            upload = _require_upload(form.get("file"))
             source_name = str(form.get("source_name") or "manual-upload")
             source_bytes = await upload.read()
             await upload.close()
@@ -443,6 +470,7 @@ def create_app(
                 subscription_service=subscription_service,
                 transformation_service=transformation_service,
             )
+            publish_reporting(promotion)
         body: dict[str, Any] = {"run": serialize_run(run)}
         if promotion is not None:
             body["promotion"] = serialize_promotion(promotion)
@@ -458,9 +486,7 @@ def create_app(
         content_type = request.headers.get("content-type", "")
         if content_type.startswith("multipart/form-data"):
             form = await request.form()
-            upload = form.get("file")
-            if upload is None or not hasattr(upload, "read"):
-                raise ValueError("multipart request must include file")
+            upload = _require_upload(form.get("file"))
             source_name = str(form.get("source_name") or "manual-upload")
             source_bytes = await upload.read()
             await upload.close()
@@ -482,6 +508,7 @@ def create_app(
                 contract_price_service=contract_price_service,
                 transformation_service=transformation_service,
             )
+            publish_reporting(promotion)
         body: dict[str, Any] = {"run": serialize_run(run)}
         if promotion is not None:
             body["promotion"] = serialize_promotion(promotion)
@@ -503,20 +530,22 @@ def create_app(
             source_asset = resolved_config_repository.get_source_asset(
                 ingestion_definition.source_asset_id
             )
-            body["promotions"] = _to_jsonable(
-                [
-                    promote_source_asset_run(
-                        run_id,
-                        source_asset=source_asset,
-                        config_repository=resolved_config_repository,
-                        landing_root=service.landing_root,
-                        metadata_repository=service.metadata_repository,
-                        transformation_service=transformation_service,
-                        blob_store=service.blob_store,
-                    )
-                    for run_id in result.run_ids
-                ]
-            )
+            promotions = [
+                promote_source_asset_run(
+                    run_id,
+                    source_asset=source_asset,
+                    config_repository=resolved_config_repository,
+                    landing_root=service.landing_root,
+                    metadata_repository=service.metadata_repository,
+                    transformation_service=transformation_service,
+                    blob_store=service.blob_store,
+                    extension_registry=registry,
+                )
+                for run_id in result.run_ids
+            ]
+            for promotion in promotions:
+                publish_reporting(promotion)
+            body["promotions"] = _to_jsonable(promotions)
         return body
 
     @app.get("/transformations/{extension_key}")
@@ -536,31 +565,56 @@ def create_app(
 
     @app.get("/reports/monthly-cashflow")
     async def get_monthly_cashflow(
-        run_id: str | None = None,
         from_month: str | None = None,
         to_month: str | None = None,
     ) -> dict[str, Any]:
-        # Mart path: serve from the persisted DuckDB mart when transformation
-        # service is wired in and no run-scoped override is requested.
-        if transformation_service is not None and run_id is None:
-            rows = transformation_service.get_monthly_cashflow(
-                from_month=from_month,
-                to_month=to_month,
+        if resolved_reporting_service is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Monthly cashflow reporting requires a transformation service.",
             )
-            return {
-                "rows": _to_jsonable(rows),
-                "from_month": from_month,
-                "to_month": to_month,
-            }
-        # Legacy path: per-run on-the-fly computation from landing data.
-        if not run_id:
-            raise HTTPException(status_code=400, detail="run_id is required")
-        summaries = [serialize_summary(summary) for summary in service.get_monthly_cashflow(run_id)]
-        return {"summaries": summaries}
+        rows = resolved_reporting_service.get_monthly_cashflow(
+            from_month=from_month,
+            to_month=to_month,
+        )
+        return {
+            "rows": _to_jsonable(rows),
+            "from_month": from_month,
+            "to_month": to_month,
+        }
+
+    @app.get("/reports/utility-cost-summary")
+    async def get_utility_cost_summary(
+        utility_type: str | None = None,
+        meter_id: str | None = None,
+        from_period: date | None = None,
+        to_period: date | None = None,
+        granularity: str = "month",
+    ) -> dict[str, Any]:
+        if resolved_reporting_service is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Utility cost reporting requires a transformation service.",
+            )
+        rows = resolved_reporting_service.get_utility_cost_summary(
+            utility_type=utility_type,
+            meter_id=meter_id,
+            from_period=from_period,
+            to_period=to_period,
+            granularity=granularity,
+        )
+        return {
+            "rows": _to_jsonable(rows),
+            "utility_type": utility_type,
+            "meter_id": meter_id,
+            "from_period": from_period.isoformat() if from_period else None,
+            "to_period": to_period.isoformat() if to_period else None,
+            "granularity": granularity,
+        }
 
     @app.get("/reports/current-dimensions/{dimension_name}")
     async def get_current_dimension_report(dimension_name: str) -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(
                 status_code=404,
                 detail="Current-dimension reporting is not configured.",
@@ -568,7 +622,7 @@ def create_app(
         return {
             "dimension": dimension_name,
             "rows": _to_jsonable(
-                transformation_service.get_current_dimension_rows(dimension_name)
+                resolved_reporting_service.get_current_dimension_rows(dimension_name)
             ),
         }
 
@@ -578,12 +632,12 @@ def create_app(
         to_month: str | None = None,
         counterparty: str | None = None,
     ) -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(
                 status_code=404,
                 detail="Counterparty cashflow reporting requires a transformation service.",
             )
-        rows = transformation_service.get_monthly_cashflow_by_counterparty(
+        rows = resolved_reporting_service.get_monthly_cashflow_by_counterparty(
             from_month=from_month,
             to_month=to_month,
             counterparty_name=counterparty,
@@ -600,14 +654,14 @@ def create_app(
         status: str | None = None,
         currency: str | None = None,
     ) -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(
                 status_code=404,
                 detail="Subscription reporting requires a transformation service.",
             )
         return {
             "rows": _to_jsonable(
-                transformation_service.get_subscription_summary(
+                resolved_reporting_service.get_subscription_summary(
                     status=status,
                     currency=currency,
                 )
@@ -621,14 +675,14 @@ def create_app(
         contract_type: str | None = None,
         status: str | None = None,
     ) -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(
                 status_code=404,
                 detail="Contract-price reporting requires a transformation service.",
             )
         return {
             "rows": _to_jsonable(
-                transformation_service.get_contract_price_current(
+                resolved_reporting_service.get_contract_price_current(
                     contract_type=contract_type,
                     status=status,
                 )
@@ -639,27 +693,25 @@ def create_app(
 
     @app.get("/reports/electricity-prices")
     async def get_electricity_price_current() -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(
                 status_code=404,
                 detail="Electricity price reporting requires a transformation service.",
             )
         return {
             "rows": _to_jsonable(
-                transformation_service.get_electricity_price_current()
+                resolved_reporting_service.get_electricity_price_current()
             )
         }
 
     @app.get("/transformation-audit")
     async def get_transformation_audit(run_id: str | None = None) -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(
                 status_code=404,
                 detail="Transformation audit requires a transformation service.",
             )
-        records = transformation_service.get_transformation_audit(
-            input_run_id=run_id,
-        )
+        records = resolved_reporting_service.get_transformation_audit(input_run_id=run_id)
         return {"audit": _to_jsonable(records)}
 
     @app.get("/reports/{extension_key}")
@@ -669,10 +721,23 @@ def create_app(
     ) -> dict[str, Any]:
         if not run_id:
             raise HTTPException(status_code=400, detail="run_id is required")
+        extension = registry.get_extension("reporting", extension_key)
+        if extension.data_access == "published" and resolved_reporting_service is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Reporting extension requires a reporting service.",
+            )
+        if extension.data_access == "warehouse" and transformation_service is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Reporting extension requires a transformation service.",
+            )
         result = registry.execute(
             "reporting",
             extension_key,
             service=service,
+            reporting_service=resolved_reporting_service,
+            transformation_service=transformation_service,
             run_id=run_id,
         )
         return {"result": _to_jsonable(result)}
@@ -684,13 +749,12 @@ async def _handle_account_transaction_ingest(
     request: Request,
     service: AccountTransactionService,
     transformation_service: TransformationService | None = None,
+    reporting_service: ReportingService | None = None,
 ) -> JSONResponse:
     content_type = request.headers.get("content-type", "")
     if content_type.startswith("multipart/form-data"):
         form = await request.form()
-        upload = form.get("file")
-        if upload is None or not hasattr(upload, "read") or not hasattr(upload, "filename"):
-            raise ValueError("multipart request must include file")
+        upload = _require_upload(form.get("file"))
         source_name = str(form.get("source_name") or "manual-upload")
         source_bytes = await upload.read()
         await upload.close()
@@ -699,20 +763,31 @@ async def _handle_account_transaction_ingest(
             file_name=upload.filename or "upload.csv",
             source_name=source_name,
         )
-        return _build_ingest_response(run, service, transformation_service)
+        return _build_ingest_response(
+            run,
+            service,
+            transformation_service,
+            reporting_service,
+        )
 
     payload = await request.json()
     run = service.ingest_file(
         Path(payload["source_path"]),
         source_name=payload.get("source_name", "manual-upload"),
     )
-    return _build_ingest_response(run, service, transformation_service)
+    return _build_ingest_response(
+        run,
+        service,
+        transformation_service,
+        reporting_service,
+    )
 
 
 def _build_ingest_response(
     run: IngestionRunRecord,
     service: AccountTransactionService,
     transformation_service: TransformationService | None,
+    reporting_service: ReportingService | None,
 ) -> JSONResponse:
     """Build an ingest response, auto-promoting into DuckDB if a transformation
     service is wired in and the run passed validation."""
@@ -723,6 +798,7 @@ def _build_ingest_response(
             account_service=service,
             transformation_service=transformation_service,
         )
+        publish_promotion_reporting(reporting_service, promotion)
     return _build_run_response(run, promotion=promotion)
 
 
@@ -788,8 +864,15 @@ def serialize_summary(summary: MonthlyCashflowSummary) -> dict[str, Any]:
         "transaction_count": summary.transaction_count,
     }
 
+
+def _require_upload(value: object) -> UploadFile:
+    if not isinstance(value, UploadFile):
+        raise ValueError("multipart request must include file")
+    return value
+
+
 def _to_jsonable(value: Any) -> Any:
-    if is_dataclass(value):
+    if is_dataclass(value) and not isinstance(value, type):
         return _to_jsonable(asdict(value))
     if isinstance(value, Enum):
         return value.value

@@ -19,7 +19,6 @@ from packages.storage.run_metadata import (
     RunMetadataStore,
 )
 
-
 ACCOUNT_TRANSACTION_CONTRACT = DatasetContract(
     dataset_name="account_transactions",
     columns=(

@@ -31,14 +31,27 @@ Avoid introducing heavy infrastructure before the core ingestion and modeling pa
 
 Spark, Dagster, Argo, and similar additions are optional later steps, not default assumptions.
 
-## Working rules for future changes
+## Agent modes
+
+Detailed mode guides live under `docs/agents/`:
+
+- `docs/agents/planning.md`
+- `docs/agents/implementation.md`
+- `docs/agents/review.md`
+- `docs/agents/release-ops.md`
+
+Choose the mode that matches the task. If a task spans modes, complete planning first, then implementation, then review or release work.
+
+## Mandatory repo rules
 
 - When adding a source connector, define its landing contract, validation checks, and canonical mapping target.
 - When adding a dimension, decide whether it needs SCD handling in transformation and a current snapshot in reporting.
-- When adding dashboard logic, prefer building on reporting models instead of source-specific transforms.
+- When adding dashboard logic, build on reporting models instead of source-specific transforms.
 - Keep key ingestion, transformation, and reporting logic in-repo unless there is a strong reason not to.
 - When adding extensibility, prefer registering external code through configured modules and custom paths instead of asking users to fork core packages.
 - Treat landing, transformation, reporting, and application additions as separate extension layers with explicit contracts.
 - When changing architecture or stack choices, update the relevant docs under `docs/`.
 - When changing or adding requirements, update the relevant file under `requirements/` and keep status and phase fields current.
 - Keep tests aligned with the repository bootstrap contract in `tests/test_repository_contract.py`.
+- Behavior changes must update or add tests in the same change.
+- App-facing reporting paths must use reporting-layer models when configured; do not add new landing-to-dashboard shortcuts.

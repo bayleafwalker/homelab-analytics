@@ -1,4 +1,5 @@
 from .extensions import (
+    ExtensionPublication,
     ExtensionRegistry,
     LayerExtension,
     build_builtin_extension_registry,
@@ -6,17 +7,18 @@ from .extensions import (
     serialize_extension,
     serialize_extension_registry,
 )
-from .settings import AppSettings
 from .secrets import (
     EnvironmentSecretResolver,
     SecretReference,
     SecretResolver,
     build_secret_env_var_name,
 )
+from .settings import AppSettings
 
 __all__ = [
     "AppSettings",
     "EnvironmentSecretResolver",
+    "ExtensionPublication",
     "ExtensionRegistry",
     "LayerExtension",
     "SecretReference",

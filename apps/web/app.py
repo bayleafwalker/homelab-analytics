@@ -1,14 +1,29 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from html import escape
-from typing import Iterable
 
 from packages.analytics.cashflow import MonthlyCashflowSummary
 from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.pipelines.reporting_service import ReportingService
+from packages.pipelines.transformation_service import TransformationService
 from packages.storage.run_metadata import IngestionRunRecord
 
 
-def create_app(service: AccountTransactionService):
+def create_app(
+    service: AccountTransactionService,
+    transformation_service: TransformationService | None = None,
+    reporting_service: ReportingService | None = None,
+):
+    resolved_reporting_service = (
+        reporting_service
+        or (
+            ReportingService(transformation_service)
+            if transformation_service is not None
+            else None
+        )
+    )
+
     def app(environ, start_response):
         path = environ.get("PATH_INFO", "/")
         method = environ.get("REQUEST_METHOD", "GET")
@@ -26,10 +41,9 @@ def create_app(service: AccountTransactionService):
 
         if method == "GET" and path == "/":
             runs = service.list_runs()
-            latest_successful_run = next((run for run in runs if run.passed), None)
             summaries = (
-                service.get_monthly_cashflow(latest_successful_run.run_id)
-                if latest_successful_run is not None
+                _rows_to_summaries(resolved_reporting_service.get_monthly_cashflow())
+                if resolved_reporting_service is not None
                 else []
             )
             body = render_dashboard(runs=runs, summaries=summaries).encode("utf-8")
@@ -260,6 +274,31 @@ def render_dashboard(
     </main>
   </body>
 </html>"""
+
+
+def _rows_to_summaries(rows: list[dict[str, object]]) -> list[MonthlyCashflowSummary]:
+    return [
+        MonthlyCashflowSummary(
+            booking_month=str(row["booking_month"]),
+            income=_coerce_decimal(row["income"]),
+            expense=_coerce_decimal(row["expense"]),
+            net=_coerce_decimal(row["net"]),
+            transaction_count=_coerce_int(row["transaction_count"]),
+        )
+        for row in rows
+    ]
+
+
+def _coerce_decimal(value: object) -> Decimal:
+    if isinstance(value, Decimal):
+        return value
+    return Decimal(str(value))
+
+
+def _coerce_int(value: object) -> int:
+    if isinstance(value, int):
+        return value
+    return int(str(value))
 
 
 def _render_summary_cards(summary: MonthlyCashflowSummary | None) -> str:

@@ -1,0 +1,3 @@
+meter_ref,meter_label,provider_name,utility_kind,site_label,bill_start,bill_end,total_due,currency_code,quantity_billed,unit_code,invoiced_on
+elec-001,Main Apartment Meter,City Power,electricity,home,2026-01-01,2026-01-31,48.08,EUR,320.50,kWh,2026-02-05
+water-001,Cold Water Meter,City Water,water,home,2026-02-01,2026-02-28,19.35,EUR,11900.00,liter,2026-03-03

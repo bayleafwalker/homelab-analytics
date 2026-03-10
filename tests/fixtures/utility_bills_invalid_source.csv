@@ -1,0 +1,2 @@
+meter_ref,meter_label,provider_name,utility_kind,site_label,bill_start,bill_end,total_due,currency_code,quantity_billed,unit_code,invoiced_on
+water-001,Cold Water Meter,City Water,water,home,2026-02-01,2026/02/28,oops,EUR,11900.00,liter,2026-03-03

@@ -112,7 +112,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Least-privilege credential scoping limits blast radius of credential compromise.
 
 **Phase:** 4
-**Status:** in-progress (FastAPI replaces the old WSGI app, DuckDB backs the transformation layer, and `pyproject.toml` declares DuckDB, Polars, and PyArrow; Postgres migration, broader Polars adoption, and the React/Next.js web replacement remain)
+**Status:** in-progress (runtime workloads are split by role, deployment surfaces are distinct, and secret references remain runtime-resolved; workload-specific credentials and Postgres/OIDC isolation are still pending)
 
 **Acceptance criteria:**
 - Worker pods receive only landing-write and transformation-write credentials.
@@ -149,7 +149,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Developers and early testers need a low-friction local environment.
 
 **Phase:** 0
-**Status:** implemented (3-service compose with shared volume)
+**Status:** implemented (Compose now boots API, web, Postgres, and MinIO by default, with the worker available via profile and a shared DuckDB/data volume; the workloads use Postgres for metadata and published reporting plus MinIO for landing storage)
 
 **Acceptance criteria:**
 - `docker compose up` starts API, web, and worker.
@@ -206,7 +206,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Automated quality gates prevent regressions and enable reliable releases.
 
 **Phase:** 4
-**Status:** not-started
+**Status:** in-progress (blocking verify-fast CI, Docker build smoke, and advisory dependency audit are implemented; publish-on-tag release steps and README badges are still pending)
 
 **Acceptance criteria:**
 - Push to main runs `pytest` and `helm lint`.
@@ -262,7 +262,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** The current zero-dependency implementation was deliberate for bootstrap. Production use requires real frameworks and engines.
 
 **Phase:** 1–2
-**Status:** not-started
+**Status:** in-progress (FastAPI, DuckDB, Polars/PyArrow, boto3-backed S3 storage, psycopg-backed Postgres metadata, and Postgres-backed published-reporting reads are now in the runtime path; React/Next.js web and broader Postgres-backed reporting publication remain pending)
 
 **Acceptance criteria:**
 - FastAPI replaces `wsgiref`-based WSGI app.
@@ -285,12 +285,12 @@ The platform must handle sensitive financial and personal data securely, deploy 
 | SEC-03 | — | — |
 | SEC-04 | — | — |
 | SEC-05 | `packages/shared/secrets.py`, `packages/storage/ingestion_config.py`, `packages/pipelines/configured_ingestion_definition.py`, `charts/homelab-analytics/` | `tests/test_ingestion_config_repository.py`, `tests/test_configured_ingestion_definition.py`, `tests/test_helm_chart.py` |
-| SEC-06 | — | — |
-| OPS-01 | `infra/docker/Dockerfile` | — |
-| OPS-02 | `infra/examples/compose.yaml` | — |
+| SEC-06 | `apps/api/main.py`, `apps/web/main.py`, `apps/worker/main.py`, `charts/homelab-analytics/` | `tests/test_helm_chart.py`, `tests/test_project_metadata.py` |
+| OPS-01 | `infra/docker/Dockerfile` | `tests/test_project_metadata.py` |
+| OPS-02 | `infra/examples/compose.yaml` | `tests/test_project_metadata.py` |
 | OPS-03 | `charts/homelab-analytics/` | `tests/test_helm_chart.py` |
 | OPS-04 | — | — |
-| OPS-05 | — | — |
+| OPS-05 | `.github/workflows/verify.yaml`, `Makefile` | `tests/test_verification_tooling.py` |
 | OPS-06 | — | — |
 | OPS-07 | — | — |
-| OPS-08 | `pyproject.toml`, `apps/api/app.py`, `packages/storage/duckdb_store.py`, `packages/pipelines/transformation_service.py` | `tests/test_project_metadata.py`, `tests/test_api_app.py`, `tests/test_transformation_service.py` |
+| OPS-08 | `pyproject.toml`, `apps/api/app.py`, `packages/storage/duckdb_store.py`, `packages/storage/postgres_reporting.py`, `packages/storage/postgres_run_metadata.py`, `packages/storage/s3_blob.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py` | `tests/test_project_metadata.py`, `tests/test_blob_store.py`, `tests/test_postgres_reporting_integration.py`, `tests/test_postgres_run_metadata_integration.py`, `tests/test_api_app.py`, `tests/test_reporting_api_app.py`, `tests/test_transformation_service.py` |

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import unittest
 from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 
 from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.contract_prices import (
@@ -14,7 +14,6 @@ from packages.pipelines.promotion import promote_contract_price_run
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository
-
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"

@@ -15,7 +15,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Immutability ensures auditability, reprocessing capability, and source-of-truth preservation.
 
 **Phase:** 0–1
-**Status:** implemented (filesystem blob store; manual, config-driven filesystem, and config-driven HTTP ingestion now preserve original payload bytes in landing; S3 adapter not yet built)
+**Status:** implemented (filesystem remains the default local blob store, manual/config-driven filesystem and HTTP ingestion preserve original payload bytes, and an S3-compatible adapter now exists for production-oriented landing storage)
 
 **Acceptance criteria:**
 - Raw file bytes are written to blob storage exactly as received.
@@ -34,7 +34,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Run-level metadata enables lineage tracking, reprocessing, deduplication, and operational monitoring.
 
 **Phase:** 0
-**Status:** implemented (SQLite-backed; Postgres adapter needed for Phase 1)
+**Status:** implemented (SQLite remains the default local metadata store, and a Postgres adapter now exists for production-oriented run metadata persistence)
 
 **Acceptance criteria:**
 - Every ingestion writes a run record with all specified metadata fields.
@@ -100,7 +100,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Canonical facts decouple source-specific formats from downstream analytics and enable cross-source joining.
 
 **Phase:** 1–3
-**Status:** in-progress (`fact_transaction`, `fact_subscription_charge`, and `fact_contract_price` are persisted in DuckDB via `TransformationService`; remaining facts are not started)
+**Status:** in-progress (`fact_transaction`, `fact_subscription_charge`, `fact_contract_price`, `fact_utility_usage`, and `fact_bill` are persisted in DuckDB via `TransformationService`; balance, loan, and infrastructure facts are not started)
 
 **Acceptance criteria:**
 - Each fact table is persisted in DuckDB/Parquet with documented schema.
@@ -130,7 +130,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Canonical dimensions enable consistent attribution across all facts and support SCD-based historical analysis.
 
 **Phase:** 1–3
-**Status:** in-progress (`dim_account` and `dim_counterparty` are implemented with SCD-2 in DuckDB; `dim_contract` now supports both subscriptions and temporal contract-pricing domains; `dim_category` is implemented for shared category use; remaining dimensions are not started)
+**Status:** in-progress (`dim_account` and `dim_counterparty` are implemented with SCD-2 in DuckDB; `dim_contract` supports subscriptions and temporal contract-pricing domains; `dim_category` is implemented for shared category use; `dim_meter` now supports utility usage and billing domains; remaining dimensions are not started)
 
 **Acceptance criteria:**
 - Each dimension is persisted with SCD Type 2 handling (see PLT-07).
@@ -148,7 +148,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** SCD Type 2 preserves historical context for point-in-time reporting without losing current state.
 
 **Phase:** 1
-**Status:** implemented (`DuckDBStore` SCD-2 engine with insert, update, close, current-view, and point-in-time queries; 9 tests passing)
+**Status:** in-progress (`DuckDBStore` provides SCD-2 insert, update, close, current-view, and point-in-time queries; source-lineage columns are still pending)
 
 **Acceptance criteria:**
 - Inserting a new dimension record sets `is_current = TRUE` and `valid_to = NULL` (or far-future sentinel).
@@ -186,7 +186,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Tight coupling between transformation and reporting prevents reuse and forces rework when dashboards change.
 
 **Phase:** 1
-**Status:** not applicable (architectural constraint, not a feature)
+**Status:** implemented (transformation modules remain independent of application/reporting modules, and reporting marts are exercised through shared fact tables)
 
 **Acceptance criteria:**
 - No transformation module imports from reporting modules.
@@ -222,7 +222,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Dashboard and API consumers need simple, current-state views without knowing SCD mechanics.
 
 **Phase:** 1
-**Status:** in-progress (reporting views now publish current snapshots for `dim_account`, `dim_counterparty`, `dim_contract`, and `dim_category`, and FastAPI exposes them via `GET /reports/current-dimensions/{dimension_name}`; remaining dimensions are not yet implemented)
+**Status:** in-progress (reporting views now publish current snapshots for `dim_account`, `dim_counterparty`, `dim_contract`, `dim_category`, and `dim_meter`; FastAPI exposes them via `GET /reports/current-dimensions/{dimension_name}`, and a Postgres publication path now mirrors the implemented current-dimension relations when configured)
 
 **Acceptance criteria:**
 - Each SCD dimension has a corresponding current-view in the reporting layer.
@@ -254,7 +254,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Marts provide the stable query surfaces that dashboards and APIs consume.
 
 **Phase:** 1–3
-**Status:** in-progress (`TransformationService` materialises `mart_monthly_cashflow`, `mart_subscription_summary`, `mart_contract_price_current`, and `mart_electricity_price_current` in DuckDB; remaining marts and Postgres persistence are not yet implemented)
+**Status:** in-progress (`TransformationService` materialises `mart_monthly_cashflow`, `mart_subscription_summary`, `mart_contract_price_current`, `mart_electricity_price_current`, and `mart_utility_cost_summary` in DuckDB; a Postgres publication path now mirrors the implemented marts for API/worker reads when configured, and remaining marts are still not implemented)
 
 **Acceptance criteria:**
 - Each mart is materialized in Postgres with a documented schema.
@@ -273,7 +273,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Power users and external tools need raw data access beyond dashboard views.
 
 **Phase:** 2
-**Status:** in-progress (DuckDB is the active transformation store, and `pyproject.toml` declares DuckDB, Polars, and PyArrow dependencies; Postgres metadata/reporting adapters and broad Polars-based transforms are still pending)
+**Status:** not-started
 
 **Acceptance criteria:**
 - API endpoint accepts a mart name and optional filters, returns CSV or Parquet.
@@ -290,10 +290,10 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** SQLite is inadequate for concurrent access, multi-process workers, and production-scale metadata. DuckDB provides efficient columnar analytics without Spark overhead.
 
 **Phase:** 1
-**Status:** not-started
+**Status:** in-progress (DuckDB is already the transformation store, runtime backend selection now supports SQLite or Postgres metadata plus filesystem or S3 landing storage, and Postgres-backed publication storage now exists for implemented marts/current dimensions; the remaining work is broader gold/publication migration)
 
 **Acceptance criteria:**
-- Postgres adapter implements `RunMetadataStore` protocol and passes existing tests.
+- Postgres adapter implements `RunMetadataStore` protocol and passes storage adapter verification.
 - DuckDB is used for transformation-layer reads and writes (fact/dimension persistence).
 - Polars is used for in-process data manipulation replacing stdlib CSV processing.
 - Existing SQLite path remains as a development fallback.
@@ -382,20 +382,20 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 
 | Requirement | Architecture doc section | Implementation module | Test file |
 |---|---|---|---|
-| PLT-01 | Input and landing, Storage pattern | `packages/storage/local_landing.py`, `packages/storage/blob.py` | `tests/test_local_landing_storage.py`, `tests/test_blob_store.py` |
-| PLT-02 | Input and landing | `packages/storage/run_metadata.py` | `tests/test_run_metadata_repository.py` |
+| PLT-01 | Input and landing, Storage pattern | `packages/storage/local_landing.py`, `packages/storage/blob.py`, `packages/storage/s3_blob.py` | `tests/test_local_landing_storage.py`, `tests/test_blob_store.py` |
+| PLT-02 | Input and landing | `packages/storage/run_metadata.py`, `packages/storage/postgres_run_metadata.py` | `tests/test_run_metadata_repository.py`, `tests/test_postgres_run_metadata_integration.py` |
 | PLT-03 | Input and landing, Typical landing checks | `packages/pipelines/csv_validation.py` | `tests/test_csv_landing_validation.py` |
 | PLT-04 | Input and landing | `packages/storage/landing_service.py` | `tests/test_landing_service.py` |
-| PLT-05 | Transformation | `packages/pipelines/transaction_models.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/contract_price_models.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_service.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py` |
-| PLT-06 | Transformation | `packages/pipelines/transaction_models.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/contract_price_models.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_service.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py` |
-| PLT-07 | SCD handling | — | — |
+| PLT-05 | Transformation | `packages/pipelines/transaction_models.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/contract_price_models.py`, `packages/pipelines/utility_models.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_service.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py`, `tests/test_utility_domain.py` |
+| PLT-06 | Transformation | `packages/pipelines/transaction_models.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/contract_price_models.py`, `packages/pipelines/utility_models.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_service.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py`, `tests/test_utility_domain.py` |
+| PLT-07 | SCD handling | `packages/storage/duckdb_store.py`, `packages/pipelines/transformation_service.py` | `tests/test_scd_dimension.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py` |
 | PLT-08 | Transformation | `packages/pipelines/normalization.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_normalization.py` |
-| PLT-09 | Transformation | — | — |
+| PLT-09 | Transformation | `packages/pipelines/transformation_service.py`, `packages/pipelines/transaction_models.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/contract_price_models.py` | `tests/test_architecture_contract.py`, `tests/test_transformation_service.py` |
 | PLT-10 | Transformation, Bridge models | — | — |
-| PLT-11 | Reporting | `packages/storage/duckdb_store.py`, `packages/pipelines/transformation_service.py`, `apps/api/app.py` | `tests/test_transformation_normalization.py`, `tests/test_subscription_domain.py`, `tests/test_api_app.py` |
-| PLT-12 | Reporting | `packages/pipelines/transformation_service.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_monthly_cashflow_reporting.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py` |
+| PLT-11 | Reporting | `packages/storage/duckdb_store.py`, `packages/storage/postgres_reporting.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py`, `apps/api/app.py` | `tests/test_transformation_normalization.py`, `tests/test_subscription_domain.py`, `tests/test_api_app.py`, `tests/test_postgres_reporting_integration.py` |
+| PLT-12 | Reporting | `packages/storage/postgres_reporting.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_monthly_cashflow_reporting.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py`, `tests/test_utility_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py`, `tests/test_postgres_reporting_integration.py`, `tests/test_reporting_api_app.py` |
 | PLT-13 | Reporting publication forms | — | — |
-| PLT-14 | Storage pattern, Compute model | `pyproject.toml`, `packages/storage/duckdb_store.py`, `packages/pipelines/transformation_service.py` | `tests/test_project_metadata.py`, `tests/test_transformation_service.py` |
+| PLT-14 | Storage pattern, Compute model | `pyproject.toml`, `packages/storage/duckdb_store.py`, `packages/storage/postgres_run_metadata.py`, `packages/storage/postgres_reporting.py`, `packages/storage/runtime.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py` | `tests/test_project_metadata.py`, `tests/test_transformation_service.py`, `tests/test_storage_runtime.py`, `tests/test_postgres_run_metadata_integration.py`, `tests/test_postgres_reporting_integration.py`, `tests/test_reporting_service.py` |
 | PLT-15 | Transformation, Atomicity | `packages/storage/duckdb_store.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_service.py` |
 | PLT-16 | Input and landing | `packages/storage/run_metadata.py`, `packages/storage/landing_service.py` | `tests/test_landing_service.py`, `tests/test_run_metadata_repository.py` |
 | PLT-17 | Audit trail | `packages/pipelines/transformation_service.py`, `packages/pipelines/transaction_models.py` | `tests/test_transformation_service.py`, `tests/test_api_app.py` |

@@ -6,10 +6,10 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
+from packages.shared.secrets import EnvironmentSecretResolver, SecretReference, SecretResolver
 from packages.storage.blob import BlobStore, FilesystemBlobStore
 from packages.storage.ingestion_config import IngestionConfigRepository
 from packages.storage.run_metadata import RunMetadataStore
-from packages.shared.secrets import EnvironmentSecretResolver, SecretReference, SecretResolver
 
 
 @dataclass(frozen=True)

@@ -56,3 +56,9 @@ Links to architecture docs, implementation modules, and tests.
 - Phase assignments are targets, not guarantees; adjust as scope clarifies.
 - Status tracks implementation, not importance.
 - Acceptance criteria must be testable — prefer "pytest passes X" or "API returns Y" over vague quality statements.
+
+## Verification
+
+- `tests/test_requirements_contract.py` enforces the shared requirement template, allowed status values, and traceability path existence.
+- Requirement changes should be accompanied by implementation and test updates in the same change when status moves to `in-progress` or `implemented`.
+- Local backend verification now also includes `make test-storage-adapters` for filesystem/S3 blob behavior plus SQLite/Postgres metadata-store and Postgres publication coverage.

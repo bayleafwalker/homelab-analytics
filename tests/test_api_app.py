@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import unittest
 from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 
 from fastapi.testclient import TestClient
 
@@ -12,8 +12,13 @@ from packages.pipelines.account_transaction_service import AccountTransactionSer
 from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.subscription_service import SubscriptionService
-from packages.pipelines.transformation_service import TransformationService
 from packages.pipelines.transaction_models import DIM_ACCOUNT
+from packages.pipelines.transformation_service import TransformationService
+from packages.shared.extensions import (
+    ExtensionPublication,
+    LayerExtension,
+    build_builtin_extension_registry,
+)
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.ingestion_config import (
     ColumnMappingCreate,
@@ -25,7 +30,6 @@ from packages.storage.ingestion_config import (
     SourceSystemCreate,
 )
 from packages.storage.run_metadata import RunMetadataRepository
-
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
@@ -125,6 +129,9 @@ class ApiAppTests(unittest.TestCase):
 
     def test_ingest_runs_and_reports_are_exposed(self) -> None:
         with TemporaryDirectory() as temp_dir:
+            transformation_service = TransformationService(
+                DuckDBStore.open(str(Path(temp_dir) / "warehouse.duckdb"))
+            )
             client = TestClient(
                 create_app(
                     AccountTransactionService(
@@ -132,7 +139,8 @@ class ApiAppTests(unittest.TestCase):
                         metadata_repository=RunMetadataRepository(
                             Path(temp_dir) / "runs.db"
                         ),
-                    )
+                    ),
+                    transformation_service=transformation_service,
                 )
             )
 
@@ -154,10 +162,12 @@ class ApiAppTests(unittest.TestCase):
 
             report_response = client.get(
                 "/reports/monthly-cashflow",
-                params={"run_id": run_id},
             )
             self.assertEqual(200, report_response.status_code)
-            self.assertEqual("2365.85", report_response.json()["summaries"][0]["net"])
+            self.assertEqual(
+                "2365.8500",
+                report_response.json()["rows"][0]["net"],
+            )
 
     def test_multipart_upload_ingests_account_transactions(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -274,6 +284,8 @@ class ApiAppTests(unittest.TestCase):
             self.assertTrue(
                 any(
                     extension["key"] == "monthly_cashflow_summary"
+                    and extension["data_access"] == "published"
+                    and extension["publication_relations"] == []
                     for extension in response.json()["extensions"]["reporting"]
                 )
             )
@@ -289,7 +301,8 @@ class ApiAppTests(unittest.TestCase):
                         metadata_repository=RunMetadataRepository(
                             Path(temp_dir) / "runs.db"
                         ),
-                    )
+                    ),
+                    transformation_service=TransformationService(DuckDBStore.memory()),
                 )
             )
 
@@ -318,17 +331,137 @@ class ApiAppTests(unittest.TestCase):
                 params={"run_id": run_id},
             )
             self.assertEqual(200, report_response.status_code)
-            self.assertEqual("2365.85", report_response.json()["result"][0]["net"])
+            self.assertEqual("2365.8500", report_response.json()["result"][0]["net"])
+
+    def test_reporting_extension_endpoint_requires_configured_reporting_runtime(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs.db"
+                        ),
+                    )
+                )
+            )
+
+            response = client.get(
+                "/reports/monthly_cashflow_summary",
+                params={"run_id": "run-001"},
+            )
+
+            self.assertEqual(404, response.status_code)
+            self.assertEqual(
+                "Reporting extension requires a reporting service.",
+                response.json()["detail"],
+            )
+
+    def test_custom_published_reporting_extension_endpoint_executes_from_registry(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            registry = build_builtin_extension_registry()
+            registry.register(
+                LayerExtension(
+                    layer="reporting",
+                    key="external_budget_projection",
+                    kind="mart",
+                    description="External published budget projection.",
+                    module="tests.external_budget_projection",
+                    source="tests",
+                    data_access="published",
+                    publication_relations=(
+                        ExtensionPublication(
+                            relation_name="mart_budget_projection",
+                            columns=(
+                                ("booking_month", "VARCHAR NOT NULL"),
+                                ("net", "DECIMAL(18,4) NOT NULL"),
+                            ),
+                            source_query=(
+                                "SELECT booking_month, net FROM mart_monthly_cashflow"
+                            ),
+                            order_by="booking_month",
+                        ),
+                    ),
+                    handler=lambda *, reporting_service: reporting_service.get_relation_rows(
+                        "mart_budget_projection"
+                    ),
+                )
+            )
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs.db"
+                        ),
+                    ),
+                    extension_registry=registry,
+                    transformation_service=TransformationService(DuckDBStore.memory()),
+                )
+            )
+
+            ingest_response = client.post(
+                "/ingest",
+                json={
+                    "source_path": str(FIXTURES / "account_transactions_valid.csv"),
+                    "source_name": "manual-upload",
+                },
+            )
+            self.assertEqual(201, ingest_response.status_code)
+            run_id = ingest_response.json()["run"]["run_id"]
+
+            response = client.get(
+                "/reports/external_budget_projection",
+                params={"run_id": run_id},
+            )
+
+            self.assertEqual(200, response.status_code)
+            self.assertEqual(
+                [
+                    {
+                        "booking_month": "2026-01",
+                        "net": "2365.8500",
+                    }
+                ],
+                response.json()["result"],
+            )
 
     def test_config_entities_and_configured_csv_ingestion_are_exposed(self) -> None:
         with TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
+            registry = build_builtin_extension_registry()
+            registry.register(
+                LayerExtension(
+                    layer="reporting",
+                    key="budget_current_publication",
+                    kind="mart",
+                    description="Published current budget relation for config tests.",
+                    module="tests.budget_current_publication",
+                    source="tests",
+                    data_access="published",
+                    publication_relations=(
+                        ExtensionPublication(
+                            relation_name="mart_budget_current",
+                            columns=(("budget_month", "VARCHAR NOT NULL"),),
+                            source_query=(
+                                "SELECT booking_month AS budget_month FROM mart_monthly_cashflow"
+                            ),
+                            order_by="budget_month",
+                        ),
+                    ),
+                )
+            )
             client = TestClient(
                 create_app(
                     AccountTransactionService(
                         landing_root=temp_root / "landing",
                         metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
                     ),
+                    extension_registry=registry,
                     config_repository=IngestionConfigRepository(temp_root / "config.db"),
                 )
             )
@@ -500,6 +633,34 @@ class ApiAppTests(unittest.TestCase):
                 "household_account_transactions",
                 ingest_response.json()["run"]["dataset_name"],
             )
+
+    def test_publication_definition_creation_rejects_unknown_publication_key(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=temp_root / "landing",
+                        metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
+                    ),
+                    config_repository=IngestionConfigRepository(temp_root / "config.db"),
+                )
+            )
+
+            response = client.post(
+                "/config/publication-definitions",
+                json={
+                    "publication_definition_id": "invalid_budget_current",
+                    "transformation_package_id": "builtin_account_transactions",
+                    "publication_key": "mart_unknown_current",
+                    "name": "Unknown Budget Mart",
+                    "description": "Should fail validation",
+                },
+            )
+
+            self.assertEqual(400, response.status_code)
+            self.assertIn("Unknown publication key", response.json()["error"])
+            self.assertIn("mart_unknown_current", response.json()["error"])
 
     def test_source_assets_and_ingestion_definitions_are_exposed_and_executable(
         self,
@@ -919,20 +1080,17 @@ class ApiAppTests(unittest.TestCase):
             self.assertEqual(200, resp_jan.status_code)
             self.assertEqual(1, len(resp_jan.json()["rows"]))
 
-            # Legacy run_id path still works.
-            ingest_resp = client.post(
-                "/ingest",
-                json={
-                    "source_path": str(FIXTURES / "account_transactions_valid.csv"),
-                    "source_name": "manual-upload",
-                },
+            bare_client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing2",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs2.db"
+                        ),
+                    )
+                )
             )
-            self.assertEqual(201, ingest_resp.status_code)
-            run_id = ingest_resp.json()["run"]["run_id"]
-
-            legacy_resp = client.get("/reports/monthly-cashflow", params={"run_id": run_id})
-            self.assertEqual(200, legacy_resp.status_code)
-            self.assertIn("summaries", legacy_resp.json())
+            self.assertEqual(404, bare_client.get("/reports/monthly-cashflow").status_code)
 
 
     def test_counterparty_cashflow_and_transformation_audit_endpoints(self) -> None:

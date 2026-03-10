@@ -1,12 +1,11 @@
-from pathlib import Path
-from tempfile import TemporaryDirectory
 import shutil
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from packages.pipelines.account_transaction_inbox import process_account_transaction_inbox
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.storage.run_metadata import IngestionRunStatus, RunMetadataRepository
-
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"

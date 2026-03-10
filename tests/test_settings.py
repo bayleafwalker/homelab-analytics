@@ -1,6 +1,6 @@
 import os
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 from packages.shared.settings import AppSettings
 
@@ -49,6 +49,16 @@ class AppSettingsTests(unittest.TestCase):
             Path("/tmp/homelab-analytics/analytics/warehouse.duckdb"),
             settings.resolved_analytics_database_path,
         )
+        self.assertEqual("sqlite", settings.metadata_backend)
+        self.assertEqual("duckdb", settings.reporting_backend)
+        self.assertEqual("filesystem", settings.blob_backend)
+        self.assertIsNone(settings.postgres_dsn)
+        self.assertIsNone(settings.s3_endpoint_url)
+        self.assertIsNone(settings.s3_bucket)
+        self.assertEqual("us-east-1", settings.s3_region)
+        self.assertIsNone(settings.s3_access_key_id)
+        self.assertIsNone(settings.s3_secret_access_key)
+        self.assertEqual("", settings.s3_prefix)
 
     def test_settings_parse_extension_configuration(self) -> None:
         settings = AppSettings.from_env(
@@ -100,7 +110,6 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual((), settings.extension_paths)
         self.assertEqual((), settings.extension_modules)
 
-
     def test_resolved_config_database_path_defaults_to_data_dir(self) -> None:
         settings = AppSettings.from_env(
             {"HOMELAB_ANALYTICS_DATA_DIR": "/tmp/homelab-test"}
@@ -146,6 +155,39 @@ class AppSettingsTests(unittest.TestCase):
             Path("/srv/analytics/homelab.duckdb"),
             settings.resolved_analytics_database_path,
         )
+
+    def test_storage_backend_settings_can_be_loaded_from_environment(self) -> None:
+        settings = AppSettings.from_env(
+            {
+                "HOMELAB_ANALYTICS_DATA_DIR": "/tmp/homelab-test",
+                "HOMELAB_ANALYTICS_METADATA_BACKEND": "postgres",
+                "HOMELAB_ANALYTICS_POSTGRES_DSN": (
+                    "postgresql://homelab:homelab@postgres:5432/homelab"
+                ),
+                "HOMELAB_ANALYTICS_REPORTING_BACKEND": "postgres",
+                "HOMELAB_ANALYTICS_BLOB_BACKEND": "s3",
+                "HOMELAB_ANALYTICS_S3_ENDPOINT_URL": "http://minio:9000",
+                "HOMELAB_ANALYTICS_S3_BUCKET": "homelab-landing",
+                "HOMELAB_ANALYTICS_S3_REGION": "eu-west-1",
+                "HOMELAB_ANALYTICS_S3_ACCESS_KEY_ID": "minio",
+                "HOMELAB_ANALYTICS_S3_SECRET_ACCESS_KEY": "password",
+                "HOMELAB_ANALYTICS_S3_PREFIX": "bronze",
+            }
+        )
+
+        self.assertEqual("postgres", settings.metadata_backend)
+        self.assertEqual(
+            "postgresql://homelab:homelab@postgres:5432/homelab",
+            settings.postgres_dsn,
+        )
+        self.assertEqual("postgres", settings.reporting_backend)
+        self.assertEqual("s3", settings.blob_backend)
+        self.assertEqual("http://minio:9000", settings.s3_endpoint_url)
+        self.assertEqual("homelab-landing", settings.s3_bucket)
+        self.assertEqual("eu-west-1", settings.s3_region)
+        self.assertEqual("minio", settings.s3_access_key_id)
+        self.assertEqual("password", settings.s3_secret_access_key)
+        self.assertEqual("bronze", settings.s3_prefix)
 
 
 if __name__ == "__main__":

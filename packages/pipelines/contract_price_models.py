@@ -12,7 +12,6 @@ from typing import Any
 
 from packages.pipelines.contracts import build_contract_id
 
-
 FACT_CONTRACT_PRICE_TABLE = "fact_contract_price"
 
 FACT_CONTRACT_PRICE_COLUMNS: list[tuple[str, str]] = [

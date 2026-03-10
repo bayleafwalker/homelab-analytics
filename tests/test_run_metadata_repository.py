@@ -1,6 +1,6 @@
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 
 from packages.pipelines.csv_validation import ValidationIssue
 from packages.storage.run_metadata import (

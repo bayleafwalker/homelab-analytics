@@ -121,13 +121,15 @@ def validate_csv_text(content: str, contract: DatasetContract) -> ValidationResu
             )
 
         for index, column_name in enumerate(header):
-            column_contract = contract_columns.get(column_name)
-            if column_contract is None:
+            resolved_column_contract: ColumnContract | None = contract_columns.get(
+                column_name
+            )
+            if resolved_column_contract is None:
                 continue
 
             value = row[index].strip() if index < len(row) else ""
             if not value:
-                if column_contract.required:
+                if resolved_column_contract.required:
                     issues.append(
                         ValidationIssue(
                             code="missing_required_value",
@@ -140,7 +142,11 @@ def validate_csv_text(content: str, contract: DatasetContract) -> ValidationResu
                     )
                 continue
 
-            issue = _validate_value(value, column_contract, row_number=offset)
+            issue = _validate_value(
+                value,
+                resolved_column_contract,
+                row_number=offset,
+            )
             if issue is not None:
                 issues.append(issue)
 

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import json
+import sqlite3
 from contextlib import closing
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-import json
 from pathlib import Path
-import sqlite3
 
 from packages.pipelines.csv_validation import ColumnContract, ColumnType, DatasetContract
+from packages.shared.extensions import ExtensionRegistry
 
 
 @dataclass(frozen=True)
@@ -587,7 +588,13 @@ class IngestionConfigRepository:
     def create_publication_definition(
         self,
         publication_definition: PublicationDefinitionCreate,
+        *,
+        extension_registry: ExtensionRegistry | None = None,
     ) -> PublicationDefinitionRecord:
+        validate_publication_key(
+            publication_definition.publication_key,
+            extension_registry=extension_registry,
+        )
         with self._connect() as connection:
             connection.execute(
                 """
@@ -1337,6 +1344,20 @@ _BUILTIN_TRANSFORMATION_PACKAGES = (
         version=1,
         description="Contract pricing and electricity tariff transformation and publications.",
     ),
+    TransformationPackageCreate(
+        transformation_package_id="builtin_utility_usage",
+        name="Built-in utility usage",
+        handler_key="utility_usage",
+        version=1,
+        description="Utility usage transformation and reporting publications.",
+    ),
+    TransformationPackageCreate(
+        transformation_package_id="builtin_utility_bills",
+        name="Built-in utility bills",
+        handler_key="utility_bills",
+        version=1,
+        description="Utility bill transformation and reporting publications.",
+    ),
 )
 
 
@@ -1395,4 +1416,59 @@ _BUILTIN_PUBLICATION_DEFINITIONS = (
         publication_key="rpt_current_dim_contract",
         name="Current contract view",
     ),
+    PublicationDefinitionCreate(
+        publication_definition_id="pub_utility_usage_summary",
+        transformation_package_id="builtin_utility_usage",
+        publication_key="mart_utility_cost_summary",
+        name="Utility cost summary mart",
+    ),
+    PublicationDefinitionCreate(
+        publication_definition_id="pub_utility_usage_current_meters",
+        transformation_package_id="builtin_utility_usage",
+        publication_key="rpt_current_dim_meter",
+        name="Current meter view",
+    ),
+    PublicationDefinitionCreate(
+        publication_definition_id="pub_utility_bills_summary",
+        transformation_package_id="builtin_utility_bills",
+        publication_key="mart_utility_cost_summary",
+        name="Utility cost summary mart",
+    ),
+    PublicationDefinitionCreate(
+        publication_definition_id="pub_utility_bills_current_meters",
+        transformation_package_id="builtin_utility_bills",
+        publication_key="rpt_current_dim_meter",
+        name="Current meter view",
+    ),
 )
+
+
+def allowed_publication_keys(
+    *,
+    extension_registry: ExtensionRegistry | None = None,
+) -> set[str]:
+    from packages.pipelines.reporting_service import PUBLICATION_RELATIONS
+
+    allowed_keys = set(PUBLICATION_RELATIONS)
+    if extension_registry is not None:
+        allowed_keys.update(
+            publication.relation_name
+            for publication in extension_registry.list_reporting_publications()
+        )
+    return allowed_keys
+
+
+def validate_publication_key(
+    publication_key: str,
+    *,
+    extension_registry: ExtensionRegistry | None = None,
+) -> None:
+    if publication_key in allowed_publication_keys(
+        extension_registry=extension_registry
+    ):
+        return
+
+    raise ValueError(
+        "Unknown publication key. Register a published reporting relation or use an existing built-in publication key: "
+        f"{publication_key!r}"
+    )

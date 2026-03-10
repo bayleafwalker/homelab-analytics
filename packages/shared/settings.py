@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
@@ -23,6 +23,16 @@ class AppSettings:
     extension_modules: tuple[str, ...] = ()
     config_database_path: Path | None = None
     analytics_database_path: Path | None = None
+    metadata_backend: str = "sqlite"
+    postgres_dsn: str | None = None
+    reporting_backend: str = "duckdb"
+    blob_backend: str = "filesystem"
+    s3_endpoint_url: str | None = None
+    s3_bucket: str | None = None
+    s3_region: str = "us-east-1"
+    s3_access_key_id: str | None = None
+    s3_secret_access_key: str | None = None
+    s3_prefix: str = ""
 
     @property
     def resolved_config_database_path(self) -> Path:
@@ -74,6 +84,18 @@ class AppSettings:
         analytics_database_path = (
             Path(analytics_db_override) if analytics_db_override else None
         )
+        metadata_backend = env.get("HOMELAB_ANALYTICS_METADATA_BACKEND", "sqlite")
+        postgres_dsn = env.get("HOMELAB_ANALYTICS_POSTGRES_DSN") or None
+        reporting_backend = env.get("HOMELAB_ANALYTICS_REPORTING_BACKEND", "duckdb")
+        blob_backend = env.get("HOMELAB_ANALYTICS_BLOB_BACKEND", "filesystem")
+        s3_endpoint_url = env.get("HOMELAB_ANALYTICS_S3_ENDPOINT_URL") or None
+        s3_bucket = env.get("HOMELAB_ANALYTICS_S3_BUCKET") or None
+        s3_region = env.get("HOMELAB_ANALYTICS_S3_REGION", "us-east-1")
+        s3_access_key_id = env.get("HOMELAB_ANALYTICS_S3_ACCESS_KEY_ID") or None
+        s3_secret_access_key = (
+            env.get("HOMELAB_ANALYTICS_S3_SECRET_ACCESS_KEY") or None
+        )
+        s3_prefix = env.get("HOMELAB_ANALYTICS_S3_PREFIX", "")
         return cls(
             data_dir=data_dir,
             landing_root=data_dir / "landing",
@@ -92,6 +114,16 @@ class AppSettings:
             extension_modules=extension_modules,
             config_database_path=config_database_path,
             analytics_database_path=analytics_database_path,
+            metadata_backend=metadata_backend,
+            postgres_dsn=postgres_dsn,
+            reporting_backend=reporting_backend,
+            blob_backend=blob_backend,
+            s3_endpoint_url=s3_endpoint_url,
+            s3_bucket=s3_bucket,
+            s3_region=s3_region,
+            s3_access_key_id=s3_access_key_id,
+            s3_secret_access_key=s3_secret_access_key,
+            s3_prefix=s3_prefix,
         )
 
 

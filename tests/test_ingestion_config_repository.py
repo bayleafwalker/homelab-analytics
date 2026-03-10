@@ -1,21 +1,24 @@
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 
 from packages.pipelines.csv_validation import ColumnType
+from packages.shared.extensions import ExtensionPublication, ExtensionRegistry, LayerExtension
 from packages.storage.ingestion_config import (
     ColumnMappingCreate,
     ColumnMappingRule,
     DatasetColumnConfig,
     DatasetContractConfigCreate,
-    IngestionDefinitionCreate,
     IngestionConfigRepository,
-    RequestHeaderSecretRef,
+    IngestionDefinitionCreate,
     PublicationDefinitionCreate,
+    RequestHeaderSecretRef,
     SourceAssetCreate,
     SourceSystemCreate,
     TransformationPackageCreate,
+    allowed_publication_keys,
     resolve_dataset_contract,
+    validate_publication_key,
 )
 
 
@@ -319,6 +322,8 @@ class IngestionConfigRepositoryTests(unittest.TestCase):
             self.assertIn("builtin_account_transactions", builtin_ids)
             self.assertIn("builtin_subscriptions", builtin_ids)
             self.assertIn("builtin_contract_prices", builtin_ids)
+            self.assertIn("builtin_utility_usage", builtin_ids)
+            self.assertIn("builtin_utility_bills", builtin_ids)
 
             custom_package = repository.create_transformation_package(
                 TransformationPackageCreate(
@@ -328,13 +333,34 @@ class IngestionConfigRepositoryTests(unittest.TestCase):
                     version=1,
                 )
             )
+            extension_registry = ExtensionRegistry()
+            extension_registry.register(
+                LayerExtension(
+                    layer="reporting",
+                    key="household_costs_monthly_publication",
+                    kind="mart",
+                    description="Published household costs relation.",
+                    module="tests.household_costs_publication",
+                    source="tests",
+                    data_access="published",
+                    publication_relations=(
+                        ExtensionPublication(
+                            relation_name="mart_household_costs_monthly",
+                            columns=(("booking_month", "VARCHAR NOT NULL"),),
+                            source_query="SELECT '2026-01' AS booking_month",
+                            order_by="booking_month",
+                        ),
+                    ),
+                )
+            )
             publication = repository.create_publication_definition(
                 PublicationDefinitionCreate(
                     publication_definition_id="pub_household_costs_monthly",
                     transformation_package_id=custom_package.transformation_package_id,
                     publication_key="mart_household_costs_monthly",
                     name="Household costs monthly",
-                )
+                ),
+                extension_registry=extension_registry,
             )
 
             self.assertEqual(
@@ -354,6 +380,51 @@ class IngestionConfigRepositoryTests(unittest.TestCase):
                     )
                 ],
             )
+
+    def test_allowed_publication_keys_include_builtin_and_extension_relations(self) -> None:
+        extension_registry = ExtensionRegistry()
+        extension_registry.register(
+            LayerExtension(
+                layer="reporting",
+                key="household_costs_monthly_publication",
+                kind="mart",
+                description="Published household costs relation.",
+                module="tests.household_costs_publication",
+                source="tests",
+                data_access="published",
+                publication_relations=(
+                    ExtensionPublication(
+                        relation_name="mart_household_costs_monthly",
+                        columns=(("booking_month", "VARCHAR NOT NULL"),),
+                        source_query="SELECT '2026-01' AS booking_month",
+                        order_by="booking_month",
+                    ),
+                ),
+            )
+        )
+
+        keys = allowed_publication_keys(extension_registry=extension_registry)
+
+        self.assertIn("mart_monthly_cashflow", keys)
+        self.assertIn("mart_household_costs_monthly", keys)
+
+    def test_validate_publication_key_rejects_unknown_keys(self) -> None:
+        with self.assertRaisesRegex(ValueError, "mart_unknown_current"):
+            validate_publication_key("mart_unknown_current")
+
+    def test_repository_rejects_unknown_publication_key_at_creation_time(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+
+            with self.assertRaisesRegex(ValueError, "mart_unknown_current"):
+                repository.create_publication_definition(
+                    PublicationDefinitionCreate(
+                        publication_definition_id="pub_unknown_current",
+                        transformation_package_id="builtin_account_transactions",
+                        publication_key="mart_unknown_current",
+                        name="Unknown publication",
+                    )
+                )
 
 
 if __name__ == "__main__":

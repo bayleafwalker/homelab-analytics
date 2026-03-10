@@ -89,14 +89,20 @@ The main remaining gaps are production backends and product hardening: S3-compat
 
 Current API entrypoints use FastAPI; worker and web remain lightweight Python entrypoints.
 
-When a DuckDB transformation service is configured, built-in datasets auto-promote successful runs into the current silver/gold path through source-asset transformation bindings and publication definitions. Re-running promotion for the same run is idempotent and refreshes marts without duplicating facts.
+When a DuckDB transformation service is configured, built-in datasets auto-promote successful runs into the current silver/gold path through source-asset transformation bindings and publication definitions. Re-running promotion for the same run is idempotent and refreshes marts without duplicating facts, and config-driven publication definitions can now include registered extension publication relations. Publication-definition creation rejects unknown `publication_key` values unless they match a built-in mart or a registered published extension relation.
 
 Environment variables:
 
 - `HOMELAB_ANALYTICS_DATA_DIR` defaults to `.local/homelab-analytics` under the current working directory
+- `HOMELAB_ANALYTICS_CONFIG_DATABASE_PATH` overrides the SQLite ingestion-config database path (default: `<data_dir>/config.db`)
+- `HOMELAB_ANALYTICS_METADATA_BACKEND` selects `sqlite` or `postgres` for ingestion run metadata (default: `sqlite`)
+- `HOMELAB_ANALYTICS_POSTGRES_DSN` configures the Postgres metadata backend when enabled
+- `HOMELAB_ANALYTICS_REPORTING_BACKEND` selects `duckdb` or `postgres` for published reporting reads (default: `duckdb`)
 - `HOMELAB_ANALYTICS_API_HOST` defaults to `0.0.0.0`
 - `HOMELAB_ANALYTICS_API_PORT` defaults to `8080`
 - `HOMELAB_ANALYTICS_ANALYTICS_DATABASE_PATH` overrides the DuckDB warehouse path (default: `<data_dir>/analytics/warehouse.duckdb`)
+- `HOMELAB_ANALYTICS_BLOB_BACKEND` selects `filesystem` or `s3` for landed payload storage (default: `filesystem`)
+- `HOMELAB_ANALYTICS_S3_ENDPOINT_URL`, `HOMELAB_ANALYTICS_S3_BUCKET`, `HOMELAB_ANALYTICS_S3_REGION`, `HOMELAB_ANALYTICS_S3_ACCESS_KEY_ID`, `HOMELAB_ANALYTICS_S3_SECRET_ACCESS_KEY`, and `HOMELAB_ANALYTICS_S3_PREFIX` configure the S3/MinIO landing adapter when enabled
 - `HOMELAB_ANALYTICS_EXTENSION_PATHS` adds custom import roots for external extension repositories or mounted code paths
 - `HOMELAB_ANALYTICS_EXTENSION_MODULES` lists Python modules to import and register into the layer extension registry
 - `HOMELAB_ANALYTICS_SECRET__<SECRET_NAME>__<SECRET_KEY>` provides runtime values for secret references used by HTTP ingestion definitions
@@ -109,10 +115,13 @@ python -m apps.worker.main ingest-subscriptions tests/fixtures/subscriptions_val
 python -m apps.worker.main ingest-contract-prices tests/fixtures/contract_prices_valid.csv
 python -m apps.worker.main list-runs
 python -m apps.worker.main list-ingestion-definitions
+python -m apps.worker.main verify-config
 python -m apps.worker.main list-extensions
+python -m apps.worker.main report-monthly-cashflow
 python -m apps.worker.main report-subscription-summary
 python -m apps.worker.main report-contract-prices
 python -m apps.worker.main report-electricity-prices
+python -m apps.worker.main report-utility-cost-summary
 python -m apps.worker.main run-transformation-extension account_transactions_canonical <run_id>
 python -m apps.worker.main run-reporting-extension monthly_cashflow_summary <run_id>
 python -m apps.worker.main process-ingestion-definition <ingestion_definition_id>
@@ -121,6 +130,19 @@ python -m apps.worker.main watch-account-transactions-inbox
 python -m apps.api.main
 python -m apps.web.main
 ```
+
+Verification:
+
+```bash
+make verify-fast
+make verify-config
+make test-e2e-local
+make verify-domain DOMAIN=account
+make verify-domain DOMAIN=utility
+make test-storage-adapters
+```
+
+Use `make verify-config VERIFY_CONFIG_ARGS="--source-asset-id <source_asset_id>"` to preflight a single config-driven slice before running ingestion or promotion. The account and utility `verify-domain` harnesses now run both global and scoped preflight checks before processing ingestion definitions.
 
 ## Extension model
 
@@ -131,6 +153,8 @@ The application keeps core ingestion, transformation, and reporting logic in-rep
 - extension modules are imported from `HOMELAB_ANALYTICS_EXTENSION_MODULES`
 - each extension module must define `register_extensions(registry)` and register one or more entries for `landing`, `transformation`, `reporting`, or `application`
 - executable landing, transformation, and reporting extensions can be run through the worker CLI and selected API endpoints once they register a handler
+- executable reporting extensions must declare `data_access="published"` or `data_access="warehouse"` so application-facing execution does not silently fall back to landing reads
+- published reporting extensions can also declare `publication_relations` so their named relations can be mirrored into the Postgres reporting store by publication key
 
 That pattern keeps key product logic inside this repository while allowing custom source connectors, transformations, marts, and UI/API additions to live outside the main codebase.
 
@@ -150,7 +174,7 @@ Current execution surfaces:
 - `POST /ingest/subscriptions` and `POST /ingest/contract-prices` for built-in non-transaction domains
 - `POST /ingest/ingestion-definitions/{id}/process` for config-driven watch-folder, direct-API, and batch-extract execution
 - `GET /reports/current-dimensions/{dimension_name}` for current SCD-dimension snapshots from the reporting layer
-- `GET /reports/subscription-summary`, `GET /reports/contract-prices`, and `GET /reports/electricity-prices` for built-in domain marts
+- `GET /reports/subscription-summary`, `GET /reports/contract-prices`, `GET /reports/electricity-prices`, and `GET /reports/utility-cost-summary` for built-in domain marts
 - `GET /transformations/{extension_key}?run_id=...` for executable transformation extensions
 - `GET /reports/{extension_key}?run_id=...` for executable reporting extensions
 
@@ -176,6 +200,8 @@ docker run --rm -p 8080:8080 -v "$(pwd)/.local/homelab-analytics:/data" homelab-
 docker compose -f infra/examples/compose.yaml up --build
 docker compose -f infra/examples/compose.yaml run --rm worker ingest-account-transactions /data/input.csv
 ```
+
+The example Compose stack now includes Postgres and MinIO and configures the workloads to use them for metadata, published reporting reads, and landed payload storage. DuckDB remains local to the shared `/data` volume as the transformation-layer store.
 
 ## Run with Helm
 

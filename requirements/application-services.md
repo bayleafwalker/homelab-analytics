@@ -55,7 +55,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Dashboard UI and external consumers (e.g. Home Assistant) access analytics data through the same API.
 
 **Phase:** 1–3
-**Status:** in-progress (`GET /reports/monthly-cashflow` now serves from the persisted DuckDB mart when a `TransformationService` is wired in, with optional `from_month`/`to_month` query params; current-dimension, subscription-summary, contract-price, and electricity-price endpoints are also exposed; export formats and remaining mart endpoints are still pending)
+**Status:** in-progress (`GET /reports/monthly-cashflow` is warehouse-backed with optional `from_month`/`to_month` filters; current-dimension, subscription-summary, contract-price, electricity-price, and utility-cost-summary endpoints are exposed from reporting-layer models; executable reporting extensions now advertise whether they are `published` or `warehouse` backed, published extensions can declare publication relations for Postgres-backed execution, and config-driven publication definitions can include those relation keys during promotion; export formats and remaining mart endpoints are still pending)
 
 **Acceptance criteria:**
 - `GET /reports/{mart_name}` returns mart data with query parameters for date range and filters.
@@ -74,7 +74,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Operational management through API enables both UI administration and scripted configuration.
 
 **Phase:** 4
-**Status:** in-progress (CRUD-style config endpoints exist for source systems, dataset contracts, column mappings, transformation packages, publication definitions, source assets, and ingestion definitions; authentication and role enforcement are still pending)
+**Status:** in-progress (CRUD-style config endpoints exist for source systems, dataset contracts, column mappings, transformation packages, publication definitions, source assets, and ingestion definitions; publication-definition creation now rejects unknown built-in or extension relation keys; authentication and role enforcement are still pending)
 
 **Acceptance criteria:**
 - CRUD endpoints for source systems, dataset contracts, column mappings, transformation packages, publication definitions, and schedules.
@@ -202,7 +202,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** The worker is the execution engine for all data processing. CLI interface enables scripting, debugging, and Kubernetes Job integration.
 
 **Phase:** 0
-**Status:** implemented (5 subcommands: ingest, list-runs, process-inbox, watch-inbox, report-cashflow)
+**Status:** implemented (JSON-emitting commands cover account ingestion, configured CSV ingestion, ingestion-definition processing, config preflight verification, inbox processing/watch, extension execution, subscription and contract-price ingestion/reporting, warehouse-backed monthly cashflow reporting, and utility cost summary reporting)
 
 **Acceptance criteria:**
 - All subcommands emit JSON for parseable output.
@@ -237,7 +237,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 |---|---|---|
 | APP-01 | `apps/api/app.py` | `tests/test_api_app.py` |
 | APP-02 | `apps/api/app.py` | `tests/test_api_app.py` |
-| APP-03 | `apps/api/app.py` | `tests/test_api_app.py` |
+| APP-03 | `apps/api/app.py` | `tests/test_api_app.py`, `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py` |
 | APP-04 | `apps/api/app.py` | `tests/test_api_app.py` |
 | APP-05 | `apps/web/app.py` | `tests/test_web_app.py` |
 | APP-06 | `apps/web/app.py` | `tests/test_web_app.py` |
@@ -245,5 +245,5 @@ The platform exposes its capabilities through three application workloads: a JSO
 | APP-08 | — | — |
 | APP-09 | — | — |
 | APP-10 | — | — |
-| APP-11 | `apps/worker/main.py` | `tests/test_worker_cli.py` |
+| APP-11 | `apps/worker/main.py`, `packages/pipelines/config_preflight.py` | `tests/test_worker_cli.py`, `tests/test_config_preflight.py`, `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py` |
 | APP-12 | `apps/api/app.py`, `apps/web/app.py` | `tests/test_api_app.py`, `tests/test_web_app.py` |

@@ -13,12 +13,11 @@ from __future__ import annotations
 
 import uuid
 from contextlib import contextmanager
-from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from dataclasses import dataclass
+from datetime import date
 from typing import Any, Generator
 
 import duckdb
-
 
 # ---------------------------------------------------------------------------
 # Constants

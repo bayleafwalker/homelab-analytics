@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import json
+import sqlite3
 from contextlib import closing
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
-import json
 from pathlib import Path
-import sqlite3
 from typing import Any, Protocol
 
 from packages.pipelines.csv_validation import ValidationIssue
@@ -382,7 +382,9 @@ class RunMetadataRepository:
         connection: sqlite3.Connection,
         run_ids: list[str],
     ) -> dict[str, list[ValidationIssue]]:
-        issues_by_run = {run_id: [] for run_id in run_ids}
+        issues_by_run: dict[str, list[ValidationIssue]] = {
+            run_id: [] for run_id in run_ids
+        }
         if not run_ids:
             return issues_by_run
 

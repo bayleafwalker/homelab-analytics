@@ -1,0 +1,4 @@
+meter_ref,meter_label,utility_kind,site_label,period_start,period_end,consumption,unit_code,source_system
+elec-001,Main Apartment Meter,electricity,home,2026-01-01,2026-01-31,320.50,kWh,smart-meter
+elec-001,Main Apartment Meter,electricity,home,2026-02-01,2026-02-28,298.40,kWh,smart-meter
+water-001,Cold Water Meter,water,home,2026-01-01,2026-01-31,12700.00,liter,manual-read

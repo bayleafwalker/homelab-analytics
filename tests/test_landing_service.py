@@ -1,7 +1,7 @@
-from pathlib import Path
-from tempfile import TemporaryDirectory
 import json
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from packages.pipelines.csv_validation import (
     ColumnContract,
@@ -11,7 +11,6 @@ from packages.pipelines.csv_validation import (
 from packages.storage.blob import FilesystemBlobStore
 from packages.storage.landing_service import LandingService
 from packages.storage.run_metadata import IngestionRunStatus, RunMetadataRepository
-
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"

@@ -1,6 +1,6 @@
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 
 from apps.web.main import build_app
 from packages.shared.settings import AppSettings

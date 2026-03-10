@@ -1,13 +1,20 @@
 import sys
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 from uuid import uuid4
 
 from packages.pipelines.account_transaction_service import AccountTransactionService
-from packages.shared.extensions import load_extension_registry
+from packages.pipelines.reporting_service import ReportingService
+from packages.pipelines.transformation_service import TransformationService
+from packages.shared.extensions import (
+    ExtensionPublication,
+    ExtensionRegistry,
+    LayerExtension,
+    load_extension_registry,
+)
+from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository
-
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
@@ -83,6 +90,22 @@ class ExtensionRegistryTests(unittest.TestCase):
                 metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
             )
             run = service.ingest_file(FIXTURES / "account_transactions_valid.csv")
+            transformation_service = TransformationService(DuckDBStore.memory())
+            transformation_service.load_transactions(
+                [
+                    {
+                        "booked_at": str(transaction.booked_at),
+                        "account_id": transaction.account_id,
+                        "counterparty_name": transaction.counterparty_name,
+                        "amount": str(transaction.amount),
+                        "currency": transaction.currency,
+                        "description": transaction.description or "",
+                    }
+                    for transaction in service.get_canonical_transactions(run.run_id)
+                ],
+                run_id=run.run_id,
+            )
+            transformation_service.refresh_monthly_cashflow()
             registry = load_extension_registry()
 
             transactions = registry.execute(
@@ -94,13 +117,31 @@ class ExtensionRegistryTests(unittest.TestCase):
             summaries = registry.execute(
                 "reporting",
                 "monthly_cashflow_summary",
-                service=service,
-                run_id=run.run_id,
+                reporting_service=ReportingService(transformation_service),
             )
 
             self.assertEqual(2, len(transactions))
             self.assertEqual("CHK-001", transactions[0].account_id)
-            self.assertEqual("2365.85", str(summaries[0].net))
+            self.assertEqual("2365.8500", str(summaries[0]["net"]))
+
+    def test_builtin_reporting_extension_prefers_reporting_service(self) -> None:
+        class ReportingServiceStub:
+            def get_monthly_cashflow(self):
+                return [{"booking_month": "2026-01", "net": "1600.0000"}]
+
+        registry = load_extension_registry()
+
+        result = registry.execute(
+            "reporting",
+            "monthly_cashflow_summary",
+            reporting_service=ReportingServiceStub(),
+            run_id="ignored-run-id",
+        )
+
+        self.assertEqual(
+            [{"booking_month": "2026-01", "net": "1600.0000"}],
+            result,
+        )
 
     def test_external_reporting_extension_can_execute(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -111,7 +152,7 @@ class ExtensionRegistryTests(unittest.TestCase):
                     [
                         "from packages.shared.extensions import LayerExtension",
                         "",
-                        "def run_projection(*, service, run_id):",
+                        "def run_projection(*, transformation_service, run_id):",
                         "    return {'run_id': run_id, 'status': 'projected'}",
                         "",
                         "def register_extensions(registry):",
@@ -123,6 +164,7 @@ class ExtensionRegistryTests(unittest.TestCase):
                         '            description="External runtime report.",',
                         f'            module="{module_name}",',
                         f'            source="{module_name}",',
+                        '            data_access="warehouse",',
                         "            handler=run_projection,",
                         "        )",
                         "    )",
@@ -140,7 +182,7 @@ class ExtensionRegistryTests(unittest.TestCase):
             result = registry.execute(
                 "reporting",
                 "external_runtime_projection",
-                service=object(),
+                transformation_service=object(),
                 run_id="run-123",
             )
 
@@ -149,6 +191,91 @@ class ExtensionRegistryTests(unittest.TestCase):
                 result,
             )
             sys.modules.pop(module_name, None)
+
+    def test_executable_reporting_extensions_require_explicit_data_access(self) -> None:
+        registry = ExtensionRegistry()
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "data_access='published' or 'warehouse'",
+        ):
+            registry.register(
+                LayerExtension(
+                    layer="reporting",
+                    key="missing_contract",
+                    kind="mart",
+                    description="Missing reporting access contract.",
+                    module="tests.missing_contract",
+                    source="tests",
+                    handler=lambda: None,
+                )
+            )
+
+    def test_warehouse_reporting_extensions_require_transformation_service_at_execution(
+        self,
+    ) -> None:
+        registry = ExtensionRegistry()
+        registry.register(
+            LayerExtension(
+                layer="reporting",
+                key="warehouse_projection",
+                kind="mart",
+                description="Warehouse-backed report.",
+                module="tests.warehouse_projection",
+                source="tests",
+                data_access="warehouse",
+                handler=lambda *, transformation_service: {"status": "ok"},
+            )
+        )
+
+        with self.assertRaisesRegex(ValueError, "requires transformation_service"):
+            registry.execute("reporting", "warehouse_projection")
+
+    def test_reporting_publication_relations_must_use_unique_relation_names(self) -> None:
+        registry = ExtensionRegistry()
+        registry.register(
+            LayerExtension(
+                layer="reporting",
+                key="published_projection_a",
+                kind="mart",
+                description="First published relation.",
+                module="tests.published_projection_a",
+                source="tests",
+                data_access="published",
+                publication_relations=(
+                    ExtensionPublication(
+                        relation_name="mart_budget_projection",
+                        columns=(("booking_month", "VARCHAR NOT NULL"),),
+                        source_query="SELECT '2026-01' AS booking_month",
+                        order_by="booking_month",
+                    ),
+                ),
+            )
+        )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "already registered: mart_budget_projection",
+        ):
+            registry.register(
+                LayerExtension(
+                    layer="reporting",
+                    key="published_projection_b",
+                    kind="mart",
+                    description="Duplicate published relation.",
+                    module="tests.published_projection_b",
+                    source="tests",
+                    data_access="published",
+                    publication_relations=(
+                        ExtensionPublication(
+                            relation_name="mart_budget_projection",
+                            columns=(("booking_month", "VARCHAR NOT NULL"),),
+                            source_query="SELECT '2026-02' AS booking_month",
+                            order_by="booking_month",
+                        ),
+                    ),
+                )
+            )
 
 
 if __name__ == "__main__":

@@ -23,13 +23,15 @@ from packages.pipelines.account_transaction_service import AccountTransactionSer
 from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
+from packages.pipelines.utility_bill_service import UtilityBillService
+from packages.pipelines.utility_usage_service import UtilityUsageService
+from packages.shared.extensions import ExtensionRegistry
 from packages.storage.blob import BlobStore
 from packages.storage.ingestion_config import (
     IngestionConfigRepository,
     SourceAssetRecord,
 )
 from packages.storage.run_metadata import RunMetadataStore
-
 
 _ACCOUNT_TRANSACTION_HEADER = {
     "booked_at",
@@ -172,6 +174,28 @@ _CONTRACT_PRICE_PUBLICATIONS = [
     "mart_electricity_price_current",
     "rpt_current_dim_contract",
 ]
+_UTILITY_USAGE_HEADER = {
+    "meter_id",
+    "meter_name",
+    "utility_type",
+    "usage_start",
+    "usage_end",
+    "usage_quantity",
+    "usage_unit",
+}
+_UTILITY_BILL_HEADER = {
+    "meter_id",
+    "meter_name",
+    "utility_type",
+    "billing_period_start",
+    "billing_period_end",
+    "billed_amount",
+    "currency",
+}
+_UTILITY_PUBLICATIONS = [
+    "mart_utility_cost_summary",
+    "rpt_current_dim_meter",
+]
 
 
 def promote_subscription_run(
@@ -307,6 +331,141 @@ def promote_contract_price_run(
     )
 
 
+def promote_utility_usage_run(
+    run_id: str,
+    *,
+    utility_usage_service: UtilityUsageService,
+    transformation_service: TransformationService,
+) -> PromotionResult:
+    run = utility_usage_service.get_run(run_id)
+    if not run.passed:
+        return PromotionResult(
+            run_id=run_id,
+            facts_loaded=0,
+            marts_refreshed=[],
+            publication_keys=[],
+            skipped=True,
+            skip_reason=f"run status is {run.status.value!r}; only passed runs are promoted",
+        )
+
+    if not _UTILITY_USAGE_HEADER.issubset(set(run.header)):
+        return PromotionResult(
+            run_id=run_id,
+            facts_loaded=0,
+            marts_refreshed=[],
+            publication_keys=[],
+            skipped=True,
+            skip_reason="run does not match the utility-usage canonical contract",
+        )
+
+    if transformation_service.count_utility_usage(run_id) > 0:
+        transformation_service.refresh_utility_cost_summary()
+        return PromotionResult(
+            run_id=run_id,
+            facts_loaded=0,
+            marts_refreshed=["mart_utility_cost_summary"],
+            publication_keys=_UTILITY_PUBLICATIONS.copy(),
+            skipped=True,
+            skip_reason="run already promoted",
+        )
+
+    canonical_rows = utility_usage_service.get_canonical_utility_usage(run_id)
+    row_dicts = [
+        {
+            "meter_id": row.meter_id,
+            "meter_name": row.meter_name,
+            "utility_type": row.utility_type,
+            "location": row.location,
+            "usage_start": str(row.usage_start),
+            "usage_end": str(row.usage_end),
+            "usage_quantity": str(row.usage_quantity),
+            "usage_unit": row.usage_unit,
+            "reading_source": row.reading_source,
+        }
+        for row in canonical_rows
+    ]
+
+    facts_loaded = transformation_service.load_utility_usage(row_dicts, run_id=run_id)
+    transformation_service.refresh_utility_cost_summary()
+
+    return PromotionResult(
+        run_id=run_id,
+        facts_loaded=facts_loaded,
+        marts_refreshed=["mart_utility_cost_summary"],
+        publication_keys=_UTILITY_PUBLICATIONS.copy(),
+    )
+
+
+def promote_utility_bill_run(
+    run_id: str,
+    *,
+    utility_bill_service: UtilityBillService,
+    transformation_service: TransformationService,
+) -> PromotionResult:
+    run = utility_bill_service.get_run(run_id)
+    if not run.passed:
+        return PromotionResult(
+            run_id=run_id,
+            facts_loaded=0,
+            marts_refreshed=[],
+            publication_keys=[],
+            skipped=True,
+            skip_reason=f"run status is {run.status.value!r}; only passed runs are promoted",
+        )
+
+    if not _UTILITY_BILL_HEADER.issubset(set(run.header)):
+        return PromotionResult(
+            run_id=run_id,
+            facts_loaded=0,
+            marts_refreshed=[],
+            publication_keys=[],
+            skipped=True,
+            skip_reason="run does not match the utility-bill canonical contract",
+        )
+
+    if transformation_service.count_bills(run_id) > 0:
+        transformation_service.refresh_utility_cost_summary()
+        return PromotionResult(
+            run_id=run_id,
+            facts_loaded=0,
+            marts_refreshed=["mart_utility_cost_summary"],
+            publication_keys=_UTILITY_PUBLICATIONS.copy(),
+            skipped=True,
+            skip_reason="run already promoted",
+        )
+
+    canonical_rows = utility_bill_service.get_canonical_utility_bills(run_id)
+    row_dicts = [
+        {
+            "meter_id": row.meter_id,
+            "meter_name": row.meter_name,
+            "provider": row.provider,
+            "utility_type": row.utility_type,
+            "location": row.location,
+            "billing_period_start": str(row.billing_period_start),
+            "billing_period_end": str(row.billing_period_end),
+            "billed_amount": str(row.billed_amount),
+            "currency": row.currency,
+            "billed_quantity": (
+                str(row.billed_quantity) if row.billed_quantity is not None else None
+            ),
+            "usage_unit": row.usage_unit,
+            "invoice_date": str(row.invoice_date) if row.invoice_date else None,
+        }
+        for row in canonical_rows
+    ]
+
+    facts_loaded = transformation_service.load_bills(row_dicts, run_id=run_id)
+    transformation_service.refresh_utility_cost_summary()
+
+    return PromotionResult(
+        run_id=run_id,
+        facts_loaded=facts_loaded,
+        marts_refreshed=["mart_utility_cost_summary"],
+        publication_keys=_UTILITY_PUBLICATIONS.copy(),
+    )
+
+
 def promote_source_asset_run(
     run_id: str,
     *,
@@ -316,6 +475,7 @@ def promote_source_asset_run(
     metadata_repository: RunMetadataStore,
     transformation_service: TransformationService,
     blob_store: BlobStore | None = None,
+    extension_registry: ExtensionRegistry | None = None,
 ) -> PromotionResult:
     if source_asset.transformation_package_id is None:
         return PromotionResult(
@@ -336,6 +496,14 @@ def promote_source_asset_run(
             transformation_package_id=transformation_package.transformation_package_id
         )
     ]
+    extension_publications = (
+        [
+            publication.relation_name
+            for publication in extension_registry.list_reporting_publications()
+        ]
+        if extension_registry is not None
+        else []
+    )
 
     if transformation_package.handler_key == "account_transactions":
         result = promote_run(
@@ -351,6 +519,7 @@ def promote_source_asset_run(
             result,
             supported_publications=_ACCOUNT_TRANSACTION_PUBLICATIONS,
             configured_publications=configured_publications,
+            additional_publications=extension_publications,
         )
     if transformation_package.handler_key == "subscriptions":
         result = promote_subscription_run(
@@ -366,6 +535,7 @@ def promote_source_asset_run(
             result,
             supported_publications=_SUBSCRIPTION_PUBLICATIONS,
             configured_publications=configured_publications,
+            additional_publications=extension_publications,
         )
     if transformation_package.handler_key == "contract_prices":
         result = promote_contract_price_run(
@@ -381,6 +551,39 @@ def promote_source_asset_run(
             result,
             supported_publications=_CONTRACT_PRICE_PUBLICATIONS,
             configured_publications=configured_publications,
+            additional_publications=extension_publications,
+        )
+    if transformation_package.handler_key == "utility_usage":
+        result = promote_utility_usage_run(
+            run_id,
+            utility_usage_service=UtilityUsageService(
+                landing_root=landing_root,
+                metadata_repository=metadata_repository,
+                blob_store=blob_store,
+            ),
+            transformation_service=transformation_service,
+        )
+        return _apply_publication_selection(
+            result,
+            supported_publications=_UTILITY_PUBLICATIONS,
+            configured_publications=configured_publications,
+            additional_publications=extension_publications,
+        )
+    if transformation_package.handler_key == "utility_bills":
+        result = promote_utility_bill_run(
+            run_id,
+            utility_bill_service=UtilityBillService(
+                landing_root=landing_root,
+                metadata_repository=metadata_repository,
+                blob_store=blob_store,
+            ),
+            transformation_service=transformation_service,
+        )
+        return _apply_publication_selection(
+            result,
+            supported_publications=_UTILITY_PUBLICATIONS,
+            configured_publications=configured_publications,
+            additional_publications=extension_publications,
         )
 
     raise ValueError(
@@ -393,11 +596,16 @@ def _apply_publication_selection(
     *,
     supported_publications: list[str],
     configured_publications: list[str],
+    additional_publications: list[str] | None = None,
 ) -> PromotionResult:
     if not configured_publications:
         return replace(result, publication_keys=supported_publications.copy())
 
-    unsupported = sorted(set(configured_publications) - set(supported_publications))
+    allowed_publications = set(supported_publications)
+    if additional_publications:
+        allowed_publications.update(additional_publications)
+
+    unsupported = sorted(set(configured_publications) - allowed_publications)
     if unsupported:
         raise ValueError(
             "Configured publication definitions are not supported by the selected transformation package: "

@@ -8,6 +8,13 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 
 - `architecture/data-platform-architecture.md` — source ingestion pattern, landing/bronze, transformation/silver, reporting/gold, SCD handling, and API/UI publishing model.
 
+## Agents
+
+- `agents/planning.md` — planning mode expectations and required plan verification.
+- `agents/implementation.md` — implementation mode guardrails and required validation.
+- `agents/review.md` — review mode findings-first expectations and architecture checks.
+- `agents/release-ops.md` — local, CI, and deployment verification expectations.
+
 ## Decisions
 
 - `decisions/compute-and-orchestration-options.md` — comparison of Spark and alternative engines/orchestrators, with the recommended initial stack and upgrade path.

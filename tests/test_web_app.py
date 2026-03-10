@@ -1,13 +1,15 @@
-from pathlib import Path
-from tempfile import TemporaryDirectory
 import io
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from wsgiref.util import setup_testing_defaults
 
 from apps.web.app import create_app
 from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.pipelines.promotion import promote_run
+from packages.pipelines.transformation_service import TransformationService
+from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository
-
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
@@ -56,9 +58,17 @@ class WebAppTests(unittest.TestCase):
                 landing_root=Path(temp_dir) / "landing",
                 metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
             )
-            service.ingest_file(FIXTURES / "account_transactions_valid.csv")
+            transformation_service = TransformationService(
+                DuckDBStore.open(str(Path(temp_dir) / "warehouse.duckdb"))
+            )
+            valid_run = service.ingest_file(FIXTURES / "account_transactions_valid.csv")
             service.ingest_file(FIXTURES / "account_transactions_invalid_values.csv")
-            app = create_app(service)
+            promote_run(
+                valid_run.run_id,
+                account_service=service,
+                transformation_service=transformation_service,
+            )
+            app = create_app(service, transformation_service=transformation_service)
 
             status_code, _, body = invoke_wsgi_app(app, "GET", "/")
 

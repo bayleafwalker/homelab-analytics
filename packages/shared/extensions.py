@@ -1,17 +1,21 @@
 from __future__ import annotations
 
+import importlib
+import inspect
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-import importlib
-import sys
 from typing import Any, Callable
-
 
 VALID_EXTENSION_LAYERS = (
     "landing",
     "transformation",
     "reporting",
     "application",
+)
+VALID_REPORTING_DATA_ACCESS = (
+    "published",
+    "warehouse",
 )
 
 
@@ -23,11 +27,30 @@ class LayerExtension:
     description: str
     module: str
     source: str
+    data_access: str = "none"
+    publication_relations: tuple["ExtensionPublication", ...] = ()
     handler: Callable[..., object] | None = field(
         default=None,
         repr=False,
         compare=False,
     )
+
+
+@dataclass(frozen=True)
+class ExtensionPublication:
+    relation_name: str
+    columns: tuple[tuple[str, str], ...]
+    source_query: str
+    order_by: str
+
+
+def _run_monthly_cashflow_summary(
+    *,
+    reporting_service=None,
+):
+    if reporting_service is not None:
+        return reporting_service.get_monthly_cashflow()
+    raise ValueError("monthly_cashflow_summary requires a reporting service")
 
 
 BUILTIN_EXTENSIONS = (
@@ -86,7 +109,8 @@ BUILTIN_EXTENSIONS = (
         description="Built-in monthly cash-flow mart derived from canonical account transactions.",
         module="packages.analytics.cashflow",
         source="builtin",
-        handler=lambda *, service, run_id: service.get_monthly_cashflow(run_id),
+        data_access="published",
+        handler=_run_monthly_cashflow_summary,
     ),
     LayerExtension(
         layer="application",
@@ -116,6 +140,11 @@ class ExtensionRegistry:
     def register(self, extension: LayerExtension) -> None:
         if extension.layer not in self._extensions_by_layer:
             raise ValueError(f"Unsupported extension layer: {extension.layer}")
+        _validate_extension_contract(extension)
+        _validate_publication_relation_uniqueness(
+            self.list_reporting_publications(),
+            extension,
+        )
 
         existing = self._extensions_by_layer[extension.layer].get(extension.key)
         if existing is not None and existing != extension:
@@ -149,13 +178,38 @@ class ExtensionRegistry:
             raise KeyError(f"Unknown extension for layer={layer}: {key}")
         return extension
 
+    def list_reporting_publications(self) -> list[ExtensionPublication]:
+        publications: list[ExtensionPublication] = []
+        for extension in self.list_extensions("reporting"):
+            publications.extend(extension.publication_relations)
+        return publications
+
+    def get_reporting_publication(self, relation_name: str) -> ExtensionPublication:
+        for publication in self.list_reporting_publications():
+            if publication.relation_name == relation_name:
+                return publication
+        raise KeyError(f"Unknown reporting publication relation: {relation_name}")
+
     def execute(self, layer: str, key: str, **kwargs: Any) -> object:
         extension = self.get_extension(layer, key)
         if extension.handler is None:
             raise ValueError(
                 f"Extension is not executable for layer={layer} key={key}"
             )
-        return extension.handler(**kwargs)
+        _validate_execution_contract(extension, **kwargs)
+        handler_signature = inspect.signature(extension.handler)
+        if any(
+            parameter.kind == inspect.Parameter.VAR_KEYWORD
+            for parameter in handler_signature.parameters.values()
+        ):
+            return extension.handler(**kwargs)
+
+        accepted_kwargs = {
+            name: value
+            for name, value in kwargs.items()
+            if name in handler_signature.parameters
+        }
+        return extension.handler(**accepted_kwargs)
 
     def to_mapping(self) -> dict[str, list[LayerExtension]]:
         return {
@@ -191,7 +245,7 @@ def load_extension_registry(
     return registry
 
 
-def serialize_extension(extension: LayerExtension) -> dict[str, str]:
+def serialize_extension(extension: LayerExtension) -> dict[str, Any]:
     return {
         "layer": extension.layer,
         "key": extension.key,
@@ -199,15 +253,22 @@ def serialize_extension(extension: LayerExtension) -> dict[str, str]:
         "description": extension.description,
         "module": extension.module,
         "source": extension.source,
+        "data_access": extension.data_access,
+        "publication_relations": [
+            publication.relation_name for publication in extension.publication_relations
+        ],
         "executable": "true" if extension.handler is not None else "false",
     }
 
 
 def serialize_extension_registry(
     registry: ExtensionRegistry,
-) -> dict[str, list[dict[str, str]]]:
+) -> dict[str, list[dict[str, Any]]]:
     return {
-        layer: [serialize_extension(extension) for extension in registry.list_extensions(layer)]
+        layer: [
+            serialize_extension(extension)
+            for extension in registry.list_extensions(layer)
+        ]
         for layer in VALID_EXTENSION_LAYERS
     }
 
@@ -219,6 +280,78 @@ def _install_extension_paths(extension_paths: tuple[Path, ...]) -> None:
             raise FileNotFoundError(f"Extension path does not exist: {path}")
         if resolved_path not in sys.path:
             sys.path.insert(0, resolved_path)
+
+
+def _validate_extension_contract(extension: LayerExtension) -> None:
+    if extension.layer != "reporting":
+        if extension.data_access != "none" or extension.publication_relations:
+            raise ValueError(
+                "Only reporting extensions may declare data_access or publication_relations; use the default contract for other layers."
+            )
+        return
+
+    if extension.handler is None:
+        if extension.data_access not in {"none", *VALID_REPORTING_DATA_ACCESS}:
+            raise ValueError(
+                "Reporting extensions must use data_access='none', 'published', or 'warehouse'."
+            )
+        if extension.publication_relations and extension.data_access != "published":
+            raise ValueError(
+                "Reporting publication_relations require data_access='published'."
+            )
+        return
+
+    if extension.data_access not in VALID_REPORTING_DATA_ACCESS:
+        raise ValueError(
+            "Executable reporting extensions must declare data_access='published' or 'warehouse'."
+        )
+    if extension.publication_relations and extension.data_access != "published":
+        raise ValueError(
+            "Reporting publication_relations require data_access='published'."
+        )
+
+
+def _validate_execution_contract(extension: LayerExtension, **kwargs: Any) -> None:
+    if extension.layer != "reporting" or extension.handler is None:
+        return
+
+    if (
+        extension.data_access == "published"
+        and kwargs.get("reporting_service") is None
+    ):
+        raise ValueError(
+            f"Reporting extension {extension.key!r} requires reporting_service because data_access='published'."
+        )
+
+    if (
+        extension.data_access == "warehouse"
+        and kwargs.get("transformation_service") is None
+    ):
+        raise ValueError(
+            f"Reporting extension {extension.key!r} requires transformation_service because data_access='warehouse'."
+        )
+
+
+def _validate_publication_relation_uniqueness(
+    existing_publications: list[ExtensionPublication],
+    extension: LayerExtension,
+) -> None:
+    existing_relation_names = {
+        publication.relation_name for publication in existing_publications
+    }
+    extension_relation_names = [
+        publication.relation_name for publication in extension.publication_relations
+    ]
+
+    if len(extension_relation_names) != len(set(extension_relation_names)):
+        raise ValueError("Reporting publication_relations must use unique relation names.")
+
+    duplicates = existing_relation_names & set(extension_relation_names)
+    if duplicates:
+        duplicate_names = ", ".join(sorted(duplicates))
+        raise ValueError(
+            f"Reporting publication relations already registered: {duplicate_names}"
+        )
 
 
 def _run_account_transaction_folder_watch(

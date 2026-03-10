@@ -9,16 +9,12 @@ Covers:
 
 from __future__ import annotations
 
+import unittest
 from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 
 from packages.pipelines.promotion import promote_subscription_run
-from packages.pipelines.subscription_models import (
-    FACT_SUBSCRIPTION_CHARGE_TABLE,
-    MART_SUBSCRIPTION_SUMMARY_TABLE,
-)
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.subscriptions import (
     CanonicalSubscription,
@@ -27,7 +23,6 @@ from packages.pipelines.subscriptions import (
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository
-
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"

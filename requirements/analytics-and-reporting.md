@@ -35,7 +35,7 @@ The platform derives household and homelab analytics from normalized canonical m
 **Rationale:** Loan tracking is a core household financial planning need. Projection vs. actual comparison reveals early/late repayment impact.
 
 **Phase:** 3
-**Status:** in-progress (current electricity tariff rows are now materialised via `mart_electricity_price_current` and exposed by the API; usage-plus-billing correlation is not yet implemented)
+**Status:** not-started
 
 **Acceptance criteria:**
 - Amortization engine produces a schedule from loan parameters (principal, rate, term, frequency).
@@ -56,7 +56,7 @@ The platform derives household and homelab analytics from normalized canonical m
 **Rationale:** Budget vs. actual tracking is the most requested household finance feature after cash-flow.
 
 **Phase:** 3
-**Status:** in-progress (current electricity tariff rows are now materialised in `mart_electricity_price_current` and exposed via API; metered-usage and billed-cost correlation is still pending)
+**Status:** not-started
 
 **Acceptance criteria:**
 - Budget definitions specify: category, period (monthly/quarterly/annual), and target amount.
@@ -97,7 +97,7 @@ The platform derives household and homelab analytics from normalized canonical m
 **Rationale:** Electricity is typically the most variable household cost. Correlating metered usage with billed amounts enables anomaly detection and efficiency tracking.
 
 **Phase:** 3
-**Status:** not-started
+**Status:** in-progress (`fact_utility_usage`, `fact_bill`, and `mart_utility_cost_summary` are persisted in DuckDB; `GET /reports/utility-cost-summary` and `report-utility-cost-summary` expose the mart with meter/type/period/granularity filters; dashboard trend visualizations are still pending)
 
 **Acceptance criteria:**
 - Utility mart joins `fact_utility_usage` and `fact_bill` by meter and billing period.
@@ -194,7 +194,7 @@ The platform derives household and homelab analytics from normalized canonical m
 | ANA-02 | Reporting | — | — |
 | ANA-03 | Reporting | — | — |
 | ANA-04 | Reporting | — | — |
-| ANA-05 | Reporting | `packages/pipelines/contract_price_models.py`, `packages/pipelines/transformation_service.py`, `apps/api/app.py` | `tests/test_contract_price_domain.py`, `tests/test_api_app.py` |
+| ANA-05 | Reporting | `packages/pipelines/utility_models.py`, `packages/pipelines/transformation_service.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py` |
 | ANA-06 | Reporting | — | — |
 | ANA-07 | Reporting | `packages/pipelines/subscription_models.py`, `packages/pipelines/transformation_service.py` | `tests/test_subscription_domain.py` |
 | ANA-08 | API and dashboard publication | — | — |

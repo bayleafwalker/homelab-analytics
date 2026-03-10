@@ -1,5 +1,5 @@
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 from packages.pipelines.csv_validation import (
     ColumnContract,
@@ -7,7 +7,6 @@ from packages.pipelines.csv_validation import (
     DatasetContract,
     validate_csv_text,
 )
-
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"

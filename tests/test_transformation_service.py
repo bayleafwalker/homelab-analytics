@@ -2,18 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import date
-from decimal import Decimal
-
 import pytest
 
 from packages.pipelines.transformation_service import TransformationService
-from packages.pipelines.transaction_models import (
-    FACT_TRANSACTION_TABLE,
-    MART_MONTHLY_CASHFLOW_TABLE,
-)
 from packages.storage.duckdb_store import DuckDBStore
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

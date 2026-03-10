@@ -1,14 +1,15 @@
-from pathlib import Path
-from tempfile import TemporaryDirectory
 import io
 import json
 import os
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from apps.worker.main import build_service, main
 from packages.pipelines.csv_validation import ColumnType
 from packages.shared.secrets import build_secret_env_var_name
+from packages.shared.settings import AppSettings
 from packages.storage.ingestion_config import (
     ColumnMappingCreate,
     ColumnMappingRule,
@@ -20,8 +21,6 @@ from packages.storage.ingestion_config import (
     SourceAssetCreate,
     SourceSystemCreate,
 )
-from packages.shared.settings import AppSettings
-
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
@@ -110,7 +109,7 @@ class WorkerCliTests(unittest.TestCase):
             )
             self.assertEqual(0, exit_code)
             report_payload = json.loads(stdout.getvalue())
-            self.assertEqual("2365.85", report_payload["summaries"][0]["net"])
+            self.assertEqual("2365.8500", report_payload["rows"][0]["net"])
 
     def test_cli_lists_loaded_extensions(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -152,6 +151,13 @@ class WorkerCliTests(unittest.TestCase):
                     for extension in payload["extensions"]["transformation"]
                 )
             )
+            monthly_cashflow_extension = next(
+                extension
+                for extension in payload["extensions"]["reporting"]
+                if extension["key"] == "monthly_cashflow_summary"
+            )
+            self.assertEqual("published", monthly_cashflow_extension["data_access"])
+            self.assertEqual([], monthly_cashflow_extension["publication_relations"])
 
     def test_cli_runs_transformation_extension(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -256,7 +262,7 @@ class WorkerCliTests(unittest.TestCase):
 
             self.assertEqual(0, exit_code)
             payload = json.loads(stdout.getvalue())
-            self.assertEqual("2365.85", payload["result"][0]["net"])
+            self.assertEqual("2365.8500", payload["result"][0]["net"])
 
     def test_cli_processes_persisted_ingestion_definition(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -512,6 +518,214 @@ class WorkerCliTests(unittest.TestCase):
             payload = json.loads(stdout.getvalue())
             self.assertEqual(1, payload["result"]["processed_files"])
             self.assertEqual(0, payload["result"]["rejected_files"])
+
+    def test_cli_verify_config_reports_valid_graph(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+
+            config_repository = IngestionConfigRepository(
+                settings.resolved_config_database_path
+            )
+            config_repository.create_source_system(
+                SourceSystemCreate(
+                    source_system_id="bank_partner_export",
+                    name="Bank Partner Export",
+                    source_type="file-drop",
+                    transport="filesystem",
+                    schedule_mode="manual",
+                )
+            )
+            config_repository.create_dataset_contract(
+                DatasetContractConfigCreate(
+                    dataset_contract_id="household_account_transactions_v1",
+                    dataset_name="household_account_transactions",
+                    version=1,
+                    allow_extra_columns=False,
+                    columns=(
+                        DatasetColumnConfig("booked_at", ColumnType.DATE),
+                        DatasetColumnConfig("account_id", ColumnType.STRING),
+                        DatasetColumnConfig("counterparty_name", ColumnType.STRING),
+                        DatasetColumnConfig("amount", ColumnType.DECIMAL),
+                        DatasetColumnConfig("currency", ColumnType.STRING),
+                    ),
+                )
+            )
+            config_repository.create_column_mapping(
+                ColumnMappingCreate(
+                    column_mapping_id="bank_partner_export_v1",
+                    source_system_id="bank_partner_export",
+                    dataset_contract_id="household_account_transactions_v1",
+                    version=1,
+                    rules=(
+                        ColumnMappingRule("booked_at", source_column="booking_date"),
+                        ColumnMappingRule("account_id", source_column="account_number"),
+                        ColumnMappingRule("counterparty_name", source_column="payee"),
+                        ColumnMappingRule("amount", source_column="amount_eur"),
+                        ColumnMappingRule("currency", default_value="EUR"),
+                    ),
+                )
+            )
+            config_repository.create_source_asset(
+                SourceAssetCreate(
+                    source_asset_id="bank_partner_transactions",
+                    source_system_id="bank_partner_export",
+                    dataset_contract_id="household_account_transactions_v1",
+                    column_mapping_id="bank_partner_export_v1",
+                    name="Bank Partner Transactions",
+                    asset_type="dataset",
+                    transformation_package_id="builtin_account_transactions",
+                )
+            )
+            config_repository.create_ingestion_definition(
+                IngestionDefinitionCreate(
+                    ingestion_definition_id="bank_partner_watch_folder",
+                    source_asset_id="bank_partner_transactions",
+                    transport="filesystem",
+                    schedule_mode="watch-folder",
+                    source_path="/tmp/inbox",
+                    file_pattern="*.csv",
+                    processed_path="/tmp/processed",
+                    failed_path="/tmp/failed",
+                    poll_interval_seconds=30,
+                    enabled=True,
+                    source_name="folder-watch",
+                )
+            )
+
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            exit_code = main(
+                ["verify-config", "--source-asset-id", "bank_partner_transactions"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            payload = json.loads(stdout.getvalue())
+            self.assertTrue(payload["report"]["passed"])
+            self.assertEqual([], payload["report"]["issues"])
+            self.assertEqual(
+                "bank_partner_transactions",
+                payload["report"]["scope"]["source_asset_id"],
+            )
+
+    def test_cli_verify_config_returns_nonzero_with_json_report_for_invalid_graph(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+
+            config_repository = IngestionConfigRepository(
+                settings.resolved_config_database_path
+            )
+            config_repository.create_source_system(
+                SourceSystemCreate(
+                    source_system_id="bank_partner_export",
+                    name="Bank Partner Export",
+                    source_type="file-drop",
+                    transport="filesystem",
+                    schedule_mode="manual",
+                )
+            )
+            config_repository.create_dataset_contract(
+                DatasetContractConfigCreate(
+                    dataset_contract_id="household_account_transactions_v1",
+                    dataset_name="household_account_transactions",
+                    version=1,
+                    allow_extra_columns=False,
+                    columns=(
+                        DatasetColumnConfig("booked_at", ColumnType.DATE),
+                        DatasetColumnConfig("account_id", ColumnType.STRING),
+                        DatasetColumnConfig("counterparty_name", ColumnType.STRING),
+                        DatasetColumnConfig("amount", ColumnType.DECIMAL),
+                        DatasetColumnConfig("currency", ColumnType.STRING),
+                    ),
+                )
+            )
+            config_repository.create_column_mapping(
+                ColumnMappingCreate(
+                    column_mapping_id="bank_partner_export_v1",
+                    source_system_id="bank_partner_export",
+                    dataset_contract_id="household_account_transactions_v1",
+                    version=1,
+                    rules=(
+                        ColumnMappingRule("booked_at", source_column="booking_date"),
+                        ColumnMappingRule("account_id", source_column="account_number"),
+                        ColumnMappingRule("counterparty_name", source_column="payee"),
+                        ColumnMappingRule("amount", source_column="amount_eur"),
+                        ColumnMappingRule("not_in_contract", default_value="bad"),
+                    ),
+                )
+            )
+            config_repository.create_source_asset(
+                SourceAssetCreate(
+                    source_asset_id="bank_partner_transactions",
+                    source_system_id="bank_partner_export",
+                    dataset_contract_id="household_account_transactions_v1",
+                    column_mapping_id="bank_partner_export_v1",
+                    name="Bank Partner Transactions",
+                    asset_type="dataset",
+                    transformation_package_id="builtin_account_transactions",
+                )
+            )
+
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            exit_code = main(
+                ["verify-config", "--source-asset-id", "bank_partner_transactions"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(1, exit_code)
+            self.assertEqual("", stderr.getvalue())
+            payload = json.loads(stdout.getvalue())
+            self.assertFalse(payload["report"]["passed"])
+            self.assertEqual(
+                {
+                    "missing_required_mapping",
+                    "unknown_target_column",
+                },
+                {issue["code"] for issue in payload["report"]["issues"]},
+            )
 
     def test_cli_ingest_configured_csv_command(self) -> None:
         with TemporaryDirectory() as temp_dir:

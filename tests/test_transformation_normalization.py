@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
 import unittest
+from datetime import date, datetime, timezone
 
 from packages.pipelines.normalization import (
     MeasurementUnit,

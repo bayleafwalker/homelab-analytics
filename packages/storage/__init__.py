@@ -1,10 +1,26 @@
 from .blob import BlobStore, FilesystemBlobStore, InMemoryBlobStore
+from .runtime import build_blob_store, build_reporting_store, build_run_metadata_store
+
 try:
-    from .duckdb_store import DimensionColumn, DimensionDefinition, DuckDBStore
+    from .duckdb_store import DimensionColumn, DimensionDefinition, DuckDBStore  # noqa: F401
 except ModuleNotFoundError as exc:
     if exc.name != "duckdb":
         raise
-from .landing_service import LandingRunResult, LandingService
+try:
+    from .postgres_reporting import PostgresReportingStore  # noqa: F401
+except ModuleNotFoundError as exc:
+    if exc.name != "psycopg":
+        raise
+try:
+    from .postgres_run_metadata import PostgresRunMetadataRepository  # noqa: F401
+except ModuleNotFoundError as exc:
+    if exc.name != "psycopg":
+        raise
+try:
+    from .s3_blob import S3BlobStore  # noqa: F401
+except ModuleNotFoundError as exc:
+    if exc.name not in {"boto3", "botocore"}:
+        raise
 from .ingestion_config import (
     ColumnMappingCreate,
     ColumnMappingRecord,
@@ -12,9 +28,9 @@ from .ingestion_config import (
     DatasetColumnConfig,
     DatasetContractConfigCreate,
     DatasetContractConfigRecord,
+    IngestionConfigRepository,
     IngestionDefinitionCreate,
     IngestionDefinitionRecord,
-    IngestionConfigRepository,
     PublicationDefinitionCreate,
     PublicationDefinitionRecord,
     RequestHeaderSecretRef,
@@ -26,19 +42,23 @@ from .ingestion_config import (
     TransformationPackageRecord,
     resolve_dataset_contract,
 )
+from .landing_service import LandingRunResult, LandingService
 from .local_landing import ingest_csv_file
 from .run_metadata import (
     IngestionRunCreate,
     IngestionRunRecord,
     IngestionRunStatus,
-    RunMetadataStore,
     RunMetadataRepository,
+    RunMetadataStore,
 )
 
 __all__ = [
     "BlobStore",
     "FilesystemBlobStore",
     "InMemoryBlobStore",
+    "build_blob_store",
+    "build_reporting_store",
+    "build_run_metadata_store",
     "IngestionRunCreate",
     "IngestionRunRecord",
     "IngestionRunStatus",
@@ -76,3 +96,9 @@ if "DuckDBStore" in globals():
             "DuckDBStore",
         ]
     )
+if "PostgresReportingStore" in globals():
+    __all__.append("PostgresReportingStore")
+if "PostgresRunMetadataRepository" in globals():
+    __all__.append("PostgresRunMetadataRepository")
+if "S3BlobStore" in globals():
+    __all__.append("S3BlobStore")

@@ -5,33 +5,41 @@ import uvicorn
 from apps.api.app import create_app
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.contract_price_service import ContractPriceService
+from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.extensions import ExtensionRegistry, load_extension_registry
 from packages.shared.settings import AppSettings
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.ingestion_config import IngestionConfigRepository
-from packages.storage.run_metadata import RunMetadataRepository
+from packages.storage.runtime import (
+    build_blob_store,
+    build_reporting_store,
+    build_run_metadata_store,
+)
 
 
 def build_service(settings: AppSettings) -> AccountTransactionService:
     return AccountTransactionService(
         landing_root=settings.landing_root,
-        metadata_repository=RunMetadataRepository(settings.metadata_database_path),
+        metadata_repository=build_run_metadata_store(settings),
+        blob_store=build_blob_store(settings),
     )
 
 
 def build_subscription_service(settings: AppSettings) -> SubscriptionService:
     return SubscriptionService(
         landing_root=settings.landing_root,
-        metadata_repository=RunMetadataRepository(settings.metadata_database_path),
+        metadata_repository=build_run_metadata_store(settings),
+        blob_store=build_blob_store(settings),
     )
 
 
 def build_contract_price_service(settings: AppSettings) -> ContractPriceService:
     return ContractPriceService(
         landing_root=settings.landing_root,
-        metadata_repository=RunMetadataRepository(settings.metadata_database_path),
+        metadata_repository=build_run_metadata_store(settings),
+        blob_store=build_blob_store(settings),
     )
 
 
@@ -39,6 +47,18 @@ def build_transformation_service(settings: AppSettings) -> TransformationService
     analytics_path = settings.resolved_analytics_database_path
     analytics_path.parent.mkdir(parents=True, exist_ok=True)
     return TransformationService(DuckDBStore.open(str(analytics_path)))
+
+
+def build_reporting_service(
+    settings: AppSettings,
+    transformation_service: TransformationService,
+    extension_registry: ExtensionRegistry | None = None,
+) -> ReportingService:
+    return ReportingService(
+        transformation_service,
+        publication_store=build_reporting_store(settings),
+        extension_registry=extension_registry,
+    )
 
 
 def build_extension_registry(settings: AppSettings) -> ExtensionRegistry:
@@ -50,13 +70,20 @@ def build_extension_registry(settings: AppSettings) -> ExtensionRegistry:
 
 def build_app(settings: AppSettings | None = None):
     resolved_settings = settings or AppSettings.from_env()
+    transformation_service = build_transformation_service(resolved_settings)
+    extension_registry = build_extension_registry(resolved_settings)
     return create_app(
         build_service(resolved_settings),
-        build_extension_registry(resolved_settings),
+        extension_registry,
         config_repository=IngestionConfigRepository(
             resolved_settings.resolved_config_database_path
         ),
-        transformation_service=build_transformation_service(resolved_settings),
+        transformation_service=transformation_service,
+        reporting_service=build_reporting_service(
+            resolved_settings,
+            transformation_service,
+            extension_registry,
+        ),
         subscription_service=build_subscription_service(resolved_settings),
         contract_price_service=build_contract_price_service(resolved_settings),
     )

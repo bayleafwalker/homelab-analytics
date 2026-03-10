@@ -1,0 +1,2 @@
+meter_ref,meter_label,utility_kind,site_label,period_start,period_end,consumption,unit_code,source_system
+elec-001,Main Apartment Meter,electricity,home,2026/01/01,2026-01-31,not-a-number,kWh,smart-meter

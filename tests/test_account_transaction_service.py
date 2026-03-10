@@ -1,14 +1,13 @@
+import unittest
 from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 
 from packages.pipelines.account_transaction_service import (
     AccountTransactionService,
 )
 from packages.storage.blob import InMemoryBlobStore
 from packages.storage.run_metadata import IngestionRunStatus, RunMetadataRepository
-
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"

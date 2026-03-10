@@ -1,10 +1,53 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: homelab
+      POSTGRES_USER: homelab
+      POSTGRES_PASSWORD: homelab
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U homelab -d homelab"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+    volumes:
+      - homelab_analytics_postgres:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: ["server", "/data", "--console-address", ":9001"]
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - homelab_analytics_minio:/data
+
   api:
     build:
       context: ../..
       dockerfile: infra/docker/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
     environment:
       HOMELAB_ANALYTICS_DATA_DIR: /data
+      HOMELAB_ANALYTICS_METADATA_BACKEND: postgres
+      HOMELAB_ANALYTICS_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
+      HOMELAB_ANALYTICS_REPORTING_BACKEND: postgres
+      HOMELAB_ANALYTICS_BLOB_BACKEND: s3
+      HOMELAB_ANALYTICS_S3_ENDPOINT_URL: http://minio:9000
+      HOMELAB_ANALYTICS_S3_BUCKET: homelab-landing
+      HOMELAB_ANALYTICS_S3_REGION: us-east-1
+      HOMELAB_ANALYTICS_S3_ACCESS_KEY_ID: minioadmin
+      HOMELAB_ANALYTICS_S3_SECRET_ACCESS_KEY: minioadmin
+      HOMELAB_ANALYTICS_S3_PREFIX: bronze
       HOMELAB_ANALYTICS_API_HOST: 0.0.0.0
       HOMELAB_ANALYTICS_API_PORT: 8080
     ports:
@@ -17,8 +60,23 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
     environment:
       HOMELAB_ANALYTICS_DATA_DIR: /data
+      HOMELAB_ANALYTICS_METADATA_BACKEND: postgres
+      HOMELAB_ANALYTICS_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
+      HOMELAB_ANALYTICS_REPORTING_BACKEND: postgres
+      HOMELAB_ANALYTICS_BLOB_BACKEND: s3
+      HOMELAB_ANALYTICS_S3_ENDPOINT_URL: http://minio:9000
+      HOMELAB_ANALYTICS_S3_BUCKET: homelab-landing
+      HOMELAB_ANALYTICS_S3_REGION: us-east-1
+      HOMELAB_ANALYTICS_S3_ACCESS_KEY_ID: minioadmin
+      HOMELAB_ANALYTICS_S3_SECRET_ACCESS_KEY: minioadmin
+      HOMELAB_ANALYTICS_S3_PREFIX: bronze
       HOMELAB_ANALYTICS_WEB_HOST: 0.0.0.0
       HOMELAB_ANALYTICS_WEB_PORT: 8081
     ports:
@@ -32,8 +90,23 @@ services:
       context: ../..
       dockerfile: infra/docker/Dockerfile
     profiles: ["worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
     environment:
       HOMELAB_ANALYTICS_DATA_DIR: /data
+      HOMELAB_ANALYTICS_METADATA_BACKEND: postgres
+      HOMELAB_ANALYTICS_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
+      HOMELAB_ANALYTICS_REPORTING_BACKEND: postgres
+      HOMELAB_ANALYTICS_BLOB_BACKEND: s3
+      HOMELAB_ANALYTICS_S3_ENDPOINT_URL: http://minio:9000
+      HOMELAB_ANALYTICS_S3_BUCKET: homelab-landing
+      HOMELAB_ANALYTICS_S3_REGION: us-east-1
+      HOMELAB_ANALYTICS_S3_ACCESS_KEY_ID: minioadmin
+      HOMELAB_ANALYTICS_S3_SECRET_ACCESS_KEY: minioadmin
+      HOMELAB_ANALYTICS_S3_PREFIX: bronze
     volumes:
       - homelab_analytics_data:/data
     entrypoint: ["homelab-analytics-worker"]
@@ -41,3 +114,5 @@ services:
 
 volumes:
   homelab_analytics_data:
+  homelab_analytics_minio:
+  homelab_analytics_postgres:

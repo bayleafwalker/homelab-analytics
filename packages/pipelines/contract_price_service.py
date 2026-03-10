@@ -14,7 +14,6 @@ from packages.storage.blob import BlobStore, FilesystemBlobStore
 from packages.storage.landing_service import LandingService
 from packages.storage.run_metadata import IngestionRunRecord, RunMetadataStore
 
-
 CONTRACT_PRICE_CONTRACT = DatasetContract(
     dataset_name="contract_prices",
     columns=(
