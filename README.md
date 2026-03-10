@@ -138,11 +138,13 @@ make verify-fast
 make verify-config
 make test-e2e-local
 make verify-domain DOMAIN=account
+make verify-domain DOMAIN=subscriptions
+make verify-domain DOMAIN=contract_prices
 make verify-domain DOMAIN=utility
 make test-storage-adapters
 ```
 
-Use `make verify-config VERIFY_CONFIG_ARGS="--source-asset-id <source_asset_id>"` to preflight a single config-driven slice before running ingestion or promotion. The account and utility `verify-domain` harnesses now run both global and scoped preflight checks before processing ingestion definitions.
+Use `make verify-config VERIFY_CONFIG_ARGS="--source-asset-id <source_asset_id>"` to preflight a single config-driven slice before running ingestion or promotion. The account, subscriptions, contract-prices, and utility `verify-domain` harnesses now run both global and scoped preflight checks before processing ingestion definitions.
 
 ## Extension model
 

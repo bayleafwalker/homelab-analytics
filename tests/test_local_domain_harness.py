@@ -27,6 +27,22 @@ from tests.account_test_support import (
 from tests.account_test_support import (
     FIXTURES as ACCOUNT_FIXTURES,
 )
+from tests.contract_price_test_support import (
+    CONTRACT_PRICE_ASSET_ID,
+    CONTRACT_PRICE_DEFINITION_ID,
+    create_contract_price_configuration,
+)
+from tests.contract_price_test_support import (
+    FIXTURES as CONTRACT_PRICE_FIXTURES,
+)
+from tests.subscription_test_support import (
+    FIXTURES as SUBSCRIPTION_FIXTURES,
+)
+from tests.subscription_test_support import (
+    SUBSCRIPTION_ASSET_ID,
+    SUBSCRIPTION_DEFINITION_ID,
+    create_subscription_configuration,
+)
 from tests.utility_test_support import (
     FIXTURES,
     UTILITY_BILLS_ASSET_ID,
@@ -150,24 +166,61 @@ def test_account_local_domain_harness() -> None:
 
 def test_subscriptions_local_domain_harness() -> None:
     with TemporaryDirectory() as temp_dir:
-        settings = _make_settings(Path(temp_dir))
+        temp_root = Path(temp_dir)
+        settings = _make_settings(temp_root)
+        inbox_dir = temp_root / "inbox" / "configured-subscriptions"
+        processed_dir = temp_root / "processed" / "configured-subscriptions"
+        failed_dir = temp_root / "failed" / "configured-subscriptions"
+        inbox_dir.mkdir(parents=True)
+        shutil.copyfile(
+            SUBSCRIPTION_FIXTURES / "subscriptions_valid.csv",
+            inbox_dir / "subscriptions_valid.csv",
+        )
 
-        ingest_payload = _run_worker_json(
-            [
-                "ingest-subscriptions",
-                str(FIXTURES / "subscriptions_valid.csv"),
-                "--source-name",
-                "manual-upload",
-            ],
+        config_repository = IngestionConfigRepository(settings.resolved_config_database_path)
+        create_subscription_configuration(
+            config_repository,
+            include_ingestion_definitions=True,
+            inbox=inbox_dir,
+            processed=processed_dir,
+            failed=failed_dir,
+        )
+
+        global_preflight = _run_worker_json(["verify-config"], settings)
+        asset_preflight = _run_worker_json(
+            ["verify-config", "--source-asset-id", SUBSCRIPTION_ASSET_ID],
             settings,
         )
-        assert ingest_payload["promotion"]["facts_loaded"] == 5
+        definition_preflight = _run_worker_json(
+            ["verify-config", "--ingestion-definition-id", SUBSCRIPTION_DEFINITION_ID],
+            settings,
+        )
+
+        assert global_preflight["report"]["passed"] is True
+        assert global_preflight["report"]["checked"]["source_assets"] == 1
+        assert global_preflight["report"]["checked"]["ingestion_definitions"] == 1
+        assert asset_preflight["report"]["passed"] is True
+        assert asset_preflight["report"]["scope"]["source_asset_id"] == SUBSCRIPTION_ASSET_ID
+        assert definition_preflight["report"]["passed"] is True
+        assert (
+            definition_preflight["report"]["scope"]["ingestion_definition_id"]
+            == SUBSCRIPTION_DEFINITION_ID
+        )
+
+        ingest_payload = _run_worker_json(
+            ["process-ingestion-definition", SUBSCRIPTION_DEFINITION_ID],
+            settings,
+        )
+        assert ingest_payload["result"]["processed_files"] == 1
+        assert len(ingest_payload["promotions"]) == 1
+        assert ingest_payload["promotions"][0]["facts_loaded"] == 5
 
         report_payload = _run_worker_json(["report-subscription-summary"], settings)
         assert len(report_payload["rows"]) == 5
 
         client = _build_client(
             settings,
+            config_repository=config_repository,
             subscription_service=SubscriptionService(
                 landing_root=settings.landing_root,
                 metadata_repository=RunMetadataRepository(settings.metadata_database_path),
@@ -180,24 +233,61 @@ def test_subscriptions_local_domain_harness() -> None:
 
 def test_contract_prices_local_domain_harness() -> None:
     with TemporaryDirectory() as temp_dir:
-        settings = _make_settings(Path(temp_dir))
+        temp_root = Path(temp_dir)
+        settings = _make_settings(temp_root)
+        inbox_dir = temp_root / "inbox" / "configured-contract-prices"
+        processed_dir = temp_root / "processed" / "configured-contract-prices"
+        failed_dir = temp_root / "failed" / "configured-contract-prices"
+        inbox_dir.mkdir(parents=True)
+        shutil.copyfile(
+            CONTRACT_PRICE_FIXTURES / "contract_prices_valid.csv",
+            inbox_dir / "contract_prices_valid.csv",
+        )
 
-        ingest_payload = _run_worker_json(
-            [
-                "ingest-contract-prices",
-                str(FIXTURES / "contract_prices_valid.csv"),
-                "--source-name",
-                "manual-upload",
-            ],
+        config_repository = IngestionConfigRepository(settings.resolved_config_database_path)
+        create_contract_price_configuration(
+            config_repository,
+            include_ingestion_definitions=True,
+            inbox=inbox_dir,
+            processed=processed_dir,
+            failed=failed_dir,
+        )
+
+        global_preflight = _run_worker_json(["verify-config"], settings)
+        asset_preflight = _run_worker_json(
+            ["verify-config", "--source-asset-id", CONTRACT_PRICE_ASSET_ID],
             settings,
         )
-        assert ingest_payload["promotion"]["facts_loaded"] == 4
+        definition_preflight = _run_worker_json(
+            ["verify-config", "--ingestion-definition-id", CONTRACT_PRICE_DEFINITION_ID],
+            settings,
+        )
+
+        assert global_preflight["report"]["passed"] is True
+        assert global_preflight["report"]["checked"]["source_assets"] == 1
+        assert global_preflight["report"]["checked"]["ingestion_definitions"] == 1
+        assert asset_preflight["report"]["passed"] is True
+        assert asset_preflight["report"]["scope"]["source_asset_id"] == CONTRACT_PRICE_ASSET_ID
+        assert definition_preflight["report"]["passed"] is True
+        assert (
+            definition_preflight["report"]["scope"]["ingestion_definition_id"]
+            == CONTRACT_PRICE_DEFINITION_ID
+        )
+
+        ingest_payload = _run_worker_json(
+            ["process-ingestion-definition", CONTRACT_PRICE_DEFINITION_ID],
+            settings,
+        )
+        assert ingest_payload["result"]["processed_files"] == 1
+        assert len(ingest_payload["promotions"]) == 1
+        assert ingest_payload["promotions"][0]["facts_loaded"] == 4
 
         report_payload = _run_worker_json(["report-contract-prices"], settings)
         assert len(report_payload["rows"]) == 3
 
         client = _build_client(
             settings,
+            config_repository=config_repository,
             contract_price_service=ContractPriceService(
                 landing_root=settings.landing_root,
                 metadata_repository=RunMetadataRepository(settings.metadata_database_path),
