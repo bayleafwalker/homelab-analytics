@@ -1,3 +1,5 @@
+SHELL := /usr/bin/bash
+
 PYTHON := $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else command -v python; fi)
 PYTEST := $(PYTHON) -m pytest
 RUFF := $(PYTHON) -m ruff

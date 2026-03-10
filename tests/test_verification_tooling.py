@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_makefile_contains_required_verification_targets() -> None:
     content = (ROOT / "Makefile").read_text()
 
+    assert "SHELL := /usr/bin/bash" in content
+
     for target in [
         "lint:",
         "typecheck:",
