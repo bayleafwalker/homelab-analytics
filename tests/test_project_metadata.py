@@ -2,6 +2,8 @@ import tomllib
 import unittest
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -88,6 +90,31 @@ class ProjectMetadataTests(unittest.TestCase):
         self.assertIn("http://127.0.0.1:8080/health", content)
         self.assertIn("http://127.0.0.1:8081/health", content)
         self.assertGreaterEqual(content.count("healthcheck:"), 3)
+
+    def test_example_compose_enforces_release_ops_dependency_contract(self) -> None:
+        compose = yaml.safe_load((ROOT / "infra" / "examples" / "compose.yaml").read_text())
+        services = compose["services"]
+
+        for service_name in ["api", "web", "worker"]:
+            service = services[service_name]
+            self.assertEqual(
+                "service_healthy",
+                service["depends_on"]["postgres"]["condition"],
+            )
+            self.assertEqual(
+                "service_started",
+                service["depends_on"]["minio"]["condition"],
+            )
+
+        for service_name, port in [("api", 8080), ("web", 8081)]:
+            healthcheck = services[service_name]["healthcheck"]
+            self.assertEqual("5s", healthcheck["interval"])
+            self.assertEqual("5s", healthcheck["timeout"])
+            self.assertEqual(12, healthcheck["retries"])
+            self.assertIn(
+                f"http://127.0.0.1:{port}/health",
+                " ".join(healthcheck["test"]),
+            )
 
 
 if __name__ == "__main__":
