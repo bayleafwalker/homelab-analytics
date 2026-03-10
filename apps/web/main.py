@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from typing import cast
 from wsgiref.simple_server import make_server
 
 from apps.web.app import create_app
 from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.pipelines.lazy_transformation_service import LazyTransformationService
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.settings import AppSettings
@@ -29,6 +31,13 @@ def build_transformation_service(settings: AppSettings) -> TransformationService
     return TransformationService(DuckDBStore.open(str(analytics_path)))
 
 
+def build_lazy_transformation_service(settings: AppSettings) -> TransformationService:
+    return cast(
+        TransformationService,
+        LazyTransformationService(lambda: build_transformation_service(settings)),
+    )
+
+
 def build_reporting_service(
     settings: AppSettings,
     transformation_service: TransformationService,
@@ -41,7 +50,7 @@ def build_reporting_service(
 
 def build_app(settings: AppSettings | None = None):
     resolved_settings = settings or AppSettings.from_env()
-    transformation_service = build_transformation_service(resolved_settings)
+    transformation_service = build_lazy_transformation_service(resolved_settings)
     return create_app(
         build_service(resolved_settings),
         transformation_service=transformation_service,

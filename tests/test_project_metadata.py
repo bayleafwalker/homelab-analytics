@@ -55,12 +55,39 @@ class ProjectMetadataTests(unittest.TestCase):
         expected_files = [
             "pyproject.toml",
             ".env.example",
+            ".dockerignore",
             "infra/docker/Dockerfile",
             "infra/examples/compose.yaml",
         ]
 
         missing = [path for path in expected_files if not (ROOT / path).is_file()]
         self.assertEqual([], missing, f"Missing files: {missing}")
+
+    def test_dockerignore_excludes_local_runtime_and_test_artifacts(self) -> None:
+        content = (ROOT / ".dockerignore").read_text()
+
+        for fragment in [
+            ".git",
+            ".venv",
+            ".mypy_cache",
+            ".pytest_cache",
+            "tests/",
+            "docs/",
+            "requirements/",
+        ]:
+            self.assertIn(fragment, content)
+
+    def test_example_compose_reuses_shared_application_image(self) -> None:
+        content = (ROOT / "infra" / "examples" / "compose.yaml").read_text()
+
+        self.assertEqual(3, content.count("image: homelab-analytics:latest"))
+
+    def test_example_compose_defines_api_and_web_healthchecks(self) -> None:
+        content = (ROOT / "infra" / "examples" / "compose.yaml").read_text()
+
+        self.assertIn("http://127.0.0.1:8080/health", content)
+        self.assertIn("http://127.0.0.1:8081/health", content)
+        self.assertGreaterEqual(content.count("healthcheck:"), 3)
 
 
 if __name__ == "__main__":

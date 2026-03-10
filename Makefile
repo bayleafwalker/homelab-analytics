@@ -3,6 +3,7 @@ PYTEST := $(PYTHON) -m pytest
 RUFF := $(PYTHON) -m ruff
 MYPY := $(PYTHON) -m mypy
 PIP_AUDIT := $(PYTHON) -m pip_audit
+COMPOSE_FILE := infra/examples/compose.yaml
 
 TEST ?=
 DOMAIN ?=
@@ -10,7 +11,7 @@ VERIFY_CONFIG_ARGS ?=
 
 .PHONY: lint typecheck test test-fast test-target test-integration test-e2e-local \
 	test-storage-adapters verify-config verify-docs verify-agent verify-arch verify-fast \
-	verify-all verify-domain helm-lint docker-build audit-deps
+	verify-all verify-domain helm-lint docker-build compose-smoke audit-deps
 
 lint:
 	$(RUFF) check .
@@ -53,6 +54,35 @@ helm-lint:
 
 docker-build:
 	docker build -f infra/docker/Dockerfile -t homelab-analytics .
+
+compose-smoke:
+	@set -euo pipefail; \
+	trap 'docker compose -f $(COMPOSE_FILE) down -v --remove-orphans' EXIT; \
+	if ! docker image inspect homelab-analytics:latest >/dev/null 2>&1; then \
+		$(MAKE) docker-build; \
+	fi; \
+	docker compose -f $(COMPOSE_FILE) up -d api web; \
+	for attempt in $$(seq 1 30); do \
+		if curl -fsS http://127.0.0.1:8080/health >/dev/null; then \
+			break; \
+		fi; \
+		if [ "$$attempt" -eq 30 ]; then \
+			echo "API health check did not become ready"; \
+			exit 1; \
+		fi; \
+		sleep 2; \
+	done; \
+	for attempt in $$(seq 1 30); do \
+		if curl -fsS http://127.0.0.1:8081/health >/dev/null; then \
+			break; \
+		fi; \
+		if [ "$$attempt" -eq 30 ]; then \
+			echo "Web health check did not become ready"; \
+			exit 1; \
+		fi; \
+		sleep 2; \
+	done; \
+	docker compose -f $(COMPOSE_FILE) --profile worker run --rm worker list-runs >/dev/null
 
 audit-deps:
 	-$(PIP_AUDIT)

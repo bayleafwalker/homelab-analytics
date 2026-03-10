@@ -27,11 +27,13 @@ def test_makefile_contains_required_verification_targets() -> None:
         "verify-fast:",
         "verify-all:",
         "verify-domain:",
+        "compose-smoke:",
     ]:
         assert target in content
 
     assert ".venv/bin/python" in content
     assert "verify-fast: lint typecheck test-fast verify-docs verify-agent verify-arch helm-lint" in content
+    assert "docker image inspect homelab-analytics:latest" in content
 
 
 def test_ci_workflow_runs_blocking_and_advisory_verification() -> None:
@@ -40,6 +42,7 @@ def test_ci_workflow_runs_blocking_and_advisory_verification() -> None:
     for fragment in [
         "make verify-fast",
         "make docker-build",
+        "make compose-smoke",
         "make audit-deps",
         "azure/setup-helm",
         "python -m pip install -e .[dev]",

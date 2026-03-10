@@ -142,6 +142,7 @@ make verify-domain DOMAIN=subscriptions
 make verify-domain DOMAIN=contract_prices
 make verify-domain DOMAIN=utility
 make test-storage-adapters
+make compose-smoke
 ```
 
 Use `make verify-config VERIFY_CONFIG_ARGS="--source-asset-id <source_asset_id>"` to preflight a single config-driven slice before running ingestion or promotion. The account, subscriptions, contract-prices, and utility `verify-domain` harnesses now run both global and scoped preflight checks before processing ingestion definitions.
@@ -199,11 +200,15 @@ Bootstrap artifacts now exist for image and Compose-based execution.
 docker build -f infra/docker/Dockerfile -t homelab-analytics .
 docker run --rm -p 8080:8080 -v "$(pwd)/.local/homelab-analytics:/data" homelab-analytics
 
+make compose-smoke
 docker compose -f infra/examples/compose.yaml up --build
 docker compose -f infra/examples/compose.yaml run --rm worker ingest-account-transactions /data/input.csv
 ```
 
 The example Compose stack now includes Postgres and MinIO and configures the workloads to use them for metadata, published reporting reads, and landed payload storage. DuckDB remains local to the shared `/data` volume as the transformation-layer store.
+`make compose-smoke` is the operator-facing startup check for that stack: it reuses the shared `homelab-analytics:latest` image when present, waits for API and web health, runs the worker CLI once, and then tears the stack down.
+The Compose services also now define container healthchecks for API and web, so runtime tooling can observe the same readiness contract the smoke target uses.
+The repo also now ships a `.dockerignore` that strips local virtualenvs, caches, tests, and docs from the build context so routine container verification stays cheap.
 
 ## Run with Helm
 

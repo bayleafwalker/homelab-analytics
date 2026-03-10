@@ -35,6 +35,9 @@ jobs:
       - name: Build image
         run: make docker-build
 
+      - name: Run Compose startup smoke
+        run: make compose-smoke
+
   dependency-audit:
     runs-on: ubuntu-latest
     continue-on-error: true

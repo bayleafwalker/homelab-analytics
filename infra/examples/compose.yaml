@@ -28,6 +28,7 @@ services:
       - homelab_analytics_minio:/data
 
   api:
+    image: homelab-analytics:latest
     build:
       context: ../..
       dockerfile: infra/docker/Dockerfile
@@ -54,9 +55,21 @@ services:
       - "8080:8080"
     volumes:
       - homelab_analytics_data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health').read()",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     command: ["homelab-analytics-api"]
 
   web:
+    image: homelab-analytics:latest
     build:
       context: ../..
       dockerfile: infra/docker/Dockerfile
@@ -83,9 +96,21 @@ services:
       - "8081:8081"
     volumes:
       - homelab_analytics_data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health').read()",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     command: ["homelab-analytics-web"]
 
   worker:
+    image: homelab-analytics:latest
     build:
       context: ../..
       dockerfile: infra/docker/Dockerfile

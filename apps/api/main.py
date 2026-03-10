@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from typing import cast
+
 import uvicorn
 
 from apps.api.app import create_app
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.contract_price_service import ContractPriceService
+from packages.pipelines.lazy_transformation_service import LazyTransformationService
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
@@ -49,6 +52,13 @@ def build_transformation_service(settings: AppSettings) -> TransformationService
     return TransformationService(DuckDBStore.open(str(analytics_path)))
 
 
+def build_lazy_transformation_service(settings: AppSettings) -> TransformationService:
+    return cast(
+        TransformationService,
+        LazyTransformationService(lambda: build_transformation_service(settings)),
+    )
+
+
 def build_reporting_service(
     settings: AppSettings,
     transformation_service: TransformationService,
@@ -70,7 +80,7 @@ def build_extension_registry(settings: AppSettings) -> ExtensionRegistry:
 
 def build_app(settings: AppSettings | None = None):
     resolved_settings = settings or AppSettings.from_env()
-    transformation_service = build_transformation_service(resolved_settings)
+    transformation_service = build_lazy_transformation_service(resolved_settings)
     extension_registry = build_extension_registry(resolved_settings)
     return create_app(
         build_service(resolved_settings),
