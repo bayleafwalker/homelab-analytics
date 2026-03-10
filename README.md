@@ -208,6 +208,7 @@ docker compose -f infra/examples/compose.yaml run --rm worker ingest-account-tra
 The example Compose stack now includes Postgres and MinIO and configures the workloads to use them for metadata, published reporting reads, and landed payload storage. DuckDB remains local to the shared `/data` volume as the transformation-layer store.
 `make compose-smoke` is the operator-facing startup check for that stack: it reuses the shared `homelab-analytics:latest` image when present, waits for API and web health, runs the worker CLI once, and then tears the stack down.
 The Compose services also now define container healthchecks for API and web, so runtime tooling can observe the same readiness contract the smoke target uses.
+The example stack pins third-party images as well, so release-ops verification is not silently tracking upstream `latest` tags.
 The repo also now ships a `.dockerignore` that strips local virtualenvs, caches, tests, and docs from the build context so routine container verification stays cheap.
 
 ## Run with Helm

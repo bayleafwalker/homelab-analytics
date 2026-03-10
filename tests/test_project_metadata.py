@@ -84,6 +84,17 @@ class ProjectMetadataTests(unittest.TestCase):
 
         self.assertEqual(3, content.count("image: homelab-analytics:latest"))
 
+    def test_example_compose_pins_third_party_images(self) -> None:
+        compose = yaml.safe_load((ROOT / "infra" / "examples" / "compose.yaml").read_text())
+        services = compose["services"]
+
+        self.assertEqual("postgres:16-alpine", services["postgres"]["image"])
+        self.assertEqual(
+            "minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1",
+            services["minio"]["image"],
+        )
+        self.assertNotIn(":latest", services["minio"]["image"])
+
     def test_example_compose_defines_api_and_web_healthchecks(self) -> None:
         content = (ROOT / "infra" / "examples" / "compose.yaml").read_text()
 
