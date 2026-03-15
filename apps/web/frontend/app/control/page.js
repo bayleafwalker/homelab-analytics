@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
+import { ControlNav } from "@/components/control-nav";
 import { getAuthAuditEvents, getCurrentUser, getLocalUsers } from "@/lib/backend";
 
 function noticeCopy(notice) {
@@ -51,8 +53,35 @@ export default async function ControlPage({ searchParams }) {
       lede="Bootstrap local auth is now audited and manageable from the web shell. This page still stays API-backed and intentionally thin."
     >
       <section className="stack">
+        <ControlNav currentPath="/control" />
         {notice ? <div className="successBanner">{notice}</div> : null}
         {error ? <div className="errorBanner">{error}</div> : null}
+
+        <section className="cards">
+          <article className="panel metricCard">
+            <div className="metricLabel">Local users</div>
+            <div className="metricValue">{users.length}</div>
+            <div className="muted">Bootstrap auth identities under admin control.</div>
+          </article>
+          <article className="panel metricCard">
+            <div className="metricLabel">Recent auth events</div>
+            <div className="metricValue">{authAuditEvents.length}</div>
+            <div className="muted">Latest login, logout, and user-management activity.</div>
+          </article>
+          <article className="panel metricCard">
+            <div className="metricLabel">Control pages</div>
+            <div className="metricValue">2</div>
+            <div className="muted">
+              <Link className="inlineLink" href="/control/catalog">
+                Catalog
+              </Link>
+              {" / "}
+              <Link className="inlineLink" href="/control/execution">
+                Execution
+              </Link>
+            </div>
+          </article>
+        </section>
 
         <article className="panel section">
           <div className="sectionHeader">

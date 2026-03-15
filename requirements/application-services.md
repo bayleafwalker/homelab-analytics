@@ -92,7 +92,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** The primary user interaction surface. Dashboards must present derived analytics clearly.
 
 **Phase:** 2
-**Status:** in-progress (a minimal Next.js shell now exists for login, dashboard, runs, and reporting views; it consumes the API only and replaces the old server-rendered Python dashboard, but broader product/admin surface work is still pending)
+**Status:** in-progress (the Next.js shell now covers login, dashboard, reporting, auth/security admin, control-plane catalog, and execution-control views; it consumes the API only and replaces the old server-rendered Python dashboard, but broader product surface work is still pending)
 
 **Acceptance criteria:**
 - Dashboard pages render from reporting API data.
@@ -112,7 +112,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Visibility into ingestion status builds trust in the data and enables self-service troubleshooting.
 
 **Phase:** 2
-**Status:** in-progress (the Next.js shell now exposes a basic run-history view backed by the API; detail pages and richer filtering are still pending)
+**Status:** in-progress (the Next.js shell now exposes run history and run-detail views backed by the API; richer filtering is still pending)
 
 **Acceptance criteria:**
 - Run list page shows recent runs with status badges.
@@ -148,7 +148,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Configuration-driven onboarding needs a management surface for non-developer users.
 
 **Phase:** 4
-**Status:** not-started
+**Status:** in-progress (the Next.js admin surface now supports source-system and source-asset creation plus ingestion-definition and execution-schedule management through the API; mapping versioning, edit flows, and preview tooling are still pending)
 
 **Acceptance criteria:**
 - List, create, edit, and deactivate source systems.
@@ -239,10 +239,10 @@ The platform exposes its capabilities through three application workloads: a JSO
 | APP-02 | `apps/api/app.py` | `tests/test_api_app.py` |
 | APP-03 | `apps/api/app.py` | `tests/test_api_app.py`, `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py` |
 | APP-04 | `apps/api/app.py` | `tests/test_api_app.py` |
-| APP-05 | `apps/web/frontend/app/page.js`, `apps/web/frontend/app/reports/page.js`, `apps/web/frontend/components/app-shell.js` | `tests/test_web_app.py`, `tests/test_web_auth.py` |
-| APP-06 | `apps/web/frontend/app/runs/page.js`, `apps/web/frontend/lib/backend.js` | `tests/test_web_auth.py` |
+| APP-05 | `apps/web/frontend/app/page.js`, `apps/web/frontend/app/reports/page.js`, `apps/web/frontend/app/control/page.js`, `apps/web/frontend/app/control/catalog/page.js`, `apps/web/frontend/app/control/execution/page.js`, `apps/web/frontend/components/app-shell.js` | `tests/test_web_app.py`, `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
+| APP-06 | `apps/web/frontend/app/runs/page.js`, `apps/web/frontend/app/runs/[runId]/page.js`, `apps/web/frontend/lib/backend.js` | `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
 | APP-07 | — | — |
-| APP-08 | — | — |
+| APP-08 | `apps/web/frontend/app/control/catalog/page.js`, `apps/web/frontend/app/control/execution/page.js` | `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
 | APP-09 | — | — |
 | APP-10 | — | — |
 | APP-11 | `apps/worker/main.py`, `packages/pipelines/config_preflight.py` | `tests/test_worker_cli.py`, `tests/test_config_preflight.py`, `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py` |

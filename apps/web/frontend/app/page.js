@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { AppShell } from "@/components/app-shell";
 import { getCurrentUser, getMonthlyCashflow, getRuns } from "@/lib/backend";
 
@@ -119,7 +121,11 @@ export default async function DashboardPage() {
                           </div>
                         ))}
                       </td>
-                      <td>{run.source_name}</td>
+                      <td>
+                        <Link className="inlineLink" href={`/runs/${run.run_id}`}>
+                          {run.source_name}
+                        </Link>
+                      </td>
                       <td>{run.file_name}</td>
                       <td>{run.row_count}</td>
                     </tr>

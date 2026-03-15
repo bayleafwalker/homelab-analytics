@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { AppShell } from "@/components/app-shell";
 import { getCurrentUser, getRuns } from "@/lib/backend";
 
@@ -37,7 +39,11 @@ export default async function RunsPage() {
               <tbody>
                 {runs.map((run) => (
                   <tr key={run.run_id}>
-                    <td>{run.created_at}</td>
+                    <td>
+                      <Link className="inlineLink" href={`/runs/${run.run_id}`}>
+                        {run.created_at}
+                      </Link>
+                    </td>
                     <td>
                       <span className={`statusPill status-${run.status}`}>{run.status}</span>
                     </td>

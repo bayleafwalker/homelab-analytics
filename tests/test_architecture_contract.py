@@ -80,6 +80,15 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     api_main_source = (ROOT / "apps" / "api" / "main.py").read_text()
     web_backend_source = (ROOT / "apps" / "web" / "frontend" / "lib" / "backend.js").read_text()
     web_control_page = (ROOT / "apps" / "web" / "frontend" / "app" / "control" / "page.js").read_text()
+    web_control_catalog_page = (
+        ROOT / "apps" / "web" / "frontend" / "app" / "control" / "catalog" / "page.js"
+    ).read_text()
+    web_control_execution_page = (
+        ROOT / "apps" / "web" / "frontend" / "app" / "control" / "execution" / "page.js"
+    ).read_text()
+    web_run_detail_page = (
+        ROOT / "apps" / "web" / "frontend" / "app" / "runs" / "[runId]" / "page.js"
+    ).read_text()
     web_login_page = (ROOT / "apps" / "web" / "frontend" / "app" / "login" / "page.js").read_text()
     web_login_route = (ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "login" / "route.js").read_text()
     web_logout_route = (ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "logout" / "route.js").read_text()
@@ -99,6 +108,11 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert 'outboundHeaders.set("x-csrf-token", csrfToken)' in web_backend_source
     assert "getLocalUsers" in web_control_page
     assert "getAuthAuditEvents" in web_control_page
+    assert "getSourceSystems" in web_control_catalog_page
+    assert "getSourceAssets" in web_control_catalog_page
+    assert "getIngestionDefinitions" in web_control_execution_page
+    assert "getExecutionSchedules" in web_control_execution_page
+    assert "getRun" in web_run_detail_page
     assert "build_web_environment" in web_main_source
     assert "resolved_api_base_url" in web_main_source
 

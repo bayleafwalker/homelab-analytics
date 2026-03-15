@@ -106,6 +106,26 @@ a {
   background: rgba(19, 40, 51, 0.06);
 }
 
+.subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.subnavLink {
+  border-radius: 999px;
+  padding: 0.68rem 0.96rem;
+  background: rgba(19, 40, 51, 0.04);
+  border: 1px solid var(--line);
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.subnavLink[data-active="true"] {
+  color: var(--ink);
+  background: rgba(15, 118, 110, 0.1);
+}
+
 .ghostButton {
   background: rgba(19, 40, 51, 0.04);
   border-color: var(--line);
@@ -249,6 +269,16 @@ th {
   background: rgba(209, 73, 91, 0.12);
 }
 
+.status-completed {
+  color: var(--accent-cool);
+  background: rgba(11, 95, 131, 0.12);
+}
+
+.status-enqueued {
+  color: var(--accent);
+  background: rgba(15, 118, 110, 0.12);
+}
+
 .issue {
   color: var(--warn);
   font-size: 0.82rem;
@@ -315,6 +345,28 @@ th {
   font: inherit;
 }
 
+.spanTwo {
+  grid-column: span 2;
+}
+
+.spanThree {
+  grid-column: span 3;
+}
+
+.formGrid {
+  display: grid;
+  gap: 14px;
+  align-items: end;
+}
+
+.threeCol {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.fourCol {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .adminFormGrid {
   display: grid;
   gap: 14px;
@@ -344,6 +396,34 @@ th {
 .adminActions {
   display: grid;
   gap: 14px;
+}
+
+.metaGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.metaItem {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.36);
+}
+
+.compactStack {
+  gap: 10px;
+}
+
+.buttonRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.inlineLink {
+  color: var(--accent-cool);
+  font-weight: 700;
 }
 
 .inlineButton {
@@ -388,7 +468,14 @@ th {
   }
 
   .adminFormGrid,
-  .compactForm {
+  .compactForm,
+  .formGrid,
+  .metaGrid {
     grid-template-columns: 1fr;
+  }
+
+  .spanTwo,
+  .spanThree {
+    grid-column: auto;
   }
 }

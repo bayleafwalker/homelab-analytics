@@ -78,9 +78,49 @@ export async function getRuns(limit = 8) {
   return payload.runs || [];
 }
 
+export async function getRun(runId) {
+  const payload = await backendJson(`/runs/${runId}`);
+  return payload.run;
+}
+
 export async function getMonthlyCashflow() {
   const payload = await backendJson("/reports/monthly-cashflow");
   return payload.rows || [];
+}
+
+export async function getSourceSystems() {
+  const payload = await backendJson("/config/source-systems");
+  return payload.source_systems || [];
+}
+
+export async function getDatasetContracts() {
+  const payload = await backendJson("/config/dataset-contracts");
+  return payload.dataset_contracts || [];
+}
+
+export async function getColumnMappings() {
+  const payload = await backendJson("/config/column-mappings");
+  return payload.column_mappings || [];
+}
+
+export async function getTransformationPackages() {
+  const payload = await backendJson("/config/transformation-packages");
+  return payload.transformation_packages || [];
+}
+
+export async function getSourceAssets() {
+  const payload = await backendJson("/config/source-assets");
+  return payload.source_assets || [];
+}
+
+export async function getIngestionDefinitions() {
+  const payload = await backendJson("/config/ingestion-definitions");
+  return payload.ingestion_definitions || [];
+}
+
+export async function getExecutionSchedules() {
+  const payload = await backendJson("/config/execution-schedules");
+  return payload.execution_schedules || [];
 }
 
 export async function getLocalUsers() {
@@ -91,4 +131,19 @@ export async function getLocalUsers() {
 export async function getAuthAuditEvents(limit = 30) {
   const payload = await backendJson(`/control/auth-audit?limit=${limit}`);
   return payload.auth_audit_events || [];
+}
+
+export async function getSourceLineage() {
+  const payload = await backendJson("/control/source-lineage");
+  return payload.lineage || [];
+}
+
+export async function getPublicationAudit() {
+  const payload = await backendJson("/control/publication-audit");
+  return payload.publication_audit || [];
+}
+
+export async function getScheduleDispatches() {
+  const payload = await backendJson("/control/schedule-dispatches");
+  return payload.dispatches || [];
 }
