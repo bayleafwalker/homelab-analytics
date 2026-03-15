@@ -17,6 +17,8 @@ from packages.storage.auth_store import (
     normalize_username,
 )
 from packages.storage.control_plane import (
+    AuthAuditEventCreate,
+    AuthAuditEventRecord,
     ControlPlaneSnapshot,
     ExecutionScheduleCreate,
     ExecutionScheduleRecord,
@@ -1575,6 +1577,38 @@ class IngestionConfigRepository:
             rows = connection.execute(sql).fetchall()
         return [_deserialize_local_user_row(row) for row in rows]
 
+    def update_local_user(
+        self,
+        user_id: str,
+        *,
+        role: UserRole | None = None,
+        enabled: bool | None = None,
+    ) -> LocalUserRecord:
+        assignments: list[str] = []
+        params: list[object] = []
+        if role is not None:
+            assignments.append("role = ?")
+            params.append(role.value)
+        if enabled is not None:
+            assignments.append("enabled = ?")
+            params.append(int(enabled))
+        if not assignments:
+            return self.get_local_user(user_id)
+        params.append(user_id)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                f"""
+                UPDATE local_users
+                SET {", ".join(assignments)}
+                WHERE user_id = ?
+                """,
+                tuple(params),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown local user: {user_id}")
+        return self.get_local_user(user_id)
+
     def update_local_user_password(
         self,
         user_id: str,
@@ -1616,6 +1650,114 @@ class IngestionConfigRepository:
             raise KeyError(f"Unknown local user: {user_id}")
         return self.get_local_user(user_id)
 
+    def record_auth_audit_events(
+        self,
+        entries: tuple[AuthAuditEventCreate, ...],
+    ) -> list[AuthAuditEventRecord]:
+        if not entries:
+            return []
+        with self._connect() as connection:
+            connection.executemany(
+                """
+                INSERT INTO auth_audit_events (
+                    event_id,
+                    event_type,
+                    success,
+                    actor_user_id,
+                    actor_username,
+                    subject_user_id,
+                    subject_username,
+                    remote_addr,
+                    user_agent,
+                    detail,
+                    occurred_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        entry.event_id,
+                        entry.event_type,
+                        int(entry.success),
+                        entry.actor_user_id,
+                        entry.actor_username,
+                        entry.subject_user_id,
+                        normalize_username(entry.subject_username)
+                        if entry.subject_username
+                        else None,
+                        entry.remote_addr,
+                        entry.user_agent,
+                        entry.detail,
+                        entry.occurred_at.isoformat(),
+                    )
+                    for entry in entries
+                ],
+            )
+            connection.commit()
+        recorded_ids = {entry.event_id for entry in entries}
+        return [
+            record
+            for record in self.list_auth_audit_events(limit=len(entries))
+            if record.event_id in recorded_ids
+        ]
+
+    def list_auth_audit_events(
+        self,
+        *,
+        event_type: str | None = None,
+        success: bool | None = None,
+        actor_user_id: str | None = None,
+        subject_user_id: str | None = None,
+        subject_username: str | None = None,
+        since: datetime | None = None,
+        limit: int | None = None,
+    ) -> list[AuthAuditEventRecord]:
+        sql = """
+            SELECT
+                event_id,
+                event_type,
+                success,
+                actor_user_id,
+                actor_username,
+                subject_user_id,
+                subject_username,
+                remote_addr,
+                user_agent,
+                detail,
+                occurred_at
+            FROM auth_audit_events
+        """
+        clauses: list[str] = []
+        params: list[object] = []
+        if event_type is not None:
+            clauses.append("event_type = ?")
+            params.append(event_type)
+        if success is not None:
+            clauses.append("success = ?")
+            params.append(int(success))
+        if actor_user_id is not None:
+            clauses.append("actor_user_id = ?")
+            params.append(actor_user_id)
+        if subject_user_id is not None:
+            clauses.append("subject_user_id = ?")
+            params.append(subject_user_id)
+        if subject_username is not None:
+            clauses.append("subject_username = ?")
+            params.append(normalize_username(subject_username))
+        if since is not None:
+            clauses.append("occurred_at >= ?")
+            params.append(since.isoformat())
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        sql += " ORDER BY occurred_at DESC, event_id DESC"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(sql, params).fetchall()
+        return [_deserialize_auth_audit_event_row(row) for row in rows]
+
     def export_snapshot(self) -> ControlPlaneSnapshot:
         return ControlPlaneSnapshot(
             source_systems=tuple(self.list_source_systems()),
@@ -1628,6 +1770,7 @@ class IngestionConfigRepository:
             execution_schedules=tuple(self.list_execution_schedules()),
             source_lineage=tuple(self.list_source_lineage()),
             publication_audit=tuple(self.list_publication_audit()),
+            auth_audit_events=tuple(self.list_auth_audit_events()),
             local_users=tuple(self.list_local_users()),
         )
 
@@ -1793,6 +1936,24 @@ class IngestionConfigRepository:
                 for record in snapshot.publication_audit
             )
         )
+        self.record_auth_audit_events(
+            tuple(
+                AuthAuditEventCreate(
+                    event_id=record.event_id,
+                    event_type=record.event_type,
+                    success=record.success,
+                    actor_user_id=record.actor_user_id,
+                    actor_username=record.actor_username,
+                    subject_user_id=record.subject_user_id,
+                    subject_username=record.subject_username,
+                    remote_addr=record.remote_addr,
+                    user_agent=record.user_agent,
+                    detail=record.detail,
+                    occurred_at=record.occurred_at,
+                )
+                for record in snapshot.auth_audit_events
+            )
+        )
         for local_user_record in snapshot.local_users:
             try:
                 self.create_local_user(
@@ -1953,6 +2114,20 @@ class IngestionConfigRepository:
                     enabled INTEGER NOT NULL,
                     created_at TEXT NOT NULL,
                     last_login_at TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS auth_audit_events (
+                    event_id TEXT PRIMARY KEY,
+                    event_type TEXT NOT NULL,
+                    success INTEGER NOT NULL,
+                    actor_user_id TEXT,
+                    actor_username TEXT,
+                    subject_user_id TEXT,
+                    subject_username TEXT,
+                    remote_addr TEXT,
+                    user_agent TEXT,
+                    detail TEXT,
+                    occurred_at TEXT NOT NULL
                 );
                 """
             )
@@ -2169,6 +2344,27 @@ def _deserialize_publication_audit_row(row: sqlite3.Row) -> PublicationAuditReco
         relation_name=row["relation_name"],
         status=row["status"],
         published_at=datetime.fromisoformat(row["published_at"]),
+    )
+
+
+def _deserialize_auth_audit_event_row(row: sqlite3.Row) -> AuthAuditEventRecord:
+    occurred_at = row["occurred_at"]
+    return AuthAuditEventRecord(
+        event_id=row["event_id"],
+        event_type=row["event_type"],
+        success=bool(row["success"]),
+        actor_user_id=row["actor_user_id"],
+        actor_username=row["actor_username"],
+        subject_user_id=row["subject_user_id"],
+        subject_username=row["subject_username"],
+        remote_addr=row["remote_addr"],
+        user_agent=row["user_agent"],
+        detail=row["detail"],
+        occurred_at=(
+            occurred_at
+            if isinstance(occurred_at, datetime)
+            else datetime.fromisoformat(occurred_at)
+        ),
     )
 
 

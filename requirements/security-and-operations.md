@@ -15,13 +15,15 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** A standalone auth option is required before OIDC infrastructure is available, and as a break-glass fallback.
 
 **Phase:** 4
-**Status:** in-progress (local-user storage now exists in both SQLite and Postgres control-plane backends; API exposes `/auth/login`, `/auth/logout`, and `/auth/me` with HTTP-only signed session cookies; the placeholder web app requires local auth in local-auth mode; worker CLI can create/reset/list local users; Compose and Helm examples now wire bootstrap local-auth secrets)
+**Status:** in-progress (local-user storage now exists in both SQLite and Postgres control-plane backends; API exposes `/auth/login`, `/auth/logout`, `/auth/me`, and admin user-management endpoints with signed session cookies, CSRF protection, and login lockout; auth events are recorded in control-plane audit data; the Next.js web shell now includes a thin authenticated admin page; worker CLI can still create/reset/list local users; Compose and Helm examples wire bootstrap local-auth secrets)
 
 **Acceptance criteria:**
 - Username/password login endpoint issues a signed session cookie or JWT.
 - Web UI login page authenticates against the local store.
 - At least one admin user can be created during initial setup.
 - Passwords are stored hashed (bcrypt or argon2).
+- Cookie-authenticated state-changing routes enforce CSRF protection.
+- Repeated failed logins trigger a lockout policy with audit visibility.
 - Tests verify login, session, and rejection flows.
 
 **Dependencies:** none
@@ -73,7 +75,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Not all household members or automation systems should have full configuration access.
 
 **Phase:** 4
-**Status:** in-progress (local auth now enforces `reader`, `operator`, and `admin` roles across API and placeholder web routes; the remaining gap is extending the same role model to future OIDC and service-token paths)
+**Status:** in-progress (local auth now enforces `reader`, `operator`, and `admin` roles across API and Next.js web routes, including admin-only local-user management and auth-audit visibility; the remaining gap is extending the same role model to future OIDC and service-token paths)
 
 **Acceptance criteria:**
 - Read-only role can view dashboards and reports but cannot ingest or configure.

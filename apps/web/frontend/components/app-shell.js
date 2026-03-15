@@ -1,12 +1,19 @@
 import Link from "next/link";
 
-const NAV_ITEMS = [
-  { href: "/", label: "Dashboard" },
-  { href: "/runs", label: "Runs" },
-  { href: "/reports", label: "Reports" }
-];
+function navItemsForUser(user) {
+  const items = [
+    { href: "/", label: "Dashboard" },
+    { href: "/runs", label: "Runs" },
+    { href: "/reports", label: "Reports" }
+  ];
+  if (user?.role === "admin") {
+    items.push({ href: "/control", label: "Control" });
+  }
+  return items;
+}
 
 export function AppShell({ currentPath, user, title, eyebrow, lede, children }) {
+  const navItems = navItemsForUser(user);
   return (
     <main className="page">
       <header className="topbar">
@@ -17,7 +24,7 @@ export function AppShell({ currentPath, user, title, eyebrow, lede, children }) 
         </div>
         <div className="actions">
           <nav className="navLinks" aria-label="Primary">
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}

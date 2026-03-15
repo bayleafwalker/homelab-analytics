@@ -116,6 +116,9 @@ def test_worker_cli_exports_and_imports_control_plane_snapshots() -> None:
             "source_assets": 1,
             "ingestion_definitions": 1,
             "execution_schedules": 1,
+            "source_lineage": 1,
+            "publication_audit": 1,
+            "auth_audit_events": 0,
             "local_users": 0,
         }
 

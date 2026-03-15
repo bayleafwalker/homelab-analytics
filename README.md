@@ -110,6 +110,7 @@ Environment variables:
 - `HOMELAB_ANALYTICS_AUTH_MODE` selects `disabled` or `local` authentication (default: `disabled`; Compose and Helm examples use `local`)
 - `HOMELAB_ANALYTICS_SESSION_SECRET` configures the HTTP-only signed session cookie secret for local auth
 - `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME` and `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD` optionally create the first local admin user at startup
+- `HOMELAB_ANALYTICS_AUTH_FAILURE_WINDOW_SECONDS`, `HOMELAB_ANALYTICS_AUTH_FAILURE_THRESHOLD`, and `HOMELAB_ANALYTICS_AUTH_LOCKOUT_SECONDS` tune bootstrap local-auth login lockout behavior
 - `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` keeps a temporary dev-only bypass for unauthenticated admin/control routes when needed (default: `false`)
 - `HOMELAB_ANALYTICS_EXTENSION_PATHS` adds custom import roots for external extension repositories or mounted code paths
 - `HOMELAB_ANALYTICS_EXTENSION_MODULES` lists Python modules to import and register into the layer extension registry
@@ -180,10 +181,11 @@ That pattern keeps key product logic inside this repository while allowing custo
 
 Current execution surfaces:
 
-`/health` and `/metrics` stay public. In local-auth mode, `/runs*`, `/reports*`, and the placeholder web dashboard require at least a `reader`; `/ingest*` requires `operator`; `/config/*`, `/control/*`, `/extensions`, `/sources`, `/landing/*`, `/transformations/*`, and persisted-ingestion processing require `admin`. `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN=true` remains a temporary local/dev-only escape hatch and is not used by the Compose or Helm defaults.
+`/health` and `/metrics` stay public. In local-auth mode, `/runs*`, `/reports*`, and the Next.js dashboard require at least a `reader`; `/ingest*` requires `operator`; `/config/*`, `/control/*`, `/extensions`, `/sources`, `/landing/*`, `/transformations/*`, persisted-ingestion processing, `/auth/users*`, and the `/control` admin page require `admin`. Cookie-authenticated `POST` routes now require a CSRF token, login failures are rate-limited via control-plane auth audit history, and `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN=true` remains a temporary local/dev-only escape hatch that is not used by the Compose or Helm defaults.
 
 - `POST /landing/{extension_key}` for executable landing extensions
 - `GET /metrics` for Prometheus-compatible operational metrics
+- `GET /auth/users`, `POST /auth/users`, `PATCH /auth/users/{user_id}`, and `POST /auth/users/{user_id}/password` for bootstrap local-user management
 - `GET /sources` for the current source-system and source-asset catalog
 - `GET` and `POST /config/source-systems` for source-system configuration
 - `GET` and `POST /config/dataset-contracts` for dataset-contract configuration
@@ -194,6 +196,7 @@ Current execution surfaces:
 - `GET` and `POST /config/ingestion-definitions` for transport, watch-folder, direct-API, and batch-extract configuration
 - `GET` and `POST /config/execution-schedules` for enqueue-only schedule definitions
 - `GET /control/source-lineage`, `GET /control/publication-audit`, and `GET /control/schedule-dispatches` for control-plane visibility
+- `GET /control/auth-audit` for local-auth login, logout, and admin-user audit events
 - `POST /ingest` for JSON path-based ingestion and multipart file uploads
 - `POST /ingest/configured-csv` for config-driven CSV ingestion
 - `POST /ingest/subscriptions` and `POST /ingest/contract-prices` for built-in non-transaction domains

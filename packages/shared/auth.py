@@ -4,10 +4,12 @@ import base64
 import hashlib
 import hmac
 import json
+import secrets
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from http.cookies import SimpleCookie
+from typing import Literal
 
 import bcrypt
 
@@ -20,6 +22,7 @@ from packages.storage.auth_store import (
 )
 
 SESSION_COOKIE_NAME = "homelab_analytics_session"
+CSRF_COOKIE_NAME = "homelab_analytics_csrf"
 SESSION_MAX_AGE_SECONDS = 60 * 60 * 12
 _ROLE_ORDER = {
     UserRole.READER: 0,
@@ -33,6 +36,13 @@ class AuthenticatedPrincipal:
     user_id: str
     username: str
     role: UserRole
+    csrf_token: str | None = None
+
+
+@dataclass(frozen=True)
+class IssuedSession:
+    cookie_value: str
+    csrf_token: str
 
 
 def hash_password(password: str) -> str:
@@ -116,19 +126,26 @@ class SessionManager:
         secret: str,
         *,
         cookie_name: str = SESSION_COOKIE_NAME,
+        csrf_cookie_name: str = CSRF_COOKIE_NAME,
         max_age_seconds: int = SESSION_MAX_AGE_SECONDS,
+        same_site: Literal["lax", "strict", "none"] = "lax",
     ) -> None:
         self._secret = secret.encode("utf-8")
         self.cookie_name = cookie_name
+        self.csrf_cookie_name = csrf_cookie_name
         self.max_age_seconds = max_age_seconds
+        self.same_site = same_site
 
-    def issue_session_cookie(self, user: LocalUserRecord) -> str:
+    def issue_session(self, user: LocalUserRecord) -> IssuedSession:
         now = datetime.now(UTC)
+        csrf_token = secrets.token_urlsafe(24)
         payload = {
             "sub": user.user_id,
             "usr": user.username,
             "role": user.role.value,
             "fp": _password_fingerprint(user.password_hash),
+            "csrf": csrf_token,
+            "sid": uuid.uuid4().hex,
             "iat": now.isoformat(),
             "exp": (now + timedelta(seconds=self.max_age_seconds)).isoformat(),
         }
@@ -138,7 +155,13 @@ class SessionManager:
             encoded_payload.encode("ascii"),
             hashlib.sha256,
         ).hexdigest()
-        return f"{encoded_payload}.{signature}"
+        return IssuedSession(
+            cookie_value=f"{encoded_payload}.{signature}",
+            csrf_token=csrf_token,
+        )
+
+    def issue_session_cookie(self, user: LocalUserRecord) -> str:
+        return self.issue_session(user).cookie_value
 
     def authenticate(
         self,
@@ -162,16 +185,24 @@ class SessionManager:
             user_id=user.user_id,
             username=user.username,
             role=user.role,
+            csrf_token=payload.get("csrf"),
         )
 
-    def build_wsgi_set_cookie_header(self, cookie_value: str) -> tuple[str, str]:
+    def build_wsgi_set_cookie_header(
+        self,
+        cookie_value: str,
+        *,
+        secure: bool = False,
+    ) -> tuple[str, str]:
         cookie = SimpleCookie()
         cookie[self.cookie_name] = cookie_value
         morsel = cookie[self.cookie_name]
         morsel["httponly"] = True
         morsel["max-age"] = str(self.max_age_seconds)
         morsel["path"] = "/"
-        morsel["samesite"] = "Lax"
+        morsel["samesite"] = self.same_site.capitalize()
+        if secure:
+            morsel["secure"] = True
         return ("Set-Cookie", morsel.OutputString())
 
     def build_wsgi_clear_cookie_header(self) -> tuple[str, str]:
@@ -182,7 +213,7 @@ class SessionManager:
         morsel["httponly"] = True
         morsel["max-age"] = "0"
         morsel["path"] = "/"
-        morsel["samesite"] = "Lax"
+        morsel["samesite"] = self.same_site.capitalize()
         return ("Set-Cookie", morsel.OutputString())
 
     def _decode_payload(self, cookie_value: str | None) -> dict[str, str] | None:
@@ -202,7 +233,7 @@ class SessionManager:
             return None
         if not isinstance(payload, dict):
             return None
-        required_fields = {"sub", "usr", "role", "fp", "exp"}
+        required_fields = {"sub", "usr", "role", "fp", "csrf", "exp"}
         if not required_fields.issubset(payload):
             return None
         try:

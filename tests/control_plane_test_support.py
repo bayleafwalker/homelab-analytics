@@ -5,6 +5,7 @@ from typing import Any
 
 from packages.pipelines.csv_validation import ColumnType
 from packages.storage.control_plane import (
+    AuthAuditEventCreate,
     ControlPlaneStore,
     ExecutionScheduleCreate,
     PublicationAuditCreate,
@@ -22,6 +23,7 @@ from packages.storage.ingestion_config import (
 
 FIXED_CREATED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 FIXED_DUE_AT = datetime(2026, 1, 1, 0, 0, tzinfo=UTC)
+FIXED_AUDIT_AT = datetime(2026, 1, 2, 12, 0, tzinfo=UTC)
 
 
 def seed_source_asset_graph(
@@ -218,6 +220,46 @@ def assert_control_plane_store_round_trip(store: ControlPlaneStore) -> None:
         record.publication_audit_id == "publication-001"
         for record in snapshot.publication_audit
     )
+    assert snapshot.auth_audit_events == ()
+
+
+def assert_auth_audit_behaviour(store: ControlPlaneStore) -> None:
+    store.record_auth_audit_events(
+        (
+            AuthAuditEventCreate(
+                event_id="auth-001",
+                event_type="login_failed",
+                success=False,
+                subject_username="ReaderOne",
+                remote_addr="127.0.0.1",
+                detail="Invalid password.",
+                occurred_at=FIXED_AUDIT_AT,
+            ),
+            AuthAuditEventCreate(
+                event_id="auth-002",
+                event_type="login_succeeded",
+                success=True,
+                actor_user_id="user-admin-001",
+                actor_username="admin",
+                subject_user_id="user-reader-001",
+                subject_username="readerone",
+                remote_addr="127.0.0.1",
+                occurred_at=FIXED_AUDIT_AT.replace(minute=5),
+            ),
+        )
+    )
+
+    all_events = store.list_auth_audit_events()
+    assert [event.event_id for event in all_events] == ["auth-002", "auth-001"]
+
+    failed_events = store.list_auth_audit_events(
+        event_type="login_failed",
+        success=False,
+        subject_username="readerone",
+        since=FIXED_AUDIT_AT,
+        limit=5,
+    )
+    assert [event.event_id for event in failed_events] == ["auth-001"]
 
 
 def assert_schedule_dispatch_behaviour(store: ControlPlaneStore) -> None:

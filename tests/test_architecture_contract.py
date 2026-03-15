@@ -78,6 +78,8 @@ def test_runtime_builders_preserve_published_vs_warehouse_reporting_boundary() -
 def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> None:
     api_source = (ROOT / "apps" / "api" / "app.py").read_text()
     api_main_source = (ROOT / "apps" / "api" / "main.py").read_text()
+    web_backend_source = (ROOT / "apps" / "web" / "frontend" / "lib" / "backend.js").read_text()
+    web_control_page = (ROOT / "apps" / "web" / "frontend" / "app" / "control" / "page.js").read_text()
     web_login_page = (ROOT / "apps" / "web" / "frontend" / "app" / "login" / "page.js").read_text()
     web_login_route = (ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "login" / "route.js").read_text()
     web_logout_route = (ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "logout" / "route.js").read_text()
@@ -85,12 +87,18 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
 
     assert "required_role_for_path" in api_source
     assert "Authentication required." in api_source
+    assert "CSRF validation failed." in api_source
+    assert '"/auth/users"' in api_source
+    assert '"/control/auth-audit"' in api_source
     assert "auth_mode=resolved_settings.auth_mode" in api_main_source
     assert "session_manager=build_session_manager(resolved_settings)" in api_main_source
     assert "maybe_bootstrap_local_admin" in api_main_source
     assert 'action="/auth/login"' in web_login_page
     assert 'backendRequest("/auth/login"' in web_login_route
     assert 'backendRequest("/auth/logout"' in web_logout_route
+    assert 'outboundHeaders.set("x-csrf-token", csrfToken)' in web_backend_source
+    assert "getLocalUsers" in web_control_page
+    assert "getAuthAuditEvents" in web_control_page
     assert "build_web_environment" in web_main_source
     assert "resolved_api_base_url" in web_main_source
 

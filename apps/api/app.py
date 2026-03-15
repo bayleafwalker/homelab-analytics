@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 import time
+import uuid
 from dataclasses import asdict, is_dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
@@ -19,6 +20,9 @@ from apps.api.models import (
     DatasetContractRequest,
     ExecutionScheduleRequest,
     IngestionDefinitionRequest,
+    LocalUserCreateRequest,
+    LocalUserPasswordResetRequest,
+    LocalUserUpdateRequest,
     LoginRequest,
     PublicationDefinitionRequest,
     SourceAssetRequest,
@@ -49,6 +53,7 @@ from packages.shared.auth import (
     AuthenticatedPrincipal,
     SessionManager,
     has_required_role,
+    hash_password,
     serialize_principal,
     serialize_user,
     verify_password,
@@ -59,8 +64,17 @@ from packages.shared.extensions import (
     serialize_extension_registry,
 )
 from packages.shared.metrics import metrics_registry
-from packages.storage.auth_store import AuthStore, UserRole
-from packages.storage.control_plane import ControlPlaneStore, ExecutionScheduleCreate
+from packages.storage.auth_store import (
+    AuthStore,
+    LocalUserCreate,
+    UserRole,
+    normalize_username,
+)
+from packages.storage.control_plane import (
+    AuthAuditEventCreate,
+    ControlPlaneStore,
+    ExecutionScheduleCreate,
+)
 from packages.storage.ingestion_config import (
     ColumnMappingCreate,
     ColumnMappingRule,
@@ -88,6 +102,9 @@ def create_app(
     auth_store: AuthStore | None = None,
     auth_mode: str = "disabled",
     session_manager: SessionManager | None = None,
+    auth_failure_window_seconds: int = 900,
+    auth_failure_threshold: int = 5,
+    auth_lockout_seconds: int = 900,
     enable_unsafe_admin: bool = False,
 ) -> FastAPI:
     registry = extension_registry or build_builtin_extension_registry()
@@ -152,6 +169,16 @@ def create_app(
         0,
         help_text="Current queued schedule-dispatch count.",
     )
+    metrics_registry.inc(
+        "auth_failures_total",
+        0,
+        help_text="Total failed login attempts observed by the API.",
+    )
+    metrics_registry.inc(
+        "auth_lockouts_total",
+        0,
+        help_text="Total login lockouts observed by the API.",
+    )
 
     def require_unsafe_admin() -> None:
         if resolved_auth_mode == "local":
@@ -165,11 +192,81 @@ def create_app(
     def publish_reporting(promotion: PromotionResult | None) -> None:
         publish_promotion_reporting(resolved_reporting_service, promotion)
 
+    def request_remote_addr(request: Request) -> str | None:
+        forwarded_for = request.headers.get("x-forwarded-for", "").strip()
+        if forwarded_for:
+            return forwarded_for.split(",")[0].strip() or None
+        if request.client is None:
+            return None
+        return request.client.host
+
+    def cookie_secure_for_request(request: Request) -> bool:
+        forwarded_proto = request.headers.get("x-forwarded-proto", "")
+        if forwarded_proto:
+            return forwarded_proto.split(",")[0].strip().lower() == "https"
+        return request.url.scheme.lower() == "https"
+
+    def record_auth_event(
+        request: Request,
+        *,
+        event_type: str,
+        success: bool,
+        actor: AuthenticatedPrincipal | None = None,
+        subject_user_id: str | None = None,
+        subject_username: str | None = None,
+        detail: str | None = None,
+    ) -> None:
+        resolved_config_repository.record_auth_audit_events(
+            (
+                AuthAuditEventCreate(
+                    event_id=uuid.uuid4().hex,
+                    event_type=event_type,
+                    success=success,
+                    actor_user_id=actor.user_id if actor else None,
+                    actor_username=actor.username if actor else None,
+                    subject_user_id=subject_user_id,
+                    subject_username=subject_username,
+                    remote_addr=request_remote_addr(request),
+                    user_agent=request.headers.get("user-agent"),
+                    detail=detail,
+                ),
+            )
+        )
+
+    def locked_out_until(username: str, now: datetime) -> datetime | None:
+        recent_events = resolved_config_repository.list_auth_audit_events(
+            subject_username=username,
+            since=now - timedelta(seconds=auth_failure_window_seconds),
+            limit=max(auth_failure_threshold * 4, 20),
+        )
+        consecutive_failures = 0
+        latest_failure_at: datetime | None = None
+        for event in recent_events:
+            if event.event_type == "login_succeeded" and event.success:
+                break
+            if event.event_type not in {"login_failed", "login_blocked"}:
+                continue
+            if event.success:
+                continue
+            consecutive_failures += 1
+            if latest_failure_at is None:
+                latest_failure_at = event.occurred_at
+        if (
+            latest_failure_at is None
+            or consecutive_failures < auth_failure_threshold
+        ):
+            return None
+        candidate = latest_failure_at + timedelta(seconds=auth_lockout_seconds)
+        if candidate <= now:
+            return None
+        return candidate
+
     def required_role_for_path(path: str) -> UserRole | None:
         if path in {"/health", "/metrics", "/auth/login", "/auth/logout"}:
             return None
         if (
-            path.startswith("/config/")
+            path.startswith("/auth/users")
+            or path.startswith("/config/")
             or path.startswith("/control/")
             or path in {"/extensions", "/sources"}
             or path.startswith("/landing/")
@@ -202,6 +299,23 @@ def create_app(
                 request.cookies.get(resolved_session_manager.cookie_name),
                 resolved_auth_store,
             )
+            if (
+                request.state.principal is not None
+                and request.method.upper() not in {"GET", "HEAD", "OPTIONS"}
+            ):
+                csrf_header = request.headers.get("x-csrf-token")
+                csrf_cookie = request.cookies.get(resolved_session_manager.csrf_cookie_name)
+                if (
+                    request.state.principal.csrf_token is None
+                    or csrf_cookie != request.state.principal.csrf_token
+                    or csrf_header != request.state.principal.csrf_token
+                ):
+                    response = JSONResponse(
+                        status_code=403,
+                        content={"detail": "CSRF validation failed."},
+                    )
+                    _log_request(logger, request.method, request.url.path, 403, started)
+                    return response
             if required_role is not None:
                 admin_bypass = enable_unsafe_admin and required_role == UserRole.ADMIN
                 if request.state.principal is None and not admin_bypass:
@@ -279,53 +393,147 @@ def create_app(
         )
 
     @app.post("/auth/login")
-    async def login(payload: LoginRequest) -> JSONResponse:
+    async def login(request: Request, payload: LoginRequest) -> JSONResponse:
         if resolved_auth_mode != "local":
             raise HTTPException(
                 status_code=400,
                 detail="Local authentication is not enabled.",
             )
+        normalized_username = normalize_username(payload.username)
+        now = datetime.now(UTC)
+        locked_until = locked_out_until(normalized_username, now)
+        if locked_until is not None:
+            metrics_registry.inc(
+                "auth_lockouts_total",
+                1,
+                help_text="Total login lockouts observed by the API.",
+            )
+            record_auth_event(
+                request,
+                event_type="login_blocked",
+                success=False,
+                subject_username=normalized_username,
+                detail=f"Locked out until {locked_until.isoformat()}",
+            )
+            raise HTTPException(
+                status_code=429,
+                detail="Too many failed login attempts. Try again later.",
+            )
         try:
-            user = resolved_auth_store.get_local_user_by_username(payload.username)
+            user = resolved_auth_store.get_local_user_by_username(normalized_username)
         except KeyError as exc:
+            metrics_registry.inc(
+                "auth_failures_total",
+                1,
+                help_text="Total failed login attempts observed by the API.",
+            )
+            record_auth_event(
+                request,
+                event_type="login_failed",
+                success=False,
+                subject_username=normalized_username,
+                detail="Unknown username.",
+            )
             raise HTTPException(
                 status_code=401,
                 detail="Invalid username or password.",
             ) from exc
         if not user.enabled or not verify_password(payload.password, user.password_hash):
+            metrics_registry.inc(
+                "auth_failures_total",
+                1,
+                help_text="Total failed login attempts observed by the API.",
+            )
+            record_auth_event(
+                request,
+                event_type="login_failed",
+                success=False,
+                subject_user_id=user.user_id,
+                subject_username=user.username,
+                detail="Invalid password or disabled user.",
+            )
             raise HTTPException(
                 status_code=401,
                 detail="Invalid username or password.",
             )
         user = resolved_auth_store.record_local_user_login(user.user_id)
         assert resolved_session_manager is not None
+        record_auth_event(
+            request,
+            event_type="login_succeeded",
+            success=True,
+            subject_user_id=user.user_id,
+            subject_username=user.username,
+        )
+        issued_session = resolved_session_manager.issue_session(user)
+        secure_cookie = cookie_secure_for_request(request)
         response = JSONResponse(
             {
                 "auth_mode": "local",
                 "authenticated": True,
                 "user": serialize_user(user),
-                "principal": serialize_principal(request_principal_from_user(user)),
+                "principal": serialize_principal(
+                    request_principal_from_user(
+                        user,
+                        csrf_token=issued_session.csrf_token,
+                    )
+                ),
             }
         )
+        response.headers["Cache-Control"] = "no-store"
         response.set_cookie(
             key=resolved_session_manager.cookie_name,
-            value=resolved_session_manager.issue_session_cookie(user),
+            value=issued_session.cookie_value,
             httponly=True,
             max_age=resolved_session_manager.max_age_seconds,
+            expires=resolved_session_manager.max_age_seconds,
             path="/",
-            samesite="lax",
+            samesite=resolved_session_manager.same_site,
+            secure=secure_cookie,
+        )
+        response.set_cookie(
+            key=resolved_session_manager.csrf_cookie_name,
+            value=issued_session.csrf_token,
+            httponly=False,
+            max_age=resolved_session_manager.max_age_seconds,
+            expires=resolved_session_manager.max_age_seconds,
+            path="/",
+            samesite=resolved_session_manager.same_site,
+            secure=secure_cookie,
         )
         return response
 
     @app.post("/auth/logout")
-    async def logout() -> JSONResponse:
+    async def logout(request: Request) -> JSONResponse:
         response = JSONResponse({"logged_out": True})
         if resolved_session_manager is not None:
+            principal = cast(
+                AuthenticatedPrincipal | None,
+                getattr(request.state, "principal", None),
+            )
+            if principal is not None:
+                record_auth_event(
+                    request,
+                    event_type="logout",
+                    success=True,
+                    actor=principal,
+                    subject_user_id=principal.user_id,
+                    subject_username=principal.username,
+                )
+            secure_cookie = cookie_secure_for_request(request)
             response.delete_cookie(
                 resolved_session_manager.cookie_name,
                 path="/",
                 httponly=True,
-                samesite="lax",
+                samesite=resolved_session_manager.same_site,
+                secure=secure_cookie,
+            )
+            response.delete_cookie(
+                resolved_session_manager.csrf_cookie_name,
+                path="/",
+                httponly=False,
+                samesite=resolved_session_manager.same_site,
+                secure=secure_cookie,
             )
         return response
 
@@ -342,6 +550,130 @@ def create_app(
             "authenticated": True,
             "user": serialize_user(user),
             "principal": serialize_principal(principal),
+        }
+
+    @app.get("/auth/users")
+    async def list_auth_users() -> dict[str, Any]:
+        require_unsafe_admin()
+        return {"users": _to_jsonable(resolved_auth_store.list_local_users())}
+
+    @app.post("/auth/users", status_code=201)
+    async def create_auth_user(
+        request: Request,
+        payload: LocalUserCreateRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        principal = cast(
+            AuthenticatedPrincipal | None,
+            getattr(request.state, "principal", None),
+        )
+        try:
+            resolved_auth_store.get_local_user_by_username(payload.username)
+        except KeyError:
+            pass
+        else:
+            raise HTTPException(status_code=400, detail="Username already exists.")
+        user = resolved_auth_store.create_local_user(
+            LocalUserCreate(
+                user_id=f"user-{uuid.uuid4().hex}",
+                username=payload.username,
+                password_hash=hash_password(payload.password),
+                role=payload.role,
+            )
+        )
+        record_auth_event(
+            request,
+            event_type="user_created",
+            success=True,
+            actor=principal,
+            subject_user_id=user.user_id,
+            subject_username=user.username,
+            detail=f"Created role={user.role.value}",
+        )
+        return {"user": serialize_user(user)}
+
+    @app.patch("/auth/users/{user_id}")
+    async def update_auth_user(
+        user_id: str,
+        payload: LocalUserUpdateRequest,
+        request: Request,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        principal = cast(
+            AuthenticatedPrincipal | None,
+            getattr(request.state, "principal", None),
+        )
+        if principal is not None and principal.user_id == user_id:
+            if payload.enabled is False:
+                raise HTTPException(
+                    status_code=400,
+                    detail="You cannot disable your current session user.",
+                )
+            if payload.role is not None and payload.role != UserRole.ADMIN:
+                raise HTTPException(
+                    status_code=400,
+                    detail="You cannot remove the admin role from your current session user.",
+                )
+        user = resolved_auth_store.update_local_user(
+            user_id,
+            role=payload.role,
+            enabled=payload.enabled,
+        )
+        record_auth_event(
+            request,
+            event_type="user_updated",
+            success=True,
+            actor=principal,
+            subject_user_id=user.user_id,
+            subject_username=user.username,
+            detail=(
+                f"Updated role={user.role.value} enabled={str(user.enabled).lower()}"
+            ),
+        )
+        return {"user": serialize_user(user)}
+
+    @app.post("/auth/users/{user_id}/password")
+    async def reset_auth_user_password(
+        user_id: str,
+        payload: LocalUserPasswordResetRequest,
+        request: Request,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        principal = cast(
+            AuthenticatedPrincipal | None,
+            getattr(request.state, "principal", None),
+        )
+        user = resolved_auth_store.update_local_user_password(
+            user_id,
+            password_hash=hash_password(payload.password),
+        )
+        record_auth_event(
+            request,
+            event_type="password_reset",
+            success=True,
+            actor=principal,
+            subject_user_id=user.user_id,
+            subject_username=user.username,
+        )
+        return {"user": serialize_user(user)}
+
+    @app.get("/control/auth-audit")
+    async def list_auth_audit(
+        event_type: str | None = None,
+        success: bool | None = None,
+        subject_username: str | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        return {
+            "auth_audit_events": _to_jsonable(
+                resolved_config_repository.list_auth_audit_events(
+                    event_type=event_type,
+                    success=success,
+                    subject_username=subject_username,
+                    limit=limit,
+                )
+            )
         }
 
     @app.get("/runs")
@@ -1151,11 +1483,16 @@ def _observe_ingest_run(run: IngestionRunRecord) -> None:
         )
 
 
-def request_principal_from_user(user) -> AuthenticatedPrincipal:
+def request_principal_from_user(
+    user,
+    *,
+    csrf_token: str | None = None,
+) -> AuthenticatedPrincipal:
     return AuthenticatedPrincipal(
         user_id=user.user_id,
         username=user.username,
         role=user.role,
+        csrf_token=csrf_token,
     )
 
 

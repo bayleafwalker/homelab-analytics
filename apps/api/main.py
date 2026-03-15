@@ -112,6 +112,9 @@ def build_app(settings: AppSettings | None = None):
         auth_store=config_store,
         auth_mode=resolved_settings.auth_mode,
         session_manager=build_session_manager(resolved_settings),
+        auth_failure_window_seconds=resolved_settings.auth_failure_window_seconds,
+        auth_failure_threshold=resolved_settings.auth_failure_threshold,
+        auth_lockout_seconds=resolved_settings.auth_lockout_seconds,
         enable_unsafe_admin=resolved_settings.enable_unsafe_admin,
     )
 

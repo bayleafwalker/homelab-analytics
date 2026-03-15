@@ -8,6 +8,7 @@ import pytest
 from packages.storage.ingestion_config import IngestionConfigRepository
 from packages.storage.postgres_ingestion_config import PostgresIngestionConfigRepository
 from tests.control_plane_test_support import (
+    assert_auth_audit_behaviour,
     assert_control_plane_store_round_trip,
     assert_schedule_dispatch_behaviour,
     seed_source_asset_graph,
@@ -29,6 +30,13 @@ def test_postgres_control_plane_store_enqueues_due_schedules_and_respects_concur
         repository = PostgresIngestionConfigRepository(dsn, schema="control")
 
         assert_schedule_dispatch_behaviour(repository)
+
+
+def test_postgres_control_plane_store_records_and_filters_auth_audit_events() -> None:
+    with running_postgres_container() as dsn:
+        repository = PostgresIngestionConfigRepository(dsn, schema="control")
+
+        assert_auth_audit_behaviour(repository)
 
 
 def test_sqlite_snapshot_imports_into_postgres_control_plane_store() -> None:

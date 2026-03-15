@@ -41,6 +41,9 @@ class AppSettings:
     session_secret: str | None = None
     bootstrap_admin_username: str | None = None
     bootstrap_admin_password: str | None = None
+    auth_failure_window_seconds: int = 900
+    auth_failure_threshold: int = 5
+    auth_lockout_seconds: int = 900
     enable_unsafe_admin: bool = False
 
     @property
@@ -121,6 +124,15 @@ class AppSettings:
         bootstrap_admin_password = (
             env.get("HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD") or None
         )
+        auth_failure_window_seconds = int(
+            env.get("HOMELAB_ANALYTICS_AUTH_FAILURE_WINDOW_SECONDS", "900")
+        )
+        auth_failure_threshold = int(
+            env.get("HOMELAB_ANALYTICS_AUTH_FAILURE_THRESHOLD", "5")
+        )
+        auth_lockout_seconds = int(
+            env.get("HOMELAB_ANALYTICS_AUTH_LOCKOUT_SECONDS", "900")
+        )
         enable_unsafe_admin = env.get(
             "HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN", ""
         ).lower() in {"1", "true", "yes", "on"}
@@ -160,6 +172,9 @@ class AppSettings:
             session_secret=session_secret,
             bootstrap_admin_username=bootstrap_admin_username,
             bootstrap_admin_password=bootstrap_admin_password,
+            auth_failure_window_seconds=auth_failure_window_seconds,
+            auth_failure_threshold=auth_failure_threshold,
+            auth_lockout_seconds=auth_lockout_seconds,
             enable_unsafe_admin=enable_unsafe_admin,
         )
 

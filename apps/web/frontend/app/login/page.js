@@ -1,5 +1,11 @@
 export default function LoginPage({ searchParams }) {
   const error = searchParams?.error;
+  const errorMessage =
+    error === "locked-out"
+      ? "Too many failed login attempts. Try again later."
+      : error
+        ? "Invalid username or password."
+        : "";
   return (
     <main className="loginPage">
       <section className="panel loginCard">
@@ -9,9 +15,7 @@ export default function LoginPage({ searchParams }) {
           This frontend only consumes the API. Local auth is a bootstrap path until
           OIDC replaces it.
         </p>
-        {error ? (
-          <div className="errorBanner">Invalid username or password.</div>
-        ) : null}
+        {errorMessage ? <div className="errorBanner">{errorMessage}</div> : null}
         <form className="loginForm" action="/auth/login" method="post">
           <div className="field">
             <label htmlFor="username">Username</label>

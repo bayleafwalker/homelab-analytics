@@ -74,7 +74,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Operational management through API enables both UI administration and scripted configuration.
 
 **Phase:** 4
-**Status:** in-progress (CRUD-style config endpoints exist for source systems, dataset contracts, column mappings, transformation packages, publication definitions, source assets, ingestion definitions, and execution schedules; control-plane read endpoints expose schedule dispatches, source lineage, and publication audit; publication-definition creation rejects unknown built-in or extension relation keys; local auth now protects admin/control routes with an `admin` role, while `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` remains only as a temporary local bypass)
+**Status:** in-progress (CRUD-style config endpoints exist for source systems, dataset contracts, column mappings, transformation packages, publication definitions, source assets, ingestion definitions, and execution schedules; control-plane read endpoints expose schedule dispatches, source lineage, publication audit, and auth audit; publication-definition creation rejects unknown built-in or extension relation keys; local auth now protects admin/control routes with an `admin` role; bootstrap user management is available through the API and the Next.js admin page while `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` remains only as a temporary local bypass)
 
 **Acceptance criteria:**
 - CRUD endpoints for source systems, dataset contracts, column mappings, transformation packages, publication definitions, and schedules.

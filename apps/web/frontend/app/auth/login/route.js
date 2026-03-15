@@ -14,7 +14,9 @@ export async function POST(request) {
   });
 
   if (response.status !== 200) {
-    return NextResponse.redirect(new URL("/login?error=invalid-credentials", request.url), {
+    const error =
+      response.status === 429 ? "locked-out" : "invalid-credentials";
+    return NextResponse.redirect(new URL(`/login?error=${error}`, request.url), {
       status: 303
     });
   }

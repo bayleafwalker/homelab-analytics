@@ -28,6 +28,15 @@ def assert_auth_store_round_trip(store: AuthStore) -> None:
     assert store.get_local_user_by_username("READERONE") == user
     assert store.list_local_users(enabled_only=True) == [user]
 
+    updated_user = store.update_local_user(
+        user.user_id,
+        role=UserRole.OPERATOR,
+        enabled=False,
+    )
+    assert updated_user.role == UserRole.OPERATOR
+    assert not updated_user.enabled
+    assert store.list_local_users(enabled_only=True) == []
+
     updated_password_user = store.update_local_user_password(
         user.user_id,
         password_hash=hash_password("reader-password-rotated"),

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from packages.pipelines.csv_validation import ColumnType
+from packages.storage.auth_store import UserRole
 
 
 class SourceSystemRequest(BaseModel):
@@ -116,4 +117,19 @@ class ConfiguredCsvIngestRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     username: str
+    password: str
+
+
+class LocalUserCreateRequest(BaseModel):
+    username: str
+    password: str
+    role: UserRole
+
+
+class LocalUserUpdateRequest(BaseModel):
+    role: UserRole | None = None
+    enabled: bool | None = None
+
+
+class LocalUserPasswordResetRequest(BaseModel):
     password: str

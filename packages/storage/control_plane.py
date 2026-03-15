@@ -111,6 +111,36 @@ class PublicationAuditRecord:
 
 
 @dataclass(frozen=True)
+class AuthAuditEventCreate:
+    event_id: str
+    event_type: str
+    success: bool
+    actor_user_id: str | None = None
+    actor_username: str | None = None
+    subject_user_id: str | None = None
+    subject_username: str | None = None
+    remote_addr: str | None = None
+    user_agent: str | None = None
+    detail: str | None = None
+    occurred_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass(frozen=True)
+class AuthAuditEventRecord:
+    event_id: str
+    event_type: str
+    success: bool
+    actor_user_id: str | None
+    actor_username: str | None
+    subject_user_id: str | None
+    subject_username: str | None
+    remote_addr: str | None
+    user_agent: str | None
+    detail: str | None
+    occurred_at: datetime
+
+
+@dataclass(frozen=True)
 class ControlPlaneSnapshot:
     source_systems: tuple["SourceSystemRecord", ...]
     dataset_contracts: tuple["DatasetContractConfigRecord", ...]
@@ -122,6 +152,7 @@ class ControlPlaneSnapshot:
     execution_schedules: tuple[ExecutionScheduleRecord, ...] = ()
     source_lineage: tuple[SourceLineageRecord, ...] = ()
     publication_audit: tuple[PublicationAuditRecord, ...] = ()
+    auth_audit_events: tuple[AuthAuditEventRecord, ...] = ()
     local_users: tuple["LocalUserRecord", ...] = ()
 
 
@@ -280,6 +311,24 @@ class ControlPlaneStore(Protocol):
     ) -> list[PublicationAuditRecord]:
         ...
 
+    def record_auth_audit_events(
+        self, entries: tuple[AuthAuditEventCreate, ...]
+    ) -> list[AuthAuditEventRecord]:
+        ...
+
+    def list_auth_audit_events(
+        self,
+        *,
+        event_type: str | None = None,
+        success: bool | None = None,
+        actor_user_id: str | None = None,
+        subject_user_id: str | None = None,
+        subject_username: str | None = None,
+        since: datetime | None = None,
+        limit: int | None = None,
+    ) -> list[AuthAuditEventRecord]:
+        ...
+
     def export_snapshot(self) -> ControlPlaneSnapshot:
         ...
 
@@ -300,4 +349,12 @@ class PublicationAuditStore(Protocol):
     def record_publication_audit(
         self, entries: tuple[PublicationAuditCreate, ...]
     ) -> list[PublicationAuditRecord]:
+        ...
+
+
+@runtime_checkable
+class AuthAuditStore(Protocol):
+    def record_auth_audit_events(
+        self, entries: tuple[AuthAuditEventCreate, ...]
+    ) -> list[AuthAuditEventRecord]:
         ...

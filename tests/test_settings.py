@@ -59,6 +59,9 @@ class AppSettingsTests(unittest.TestCase):
         self.assertIsNone(settings.session_secret)
         self.assertIsNone(settings.bootstrap_admin_username)
         self.assertIsNone(settings.bootstrap_admin_password)
+        self.assertEqual(900, settings.auth_failure_window_seconds)
+        self.assertEqual(5, settings.auth_failure_threshold)
+        self.assertEqual(900, settings.auth_lockout_seconds)
         self.assertFalse(settings.enable_unsafe_admin)
         self.assertIsNone(settings.postgres_dsn)
         self.assertIsNone(settings.s3_endpoint_url)
@@ -187,6 +190,9 @@ class AppSettingsTests(unittest.TestCase):
                 "HOMELAB_ANALYTICS_SESSION_SECRET": "session-secret",
                 "HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME": "admin",
                 "HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD": "admin-password",
+                "HOMELAB_ANALYTICS_AUTH_FAILURE_WINDOW_SECONDS": "600",
+                "HOMELAB_ANALYTICS_AUTH_FAILURE_THRESHOLD": "4",
+                "HOMELAB_ANALYTICS_AUTH_LOCKOUT_SECONDS": "1200",
                 "HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN": "true",
             }
         )
@@ -211,6 +217,9 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual("session-secret", settings.session_secret)
         self.assertEqual("admin", settings.bootstrap_admin_username)
         self.assertEqual("admin-password", settings.bootstrap_admin_password)
+        self.assertEqual(600, settings.auth_failure_window_seconds)
+        self.assertEqual(4, settings.auth_failure_threshold)
+        self.assertEqual(1200, settings.auth_lockout_seconds)
         self.assertTrue(settings.enable_unsafe_admin)
 
 

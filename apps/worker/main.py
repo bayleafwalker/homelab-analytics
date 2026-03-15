@@ -51,6 +51,7 @@ from packages.shared.metrics import metrics_registry
 from packages.shared.settings import AppSettings
 from packages.storage.auth_store import LocalUserCreate, LocalUserRecord, UserRole
 from packages.storage.control_plane import (
+    AuthAuditEventRecord,
     ControlPlaneSnapshot,
     ExecutionScheduleRecord,
     PublicationAuditRecord,
@@ -509,6 +510,9 @@ def main(
                         "source_assets": len(snapshot.source_assets),
                         "ingestion_definitions": len(snapshot.ingestion_definitions),
                         "execution_schedules": len(snapshot.execution_schedules),
+                        "source_lineage": len(snapshot.source_lineage),
+                        "publication_audit": len(snapshot.publication_audit),
+                        "auth_audit_events": len(snapshot.auth_audit_events),
                         "local_users": len(snapshot.local_users),
                     },
                 },
@@ -848,6 +852,7 @@ def _control_plane_snapshot_to_dict(snapshot: ControlPlaneSnapshot) -> dict[str,
         "execution_schedules": list(snapshot.execution_schedules),
         "source_lineage": list(snapshot.source_lineage),
         "publication_audit": list(snapshot.publication_audit),
+        "auth_audit_events": list(snapshot.auth_audit_events),
         "local_users": list(snapshot.local_users),
     }
 
@@ -1015,6 +1020,22 @@ def _control_plane_snapshot_from_dict(payload: dict[str, Any]) -> ControlPlaneSn
                 published_at=datetime.fromisoformat(item["published_at"]),
             )
             for item in payload.get("publication_audit", [])
+        ),
+        auth_audit_events=tuple(
+            AuthAuditEventRecord(
+                event_id=item["event_id"],
+                event_type=item["event_type"],
+                success=item["success"],
+                actor_user_id=item.get("actor_user_id"),
+                actor_username=item.get("actor_username"),
+                subject_user_id=item.get("subject_user_id"),
+                subject_username=item.get("subject_username"),
+                remote_addr=item.get("remote_addr"),
+                user_agent=item.get("user_agent"),
+                detail=item.get("detail"),
+                occurred_at=datetime.fromisoformat(item["occurred_at"]),
+            )
+            for item in payload.get("auth_audit_events", [])
         ),
         local_users=tuple(
             LocalUserRecord(

@@ -55,6 +55,15 @@ class AuthStore(Protocol):
     def list_local_users(self, *, enabled_only: bool = False) -> list[LocalUserRecord]:
         ...
 
+    def update_local_user(
+        self,
+        user_id: str,
+        *,
+        role: UserRole | None = None,
+        enabled: bool | None = None,
+    ) -> LocalUserRecord:
+        ...
+
     def update_local_user_password(
         self,
         user_id: str,
