@@ -302,20 +302,46 @@ def assert_schedule_dispatch_behaviour(store: ControlPlaneStore) -> None:
 
     first_dispatches = store.enqueue_due_execution_schedules(as_of=due_at)
     assert [dispatch.schedule_id for dispatch in first_dispatches] == ["enabled-schedule"]
+    assert first_dispatches[0].started_at is None
+    assert first_dispatches[0].run_ids == ()
+    assert first_dispatches[0].failure_reason is None
+    assert first_dispatches[0].worker_detail is None
     assert (
         store.get_execution_schedule("enabled-schedule").last_enqueued_at == due_at
+    )
+    assert (
+        store.get_schedule_dispatch(first_dispatches[0].dispatch_id).dispatch_id
+        == first_dispatches[0].dispatch_id
     )
 
     # Even when the schedule is due again, an active dispatch blocks a duplicate enqueue.
     assert store.enqueue_due_execution_schedules(as_of=blocked_as_of) == []
     assert store.list_schedule_dispatches(schedule_id="disabled-schedule") == []
 
-    completed = store.mark_schedule_dispatch_status(
+    running = store.mark_schedule_dispatch_status(
         first_dispatches[0].dispatch_id,
-        status="completed",
-        completed_at=blocked_as_of,
+        status="running",
+        started_at=blocked_as_of,
+        worker_detail="worker-started",
     )
-    assert completed.status == "completed"
+    assert running.status == "running"
+    assert running.started_at == blocked_as_of
+    assert running.worker_detail == "worker-started"
+
+    assert store.enqueue_due_execution_schedules(as_of=blocked_as_of) == []
+
+    failed = store.mark_schedule_dispatch_status(
+        first_dispatches[0].dispatch_id,
+        status="failed",
+        completed_at=blocked_as_of,
+        run_ids=("run-001",),
+        failure_reason="boom",
+        worker_detail="worker-failed",
+    )
+    assert failed.status == "failed"
+    assert failed.run_ids == ("run-001",)
+    assert failed.failure_reason == "boom"
+    assert failed.worker_detail == "worker-failed"
 
     second_dispatches = store.enqueue_due_execution_schedules(as_of=blocked_as_of)
     assert [dispatch.schedule_id for dispatch in second_dispatches] == ["enabled-schedule"]
@@ -323,11 +349,28 @@ def assert_schedule_dispatch_behaviour(store: ControlPlaneStore) -> None:
         store.get_execution_schedule("enabled-schedule").next_due_at
         == datetime(2026, 1, 1, 0, 10, tzinfo=UTC)
     )
+    completed = store.mark_schedule_dispatch_status(
+        second_dispatches[0].dispatch_id,
+        status="completed",
+        started_at=blocked_as_of,
+        completed_at=datetime(2026, 1, 1, 0, 7, tzinfo=UTC),
+        run_ids=("run-002",),
+        worker_detail="worker-completed",
+    )
+    assert completed.status == "completed"
+    assert completed.run_ids == ("run-002",)
     assert [
         dispatch.dispatch_id
         for dispatch in store.list_schedule_dispatches(
             schedule_id="enabled-schedule",
             status="completed",
+        )
+    ] == [second_dispatches[0].dispatch_id]
+    assert [
+        dispatch.dispatch_id
+        for dispatch in store.list_schedule_dispatches(
+            schedule_id="enabled-schedule",
+            status="failed",
         )
     ] == [first_dispatches[0].dispatch_id]
 

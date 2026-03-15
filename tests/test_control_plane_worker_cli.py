@@ -7,8 +7,16 @@ from tempfile import TemporaryDirectory
 
 from apps.worker.main import main
 from packages.shared.settings import AppSettings
-from packages.storage.ingestion_config import IngestionConfigRepository
-from tests.control_plane_test_support import FIXED_DUE_AT, seed_source_asset_graph
+from packages.storage.ingestion_config import (
+    IngestionConfigRepository,
+    IngestionDefinitionCreate,
+)
+from tests.account_test_support import FIXTURES as ACCOUNT_FIXTURES
+from tests.control_plane_test_support import (
+    FIXED_CREATED_AT,
+    FIXED_DUE_AT,
+    seed_source_asset_graph,
+)
 
 
 def _build_settings(temp_dir: str) -> AppSettings:
@@ -152,3 +160,64 @@ def test_worker_cli_exports_and_imports_control_plane_snapshots() -> None:
                 record.publication_audit_id
                 for record in target_repository.list_publication_audit()
             ] == ["publication-001"]
+
+
+def test_worker_cli_processes_enqueued_schedule_dispatch() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(temp_dir)
+        repository = IngestionConfigRepository(settings.resolved_config_database_path)
+        seeded = seed_source_asset_graph(repository)
+        inbox_dir = Path(temp_dir) / "configured-inbox"
+        processed_dir = Path(temp_dir) / "configured-processed"
+        failed_dir = Path(temp_dir) / "configured-failed"
+        inbox_dir.mkdir()
+        (inbox_dir / "valid.csv").write_text(
+            (ACCOUNT_FIXTURES / "configured_account_transactions_source.csv").read_text()
+        )
+
+        repository.update_ingestion_definition(
+            IngestionDefinitionCreate(
+                ingestion_definition_id=seeded["ingestion_definition"].ingestion_definition_id,
+                source_asset_id=seeded["source_asset"].source_asset_id,
+                transport="filesystem",
+                schedule_mode="watch-folder",
+                source_path=str(inbox_dir),
+                file_pattern="*.csv",
+                processed_path=str(processed_dir),
+                failed_path=str(failed_dir),
+                poll_interval_seconds=30,
+                enabled=True,
+                source_name="folder-watch",
+                created_at=FIXED_CREATED_AT,
+            )
+        )
+        dispatch_id = repository.enqueue_due_execution_schedules(as_of=FIXED_DUE_AT)[0].dispatch_id
+
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        exit_code = main(
+            ["process-schedule-dispatch", dispatch_id],
+            stdout=stdout,
+            stderr=stderr,
+            settings=settings,
+        )
+
+        assert exit_code == 0
+        payload = json.loads(stdout.getvalue())
+        assert payload["dispatch"]["dispatch_id"] == dispatch_id
+        assert payload["dispatch"]["status"] == "completed"
+        assert payload["dispatch"]["started_at"] is not None
+        assert payload["dispatch"]["completed_at"] is not None
+        assert payload["dispatch"]["failure_reason"] is None
+        assert payload["dispatch"]["run_ids"]
+        assert payload["dispatch"]["worker_detail"]
+        assert payload["result"]["processed_files"] == 1
+        assert len(payload["promotions"]) == len(payload["dispatch"]["run_ids"])
+
+        stored_dispatch = repository.get_schedule_dispatch(dispatch_id)
+        assert stored_dispatch.status == "completed"
+        assert stored_dispatch.run_ids
+        assert stored_dispatch.failure_reason is None
+        assert stored_dispatch.worker_detail is not None
+        assert len(list(processed_dir.iterdir())) == 1
+        assert list(failed_dir.iterdir()) == []

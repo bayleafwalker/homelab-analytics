@@ -117,7 +117,11 @@ def test_control_plane_api_exposes_schedules_lineage_audit_and_metrics() -> None
                     "target_ref": seeded["ingestion_definition"].ingestion_definition_id,
                     "enqueued_at": FIXED_DUE_AT.isoformat(),
                     "status": "enqueued",
+                    "started_at": None,
                     "completed_at": None,
+                    "run_ids": [],
+                    "failure_reason": None,
+                    "worker_detail": None,
                 }
             ]
 
@@ -139,6 +143,7 @@ def test_control_plane_api_exposes_schedules_lineage_audit_and_metrics() -> None
                 dispatch_detail_response.json()["source_asset"]["source_asset_id"]
                 == seeded["source_asset"].source_asset_id
             )
+            assert dispatch_detail_response.json()["runs"] == []
 
             ingest_response = client.post(
                 "/ingest",
@@ -148,12 +153,29 @@ def test_control_plane_api_exposes_schedules_lineage_audit_and_metrics() -> None
                 },
             )
             assert ingest_response.status_code == 201
+            run_id = ingest_response.json()["run"]["run_id"]
 
             metrics_response = client.get("/metrics")
             assert metrics_response.status_code == 200
             assert metrics_response.headers["content-type"].startswith("text/plain")
             assert "ingestion_runs_total 1" in metrics_response.text
             assert "worker_queue_depth 1" in metrics_response.text
+
+            repository.mark_schedule_dispatch_status(
+                dispatch.dispatch_id,
+                status="completed",
+                started_at=FIXED_DUE_AT,
+                completed_at=FIXED_DUE_AT,
+                run_ids=(run_id,),
+                worker_detail="worker-complete",
+            )
+            completed_detail_response = client.get(
+                f"/control/schedule-dispatches/{dispatch.dispatch_id}"
+            )
+            assert completed_detail_response.status_code == 200
+            assert completed_detail_response.json()["dispatch"]["status"] == "completed"
+            assert completed_detail_response.json()["dispatch"]["run_ids"] == [run_id]
+            assert completed_detail_response.json()["runs"][0]["run_id"] == run_id
     finally:
         metrics_registry.clear()
 
@@ -254,7 +276,28 @@ def test_control_plane_api_updates_entities_and_enqueues_manual_dispatches() -> 
             json={"schedule_id": "bank_partner_poll"},
         )
         assert dispatch_response.status_code == 201
+        dispatch_id = dispatch_response.json()["dispatch"]["dispatch_id"]
         assert dispatch_response.json()["dispatch"]["schedule_id"] == "bank_partner_poll"
+
+        blocked_retry_response = client.post(
+            f"/control/schedule-dispatches/{dispatch_id}/retry",
+        )
+        assert blocked_retry_response.status_code == 409
+
+        repository.mark_schedule_dispatch_status(
+            dispatch_id,
+            status="failed",
+            started_at=FIXED_DUE_AT,
+            completed_at=FIXED_DUE_AT,
+            failure_reason="worker-failed",
+            worker_detail="worker-failed",
+        )
+        retry_response = client.post(
+            f"/control/schedule-dispatches/{dispatch_id}/retry",
+        )
+        assert retry_response.status_code == 201
+        assert retry_response.json()["dispatch"]["status"] == "enqueued"
+        assert retry_response.json()["dispatch"]["schedule_id"] == "bank_partner_poll"
 
         due_enqueue_response = client.post(
             "/control/schedule-dispatches",

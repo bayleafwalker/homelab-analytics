@@ -1176,9 +1176,10 @@ class PostgresIngestionConfigRepository:
                 connection.execute(
                     """
                     INSERT INTO schedule_dispatches (
-                        dispatch_id, schedule_id, target_kind, target_ref, enqueued_at, status, completed_at
+                        dispatch_id, schedule_id, target_kind, target_ref, enqueued_at, status,
+                        started_at, completed_at, run_ids_json, failure_reason, worker_detail
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         dispatch_id,
@@ -1187,6 +1188,10 @@ class PostgresIngestionConfigRepository:
                         row["target_ref"],
                         resolved_as_of,
                         "enqueued",
+                        None,
+                        None,
+                        "[]",
+                        None,
                         None,
                     ),
                 )
@@ -1211,7 +1216,11 @@ class PostgresIngestionConfigRepository:
                         target_ref=row["target_ref"],
                         enqueued_at=resolved_as_of,
                         status="enqueued",
+                        started_at=None,
                         completed_at=None,
+                        run_ids=(),
+                        failure_reason=None,
+                        worker_detail=None,
                     )
                 )
         return dispatches
@@ -1234,7 +1243,8 @@ class PostgresIngestionConfigRepository:
         with self._connect(row_factory=dict_row) as connection:
             rows = connection.execute(
                 f"""
-                SELECT dispatch_id, schedule_id, target_kind, target_ref, enqueued_at, status, completed_at
+                SELECT dispatch_id, schedule_id, target_kind, target_ref, enqueued_at, status,
+                       started_at, completed_at, run_ids_json, failure_reason, worker_detail
                 FROM schedule_dispatches
                 {where_sql}
                 ORDER BY enqueued_at DESC, dispatch_id DESC
@@ -1249,11 +1259,43 @@ class PostgresIngestionConfigRepository:
                 "target_ref": row["target_ref"],
                 "enqueued_at": row["enqueued_at"].isoformat(),
                 "status": row["status"],
+                "started_at": row["started_at"].isoformat() if row["started_at"] else None,
                 "completed_at": row["completed_at"].isoformat() if row["completed_at"] else None,
+                "run_ids_json": row["run_ids_json"] or "[]",
+                "failure_reason": row["failure_reason"],
+                "worker_detail": row["worker_detail"],
             }
             for row in rows
         ]
         return [_deserialize_schedule_dispatch_row(row) for row in normalized]  # type: ignore[arg-type]
+
+    def get_schedule_dispatch(self, dispatch_id: str) -> ScheduleDispatchRecord:
+        with self._connect(row_factory=dict_row) as connection:
+            row = connection.execute(
+                """
+                SELECT dispatch_id, schedule_id, target_kind, target_ref, enqueued_at, status,
+                       started_at, completed_at, run_ids_json, failure_reason, worker_detail
+                FROM schedule_dispatches
+                WHERE dispatch_id = %s
+                """,
+                (dispatch_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown schedule dispatch: {dispatch_id}")
+        normalized = {
+            "dispatch_id": row["dispatch_id"],
+            "schedule_id": row["schedule_id"],
+            "target_kind": row["target_kind"],
+            "target_ref": row["target_ref"],
+            "enqueued_at": row["enqueued_at"].isoformat(),
+            "status": row["status"],
+            "started_at": row["started_at"].isoformat() if row["started_at"] else None,
+            "completed_at": row["completed_at"].isoformat() if row["completed_at"] else None,
+            "run_ids_json": row["run_ids_json"] or "[]",
+            "failure_reason": row["failure_reason"],
+            "worker_detail": row["worker_detail"],
+        }
+        return _deserialize_schedule_dispatch_row(normalized)  # type: ignore[arg-type]
 
     def create_schedule_dispatch(
         self,
@@ -1294,9 +1336,10 @@ class PostgresIngestionConfigRepository:
             connection.execute(
                 """
                 INSERT INTO schedule_dispatches (
-                    dispatch_id, schedule_id, target_kind, target_ref, enqueued_at, status, completed_at
+                    dispatch_id, schedule_id, target_kind, target_ref, enqueued_at, status,
+                    started_at, completed_at, run_ids_json, failure_reason, worker_detail
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     dispatch_id,
@@ -1305,6 +1348,10 @@ class PostgresIngestionConfigRepository:
                     schedule_row["target_ref"],
                     resolved_enqueued_at,
                     "enqueued",
+                    None,
+                    None,
+                    "[]",
+                    None,
                     None,
                 ),
             )
@@ -1323,7 +1370,11 @@ class PostgresIngestionConfigRepository:
             target_ref=schedule_row["target_ref"],
             enqueued_at=resolved_enqueued_at,
             status="enqueued",
+            started_at=None,
             completed_at=None,
+            run_ids=(),
+            failure_reason=None,
+            worker_detail=None,
         )
 
     def mark_schedule_dispatch_status(
@@ -1331,22 +1382,70 @@ class PostgresIngestionConfigRepository:
         dispatch_id: str,
         *,
         status: str,
+        started_at: datetime | None = None,
         completed_at: datetime | None = None,
+        run_ids: tuple[str, ...] | None = None,
+        failure_reason: str | None = None,
+        worker_detail: str | None = None,
     ) -> ScheduleDispatchRecord:
-        resolved_completed_at = completed_at if status in {"completed", "failed"} else None
+        existing = self.get_schedule_dispatch(dispatch_id)
+        if status == "enqueued":
+            resolved_started_at = None
+            resolved_completed_at = None
+            resolved_run_ids: tuple[str, ...] = ()
+            resolved_failure_reason = None
+            resolved_worker_detail = None
+        elif status == "running":
+            resolved_started_at = started_at or existing.started_at
+            resolved_completed_at = None
+            resolved_run_ids = run_ids or ()
+            resolved_failure_reason = None
+            resolved_worker_detail = (
+                worker_detail if worker_detail is not None else existing.worker_detail
+            )
+        elif status == "failed":
+            resolved_started_at = started_at or existing.started_at
+            resolved_completed_at = completed_at
+            resolved_run_ids = run_ids if run_ids is not None else existing.run_ids
+            resolved_failure_reason = (
+                failure_reason
+                if failure_reason is not None
+                else existing.failure_reason
+            )
+            resolved_worker_detail = (
+                worker_detail if worker_detail is not None else existing.worker_detail
+            )
+        else:
+            resolved_started_at = started_at or existing.started_at
+            resolved_completed_at = completed_at
+            resolved_run_ids = run_ids if run_ids is not None else existing.run_ids
+            resolved_failure_reason = None
+            resolved_worker_detail = (
+                worker_detail if worker_detail is not None else existing.worker_detail
+            )
         with self._connect() as connection:
             connection.execute(
                 """
                 UPDATE schedule_dispatches
-                SET status = %s, completed_at = %s
+                SET status = %s,
+                    started_at = %s,
+                    completed_at = %s,
+                    run_ids_json = %s,
+                    failure_reason = %s,
+                    worker_detail = %s
                 WHERE dispatch_id = %s
                 """,
-                (status, resolved_completed_at, dispatch_id),
+                (
+                    status,
+                    resolved_started_at,
+                    resolved_completed_at,
+                    json.dumps(list(resolved_run_ids)),
+                    resolved_failure_reason,
+                    resolved_worker_detail,
+                    dispatch_id,
+                ),
             )
-        for row in self.list_schedule_dispatches():
-            if row.dispatch_id == dispatch_id:
-                return row
-        raise KeyError(f"Unknown schedule dispatch: {dispatch_id}")
+        return self.get_schedule_dispatch(dispatch_id)
 
     def record_source_lineage(
         self,
@@ -2122,6 +2221,10 @@ class PostgresIngestionConfigRepository:
                     target_ref TEXT NOT NULL,
                     enqueued_at TIMESTAMPTZ NOT NULL,
                     status TEXT NOT NULL,
+                    started_at TIMESTAMPTZ,
+                    run_ids_json TEXT NOT NULL DEFAULT '[]',
+                    failure_reason TEXT,
+                    worker_detail TEXT,
                     completed_at TIMESTAMPTZ
                 )
                 """
@@ -2223,6 +2326,30 @@ class PostgresIngestionConfigRepository:
                 """
                 ALTER TABLE execution_schedules
                 ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE
+                """
+            )
+            connection.execute(
+                """
+                ALTER TABLE schedule_dispatches
+                ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ
+                """
+            )
+            connection.execute(
+                """
+                ALTER TABLE schedule_dispatches
+                ADD COLUMN IF NOT EXISTS run_ids_json TEXT NOT NULL DEFAULT '[]'
+                """
+            )
+            connection.execute(
+                """
+                ALTER TABLE schedule_dispatches
+                ADD COLUMN IF NOT EXISTS failure_reason TEXT
+                """
+            )
+            connection.execute(
+                """
+                ALTER TABLE schedule_dispatches
+                ADD COLUMN IF NOT EXISTS worker_detail TEXT
                 """
             )
             self._seed_builtins(connection)

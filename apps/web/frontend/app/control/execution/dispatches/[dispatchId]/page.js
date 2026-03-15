@@ -9,21 +9,56 @@ import {
   getScheduleDispatch
 } from "@/lib/backend";
 
+function noticeCopy(notice, retryOf) {
+  switch (notice) {
+    case "schedule-dispatch-retried":
+      return retryOf
+        ? `Dispatch requeued from ${retryOf}.`
+        : "Schedule dispatch requeued.";
+    default:
+      return "";
+  }
+}
+
+function errorCopy(error) {
+  switch (error) {
+    case "schedule-dispatch-retry-failed":
+      return "Could not requeue the schedule dispatch.";
+    default:
+      return "";
+  }
+}
+
 function summaryFor(summaryMap, key) {
   return (summaryMap && key && summaryMap[key]) || null;
 }
 
-export default async function DispatchDetailPage({ params }) {
+function isRetryableStatus(status) {
+  return status === "completed" || status === "failed";
+}
+
+export default async function DispatchDetailPage({ params, searchParams }) {
   const user = await getCurrentUser();
   if (user.role !== "admin") {
     redirect("/");
   }
 
-  const [{ dispatch, schedule, ingestion_definition: ingestionDefinition, source_asset: sourceAsset }, operationalSummary] =
+  const [
+    {
+      dispatch,
+      schedule,
+      ingestion_definition: ingestionDefinition,
+      source_asset: sourceAsset,
+      runs
+    },
+    operationalSummary
+  ] =
     await Promise.all([
       getScheduleDispatch(params.dispatchId),
       getOperationalSummary()
     ]);
+  const notice = noticeCopy(searchParams?.notice, searchParams?.retry_of);
+  const error = errorCopy(searchParams?.error);
   const scheduleSummary = summaryFor(
     operationalSummary.execution_schedules,
     schedule?.schedule_id
@@ -47,10 +82,22 @@ export default async function DispatchDetailPage({ params }) {
     >
       <section className="stack">
         <ControlNav currentPath="/control/execution" />
+        {notice ? <div className="successBanner">{notice}</div> : null}
+        {error ? <div className="errorBanner">{error}</div> : null}
         <div className="buttonRow">
           <Link className="ghostButton" href="/control/execution">
             Back to execution
           </Link>
+          {isRetryableStatus(dispatch.status) ? (
+            <form
+              action={`/control/execution/dispatches/${dispatch.dispatch_id}/retry`}
+              method="post"
+            >
+              <button className="primaryButton inlineButton" type="submit">
+                Requeue dispatch
+              </button>
+            </form>
+          ) : null}
         </div>
 
         <article className="panel section">
@@ -75,8 +122,24 @@ export default async function DispatchDetailPage({ params }) {
               <div>{dispatch.enqueued_at}</div>
             </div>
             <div className="metaItem">
+              <div className="metricLabel">Started</div>
+              <div>{dispatch.started_at || "n/a"}</div>
+            </div>
+            <div className="metaItem">
               <div className="metricLabel">Completed</div>
               <div>{dispatch.completed_at || "n/a"}</div>
+            </div>
+            <div className="metaItem">
+              <div className="metricLabel">Produced runs</div>
+              <div>{dispatch.run_ids?.length || 0}</div>
+            </div>
+            <div className="metaItem spanTwo">
+              <div className="metricLabel">Failure reason</div>
+              <div className="muted">{dispatch.failure_reason || "n/a"}</div>
+            </div>
+            <div className="metaItem spanTwo">
+              <div className="metricLabel">Worker detail</div>
+              <div className="muted">{dispatch.worker_detail || "n/a"}</div>
             </div>
           </div>
         </article>
@@ -152,6 +215,60 @@ export default async function DispatchDetailPage({ params }) {
             </div>
           </article>
         </section>
+
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Runs</div>
+              <h2>Produced runs</h2>
+            </div>
+          </div>
+          {dispatch.run_ids?.length ? (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Run</th>
+                    <th>Status</th>
+                    <th>Dataset</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dispatch.run_ids.map((runId) => {
+                    const run = runs.find((item) => item.run_id === runId);
+                    return (
+                      <tr key={runId}>
+                        <td>
+                          {run ? (
+                            <Link className="inlineLink" href={`/runs/${runId}`}>
+                              {runId}
+                            </Link>
+                          ) : (
+                            runId
+                          )}
+                        </td>
+                        <td>
+                          {run ? (
+                            <span className={`statusPill status-${run.status}`}>
+                              {run.status}
+                            </span>
+                          ) : (
+                            "missing"
+                          )}
+                        </td>
+                        <td>{run?.dataset_name || "n/a"}</td>
+                        <td>{run?.created_at || "n/a"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="empty">This dispatch has not produced any runs yet.</div>
+          )}
+        </article>
       </section>
     </AppShell>
   );

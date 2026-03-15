@@ -36,6 +36,8 @@ function noticeCopy(notice) {
       return "Manual schedule dispatch enqueued.";
     case "due-dispatches-enqueued":
       return "Due schedules enqueued.";
+    case "schedule-dispatch-retried":
+      return "Schedule dispatch requeued.";
     default:
       return "";
   }
@@ -63,6 +65,8 @@ function errorCopy(error) {
       return "Could not process the ingestion definition.";
     case "schedule-dispatch-failed":
       return "Could not enqueue the schedule dispatch.";
+    case "schedule-dispatch-retry-failed":
+      return "Could not requeue the schedule dispatch.";
     default:
       return "";
   }
@@ -100,6 +104,10 @@ function referenceSummary(records, field) {
 
 function summaryFor(summaryMap, key) {
   return (summaryMap && key && summaryMap[key]) || null;
+}
+
+function isRetryableDispatch(record) {
+  return record.status === "completed" || record.status === "failed";
 }
 
 export default async function ControlExecutionPage({ searchParams }) {
@@ -249,8 +257,11 @@ export default async function ControlExecutionPage({ searchParams }) {
                       <th>Dispatch</th>
                       <th>Schedule</th>
                       <th>Status</th>
+                      <th>Failure</th>
+                      <th>Runs</th>
                       <th>Enqueued</th>
                       <th>Completed</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -268,8 +279,40 @@ export default async function ControlExecutionPage({ searchParams }) {
                         <td>
                           <span className={`statusPill status-${record.status}`}>{record.status}</span>
                         </td>
+                        <td>{record.failure_reason || "n/a"}</td>
+                        <td>
+                          {record.run_ids?.length ? (
+                            <div className="stack">
+                              {record.run_ids.map((runId) => (
+                                <Link
+                                  key={runId}
+                                  className="inlineLink"
+                                  href={`/runs/${runId}`}
+                                >
+                                  {runId}
+                                </Link>
+                              ))}
+                            </div>
+                          ) : (
+                            "n/a"
+                          )}
+                        </td>
                         <td>{record.enqueued_at}</td>
                         <td>{record.completed_at || "n/a"}</td>
+                        <td>
+                          {isRetryableDispatch(record) ? (
+                            <form
+                              action={`/control/execution/dispatches/${record.dispatch_id}/retry`}
+                              method="post"
+                            >
+                              <button className="ghostButton" type="submit">
+                                Retry
+                              </button>
+                            </form>
+                          ) : (
+                            "n/a"
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -979,8 +1022,12 @@ export default async function ControlExecutionPage({ searchParams }) {
                       <th>Dispatch</th>
                       <th>Schedule</th>
                       <th>Status</th>
+                      <th>Started</th>
+                      <th>Failure</th>
+                      <th>Runs</th>
                       <th>Enqueued</th>
                       <th>Completed</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -998,8 +1045,41 @@ export default async function ControlExecutionPage({ searchParams }) {
                         <td>
                           <span className={`statusPill status-${record.status}`}>{record.status}</span>
                         </td>
+                        <td>{record.started_at || "n/a"}</td>
+                        <td>{record.failure_reason || "n/a"}</td>
+                        <td>
+                          {record.run_ids?.length ? (
+                            <div className="stack">
+                              {record.run_ids.map((runId) => (
+                                <Link
+                                  key={runId}
+                                  className="inlineLink"
+                                  href={`/runs/${runId}`}
+                                >
+                                  {runId}
+                                </Link>
+                              ))}
+                            </div>
+                          ) : (
+                            "n/a"
+                          )}
+                        </td>
                         <td>{record.enqueued_at}</td>
                         <td>{record.completed_at || "n/a"}</td>
+                        <td>
+                          {isRetryableDispatch(record) ? (
+                            <form
+                              action={`/control/execution/dispatches/${record.dispatch_id}/retry`}
+                              method="post"
+                            >
+                              <button className="ghostButton" type="submit">
+                                Retry
+                              </button>
+                            </form>
+                          ) : (
+                            "n/a"
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

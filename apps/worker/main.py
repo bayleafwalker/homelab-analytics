@@ -20,10 +20,12 @@ from packages.pipelines.account_transaction_service import AccountTransactionSer
 from packages.pipelines.config_preflight import run_config_preflight
 from packages.pipelines.configured_ingestion_definition import (
     ConfiguredIngestionDefinitionService,
+    ConfiguredIngestionProcessResult,
 )
 from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.promotion import (
+    PromotionResult,
     promote_contract_price_run,
     promote_run,
     promote_source_asset_run,
@@ -55,6 +57,7 @@ from packages.storage.control_plane import (
     ControlPlaneSnapshot,
     ExecutionScheduleRecord,
     PublicationAuditRecord,
+    ScheduleDispatchRecord,
     SourceLineageRecord,
 )
 from packages.storage.duckdb_store import DuckDBStore
@@ -118,6 +121,203 @@ def build_reporting_service(
         access_mode=ReportingAccessMode.WAREHOUSE,
         control_plane_store=build_config_store(settings),
     )
+
+
+def _set_worker_queue_depth(config_repository) -> None:
+    metrics_registry.set(
+        "worker_queue_depth",
+        float(len(config_repository.list_schedule_dispatches(status="enqueued"))),
+        help_text="Current queued schedule-dispatch count.",
+    )
+
+
+def _promote_configured_ingestion_runs(
+    process_result: ConfiguredIngestionProcessResult,
+    *,
+    settings: AppSettings,
+    service: AccountTransactionService,
+    config_repository,
+    extension_registry: ExtensionRegistry,
+) -> list[PromotionResult]:
+    if not process_result.run_ids:
+        return []
+    transformation_service = build_transformation_service(settings)
+    reporting_service = build_reporting_service(
+        settings,
+        transformation_service,
+        extension_registry,
+    )
+    ingestion_definition = config_repository.get_ingestion_definition(
+        process_result.ingestion_definition_id
+    )
+    source_asset = config_repository.get_source_asset(
+        ingestion_definition.source_asset_id
+    )
+    promotions: list[PromotionResult] = [
+        promote_source_asset_run(
+            run_id,
+            source_asset=source_asset,
+            config_repository=config_repository,
+            landing_root=settings.landing_root,
+            metadata_repository=service.metadata_repository,
+            transformation_service=transformation_service,
+            blob_store=service.blob_store,
+            extension_registry=extension_registry,
+        )
+        for run_id in process_result.run_ids
+    ]
+    for promotion in promotions:
+        publish_promotion_reporting(reporting_service, promotion)
+    return promotions
+
+
+def _process_configured_ingestion_definition(
+    ingestion_definition_id: str,
+    *,
+    settings: AppSettings,
+    service: AccountTransactionService,
+    config_repository,
+    configured_definition_service: ConfiguredIngestionDefinitionService,
+    extension_registry: ExtensionRegistry,
+) -> dict[str, object]:
+    process_result = configured_definition_service.process_ingestion_definition(
+        ingestion_definition_id
+    )
+    return {
+        "result": process_result,
+        "promotions": _promote_configured_ingestion_runs(
+            process_result,
+            settings=settings,
+            service=service,
+            config_repository=config_repository,
+            extension_registry=extension_registry,
+        ),
+    }
+
+
+def _build_schedule_dispatch_worker_detail(
+    dispatch: ScheduleDispatchRecord,
+    *,
+    process_result: ConfiguredIngestionProcessResult | None = None,
+    promotions: list[PromotionResult] | None = None,
+    state: str | None = None,
+    error_type: str | None = None,
+) -> str:
+    payload: dict[str, object] = {
+        "dispatch_id": dispatch.dispatch_id,
+        "schedule_id": dispatch.schedule_id,
+        "target_kind": dispatch.target_kind,
+        "target_ref": dispatch.target_ref,
+    }
+    if state:
+        payload["state"] = state
+    if process_result is not None:
+        payload["discovered_files"] = process_result.discovered_files
+        payload["processed_files"] = process_result.processed_files
+        payload["rejected_files"] = process_result.rejected_files
+        payload["run_ids"] = list(process_result.run_ids)
+    if promotions is not None:
+        payload["promotion_run_ids"] = [
+            getattr(promotion, "run_id", None) for promotion in promotions
+        ]
+    if error_type is not None:
+        payload["error_type"] = error_type
+    return json.dumps(payload, default=_json_default, sort_keys=True)
+
+
+def _process_schedule_dispatch(
+    dispatch_id: str,
+    *,
+    settings: AppSettings,
+    service: AccountTransactionService,
+    config_repository,
+    configured_definition_service: ConfiguredIngestionDefinitionService,
+    extension_registry: ExtensionRegistry,
+    logger: logging.Logger,
+) -> tuple[int, dict[str, object]]:
+    dispatch = config_repository.get_schedule_dispatch(dispatch_id)
+    if dispatch.status != "enqueued":
+        raise ValueError(
+            f"Schedule dispatch must be enqueued before processing: {dispatch_id}"
+        )
+    started_at = datetime.now(UTC)
+    config_repository.mark_schedule_dispatch_status(
+        dispatch_id,
+        status="running",
+        started_at=started_at,
+        worker_detail=_build_schedule_dispatch_worker_detail(
+            dispatch,
+            state="running",
+        ),
+    )
+    _set_worker_queue_depth(config_repository)
+
+    process_result: ConfiguredIngestionProcessResult | None = None
+    promotions: list[PromotionResult] = []
+    try:
+        if dispatch.target_kind != "ingestion_definition":
+            raise ValueError(
+                "Only ingestion-definition schedule dispatches are currently supported."
+            )
+        process_result = configured_definition_service.process_ingestion_definition(
+            dispatch.target_ref
+        )
+        promotions = _promote_configured_ingestion_runs(
+            process_result,
+            settings=settings,
+            service=service,
+            config_repository=config_repository,
+            extension_registry=extension_registry,
+        )
+        completed_dispatch = config_repository.mark_schedule_dispatch_status(
+            dispatch_id,
+            status="completed",
+            started_at=started_at,
+            completed_at=datetime.now(UTC),
+            run_ids=process_result.run_ids,
+            worker_detail=_build_schedule_dispatch_worker_detail(
+                dispatch,
+                process_result=process_result,
+                promotions=promotions,
+                state="completed",
+            ),
+        )
+        _set_worker_queue_depth(config_repository)
+        return 0, {
+            "dispatch": completed_dispatch,
+            "result": process_result,
+            "promotions": promotions,
+        }
+    except Exception as exc:
+        logger.exception(
+            "schedule dispatch processing failed",
+            extra={
+                "dispatch_id": dispatch_id,
+                "schedule_id": dispatch.schedule_id,
+                "target_kind": dispatch.target_kind,
+                "target_ref": dispatch.target_ref,
+            },
+        )
+        failed_dispatch = config_repository.mark_schedule_dispatch_status(
+            dispatch_id,
+            status="failed",
+            started_at=started_at,
+            completed_at=datetime.now(UTC),
+            run_ids=process_result.run_ids if process_result is not None else (),
+            failure_reason=str(exc),
+            worker_detail=_build_schedule_dispatch_worker_detail(
+                dispatch,
+                process_result=process_result,
+                promotions=promotions,
+                state="failed",
+                error_type=type(exc).__name__,
+            ),
+        )
+        _set_worker_queue_depth(config_repository)
+        return 1, {
+            "dispatch": failed_dispatch,
+            "error": str(exc),
+        }
 
 
 def build_subscription_service(settings: AppSettings) -> SubscriptionService:
@@ -437,19 +637,7 @@ def main(
                 schedule_id=getattr(args, "schedule_id", None) or None,
                 status=getattr(args, "status", None) or None,
             )
-            metrics_registry.set(
-                "worker_queue_depth",
-                float(
-                    len(
-                        [
-                            dispatch
-                            for dispatch in dispatches
-                            if dispatch.status == "enqueued"
-                        ]
-                    )
-                ),
-                help_text="Current queued schedule-dispatch count.",
-            )
+            _set_worker_queue_depth(config_repository)
             _write_json(output, {"dispatches": dispatches})
             return 0
 
@@ -463,13 +651,7 @@ def main(
                 as_of=as_of,
                 limit=getattr(args, "limit", None),
             )
-            metrics_registry.set(
-                "worker_queue_depth",
-                float(
-                    len(config_repository.list_schedule_dispatches(status="enqueued"))
-                ),
-                help_text="Current queued schedule-dispatch count.",
-            )
+            _set_worker_queue_depth(config_repository)
             _write_json(output, {"dispatches": dispatches})
             return 0
 
@@ -479,15 +661,22 @@ def main(
                 status=args.status,
                 completed_at=datetime.now(UTC),
             )
-            metrics_registry.set(
-                "worker_queue_depth",
-                float(
-                    len(config_repository.list_schedule_dispatches(status="enqueued"))
-                ),
-                help_text="Current queued schedule-dispatch count.",
-            )
+            _set_worker_queue_depth(config_repository)
             _write_json(output, {"dispatch": dispatch})
             return 0
+
+        if args.command == "process-schedule-dispatch":
+            exit_code, payload = _process_schedule_dispatch(
+                args.dispatch_id,
+                settings=resolved_settings,
+                service=service,
+                config_repository=config_repository,
+                configured_definition_service=configured_definition_service,
+                extension_registry=extension_registry,
+                logger=logger,
+            )
+            _write_json(output, payload)
+            return exit_code
 
         if args.command == "export-control-plane":
             snapshot = config_repository.export_snapshot()
@@ -595,38 +784,14 @@ def main(
                 time.sleep(resolved_settings.worker_poll_interval_seconds)
 
         if args.command == "process-ingestion-definition":
-            process_result = configured_definition_service.process_ingestion_definition(
-                args.ingestion_definition_id
+            process_payload = _process_configured_ingestion_definition(
+                args.ingestion_definition_id,
+                settings=resolved_settings,
+                service=service,
+                config_repository=config_repository,
+                configured_definition_service=configured_definition_service,
+                extension_registry=extension_registry,
             )
-            process_payload: dict[str, object] = {"result": process_result}
-            transformation_service = build_transformation_service(resolved_settings)
-            reporting_service = build_reporting_service(
-                resolved_settings,
-                transformation_service,
-                extension_registry,
-            )
-            ingestion_definition = config_repository.get_ingestion_definition(
-                args.ingestion_definition_id
-            )
-            source_asset = config_repository.get_source_asset(
-                ingestion_definition.source_asset_id
-            )
-            promotions = [
-                promote_source_asset_run(
-                    run_id,
-                    source_asset=source_asset,
-                    config_repository=config_repository,
-                    landing_root=resolved_settings.landing_root,
-                    metadata_repository=service.metadata_repository,
-                    transformation_service=transformation_service,
-                    blob_store=service.blob_store,
-                    extension_registry=extension_registry,
-                )
-                for run_id in process_result.run_ids
-            ]
-            for promotion in promotions:
-                publish_reporting(reporting_service, promotion)
-            process_payload["promotions"] = promotions
             _write_json(output, process_payload)
             return 0
 
@@ -750,6 +915,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default="completed",
         choices=["completed", "failed", "running", "enqueued"],
     )
+    process_dispatch_parser = subparsers.add_parser("process-schedule-dispatch")
+    process_dispatch_parser.add_argument("dispatch_id")
     export_control_plane_parser = subparsers.add_parser("export-control-plane")
     export_control_plane_parser.add_argument("output_path")
     import_control_plane_parser = subparsers.add_parser("import-control-plane")

@@ -1660,9 +1660,13 @@ class IngestionConfigRepository:
                         target_ref,
                         enqueued_at,
                         status,
-                        completed_at
+                        started_at,
+                        completed_at,
+                        run_ids_json,
+                        failure_reason,
+                        worker_detail
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         dispatch_id,
@@ -1671,6 +1675,10 @@ class IngestionConfigRepository:
                         row["target_ref"],
                         resolved_as_of.isoformat(),
                         "enqueued",
+                        None,
+                        None,
+                        json.dumps([]),
+                        None,
                         None,
                     ),
                 )
@@ -1699,7 +1707,11 @@ class IngestionConfigRepository:
                         target_ref=row["target_ref"],
                         enqueued_at=resolved_as_of,
                         status="enqueued",
+                        started_at=None,
                         completed_at=None,
+                        run_ids=(),
+                        failure_reason=None,
+                        worker_detail=None,
                     )
                 )
             connection.commit()
@@ -1731,7 +1743,11 @@ class IngestionConfigRepository:
                     target_ref,
                     enqueued_at,
                     status,
-                    completed_at
+                    started_at,
+                    completed_at,
+                    run_ids_json,
+                    failure_reason,
+                    worker_detail
                 FROM schedule_dispatches
                 {where_sql}
                 ORDER BY enqueued_at DESC, dispatch_id DESC
@@ -1739,6 +1755,32 @@ class IngestionConfigRepository:
                 params,
             ).fetchall()
         return [_deserialize_schedule_dispatch_row(row) for row in rows]
+
+    def get_schedule_dispatch(self, dispatch_id: str) -> ScheduleDispatchRecord:
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            row = connection.execute(
+                """
+                SELECT
+                    dispatch_id,
+                    schedule_id,
+                    target_kind,
+                    target_ref,
+                    enqueued_at,
+                    status,
+                    started_at,
+                    completed_at,
+                    run_ids_json,
+                    failure_reason,
+                    worker_detail
+                FROM schedule_dispatches
+                WHERE dispatch_id = ?
+                """,
+                (dispatch_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown schedule dispatch: {dispatch_id}")
+        return _deserialize_schedule_dispatch_row(row)
 
     def create_schedule_dispatch(
         self,
@@ -1786,9 +1828,13 @@ class IngestionConfigRepository:
                     target_ref,
                     enqueued_at,
                     status,
-                    completed_at
+                    started_at,
+                    completed_at,
+                    run_ids_json,
+                    failure_reason,
+                    worker_detail
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     dispatch_id,
@@ -1797,6 +1843,10 @@ class IngestionConfigRepository:
                     schedule_row["target_ref"],
                     resolved_enqueued_at.isoformat(),
                     "enqueued",
+                    None,
+                    None,
+                    json.dumps([]),
+                    None,
                     None,
                 ),
             )
@@ -1816,7 +1866,11 @@ class IngestionConfigRepository:
             target_ref=schedule_row["target_ref"],
             enqueued_at=resolved_enqueued_at,
             status="enqueued",
+            started_at=None,
             completed_at=None,
+            run_ids=(),
+            failure_reason=None,
+            worker_detail=None,
         )
 
     def mark_schedule_dispatch_status(
@@ -1824,30 +1878,75 @@ class IngestionConfigRepository:
         dispatch_id: str,
         *,
         status: str,
+        started_at: datetime | None = None,
         completed_at: datetime | None = None,
+        run_ids: tuple[str, ...] | None = None,
+        failure_reason: str | None = None,
+        worker_detail: str | None = None,
     ) -> ScheduleDispatchRecord:
-        resolved_completed_at = completed_at if status in {"completed", "failed"} else None
+        existing = self.get_schedule_dispatch(dispatch_id)
+        if status == "enqueued":
+            resolved_started_at = None
+            resolved_completed_at = None
+            resolved_run_ids: tuple[str, ...] = ()
+            resolved_failure_reason = None
+            resolved_worker_detail = None
+        elif status == "running":
+            resolved_started_at = started_at or existing.started_at
+            resolved_completed_at = None
+            resolved_run_ids = run_ids or ()
+            resolved_failure_reason = None
+            resolved_worker_detail = (
+                worker_detail if worker_detail is not None else existing.worker_detail
+            )
+        elif status == "failed":
+            resolved_started_at = started_at or existing.started_at
+            resolved_completed_at = completed_at
+            resolved_run_ids = run_ids if run_ids is not None else existing.run_ids
+            resolved_failure_reason = (
+                failure_reason
+                if failure_reason is not None
+                else existing.failure_reason
+            )
+            resolved_worker_detail = (
+                worker_detail if worker_detail is not None else existing.worker_detail
+            )
+        else:
+            resolved_started_at = started_at or existing.started_at
+            resolved_completed_at = completed_at
+            resolved_run_ids = run_ids if run_ids is not None else existing.run_ids
+            resolved_failure_reason = None
+            resolved_worker_detail = (
+                worker_detail if worker_detail is not None else existing.worker_detail
+            )
         with self._connect() as connection:
             connection.execute(
                 """
                 UPDATE schedule_dispatches
-                SET status = ?, completed_at = ?
+                SET status = ?,
+                    started_at = ?,
+                    completed_at = ?,
+                    run_ids_json = ?,
+                    failure_reason = ?,
+                    worker_detail = ?
                 WHERE dispatch_id = ?
                 """,
                 (
                     status,
+                    resolved_started_at.isoformat()
+                    if resolved_started_at is not None
+                    else None,
                     resolved_completed_at.isoformat()
                     if resolved_completed_at is not None
                     else None,
+                    json.dumps(list(resolved_run_ids)),
+                    resolved_failure_reason,
+                    resolved_worker_detail,
                     dispatch_id,
                 ),
             )
             connection.commit()
-        rows = self.list_schedule_dispatches()
-        for row in rows:
-            if row.dispatch_id == dispatch_id:
-                return row
-        raise KeyError(f"Unknown schedule dispatch: {dispatch_id}")
+        return self.get_schedule_dispatch(dispatch_id)
 
     def record_source_lineage(
         self,
@@ -2640,7 +2739,11 @@ class IngestionConfigRepository:
                     target_ref TEXT NOT NULL,
                     enqueued_at TEXT NOT NULL,
                     status TEXT NOT NULL,
+                    started_at TEXT,
                     completed_at TEXT,
+                    run_ids_json TEXT NOT NULL DEFAULT '[]',
+                    failure_reason TEXT,
+                    worker_detail TEXT,
                     FOREIGN KEY (schedule_id) REFERENCES execution_schedules (schedule_id)
                 );
 
@@ -2696,6 +2799,7 @@ class IngestionConfigRepository:
             self._ensure_source_asset_columns(connection)
             self._ensure_ingestion_definition_columns(connection)
             self._ensure_execution_schedule_columns(connection)
+            self._ensure_schedule_dispatch_columns(connection)
             self._seed_builtin_transformation_packages(connection)
             connection.commit()
 
@@ -2787,6 +2891,30 @@ class IngestionConfigRepository:
         if "archived" not in columns:
             connection.execute(
                 "ALTER TABLE execution_schedules ADD COLUMN archived INTEGER NOT NULL DEFAULT 0"
+            )
+
+    def _ensure_schedule_dispatch_columns(self, connection: sqlite3.Connection) -> None:
+        columns = {
+            row[1]
+            for row in connection.execute(
+                "PRAGMA table_info(schedule_dispatches)"
+            ).fetchall()
+        }
+        if "started_at" not in columns:
+            connection.execute(
+                "ALTER TABLE schedule_dispatches ADD COLUMN started_at TEXT"
+            )
+        if "run_ids_json" not in columns:
+            connection.execute(
+                "ALTER TABLE schedule_dispatches ADD COLUMN run_ids_json TEXT NOT NULL DEFAULT '[]'"
+            )
+        if "failure_reason" not in columns:
+            connection.execute(
+                "ALTER TABLE schedule_dispatches ADD COLUMN failure_reason TEXT"
+            )
+        if "worker_detail" not in columns:
+            connection.execute(
+                "ALTER TABLE schedule_dispatches ADD COLUMN worker_detail TEXT"
             )
 
     def _seed_builtin_transformation_packages(
@@ -2944,9 +3072,15 @@ def _deserialize_schedule_dispatch_row(row: sqlite3.Row) -> ScheduleDispatchReco
         target_ref=row["target_ref"],
         enqueued_at=datetime.fromisoformat(row["enqueued_at"]),
         status=row["status"],
+        started_at=datetime.fromisoformat(row["started_at"])
+        if row["started_at"]
+        else None,
         completed_at=datetime.fromisoformat(row["completed_at"])
         if row["completed_at"]
         else None,
+        run_ids=tuple(json.loads(row["run_ids_json"] or "[]")),
+        failure_reason=row["failure_reason"],
+        worker_detail=row["worker_detail"],
     )
 
 

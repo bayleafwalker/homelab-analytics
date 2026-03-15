@@ -287,6 +287,19 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
         / "[dispatchId]"
         / "page.js"
     ).read_text()
+    web_dispatch_retry_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "control"
+        / "execution"
+        / "dispatches"
+        / "[dispatchId]"
+        / "retry"
+        / "route.js"
+    ).read_text()
     web_login_page = (ROOT / "apps" / "web" / "frontend" / "app" / "login" / "page.js").read_text()
     web_login_route = (ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "login" / "route.js").read_text()
     web_logout_route = (ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "logout" / "route.js").read_text()
@@ -349,6 +362,9 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert "/config/execution-schedules/${params.scheduleId}" in web_schedule_delete_route
     assert 'backendRequest("/control/schedule-dispatches"' in web_schedule_dispatch_route
     assert "getScheduleDispatch" in web_dispatch_detail_page
+    assert "Requeue dispatch" in web_dispatch_detail_page
+    assert "Failure reason" in web_dispatch_detail_page
+    assert "/control/schedule-dispatches/${params.dispatchId}/retry" in web_dispatch_retry_route
     assert 'backendRequest(`/runs/${params.runId}/retry`' in web_run_retry_route
     assert "build_web_environment" in web_main_source
     assert "resolved_api_base_url" in web_main_source

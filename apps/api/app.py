@@ -1804,16 +1804,10 @@ def create_app(
     @app.get("/control/schedule-dispatches/{dispatch_id}")
     async def get_schedule_dispatch(dispatch_id: str) -> dict[str, Any]:
         require_unsafe_admin()
-        dispatch = next(
-            (
-                record
-                for record in resolved_config_repository.list_schedule_dispatches()
-                if record.dispatch_id == dispatch_id
-            ),
-            None,
-        )
-        if dispatch is None:
-            raise HTTPException(status_code=404, detail="Unknown schedule dispatch.")
+        try:
+            dispatch = resolved_config_repository.get_schedule_dispatch(dispatch_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Unknown schedule dispatch.") from exc
         schedule = resolved_config_repository.get_execution_schedule(dispatch.schedule_id)
         ingestion_definition = (
             resolved_config_repository.get_ingestion_definition(schedule.target_ref)
@@ -1825,12 +1819,50 @@ def create_app(
             if ingestion_definition is not None
             else None
         )
+        runs = []
+        for run_id in dispatch.run_ids:
+            try:
+                runs.append(serialize_run_detail(service.metadata_repository.get_run(run_id)))
+            except KeyError:
+                continue
         return {
             "dispatch": _to_jsonable(dispatch),
             "schedule": _to_jsonable(schedule),
             "ingestion_definition": _to_jsonable(ingestion_definition),
             "source_asset": _to_jsonable(source_asset),
+            "runs": runs,
         }
+
+    @app.post("/control/schedule-dispatches/{dispatch_id}/retry", status_code=201)
+    async def retry_schedule_dispatch(dispatch_id: str) -> dict[str, Any]:
+        require_unsafe_admin()
+        try:
+            dispatch = resolved_config_repository.get_schedule_dispatch(dispatch_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Unknown schedule dispatch.") from exc
+        if dispatch.status not in {"completed", "failed"}:
+            raise HTTPException(
+                status_code=409,
+                detail="Only completed or failed schedule dispatches can be retried.",
+            )
+        try:
+            retried_dispatch = resolved_config_repository.create_schedule_dispatch(
+                dispatch.schedule_id
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        metrics_registry.set(
+            "worker_queue_depth",
+            float(
+                len(
+                    resolved_config_repository.list_schedule_dispatches(
+                        status="enqueued"
+                    )
+                )
+            ),
+            help_text="Current queued schedule-dispatch count.",
+        )
+        return {"dispatch": _to_jsonable(retried_dispatch)}
 
     @app.post("/control/schedule-dispatches", status_code=201)
     async def create_schedule_dispatch(

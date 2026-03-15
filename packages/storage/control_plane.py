@@ -63,7 +63,11 @@ class ScheduleDispatchRecord:
     target_ref: str
     enqueued_at: datetime
     status: str
-    completed_at: datetime | None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    run_ids: tuple[str, ...] = ()
+    failure_reason: str | None = None
+    worker_detail: str | None = None
 
 
 @dataclass(frozen=True)
@@ -364,6 +368,9 @@ class ControlPlaneStore(Protocol):
     ) -> list[ScheduleDispatchRecord]:
         ...
 
+    def get_schedule_dispatch(self, dispatch_id: str) -> ScheduleDispatchRecord:
+        ...
+
     def create_schedule_dispatch(
         self,
         schedule_id: str,
@@ -377,7 +384,11 @@ class ControlPlaneStore(Protocol):
         dispatch_id: str,
         *,
         status: str,
+        started_at: datetime | None = None,
         completed_at: datetime | None = None,
+        run_ids: tuple[str, ...] | None = None,
+        failure_reason: str | None = None,
+        worker_detail: str | None = None,
     ) -> ScheduleDispatchRecord:
         ...
 

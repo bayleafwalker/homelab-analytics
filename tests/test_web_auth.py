@@ -207,6 +207,16 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
         / "[dispatchId]"
         / "page.js"
     ).read_text()
+    dispatch_retry_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "execution"
+        / "dispatches"
+        / "[dispatchId]"
+        / "retry"
+        / "route.js"
+    ).read_text()
     run_detail_page = (
         FRONTEND_ROOT / "app" / "runs" / "[runId]" / "page.js"
     ).read_text()
@@ -267,6 +277,10 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert 'backendRequest("/control/schedule-dispatches"' in schedule_dispatch_route
     assert "getScheduleDispatch" in dispatch_detail_page
     assert "getOperationalSummary" in dispatch_detail_page
+    assert "Requeue dispatch" in dispatch_detail_page
+    assert "Failure reason" in dispatch_detail_page
+    assert "Worker detail" in dispatch_detail_page
+    assert "/control/schedule-dispatches/${params.dispatchId}/retry" in dispatch_retry_route
     assert "/ingest/ingestion-definitions/${params.ingestionDefinitionId}/process" in process_definition_route
     assert 'backendRequest(`/runs/${params.runId}/retry`' in run_retry_route
     assert "Retry run" in run_detail_page
