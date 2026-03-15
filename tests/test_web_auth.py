@@ -250,6 +250,8 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert "getIngestionDefinitions" in control_execution_page
     assert "getExecutionSchedules" in control_execution_page
     assert "getOperationalSummary" in control_execution_page
+    assert "Worker heartbeats" in control_execution_page
+    assert "Stale running dispatches" in control_execution_page
     assert "Manual Uploads" in upload_page
     assert 'action="/upload/account-transactions"' in upload_page
     assert 'action="/upload/configured-csv"' in upload_page
@@ -278,6 +280,7 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert "getScheduleDispatch" in dispatch_detail_page
     assert "getOperationalSummary" in dispatch_detail_page
     assert "Requeue dispatch" in dispatch_detail_page
+    assert "Claim expires" in dispatch_detail_page
     assert "Failure reason" in dispatch_detail_page
     assert "Worker detail" in dispatch_detail_page
     assert "/control/schedule-dispatches/${params.dispatchId}/retry" in dispatch_retry_route

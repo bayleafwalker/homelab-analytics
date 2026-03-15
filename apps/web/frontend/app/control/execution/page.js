@@ -158,6 +158,8 @@ export default async function ControlExecutionPage({ searchParams }) {
   const enqueuedDispatches = scheduleDispatches.filter((record) => record.status === "enqueued");
   const failedDispatches = operationalSummary.recent_failed_dispatches || [];
   const failedRuns = operationalSummary.recent_failed_runs || [];
+  const staleDispatches = operationalSummary.stale_running_dispatches || [];
+  const workers = operationalSummary.workers || [];
 
   return (
     <AppShell
@@ -193,6 +195,18 @@ export default async function ControlExecutionPage({ searchParams }) {
               {failedRuns.length} / {failedDispatches.length}
             </div>
             <div className="muted">Latest queue and retry problems.</div>
+          </article>
+          <article className="panel metricCard">
+            <div className="metricLabel">Active workers</div>
+            <div className="metricValue">{operationalSummary.queue?.active_workers || 0}</div>
+            <div className="muted">{workers.length} workers reporting heartbeats.</div>
+          </article>
+          <article className="panel metricCard">
+            <div className="metricLabel">Stale running dispatches</div>
+            <div className="metricValue">
+              {operationalSummary.queue?.stale_running_dispatches || 0}
+            </div>
+            <div className="muted">Running dispatches with expired claims.</div>
           </article>
         </section>
 
@@ -313,6 +327,104 @@ export default async function ControlExecutionPage({ searchParams }) {
                             "n/a"
                           )}
                         </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </article>
+        </section>
+
+        <section className="layout">
+          <article className="panel section">
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">Workers</div>
+                <h2>Worker heartbeats</h2>
+              </div>
+            </div>
+            {workers.length === 0 ? (
+              <div className="empty">No workers have reported heartbeats yet.</div>
+            ) : (
+              <div className="tableWrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Worker</th>
+                      <th>Status</th>
+                      <th>Active dispatch</th>
+                      <th>Claim expires</th>
+                      <th>Observed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {workers.map((worker) => (
+                      <tr key={worker.worker_id}>
+                        <td>{worker.worker_id}</td>
+                        <td>
+                          <span
+                            className={`statusPill status-${worker.stale ? "failed" : worker.status}`}
+                          >
+                            {worker.stale ? "stale" : worker.status}
+                          </span>
+                        </td>
+                        <td>
+                          {worker.active_dispatch_id ? (
+                            <Link
+                              className="inlineLink"
+                              href={`/control/execution/dispatches/${worker.active_dispatch_id}`}
+                            >
+                              {worker.active_dispatch_id}
+                            </Link>
+                          ) : (
+                            "n/a"
+                          )}
+                        </td>
+                        <td>{worker.claim_expires_at || "n/a"}</td>
+                        <td>{worker.observed_at}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </article>
+
+          <article className="panel section">
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">Queue</div>
+                <h2>Stale running dispatches</h2>
+              </div>
+            </div>
+            {staleDispatches.length === 0 ? (
+              <div className="empty">No stale running dispatches detected.</div>
+            ) : (
+              <div className="tableWrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Dispatch</th>
+                      <th>Worker</th>
+                      <th>Claim expires</th>
+                      <th>Started</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {staleDispatches.map((record) => (
+                      <tr key={record.dispatch_id}>
+                        <td>
+                          <Link
+                            className="inlineLink"
+                            href={`/control/execution/dispatches/${record.dispatch_id}`}
+                          >
+                            {record.dispatch_id}
+                          </Link>
+                        </td>
+                        <td>{record.claimed_by_worker_id || "n/a"}</td>
+                        <td>{record.claim_expires_at || "n/a"}</td>
+                        <td>{record.started_at || "n/a"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1023,6 +1135,8 @@ export default async function ControlExecutionPage({ searchParams }) {
                       <th>Schedule</th>
                       <th>Status</th>
                       <th>Started</th>
+                      <th>Worker</th>
+                      <th>Claim expires</th>
                       <th>Failure</th>
                       <th>Runs</th>
                       <th>Enqueued</th>
@@ -1046,6 +1160,8 @@ export default async function ControlExecutionPage({ searchParams }) {
                           <span className={`statusPill status-${record.status}`}>{record.status}</span>
                         </td>
                         <td>{record.started_at || "n/a"}</td>
+                        <td>{record.claimed_by_worker_id || "n/a"}</td>
+                        <td>{record.claim_expires_at || "n/a"}</td>
                         <td>{record.failure_reason || "n/a"}</td>
                         <td>
                           {record.run_ids?.length ? (

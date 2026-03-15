@@ -10,6 +10,7 @@ from packages.storage.control_plane import (
     ExecutionScheduleCreate,
     PublicationAuditCreate,
     SourceLineageCreate,
+    WorkerHeartbeatCreate,
 )
 from packages.storage.ingestion_config import (
     ColumnMappingCreate,
@@ -318,17 +319,42 @@ def assert_schedule_dispatch_behaviour(store: ControlPlaneStore) -> None:
     assert store.enqueue_due_execution_schedules(as_of=blocked_as_of) == []
     assert store.list_schedule_dispatches(schedule_id="disabled-schedule") == []
 
-    running = store.mark_schedule_dispatch_status(
+    running = store.claim_schedule_dispatch(
         first_dispatches[0].dispatch_id,
-        status="running",
-        started_at=blocked_as_of,
+        worker_id="worker-alpha",
+        claimed_at=blocked_as_of,
+        lease_seconds=300,
         worker_detail="worker-started",
     )
     assert running.status == "running"
     assert running.started_at == blocked_as_of
     assert running.worker_detail == "worker-started"
+    assert running.claimed_by_worker_id == "worker-alpha"
+    assert running.claimed_at == blocked_as_of
+    assert running.claim_expires_at == datetime(2026, 1, 1, 0, 11, tzinfo=UTC)
+
+    heartbeat = store.record_worker_heartbeat(
+        WorkerHeartbeatCreate(
+            worker_id="worker-alpha",
+            status="running",
+            active_dispatch_id=running.dispatch_id,
+            detail="Processing enabled-schedule.",
+            observed_at=blocked_as_of,
+        )
+    )
+    assert heartbeat.worker_id == "worker-alpha"
+    assert heartbeat.active_dispatch_id == running.dispatch_id
+    assert store.list_worker_heartbeats()[0].worker_id == "worker-alpha"
 
     assert store.enqueue_due_execution_schedules(as_of=blocked_as_of) == []
+    assert (
+        store.claim_next_schedule_dispatch(
+            worker_id="worker-beta",
+            claimed_at=blocked_as_of,
+            lease_seconds=300,
+        )
+        is None
+    )
 
     failed = store.mark_schedule_dispatch_status(
         first_dispatches[0].dispatch_id,
@@ -349,6 +375,15 @@ def assert_schedule_dispatch_behaviour(store: ControlPlaneStore) -> None:
         store.get_execution_schedule("enabled-schedule").next_due_at
         == datetime(2026, 1, 1, 0, 10, tzinfo=UTC)
     )
+    second_running = store.claim_next_schedule_dispatch(
+        worker_id="worker-beta",
+        claimed_at=blocked_as_of,
+        lease_seconds=300,
+        worker_detail="worker-next",
+    )
+    assert second_running is not None
+    assert second_running.dispatch_id == second_dispatches[0].dispatch_id
+    assert second_running.claimed_by_worker_id == "worker-beta"
     completed = store.mark_schedule_dispatch_status(
         second_dispatches[0].dispatch_id,
         status="completed",
@@ -359,6 +394,7 @@ def assert_schedule_dispatch_behaviour(store: ControlPlaneStore) -> None:
     )
     assert completed.status == "completed"
     assert completed.run_ids == ("run-002",)
+    assert completed.claimed_by_worker_id == "worker-beta"
     assert [
         dispatch.dispatch_id
         for dispatch in store.list_schedule_dispatches(

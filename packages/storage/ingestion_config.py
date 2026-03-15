@@ -5,7 +5,7 @@ import sqlite3
 import uuid
 from contextlib import closing
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from packages.pipelines.csv_validation import ColumnContract, ColumnType, DatasetContract
@@ -27,6 +27,8 @@ from packages.storage.control_plane import (
     ScheduleDispatchRecord,
     SourceLineageCreate,
     SourceLineageRecord,
+    WorkerHeartbeatCreate,
+    WorkerHeartbeatRecord,
 )
 from packages.storage.scheduling import next_cron_occurrence
 
@@ -1664,9 +1666,12 @@ class IngestionConfigRepository:
                         completed_at,
                         run_ids_json,
                         failure_reason,
-                        worker_detail
+                        worker_detail,
+                        claimed_by_worker_id,
+                        claimed_at,
+                        claim_expires_at
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         dispatch_id,
@@ -1678,6 +1683,9 @@ class IngestionConfigRepository:
                         None,
                         None,
                         json.dumps([]),
+                        None,
+                        None,
+                        None,
                         None,
                         None,
                     ),
@@ -1712,6 +1720,9 @@ class IngestionConfigRepository:
                         run_ids=(),
                         failure_reason=None,
                         worker_detail=None,
+                        claimed_by_worker_id=None,
+                        claimed_at=None,
+                        claim_expires_at=None,
                     )
                 )
             connection.commit()
@@ -1747,7 +1758,10 @@ class IngestionConfigRepository:
                     completed_at,
                     run_ids_json,
                     failure_reason,
-                    worker_detail
+                    worker_detail,
+                    claimed_by_worker_id,
+                    claimed_at,
+                    claim_expires_at
                 FROM schedule_dispatches
                 {where_sql}
                 ORDER BY enqueued_at DESC, dispatch_id DESC
@@ -1772,7 +1786,10 @@ class IngestionConfigRepository:
                     completed_at,
                     run_ids_json,
                     failure_reason,
-                    worker_detail
+                    worker_detail,
+                    claimed_by_worker_id,
+                    claimed_at,
+                    claim_expires_at
                 FROM schedule_dispatches
                 WHERE dispatch_id = ?
                 """,
@@ -1832,9 +1849,12 @@ class IngestionConfigRepository:
                     completed_at,
                     run_ids_json,
                     failure_reason,
-                    worker_detail
+                    worker_detail,
+                    claimed_by_worker_id,
+                    claimed_at,
+                    claim_expires_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     dispatch_id,
@@ -1846,6 +1866,9 @@ class IngestionConfigRepository:
                     None,
                     None,
                     json.dumps([]),
+                    None,
+                    None,
+                    None,
                     None,
                     None,
                 ),
@@ -1871,7 +1894,162 @@ class IngestionConfigRepository:
             run_ids=(),
             failure_reason=None,
             worker_detail=None,
+            claimed_by_worker_id=None,
+            claimed_at=None,
+            claim_expires_at=None,
         )
+
+    def claim_schedule_dispatch(
+        self,
+        dispatch_id: str,
+        *,
+        worker_id: str,
+        claimed_at: datetime | None = None,
+        lease_seconds: int = 300,
+        worker_detail: str | None = None,
+    ) -> ScheduleDispatchRecord:
+        resolved_claimed_at = claimed_at or datetime.now(UTC)
+        claim_expires_at = resolved_claimed_at + timedelta(seconds=lease_seconds)
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """
+                SELECT
+                    dispatch_id,
+                    schedule_id,
+                    target_kind,
+                    target_ref,
+                    enqueued_at,
+                    status,
+                    started_at,
+                    completed_at,
+                    run_ids_json,
+                    failure_reason,
+                    worker_detail,
+                    claimed_by_worker_id,
+                    claimed_at,
+                    claim_expires_at
+                FROM schedule_dispatches
+                WHERE dispatch_id = ?
+                """,
+                (dispatch_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"Unknown schedule dispatch: {dispatch_id}")
+            existing = _deserialize_schedule_dispatch_row(row)
+            if existing.status != "enqueued":
+                raise ValueError(
+                    f"Schedule dispatch must be enqueued before claiming: {dispatch_id}"
+                )
+            cursor = connection.execute(
+                """
+                UPDATE schedule_dispatches
+                SET status = ?,
+                    started_at = ?,
+                    completed_at = NULL,
+                    failure_reason = NULL,
+                    worker_detail = ?,
+                    claimed_by_worker_id = ?,
+                    claimed_at = ?,
+                    claim_expires_at = ?
+                WHERE dispatch_id = ?
+                  AND status = 'enqueued'
+                """,
+                (
+                    "running",
+                    (
+                        existing.started_at.isoformat()
+                        if existing.started_at is not None
+                        else resolved_claimed_at.isoformat()
+                    ),
+                    worker_detail if worker_detail is not None else existing.worker_detail,
+                    worker_id,
+                    resolved_claimed_at.isoformat(),
+                    claim_expires_at.isoformat(),
+                    dispatch_id,
+                ),
+            )
+            if cursor.rowcount == 0:
+                raise ValueError(
+                    f"Schedule dispatch could not be claimed: {dispatch_id}"
+                )
+            connection.commit()
+        return self.get_schedule_dispatch(dispatch_id)
+
+    def claim_next_schedule_dispatch(
+        self,
+        *,
+        worker_id: str,
+        claimed_at: datetime | None = None,
+        lease_seconds: int = 300,
+        worker_detail: str | None = None,
+    ) -> ScheduleDispatchRecord | None:
+        resolved_claimed_at = claimed_at or datetime.now(UTC)
+        claim_expires_at = resolved_claimed_at + timedelta(seconds=lease_seconds)
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """
+                SELECT
+                    dispatch_id,
+                    schedule_id,
+                    target_kind,
+                    target_ref,
+                    enqueued_at,
+                    status,
+                    started_at,
+                    completed_at,
+                    run_ids_json,
+                    failure_reason,
+                    worker_detail,
+                    claimed_by_worker_id,
+                    claimed_at,
+                    claim_expires_at
+                FROM schedule_dispatches
+                WHERE status = 'enqueued'
+                ORDER BY enqueued_at, dispatch_id
+                LIMIT 1
+                """
+            ).fetchone()
+            if row is None:
+                connection.commit()
+                return None
+            existing = _deserialize_schedule_dispatch_row(row)
+            cursor = connection.execute(
+                """
+                UPDATE schedule_dispatches
+                SET status = ?,
+                    started_at = ?,
+                    completed_at = NULL,
+                    failure_reason = NULL,
+                    worker_detail = ?,
+                    claimed_by_worker_id = ?,
+                    claimed_at = ?,
+                    claim_expires_at = ?
+                WHERE dispatch_id = ?
+                  AND status = 'enqueued'
+                """,
+                (
+                    "running",
+                    (
+                        existing.started_at.isoformat()
+                        if existing.started_at is not None
+                        else resolved_claimed_at.isoformat()
+                    ),
+                    worker_detail if worker_detail is not None else existing.worker_detail,
+                    worker_id,
+                    resolved_claimed_at.isoformat(),
+                    claim_expires_at.isoformat(),
+                    existing.dispatch_id,
+                ),
+            )
+            if cursor.rowcount == 0:
+                connection.commit()
+                return None
+            connection.commit()
+        return self.get_schedule_dispatch(existing.dispatch_id)
 
     def mark_schedule_dispatch_status(
         self,
@@ -1891,6 +2069,9 @@ class IngestionConfigRepository:
             resolved_run_ids: tuple[str, ...] = ()
             resolved_failure_reason = None
             resolved_worker_detail = None
+            resolved_claimed_by_worker_id = None
+            resolved_claimed_at = None
+            resolved_claim_expires_at = None
         elif status == "running":
             resolved_started_at = started_at or existing.started_at
             resolved_completed_at = None
@@ -1899,6 +2080,9 @@ class IngestionConfigRepository:
             resolved_worker_detail = (
                 worker_detail if worker_detail is not None else existing.worker_detail
             )
+            resolved_claimed_by_worker_id = existing.claimed_by_worker_id
+            resolved_claimed_at = existing.claimed_at
+            resolved_claim_expires_at = existing.claim_expires_at
         elif status == "failed":
             resolved_started_at = started_at or existing.started_at
             resolved_completed_at = completed_at
@@ -1911,6 +2095,9 @@ class IngestionConfigRepository:
             resolved_worker_detail = (
                 worker_detail if worker_detail is not None else existing.worker_detail
             )
+            resolved_claimed_by_worker_id = existing.claimed_by_worker_id
+            resolved_claimed_at = existing.claimed_at
+            resolved_claim_expires_at = None
         else:
             resolved_started_at = started_at or existing.started_at
             resolved_completed_at = completed_at
@@ -1919,6 +2106,9 @@ class IngestionConfigRepository:
             resolved_worker_detail = (
                 worker_detail if worker_detail is not None else existing.worker_detail
             )
+            resolved_claimed_by_worker_id = existing.claimed_by_worker_id
+            resolved_claimed_at = existing.claimed_at
+            resolved_claim_expires_at = None
         with self._connect() as connection:
             connection.execute(
                 """
@@ -1928,7 +2118,10 @@ class IngestionConfigRepository:
                     completed_at = ?,
                     run_ids_json = ?,
                     failure_reason = ?,
-                    worker_detail = ?
+                    worker_detail = ?,
+                    claimed_by_worker_id = ?,
+                    claimed_at = ?,
+                    claim_expires_at = ?
                 WHERE dispatch_id = ?
                 """,
                 (
@@ -1942,11 +2135,72 @@ class IngestionConfigRepository:
                     json.dumps(list(resolved_run_ids)),
                     resolved_failure_reason,
                     resolved_worker_detail,
+                    resolved_claimed_by_worker_id,
+                    (
+                        resolved_claimed_at.isoformat()
+                        if resolved_claimed_at is not None
+                        else None
+                    ),
+                    (
+                        resolved_claim_expires_at.isoformat()
+                        if resolved_claim_expires_at is not None
+                        else None
+                    ),
                     dispatch_id,
                 ),
             )
             connection.commit()
         return self.get_schedule_dispatch(dispatch_id)
+
+    def record_worker_heartbeat(
+        self,
+        heartbeat: WorkerHeartbeatCreate,
+    ) -> WorkerHeartbeatRecord:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO worker_heartbeats (
+                    worker_id,
+                    status,
+                    active_dispatch_id,
+                    detail,
+                    observed_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(worker_id) DO UPDATE SET
+                    status = excluded.status,
+                    active_dispatch_id = excluded.active_dispatch_id,
+                    detail = excluded.detail,
+                    observed_at = excluded.observed_at
+                """,
+                (
+                    heartbeat.worker_id,
+                    heartbeat.status,
+                    heartbeat.active_dispatch_id,
+                    heartbeat.detail,
+                    heartbeat.observed_at.isoformat(),
+                ),
+            )
+            connection.commit()
+        return WorkerHeartbeatRecord(
+            worker_id=heartbeat.worker_id,
+            status=heartbeat.status,
+            active_dispatch_id=heartbeat.active_dispatch_id,
+            detail=heartbeat.detail,
+            observed_at=heartbeat.observed_at,
+        )
+
+    def list_worker_heartbeats(self) -> list[WorkerHeartbeatRecord]:
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(
+                """
+                SELECT worker_id, status, active_dispatch_id, detail, observed_at
+                FROM worker_heartbeats
+                ORDER BY observed_at DESC, worker_id
+                """
+            ).fetchall()
+        return [_deserialize_worker_heartbeat_row(row) for row in rows]
 
     def record_source_lineage(
         self,
@@ -2744,7 +2998,18 @@ class IngestionConfigRepository:
                     run_ids_json TEXT NOT NULL DEFAULT '[]',
                     failure_reason TEXT,
                     worker_detail TEXT,
+                    claimed_by_worker_id TEXT,
+                    claimed_at TEXT,
+                    claim_expires_at TEXT,
                     FOREIGN KEY (schedule_id) REFERENCES execution_schedules (schedule_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS worker_heartbeats (
+                    worker_id TEXT PRIMARY KEY,
+                    status TEXT NOT NULL,
+                    active_dispatch_id TEXT,
+                    detail TEXT,
+                    observed_at TEXT NOT NULL
                 );
 
                 CREATE TABLE IF NOT EXISTS source_lineage (
@@ -2800,6 +3065,7 @@ class IngestionConfigRepository:
             self._ensure_ingestion_definition_columns(connection)
             self._ensure_execution_schedule_columns(connection)
             self._ensure_schedule_dispatch_columns(connection)
+            self._ensure_worker_heartbeat_table(connection)
             self._seed_builtin_transformation_packages(connection)
             connection.commit()
 
@@ -2916,6 +3182,31 @@ class IngestionConfigRepository:
             connection.execute(
                 "ALTER TABLE schedule_dispatches ADD COLUMN worker_detail TEXT"
             )
+        if "claimed_by_worker_id" not in columns:
+            connection.execute(
+                "ALTER TABLE schedule_dispatches ADD COLUMN claimed_by_worker_id TEXT"
+            )
+        if "claimed_at" not in columns:
+            connection.execute(
+                "ALTER TABLE schedule_dispatches ADD COLUMN claimed_at TEXT"
+            )
+        if "claim_expires_at" not in columns:
+            connection.execute(
+                "ALTER TABLE schedule_dispatches ADD COLUMN claim_expires_at TEXT"
+            )
+
+    def _ensure_worker_heartbeat_table(self, connection: sqlite3.Connection) -> None:
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS worker_heartbeats (
+                worker_id TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                active_dispatch_id TEXT,
+                detail TEXT,
+                observed_at TEXT NOT NULL
+            )
+            """
+        )
 
     def _seed_builtin_transformation_packages(
         self,
@@ -3081,6 +3372,23 @@ def _deserialize_schedule_dispatch_row(row: sqlite3.Row) -> ScheduleDispatchReco
         run_ids=tuple(json.loads(row["run_ids_json"] or "[]")),
         failure_reason=row["failure_reason"],
         worker_detail=row["worker_detail"],
+        claimed_by_worker_id=row["claimed_by_worker_id"],
+        claimed_at=datetime.fromisoformat(row["claimed_at"])
+        if row["claimed_at"]
+        else None,
+        claim_expires_at=datetime.fromisoformat(row["claim_expires_at"])
+        if row["claim_expires_at"]
+        else None,
+    )
+
+
+def _deserialize_worker_heartbeat_row(row: sqlite3.Row) -> WorkerHeartbeatRecord:
+    return WorkerHeartbeatRecord(
+        worker_id=row["worker_id"],
+        status=row["status"],
+        active_dispatch_id=row["active_dispatch_id"],
+        detail=row["detail"],
+        observed_at=datetime.fromisoformat(row["observed_at"]),
     )
 
 

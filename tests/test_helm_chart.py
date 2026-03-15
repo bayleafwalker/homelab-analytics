@@ -52,7 +52,7 @@ class HelmChartTests(unittest.TestCase):
             "HOMELAB_ANALYTICS_DATA_DIR",
             "HOMELAB_ANALYTICS_AUTH_MODE",
             "HOMELAB_ANALYTICS_WEB_PORT",
-            "watch-account-transactions-inbox",
+            "watch-schedule-dispatches",
         ]:
             self.assertIn(fragment, rendered)
 
@@ -98,7 +98,7 @@ class HelmChartTests(unittest.TestCase):
             web["spec"]["template"]["spec"]["containers"][0],
         )
         self.assertEqual(
-            ["homelab-analytics-worker", "watch-account-transactions-inbox"],
+            ["homelab-analytics-worker", "watch-schedule-dispatches"],
             worker["spec"]["template"]["spec"]["containers"][0]["command"],
         )
         self.assertIn(

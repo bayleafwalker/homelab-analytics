@@ -339,6 +339,8 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert "getIngestionDefinitions" in web_control_execution_page
     assert "getExecutionSchedules" in web_control_execution_page
     assert "getOperationalSummary" in web_control_execution_page
+    assert "Worker heartbeats" in web_control_execution_page
+    assert "Stale running dispatches" in web_control_execution_page
     assert "Manual Uploads" in web_upload_page
     assert "getSourceAssets({ includeArchived: true })" in web_upload_page
     assert "backendRequest(backendPath" in web_upload_route_helper
@@ -363,6 +365,7 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert 'backendRequest("/control/schedule-dispatches"' in web_schedule_dispatch_route
     assert "getScheduleDispatch" in web_dispatch_detail_page
     assert "Requeue dispatch" in web_dispatch_detail_page
+    assert "Claim expires" in web_dispatch_detail_page
     assert "Failure reason" in web_dispatch_detail_page
     assert "/control/schedule-dispatches/${params.dispatchId}/retry" in web_dispatch_retry_route
     assert 'backendRequest(`/runs/${params.runId}/retry`' in web_run_retry_route

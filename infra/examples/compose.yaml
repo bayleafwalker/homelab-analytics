@@ -146,7 +146,7 @@ services:
     volumes:
       - homelab_analytics_data:/data
     entrypoint: ["homelab-analytics-worker"]
-    command: ["list-runs"]
+    command: ["watch-schedule-dispatches"]
 
 volumes:
   homelab_analytics_data:

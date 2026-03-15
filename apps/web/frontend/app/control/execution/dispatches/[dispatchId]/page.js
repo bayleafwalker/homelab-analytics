@@ -133,6 +133,18 @@ export default async function DispatchDetailPage({ params, searchParams }) {
               <div className="metricLabel">Produced runs</div>
               <div>{dispatch.run_ids?.length || 0}</div>
             </div>
+            <div className="metaItem">
+              <div className="metricLabel">Worker</div>
+              <div>{dispatch.claimed_by_worker_id || "n/a"}</div>
+            </div>
+            <div className="metaItem">
+              <div className="metricLabel">Claimed</div>
+              <div>{dispatch.claimed_at || "n/a"}</div>
+            </div>
+            <div className="metaItem">
+              <div className="metricLabel">Claim expires</div>
+              <div>{dispatch.claim_expires_at || "n/a"}</div>
+            </div>
             <div className="metaItem spanTwo">
               <div className="metricLabel">Failure reason</div>
               <div className="muted">{dispatch.failure_reason || "n/a"}</div>

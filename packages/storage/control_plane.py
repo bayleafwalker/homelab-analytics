@@ -68,6 +68,27 @@ class ScheduleDispatchRecord:
     run_ids: tuple[str, ...] = ()
     failure_reason: str | None = None
     worker_detail: str | None = None
+    claimed_by_worker_id: str | None = None
+    claimed_at: datetime | None = None
+    claim_expires_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class WorkerHeartbeatCreate:
+    worker_id: str
+    status: str
+    active_dispatch_id: str | None = None
+    detail: str | None = None
+    observed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass(frozen=True)
+class WorkerHeartbeatRecord:
+    worker_id: str
+    status: str
+    active_dispatch_id: str | None
+    detail: str | None
+    observed_at: datetime
 
 
 @dataclass(frozen=True)
@@ -379,6 +400,27 @@ class ControlPlaneStore(Protocol):
     ) -> ScheduleDispatchRecord:
         ...
 
+    def claim_schedule_dispatch(
+        self,
+        dispatch_id: str,
+        *,
+        worker_id: str,
+        claimed_at: datetime | None = None,
+        lease_seconds: int = 300,
+        worker_detail: str | None = None,
+    ) -> ScheduleDispatchRecord:
+        ...
+
+    def claim_next_schedule_dispatch(
+        self,
+        *,
+        worker_id: str,
+        claimed_at: datetime | None = None,
+        lease_seconds: int = 300,
+        worker_detail: str | None = None,
+    ) -> ScheduleDispatchRecord | None:
+        ...
+
     def mark_schedule_dispatch_status(
         self,
         dispatch_id: str,
@@ -390,6 +432,15 @@ class ControlPlaneStore(Protocol):
         failure_reason: str | None = None,
         worker_detail: str | None = None,
     ) -> ScheduleDispatchRecord:
+        ...
+
+    def record_worker_heartbeat(
+        self,
+        heartbeat: WorkerHeartbeatCreate,
+    ) -> WorkerHeartbeatRecord:
+        ...
+
+    def list_worker_heartbeats(self) -> list[WorkerHeartbeatRecord]:
         ...
 
     def record_source_lineage(

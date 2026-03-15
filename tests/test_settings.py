@@ -14,6 +14,8 @@ class AppSettingsTests(unittest.TestCase):
                 "HOMELAB_ANALYTICS_API_PORT": "9090",
                 "HOMELAB_ANALYTICS_WEB_HOST": "127.0.0.1",
                 "HOMELAB_ANALYTICS_WEB_PORT": "9091",
+                "HOMELAB_ANALYTICS_WORKER_ID": "worker-a",
+                "HOMELAB_ANALYTICS_DISPATCH_LEASE_SECONDS": "600",
             }
         )
 
@@ -43,6 +45,8 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual("127.0.0.1", settings.web_host)
         self.assertEqual(9091, settings.web_port)
         self.assertEqual(30, settings.worker_poll_interval_seconds)
+        self.assertEqual("worker-a", settings.worker_id)
+        self.assertEqual(600, settings.dispatch_lease_seconds)
         self.assertEqual((), settings.extension_paths)
         self.assertEqual((), settings.extension_modules)
         self.assertEqual(
@@ -118,6 +122,8 @@ class AppSettingsTests(unittest.TestCase):
         )
         self.assertEqual("0.0.0.0", settings.web_host)
         self.assertEqual(8081, settings.web_port)
+        self.assertIsNone(settings.worker_id)
+        self.assertEqual(300, settings.dispatch_lease_seconds)
         self.assertEqual((), settings.extension_paths)
         self.assertEqual((), settings.extension_modules)
 

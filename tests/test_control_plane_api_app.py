@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from apps.api.app import create_app
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.shared.metrics import metrics_registry
+from packages.storage.control_plane import WorkerHeartbeatCreate
 from packages.storage.ingestion_config import (
     IngestionConfigRepository,
     IngestionDefinitionCreate,
@@ -122,6 +123,9 @@ def test_control_plane_api_exposes_schedules_lineage_audit_and_metrics() -> None
                     "run_ids": [],
                     "failure_reason": None,
                     "worker_detail": None,
+                    "claimed_by_worker_id": None,
+                    "claimed_at": None,
+                    "claim_expires_at": None,
                 }
             ]
 
@@ -176,6 +180,19 @@ def test_control_plane_api_exposes_schedules_lineage_audit_and_metrics() -> None
             assert completed_detail_response.json()["dispatch"]["status"] == "completed"
             assert completed_detail_response.json()["dispatch"]["run_ids"] == [run_id]
             assert completed_detail_response.json()["runs"][0]["run_id"] == run_id
+
+            repository.record_worker_heartbeat(
+                WorkerHeartbeatCreate(
+                    worker_id="worker-alpha",
+                    status="idle",
+                    observed_at=FIXED_DUE_AT,
+                )
+            )
+            summary_response = client.get("/control/operational-summary")
+            assert summary_response.status_code == 200
+            assert summary_response.json()["queue"]["active_workers"] == 1
+            assert summary_response.json()["queue"]["stale_running_dispatches"] == 0
+            assert summary_response.json()["workers"][0]["worker_id"] == "worker-alpha"
     finally:
         metrics_registry.clear()
 

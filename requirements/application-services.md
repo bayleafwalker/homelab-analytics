@@ -184,7 +184,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Schedule visibility and control reduce operational burden.
 
 **Phase:** 4
-**Status:** implemented (the Next.js execution-control view now lists schedules, supports create/edit/pause behavior through the API, can enqueue due or manual schedule dispatches, includes archive/delete lifecycle plus dependency and dispatch-history visibility, surfaces last-run and freshness summaries for assets/definitions/schedules, links into dispatch drill-down, and highlights recent failed runs and queue issues)
+**Status:** implemented (the Next.js execution-control view now lists schedules, supports create/edit/pause behavior through the API, can enqueue due or manual schedule dispatches, includes archive/delete lifecycle plus dependency and dispatch-history visibility, surfaces last-run and freshness summaries for assets/definitions/schedules, links into dispatch drill-down, highlights recent failed runs and queue issues, and now also shows worker heartbeats plus stale running-dispatch detection)
 
 **Acceptance criteria:**
 - List active schedules with next-run time and last-run status.
@@ -202,7 +202,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** The worker is the execution engine for all data processing. CLI interface enables scripting, debugging, and Kubernetes Job integration.
 
 **Phase:** 0
-**Status:** implemented (JSON-emitting commands cover account ingestion, configured CSV ingestion, ingestion-definition processing, config preflight verification, inbox processing/watch, extension execution, subscription and contract-price ingestion/reporting, utility cost summary reporting, execution-schedule enqueue/list/mark flows, control-plane import/export, and local-user bootstrap/reset/list operations)
+**Status:** implemented (JSON-emitting commands cover account ingestion, configured CSV ingestion, ingestion-definition processing, config preflight verification, inbox processing/watch, extension execution, subscription and contract-price ingestion/reporting, utility cost summary reporting, execution-schedule enqueue/list/mark flows, dispatch processing, worker heartbeat listing, continuous schedule-dispatch watching, control-plane import/export, and local-user bootstrap/reset/list operations)
 
 **Acceptance criteria:**
 - All subcommands emit JSON for parseable output.

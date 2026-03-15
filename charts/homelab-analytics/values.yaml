@@ -60,5 +60,5 @@ worker:
   secretEnvFrom: []
   command:
     - homelab-analytics-worker
-    - watch-account-transactions-inbox
+    - watch-schedule-dispatches
   resources: {}

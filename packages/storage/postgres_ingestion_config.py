@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import uuid
 from dataclasses import asdict
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import psycopg
 from psycopg.rows import dict_row
@@ -26,6 +26,8 @@ from packages.storage.control_plane import (
     ScheduleDispatchRecord,
     SourceLineageCreate,
     SourceLineageRecord,
+    WorkerHeartbeatCreate,
+    WorkerHeartbeatRecord,
 )
 from packages.storage.ingestion_config import (
     _BUILTIN_PUBLICATION_DEFINITIONS,
@@ -51,6 +53,7 @@ from packages.storage.ingestion_config import (
     _deserialize_rules,
     _deserialize_schedule_dispatch_row,
     _deserialize_source_lineage_row,
+    _deserialize_worker_heartbeat_row,
     _serialize_request_headers,
     _validate_mapping_rules,
     validate_publication_key,
@@ -1177,9 +1180,10 @@ class PostgresIngestionConfigRepository:
                     """
                     INSERT INTO schedule_dispatches (
                         dispatch_id, schedule_id, target_kind, target_ref, enqueued_at, status,
-                        started_at, completed_at, run_ids_json, failure_reason, worker_detail
+                        started_at, completed_at, run_ids_json, failure_reason, worker_detail,
+                        claimed_by_worker_id, claimed_at, claim_expires_at
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         dispatch_id,
@@ -1191,6 +1195,9 @@ class PostgresIngestionConfigRepository:
                         None,
                         None,
                         "[]",
+                        None,
+                        None,
+                        None,
                         None,
                         None,
                     ),
@@ -1221,6 +1228,9 @@ class PostgresIngestionConfigRepository:
                         run_ids=(),
                         failure_reason=None,
                         worker_detail=None,
+                        claimed_by_worker_id=None,
+                        claimed_at=None,
+                        claim_expires_at=None,
                     )
                 )
         return dispatches
@@ -1244,7 +1254,8 @@ class PostgresIngestionConfigRepository:
             rows = connection.execute(
                 f"""
                 SELECT dispatch_id, schedule_id, target_kind, target_ref, enqueued_at, status,
-                       started_at, completed_at, run_ids_json, failure_reason, worker_detail
+                       started_at, completed_at, run_ids_json, failure_reason, worker_detail,
+                       claimed_by_worker_id, claimed_at, claim_expires_at
                 FROM schedule_dispatches
                 {where_sql}
                 ORDER BY enqueued_at DESC, dispatch_id DESC
@@ -1264,6 +1275,11 @@ class PostgresIngestionConfigRepository:
                 "run_ids_json": row["run_ids_json"] or "[]",
                 "failure_reason": row["failure_reason"],
                 "worker_detail": row["worker_detail"],
+                "claimed_by_worker_id": row["claimed_by_worker_id"],
+                "claimed_at": row["claimed_at"].isoformat() if row["claimed_at"] else None,
+                "claim_expires_at": (
+                    row["claim_expires_at"].isoformat() if row["claim_expires_at"] else None
+                ),
             }
             for row in rows
         ]
@@ -1274,7 +1290,8 @@ class PostgresIngestionConfigRepository:
             row = connection.execute(
                 """
                 SELECT dispatch_id, schedule_id, target_kind, target_ref, enqueued_at, status,
-                       started_at, completed_at, run_ids_json, failure_reason, worker_detail
+                       started_at, completed_at, run_ids_json, failure_reason, worker_detail,
+                       claimed_by_worker_id, claimed_at, claim_expires_at
                 FROM schedule_dispatches
                 WHERE dispatch_id = %s
                 """,
@@ -1294,6 +1311,11 @@ class PostgresIngestionConfigRepository:
             "run_ids_json": row["run_ids_json"] or "[]",
             "failure_reason": row["failure_reason"],
             "worker_detail": row["worker_detail"],
+            "claimed_by_worker_id": row["claimed_by_worker_id"],
+            "claimed_at": row["claimed_at"].isoformat() if row["claimed_at"] else None,
+            "claim_expires_at": (
+                row["claim_expires_at"].isoformat() if row["claim_expires_at"] else None
+            ),
         }
         return _deserialize_schedule_dispatch_row(normalized)  # type: ignore[arg-type]
 
@@ -1337,9 +1359,10 @@ class PostgresIngestionConfigRepository:
                 """
                 INSERT INTO schedule_dispatches (
                     dispatch_id, schedule_id, target_kind, target_ref, enqueued_at, status,
-                    started_at, completed_at, run_ids_json, failure_reason, worker_detail
+                    started_at, completed_at, run_ids_json, failure_reason, worker_detail,
+                    claimed_by_worker_id, claimed_at, claim_expires_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     dispatch_id,
@@ -1351,6 +1374,9 @@ class PostgresIngestionConfigRepository:
                     None,
                     None,
                     "[]",
+                    None,
+                    None,
+                    None,
                     None,
                     None,
                 ),
@@ -1375,7 +1401,155 @@ class PostgresIngestionConfigRepository:
             run_ids=(),
             failure_reason=None,
             worker_detail=None,
+            claimed_by_worker_id=None,
+            claimed_at=None,
+            claim_expires_at=None,
         )
+
+    def claim_schedule_dispatch(
+        self,
+        dispatch_id: str,
+        *,
+        worker_id: str,
+        claimed_at: datetime | None = None,
+        lease_seconds: int = 300,
+        worker_detail: str | None = None,
+    ) -> ScheduleDispatchRecord:
+        resolved_claimed_at = claimed_at or datetime.now(UTC)
+        claim_expires_at = resolved_claimed_at + timedelta(seconds=lease_seconds)
+        with self._connect(row_factory=dict_row) as connection:
+            row = connection.execute(
+                """
+                SELECT dispatch_id, schedule_id, target_kind, target_ref, enqueued_at, status,
+                       started_at, completed_at, run_ids_json, failure_reason, worker_detail,
+                       claimed_by_worker_id, claimed_at, claim_expires_at
+                FROM schedule_dispatches
+                WHERE dispatch_id = %s
+                FOR UPDATE
+                """,
+                (dispatch_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"Unknown schedule dispatch: {dispatch_id}")
+            existing = ScheduleDispatchRecord(
+                dispatch_id=row["dispatch_id"],
+                schedule_id=row["schedule_id"],
+                target_kind=row["target_kind"],
+                target_ref=row["target_ref"],
+                enqueued_at=row["enqueued_at"],
+                status=row["status"],
+                started_at=row["started_at"],
+                completed_at=row["completed_at"],
+                run_ids=tuple(json.loads(row["run_ids_json"] or "[]")),
+                failure_reason=row["failure_reason"],
+                worker_detail=row["worker_detail"],
+                claimed_by_worker_id=row["claimed_by_worker_id"],
+                claimed_at=row["claimed_at"],
+                claim_expires_at=row["claim_expires_at"],
+            )
+            if existing.status != "enqueued":
+                raise ValueError(
+                    f"Schedule dispatch must be enqueued before claiming: {dispatch_id}"
+                )
+            cursor = connection.execute(
+                """
+                UPDATE schedule_dispatches
+                SET status = %s,
+                    started_at = %s,
+                    completed_at = NULL,
+                    failure_reason = NULL,
+                    worker_detail = %s,
+                    claimed_by_worker_id = %s,
+                    claimed_at = %s,
+                    claim_expires_at = %s
+                WHERE dispatch_id = %s
+                  AND status = 'enqueued'
+                """,
+                (
+                    "running",
+                    existing.started_at or resolved_claimed_at,
+                    worker_detail if worker_detail is not None else existing.worker_detail,
+                    worker_id,
+                    resolved_claimed_at,
+                    claim_expires_at,
+                    dispatch_id,
+                ),
+            )
+            if cursor.rowcount == 0:
+                raise ValueError(
+                    f"Schedule dispatch could not be claimed: {dispatch_id}"
+                )
+        return self.get_schedule_dispatch(dispatch_id)
+
+    def claim_next_schedule_dispatch(
+        self,
+        *,
+        worker_id: str,
+        claimed_at: datetime | None = None,
+        lease_seconds: int = 300,
+        worker_detail: str | None = None,
+    ) -> ScheduleDispatchRecord | None:
+        resolved_claimed_at = claimed_at or datetime.now(UTC)
+        claim_expires_at = resolved_claimed_at + timedelta(seconds=lease_seconds)
+        with self._connect(row_factory=dict_row) as connection:
+            row = connection.execute(
+                """
+                WITH next_dispatch AS (
+                    SELECT dispatch_id
+                    FROM schedule_dispatches
+                    WHERE status = 'enqueued'
+                    ORDER BY enqueued_at, dispatch_id
+                    FOR UPDATE SKIP LOCKED
+                    LIMIT 1
+                )
+                UPDATE schedule_dispatches AS dispatch
+                SET status = %s,
+                    started_at = COALESCE(dispatch.started_at, %s),
+                    completed_at = NULL,
+                    failure_reason = NULL,
+                    worker_detail = COALESCE(%s, dispatch.worker_detail),
+                    claimed_by_worker_id = %s,
+                    claimed_at = %s,
+                    claim_expires_at = %s
+                FROM next_dispatch
+                WHERE dispatch.dispatch_id = next_dispatch.dispatch_id
+                RETURNING dispatch.dispatch_id, dispatch.schedule_id, dispatch.target_kind,
+                          dispatch.target_ref, dispatch.enqueued_at, dispatch.status,
+                          dispatch.started_at, dispatch.completed_at, dispatch.run_ids_json,
+                          dispatch.failure_reason, dispatch.worker_detail,
+                          dispatch.claimed_by_worker_id, dispatch.claimed_at,
+                          dispatch.claim_expires_at
+                """,
+                (
+                    "running",
+                    resolved_claimed_at,
+                    worker_detail,
+                    worker_id,
+                    resolved_claimed_at,
+                    claim_expires_at,
+                ),
+            ).fetchone()
+        if row is None:
+            return None
+        normalized = {
+            "dispatch_id": row["dispatch_id"],
+            "schedule_id": row["schedule_id"],
+            "target_kind": row["target_kind"],
+            "target_ref": row["target_ref"],
+            "enqueued_at": row["enqueued_at"].isoformat(),
+            "status": row["status"],
+            "started_at": row["started_at"].isoformat() if row["started_at"] else None,
+            "completed_at": row["completed_at"].isoformat() if row["completed_at"] else None,
+            "run_ids_json": row["run_ids_json"] or "[]",
+            "failure_reason": row["failure_reason"],
+            "worker_detail": row["worker_detail"],
+            "claimed_by_worker_id": row["claimed_by_worker_id"],
+            "claimed_at": row["claimed_at"].isoformat() if row["claimed_at"] else None,
+            "claim_expires_at": (
+                row["claim_expires_at"].isoformat() if row["claim_expires_at"] else None
+            ),
+        }
+        return _deserialize_schedule_dispatch_row(normalized)  # type: ignore[arg-type]
 
     def mark_schedule_dispatch_status(
         self,
@@ -1395,6 +1569,9 @@ class PostgresIngestionConfigRepository:
             resolved_run_ids: tuple[str, ...] = ()
             resolved_failure_reason = None
             resolved_worker_detail = None
+            resolved_claimed_by_worker_id = None
+            resolved_claimed_at = None
+            resolved_claim_expires_at = None
         elif status == "running":
             resolved_started_at = started_at or existing.started_at
             resolved_completed_at = None
@@ -1403,6 +1580,9 @@ class PostgresIngestionConfigRepository:
             resolved_worker_detail = (
                 worker_detail if worker_detail is not None else existing.worker_detail
             )
+            resolved_claimed_by_worker_id = existing.claimed_by_worker_id
+            resolved_claimed_at = existing.claimed_at
+            resolved_claim_expires_at = existing.claim_expires_at
         elif status == "failed":
             resolved_started_at = started_at or existing.started_at
             resolved_completed_at = completed_at
@@ -1415,6 +1595,9 @@ class PostgresIngestionConfigRepository:
             resolved_worker_detail = (
                 worker_detail if worker_detail is not None else existing.worker_detail
             )
+            resolved_claimed_by_worker_id = existing.claimed_by_worker_id
+            resolved_claimed_at = existing.claimed_at
+            resolved_claim_expires_at = None
         else:
             resolved_started_at = started_at or existing.started_at
             resolved_completed_at = completed_at
@@ -1423,6 +1606,9 @@ class PostgresIngestionConfigRepository:
             resolved_worker_detail = (
                 worker_detail if worker_detail is not None else existing.worker_detail
             )
+            resolved_claimed_by_worker_id = existing.claimed_by_worker_id
+            resolved_claimed_at = existing.claimed_at
+            resolved_claim_expires_at = None
         with self._connect() as connection:
             connection.execute(
                 """
@@ -1432,7 +1618,10 @@ class PostgresIngestionConfigRepository:
                     completed_at = %s,
                     run_ids_json = %s,
                     failure_reason = %s,
-                    worker_detail = %s
+                    worker_detail = %s,
+                    claimed_by_worker_id = %s,
+                    claimed_at = %s,
+                    claim_expires_at = %s
                 WHERE dispatch_id = %s
                 """,
                 (
@@ -1442,10 +1631,67 @@ class PostgresIngestionConfigRepository:
                     json.dumps(list(resolved_run_ids)),
                     resolved_failure_reason,
                     resolved_worker_detail,
+                    resolved_claimed_by_worker_id,
+                    resolved_claimed_at,
+                    resolved_claim_expires_at,
                     dispatch_id,
                 ),
             )
         return self.get_schedule_dispatch(dispatch_id)
+
+    def record_worker_heartbeat(
+        self,
+        heartbeat: WorkerHeartbeatCreate,
+    ) -> WorkerHeartbeatRecord:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO worker_heartbeats (
+                    worker_id, status, active_dispatch_id, detail, observed_at
+                )
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (worker_id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    active_dispatch_id = EXCLUDED.active_dispatch_id,
+                    detail = EXCLUDED.detail,
+                    observed_at = EXCLUDED.observed_at
+                """,
+                (
+                    heartbeat.worker_id,
+                    heartbeat.status,
+                    heartbeat.active_dispatch_id,
+                    heartbeat.detail,
+                    heartbeat.observed_at,
+                ),
+            )
+        return WorkerHeartbeatRecord(
+            worker_id=heartbeat.worker_id,
+            status=heartbeat.status,
+            active_dispatch_id=heartbeat.active_dispatch_id,
+            detail=heartbeat.detail,
+            observed_at=heartbeat.observed_at,
+        )
+
+    def list_worker_heartbeats(self) -> list[WorkerHeartbeatRecord]:
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(
+                """
+                SELECT worker_id, status, active_dispatch_id, detail, observed_at
+                FROM worker_heartbeats
+                ORDER BY observed_at DESC, worker_id
+                """
+            ).fetchall()
+        normalized = [
+            {
+                "worker_id": row["worker_id"],
+                "status": row["status"],
+                "active_dispatch_id": row["active_dispatch_id"],
+                "detail": row["detail"],
+                "observed_at": row["observed_at"].isoformat(),
+            }
+            for row in rows
+        ]
+        return [_deserialize_worker_heartbeat_row(row) for row in normalized]  # type: ignore[arg-type]
 
     def record_source_lineage(
         self,
@@ -2225,7 +2471,21 @@ class PostgresIngestionConfigRepository:
                     run_ids_json TEXT NOT NULL DEFAULT '[]',
                     failure_reason TEXT,
                     worker_detail TEXT,
+                    claimed_by_worker_id TEXT,
+                    claimed_at TIMESTAMPTZ,
+                    claim_expires_at TIMESTAMPTZ,
                     completed_at TIMESTAMPTZ
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS worker_heartbeats (
+                    worker_id TEXT PRIMARY KEY,
+                    status TEXT NOT NULL,
+                    active_dispatch_id TEXT,
+                    detail TEXT,
+                    observed_at TIMESTAMPTZ NOT NULL
                 )
                 """
             )
@@ -2350,6 +2610,24 @@ class PostgresIngestionConfigRepository:
                 """
                 ALTER TABLE schedule_dispatches
                 ADD COLUMN IF NOT EXISTS worker_detail TEXT
+                """
+            )
+            connection.execute(
+                """
+                ALTER TABLE schedule_dispatches
+                ADD COLUMN IF NOT EXISTS claimed_by_worker_id TEXT
+                """
+            )
+            connection.execute(
+                """
+                ALTER TABLE schedule_dispatches
+                ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ
+                """
+            )
+            connection.execute(
+                """
+                ALTER TABLE schedule_dispatches
+                ADD COLUMN IF NOT EXISTS claim_expires_at TIMESTAMPTZ
                 """
             )
             self._seed_builtins(connection)

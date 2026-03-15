@@ -510,6 +510,8 @@ def create_app(
                 )
 
         dispatches = resolved_config_repository.list_schedule_dispatches()
+        dispatch_by_id = {dispatch.dispatch_id: dispatch for dispatch in dispatches}
+        now = datetime.now(UTC)
         for dispatch in dispatches:
             update_operational_dispatch_stats(
                 execution_schedule_stats.setdefault(
@@ -517,6 +519,41 @@ def create_app(
                     make_operational_stats(),
                 ),
                 dispatch,
+            )
+        stale_dispatches = [
+            dispatch
+            for dispatch in dispatches
+            if dispatch.status == "running"
+            and dispatch.claim_expires_at is not None
+            and dispatch.claim_expires_at < now
+        ]
+        workers: list[dict[str, Any]] = []
+        for heartbeat in resolved_config_repository.list_worker_heartbeats():
+            active_dispatch = (
+                dispatch_by_id.get(heartbeat.active_dispatch_id)
+                if heartbeat.active_dispatch_id is not None
+                else None
+            )
+            workers.append(
+                {
+                    "worker_id": heartbeat.worker_id,
+                    "status": heartbeat.status,
+                    "active_dispatch_id": heartbeat.active_dispatch_id,
+                    "active_dispatch_status": active_dispatch.status if active_dispatch else None,
+                    "claim_expires_at": (
+                        active_dispatch.claim_expires_at.isoformat()
+                        if active_dispatch is not None
+                        and active_dispatch.claim_expires_at is not None
+                        else None
+                    ),
+                    "stale": bool(
+                        active_dispatch is not None
+                        and active_dispatch.claim_expires_at is not None
+                        and active_dispatch.claim_expires_at < now
+                    ),
+                    "detail": heartbeat.detail,
+                    "observed_at": heartbeat.observed_at.isoformat(),
+                }
             )
 
         return {
@@ -537,6 +574,8 @@ def create_app(
                     if dispatch.status == "failed"
                 ][:10]
             ),
+            "stale_running_dispatches": _to_jsonable(stale_dispatches[:10]),
+            "workers": workers,
             "queue": {
                 "total_dispatches": len(dispatches),
                 "enqueued_dispatches": len(
@@ -548,6 +587,8 @@ def create_app(
                 "failed_dispatches": len(
                     [dispatch for dispatch in dispatches if dispatch.status == "failed"]
                 ),
+                "stale_running_dispatches": len(stale_dispatches),
+                "active_workers": len(workers),
             },
         }
 

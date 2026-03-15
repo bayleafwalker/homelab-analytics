@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
+import socket
 import sys
 import time
 from dataclasses import asdict, is_dataclass
@@ -59,6 +61,8 @@ from packages.storage.control_plane import (
     PublicationAuditRecord,
     ScheduleDispatchRecord,
     SourceLineageRecord,
+    WorkerHeartbeatCreate,
+    WorkerHeartbeatRecord,
 )
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.ingestion_config import (
@@ -128,6 +132,37 @@ def _set_worker_queue_depth(config_repository) -> None:
         "worker_queue_depth",
         float(len(config_repository.list_schedule_dispatches(status="enqueued"))),
         help_text="Current queued schedule-dispatch count.",
+    )
+
+
+def _resolved_worker_id(
+    settings: AppSettings,
+    explicit_worker_id: str | None = None,
+) -> str:
+    if explicit_worker_id:
+        return explicit_worker_id
+    if settings.worker_id:
+        return settings.worker_id
+    return f"{socket.gethostname()}-{os.getpid()}"
+
+
+def _record_worker_heartbeat(
+    config_repository,
+    *,
+    worker_id: str,
+    status: str,
+    active_dispatch_id: str | None = None,
+    detail: str | None = None,
+    observed_at: datetime | None = None,
+) -> WorkerHeartbeatRecord:
+    return config_repository.record_worker_heartbeat(
+        WorkerHeartbeatCreate(
+            worker_id=worker_id,
+            status=status,
+            active_dispatch_id=active_dispatch_id,
+            detail=detail,
+            observed_at=observed_at or datetime.now(UTC),
+        )
     )
 
 
@@ -234,23 +269,40 @@ def _process_schedule_dispatch(
     configured_definition_service: ConfiguredIngestionDefinitionService,
     extension_registry: ExtensionRegistry,
     logger: logging.Logger,
+    worker_id: str,
+    lease_seconds: int,
+    claimed_dispatch: ScheduleDispatchRecord | None = None,
 ) -> tuple[int, dict[str, object]]:
-    dispatch = config_repository.get_schedule_dispatch(dispatch_id)
-    if dispatch.status != "enqueued":
-        raise ValueError(
-            f"Schedule dispatch must be enqueued before processing: {dispatch_id}"
+    dispatch = claimed_dispatch or config_repository.get_schedule_dispatch(dispatch_id)
+    if claimed_dispatch is None:
+        if dispatch.status != "enqueued":
+            raise ValueError(
+                f"Schedule dispatch must be enqueued before processing: {dispatch_id}"
+            )
+        dispatch = config_repository.claim_schedule_dispatch(
+            dispatch_id,
+            worker_id=worker_id,
+            lease_seconds=lease_seconds,
+            worker_detail=json.dumps(
+                {"state": "running", "worker_id": worker_id},
+                sort_keys=True,
+            ),
         )
-    started_at = datetime.now(UTC)
-    config_repository.mark_schedule_dispatch_status(
-        dispatch_id,
-        status="running",
-        started_at=started_at,
-        worker_detail=_build_schedule_dispatch_worker_detail(
-            dispatch,
-            state="running",
-        ),
-    )
+    elif (
+        dispatch.status != "running"
+        or dispatch.claimed_by_worker_id != worker_id
+    ):
+        raise ValueError(
+            f"Schedule dispatch must be claimed by worker {worker_id}: {dispatch_id}"
+        )
     _set_worker_queue_depth(config_repository)
+    _record_worker_heartbeat(
+        config_repository,
+        worker_id=worker_id,
+        status="running",
+        active_dispatch_id=dispatch.dispatch_id,
+        detail=f"Processing schedule dispatch {dispatch.dispatch_id}.",
+    )
 
     process_result: ConfiguredIngestionProcessResult | None = None
     promotions: list[PromotionResult] = []
@@ -272,7 +324,6 @@ def _process_schedule_dispatch(
         completed_dispatch = config_repository.mark_schedule_dispatch_status(
             dispatch_id,
             status="completed",
-            started_at=started_at,
             completed_at=datetime.now(UTC),
             run_ids=process_result.run_ids,
             worker_detail=_build_schedule_dispatch_worker_detail(
@@ -283,10 +334,17 @@ def _process_schedule_dispatch(
             ),
         )
         _set_worker_queue_depth(config_repository)
+        heartbeat = _record_worker_heartbeat(
+            config_repository,
+            worker_id=worker_id,
+            status="idle",
+            detail=f"Completed schedule dispatch {dispatch.dispatch_id}.",
+        )
         return 0, {
             "dispatch": completed_dispatch,
             "result": process_result,
             "promotions": promotions,
+            "worker_heartbeat": heartbeat,
         }
     except Exception as exc:
         logger.exception(
@@ -301,7 +359,6 @@ def _process_schedule_dispatch(
         failed_dispatch = config_repository.mark_schedule_dispatch_status(
             dispatch_id,
             status="failed",
-            started_at=started_at,
             completed_at=datetime.now(UTC),
             run_ids=process_result.run_ids if process_result is not None else (),
             failure_reason=str(exc),
@@ -314,10 +371,83 @@ def _process_schedule_dispatch(
             ),
         )
         _set_worker_queue_depth(config_repository)
+        heartbeat = _record_worker_heartbeat(
+            config_repository,
+            worker_id=worker_id,
+            status="error",
+            detail=f"Failed schedule dispatch {dispatch.dispatch_id}: {exc}",
+        )
         return 1, {
             "dispatch": failed_dispatch,
             "error": str(exc),
+            "worker_heartbeat": heartbeat,
         }
+
+
+def _watch_schedule_dispatches(
+    *,
+    output: TextIO,
+    settings: AppSettings,
+    config_repository,
+    service: AccountTransactionService,
+    configured_definition_service: ConfiguredIngestionDefinitionService,
+    extension_registry: ExtensionRegistry,
+    logger: logging.Logger,
+    worker_id: str,
+    lease_seconds: int,
+    max_iterations: int | None = None,
+    enqueue_limit: int | None = None,
+) -> int:
+    iterations = 0
+    observed_failure = False
+    while True:
+        now = datetime.now(UTC)
+        enqueued_dispatches = config_repository.enqueue_due_execution_schedules(
+            as_of=now,
+            limit=enqueue_limit,
+        )
+        claimed_dispatch = config_repository.claim_next_schedule_dispatch(
+            worker_id=worker_id,
+            claimed_at=now,
+            lease_seconds=lease_seconds,
+            worker_detail=json.dumps(
+                {"state": "running", "worker_id": worker_id},
+                sort_keys=True,
+            ),
+        )
+        _set_worker_queue_depth(config_repository)
+        payload: dict[str, object] = {
+            "worker_id": worker_id,
+            "enqueued_dispatches": enqueued_dispatches,
+        }
+        if claimed_dispatch is None:
+            payload["worker_heartbeat"] = _record_worker_heartbeat(
+                config_repository,
+                worker_id=worker_id,
+                status="idle",
+                detail="No schedule dispatches ready for processing.",
+                observed_at=now,
+            )
+        else:
+            exit_code, process_payload = _process_schedule_dispatch(
+                claimed_dispatch.dispatch_id,
+                settings=settings,
+                service=service,
+                config_repository=config_repository,
+                configured_definition_service=configured_definition_service,
+                extension_registry=extension_registry,
+                logger=logger,
+                worker_id=worker_id,
+                lease_seconds=lease_seconds,
+                claimed_dispatch=claimed_dispatch,
+            )
+            observed_failure = observed_failure or exit_code != 0
+            payload.update(process_payload)
+        _write_json(output, payload)
+        iterations += 1
+        if max_iterations is not None and iterations >= max_iterations:
+            return 1 if observed_failure else 0
+        time.sleep(settings.worker_poll_interval_seconds)
 
 
 def build_subscription_service(settings: AppSettings) -> SubscriptionService:
@@ -641,6 +771,13 @@ def main(
             _write_json(output, {"dispatches": dispatches})
             return 0
 
+        if args.command == "list-worker-heartbeats":
+            _write_json(
+                output,
+                {"workers": config_repository.list_worker_heartbeats()},
+            )
+            return 0
+
         if args.command == "enqueue-due-schedules":
             as_of = (
                 datetime.fromisoformat(args.as_of)
@@ -666,6 +803,10 @@ def main(
             return 0
 
         if args.command == "process-schedule-dispatch":
+            worker_id = _resolved_worker_id(
+                resolved_settings,
+                getattr(args, "worker_id", "") or None,
+            )
             exit_code, payload = _process_schedule_dispatch(
                 args.dispatch_id,
                 settings=resolved_settings,
@@ -674,9 +815,32 @@ def main(
                 configured_definition_service=configured_definition_service,
                 extension_registry=extension_registry,
                 logger=logger,
+                worker_id=worker_id,
+                lease_seconds=getattr(args, "lease_seconds", None)
+                or resolved_settings.dispatch_lease_seconds,
             )
             _write_json(output, payload)
             return exit_code
+
+        if args.command == "watch-schedule-dispatches":
+            worker_id = _resolved_worker_id(
+                resolved_settings,
+                getattr(args, "worker_id", "") or None,
+            )
+            return _watch_schedule_dispatches(
+                output=output,
+                settings=resolved_settings,
+                config_repository=config_repository,
+                service=service,
+                configured_definition_service=configured_definition_service,
+                extension_registry=extension_registry,
+                logger=logger,
+                worker_id=worker_id,
+                lease_seconds=getattr(args, "lease_seconds", None)
+                or resolved_settings.dispatch_lease_seconds,
+                max_iterations=getattr(args, "max_iterations", None),
+                enqueue_limit=getattr(args, "enqueue_limit", None),
+            )
 
         if args.command == "export-control-plane":
             snapshot = config_repository.export_snapshot()
@@ -905,6 +1069,7 @@ def _build_parser() -> argparse.ArgumentParser:
     dispatches_parser = subparsers.add_parser("list-schedule-dispatches")
     dispatches_parser.add_argument("--schedule-id", default="")
     dispatches_parser.add_argument("--status", default="")
+    subparsers.add_parser("list-worker-heartbeats")
     enqueue_parser = subparsers.add_parser("enqueue-due-schedules")
     enqueue_parser.add_argument("--as-of", default="")
     enqueue_parser.add_argument("--limit", type=int)
@@ -917,6 +1082,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     process_dispatch_parser = subparsers.add_parser("process-schedule-dispatch")
     process_dispatch_parser.add_argument("dispatch_id")
+    process_dispatch_parser.add_argument("--worker-id", default="")
+    process_dispatch_parser.add_argument("--lease-seconds", type=int)
+    watch_dispatch_parser = subparsers.add_parser("watch-schedule-dispatches")
+    watch_dispatch_parser.add_argument("--worker-id", default="")
+    watch_dispatch_parser.add_argument("--lease-seconds", type=int)
+    watch_dispatch_parser.add_argument("--enqueue-limit", type=int)
+    watch_dispatch_parser.add_argument("--max-iterations", type=int)
     export_control_plane_parser = subparsers.add_parser("export-control-plane")
     export_control_plane_parser.add_argument("output_path")
     import_control_plane_parser = subparsers.add_parser("import-control-plane")

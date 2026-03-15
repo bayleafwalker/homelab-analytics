@@ -19,6 +19,8 @@ class AppSettings:
     web_host: str
     web_port: int
     worker_poll_interval_seconds: int
+    worker_id: str | None = None
+    dispatch_lease_seconds: int = 300
     api_base_url: str | None = None
     extension_paths: tuple[Path, ...] = ()
     extension_modules: tuple[str, ...] = ()
@@ -81,6 +83,10 @@ class AppSettings:
         web_port = int(env.get("HOMELAB_ANALYTICS_WEB_PORT", "8081"))
         worker_poll_interval_seconds = int(
             env.get("HOMELAB_ANALYTICS_WORKER_POLL_INTERVAL", "30")
+        )
+        worker_id = env.get("HOMELAB_ANALYTICS_WORKER_ID") or None
+        dispatch_lease_seconds = int(
+            env.get("HOMELAB_ANALYTICS_DISPATCH_LEASE_SECONDS", "300")
         )
         extension_paths = tuple(
             Path(path)
@@ -151,6 +157,8 @@ class AppSettings:
             web_host=web_host,
             web_port=web_port,
             worker_poll_interval_seconds=worker_poll_interval_seconds,
+            worker_id=worker_id,
+            dispatch_lease_seconds=dispatch_lease_seconds,
             extension_paths=extension_paths,
             extension_modules=extension_modules,
             config_database_path=config_database_path,

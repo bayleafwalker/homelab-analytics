@@ -69,10 +69,10 @@ This repository now has a working end-to-end bootstrap aligned to the target arc
 - a FastAPI-based API and worker-facing service now expose ingestion runs, config surfaces, and monthly cash-flow reporting
 - shared settings and executable `apps/api` and `apps/worker` entrypoints now make the current slice runnable locally
 - project metadata, console scripts, and Docker/Compose bootstrap files now make the slice installable and containerizable
-- a watched-folder worker loop and a minimal Helm chart now cover the first Kubernetes deployment path
+- a schedule-dispatch worker loop and a minimal Helm chart now cover the first Kubernetes deployment path
 - a Next.js web shell now exposes dashboard, filterable run-monitoring, run-detail drill-down, and control-plane admin views as a separate workload
 - the Next.js web shell now also exposes operator-facing browser uploads for built-in datasets plus config-driven source-asset uploads that redirect into run detail on success and render inline validation/run feedback on failure
-- the control-plane and run-detail surfaces now add version diffs, operational freshness summaries, dispatch drill-down, and retry actions for runs with supported retry context
+- the control-plane and run-detail surfaces now add version diffs, operational freshness summaries, dispatch drill-down, retry actions for runs with supported retry context, and worker-heartbeat plus stale-dispatch visibility for queue operations
 - landing now uses explicit blob-store and metadata-store boundaries, with the current local filesystem and SQLite path kept as the default backend
 - the transaction transform and reporting path now consume landed bytes directly, so reporting no longer depends on staging artifacts back to the local filesystem
 - built-in landing, transformation, reporting, and application capabilities are now exposed through a shared extension registry that can also load external modules from configured custom paths
@@ -86,7 +86,7 @@ This repository now has a working end-to-end bootstrap aligned to the target arc
 - manual and config-driven account-transaction ingests now share the same retry-safe promotion path into DuckDB-backed marts and current-dimension views
 - explicit subscription and temporal contract-pricing domains now exist alongside transactions, including `mart_subscription_summary`, `mart_contract_price_current`, and `mart_electricity_price_current`
 
-The main remaining gaps are OIDC/service-token auth, richer dispatch failure detail, and broader production hardening. S3-compatible landing plus Postgres-backed control-plane/reporting backends now exist, local username/password auth is available as the bootstrap path, and the web surface now has a real Next.js shell that consumes the API only.
+The main remaining gaps are OIDC/service-token auth and broader production hardening. S3-compatible landing plus Postgres-backed control-plane/reporting backends now exist, local username/password auth is available as the bootstrap path, the worker now claims and processes queued dispatches continuously with recorded heartbeats, and the web surface now has a real Next.js shell that consumes the API only.
 
 ## Run locally
 
@@ -107,6 +107,8 @@ Environment variables:
 - `HOMELAB_ANALYTICS_API_HOST` defaults to `0.0.0.0`
 - `HOMELAB_ANALYTICS_API_PORT` defaults to `8080`
 - `HOMELAB_ANALYTICS_API_BASE_URL` overrides the backend API origin used by the Next.js web workload (default: `http://127.0.0.1:<api_port>`)
+- `HOMELAB_ANALYTICS_WORKER_ID` optionally sets a stable worker identifier for queue claims and heartbeat records (default: `<hostname>-<pid>`)
+- `HOMELAB_ANALYTICS_DISPATCH_LEASE_SECONDS` sets the running-dispatch claim window used for stale-dispatch detection (default: `300`)
 - `HOMELAB_ANALYTICS_ANALYTICS_DATABASE_PATH` overrides the DuckDB warehouse path (default: `<data_dir>/analytics/warehouse.duckdb`)
 - `HOMELAB_ANALYTICS_BLOB_BACKEND` selects `filesystem` or `s3` for landed payload storage (default: `filesystem`)
 - `HOMELAB_ANALYTICS_S3_ENDPOINT_URL`, `HOMELAB_ANALYTICS_S3_BUCKET`, `HOMELAB_ANALYTICS_S3_REGION`, `HOMELAB_ANALYTICS_S3_ACCESS_KEY_ID`, `HOMELAB_ANALYTICS_S3_SECRET_ACCESS_KEY`, and `HOMELAB_ANALYTICS_S3_PREFIX` configure the S3/MinIO landing adapter when enabled
@@ -133,7 +135,10 @@ python -m apps.worker.main create-local-admin-user admin replace-me-password
 python -m apps.worker.main reset-local-user-password admin replace-me-new-password
 python -m apps.worker.main enqueue-due-schedules --as-of 2026-01-01T00:00:00+00:00
 python -m apps.worker.main list-schedule-dispatches
+python -m apps.worker.main list-worker-heartbeats
 python -m apps.worker.main mark-schedule-dispatch <dispatch_id> --status completed
+python -m apps.worker.main process-schedule-dispatch <dispatch_id>
+python -m apps.worker.main watch-schedule-dispatches
 python -m apps.worker.main export-control-plane /tmp/control-plane.json
 python -m apps.worker.main import-control-plane /tmp/control-plane.json
 python -m apps.worker.main verify-config
@@ -147,7 +152,6 @@ python -m apps.worker.main run-transformation-extension account_transactions_can
 python -m apps.worker.main run-reporting-extension monthly_cashflow_summary <run_id>
 python -m apps.worker.main process-ingestion-definition <ingestion_definition_id>
 python -m apps.worker.main process-account-transactions-inbox
-python -m apps.worker.main watch-account-transactions-inbox
 python -m apps.api.main
 python -m apps.web.main
 ```
