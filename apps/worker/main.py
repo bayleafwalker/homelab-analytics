@@ -943,6 +943,7 @@ def _control_plane_snapshot_from_dict(payload: dict[str, Any]) -> ControlPlaneSn
                 asset_type=item["asset_type"],
                 description=item.get("description"),
                 enabled=item.get("enabled", True),
+                archived=item.get("archived", False),
                 created_at=datetime.fromisoformat(item["created_at"]),
             )
             for item in payload.get("source_assets", [])
@@ -972,6 +973,7 @@ def _control_plane_snapshot_from_dict(payload: dict[str, Any]) -> ControlPlaneSn
                 response_format=item.get("response_format"),
                 output_file_name=item.get("output_file_name"),
                 enabled=item["enabled"],
+                archived=item.get("archived", False),
                 source_name=item.get("source_name"),
                 created_at=datetime.fromisoformat(item["created_at"]),
             )
@@ -985,6 +987,7 @@ def _control_plane_snapshot_from_dict(payload: dict[str, Any]) -> ControlPlaneSn
                 cron_expression=item["cron_expression"],
                 timezone=item["timezone"],
                 enabled=item["enabled"],
+                archived=item.get("archived", False),
                 max_concurrency=item["max_concurrency"],
                 next_due_at=(
                     datetime.fromisoformat(item["next_due_at"])

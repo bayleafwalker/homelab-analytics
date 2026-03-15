@@ -86,6 +86,26 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
         / "[sourceAssetId]"
         / "route.js"
     ).read_text()
+    source_asset_archive_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "source-assets"
+        / "[sourceAssetId]"
+        / "archive"
+        / "route.js"
+    ).read_text()
+    source_asset_delete_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "source-assets"
+        / "[sourceAssetId]"
+        / "delete"
+        / "route.js"
+    ).read_text()
     ingestion_definition_route = (
         FRONTEND_ROOT
         / "app"
@@ -101,6 +121,26 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
         / "execution"
         / "ingestion-definitions"
         / "[ingestionDefinitionId]"
+        / "route.js"
+    ).read_text()
+    ingestion_definition_archive_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "execution"
+        / "ingestion-definitions"
+        / "[ingestionDefinitionId]"
+        / "archive"
+        / "route.js"
+    ).read_text()
+    ingestion_definition_delete_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "execution"
+        / "ingestion-definitions"
+        / "[ingestionDefinitionId]"
+        / "delete"
         / "route.js"
     ).read_text()
     process_definition_route = (
@@ -128,6 +168,26 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
         / "execution"
         / "execution-schedules"
         / "[scheduleId]"
+        / "route.js"
+    ).read_text()
+    execution_schedule_archive_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "execution"
+        / "execution-schedules"
+        / "[scheduleId]"
+        / "archive"
+        / "route.js"
+    ).read_text()
+    execution_schedule_delete_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "execution"
+        / "execution-schedules"
+        / "[scheduleId]"
+        / "delete"
         / "route.js"
     ).read_text()
     schedule_dispatch_route = (
@@ -178,10 +238,16 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert 'backendRequest(`/config/source-systems/${params.sourceSystemId}`' in source_system_update_route
     assert 'backendRequest("/config/source-assets"' in source_asset_route
     assert 'backendRequest(`/config/source-assets/${params.sourceAssetId}`' in source_asset_update_route
+    assert "/config/source-assets/${params.sourceAssetId}/archive" in source_asset_archive_route
+    assert "/config/source-assets/${params.sourceAssetId}" in source_asset_delete_route
     assert 'backendRequest("/config/ingestion-definitions"' in ingestion_definition_route
     assert "/config/ingestion-definitions/${params.ingestionDefinitionId}" in ingestion_definition_update_route
+    assert "/config/ingestion-definitions/${params.ingestionDefinitionId}/archive" in ingestion_definition_archive_route
+    assert "/config/ingestion-definitions/${params.ingestionDefinitionId}" in ingestion_definition_delete_route
     assert 'backendRequest("/config/execution-schedules"' in execution_schedule_route
     assert "/config/execution-schedules/${params.scheduleId}" in execution_schedule_update_route
+    assert "/config/execution-schedules/${params.scheduleId}/archive" in execution_schedule_archive_route
+    assert "/config/execution-schedules/${params.scheduleId}" in execution_schedule_delete_route
     assert 'backendRequest("/control/schedule-dispatches"' in schedule_dispatch_route
     assert "/ingest/ingestion-definitions/${params.ingestionDefinitionId}/process" in process_definition_route
 
@@ -224,9 +290,13 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getSourceSystems" in control_catalog_source
     assert "getDatasetContracts({ includeArchived: true })" in control_catalog_source
     assert "getColumnMappings({ includeArchived: true })" in control_catalog_source
-    assert "getSourceAssets" in upload_source
+    assert "getSourceAssets({ includeArchived: true })" in upload_source
     assert "backendRequest(backendPath" in upload_route_helper
+    assert "encodeUploadFeedback" in upload_route_helper
+    assert "parseFeedback" in upload_source
     assert "getIngestionDefinitions" in control_execution_source
+    assert "getSourceAssets({ includeArchived: true })" in control_execution_source
+    assert "getExecutionSchedules({ includeArchived: true })" in control_execution_source
     assert "getRun" in run_detail_source
     assert "getSourceLineage" in run_detail_source
     assert "getPublicationAudit" in run_detail_source

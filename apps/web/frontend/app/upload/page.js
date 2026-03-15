@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
@@ -16,6 +17,30 @@ function errorCopy(error) {
     default:
       return "";
   }
+}
+
+function parseFeedback(encodedFeedback) {
+  if (!encodedFeedback) {
+    return null;
+  }
+  try {
+    return JSON.parse(
+      Buffer.from(String(encodedFeedback), "base64url").toString("utf-8")
+    );
+  } catch {
+    return null;
+  }
+}
+
+function renderIssueLocation(issue) {
+  const parts = [];
+  if (issue?.column) {
+    parts.push(`column ${issue.column}`);
+  }
+  if (issue?.row_number) {
+    parts.push(`row ${issue.row_number}`);
+  }
+  return parts.join(" / ");
 }
 
 function UploadCard({ eyebrow, title, action, description, children }) {
@@ -57,9 +82,12 @@ export default async function UploadPage({ searchParams }) {
   if (user.role === "reader") {
     redirect("/");
   }
-  const sourceAssets = await getSourceAssets();
-  const activeSourceAssets = sourceAssets.filter((record) => record.enabled);
-  const error = errorCopy(searchParams?.error);
+  const sourceAssets = await getSourceAssets({ includeArchived: true });
+  const activeSourceAssets = sourceAssets.filter(
+    (record) => record.enabled && !record.archived
+  );
+  const feedback = parseFeedback(searchParams?.feedback);
+  const error = errorCopy(searchParams?.error || feedback?.errorCode);
 
   return (
     <AppShell
@@ -70,7 +98,77 @@ export default async function UploadPage({ searchParams }) {
       lede="Browser uploads stay API-backed. Built-in datasets and configured source assets land through the same ingest contracts the worker and CLI already use."
     >
       <section className="stack">
-        {error ? <div className="errorBanner">{error}</div> : null}
+        {error ? (
+          <article className="panel section">
+            <div className="errorBanner">{error}</div>
+            {feedback ? (
+              <div className="stack compactStack">
+                {feedback.detail ? <div className="muted">{feedback.detail}</div> : null}
+                {feedback.runId ? (
+                  <div className="muted">
+                    Run recorded:{" "}
+                    <Link className="inlineLink" href={`/runs/${feedback.runId}`}>
+                      {feedback.runId}
+                    </Link>
+                  </div>
+                ) : null}
+                {feedback.datasetName || feedback.fileName || feedback.sourceName ? (
+                  <div className="metaGrid">
+                    {feedback.datasetName ? (
+                      <div className="metaItem">
+                        <div className="metricLabel">Dataset</div>
+                        <div>{feedback.datasetName}</div>
+                      </div>
+                    ) : null}
+                    {feedback.fileName ? (
+                      <div className="metaItem">
+                        <div className="metricLabel">File</div>
+                        <div>{feedback.fileName}</div>
+                      </div>
+                    ) : null}
+                    {feedback.sourceName ? (
+                      <div className="metaItem">
+                        <div className="metricLabel">Source</div>
+                        <div>{feedback.sourceName}</div>
+                      </div>
+                    ) : null}
+                    {feedback.status ? (
+                      <div className="metaItem">
+                        <div className="metricLabel">API status</div>
+                        <div>{feedback.status}</div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {Array.isArray(feedback.issues) && feedback.issues.length > 0 ? (
+                  <div className="stack compactStack">
+                    <div className="metricLabel">Validation issues</div>
+                    <div className="entityList">
+                      {feedback.issues.map((issue, index) => (
+                        <article
+                          className="entityCard"
+                          key={`${issue.code}-${issue.column || "general"}-${index}`}
+                        >
+                          <div className="entityHeader">
+                            <div>
+                              <div className="metricLabel">{issue.code}</div>
+                              <h3>{issue.message}</h3>
+                            </div>
+                            {renderIssueLocation(issue) ? (
+                              <span className="statusPill status-rejected">
+                                {renderIssueLocation(issue)}
+                              </span>
+                            ) : null}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </article>
+        ) : null}
 
         <section className="cards uploadCards">
           <UploadCard

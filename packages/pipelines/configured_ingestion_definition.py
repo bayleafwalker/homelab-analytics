@@ -49,6 +49,10 @@ class ConfiguredIngestionDefinitionService:
         ingestion_definition = self.config_repository.get_ingestion_definition(
             ingestion_definition_id
         )
+        if ingestion_definition.archived:
+            raise ValueError(
+                f"Ingestion definition is archived: {ingestion_definition_id}"
+            )
         if not ingestion_definition.enabled:
             raise ValueError(
                 f"Ingestion definition is disabled: {ingestion_definition_id}"
@@ -68,6 +72,10 @@ class ConfiguredIngestionDefinitionService:
         source_asset = self.config_repository.get_source_asset(
             ingestion_definition.source_asset_id
         )
+        if source_asset.archived:
+            raise ValueError(
+                f"Source asset is archived: {ingestion_definition.source_asset_id}"
+            )
         if not source_asset.enabled:
             raise ValueError(
                 f"Source asset is disabled: {ingestion_definition.source_asset_id}"
@@ -130,6 +138,10 @@ class ConfiguredIngestionDefinitionService:
         source_asset = self.config_repository.get_source_asset(
             ingestion_definition.source_asset_id
         )
+        if source_asset.archived:
+            raise ValueError(
+                f"Source asset is archived: {ingestion_definition.source_asset_id}"
+            )
         if not source_asset.enabled:
             raise ValueError(
                 f"Source asset is disabled: {ingestion_definition.source_asset_id}"

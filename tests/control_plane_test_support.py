@@ -436,6 +436,83 @@ def assert_control_plane_store_update_behaviour(store: ControlPlaneStore) -> Non
     )
     assert restored_source_asset.enabled is True
 
+    archived_source_asset = store.set_source_asset_archived_state(
+        restored_source_asset.source_asset_id,
+        archived=True,
+    )
+    assert archived_source_asset.archived is True
+    assert archived_source_asset.enabled is False
+    assert {
+        record.source_asset_id for record in store.list_source_assets(include_archived=True)
+    } >= {archived_source_asset.source_asset_id}
+    assert (
+        store.find_source_asset_by_binding(
+            source_system_id=seeded["source_system"].source_system_id,
+            dataset_contract_id=seeded["dataset_contract"].dataset_contract_id,
+            column_mapping_id=seeded["column_mapping"].column_mapping_id,
+        )
+        is None
+    )
+    try:
+        store.create_ingestion_definition(
+            IngestionDefinitionCreate(
+                ingestion_definition_id="archived-source-asset-definition",
+                source_asset_id=archived_source_asset.source_asset_id,
+                transport="filesystem",
+                schedule_mode="watch-folder",
+                source_path="/tmp/homelab/inbox",
+                file_pattern="*.csv",
+                processed_path="/tmp/homelab/processed",
+                failed_path="/tmp/homelab/failed",
+                poll_interval_seconds=30,
+                enabled=True,
+                source_name="folder-watch",
+                created_at=FIXED_CREATED_AT,
+            )
+        )
+    except ValueError as exc:
+        assert "archived" in str(exc)
+    else:
+        raise AssertionError("Expected archived source assets to reject new ingestion definitions")
+    try:
+        store.delete_source_asset(archived_source_asset.source_asset_id)
+    except ValueError as exc:
+        assert "ingestion definitions" in str(exc)
+    else:
+        raise AssertionError("Expected source asset deletion to enforce dependencies")
+
+    restored_source_asset = store.set_source_asset_archived_state(
+        archived_source_asset.source_asset_id,
+        archived=False,
+    )
+    assert restored_source_asset.archived is False
+
+    orphan_source_asset = store.create_source_asset(
+        SourceAssetCreate(
+            source_asset_id="bank_partner_transactions_orphan",
+            source_system_id=seeded["source_asset"].source_system_id,
+            dataset_contract_id=seeded["source_asset"].dataset_contract_id,
+            column_mapping_id=seeded["source_asset"].column_mapping_id,
+            transformation_package_id=seeded["source_asset"].transformation_package_id,
+            name="Bank Partner Transactions Orphan",
+            asset_type=seeded["source_asset"].asset_type,
+            description="Temporary asset for delete contract coverage.",
+            enabled=False,
+            created_at=FIXED_CREATED_AT,
+        )
+    )
+    orphan_source_asset = store.set_source_asset_archived_state(
+        orphan_source_asset.source_asset_id,
+        archived=True,
+    )
+    store.delete_source_asset(orphan_source_asset.source_asset_id)
+    try:
+        store.get_source_asset(orphan_source_asset.source_asset_id)
+    except KeyError:
+        pass
+    else:
+        raise AssertionError("Expected archived source asset deletion to remove the record")
+
     updated_definition = store.update_ingestion_definition(
         IngestionDefinitionCreate(
             ingestion_definition_id=seeded["ingestion_definition"].ingestion_definition_id,
@@ -479,6 +556,77 @@ def assert_control_plane_store_update_behaviour(store: ControlPlaneStore) -> Non
         )
     )
     assert restored_definition.enabled is True
+
+    archived_definition = store.set_ingestion_definition_archived_state(
+        restored_definition.ingestion_definition_id,
+        archived=True,
+    )
+    assert archived_definition.archived is True
+    assert archived_definition.enabled is False
+    assert {
+        record.ingestion_definition_id
+        for record in store.list_ingestion_definitions(include_archived=True)
+    } >= {archived_definition.ingestion_definition_id}
+    try:
+        store.create_execution_schedule(
+            ExecutionScheduleCreate(
+                schedule_id="archived-definition-schedule",
+                target_kind="ingestion_definition",
+                target_ref=archived_definition.ingestion_definition_id,
+                cron_expression="*/5 * * * *",
+                timezone="UTC",
+                enabled=True,
+                max_concurrency=1,
+                next_due_at=FIXED_DUE_AT,
+                created_at=FIXED_CREATED_AT,
+            )
+        )
+    except ValueError as exc:
+        assert "archived" in str(exc)
+    else:
+        raise AssertionError("Expected archived ingestion definitions to reject schedules")
+    try:
+        store.delete_ingestion_definition(archived_definition.ingestion_definition_id)
+    except ValueError as exc:
+        assert "schedules" in str(exc)
+    else:
+        raise AssertionError("Expected ingestion definition deletion to enforce schedules")
+
+    restored_definition = store.set_ingestion_definition_archived_state(
+        archived_definition.ingestion_definition_id,
+        archived=False,
+    )
+    assert restored_definition.archived is False
+
+    orphan_definition = store.create_ingestion_definition(
+        IngestionDefinitionCreate(
+            ingestion_definition_id="bank_partner_http_once",
+            source_asset_id=restored_source_asset.source_asset_id,
+            transport="filesystem",
+            schedule_mode="watch-folder",
+            source_path="/tmp/homelab/orphan-inbox",
+            file_pattern="*.csv",
+            processed_path="/tmp/homelab/orphan-processed",
+            failed_path="/tmp/homelab/orphan-failed",
+            poll_interval_seconds=15,
+            enabled=False,
+            source_name="folder-watch-orphan",
+            created_at=FIXED_CREATED_AT,
+        )
+    )
+    orphan_definition = store.set_ingestion_definition_archived_state(
+        orphan_definition.ingestion_definition_id,
+        archived=True,
+    )
+    store.delete_ingestion_definition(orphan_definition.ingestion_definition_id)
+    try:
+        store.get_ingestion_definition(orphan_definition.ingestion_definition_id)
+    except KeyError:
+        pass
+    else:
+        raise AssertionError(
+            "Expected archived ingestion definition deletion to remove the record"
+        )
 
     existing_schedule = store.get_execution_schedule("bank_partner_poll")
     updated_schedule = store.update_execution_schedule(
@@ -546,3 +694,51 @@ def assert_control_plane_store_update_behaviour(store: ControlPlaneStore) -> Non
         assert "disabled" in str(exc)
     else:
         raise AssertionError("Expected create_schedule_dispatch to reject disabled schedules")
+
+    archived_schedule = store.set_execution_schedule_archived_state(
+        disabled_schedule.schedule_id,
+        archived=True,
+    )
+    assert archived_schedule.archived is True
+    assert archived_schedule.enabled is False
+    assert {
+        record.schedule_id
+        for record in store.list_execution_schedules(include_archived=True)
+    } >= {archived_schedule.schedule_id}
+    try:
+        store.create_schedule_dispatch(archived_schedule.schedule_id)
+    except ValueError as exc:
+        assert "archived" in str(exc)
+    else:
+        raise AssertionError("Expected archived schedules to reject manual dispatch")
+    try:
+        store.delete_execution_schedule(archived_schedule.schedule_id)
+    except ValueError as exc:
+        assert "dispatch history" in str(exc)
+    else:
+        raise AssertionError("Expected schedule deletion to enforce dispatch history")
+
+    orphan_schedule = store.create_execution_schedule(
+        ExecutionScheduleCreate(
+            schedule_id="bank_partner_manual_retry",
+            target_kind="ingestion_definition",
+            target_ref=restored_definition.ingestion_definition_id,
+            cron_expression="0 6 * * *",
+            timezone="UTC",
+            enabled=False,
+            max_concurrency=1,
+            next_due_at=FIXED_DUE_AT,
+            created_at=FIXED_CREATED_AT,
+        )
+    )
+    orphan_schedule = store.set_execution_schedule_archived_state(
+        orphan_schedule.schedule_id,
+        archived=True,
+    )
+    store.delete_execution_schedule(orphan_schedule.schedule_id)
+    try:
+        store.get_execution_schedule(orphan_schedule.schedule_id)
+    except KeyError:
+        pass
+    else:
+        raise AssertionError("Expected archived schedule deletion to remove the record")

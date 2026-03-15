@@ -33,6 +33,7 @@ class ExecutionScheduleCreate:
     cron_expression: str
     timezone: str = "UTC"
     enabled: bool = True
+    archived: bool = False
     max_concurrency: int = 1
     next_due_at: datetime | None = None
     last_enqueued_at: datetime | None = None
@@ -47,6 +48,7 @@ class ExecutionScheduleRecord:
     cron_expression: str
     timezone: str
     enabled: bool
+    archived: bool
     max_concurrency: int
     next_due_at: datetime | None
     last_enqueued_at: datetime | None
@@ -255,7 +257,22 @@ class ControlPlaneStore(Protocol):
     def get_source_asset(self, source_asset_id: str) -> "SourceAssetRecord":
         ...
 
-    def list_source_assets(self) -> list["SourceAssetRecord"]:
+    def list_source_assets(
+        self,
+        *,
+        include_archived: bool = False,
+    ) -> list["SourceAssetRecord"]:
+        ...
+
+    def set_source_asset_archived_state(
+        self,
+        source_asset_id: str,
+        *,
+        archived: bool,
+    ) -> "SourceAssetRecord":
+        ...
+
+    def delete_source_asset(self, source_asset_id: str) -> None:
         ...
 
     def find_source_asset_by_binding(
@@ -281,8 +298,22 @@ class ControlPlaneStore(Protocol):
         ...
 
     def list_ingestion_definitions(
-        self, *, enabled_only: bool = False
+        self,
+        *,
+        enabled_only: bool = False,
+        include_archived: bool = False,
     ) -> list["IngestionDefinitionRecord"]:
+        ...
+
+    def set_ingestion_definition_archived_state(
+        self,
+        ingestion_definition_id: str,
+        *,
+        archived: bool,
+    ) -> "IngestionDefinitionRecord":
+        ...
+
+    def delete_ingestion_definition(self, ingestion_definition_id: str) -> None:
         ...
 
     def create_execution_schedule(
@@ -299,8 +330,22 @@ class ControlPlaneStore(Protocol):
         ...
 
     def list_execution_schedules(
-        self, *, enabled_only: bool = False
+        self,
+        *,
+        enabled_only: bool = False,
+        include_archived: bool = False,
     ) -> list[ExecutionScheduleRecord]:
+        ...
+
+    def set_execution_schedule_archived_state(
+        self,
+        schedule_id: str,
+        *,
+        archived: bool,
+    ) -> ExecutionScheduleRecord:
+        ...
+
+    def delete_execution_schedule(self, schedule_id: str) -> None:
         ...
 
     def enqueue_due_execution_schedules(

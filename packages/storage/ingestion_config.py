@@ -124,6 +124,7 @@ class SourceAssetCreate:
     transformation_package_id: str | None = None
     description: str | None = None
     enabled: bool = True
+    archived: bool = False
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -138,6 +139,7 @@ class SourceAssetRecord:
     asset_type: str
     description: str | None
     enabled: bool
+    archived: bool
     created_at: datetime
 
 
@@ -206,6 +208,7 @@ class IngestionDefinitionCreate:
     response_format: str | None = None
     output_file_name: str | None = None
     enabled: bool = True
+    archived: bool = False
     source_name: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
@@ -228,6 +231,7 @@ class IngestionDefinitionRecord:
     response_format: str | None
     output_file_name: str | None
     enabled: bool
+    archived: bool
     source_name: str | None
     created_at: datetime
 
@@ -855,9 +859,10 @@ class IngestionConfigRepository:
                     asset_type,
                     description,
                     enabled,
+                    archived,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     source_asset.source_asset_id,
@@ -869,6 +874,7 @@ class IngestionConfigRepository:
                     source_asset.asset_type,
                     source_asset.description,
                     int(source_asset.enabled),
+                    int(source_asset.archived),
                     source_asset.created_at.isoformat(),
                 ),
             )
@@ -897,7 +903,8 @@ class IngestionConfigRepository:
                     name = ?,
                     asset_type = ?,
                     description = ?,
-                    enabled = ?
+                    enabled = ?,
+                    archived = ?
                 WHERE source_asset_id = ?
                 """,
                 (
@@ -909,6 +916,7 @@ class IngestionConfigRepository:
                     source_asset.asset_type,
                     source_asset.description,
                     int(source_asset.enabled),
+                    int(source_asset.archived),
                     source_asset.source_asset_id,
                 ),
             )
@@ -932,6 +940,7 @@ class IngestionConfigRepository:
                     asset_type,
                     description,
                     enabled,
+                    archived,
                     created_at
                 FROM source_assets
                 WHERE source_asset_id = ?
@@ -951,14 +960,18 @@ class IngestionConfigRepository:
             asset_type=row["asset_type"],
             description=row["description"],
             enabled=bool(row["enabled"]),
+            archived=bool(row["archived"]),
             created_at=datetime.fromisoformat(row["created_at"]),
         )
 
-    def list_source_assets(self) -> list[SourceAssetRecord]:
+    def list_source_assets(
+        self,
+        *,
+        include_archived: bool = False,
+    ) -> list[SourceAssetRecord]:
         with self._connect() as connection:
             connection.row_factory = sqlite3.Row
-            rows = connection.execute(
-                """
+            sql = """
                 SELECT
                     source_asset_id,
                     source_system_id,
@@ -969,11 +982,14 @@ class IngestionConfigRepository:
                     asset_type,
                     description,
                     enabled,
+                    archived,
                     created_at
                 FROM source_assets
-                ORDER BY created_at, source_asset_id
-                """
-            ).fetchall()
+            """
+            if not include_archived:
+                sql += " WHERE archived = 0"
+            sql += " ORDER BY created_at, source_asset_id"
+            rows = connection.execute(sql).fetchall()
 
         return [
             SourceAssetRecord(
@@ -986,10 +1002,55 @@ class IngestionConfigRepository:
                 asset_type=row["asset_type"],
                 description=row["description"],
                 enabled=bool(row["enabled"]),
+                archived=bool(row["archived"]),
                 created_at=datetime.fromisoformat(row["created_at"]),
             )
             for row in rows
         ]
+
+    def set_source_asset_archived_state(
+        self,
+        source_asset_id: str,
+        *,
+        archived: bool,
+    ) -> SourceAssetRecord:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE source_assets
+                SET archived = ?,
+                    enabled = CASE WHEN ? = 1 THEN 0 ELSE enabled END
+                WHERE source_asset_id = ?
+                """,
+                (int(archived), int(archived), source_asset_id),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown source asset: {source_asset_id}")
+        return self.get_source_asset(source_asset_id)
+
+    def delete_source_asset(self, source_asset_id: str) -> None:
+        source_asset = self.get_source_asset(source_asset_id)
+        if not source_asset.archived:
+            raise ValueError("Archive source asset before deleting it.")
+        dependencies = [
+            record.ingestion_definition_id
+            for record in self.list_ingestion_definitions(include_archived=True)
+            if record.source_asset_id == source_asset_id
+        ]
+        if dependencies:
+            raise ValueError(
+                "Cannot delete source asset while ingestion definitions still reference it: "
+                + ", ".join(sorted(dependencies))
+            )
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM source_assets WHERE source_asset_id = ?",
+                (source_asset_id,),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown source asset: {source_asset_id}")
 
     def find_source_asset_by_binding(
         self,
@@ -1012,12 +1073,14 @@ class IngestionConfigRepository:
                     asset_type,
                     description,
                     enabled,
+                    archived,
                     created_at
                 FROM source_assets
                 WHERE source_system_id = ?
                   AND dataset_contract_id = ?
                   AND column_mapping_id = ?
                   AND enabled = 1
+                  AND archived = 0
                 ORDER BY created_at, source_asset_id
                 """,
                 (
@@ -1044,6 +1107,7 @@ class IngestionConfigRepository:
             asset_type=row["asset_type"],
             description=row["description"],
             enabled=bool(row["enabled"]),
+            archived=bool(row["archived"]),
             created_at=datetime.fromisoformat(row["created_at"]),
         )
 
@@ -1051,6 +1115,11 @@ class IngestionConfigRepository:
         self,
         ingestion_definition: IngestionDefinitionCreate,
     ) -> IngestionDefinitionRecord:
+        source_asset = self.get_source_asset(ingestion_definition.source_asset_id)
+        if source_asset.archived:
+            raise ValueError(
+                f"Source asset is archived: {ingestion_definition.source_asset_id}"
+            )
         with self._connect() as connection:
             connection.execute(
                 """
@@ -1071,10 +1140,11 @@ class IngestionConfigRepository:
                     response_format,
                     output_file_name,
                     enabled,
+                    archived,
                     source_name,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     ingestion_definition.ingestion_definition_id,
@@ -1093,6 +1163,7 @@ class IngestionConfigRepository:
                     ingestion_definition.response_format,
                     ingestion_definition.output_file_name,
                     int(ingestion_definition.enabled),
+                    int(ingestion_definition.archived),
                     ingestion_definition.source_name,
                     ingestion_definition.created_at.isoformat(),
                 ),
@@ -1106,6 +1177,11 @@ class IngestionConfigRepository:
         self,
         ingestion_definition: IngestionDefinitionCreate,
     ) -> IngestionDefinitionRecord:
+        source_asset = self.get_source_asset(ingestion_definition.source_asset_id)
+        if source_asset.archived:
+            raise ValueError(
+                f"Source asset is archived: {ingestion_definition.source_asset_id}"
+            )
         with self._connect() as connection:
             cursor = connection.execute(
                 """
@@ -1125,6 +1201,7 @@ class IngestionConfigRepository:
                     response_format = ?,
                     output_file_name = ?,
                     enabled = ?,
+                    archived = ?,
                     source_name = ?
                 WHERE ingestion_definition_id = ?
                 """,
@@ -1144,6 +1221,7 @@ class IngestionConfigRepository:
                     ingestion_definition.response_format,
                     ingestion_definition.output_file_name,
                     int(ingestion_definition.enabled),
+                    int(ingestion_definition.archived),
                     ingestion_definition.source_name,
                     ingestion_definition.ingestion_definition_id,
                 ),
@@ -1182,6 +1260,7 @@ class IngestionConfigRepository:
                     response_format,
                     output_file_name,
                     enabled,
+                    archived,
                     source_name,
                     created_at
                 FROM ingestion_definitions
@@ -1209,6 +1288,7 @@ class IngestionConfigRepository:
             response_format=row["response_format"],
             output_file_name=row["output_file_name"],
             enabled=bool(row["enabled"]),
+            archived=bool(row["archived"]),
             source_name=row["source_name"],
             created_at=datetime.fromisoformat(row["created_at"]),
         )
@@ -1217,62 +1297,42 @@ class IngestionConfigRepository:
         self,
         *,
         enabled_only: bool = False,
+        include_archived: bool = False,
     ) -> list[IngestionDefinitionRecord]:
         with self._connect() as connection:
             connection.row_factory = sqlite3.Row
+            query = """
+                SELECT
+                    ingestion_definition_id,
+                    source_asset_id,
+                    transport,
+                    schedule_mode,
+                    source_path,
+                    file_pattern,
+                    processed_path,
+                    failed_path,
+                    poll_interval_seconds,
+                    request_url,
+                    request_method,
+                    request_headers_json,
+                    request_timeout_seconds,
+                    response_format,
+                    output_file_name,
+                    enabled,
+                    archived,
+                    source_name,
+                    created_at
+                FROM ingestion_definitions
+            """
+            clauses: list[str] = []
             if enabled_only:
-                rows = connection.execute(
-                    """
-                    SELECT
-                        ingestion_definition_id,
-                        source_asset_id,
-                        transport,
-                        schedule_mode,
-                        source_path,
-                        file_pattern,
-                        processed_path,
-                        failed_path,
-                        poll_interval_seconds,
-                        request_url,
-                        request_method,
-                        request_headers_json,
-                        request_timeout_seconds,
-                        response_format,
-                        output_file_name,
-                        enabled,
-                        source_name,
-                        created_at
-                    FROM ingestion_definitions
-                    WHERE enabled = 1
-                    ORDER BY created_at, ingestion_definition_id
-                    """
-                ).fetchall()
-            else:
-                rows = connection.execute(
-                    """
-                    SELECT
-                        ingestion_definition_id,
-                        source_asset_id,
-                        transport,
-                        schedule_mode,
-                        source_path,
-                        file_pattern,
-                        processed_path,
-                        failed_path,
-                        poll_interval_seconds,
-                        request_url,
-                        request_method,
-                        request_headers_json,
-                        request_timeout_seconds,
-                        response_format,
-                        output_file_name,
-                        enabled,
-                        source_name,
-                        created_at
-                    FROM ingestion_definitions
-                    ORDER BY created_at, ingestion_definition_id
-                    """
-                ).fetchall()
+                clauses.append("enabled = 1")
+            if not include_archived:
+                clauses.append("archived = 0")
+            if clauses:
+                query += " WHERE " + " AND ".join(clauses)
+            query += " ORDER BY created_at, ingestion_definition_id"
+            rows = connection.execute(query).fetchall()
 
         return [
             IngestionDefinitionRecord(
@@ -1292,16 +1352,67 @@ class IngestionConfigRepository:
                 response_format=row["response_format"],
                 output_file_name=row["output_file_name"],
                 enabled=bool(row["enabled"]),
+                archived=bool(row["archived"]),
                 source_name=row["source_name"],
                 created_at=datetime.fromisoformat(row["created_at"]),
             )
             for row in rows
         ]
 
+    def set_ingestion_definition_archived_state(
+        self,
+        ingestion_definition_id: str,
+        *,
+        archived: bool,
+    ) -> IngestionDefinitionRecord:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE ingestion_definitions
+                SET archived = ?,
+                    enabled = CASE WHEN ? = 1 THEN 0 ELSE enabled END
+                WHERE ingestion_definition_id = ?
+                """,
+                (int(archived), int(archived), ingestion_definition_id),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown ingestion definition: {ingestion_definition_id}")
+        return self.get_ingestion_definition(ingestion_definition_id)
+
+    def delete_ingestion_definition(self, ingestion_definition_id: str) -> None:
+        definition = self.get_ingestion_definition(ingestion_definition_id)
+        if not definition.archived:
+            raise ValueError("Archive ingestion definition before deleting it.")
+        dependent_schedules = [
+            record.schedule_id
+            for record in self.list_execution_schedules(include_archived=True)
+            if record.target_kind == "ingestion_definition"
+            and record.target_ref == ingestion_definition_id
+        ]
+        if dependent_schedules:
+            raise ValueError(
+                "Cannot delete ingestion definition while schedules still reference it: "
+                + ", ".join(sorted(dependent_schedules))
+            )
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM ingestion_definitions WHERE ingestion_definition_id = ?",
+                (ingestion_definition_id,),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown ingestion definition: {ingestion_definition_id}")
+
     def create_execution_schedule(
         self,
         schedule: ExecutionScheduleCreate,
     ) -> ExecutionScheduleRecord:
+        _validate_execution_schedule_target_sqlite(
+            self,
+            schedule.target_kind,
+            schedule.target_ref,
+        )
         next_due_at = schedule.next_due_at or next_cron_occurrence(
             schedule.cron_expression,
             timezone=schedule.timezone,
@@ -1317,12 +1428,13 @@ class IngestionConfigRepository:
                     cron_expression,
                     timezone,
                     enabled,
+                    archived,
                     max_concurrency,
                     next_due_at,
                     last_enqueued_at,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     schedule.schedule_id,
@@ -1331,6 +1443,7 @@ class IngestionConfigRepository:
                     schedule.cron_expression,
                     schedule.timezone,
                     int(schedule.enabled),
+                    int(schedule.archived),
                     schedule.max_concurrency,
                     next_due_at.isoformat(),
                     schedule.last_enqueued_at.isoformat()
@@ -1346,6 +1459,11 @@ class IngestionConfigRepository:
         self,
         schedule: ExecutionScheduleCreate,
     ) -> ExecutionScheduleRecord:
+        _validate_execution_schedule_target_sqlite(
+            self,
+            schedule.target_kind,
+            schedule.target_ref,
+        )
         next_due_at = schedule.next_due_at or next_cron_occurrence(
             schedule.cron_expression,
             timezone=schedule.timezone,
@@ -1360,6 +1478,7 @@ class IngestionConfigRepository:
                     cron_expression = ?,
                     timezone = ?,
                     enabled = ?,
+                    archived = ?,
                     max_concurrency = ?,
                     next_due_at = ?,
                     last_enqueued_at = ?
@@ -1371,6 +1490,7 @@ class IngestionConfigRepository:
                     schedule.cron_expression,
                     schedule.timezone,
                     int(schedule.enabled),
+                    int(schedule.archived),
                     schedule.max_concurrency,
                     next_due_at.isoformat() if next_due_at else None,
                     schedule.last_enqueued_at.isoformat()
@@ -1396,6 +1516,7 @@ class IngestionConfigRepository:
                     cron_expression,
                     timezone,
                     enabled,
+                    archived,
                     max_concurrency,
                     next_due_at,
                     last_enqueued_at,
@@ -1413,6 +1534,7 @@ class IngestionConfigRepository:
         self,
         *,
         enabled_only: bool = False,
+        include_archived: bool = False,
     ) -> list[ExecutionScheduleRecord]:
         query = """
             SELECT
@@ -1422,19 +1544,65 @@ class IngestionConfigRepository:
                 cron_expression,
                 timezone,
                 enabled,
+                archived,
                 max_concurrency,
                 next_due_at,
                 last_enqueued_at,
                 created_at
             FROM execution_schedules
         """
+        clauses: list[str] = []
         if enabled_only:
-            query += " WHERE enabled = 1"
+            clauses.append("enabled = 1")
+        if not include_archived:
+            clauses.append("archived = 0")
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY created_at, schedule_id"
         with self._connect() as connection:
             connection.row_factory = sqlite3.Row
             rows = connection.execute(query).fetchall()
         return [_deserialize_execution_schedule_row(row) for row in rows]
+
+    def set_execution_schedule_archived_state(
+        self,
+        schedule_id: str,
+        *,
+        archived: bool,
+    ) -> ExecutionScheduleRecord:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE execution_schedules
+                SET archived = ?,
+                    enabled = CASE WHEN ? = 1 THEN 0 ELSE enabled END
+                WHERE schedule_id = ?
+                """,
+                (int(archived), int(archived), schedule_id),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown execution schedule: {schedule_id}")
+        return self.get_execution_schedule(schedule_id)
+
+    def delete_execution_schedule(self, schedule_id: str) -> None:
+        schedule = self.get_execution_schedule(schedule_id)
+        if not schedule.archived:
+            raise ValueError("Archive execution schedule before deleting it.")
+        dispatches = self.list_schedule_dispatches(schedule_id=schedule_id)
+        if dispatches:
+            raise ValueError(
+                "Cannot delete execution schedule while dispatch history exists: "
+                + ", ".join(dispatch.dispatch_id for dispatch in dispatches)
+            )
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM execution_schedules WHERE schedule_id = ?",
+                (schedule_id,),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown execution schedule: {schedule_id}")
 
     def enqueue_due_execution_schedules(
         self,
@@ -1461,6 +1629,7 @@ class IngestionConfigRepository:
                     created_at
                 FROM execution_schedules
                 WHERE enabled = 1
+                  AND archived = 0
                   AND next_due_at IS NOT NULL
                   AND next_due_at <= ?
                 ORDER BY next_due_at, schedule_id
@@ -1582,7 +1751,7 @@ class IngestionConfigRepository:
             connection.row_factory = sqlite3.Row
             schedule_row = connection.execute(
                 """
-                SELECT schedule_id, target_kind, target_ref, enabled, max_concurrency
+                SELECT schedule_id, target_kind, target_ref, enabled, archived, max_concurrency
                 FROM execution_schedules
                 WHERE schedule_id = ?
                 """,
@@ -1590,6 +1759,8 @@ class IngestionConfigRepository:
             ).fetchone()
             if schedule_row is None:
                 raise KeyError(f"Unknown execution schedule: {schedule_id}")
+            if bool(schedule_row["archived"]):
+                raise ValueError(f"Execution schedule is archived: {schedule_id}")
             if not bool(schedule_row["enabled"]):
                 raise ValueError(f"Execution schedule is disabled: {schedule_id}")
             active_count = connection.execute(
@@ -2105,9 +2276,13 @@ class IngestionConfigRepository:
             column_mappings=tuple(self.list_column_mappings(include_archived=True)),
             transformation_packages=tuple(self.list_transformation_packages()),
             publication_definitions=tuple(self.list_publication_definitions()),
-            source_assets=tuple(self.list_source_assets()),
-            ingestion_definitions=tuple(self.list_ingestion_definitions()),
-            execution_schedules=tuple(self.list_execution_schedules()),
+            source_assets=tuple(self.list_source_assets(include_archived=True)),
+            ingestion_definitions=tuple(
+                self.list_ingestion_definitions(include_archived=True)
+            ),
+            execution_schedules=tuple(
+                self.list_execution_schedules(include_archived=True)
+            ),
             source_lineage=tuple(self.list_source_lineage()),
             publication_audit=tuple(self.list_publication_audit()),
             auth_audit_events=tuple(self.list_auth_audit_events()),
@@ -2140,7 +2315,7 @@ class IngestionConfigRepository:
                         version=dataset_contract_record.version,
                         allow_extra_columns=dataset_contract_record.allow_extra_columns,
                         columns=dataset_contract_record.columns,
-                        archived=dataset_contract_record.archived,
+                        archived=False,
                         created_at=dataset_contract_record.created_at,
                     )
                 )
@@ -2155,7 +2330,7 @@ class IngestionConfigRepository:
                         dataset_contract_id=column_mapping_record.dataset_contract_id,
                         version=column_mapping_record.version,
                         rules=column_mapping_record.rules,
-                        archived=column_mapping_record.archived,
+                        archived=False,
                         created_at=column_mapping_record.created_at,
                     )
                 )
@@ -2202,6 +2377,7 @@ class IngestionConfigRepository:
                         asset_type=source_asset_record.asset_type,
                         description=source_asset_record.description,
                         enabled=source_asset_record.enabled,
+                        archived=False,
                         created_at=source_asset_record.created_at,
                     )
                 )
@@ -2227,6 +2403,7 @@ class IngestionConfigRepository:
                         response_format=ingestion_definition_record.response_format,
                         output_file_name=ingestion_definition_record.output_file_name,
                         enabled=ingestion_definition_record.enabled,
+                        archived=False,
                         source_name=ingestion_definition_record.source_name,
                         created_at=ingestion_definition_record.created_at,
                     )
@@ -2243,6 +2420,7 @@ class IngestionConfigRepository:
                         cron_expression=execution_schedule_record.cron_expression,
                         timezone=execution_schedule_record.timezone,
                         enabled=execution_schedule_record.enabled,
+                        archived=False,
                         max_concurrency=execution_schedule_record.max_concurrency,
                         next_due_at=execution_schedule_record.next_due_at,
                         last_enqueued_at=execution_schedule_record.last_enqueued_at,
@@ -2251,6 +2429,36 @@ class IngestionConfigRepository:
                 )
             except sqlite3.IntegrityError:
                 continue
+        for source_asset_record in snapshot.source_assets:
+            if source_asset_record.archived:
+                self.set_source_asset_archived_state(
+                    source_asset_record.source_asset_id,
+                    archived=True,
+                )
+        for ingestion_definition_record in snapshot.ingestion_definitions:
+            if ingestion_definition_record.archived:
+                self.set_ingestion_definition_archived_state(
+                    ingestion_definition_record.ingestion_definition_id,
+                    archived=True,
+                )
+        for execution_schedule_record in snapshot.execution_schedules:
+            if execution_schedule_record.archived:
+                self.set_execution_schedule_archived_state(
+                    execution_schedule_record.schedule_id,
+                    archived=True,
+                )
+        for column_mapping_record in snapshot.column_mappings:
+            if column_mapping_record.archived:
+                self.set_column_mapping_archived_state(
+                    column_mapping_record.column_mapping_id,
+                    archived=True,
+                )
+        for dataset_contract_record in snapshot.dataset_contracts:
+            if dataset_contract_record.archived:
+                self.set_dataset_contract_archived_state(
+                    dataset_contract_record.dataset_contract_id,
+                    archived=True,
+                )
         self.record_source_lineage(
             tuple(
                 SourceLineageCreate(
@@ -2380,6 +2588,7 @@ class IngestionConfigRepository:
                     asset_type TEXT NOT NULL,
                     description TEXT,
                     enabled INTEGER NOT NULL DEFAULT 1,
+                    archived INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
                     FOREIGN KEY (source_system_id) REFERENCES source_systems (source_system_id),
                     FOREIGN KEY (dataset_contract_id) REFERENCES dataset_contracts (dataset_contract_id),
@@ -2404,6 +2613,7 @@ class IngestionConfigRepository:
                     response_format TEXT,
                     output_file_name TEXT,
                     enabled INTEGER NOT NULL,
+                    archived INTEGER NOT NULL DEFAULT 0,
                     source_name TEXT,
                     created_at TEXT NOT NULL,
                     FOREIGN KEY (source_asset_id) REFERENCES source_assets (source_asset_id)
@@ -2416,6 +2626,7 @@ class IngestionConfigRepository:
                     cron_expression TEXT NOT NULL,
                     timezone TEXT NOT NULL,
                     enabled INTEGER NOT NULL,
+                    archived INTEGER NOT NULL DEFAULT 0,
                     max_concurrency INTEGER NOT NULL,
                     next_due_at TEXT,
                     last_enqueued_at TEXT,
@@ -2484,6 +2695,7 @@ class IngestionConfigRepository:
             self._ensure_source_system_columns(connection)
             self._ensure_source_asset_columns(connection)
             self._ensure_ingestion_definition_columns(connection)
+            self._ensure_execution_schedule_columns(connection)
             self._seed_builtin_transformation_packages(connection)
             connection.commit()
 
@@ -2543,6 +2755,10 @@ class IngestionConfigRepository:
             connection.execute(
                 f"ALTER TABLE ingestion_definitions ADD COLUMN {column_name} {column_type}"
             )
+        if "archived" not in columns:
+            connection.execute(
+                "ALTER TABLE ingestion_definitions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0"
+            )
 
     def _ensure_source_asset_columns(self, connection: sqlite3.Connection) -> None:
         columns = {
@@ -2555,6 +2771,22 @@ class IngestionConfigRepository:
         if "enabled" not in columns:
             connection.execute(
                 "ALTER TABLE source_assets ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1"
+            )
+        if "archived" not in columns:
+            connection.execute(
+                "ALTER TABLE source_assets ADD COLUMN archived INTEGER NOT NULL DEFAULT 0"
+            )
+
+    def _ensure_execution_schedule_columns(self, connection: sqlite3.Connection) -> None:
+        columns = {
+            row[1]
+            for row in connection.execute(
+                "PRAGMA table_info(execution_schedules)"
+            ).fetchall()
+        }
+        if "archived" not in columns:
+            connection.execute(
+                "ALTER TABLE execution_schedules ADD COLUMN archived INTEGER NOT NULL DEFAULT 0"
             )
 
     def _seed_builtin_transformation_packages(
@@ -2681,6 +2913,7 @@ def _deserialize_execution_schedule_row(row: sqlite3.Row) -> ExecutionScheduleRe
         cron_expression=row["cron_expression"],
         timezone=row["timezone"],
         enabled=bool(row["enabled"]),
+        archived=bool(row["archived"]),
         max_concurrency=row["max_concurrency"],
         next_due_at=datetime.fromisoformat(row["next_due_at"])
         if row["next_due_at"]
@@ -2690,6 +2923,17 @@ def _deserialize_execution_schedule_row(row: sqlite3.Row) -> ExecutionScheduleRe
         else None,
         created_at=datetime.fromisoformat(row["created_at"]),
     )
+
+
+def _validate_execution_schedule_target_sqlite(
+    repository: IngestionConfigRepository,
+    target_kind: str,
+    target_ref: str,
+) -> None:
+    if target_kind == "ingestion_definition":
+        definition = repository.get_ingestion_definition(target_ref)
+        if definition.archived:
+            raise ValueError(f"Ingestion definition is archived: {target_ref}")
 
 
 def _deserialize_schedule_dispatch_row(row: sqlite3.Row) -> ScheduleDispatchRecord:

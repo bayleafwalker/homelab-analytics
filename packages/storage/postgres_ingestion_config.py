@@ -516,9 +516,9 @@ class PostgresIngestionConfigRepository:
                 """
                 INSERT INTO source_assets (
                     source_asset_id, source_system_id, dataset_contract_id, column_mapping_id,
-                    transformation_package_id, name, asset_type, description, enabled, created_at
+                    transformation_package_id, name, asset_type, description, enabled, archived, created_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     source_asset.source_asset_id,
@@ -530,6 +530,7 @@ class PostgresIngestionConfigRepository:
                     source_asset.asset_type,
                     source_asset.description,
                     source_asset.enabled,
+                    source_asset.archived,
                     source_asset.created_at,
                 ),
             )
@@ -557,7 +558,8 @@ class PostgresIngestionConfigRepository:
                     name = %s,
                     asset_type = %s,
                     description = %s,
-                    enabled = %s
+                    enabled = %s,
+                    archived = %s
                 WHERE source_asset_id = %s
                 """,
                 (
@@ -569,6 +571,7 @@ class PostgresIngestionConfigRepository:
                     source_asset.asset_type,
                     source_asset.description,
                     source_asset.enabled,
+                    source_asset.archived,
                     source_asset.source_asset_id,
                 ),
             )
@@ -581,7 +584,7 @@ class PostgresIngestionConfigRepository:
             row = connection.execute(
                 """
                 SELECT source_asset_id, source_system_id, dataset_contract_id, column_mapping_id,
-                       transformation_package_id, name, asset_type, description, enabled, created_at
+                       transformation_package_id, name, asset_type, description, enabled, archived, created_at
                 FROM source_assets
                 WHERE source_asset_id = %s
                 """,
@@ -599,19 +602,25 @@ class PostgresIngestionConfigRepository:
             asset_type=row["asset_type"],
             description=row["description"],
             enabled=bool(row["enabled"]),
+            archived=bool(row["archived"]),
             created_at=row["created_at"],
         )
 
-    def list_source_assets(self) -> list[SourceAssetRecord]:
+    def list_source_assets(
+        self,
+        *,
+        include_archived: bool = False,
+    ) -> list[SourceAssetRecord]:
         with self._connect(row_factory=dict_row) as connection:
-            rows = connection.execute(
-                """
+            sql = """
                 SELECT source_asset_id, source_system_id, dataset_contract_id, column_mapping_id,
-                       transformation_package_id, name, asset_type, description, enabled, created_at
+                       transformation_package_id, name, asset_type, description, enabled, archived, created_at
                 FROM source_assets
-                ORDER BY created_at, source_asset_id
-                """
-            ).fetchall()
+            """
+            if not include_archived:
+                sql += " WHERE archived = FALSE"
+            sql += " ORDER BY created_at, source_asset_id"
+            rows = connection.execute(sql).fetchall()
         return [
             SourceAssetRecord(
                 source_asset_id=row["source_asset_id"],
@@ -623,10 +632,53 @@ class PostgresIngestionConfigRepository:
                 asset_type=row["asset_type"],
                 description=row["description"],
                 enabled=bool(row["enabled"]),
+                archived=bool(row["archived"]),
                 created_at=row["created_at"],
             )
             for row in rows
         ]
+
+    def set_source_asset_archived_state(
+        self,
+        source_asset_id: str,
+        *,
+        archived: bool,
+    ) -> SourceAssetRecord:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE source_assets
+                SET archived = %s,
+                    enabled = CASE WHEN %s THEN FALSE ELSE enabled END
+                WHERE source_asset_id = %s
+                """,
+                (archived, archived, source_asset_id),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown source asset: {source_asset_id}")
+        return self.get_source_asset(source_asset_id)
+
+    def delete_source_asset(self, source_asset_id: str) -> None:
+        source_asset = self.get_source_asset(source_asset_id)
+        if not source_asset.archived:
+            raise ValueError("Archive source asset before deleting it.")
+        dependencies = [
+            record.ingestion_definition_id
+            for record in self.list_ingestion_definitions(include_archived=True)
+            if record.source_asset_id == source_asset_id
+        ]
+        if dependencies:
+            raise ValueError(
+                "Cannot delete source asset while ingestion definitions still reference it: "
+                + ", ".join(sorted(dependencies))
+            )
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM source_assets WHERE source_asset_id = %s",
+                (source_asset_id,),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown source asset: {source_asset_id}")
 
     def find_source_asset_by_binding(
         self,
@@ -639,12 +691,13 @@ class PostgresIngestionConfigRepository:
             rows = connection.execute(
                 """
                 SELECT source_asset_id, source_system_id, dataset_contract_id, column_mapping_id,
-                       transformation_package_id, name, asset_type, description, enabled, created_at
+                       transformation_package_id, name, asset_type, description, enabled, archived, created_at
                 FROM source_assets
                 WHERE source_system_id = %s
                   AND dataset_contract_id = %s
                   AND column_mapping_id = %s
                   AND enabled = TRUE
+                  AND archived = FALSE
                 ORDER BY created_at, source_asset_id
                 """,
                 (source_system_id, dataset_contract_id, column_mapping_id),
@@ -666,6 +719,7 @@ class PostgresIngestionConfigRepository:
             asset_type=row["asset_type"],
             description=row["description"],
             enabled=bool(row["enabled"]),
+            archived=bool(row["archived"]),
             created_at=row["created_at"],
         )
 
@@ -673,6 +727,11 @@ class PostgresIngestionConfigRepository:
         self,
         ingestion_definition: IngestionDefinitionCreate,
     ) -> IngestionDefinitionRecord:
+        source_asset = self.get_source_asset(ingestion_definition.source_asset_id)
+        if source_asset.archived:
+            raise ValueError(
+                f"Source asset is archived: {ingestion_definition.source_asset_id}"
+            )
         with self._connect() as connection:
             connection.execute(
                 """
@@ -680,9 +739,9 @@ class PostgresIngestionConfigRepository:
                     ingestion_definition_id, source_asset_id, transport, schedule_mode, source_path, file_pattern,
                     processed_path, failed_path, poll_interval_seconds, request_url, request_method,
                     request_headers_json, request_timeout_seconds, response_format, output_file_name,
-                    enabled, source_name, created_at
+                    enabled, archived, source_name, created_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     ingestion_definition.ingestion_definition_id,
@@ -701,6 +760,7 @@ class PostgresIngestionConfigRepository:
                     ingestion_definition.response_format,
                     ingestion_definition.output_file_name,
                     ingestion_definition.enabled,
+                    ingestion_definition.archived,
                     ingestion_definition.source_name,
                     ingestion_definition.created_at,
                 ),
@@ -711,6 +771,11 @@ class PostgresIngestionConfigRepository:
         self,
         ingestion_definition: IngestionDefinitionCreate,
     ) -> IngestionDefinitionRecord:
+        source_asset = self.get_source_asset(ingestion_definition.source_asset_id)
+        if source_asset.archived:
+            raise ValueError(
+                f"Source asset is archived: {ingestion_definition.source_asset_id}"
+            )
         with self._connect() as connection:
             cursor = connection.execute(
                 """
@@ -730,6 +795,7 @@ class PostgresIngestionConfigRepository:
                     response_format = %s,
                     output_file_name = %s,
                     enabled = %s,
+                    archived = %s,
                     source_name = %s
                 WHERE ingestion_definition_id = %s
                 """,
@@ -749,6 +815,7 @@ class PostgresIngestionConfigRepository:
                     ingestion_definition.response_format,
                     ingestion_definition.output_file_name,
                     ingestion_definition.enabled,
+                    ingestion_definition.archived,
                     ingestion_definition.source_name,
                     ingestion_definition.ingestion_definition_id,
                 ),
@@ -766,7 +833,7 @@ class PostgresIngestionConfigRepository:
                 SELECT ingestion_definition_id, source_asset_id, transport, schedule_mode, source_path, file_pattern,
                        processed_path, failed_path, poll_interval_seconds, request_url, request_method,
                        request_headers_json, request_timeout_seconds, response_format, output_file_name,
-                       enabled, source_name, created_at
+                       enabled, archived, source_name, created_at
                 FROM ingestion_definitions
                 WHERE ingestion_definition_id = %s
                 """,
@@ -791,6 +858,7 @@ class PostgresIngestionConfigRepository:
             response_format=row["response_format"],
             output_file_name=row["output_file_name"],
             enabled=bool(row["enabled"]),
+            archived=bool(row["archived"]),
             source_name=row["source_name"],
             created_at=row["created_at"],
         )
@@ -799,16 +867,22 @@ class PostgresIngestionConfigRepository:
         self,
         *,
         enabled_only: bool = False,
+        include_archived: bool = False,
     ) -> list[IngestionDefinitionRecord]:
         sql = """
             SELECT ingestion_definition_id, source_asset_id, transport, schedule_mode, source_path, file_pattern,
                    processed_path, failed_path, poll_interval_seconds, request_url, request_method,
                    request_headers_json, request_timeout_seconds, response_format, output_file_name,
-                   enabled, source_name, created_at
+                   enabled, archived, source_name, created_at
             FROM ingestion_definitions
         """
+        clauses: list[str] = []
         if enabled_only:
-            sql += " WHERE enabled = TRUE"
+            clauses.append("enabled = TRUE")
+        if not include_archived:
+            clauses.append("archived = FALSE")
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
         sql += " ORDER BY created_at, ingestion_definition_id"
         with self._connect(row_factory=dict_row) as connection:
             rows = connection.execute(sql).fetchall()
@@ -830,13 +904,62 @@ class PostgresIngestionConfigRepository:
                 response_format=row["response_format"],
                 output_file_name=row["output_file_name"],
                 enabled=bool(row["enabled"]),
+                archived=bool(row["archived"]),
                 source_name=row["source_name"],
                 created_at=row["created_at"],
             )
             for row in rows
         ]
 
+    def set_ingestion_definition_archived_state(
+        self,
+        ingestion_definition_id: str,
+        *,
+        archived: bool,
+    ) -> IngestionDefinitionRecord:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE ingestion_definitions
+                SET archived = %s,
+                    enabled = CASE WHEN %s THEN FALSE ELSE enabled END
+                WHERE ingestion_definition_id = %s
+                """,
+                (archived, archived, ingestion_definition_id),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown ingestion definition: {ingestion_definition_id}")
+        return self.get_ingestion_definition(ingestion_definition_id)
+
+    def delete_ingestion_definition(self, ingestion_definition_id: str) -> None:
+        definition = self.get_ingestion_definition(ingestion_definition_id)
+        if not definition.archived:
+            raise ValueError("Archive ingestion definition before deleting it.")
+        dependent_schedules = [
+            record.schedule_id
+            for record in self.list_execution_schedules(include_archived=True)
+            if record.target_kind == "ingestion_definition"
+            and record.target_ref == ingestion_definition_id
+        ]
+        if dependent_schedules:
+            raise ValueError(
+                "Cannot delete ingestion definition while schedules still reference it: "
+                + ", ".join(sorted(dependent_schedules))
+            )
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM ingestion_definitions WHERE ingestion_definition_id = %s",
+                (ingestion_definition_id,),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown ingestion definition: {ingestion_definition_id}")
+
     def create_execution_schedule(self, schedule: ExecutionScheduleCreate) -> ExecutionScheduleRecord:
+        _validate_execution_schedule_target_postgres(
+            self,
+            schedule.target_kind,
+            schedule.target_ref,
+        )
         next_due_at = schedule.next_due_at or next_cron_occurrence(
             schedule.cron_expression,
             timezone=schedule.timezone,
@@ -846,10 +969,10 @@ class PostgresIngestionConfigRepository:
             connection.execute(
                 """
                 INSERT INTO execution_schedules (
-                    schedule_id, target_kind, target_ref, cron_expression, timezone, enabled,
+                    schedule_id, target_kind, target_ref, cron_expression, timezone, enabled, archived,
                     max_concurrency, next_due_at, last_enqueued_at, created_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     schedule.schedule_id,
@@ -858,6 +981,7 @@ class PostgresIngestionConfigRepository:
                     schedule.cron_expression,
                     schedule.timezone,
                     schedule.enabled,
+                    schedule.archived,
                     schedule.max_concurrency,
                     next_due_at,
                     schedule.last_enqueued_at,
@@ -867,6 +991,11 @@ class PostgresIngestionConfigRepository:
         return self.get_execution_schedule(schedule.schedule_id)
 
     def update_execution_schedule(self, schedule: ExecutionScheduleCreate) -> ExecutionScheduleRecord:
+        _validate_execution_schedule_target_postgres(
+            self,
+            schedule.target_kind,
+            schedule.target_ref,
+        )
         next_due_at = schedule.next_due_at or next_cron_occurrence(
             schedule.cron_expression,
             timezone=schedule.timezone,
@@ -881,6 +1010,7 @@ class PostgresIngestionConfigRepository:
                     cron_expression = %s,
                     timezone = %s,
                     enabled = %s,
+                    archived = %s,
                     max_concurrency = %s,
                     next_due_at = %s,
                     last_enqueued_at = %s
@@ -892,6 +1022,7 @@ class PostgresIngestionConfigRepository:
                     schedule.cron_expression,
                     schedule.timezone,
                     schedule.enabled,
+                    schedule.archived,
                     schedule.max_concurrency,
                     next_due_at,
                     schedule.last_enqueued_at,
@@ -906,7 +1037,7 @@ class PostgresIngestionConfigRepository:
         with self._connect(row_factory=dict_row) as connection:
             row = connection.execute(
                 """
-                SELECT schedule_id, target_kind, target_ref, cron_expression, timezone, enabled,
+                SELECT schedule_id, target_kind, target_ref, cron_expression, timezone, enabled, archived,
                        max_concurrency, next_due_at, last_enqueued_at, created_at
                 FROM execution_schedules
                 WHERE schedule_id = %s
@@ -922,20 +1053,31 @@ class PostgresIngestionConfigRepository:
             cron_expression=row["cron_expression"],
             timezone=row["timezone"],
             enabled=bool(row["enabled"]),
+            archived=bool(row["archived"]),
             max_concurrency=row["max_concurrency"],
             next_due_at=row["next_due_at"],
             last_enqueued_at=row["last_enqueued_at"],
             created_at=row["created_at"],
         )
 
-    def list_execution_schedules(self, *, enabled_only: bool = False) -> list[ExecutionScheduleRecord]:
+    def list_execution_schedules(
+        self,
+        *,
+        enabled_only: bool = False,
+        include_archived: bool = False,
+    ) -> list[ExecutionScheduleRecord]:
         sql = """
-            SELECT schedule_id, target_kind, target_ref, cron_expression, timezone, enabled,
+            SELECT schedule_id, target_kind, target_ref, cron_expression, timezone, enabled, archived,
                    max_concurrency, next_due_at, last_enqueued_at, created_at
             FROM execution_schedules
         """
+        clauses: list[str] = []
         if enabled_only:
-            sql += " WHERE enabled = TRUE"
+            clauses.append("enabled = TRUE")
+        if not include_archived:
+            clauses.append("archived = FALSE")
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
         sql += " ORDER BY created_at, schedule_id"
         with self._connect(row_factory=dict_row) as connection:
             rows = connection.execute(sql).fetchall()
@@ -947,6 +1089,7 @@ class PostgresIngestionConfigRepository:
                 cron_expression=row["cron_expression"],
                 timezone=row["timezone"],
                 enabled=bool(row["enabled"]),
+                archived=bool(row["archived"]),
                 max_concurrency=row["max_concurrency"],
                 next_due_at=row["next_due_at"],
                 last_enqueued_at=row["last_enqueued_at"],
@@ -954,6 +1097,44 @@ class PostgresIngestionConfigRepository:
             )
             for row in rows
         ]
+
+    def set_execution_schedule_archived_state(
+        self,
+        schedule_id: str,
+        *,
+        archived: bool,
+    ) -> ExecutionScheduleRecord:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE execution_schedules
+                SET archived = %s,
+                    enabled = CASE WHEN %s THEN FALSE ELSE enabled END
+                WHERE schedule_id = %s
+                """,
+                (archived, archived, schedule_id),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown execution schedule: {schedule_id}")
+        return self.get_execution_schedule(schedule_id)
+
+    def delete_execution_schedule(self, schedule_id: str) -> None:
+        schedule = self.get_execution_schedule(schedule_id)
+        if not schedule.archived:
+            raise ValueError("Archive execution schedule before deleting it.")
+        dispatches = self.list_schedule_dispatches(schedule_id=schedule_id)
+        if dispatches:
+            raise ValueError(
+                "Cannot delete execution schedule while dispatch history exists: "
+                + ", ".join(dispatch.dispatch_id for dispatch in dispatches)
+            )
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM execution_schedules WHERE schedule_id = %s",
+                (schedule_id,),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown execution schedule: {schedule_id}")
 
     def enqueue_due_execution_schedules(
         self,
@@ -966,10 +1147,11 @@ class PostgresIngestionConfigRepository:
         with self._connect(row_factory=dict_row) as connection:
             rows = connection.execute(
                 """
-                SELECT schedule_id, target_kind, target_ref, cron_expression, timezone, enabled,
+                SELECT schedule_id, target_kind, target_ref, cron_expression, timezone, enabled, archived,
                        max_concurrency, next_due_at, last_enqueued_at, created_at
                 FROM execution_schedules
                 WHERE enabled = TRUE
+                  AND archived = FALSE
                   AND next_due_at IS NOT NULL
                   AND next_due_at <= %s
                 ORDER BY next_due_at, schedule_id
@@ -1083,7 +1265,7 @@ class PostgresIngestionConfigRepository:
         with self._connect(row_factory=dict_row) as connection:
             schedule_row = connection.execute(
                 """
-                SELECT schedule_id, target_kind, target_ref, enabled, max_concurrency
+                SELECT schedule_id, target_kind, target_ref, enabled, archived, max_concurrency
                 FROM execution_schedules
                 WHERE schedule_id = %s
                 """,
@@ -1091,6 +1273,8 @@ class PostgresIngestionConfigRepository:
             ).fetchone()
             if schedule_row is None:
                 raise KeyError(f"Unknown execution schedule: {schedule_id}")
+            if bool(schedule_row["archived"]):
+                raise ValueError(f"Execution schedule is archived: {schedule_id}")
             if not bool(schedule_row["enabled"]):
                 raise ValueError(f"Execution schedule is disabled: {schedule_id}")
             active_count = connection.execute(
@@ -1558,9 +1742,13 @@ class PostgresIngestionConfigRepository:
             column_mappings=tuple(self.list_column_mappings(include_archived=True)),
             transformation_packages=tuple(self.list_transformation_packages()),
             publication_definitions=tuple(self.list_publication_definitions()),
-            source_assets=tuple(self.list_source_assets()),
-            ingestion_definitions=tuple(self.list_ingestion_definitions()),
-            execution_schedules=tuple(self.list_execution_schedules()),
+            source_assets=tuple(self.list_source_assets(include_archived=True)),
+            ingestion_definitions=tuple(
+                self.list_ingestion_definitions(include_archived=True)
+            ),
+            execution_schedules=tuple(
+                self.list_execution_schedules(include_archived=True)
+            ),
             source_lineage=tuple(self.list_source_lineage()),
             publication_audit=tuple(self.list_publication_audit()),
             auth_audit_events=tuple(self.list_auth_audit_events()),
@@ -1593,7 +1781,7 @@ class PostgresIngestionConfigRepository:
                         version=dataset_contract_record.version,
                         allow_extra_columns=dataset_contract_record.allow_extra_columns,
                         columns=dataset_contract_record.columns,
-                        archived=dataset_contract_record.archived,
+                        archived=False,
                         created_at=dataset_contract_record.created_at,
                     )
                 )
@@ -1608,7 +1796,7 @@ class PostgresIngestionConfigRepository:
                         dataset_contract_id=column_mapping_record.dataset_contract_id,
                         version=column_mapping_record.version,
                         rules=column_mapping_record.rules,
-                        archived=column_mapping_record.archived,
+                        archived=False,
                         created_at=column_mapping_record.created_at,
                     )
                 )
@@ -1655,6 +1843,7 @@ class PostgresIngestionConfigRepository:
                         asset_type=source_asset_record.asset_type,
                         description=source_asset_record.description,
                         enabled=source_asset_record.enabled,
+                        archived=False,
                         created_at=source_asset_record.created_at,
                     )
                 )
@@ -1680,6 +1869,7 @@ class PostgresIngestionConfigRepository:
                         response_format=ingestion_definition_record.response_format,
                         output_file_name=ingestion_definition_record.output_file_name,
                         enabled=ingestion_definition_record.enabled,
+                        archived=False,
                         source_name=ingestion_definition_record.source_name,
                         created_at=ingestion_definition_record.created_at,
                     )
@@ -1696,6 +1886,7 @@ class PostgresIngestionConfigRepository:
                         cron_expression=execution_schedule_record.cron_expression,
                         timezone=execution_schedule_record.timezone,
                         enabled=execution_schedule_record.enabled,
+                        archived=False,
                         max_concurrency=execution_schedule_record.max_concurrency,
                         next_due_at=execution_schedule_record.next_due_at,
                         last_enqueued_at=execution_schedule_record.last_enqueued_at,
@@ -1704,6 +1895,36 @@ class PostgresIngestionConfigRepository:
                 )
             except psycopg.Error:
                 continue
+        for source_asset_record in snapshot.source_assets:
+            if source_asset_record.archived:
+                self.set_source_asset_archived_state(
+                    source_asset_record.source_asset_id,
+                    archived=True,
+                )
+        for ingestion_definition_record in snapshot.ingestion_definitions:
+            if ingestion_definition_record.archived:
+                self.set_ingestion_definition_archived_state(
+                    ingestion_definition_record.ingestion_definition_id,
+                    archived=True,
+                )
+        for execution_schedule_record in snapshot.execution_schedules:
+            if execution_schedule_record.archived:
+                self.set_execution_schedule_archived_state(
+                    execution_schedule_record.schedule_id,
+                    archived=True,
+                )
+        for column_mapping_record in snapshot.column_mappings:
+            if column_mapping_record.archived:
+                self.set_column_mapping_archived_state(
+                    column_mapping_record.column_mapping_id,
+                    archived=True,
+                )
+        for dataset_contract_record in snapshot.dataset_contracts:
+            if dataset_contract_record.archived:
+                self.set_dataset_contract_archived_state(
+                    dataset_contract_record.dataset_contract_id,
+                    archived=True,
+                )
         self.record_source_lineage(
             tuple(
                 SourceLineageCreate(
@@ -1845,6 +2066,7 @@ class PostgresIngestionConfigRepository:
                     asset_type TEXT NOT NULL,
                     description TEXT,
                     enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                    archived BOOLEAN NOT NULL DEFAULT FALSE,
                     created_at TIMESTAMPTZ NOT NULL
                 )
                 """
@@ -1868,6 +2090,7 @@ class PostgresIngestionConfigRepository:
                     response_format TEXT,
                     output_file_name TEXT,
                     enabled BOOLEAN NOT NULL,
+                    archived BOOLEAN NOT NULL DEFAULT FALSE,
                     source_name TEXT,
                     created_at TIMESTAMPTZ NOT NULL
                 )
@@ -1882,6 +2105,7 @@ class PostgresIngestionConfigRepository:
                     cron_expression TEXT NOT NULL,
                     timezone TEXT NOT NULL,
                     enabled BOOLEAN NOT NULL,
+                    archived BOOLEAN NOT NULL DEFAULT FALSE,
                     max_concurrency INTEGER NOT NULL,
                     next_due_at TIMESTAMPTZ,
                     last_enqueued_at TIMESTAMPTZ,
@@ -1983,6 +2207,24 @@ class PostgresIngestionConfigRepository:
                 ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT TRUE
                 """
             )
+            connection.execute(
+                """
+                ALTER TABLE source_assets
+                ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE
+                """
+            )
+            connection.execute(
+                """
+                ALTER TABLE ingestion_definitions
+                ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE
+                """
+            )
+            connection.execute(
+                """
+                ALTER TABLE execution_schedules
+                ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE
+                """
+            )
             self._seed_builtins(connection)
 
     def _seed_builtins(self, connection: psycopg.Connection) -> None:
@@ -2040,3 +2282,14 @@ def _deserialize_local_user_row(row: dict[str, object]) -> LocalUserRecord:
         created_at=row["created_at"],  # type: ignore[arg-type]
         last_login_at=row["last_login_at"],  # type: ignore[arg-type]
     )
+
+
+def _validate_execution_schedule_target_postgres(
+    repository: PostgresIngestionConfigRepository,
+    target_kind: str,
+    target_ref: str,
+) -> None:
+    if target_kind == "ingestion_definition":
+        definition = repository.get_ingestion_definition(target_ref)
+        if definition.archived:
+            raise ValueError(f"Ingestion definition is archived: {target_ref}")

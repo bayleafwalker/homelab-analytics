@@ -992,9 +992,17 @@ def create_app(
         return {"publication_definition": _to_jsonable(publication_definition)}
 
     @app.get("/config/source-assets")
-    async def list_source_assets() -> dict[str, Any]:
+    async def list_source_assets(
+        include_archived: bool = False,
+    ) -> dict[str, Any]:
         require_unsafe_admin()
-        return {"source_assets": _to_jsonable(resolved_config_repository.list_source_assets())}
+        return {
+            "source_assets": _to_jsonable(
+                resolved_config_repository.list_source_assets(
+                    include_archived=include_archived
+                )
+            )
+        }
 
     @app.post("/config/source-assets", status_code=201)
     async def create_source_asset(payload: SourceAssetRequest) -> dict[str, Any]:
@@ -1033,17 +1041,39 @@ def create_app(
                 asset_type=payload.asset_type,
                 description=payload.description,
                 enabled=payload.enabled,
+                archived=existing.archived,
                 created_at=existing.created_at,
             )
         )
         return {"source_asset": _to_jsonable(source_asset)}
 
+    @app.patch("/config/source-assets/{source_asset_id}/archive")
+    async def set_source_asset_archived_state(
+        source_asset_id: str,
+        payload: ArchivedStateRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        source_asset = resolved_config_repository.set_source_asset_archived_state(
+            source_asset_id,
+            archived=payload.archived,
+        )
+        return {"source_asset": _to_jsonable(source_asset)}
+
+    @app.delete("/config/source-assets/{source_asset_id}", status_code=204)
+    async def delete_source_asset(source_asset_id: str) -> None:
+        require_unsafe_admin()
+        resolved_config_repository.delete_source_asset(source_asset_id)
+
     @app.get("/config/ingestion-definitions")
-    async def list_ingestion_definitions() -> dict[str, Any]:
+    async def list_ingestion_definitions(
+        include_archived: bool = False,
+    ) -> dict[str, Any]:
         require_unsafe_admin()
         return {
             "ingestion_definitions": _to_jsonable(
-                resolved_config_repository.list_ingestion_definitions()
+                resolved_config_repository.list_ingestion_definitions(
+                    include_archived=include_archived
+                )
             )
         }
 
@@ -1121,18 +1151,42 @@ def create_app(
                 response_format=payload.response_format,
                 output_file_name=payload.output_file_name,
                 enabled=payload.enabled,
+                archived=existing.archived,
                 source_name=payload.source_name,
                 created_at=existing.created_at,
             )
         )
         return {"ingestion_definition": _to_jsonable(ingestion_definition)}
 
+    @app.patch("/config/ingestion-definitions/{ingestion_definition_id}/archive")
+    async def set_ingestion_definition_archived_state(
+        ingestion_definition_id: str,
+        payload: ArchivedStateRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        ingestion_definition = (
+            resolved_config_repository.set_ingestion_definition_archived_state(
+                ingestion_definition_id,
+                archived=payload.archived,
+            )
+        )
+        return {"ingestion_definition": _to_jsonable(ingestion_definition)}
+
+    @app.delete("/config/ingestion-definitions/{ingestion_definition_id}", status_code=204)
+    async def delete_ingestion_definition(ingestion_definition_id: str) -> None:
+        require_unsafe_admin()
+        resolved_config_repository.delete_ingestion_definition(ingestion_definition_id)
+
     @app.get("/config/execution-schedules")
-    async def list_execution_schedules() -> dict[str, Any]:
+    async def list_execution_schedules(
+        include_archived: bool = False,
+    ) -> dict[str, Any]:
         require_unsafe_admin()
         return {
             "execution_schedules": _to_jsonable(
-                resolved_config_repository.list_execution_schedules()
+                resolved_config_repository.list_execution_schedules(
+                    include_archived=include_archived
+                )
             )
         }
 
@@ -1170,6 +1224,7 @@ def create_app(
                 cron_expression=payload.cron_expression,
                 timezone=payload.timezone,
                 enabled=payload.enabled,
+                archived=existing.archived,
                 max_concurrency=payload.max_concurrency,
                 next_due_at=existing.next_due_at,
                 last_enqueued_at=existing.last_enqueued_at,
@@ -1177,6 +1232,23 @@ def create_app(
             )
         )
         return {"execution_schedule": _to_jsonable(schedule)}
+
+    @app.patch("/config/execution-schedules/{schedule_id}/archive")
+    async def set_execution_schedule_archived_state(
+        schedule_id: str,
+        payload: ArchivedStateRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        schedule = resolved_config_repository.set_execution_schedule_archived_state(
+            schedule_id,
+            archived=payload.archived,
+        )
+        return {"execution_schedule": _to_jsonable(schedule)}
+
+    @app.delete("/config/execution-schedules/{schedule_id}", status_code=204)
+    async def delete_execution_schedule(schedule_id: str) -> None:
+        require_unsafe_admin()
+        resolved_config_repository.delete_execution_schedule(schedule_id)
 
     @app.get("/control/source-lineage")
     async def get_source_lineage(
@@ -1755,6 +1827,11 @@ def _resolve_configured_ingest_binding(
         else None
     )
     if source_asset is not None:
+        if getattr(source_asset, "archived", False):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Source asset is archived: {source_asset.source_asset_id}",
+            )
         if not source_asset.enabled:
             raise HTTPException(
                 status_code=400,

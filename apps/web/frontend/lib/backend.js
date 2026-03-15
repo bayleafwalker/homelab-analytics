@@ -144,18 +144,28 @@ export async function getTransformationPackages() {
   return payload.transformation_packages || [];
 }
 
-export async function getSourceAssets() {
-  const payload = await backendJson("/config/source-assets");
+export async function getSourceAssets({ includeArchived = false } = {}) {
+  const payload = await backendJson(
+    `/config/source-assets${buildQuery({ include_archived: includeArchived })}`
+  );
   return payload.source_assets || [];
 }
 
-export async function getIngestionDefinitions() {
-  const payload = await backendJson("/config/ingestion-definitions");
+export async function getIngestionDefinitions({ includeArchived = false } = {}) {
+  const payload = await backendJson(
+    `/config/ingestion-definitions${buildQuery({
+      include_archived: includeArchived
+    })}`
+  );
   return payload.ingestion_definitions || [];
 }
 
-export async function getExecutionSchedules() {
-  const payload = await backendJson("/config/execution-schedules");
+export async function getExecutionSchedules({ includeArchived = false } = {}) {
+  const payload = await backendJson(
+    `/config/execution-schedules${buildQuery({
+      include_archived: includeArchived
+    })}`
+  );
   return payload.execution_schedules || [];
 }
 

@@ -71,13 +71,13 @@ This repository now has a working end-to-end bootstrap aligned to the target arc
 - project metadata, console scripts, and Docker/Compose bootstrap files now make the slice installable and containerizable
 - a watched-folder worker loop and a minimal Helm chart now cover the first Kubernetes deployment path
 - a Next.js web shell now exposes dashboard, filterable run-monitoring, run-detail drill-down, and control-plane admin views as a separate workload
-- the Next.js web shell now also exposes operator-facing browser uploads for built-in datasets plus config-driven source-asset uploads that redirect into run detail
+- the Next.js web shell now also exposes operator-facing browser uploads for built-in datasets plus config-driven source-asset uploads that redirect into run detail on success and render inline validation/run feedback on failure
 - landing now uses explicit blob-store and metadata-store boundaries, with the current local filesystem and SQLite path kept as the default backend
 - the transaction transform and reporting path now consume landed bytes directly, so reporting no longer depends on staging artifacts back to the local filesystem
 - built-in landing, transformation, reporting, and application capabilities are now exposed through a shared extension registry that can also load external modules from configured custom paths
 - executable extension handlers can now be invoked through the worker CLI and API for landing, transformation, and reporting layers
 - source systems, dataset contracts, column mappings, source assets, ingestion definitions, transformation packages, and publication definitions now exist as persisted ingestion configuration entities
-- dataset contracts and column mappings now support saved-version preview plus archived-version lifecycle in the control plane, so mapping changes can be reviewed before a source asset is rebound
+- dataset contracts and column mappings now support saved-version preview plus archived-version lifecycle in the control plane, and source assets, ingestion definitions, and execution schedules now also support archive/delete lifecycle with dependency-aware control-plane visibility
 - config-driven CSV onboarding can land a new mapped dataset without new Python modules, and source-asset promotion now dispatches through the configured transformation package instead of account-specific heuristics
 - filesystem and HTTP ingestion definitions can now execute through the same runtime config path, and HTTP request headers are stored as secret references resolved only at runtime
 - the transaction transformation layer now persists UTC-normalized timestamps and normalized currency codes in DuckDB, and the reporting layer publishes current-dimension snapshots for the implemented SCD dimensions
@@ -85,7 +85,7 @@ This repository now has a working end-to-end bootstrap aligned to the target arc
 - manual and config-driven account-transaction ingests now share the same retry-safe promotion path into DuckDB-backed marts and current-dimension views
 - explicit subscription and temporal contract-pricing domains now exist alongside transactions, including `mart_subscription_summary`, `mart_contract_price_current`, and `mart_electricity_price_current`
 
-The main remaining gaps are OIDC/service-token auth, richer inline validation and delete/archive workflows for admin entities, and broader production hardening. S3-compatible landing plus Postgres-backed control-plane/reporting backends now exist, local username/password auth is available as the bootstrap path, and the web surface now has a real Next.js shell that consumes the API only.
+The main remaining gaps are OIDC/service-token auth, deeper config-impact/version-diff tooling, and broader production hardening. S3-compatible landing plus Postgres-backed control-plane/reporting backends now exist, local username/password auth is available as the bootstrap path, and the web surface now has a real Next.js shell that consumes the API only.
 
 ## Run locally
 
@@ -195,9 +195,9 @@ Current execution surfaces:
 - `GET` and `POST /config/column-mappings` plus `PATCH /config/column-mappings/{id}/archive` and `POST /config/column-mappings/preview` for column-mapping configuration, preview, and archived-version lifecycle
 - `GET` and `POST /config/transformation-packages` for binding source assets to canonical transforms
 - `GET` and `POST /config/publication-definitions` for declaring published reporting outputs
-- `GET`, `POST`, and `PATCH /config/source-assets/{id}` for source-asset configuration
-- `GET`, `POST`, and `PATCH /config/ingestion-definitions/{id}` for transport, watch-folder, direct-API, and batch-extract configuration
-- `GET`, `POST`, and `PATCH /config/execution-schedules/{id}` for enqueue-only schedule definitions
+- `GET`, `POST`, `PATCH /config/source-assets/{id}`, `PATCH /config/source-assets/{id}/archive`, and `DELETE /config/source-assets/{id}` for source-asset configuration and lifecycle control
+- `GET`, `POST`, `PATCH /config/ingestion-definitions/{id}`, `PATCH /config/ingestion-definitions/{id}/archive`, and `DELETE /config/ingestion-definitions/{id}` for transport, watch-folder, direct-API, and batch-extract configuration
+- `GET`, `POST`, `PATCH /config/execution-schedules/{id}`, `PATCH /config/execution-schedules/{id}/archive`, and `DELETE /config/execution-schedules/{id}` for enqueue-only schedule definitions
 - `GET /control/source-lineage`, `GET /control/publication-audit`, `GET /control/schedule-dispatches`, and `POST /control/schedule-dispatches` for control-plane visibility and queueing
 - `GET /control/auth-audit` for local-auth login, logout, and admin-user audit events
 - `POST /ingest` for JSON path-based ingestion and multipart file uploads

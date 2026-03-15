@@ -8,6 +8,7 @@ import {
   getColumnMappings,
   getCurrentUser,
   getDatasetContracts,
+  getIngestionDefinitions,
   getSourceAssets,
   getSourceSystems,
   getTransformationPackages
@@ -28,6 +29,10 @@ function noticeCopy(notice) {
       return "Source asset created.";
     case "source-asset-updated":
       return "Source asset updated.";
+    case "source-asset-archived":
+      return "Source asset archive state updated.";
+    case "source-asset-deleted":
+      return "Source asset deleted.";
     case "dataset-contract-created":
       return "Dataset contract version created.";
     case "dataset-contract-archived":
@@ -51,6 +56,10 @@ function errorCopy(error) {
       return "Could not create the source asset.";
     case "source-asset-update-failed":
       return "Could not update the source asset.";
+    case "source-asset-archive-failed":
+      return "Could not update the source asset archive state.";
+    case "source-asset-delete-failed":
+      return "Could not delete the source asset.";
     case "dataset-contract-failed":
       return "Could not create the dataset contract version.";
     case "dataset-contract-archive-failed":
@@ -74,6 +83,28 @@ function archiveCopy(archived) {
 
 function optionLabel(record, version, archived = false) {
   return `${record}${version ? ` / v${version}` : ""}${archived ? " / archived" : ""}`;
+}
+
+function buildReferenceMap(records, field) {
+  const references = new Map();
+  for (const record of records) {
+    const key = record[field];
+    const current = references.get(key) || [];
+    current.push(record);
+    references.set(key, current);
+  }
+  return references;
+}
+
+function referenceSummary(records, field) {
+  if (!records || records.length === 0) {
+    return "none";
+  }
+  const values = records.map((record) => record[field]);
+  if (values.length <= 3) {
+    return values.join(", ");
+  }
+  return `${values.slice(0, 3).join(", ")} +${values.length - 3} more`;
 }
 
 function resolveContractDraft(datasetContracts, cloneId) {
@@ -129,13 +160,15 @@ export default async function ControlCatalogPage({ searchParams }) {
     datasetContracts,
     columnMappings,
     transformationPackages,
-    sourceAssets
+    sourceAssets,
+    ingestionDefinitions
   ] = await Promise.all([
     getSourceSystems(),
     getDatasetContracts({ includeArchived: true }),
     getColumnMappings({ includeArchived: true }),
     getTransformationPackages(),
-    getSourceAssets()
+    getSourceAssets({ includeArchived: true }),
+    getIngestionDefinitions({ includeArchived: true })
   ]);
 
   const activeSourceSystems = sourceSystems.filter((record) => record.enabled);
@@ -143,6 +176,8 @@ export default async function ControlCatalogPage({ searchParams }) {
   const archivedDatasetContracts = datasetContracts.filter((record) => record.archived);
   const activeColumnMappings = columnMappings.filter((record) => !record.archived);
   const archivedColumnMappings = columnMappings.filter((record) => record.archived);
+  const activeSourceAssets = sourceAssets.filter((record) => !record.archived);
+  const archivedSourceAssets = sourceAssets.filter((record) => record.archived);
   const contractById = new Map(
     datasetContracts.map((record) => [record.dataset_contract_id, record])
   );
@@ -151,6 +186,12 @@ export default async function ControlCatalogPage({ searchParams }) {
   );
   const packageById = new Map(
     transformationPackages.map((record) => [record.transformation_package_id, record])
+  );
+  const sourceAssetsByContractId = buildReferenceMap(sourceAssets, "dataset_contract_id");
+  const sourceAssetsByMappingId = buildReferenceMap(sourceAssets, "column_mapping_id");
+  const ingestionDefinitionsBySourceAssetId = buildReferenceMap(
+    ingestionDefinitions,
+    "source_asset_id"
   );
   const contractDraft = resolveContractDraft(datasetContracts, searchParams?.contract_clone);
   const mappingDraft = resolveMappingDraft(columnMappings, searchParams?.mapping_clone);
@@ -181,7 +222,8 @@ export default async function ControlCatalogPage({ searchParams }) {
           </article>
           <article className="panel metricCard">
             <div className="metricLabel">Source assets</div>
-            <div className="metricValue">{sourceAssets.length}</div>
+            <div className="metricValue">{activeSourceAssets.length}</div>
+            <div className="muted">{archivedSourceAssets.length} archived assets</div>
           </article>
           <article className="panel metricCard">
             <div className="metricLabel">Contracts / mappings</div>
@@ -707,6 +749,8 @@ export default async function ControlCatalogPage({ searchParams }) {
                 const transformationPackage = record.transformation_package_id
                   ? packageById.get(record.transformation_package_id)
                   : null;
+                const sourceAssetDefinitions =
+                  ingestionDefinitionsBySourceAssetId.get(record.source_asset_id) || [];
                 return (
                   <article className="entityCard" key={record.source_asset_id}>
                     <div className="entityHeader">
@@ -714,9 +758,16 @@ export default async function ControlCatalogPage({ searchParams }) {
                         <div className="metricLabel">{record.source_asset_id}</div>
                         <h3>{record.name}</h3>
                       </div>
-                      <span className={`statusPill status-${statusCopy(record.enabled)}`}>
-                        {statusCopy(record.enabled)}
-                      </span>
+                      <div className="buttonRow">
+                        <span className={`statusPill status-${statusCopy(record.enabled)}`}>
+                          {statusCopy(record.enabled)}
+                        </span>
+                        <span
+                          className={`statusPill status-${record.archived ? "archived" : "active"}`}
+                        >
+                          {archiveCopy(record.archived)}
+                        </span>
+                      </div>
                     </div>
                     <div className="metaGrid">
                       <div className="metaItem">
@@ -742,6 +793,24 @@ export default async function ControlCatalogPage({ searchParams }) {
                       <div className="metaItem">
                         <div className="metricLabel">Package</div>
                         <div>{transformationPackage?.handler_key || record.transformation_package_id || "n/a"}</div>
+                      </div>
+                      <div className="metaItem">
+                        <div className="metricLabel">Ingestion definitions</div>
+                        <div>{sourceAssetDefinitions.length}</div>
+                        <div className="muted">
+                          {referenceSummary(
+                            sourceAssetDefinitions,
+                            "ingestion_definition_id"
+                          )}
+                        </div>
+                      </div>
+                      <div className="metaItem">
+                        <div className="metricLabel">Binding impact</div>
+                        <div className="muted">
+                          {datasetContract?.archived || columnMapping?.archived
+                            ? "This asset is still bound to archived contract or mapping versions."
+                            : "Bindings are on active contract and mapping versions."}
+                        </div>
                       </div>
                       <div className="metaItem spanTwo">
                         <div className="metricLabel">Description</div>
@@ -869,6 +938,31 @@ export default async function ControlCatalogPage({ searchParams }) {
                         Save source asset
                       </button>
                     </form>
+                    <div className="buttonRow">
+                      <form
+                        action={`/control/catalog/source-assets/${record.source_asset_id}/archive`}
+                        method="post"
+                      >
+                        <input
+                          name="archived"
+                          type="hidden"
+                          value={record.archived ? "false" : "true"}
+                        />
+                        <button className="ghostButton" type="submit">
+                          {record.archived ? "Restore asset" : "Archive asset"}
+                        </button>
+                      </form>
+                      {record.archived ? (
+                        <form
+                          action={`/control/catalog/source-assets/${record.source_asset_id}/delete`}
+                          method="post"
+                        >
+                          <button className="ghostButton" type="submit">
+                            Delete archived asset
+                          </button>
+                        </form>
+                      ) : null}
+                    </div>
                   </article>
                 );
               })}
@@ -888,7 +982,10 @@ export default async function ControlCatalogPage({ searchParams }) {
               <div className="empty">No dataset contracts registered yet.</div>
             ) : (
               <div className="entityList">
-                {datasetContracts.map((record) => (
+                {datasetContracts.map((record) => {
+                  const boundSourceAssets =
+                    sourceAssetsByContractId.get(record.dataset_contract_id) || [];
+                  return (
                   <article className="entityCard" key={record.dataset_contract_id}>
                     <div className="entityHeader">
                       <div>
@@ -909,6 +1006,21 @@ export default async function ControlCatalogPage({ searchParams }) {
                       <div className="metaItem">
                         <div className="metricLabel">Allow extra columns</div>
                         <div>{record.allow_extra_columns ? "true" : "false"}</div>
+                      </div>
+                      <div className="metaItem">
+                        <div className="metricLabel">Source assets</div>
+                        <div>{boundSourceAssets.length}</div>
+                        <div className="muted">
+                          {referenceSummary(boundSourceAssets, "source_asset_id")}
+                        </div>
+                      </div>
+                      <div className="metaItem">
+                        <div className="metricLabel">Archive impact</div>
+                        <div className="muted">
+                          {record.archived && boundSourceAssets.length > 0
+                            ? "Archived version is still referenced by active control-plane bindings."
+                            : "No bound source assets depend on this version."}
+                        </div>
                       </div>
                       <div className="metaItem spanTwo">
                         <div className="metricLabel">Specification</div>
@@ -937,7 +1049,8 @@ export default async function ControlCatalogPage({ searchParams }) {
                       </form>
                     </div>
                   </article>
-                ))}
+                );
+                })}
               </div>
             )}
           </article>
@@ -954,7 +1067,10 @@ export default async function ControlCatalogPage({ searchParams }) {
                 <div className="empty">No column mappings registered yet.</div>
               ) : (
                 <div className="entityList">
-                  {columnMappings.map((record) => (
+                  {columnMappings.map((record) => {
+                    const boundSourceAssets =
+                      sourceAssetsByMappingId.get(record.column_mapping_id) || [];
+                    return (
                     <article className="entityCard" key={record.column_mapping_id}>
                       <div className="entityHeader">
                         <div>
@@ -977,6 +1093,21 @@ export default async function ControlCatalogPage({ searchParams }) {
                         <div className="metaItem">
                           <div className="metricLabel">Rules</div>
                           <div>{record.rules.length}</div>
+                        </div>
+                        <div className="metaItem">
+                          <div className="metricLabel">Source assets</div>
+                          <div>{boundSourceAssets.length}</div>
+                          <div className="muted">
+                            {referenceSummary(boundSourceAssets, "source_asset_id")}
+                          </div>
+                        </div>
+                        <div className="metaItem">
+                          <div className="metricLabel">Archive impact</div>
+                          <div className="muted">
+                            {record.archived && boundSourceAssets.length > 0
+                              ? "Archived version is still referenced by saved source assets."
+                              : "No bound source assets depend on this version."}
+                          </div>
                         </div>
                         <div className="metaItem spanTwo">
                           <div className="metricLabel">Specification</div>
@@ -1005,7 +1136,8 @@ export default async function ControlCatalogPage({ searchParams }) {
                         </form>
                       </div>
                     </article>
-                  ))}
+                  );
+                  })}
                 </div>
               )}
             </article>

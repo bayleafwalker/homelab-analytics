@@ -19,10 +19,18 @@ function noticeCopy(notice) {
       return "Ingestion definition created.";
     case "ingestion-definition-updated":
       return "Ingestion definition updated.";
+    case "ingestion-definition-archived":
+      return "Ingestion definition archive state updated.";
+    case "ingestion-definition-deleted":
+      return "Ingestion definition deleted.";
     case "execution-schedule-created":
       return "Execution schedule created.";
     case "execution-schedule-updated":
       return "Execution schedule updated.";
+    case "execution-schedule-archived":
+      return "Execution schedule archive state updated.";
+    case "execution-schedule-deleted":
+      return "Execution schedule deleted.";
     case "schedule-dispatch-created":
       return "Manual schedule dispatch enqueued.";
     case "due-dispatches-enqueued":
@@ -38,10 +46,18 @@ function errorCopy(error) {
       return "Could not create the ingestion definition.";
     case "ingestion-definition-update-failed":
       return "Could not update the ingestion definition.";
+    case "ingestion-definition-archive-failed":
+      return "Could not update the ingestion definition archive state.";
+    case "ingestion-definition-delete-failed":
+      return "Could not delete the ingestion definition.";
     case "execution-schedule-failed":
       return "Could not create the execution schedule.";
     case "execution-schedule-update-failed":
       return "Could not update the execution schedule.";
+    case "execution-schedule-archive-failed":
+      return "Could not update the execution schedule archive state.";
+    case "execution-schedule-delete-failed":
+      return "Could not delete the execution schedule.";
     case "ingestion-process-failed":
       return "Could not process the ingestion definition.";
     case "schedule-dispatch-failed":
@@ -53,6 +69,32 @@ function errorCopy(error) {
 
 function statusCopy(enabled) {
   return enabled ? "active" : "inactive";
+}
+
+function archiveCopy(archived) {
+  return archived ? "archived" : "active";
+}
+
+function buildReferenceMap(records, field) {
+  const references = new Map();
+  for (const record of records) {
+    const key = record[field];
+    const current = references.get(key) || [];
+    current.push(record);
+    references.set(key, current);
+  }
+  return references;
+}
+
+function referenceSummary(records, field) {
+  if (!records || records.length === 0) {
+    return "none";
+  }
+  const values = records.map((record) => record[field]);
+  if (values.length <= 3) {
+    return values.join(", ");
+  }
+  return `${values.slice(0, 3).join(", ")} +${values.length - 3} more`;
 }
 
 export default async function ControlExecutionPage({ searchParams }) {
@@ -69,14 +111,33 @@ export default async function ControlExecutionPage({ searchParams }) {
     publicationAudit,
     scheduleDispatches
   ] = await Promise.all([
-    getSourceAssets(),
-    getIngestionDefinitions(),
-    getExecutionSchedules(),
+    getSourceAssets({ includeArchived: true }),
+    getIngestionDefinitions({ includeArchived: true }),
+    getExecutionSchedules({ includeArchived: true }),
     getSourceLineage(),
     getPublicationAudit(),
     getScheduleDispatches()
   ]);
-  const activeSourceAssets = sourceAssets.filter((record) => record.enabled);
+  const activeSourceAssets = sourceAssets.filter(
+    (record) => record.enabled && !record.archived
+  );
+  const activeIngestionDefinitions = ingestionDefinitions.filter((record) => !record.archived);
+  const archivedIngestionDefinitions = ingestionDefinitions.filter((record) => record.archived);
+  const archivedExecutionSchedules = executionSchedules.filter((record) => record.archived);
+  const sourceAssetById = new Map(
+    sourceAssets.map((record) => [record.source_asset_id, record])
+  );
+  const ingestionDefinitionById = new Map(
+    ingestionDefinitions.map((record) => [record.ingestion_definition_id, record])
+  );
+  const executionSchedulesByTargetRef = buildReferenceMap(
+    executionSchedules.filter((record) => record.target_kind === "ingestion_definition"),
+    "target_ref"
+  );
+  const scheduleDispatchesByScheduleId = buildReferenceMap(
+    scheduleDispatches,
+    "schedule_id"
+  );
   const notice = noticeCopy(searchParams?.notice);
   const error = errorCopy(searchParams?.error);
   const enqueuedDispatches = scheduleDispatches.filter((record) => record.status === "enqueued");
@@ -97,11 +158,13 @@ export default async function ControlExecutionPage({ searchParams }) {
         <section className="cards">
           <article className="panel metricCard">
             <div className="metricLabel">Ingestion definitions</div>
-            <div className="metricValue">{ingestionDefinitions.length}</div>
+            <div className="metricValue">{activeIngestionDefinitions.length}</div>
+            <div className="muted">{archivedIngestionDefinitions.length} archived definitions</div>
           </article>
           <article className="panel metricCard">
             <div className="metricLabel">Execution schedules</div>
-            <div className="metricValue">{executionSchedules.length}</div>
+            <div className="metricValue">{executionSchedules.length - archivedExecutionSchedules.length}</div>
+            <div className="muted">{archivedExecutionSchedules.length} archived schedules</div>
           </article>
           <article className="panel metricCard">
             <div className="metricLabel">Queued dispatches</div>
@@ -248,7 +311,7 @@ export default async function ControlExecutionPage({ searchParams }) {
                 </button>
               </form>
 
-              {ingestionDefinitions.length === 0 ? (
+              {activeIngestionDefinitions.length === 0 ? (
                 <div className="empty">Create an ingestion definition before scheduling it.</div>
               ) : (
                 <form
@@ -276,7 +339,7 @@ export default async function ControlExecutionPage({ searchParams }) {
                       <option value="" disabled>
                         Select ingestion definition
                       </option>
-                      {ingestionDefinitions.map((record) => (
+                      {activeIngestionDefinitions.map((record) => (
                         <option
                           key={record.ingestion_definition_id}
                           value={record.ingestion_definition_id}
@@ -337,16 +400,27 @@ export default async function ControlExecutionPage({ searchParams }) {
             <div className="empty">No ingestion definitions configured yet.</div>
           ) : (
             <div className="entityList">
-              {ingestionDefinitions.map((record) => (
+              {ingestionDefinitions.map((record) => {
+                const sourceAsset = sourceAssetById.get(record.source_asset_id);
+                const dependentSchedules =
+                  executionSchedulesByTargetRef.get(record.ingestion_definition_id) || [];
+                return (
                 <article className="entityCard" key={record.ingestion_definition_id}>
                   <div className="entityHeader">
                     <div>
                       <div className="metricLabel">{record.ingestion_definition_id}</div>
                       <h3>{record.source_asset_id}</h3>
                     </div>
-                    <span className={`statusPill status-${statusCopy(record.enabled)}`}>
-                      {statusCopy(record.enabled)}
-                    </span>
+                    <div className="buttonRow">
+                      <span className={`statusPill status-${statusCopy(record.enabled)}`}>
+                        {statusCopy(record.enabled)}
+                      </span>
+                      <span
+                        className={`statusPill status-${record.archived ? "archived" : "active"}`}
+                      >
+                        {archiveCopy(record.archived)}
+                      </span>
+                    </div>
                   </div>
                   <div className="metaGrid">
                     <div className="metaItem">
@@ -356,6 +430,23 @@ export default async function ControlExecutionPage({ searchParams }) {
                     <div className="metaItem">
                       <div className="metricLabel">Schedule mode</div>
                       <div>{record.schedule_mode}</div>
+                    </div>
+                    <div className="metaItem">
+                      <div className="metricLabel">Source asset state</div>
+                      <div className="muted">
+                        {sourceAsset?.archived
+                          ? "Referenced source asset is archived."
+                          : sourceAsset?.enabled
+                            ? "Referenced source asset is active."
+                            : "Referenced source asset is inactive."}
+                      </div>
+                    </div>
+                    <div className="metaItem">
+                      <div className="metricLabel">Execution schedules</div>
+                      <div>{dependentSchedules.length}</div>
+                      <div className="muted">
+                        {referenceSummary(dependentSchedules, "schedule_id")}
+                      </div>
                     </div>
                     <div className="metaItem spanTwo">
                       <div className="metricLabel">Source path</div>
@@ -499,17 +590,43 @@ export default async function ControlExecutionPage({ searchParams }) {
                     </button>
                   </form>
                   <div className="buttonRow">
+                    {!record.archived ? (
+                      <form
+                        action={`/control/execution/ingestion-definitions/${record.ingestion_definition_id}/process`}
+                        method="post"
+                      >
+                        <button className="ghostButton" type="submit">
+                          Process now
+                        </button>
+                      </form>
+                    ) : null}
                     <form
-                      action={`/control/execution/ingestion-definitions/${record.ingestion_definition_id}/process`}
+                      action={`/control/execution/ingestion-definitions/${record.ingestion_definition_id}/archive`}
                       method="post"
                     >
+                      <input
+                        name="archived"
+                        type="hidden"
+                        value={record.archived ? "false" : "true"}
+                      />
                       <button className="ghostButton" type="submit">
-                        Process now
+                        {record.archived ? "Restore definition" : "Archive definition"}
                       </button>
                     </form>
+                    {record.archived ? (
+                      <form
+                        action={`/control/execution/ingestion-definitions/${record.ingestion_definition_id}/delete`}
+                        method="post"
+                      >
+                        <button className="ghostButton" type="submit">
+                          Delete archived definition
+                        </button>
+                      </form>
+                    ) : null}
                   </div>
                 </article>
-              ))}
+              );
+              })}
             </div>
           )}
         </article>
@@ -525,16 +642,30 @@ export default async function ControlExecutionPage({ searchParams }) {
             <div className="empty">No execution schedules configured yet.</div>
           ) : (
             <div className="entityList">
-              {executionSchedules.map((record) => (
+              {executionSchedules.map((record) => {
+                const targetDefinition =
+                  record.target_kind === "ingestion_definition"
+                    ? ingestionDefinitionById.get(record.target_ref)
+                    : null;
+                const scheduleDispatchHistory =
+                  scheduleDispatchesByScheduleId.get(record.schedule_id) || [];
+                return (
                 <article className="entityCard" key={record.schedule_id}>
                   <div className="entityHeader">
                     <div>
                       <div className="metricLabel">{record.schedule_id}</div>
                       <h3>{record.target_ref}</h3>
                     </div>
-                    <span className={`statusPill status-${statusCopy(record.enabled)}`}>
-                      {statusCopy(record.enabled)}
-                    </span>
+                    <div className="buttonRow">
+                      <span className={`statusPill status-${statusCopy(record.enabled)}`}>
+                        {statusCopy(record.enabled)}
+                      </span>
+                      <span
+                        className={`statusPill status-${record.archived ? "archived" : "active"}`}
+                      >
+                        {archiveCopy(record.archived)}
+                      </span>
+                    </div>
                   </div>
                   <div className="metaGrid">
                     <div className="metaItem">
@@ -552,6 +683,23 @@ export default async function ControlExecutionPage({ searchParams }) {
                     <div className="metaItem">
                       <div className="metricLabel">Last enqueued</div>
                       <div>{record.last_enqueued_at || "n/a"}</div>
+                    </div>
+                    <div className="metaItem">
+                      <div className="metricLabel">Target definition state</div>
+                      <div className="muted">
+                        {targetDefinition?.archived
+                          ? "Target ingestion definition is archived."
+                          : targetDefinition
+                            ? "Target ingestion definition is active in the control plane."
+                            : "Target definition is not available in the current catalog view."}
+                      </div>
+                    </div>
+                    <div className="metaItem">
+                      <div className="metricLabel">Dispatch history</div>
+                      <div>{scheduleDispatchHistory.length}</div>
+                      <div className="muted">
+                        {referenceSummary(scheduleDispatchHistory, "dispatch_id")}
+                      </div>
                     </div>
                   </div>
                   <form
@@ -584,6 +732,7 @@ export default async function ControlExecutionPage({ searchParams }) {
                             value={item.ingestion_definition_id}
                           >
                             {item.ingestion_definition_id}
+                            {item.archived ? " / archived" : ""}
                           </option>
                         ))}
                       </select>
@@ -634,15 +783,41 @@ export default async function ControlExecutionPage({ searchParams }) {
                     </button>
                   </form>
                   <div className="buttonRow">
-                    <form action="/control/execution/schedule-dispatches" method="post">
-                      <input name="schedule_id" type="hidden" value={record.schedule_id} />
+                    {!record.archived ? (
+                      <form action="/control/execution/schedule-dispatches" method="post">
+                        <input name="schedule_id" type="hidden" value={record.schedule_id} />
+                        <button className="ghostButton" type="submit">
+                          Re-dispatch now
+                        </button>
+                      </form>
+                    ) : null}
+                    <form
+                      action={`/control/execution/execution-schedules/${record.schedule_id}/archive`}
+                      method="post"
+                    >
+                      <input
+                        name="archived"
+                        type="hidden"
+                        value={record.archived ? "false" : "true"}
+                      />
                       <button className="ghostButton" type="submit">
-                        Re-dispatch now
+                        {record.archived ? "Restore schedule" : "Archive schedule"}
                       </button>
                     </form>
+                    {record.archived ? (
+                      <form
+                        action={`/control/execution/execution-schedules/${record.schedule_id}/delete`}
+                        method="post"
+                      >
+                        <button className="ghostButton" type="submit">
+                          Delete archived schedule
+                        </button>
+                      </form>
+                    ) : null}
                   </div>
                 </article>
-              ))}
+              );
+              })}
             </div>
           )}
         </article>

@@ -50,6 +50,7 @@ def test_worker_cli_lists_enqueues_and_marks_schedule_dispatches() -> None:
                 "cron_expression": "*/5 * * * *",
                 "timezone": "UTC",
                 "enabled": True,
+                "archived": False,
                 "max_concurrency": 1,
                 "next_due_at": FIXED_DUE_AT.isoformat(),
                 "last_enqueued_at": None,

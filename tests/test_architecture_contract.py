@@ -162,6 +162,32 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
         / "[sourceAssetId]"
         / "route.js"
     ).read_text()
+    web_source_asset_archive_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "control"
+        / "catalog"
+        / "source-assets"
+        / "[sourceAssetId]"
+        / "archive"
+        / "route.js"
+    ).read_text()
+    web_source_asset_delete_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "control"
+        / "catalog"
+        / "source-assets"
+        / "[sourceAssetId]"
+        / "delete"
+        / "route.js"
+    ).read_text()
     web_ingestion_definition_update_route = (
         ROOT
         / "apps"
@@ -174,6 +200,32 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
         / "[ingestionDefinitionId]"
         / "route.js"
     ).read_text()
+    web_ingestion_definition_archive_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "control"
+        / "execution"
+        / "ingestion-definitions"
+        / "[ingestionDefinitionId]"
+        / "archive"
+        / "route.js"
+    ).read_text()
+    web_ingestion_definition_delete_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "control"
+        / "execution"
+        / "ingestion-definitions"
+        / "[ingestionDefinitionId]"
+        / "delete"
+        / "route.js"
+    ).read_text()
     web_schedule_update_route = (
         ROOT
         / "apps"
@@ -184,6 +236,32 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
         / "execution"
         / "execution-schedules"
         / "[scheduleId]"
+        / "route.js"
+    ).read_text()
+    web_schedule_archive_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "control"
+        / "execution"
+        / "execution-schedules"
+        / "[scheduleId]"
+        / "archive"
+        / "route.js"
+    ).read_text()
+    web_schedule_delete_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "control"
+        / "execution"
+        / "execution-schedules"
+        / "[scheduleId]"
+        / "delete"
         / "route.js"
     ).read_text()
     web_schedule_dispatch_route = (
@@ -230,8 +308,10 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert "getIngestionDefinitions" in web_control_execution_page
     assert "getExecutionSchedules" in web_control_execution_page
     assert "Manual Uploads" in web_upload_page
-    assert "getSourceAssets" in web_upload_page
+    assert "getSourceAssets({ includeArchived: true })" in web_upload_page
     assert "backendRequest(backendPath" in web_upload_route_helper
+    assert "encodeUploadFeedback" in web_upload_route_helper
+    assert "parseFeedback" in web_upload_page
     assert 'backendPath: "/ingest/configured-csv"' in web_upload_configured_route
     assert "getRun" in web_run_detail_page
     assert "getSourceLineage" in web_run_detail_page
@@ -239,8 +319,14 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert "getTransformationAudit" in web_run_detail_page
     assert "/config/source-systems/${params.sourceSystemId}" in web_source_system_update_route
     assert "/config/source-assets/${params.sourceAssetId}" in web_source_asset_update_route
+    assert "/config/source-assets/${params.sourceAssetId}/archive" in web_source_asset_archive_route
+    assert "/config/source-assets/${params.sourceAssetId}" in web_source_asset_delete_route
     assert "/config/ingestion-definitions/${params.ingestionDefinitionId}" in web_ingestion_definition_update_route
+    assert "/config/ingestion-definitions/${params.ingestionDefinitionId}/archive" in web_ingestion_definition_archive_route
+    assert "/config/ingestion-definitions/${params.ingestionDefinitionId}" in web_ingestion_definition_delete_route
     assert "/config/execution-schedules/${params.scheduleId}" in web_schedule_update_route
+    assert "/config/execution-schedules/${params.scheduleId}/archive" in web_schedule_archive_route
+    assert "/config/execution-schedules/${params.scheduleId}" in web_schedule_delete_route
     assert 'backendRequest("/control/schedule-dispatches"' in web_schedule_dispatch_route
     assert "build_web_environment" in web_main_source
     assert "resolved_api_base_url" in web_main_source

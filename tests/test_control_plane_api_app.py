@@ -8,10 +8,18 @@ from fastapi.testclient import TestClient
 from apps.api.app import create_app
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.shared.metrics import metrics_registry
-from packages.storage.ingestion_config import IngestionConfigRepository
+from packages.storage.ingestion_config import (
+    IngestionConfigRepository,
+    IngestionDefinitionCreate,
+    SourceAssetCreate,
+)
 from packages.storage.run_metadata import RunMetadataRepository
 from tests.account_test_support import FIXTURES as ACCOUNT_FIXTURES
-from tests.control_plane_test_support import FIXED_DUE_AT, seed_source_asset_graph
+from tests.control_plane_test_support import (
+    FIXED_CREATED_AT,
+    FIXED_DUE_AT,
+    seed_source_asset_graph,
+)
 
 
 def test_admin_routes_return_404_when_unsafe_admin_is_disabled() -> None:
@@ -235,3 +243,152 @@ def test_control_plane_api_updates_entities_and_enqueues_manual_dispatches() -> 
         )
         assert due_enqueue_response.status_code == 201
         assert "dispatches" in due_enqueue_response.json()
+
+
+def test_control_plane_api_supports_archive_delete_and_include_archived_filters() -> None:
+    with TemporaryDirectory() as temp_dir:
+        repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+        seeded = seed_source_asset_graph(repository)
+        service = AccountTransactionService(
+            landing_root=Path(temp_dir) / "landing",
+            metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+        )
+        client = TestClient(
+            create_app(
+                service,
+                config_repository=repository,
+                enable_unsafe_admin=True,
+            )
+        )
+
+        source_asset_archive_response = client.patch(
+            f"/config/source-assets/{seeded['source_asset'].source_asset_id}/archive",
+            json={"archived": True},
+        )
+        assert source_asset_archive_response.status_code == 200
+        assert source_asset_archive_response.json()["source_asset"]["archived"] is True
+        assert source_asset_archive_response.json()["source_asset"]["enabled"] is False
+        assert client.get("/config/source-assets").json()["source_assets"] == []
+        source_asset_list_response = client.get(
+            "/config/source-assets",
+            params={"include_archived": "true"},
+        )
+        assert source_asset_list_response.status_code == 200
+        assert source_asset_list_response.json()["source_assets"][0]["archived"] is True
+        blocked_source_asset_delete = client.delete(
+            f"/config/source-assets/{seeded['source_asset'].source_asset_id}"
+        )
+        assert blocked_source_asset_delete.status_code == 400
+        assert "ingestion definitions" in blocked_source_asset_delete.json()["error"]
+        client.patch(
+            f"/config/source-assets/{seeded['source_asset'].source_asset_id}/archive",
+            json={"archived": False},
+        )
+
+        orphan_source_asset = repository.create_source_asset(
+            SourceAssetCreate(
+                source_asset_id="bank_partner_transactions_orphan_api",
+                source_system_id=seeded["source_asset"].source_system_id,
+                dataset_contract_id=seeded["source_asset"].dataset_contract_id,
+                column_mapping_id=seeded["source_asset"].column_mapping_id,
+                transformation_package_id=seeded["source_asset"].transformation_package_id,
+                name="Bank Partner Transactions Orphan API",
+                asset_type=seeded["source_asset"].asset_type,
+                description="Temporary asset for API delete coverage.",
+                enabled=False,
+                created_at=FIXED_CREATED_AT,
+            )
+        )
+        orphan_archive_response = client.patch(
+            f"/config/source-assets/{orphan_source_asset.source_asset_id}/archive",
+            json={"archived": True},
+        )
+        assert orphan_archive_response.status_code == 200
+        orphan_delete_response = client.delete(
+            f"/config/source-assets/{orphan_source_asset.source_asset_id}"
+        )
+        assert orphan_delete_response.status_code == 204
+
+        ingestion_definition_archive_response = client.patch(
+            f"/config/ingestion-definitions/{seeded['ingestion_definition'].ingestion_definition_id}/archive",
+            json={"archived": True},
+        )
+        assert ingestion_definition_archive_response.status_code == 200
+        assert (
+            ingestion_definition_archive_response.json()["ingestion_definition"]["archived"]
+            is True
+        )
+        assert (
+            ingestion_definition_archive_response.json()["ingestion_definition"]["enabled"]
+            is False
+        )
+        assert client.get("/config/ingestion-definitions").json()["ingestion_definitions"] == []
+        ingestion_definition_list_response = client.get(
+            "/config/ingestion-definitions",
+            params={"include_archived": "true"},
+        )
+        assert ingestion_definition_list_response.status_code == 200
+        assert (
+            ingestion_definition_list_response.json()["ingestion_definitions"][0][
+                "archived"
+            ]
+            is True
+        )
+        blocked_definition_delete = client.delete(
+            f"/config/ingestion-definitions/{seeded['ingestion_definition'].ingestion_definition_id}"
+        )
+        assert blocked_definition_delete.status_code == 400
+        assert "schedules" in blocked_definition_delete.json()["error"]
+        client.patch(
+            f"/config/ingestion-definitions/{seeded['ingestion_definition'].ingestion_definition_id}/archive",
+            json={"archived": False},
+        )
+
+        orphan_definition = repository.create_ingestion_definition(
+            IngestionDefinitionCreate(
+                ingestion_definition_id="bank_partner_watch_folder_orphan_api",
+                source_asset_id=seeded["source_asset"].source_asset_id,
+                transport="filesystem",
+                schedule_mode="watch-folder",
+                source_path="/tmp/homelab/orphan-api-inbox",
+                file_pattern="*.csv",
+                processed_path="/tmp/homelab/orphan-api-processed",
+                failed_path="/tmp/homelab/orphan-api-failed",
+                poll_interval_seconds=30,
+                enabled=False,
+                source_name="folder-watch-orphan-api",
+                created_at=FIXED_CREATED_AT,
+            )
+        )
+        orphan_definition_archive_response = client.patch(
+            f"/config/ingestion-definitions/{orphan_definition.ingestion_definition_id}/archive",
+            json={"archived": True},
+        )
+        assert orphan_definition_archive_response.status_code == 200
+        orphan_definition_delete_response = client.delete(
+            f"/config/ingestion-definitions/{orphan_definition.ingestion_definition_id}"
+        )
+        assert orphan_definition_delete_response.status_code == 204
+
+        schedule_archive_response = client.patch(
+            "/config/execution-schedules/bank_partner_poll/archive",
+            json={"archived": True},
+        )
+        assert schedule_archive_response.status_code == 200
+        assert schedule_archive_response.json()["execution_schedule"]["archived"] is True
+        assert schedule_archive_response.json()["execution_schedule"]["enabled"] is False
+        assert client.get("/config/execution-schedules").json()["execution_schedules"] == []
+        schedule_list_response = client.get(
+            "/config/execution-schedules",
+            params={"include_archived": "true"},
+        )
+        assert schedule_list_response.status_code == 200
+        assert schedule_list_response.json()["execution_schedules"][0]["archived"] is True
+        blocked_dispatch_response = client.post(
+            "/control/schedule-dispatches",
+            json={"schedule_id": "bank_partner_poll"},
+        )
+        assert blocked_dispatch_response.status_code == 400
+        assert "archived" in blocked_dispatch_response.json()["error"]
+        schedule_delete_response = client.delete("/config/execution-schedules/bank_partner_poll")
+        assert schedule_delete_response.status_code == 204
