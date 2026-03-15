@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from threading import Barrier, Lock, Thread
 from typing import Any
 
 from packages.pipelines.csv_validation import ColumnType
@@ -821,3 +822,110 @@ def assert_control_plane_store_update_behaviour(store: ControlPlaneStore) -> Non
         pass
     else:
         raise AssertionError("Expected archived schedule deletion to remove the record")
+
+
+def assert_schedule_dispatch_resilience_behaviour(store: ControlPlaneStore) -> None:
+    seed_source_asset_graph(store)
+
+    dispatch = store.enqueue_due_execution_schedules(as_of=FIXED_DUE_AT)[0]
+    running = store.claim_schedule_dispatch(
+        dispatch.dispatch_id,
+        worker_id="worker-alpha",
+        claimed_at=FIXED_DUE_AT,
+        lease_seconds=30,
+        worker_detail="worker-alpha-running",
+    )
+    renewed_at = FIXED_DUE_AT + timedelta(seconds=10)
+    renewed = store.renew_schedule_dispatch_claim(
+        dispatch.dispatch_id,
+        worker_id="worker-alpha",
+        claimed_at=renewed_at,
+        lease_seconds=30,
+        worker_detail="worker-alpha-renewed",
+    )
+    assert renewed.claimed_at == renewed_at
+    assert renewed.claim_expires_at == renewed_at + timedelta(seconds=30)
+    assert renewed.worker_detail == "worker-alpha-renewed"
+
+    recovered_at = FIXED_DUE_AT + timedelta(minutes=10)
+    recoveries = store.requeue_expired_schedule_dispatches(
+        as_of=recovered_at,
+        recovered_by_worker_id="worker-reaper",
+    )
+    assert len(recoveries) == 1
+    recovery = recoveries[0]
+    assert recovery.stale_dispatch.dispatch_id == running.dispatch_id
+    assert recovery.stale_dispatch.status == "failed"
+    assert recovery.stale_dispatch.completed_at == recovered_at
+    assert "Dispatch claim expired at" in (recovery.stale_dispatch.failure_reason or "")
+    assert recovery.replacement_dispatch is not None
+    assert recovery.replacement_dispatch.schedule_id == running.schedule_id
+    assert recovery.replacement_dispatch.status == "enqueued"
+    assert recovery.replacement_dispatch.worker_detail is not None
+
+    stored_stale = store.get_schedule_dispatch(running.dispatch_id)
+    assert stored_stale.status == "failed"
+    assert stored_stale.claim_expires_at is None
+
+    claimed_replacement = store.claim_next_schedule_dispatch(
+        worker_id="worker-beta",
+        claimed_at=recovered_at,
+        lease_seconds=60,
+    )
+    assert claimed_replacement is not None
+    assert claimed_replacement.dispatch_id == recovery.replacement_dispatch.dispatch_id
+    try:
+        store.mark_schedule_dispatch_status(
+            running.dispatch_id,
+            status="completed",
+            completed_at=recovered_at,
+            expected_status="running",
+            expected_worker_id="worker-alpha",
+        )
+    except ValueError as exc:
+        assert "Schedule dispatch" in str(exc)
+    else:
+        raise AssertionError("Expected stale dispatch completion to be rejected.")
+
+
+def assert_schedule_dispatch_claim_is_exclusive(store: ControlPlaneStore) -> None:
+    seed_source_asset_graph(store)
+    dispatch = store.enqueue_due_execution_schedules(as_of=FIXED_DUE_AT)[0]
+
+    barrier = Barrier(3)
+    lock = Lock()
+    results: list[tuple[str, str | None]] = []
+    errors: list[Exception] = []
+
+    def claim(worker_id: str) -> None:
+        barrier.wait()
+        try:
+            claimed = store.claim_next_schedule_dispatch(
+                worker_id=worker_id,
+                claimed_at=FIXED_DUE_AT,
+                lease_seconds=60,
+            )
+        except Exception as exc:  # pragma: no cover - asserted below
+            with lock:
+                errors.append(exc)
+            return
+        with lock:
+            results.append((worker_id, claimed.dispatch_id if claimed is not None else None))
+
+    threads = [
+        Thread(target=claim, args=("worker-alpha",)),
+        Thread(target=claim, args=("worker-beta",)),
+    ]
+    for thread in threads:
+        thread.start()
+    barrier.wait()
+    for thread in threads:
+        thread.join()
+
+    assert errors == []
+    claimed_results = [result for result in results if result[1] is not None]
+    assert len(claimed_results) == 1
+    assert claimed_results[0][1] == dispatch.dispatch_id
+    stored_dispatch = store.get_schedule_dispatch(dispatch.dispatch_id)
+    assert stored_dispatch.status == "running"
+    assert stored_dispatch.claimed_by_worker_id == claimed_results[0][0]

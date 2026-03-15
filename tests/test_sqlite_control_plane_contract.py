@@ -9,6 +9,8 @@ from tests.control_plane_test_support import (
     assert_control_plane_store_round_trip,
     assert_control_plane_store_update_behaviour,
     assert_schedule_dispatch_behaviour,
+    assert_schedule_dispatch_claim_is_exclusive,
+    assert_schedule_dispatch_resilience_behaviour,
 )
 
 
@@ -24,6 +26,20 @@ def test_sqlite_control_plane_store_enqueues_due_schedules_and_respects_concurre
         repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
 
         assert_schedule_dispatch_behaviour(repository)
+
+
+def test_sqlite_control_plane_store_renews_and_recovers_stale_dispatches() -> None:
+    with TemporaryDirectory() as temp_dir:
+        repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+
+        assert_schedule_dispatch_resilience_behaviour(repository)
+
+
+def test_sqlite_control_plane_store_claims_dispatches_exclusively() -> None:
+    with TemporaryDirectory() as temp_dir:
+        repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+
+        assert_schedule_dispatch_claim_is_exclusive(repository)
 
 
 def test_sqlite_control_plane_store_updates_entities_and_supports_manual_dispatch() -> None:

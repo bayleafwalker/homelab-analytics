@@ -12,6 +12,8 @@ from tests.control_plane_test_support import (
     assert_control_plane_store_round_trip,
     assert_control_plane_store_update_behaviour,
     assert_schedule_dispatch_behaviour,
+    assert_schedule_dispatch_claim_is_exclusive,
+    assert_schedule_dispatch_resilience_behaviour,
     seed_source_asset_graph,
 )
 from tests.postgres_test_support import running_postgres_container
@@ -31,6 +33,20 @@ def test_postgres_control_plane_store_enqueues_due_schedules_and_respects_concur
         repository = PostgresIngestionConfigRepository(dsn, schema="control")
 
         assert_schedule_dispatch_behaviour(repository)
+
+
+def test_postgres_control_plane_store_renews_and_recovers_stale_dispatches() -> None:
+    with running_postgres_container() as dsn:
+        repository = PostgresIngestionConfigRepository(dsn, schema="control")
+
+        assert_schedule_dispatch_resilience_behaviour(repository)
+
+
+def test_postgres_control_plane_store_claims_dispatches_exclusively() -> None:
+    with running_postgres_container() as dsn:
+        repository = PostgresIngestionConfigRepository(dsn, schema="control")
+
+        assert_schedule_dispatch_claim_is_exclusive(repository)
 
 
 def test_postgres_control_plane_store_updates_entities_and_supports_manual_dispatch() -> None:

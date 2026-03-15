@@ -2,10 +2,21 @@ from __future__ import annotations
 
 import io
 import json
+import logging
+import threading
+import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from apps.worker.main import main
+from apps.worker.main import (
+    _watch_schedule_dispatches,
+    build_extension_registry,
+    build_service,
+    main,
+)
+from packages.pipelines.configured_ingestion_definition import (
+    ConfiguredIngestionDefinitionService,
+)
 from packages.shared.settings import AppSettings
 from packages.storage.ingestion_config import (
     IngestionConfigRepository,
@@ -292,3 +303,170 @@ def test_worker_cli_watch_loop_enqueues_claims_and_processes_dispatches() -> Non
         )
         assert exit_code == 0
         assert json.loads(stdout.getvalue())["workers"][0]["worker_id"] == "worker-loop"
+
+
+def test_worker_cli_renews_schedule_dispatch_leases_for_long_running_work(
+    monkeypatch,
+) -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(temp_dir)
+        repository = IngestionConfigRepository(settings.resolved_config_database_path)
+        seeded = seed_source_asset_graph(repository)
+        inbox_dir = Path(temp_dir) / "slow-inbox"
+        processed_dir = Path(temp_dir) / "slow-processed"
+        failed_dir = Path(temp_dir) / "slow-failed"
+        inbox_dir.mkdir()
+        (inbox_dir / "valid.csv").write_text(
+            (ACCOUNT_FIXTURES / "configured_account_transactions_source.csv").read_text()
+        )
+
+        repository.update_ingestion_definition(
+            IngestionDefinitionCreate(
+                ingestion_definition_id=seeded["ingestion_definition"].ingestion_definition_id,
+                source_asset_id=seeded["source_asset"].source_asset_id,
+                transport="filesystem",
+                schedule_mode="watch-folder",
+                source_path=str(inbox_dir),
+                file_pattern="*.csv",
+                processed_path=str(processed_dir),
+                failed_path=str(failed_dir),
+                poll_interval_seconds=30,
+                enabled=True,
+                source_name="folder-watch",
+                created_at=FIXED_CREATED_AT,
+            )
+        )
+        dispatch_id = repository.enqueue_due_execution_schedules(as_of=FIXED_DUE_AT)[0].dispatch_id
+
+        original_process = ConfiguredIngestionDefinitionService.process_ingestion_definition
+
+        def slow_process(self, ingestion_definition_id: str):
+            time.sleep(1.2)
+            return original_process(self, ingestion_definition_id)
+
+        monkeypatch.setattr(
+            ConfiguredIngestionDefinitionService,
+            "process_ingestion_definition",
+            slow_process,
+        )
+
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        exit_code = main(
+            [
+                "process-schedule-dispatch",
+                dispatch_id,
+                "--worker-id",
+                "worker-slow",
+                "--lease-seconds",
+                "1",
+            ],
+            stdout=stdout,
+            stderr=stderr,
+            settings=settings,
+        )
+
+        assert exit_code == 0
+        payload = json.loads(stdout.getvalue())
+        assert payload["dispatch"]["status"] == "completed"
+        assert payload["lease_renewals"] >= 1
+
+
+def test_worker_cli_watch_loop_recovers_stale_dispatches_before_processing() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(temp_dir)
+        repository = IngestionConfigRepository(settings.resolved_config_database_path)
+        seeded = seed_source_asset_graph(repository)
+        inbox_dir = Path(temp_dir) / "recover-inbox"
+        processed_dir = Path(temp_dir) / "recover-processed"
+        failed_dir = Path(temp_dir) / "recover-failed"
+        inbox_dir.mkdir()
+        (inbox_dir / "valid.csv").write_text(
+            (ACCOUNT_FIXTURES / "configured_account_transactions_source.csv").read_text()
+        )
+
+        repository.update_ingestion_definition(
+            IngestionDefinitionCreate(
+                ingestion_definition_id=seeded["ingestion_definition"].ingestion_definition_id,
+                source_asset_id=seeded["source_asset"].source_asset_id,
+                transport="filesystem",
+                schedule_mode="watch-folder",
+                source_path=str(inbox_dir),
+                file_pattern="*.csv",
+                processed_path=str(processed_dir),
+                failed_path=str(failed_dir),
+                poll_interval_seconds=30,
+                enabled=True,
+                source_name="folder-watch",
+                created_at=FIXED_CREATED_AT,
+            )
+        )
+        stale_dispatch = repository.enqueue_due_execution_schedules(as_of=FIXED_DUE_AT)[0]
+        repository.claim_schedule_dispatch(
+            stale_dispatch.dispatch_id,
+            worker_id="worker-dead",
+            claimed_at=FIXED_DUE_AT,
+            lease_seconds=1,
+            worker_detail="worker-dead",
+        )
+
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        exit_code = main(
+            [
+                "watch-schedule-dispatches",
+                "--worker-id",
+                "worker-recover",
+                "--max-iterations",
+                "1",
+            ],
+            stdout=stdout,
+            stderr=stderr,
+            settings=settings,
+        )
+
+        assert exit_code == 0
+        payload = json.loads(stdout.getvalue())
+        assert len(payload["recovered_dispatches"]) == 1
+        assert payload["recovered_dispatches"][0]["stale_dispatch"]["dispatch_id"] == (
+            stale_dispatch.dispatch_id
+        )
+        assert payload["dispatch"]["status"] == "completed"
+        assert payload["dispatch"]["dispatch_id"] != stale_dispatch.dispatch_id
+        assert repository.get_schedule_dispatch(stale_dispatch.dispatch_id).status == "failed"
+        assert len(list(processed_dir.iterdir())) == 1
+
+
+def test_watch_schedule_dispatches_records_stopped_heartbeat_on_shutdown() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(temp_dir)
+        service = build_service(settings)
+        repository = IngestionConfigRepository(settings.resolved_config_database_path)
+        configured_definition_service = ConfiguredIngestionDefinitionService(
+            landing_root=settings.landing_root,
+            metadata_repository=service.metadata_repository,
+            config_repository=repository,
+            blob_store=service.blob_store,
+        )
+        extension_registry = build_extension_registry(settings)
+        shutdown_event = threading.Event()
+        shutdown_event.set()
+        stdout = io.StringIO()
+
+        exit_code = _watch_schedule_dispatches(
+            output=stdout,
+            settings=settings,
+            config_repository=repository,
+            service=service,
+            configured_definition_service=configured_definition_service,
+            extension_registry=extension_registry,
+            logger=logging.getLogger("test.worker.shutdown"),
+            worker_id="worker-stop",
+            lease_seconds=30,
+            shutdown_event=shutdown_event,
+        )
+
+        assert exit_code == 0
+        payload = json.loads(stdout.getvalue())
+        assert payload["worker_heartbeat"]["status"] == "stopped"
+        assert repository.list_worker_heartbeats()[0].status == "stopped"

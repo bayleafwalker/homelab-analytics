@@ -339,6 +339,7 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert "getIngestionDefinitions" in web_control_execution_page
     assert "getExecutionSchedules" in web_control_execution_page
     assert "getOperationalSummary" in web_control_execution_page
+    assert "Recovered stale dispatches" in web_control_execution_page
     assert "Worker heartbeats" in web_control_execution_page
     assert "Stale running dispatches" in web_control_execution_page
     assert "Manual Uploads" in web_upload_page

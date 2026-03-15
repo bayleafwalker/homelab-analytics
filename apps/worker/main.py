@@ -4,14 +4,16 @@ import argparse
 import json
 import logging
 import os
+import signal
 import socket
 import sys
+import threading
 import time
 from dataclasses import asdict, is_dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, Callable, TextIO
 
 from apps.api.app import serialize_promotion, serialize_run
 from packages.pipelines.account_transaction_inbox import (
@@ -166,6 +168,123 @@ def _record_worker_heartbeat(
     )
 
 
+def _install_shutdown_signal_handlers(
+    shutdown_event: threading.Event,
+    *,
+    logger: logging.Logger,
+) -> Callable[[], None]:
+    if threading.current_thread() is not threading.main_thread():
+        return lambda: None
+    previous_handlers: dict[int, Any] = {}
+
+    def _handle_signal(signum, _frame) -> None:
+        logger.info(
+            "worker shutdown requested",
+            extra={"signal": signum},
+        )
+        shutdown_event.set()
+
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        try:
+            previous_handlers[signum] = signal.getsignal(signum)
+            signal.signal(signum, _handle_signal)
+        except (AttributeError, ValueError):
+            continue
+
+    def _restore() -> None:
+        for signum, handler in previous_handlers.items():
+            signal.signal(signum, handler)
+
+    return _restore
+
+
+class _ScheduleDispatchLeaseRenewer:
+    def __init__(
+        self,
+        *,
+        dispatch: ScheduleDispatchRecord,
+        config_repository,
+        worker_id: str,
+        lease_seconds: int,
+        logger: logging.Logger,
+    ) -> None:
+        self._dispatch = dispatch
+        self._config_repository = config_repository
+        self._worker_id = worker_id
+        self._lease_seconds = lease_seconds
+        self._logger = logger
+        self._stop_event = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._error: Exception | None = None
+        self._renewal_count = 0
+
+    @property
+    def renewal_count(self) -> int:
+        return self._renewal_count
+
+    def start(self) -> None:
+        if self._lease_seconds <= 0:
+            return
+        self._thread = threading.Thread(
+            target=self._run,
+            name=f"dispatch-lease-renewer-{self._dispatch.dispatch_id}",
+            daemon=True,
+        )
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop_event.set()
+        if self._thread is not None:
+            self._thread.join(timeout=2.0)
+
+    def raise_if_failed(self) -> None:
+        if self._error is not None:
+            raise RuntimeError(
+                "Schedule dispatch lease renewal failed."
+            ) from self._error
+
+    def _run(self) -> None:
+        interval_seconds = max(0.5, self._lease_seconds / 3)
+        while not self._stop_event.wait(interval_seconds):
+            try:
+                renewed_at = datetime.now(UTC)
+                renewed_expires_at = renewed_at + timedelta(seconds=self._lease_seconds)
+                renewed_dispatch = self._config_repository.renew_schedule_dispatch_claim(
+                    self._dispatch.dispatch_id,
+                    worker_id=self._worker_id,
+                    claimed_at=renewed_at,
+                    lease_seconds=self._lease_seconds,
+                    worker_detail=_build_schedule_dispatch_worker_detail(
+                        self._dispatch,
+                        state="running",
+                        worker_id=self._worker_id,
+                        claimed_at=renewed_at,
+                        claim_expires_at=renewed_expires_at,
+                    ),
+                )
+                self._renewal_count += 1
+                _record_worker_heartbeat(
+                    self._config_repository,
+                    worker_id=self._worker_id,
+                    status="running",
+                    active_dispatch_id=renewed_dispatch.dispatch_id,
+                    detail=f"Renewed lease for schedule dispatch {renewed_dispatch.dispatch_id}.",
+                    observed_at=renewed_at,
+                )
+            except Exception as exc:  # pragma: no cover - exercised through caller behavior
+                self._error = exc
+                self._logger.warning(
+                    "schedule dispatch lease renewal failed",
+                    extra={
+                        "dispatch_id": self._dispatch.dispatch_id,
+                        "worker_id": self._worker_id,
+                    },
+                    exc_info=True,
+                )
+                self._stop_event.set()
+                return
+
+
 def _promote_configured_ingestion_runs(
     process_result: ConfiguredIngestionProcessResult,
     *,
@@ -237,6 +356,10 @@ def _build_schedule_dispatch_worker_detail(
     promotions: list[PromotionResult] | None = None,
     state: str | None = None,
     error_type: str | None = None,
+    worker_id: str | None = None,
+    claimed_at: datetime | None = None,
+    claim_expires_at: datetime | None = None,
+    lease_renewals: int | None = None,
 ) -> str:
     payload: dict[str, object] = {
         "dispatch_id": dispatch.dispatch_id,
@@ -246,6 +369,12 @@ def _build_schedule_dispatch_worker_detail(
     }
     if state:
         payload["state"] = state
+    if worker_id is not None:
+        payload["worker_id"] = worker_id
+    if claimed_at is not None:
+        payload["claimed_at"] = claimed_at
+    if claim_expires_at is not None:
+        payload["claim_expires_at"] = claim_expires_at
     if process_result is not None:
         payload["discovered_files"] = process_result.discovered_files
         payload["processed_files"] = process_result.processed_files
@@ -257,6 +386,8 @@ def _build_schedule_dispatch_worker_detail(
         ]
     if error_type is not None:
         payload["error_type"] = error_type
+    if lease_renewals is not None:
+        payload["lease_renewals"] = lease_renewals
     return json.dumps(payload, default=_json_default, sort_keys=True)
 
 
@@ -283,9 +414,13 @@ def _process_schedule_dispatch(
             dispatch_id,
             worker_id=worker_id,
             lease_seconds=lease_seconds,
-            worker_detail=json.dumps(
-                {"state": "running", "worker_id": worker_id},
-                sort_keys=True,
+            worker_detail=_build_schedule_dispatch_worker_detail(
+                dispatch,
+                state="running",
+                worker_id=worker_id,
+                claimed_at=datetime.now(UTC),
+                claim_expires_at=datetime.now(UTC)
+                + timedelta(seconds=lease_seconds),
             ),
         )
     elif (
@@ -304,9 +439,18 @@ def _process_schedule_dispatch(
         detail=f"Processing schedule dispatch {dispatch.dispatch_id}.",
     )
 
+    renewer = _ScheduleDispatchLeaseRenewer(
+        dispatch=dispatch,
+        config_repository=config_repository,
+        worker_id=worker_id,
+        lease_seconds=lease_seconds,
+        logger=logger,
+    )
     process_result: ConfiguredIngestionProcessResult | None = None
     promotions: list[PromotionResult] = []
+    processing_error: Exception | None = None
     try:
+        renewer.start()
         if dispatch.target_kind != "ingestion_definition":
             raise ValueError(
                 "Only ingestion-definition schedule dispatches are currently supported."
@@ -321,18 +465,40 @@ def _process_schedule_dispatch(
             config_repository=config_repository,
             extension_registry=extension_registry,
         )
-        completed_dispatch = config_repository.mark_schedule_dispatch_status(
-            dispatch_id,
-            status="completed",
-            completed_at=datetime.now(UTC),
-            run_ids=process_result.run_ids,
-            worker_detail=_build_schedule_dispatch_worker_detail(
-                dispatch,
-                process_result=process_result,
-                promotions=promotions,
-                state="completed",
-            ),
-        )
+    except Exception as exc:
+        processing_error = exc
+    finally:
+        renewer.stop()
+
+    if processing_error is None:
+        try:
+            renewer.raise_if_failed()
+        except Exception as exc:
+            processing_error = exc
+
+    if processing_error is None:
+        assert process_result is not None
+        try:
+            completed_dispatch = config_repository.mark_schedule_dispatch_status(
+                dispatch_id,
+                status="completed",
+                completed_at=datetime.now(UTC),
+                run_ids=process_result.run_ids,
+                worker_detail=_build_schedule_dispatch_worker_detail(
+                    dispatch,
+                    process_result=process_result,
+                    promotions=promotions,
+                    state="completed",
+                    worker_id=worker_id,
+                    lease_renewals=renewer.renewal_count,
+                ),
+                expected_status="running",
+                expected_worker_id=worker_id,
+            )
+        except ValueError as exc:
+            processing_error = exc
+
+    if processing_error is None:
         _set_worker_queue_depth(config_repository)
         heartbeat = _record_worker_heartbeat(
             config_repository,
@@ -345,9 +511,14 @@ def _process_schedule_dispatch(
             "result": process_result,
             "promotions": promotions,
             "worker_heartbeat": heartbeat,
+            "lease_renewals": renewer.renewal_count,
         }
-    except Exception as exc:
-        logger.exception(
+
+    error = processing_error
+    if error is None:  # pragma: no cover - defensive
+        raise RuntimeError("Expected a schedule dispatch processing error.")
+    if not isinstance(error, ValueError) or "Schedule dispatch" not in str(error):
+        logger.error(
             "schedule dispatch processing failed",
             extra={
                 "dispatch_id": dispatch_id,
@@ -355,33 +526,42 @@ def _process_schedule_dispatch(
                 "target_kind": dispatch.target_kind,
                 "target_ref": dispatch.target_ref,
             },
+            exc_info=(type(error), error, error.__traceback__),
         )
+    try:
         failed_dispatch = config_repository.mark_schedule_dispatch_status(
             dispatch_id,
             status="failed",
             completed_at=datetime.now(UTC),
             run_ids=process_result.run_ids if process_result is not None else (),
-            failure_reason=str(exc),
+            failure_reason=str(error),
             worker_detail=_build_schedule_dispatch_worker_detail(
                 dispatch,
                 process_result=process_result,
                 promotions=promotions,
                 state="failed",
-                error_type=type(exc).__name__,
+                error_type=type(error).__name__,
+                worker_id=worker_id,
+                lease_renewals=renewer.renewal_count,
             ),
+            expected_status="running",
+            expected_worker_id=worker_id,
         )
-        _set_worker_queue_depth(config_repository)
-        heartbeat = _record_worker_heartbeat(
-            config_repository,
-            worker_id=worker_id,
-            status="error",
-            detail=f"Failed schedule dispatch {dispatch.dispatch_id}: {exc}",
-        )
-        return 1, {
-            "dispatch": failed_dispatch,
-            "error": str(exc),
-            "worker_heartbeat": heartbeat,
-        }
+    except ValueError:
+        failed_dispatch = config_repository.get_schedule_dispatch(dispatch_id)
+    _set_worker_queue_depth(config_repository)
+    heartbeat = _record_worker_heartbeat(
+        config_repository,
+        worker_id=worker_id,
+        status="error",
+        detail=f"Failed schedule dispatch {dispatch.dispatch_id}: {error}",
+    )
+    return 1, {
+        "dispatch": failed_dispatch,
+        "error": str(error),
+        "worker_heartbeat": heartbeat,
+        "lease_renewals": renewer.renewal_count,
+    }
 
 
 def _watch_schedule_dispatches(
@@ -397,38 +577,76 @@ def _watch_schedule_dispatches(
     lease_seconds: int,
     max_iterations: int | None = None,
     enqueue_limit: int | None = None,
+    recover_limit: int | None = None,
+    shutdown_event: threading.Event | None = None,
 ) -> int:
     iterations = 0
     observed_failure = False
-    while True:
-        now = datetime.now(UTC)
-        enqueued_dispatches = config_repository.enqueue_due_execution_schedules(
-            as_of=now,
-            limit=enqueue_limit,
-        )
-        claimed_dispatch = config_repository.claim_next_schedule_dispatch(
-            worker_id=worker_id,
-            claimed_at=now,
-            lease_seconds=lease_seconds,
-            worker_detail=json.dumps(
-                {"state": "running", "worker_id": worker_id},
-                sort_keys=True,
-            ),
-        )
-        _set_worker_queue_depth(config_repository)
-        payload: dict[str, object] = {
-            "worker_id": worker_id,
-            "enqueued_dispatches": enqueued_dispatches,
-        }
-        if claimed_dispatch is None:
-            payload["worker_heartbeat"] = _record_worker_heartbeat(
-                config_repository,
-                worker_id=worker_id,
-                status="idle",
-                detail="No schedule dispatches ready for processing.",
-                observed_at=now,
+    resolved_shutdown_event = shutdown_event or threading.Event()
+    restore_signal_handlers = _install_shutdown_signal_handlers(
+        resolved_shutdown_event,
+        logger=logger,
+    )
+    try:
+        while True:
+            now = datetime.now(UTC)
+            payload: dict[str, object] = {"worker_id": worker_id}
+            if resolved_shutdown_event.is_set():
+                payload["worker_heartbeat"] = _record_worker_heartbeat(
+                    config_repository,
+                    worker_id=worker_id,
+                    status="stopped",
+                    detail="Schedule dispatch watcher stopped.",
+                    observed_at=now,
+                )
+                _write_json(output, payload)
+                return 1 if observed_failure else 0
+
+            recovered_dispatches = config_repository.requeue_expired_schedule_dispatches(
+                as_of=now,
+                limit=recover_limit,
+                recovered_by_worker_id=worker_id,
             )
-        else:
+            enqueued_dispatches = config_repository.enqueue_due_execution_schedules(
+                as_of=now,
+                limit=enqueue_limit,
+            )
+            claimed_dispatch = None
+            if not resolved_shutdown_event.is_set():
+                claimed_dispatch = config_repository.claim_next_schedule_dispatch(
+                    worker_id=worker_id,
+                    claimed_at=now,
+                    lease_seconds=lease_seconds,
+                    worker_detail=json.dumps(
+                        {"state": "running", "worker_id": worker_id},
+                        sort_keys=True,
+                    ),
+                )
+            _set_worker_queue_depth(config_repository)
+            payload["recovered_dispatches"] = recovered_dispatches
+            payload["enqueued_dispatches"] = enqueued_dispatches
+            if claimed_dispatch is None:
+                payload["worker_heartbeat"] = _record_worker_heartbeat(
+                    config_repository,
+                    worker_id=worker_id,
+                    status="stopped" if resolved_shutdown_event.is_set() else "idle",
+                    detail=(
+                        "Schedule dispatch watcher stopped."
+                        if resolved_shutdown_event.is_set()
+                        else "No schedule dispatches ready for processing."
+                    ),
+                    observed_at=now,
+                )
+                _write_json(output, payload)
+                iterations += 1
+                if resolved_shutdown_event.is_set():
+                    return 1 if observed_failure else 0
+                if max_iterations is not None and iterations >= max_iterations:
+                    return 1 if observed_failure else 0
+                if resolved_shutdown_event.wait(settings.worker_poll_interval_seconds):
+                    continue
+                continue
+
             exit_code, process_payload = _process_schedule_dispatch(
                 claimed_dispatch.dispatch_id,
                 settings=settings,
@@ -443,11 +661,14 @@ def _watch_schedule_dispatches(
             )
             observed_failure = observed_failure or exit_code != 0
             payload.update(process_payload)
-        _write_json(output, payload)
-        iterations += 1
-        if max_iterations is not None and iterations >= max_iterations:
-            return 1 if observed_failure else 0
-        time.sleep(settings.worker_poll_interval_seconds)
+            _write_json(output, payload)
+            iterations += 1
+            if max_iterations is not None and iterations >= max_iterations:
+                return 1 if observed_failure else 0
+            if resolved_shutdown_event.wait(settings.worker_poll_interval_seconds):
+                continue
+    finally:
+        restore_signal_handlers()
 
 
 def build_subscription_service(settings: AppSettings) -> SubscriptionService:
@@ -792,6 +1013,25 @@ def main(
             _write_json(output, {"dispatches": dispatches})
             return 0
 
+        if args.command == "recover-stale-schedule-dispatches":
+            as_of = (
+                datetime.fromisoformat(args.as_of)
+                if getattr(args, "as_of", "")
+                else None
+            )
+            worker_id = _resolved_worker_id(
+                resolved_settings,
+                getattr(args, "worker_id", "") or None,
+            )
+            recoveries = config_repository.requeue_expired_schedule_dispatches(
+                as_of=as_of,
+                limit=getattr(args, "limit", None),
+                recovered_by_worker_id=worker_id,
+            )
+            _set_worker_queue_depth(config_repository)
+            _write_json(output, {"worker_id": worker_id, "recoveries": recoveries})
+            return 0
+
         if args.command == "mark-schedule-dispatch":
             dispatch = config_repository.mark_schedule_dispatch_status(
                 args.dispatch_id,
@@ -840,6 +1080,7 @@ def main(
                 or resolved_settings.dispatch_lease_seconds,
                 max_iterations=getattr(args, "max_iterations", None),
                 enqueue_limit=getattr(args, "enqueue_limit", None),
+                recover_limit=getattr(args, "recover_limit", None),
             )
 
         if args.command == "export-control-plane":
@@ -1073,6 +1314,10 @@ def _build_parser() -> argparse.ArgumentParser:
     enqueue_parser = subparsers.add_parser("enqueue-due-schedules")
     enqueue_parser.add_argument("--as-of", default="")
     enqueue_parser.add_argument("--limit", type=int)
+    recover_dispatches_parser = subparsers.add_parser("recover-stale-schedule-dispatches")
+    recover_dispatches_parser.add_argument("--as-of", default="")
+    recover_dispatches_parser.add_argument("--limit", type=int)
+    recover_dispatches_parser.add_argument("--worker-id", default="")
     mark_dispatch_parser = subparsers.add_parser("mark-schedule-dispatch")
     mark_dispatch_parser.add_argument("dispatch_id")
     mark_dispatch_parser.add_argument(
@@ -1088,6 +1333,7 @@ def _build_parser() -> argparse.ArgumentParser:
     watch_dispatch_parser.add_argument("--worker-id", default="")
     watch_dispatch_parser.add_argument("--lease-seconds", type=int)
     watch_dispatch_parser.add_argument("--enqueue-limit", type=int)
+    watch_dispatch_parser.add_argument("--recover-limit", type=int)
     watch_dispatch_parser.add_argument("--max-iterations", type=int)
     export_control_plane_parser = subparsers.add_parser("export-control-plane")
     export_control_plane_parser.add_argument("output_path")

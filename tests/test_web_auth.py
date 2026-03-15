@@ -250,6 +250,7 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert "getIngestionDefinitions" in control_execution_page
     assert "getExecutionSchedules" in control_execution_page
     assert "getOperationalSummary" in control_execution_page
+    assert "Recovered stale dispatches" in control_execution_page
     assert "Worker heartbeats" in control_execution_page
     assert "Stale running dispatches" in control_execution_page
     assert "Manual Uploads" in upload_page

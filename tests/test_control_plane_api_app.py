@@ -164,6 +164,10 @@ def test_control_plane_api_exposes_schedules_lineage_audit_and_metrics() -> None
             assert metrics_response.headers["content-type"].startswith("text/plain")
             assert "ingestion_runs_total 1" in metrics_response.text
             assert "worker_queue_depth 1" in metrics_response.text
+            assert "worker_running_dispatches 0" in metrics_response.text
+            assert "worker_stale_dispatches 0" in metrics_response.text
+            assert "worker_active_workers 0" in metrics_response.text
+            assert "worker_failed_dispatch_ratio 0" in metrics_response.text
 
             repository.mark_schedule_dispatch_status(
                 dispatch.dispatch_id,
@@ -192,7 +196,10 @@ def test_control_plane_api_exposes_schedules_lineage_audit_and_metrics() -> None
             assert summary_response.status_code == 200
             assert summary_response.json()["queue"]["active_workers"] == 1
             assert summary_response.json()["queue"]["stale_running_dispatches"] == 0
+            assert summary_response.json()["queue"]["recovered_dispatches"] == 0
             assert summary_response.json()["workers"][0]["worker_id"] == "worker-alpha"
+            assert "heartbeat_age_seconds" in summary_response.json()["workers"][0]
+            assert summary_response.json()["recent_recovered_dispatches"] == []
     finally:
         metrics_registry.clear()
 

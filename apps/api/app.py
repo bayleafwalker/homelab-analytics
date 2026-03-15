@@ -182,6 +182,41 @@ def create_app(
         0,
         help_text="Current queued schedule-dispatch count.",
     )
+    metrics_registry.set(
+        "worker_running_dispatches",
+        0,
+        help_text="Current running schedule-dispatch count.",
+    )
+    metrics_registry.set(
+        "worker_failed_dispatches",
+        0,
+        help_text="Current failed schedule-dispatch count.",
+    )
+    metrics_registry.set(
+        "worker_stale_dispatches",
+        0,
+        help_text="Current running schedule-dispatch count with expired claims.",
+    )
+    metrics_registry.set(
+        "worker_recovered_dispatches",
+        0,
+        help_text="Current recovered schedule-dispatch count in control-plane history.",
+    )
+    metrics_registry.set(
+        "worker_active_workers",
+        0,
+        help_text="Current worker heartbeat count.",
+    )
+    metrics_registry.set(
+        "worker_oldest_heartbeat_age_seconds",
+        0,
+        help_text="Age in seconds of the oldest recorded worker heartbeat.",
+    )
+    metrics_registry.set(
+        "worker_failed_dispatch_ratio",
+        0,
+        help_text="Failed dispatches divided by total terminal dispatches.",
+    )
     metrics_registry.inc(
         "auth_failures_total",
         0,
@@ -509,9 +544,8 @@ def create_app(
                     )
                 )
 
-        dispatches = resolved_config_repository.list_schedule_dispatches()
-        dispatch_by_id = {dispatch.dispatch_id: dispatch for dispatch in dispatches}
-        now = datetime.now(UTC)
+        runtime_state = build_dispatch_runtime_state()
+        dispatches = runtime_state["dispatches"]
         for dispatch in dispatches:
             update_operational_dispatch_stats(
                 execution_schedule_stats.setdefault(
@@ -519,41 +553,6 @@ def create_app(
                     make_operational_stats(),
                 ),
                 dispatch,
-            )
-        stale_dispatches = [
-            dispatch
-            for dispatch in dispatches
-            if dispatch.status == "running"
-            and dispatch.claim_expires_at is not None
-            and dispatch.claim_expires_at < now
-        ]
-        workers: list[dict[str, Any]] = []
-        for heartbeat in resolved_config_repository.list_worker_heartbeats():
-            active_dispatch = (
-                dispatch_by_id.get(heartbeat.active_dispatch_id)
-                if heartbeat.active_dispatch_id is not None
-                else None
-            )
-            workers.append(
-                {
-                    "worker_id": heartbeat.worker_id,
-                    "status": heartbeat.status,
-                    "active_dispatch_id": heartbeat.active_dispatch_id,
-                    "active_dispatch_status": active_dispatch.status if active_dispatch else None,
-                    "claim_expires_at": (
-                        active_dispatch.claim_expires_at.isoformat()
-                        if active_dispatch is not None
-                        and active_dispatch.claim_expires_at is not None
-                        else None
-                    ),
-                    "stale": bool(
-                        active_dispatch is not None
-                        and active_dispatch.claim_expires_at is not None
-                        and active_dispatch.claim_expires_at < now
-                    ),
-                    "detail": heartbeat.detail,
-                    "observed_at": heartbeat.observed_at.isoformat(),
-                }
             )
 
         return {
@@ -574,7 +573,81 @@ def create_app(
                     if dispatch.status == "failed"
                 ][:10]
             ),
-            "stale_running_dispatches": _to_jsonable(stale_dispatches[:10]),
+            "stale_running_dispatches": _to_jsonable(
+                runtime_state["stale_dispatches"][:10]
+            ),
+            "recent_recovered_dispatches": _to_jsonable(
+                runtime_state["recovered_dispatches"][:10]
+            ),
+            "workers": runtime_state["workers"],
+            "queue": runtime_state["queue"],
+        }
+
+    def is_recovered_dispatch(dispatch) -> bool:
+        failure_reason = getattr(dispatch, "failure_reason", None) or ""
+        return failure_reason.startswith("Dispatch claim expired at ")
+
+    def build_dispatch_runtime_state() -> dict[str, Any]:
+        dispatches = resolved_config_repository.list_schedule_dispatches()
+        dispatch_by_id = {dispatch.dispatch_id: dispatch for dispatch in dispatches}
+        heartbeats = resolved_config_repository.list_worker_heartbeats()
+        now = datetime.now(UTC)
+        stale_dispatches = [
+            dispatch
+            for dispatch in dispatches
+            if dispatch.status == "running"
+            and dispatch.claim_expires_at is not None
+            and dispatch.claim_expires_at < now
+        ]
+        recovered_dispatches = [
+            dispatch for dispatch in dispatches if is_recovered_dispatch(dispatch)
+        ]
+        heartbeat_stale_after_seconds = 300
+        workers: list[dict[str, Any]] = []
+        for heartbeat in heartbeats:
+            active_dispatch = (
+                dispatch_by_id.get(heartbeat.active_dispatch_id)
+                if heartbeat.active_dispatch_id is not None
+                else None
+            )
+            heartbeat_age_seconds = max(
+                0.0,
+                (now - heartbeat.observed_at).total_seconds(),
+            )
+            workers.append(
+                {
+                    "worker_id": heartbeat.worker_id,
+                    "status": heartbeat.status,
+                    "active_dispatch_id": heartbeat.active_dispatch_id,
+                    "active_dispatch_status": active_dispatch.status if active_dispatch else None,
+                    "claim_expires_at": (
+                        active_dispatch.claim_expires_at.isoformat()
+                        if active_dispatch is not None
+                        and active_dispatch.claim_expires_at is not None
+                        else None
+                    ),
+                    "stale": bool(
+                        active_dispatch is not None
+                        and active_dispatch.claim_expires_at is not None
+                        and active_dispatch.claim_expires_at < now
+                    ),
+                    "heartbeat_age_seconds": heartbeat_age_seconds,
+                    "heartbeat_stale": heartbeat_age_seconds > heartbeat_stale_after_seconds,
+                    "detail": heartbeat.detail,
+                    "observed_at": heartbeat.observed_at.isoformat(),
+                }
+            )
+        completed_dispatches = len(
+            [dispatch for dispatch in dispatches if dispatch.status == "completed"]
+        )
+        failed_dispatches = len(
+            [dispatch for dispatch in dispatches if dispatch.status == "failed"]
+        )
+        terminal_dispatches = completed_dispatches + failed_dispatches
+        return {
+            "dispatches": dispatches,
+            "stale_dispatches": stale_dispatches,
+            "recovered_dispatches": recovered_dispatches,
             "workers": workers,
             "queue": {
                 "total_dispatches": len(dispatches),
@@ -584,13 +657,66 @@ def create_app(
                 "running_dispatches": len(
                     [dispatch for dispatch in dispatches if dispatch.status == "running"]
                 ),
-                "failed_dispatches": len(
-                    [dispatch for dispatch in dispatches if dispatch.status == "failed"]
-                ),
+                "completed_dispatches": completed_dispatches,
+                "failed_dispatches": failed_dispatches,
                 "stale_running_dispatches": len(stale_dispatches),
+                "recovered_dispatches": len(recovered_dispatches),
                 "active_workers": len(workers),
+                "oldest_worker_heartbeat_age_seconds": max(
+                    (worker["heartbeat_age_seconds"] for worker in workers),
+                    default=0.0,
+                ),
+                "failed_dispatch_ratio": (
+                    failed_dispatches / terminal_dispatches
+                    if terminal_dispatches > 0
+                    else 0.0
+                ),
             },
         }
+
+    def update_worker_runtime_metrics() -> None:
+        runtime_state = build_dispatch_runtime_state()
+        queue = runtime_state["queue"]
+        metrics_registry.set(
+            "worker_queue_depth",
+            float(queue["enqueued_dispatches"]),
+            help_text="Current queued schedule-dispatch count.",
+        )
+        metrics_registry.set(
+            "worker_running_dispatches",
+            float(queue["running_dispatches"]),
+            help_text="Current running schedule-dispatch count.",
+        )
+        metrics_registry.set(
+            "worker_failed_dispatches",
+            float(queue["failed_dispatches"]),
+            help_text="Current failed schedule-dispatch count.",
+        )
+        metrics_registry.set(
+            "worker_stale_dispatches",
+            float(queue["stale_running_dispatches"]),
+            help_text="Current running schedule-dispatch count with expired claims.",
+        )
+        metrics_registry.set(
+            "worker_recovered_dispatches",
+            float(queue["recovered_dispatches"]),
+            help_text="Current recovered schedule-dispatch count in control-plane history.",
+        )
+        metrics_registry.set(
+            "worker_active_workers",
+            float(queue["active_workers"]),
+            help_text="Current worker heartbeat count.",
+        )
+        metrics_registry.set(
+            "worker_oldest_heartbeat_age_seconds",
+            float(queue["oldest_worker_heartbeat_age_seconds"]),
+            help_text="Age in seconds of the oldest recorded worker heartbeat.",
+        )
+        metrics_registry.set(
+            "worker_failed_dispatch_ratio",
+            float(queue["failed_dispatch_ratio"]),
+            help_text="Failed dispatches divided by total terminal dispatches.",
+        )
 
     def request_remote_addr(request: Request) -> str | None:
         forwarded_for = request.headers.get("x-forwarded-for", "").strip()
@@ -785,17 +911,7 @@ def create_app(
 
     @app.get("/metrics")
     async def metrics() -> PlainTextResponse:
-        metrics_registry.set(
-            "worker_queue_depth",
-            float(
-                len(
-                    resolved_config_repository.list_schedule_dispatches(
-                        status="enqueued"
-                    )
-                )
-            ),
-            help_text="Current queued schedule-dispatch count.",
-        )
+        update_worker_runtime_metrics()
         return PlainTextResponse(
             metrics_registry.render_prometheus_text(),
             media_type="text/plain; version=0.0.4",

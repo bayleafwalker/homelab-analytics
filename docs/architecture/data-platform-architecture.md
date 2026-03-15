@@ -185,7 +185,7 @@ Binding rules:
 - an `ingestion_definition` describes only how bytes arrive; it must not hard-code downstream transformation behavior
 - an `execution_schedule` describes only when a target is enqueued; it must not embed transformation or reporting logic
 - schedule execution records belong in `schedule_dispatch`, and the scheduler should enqueue work rather than run transformations inline
-- workers should claim `schedule_dispatch` rows before execution, update them through `running` and terminal states, and publish lightweight heartbeat state for control-plane visibility
+- workers should claim `schedule_dispatch` rows before execution, renew those claims while work is still active, recover expired claims by failing and requeueing stale dispatches, update dispatches through `running` and terminal states, and publish lightweight heartbeat state for control-plane visibility
 - `publication_definition` declares which gold outputs a transformation package publishes
 - worker and API promotion should dispatch from source-asset configuration, not inferred file headers or route-specific heuristics
 

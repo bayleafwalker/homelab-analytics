@@ -74,6 +74,14 @@ class ScheduleDispatchRecord:
 
 
 @dataclass(frozen=True)
+class ScheduleDispatchRecoveryRecord:
+    stale_dispatch: ScheduleDispatchRecord
+    replacement_dispatch: ScheduleDispatchRecord | None
+    recovered_at: datetime
+    recovered_by_worker_id: str | None = None
+
+
+@dataclass(frozen=True)
 class WorkerHeartbeatCreate:
     worker_id: str
     status: str
@@ -421,6 +429,26 @@ class ControlPlaneStore(Protocol):
     ) -> ScheduleDispatchRecord | None:
         ...
 
+    def renew_schedule_dispatch_claim(
+        self,
+        dispatch_id: str,
+        *,
+        worker_id: str,
+        claimed_at: datetime | None = None,
+        lease_seconds: int = 300,
+        worker_detail: str | None = None,
+    ) -> ScheduleDispatchRecord:
+        ...
+
+    def requeue_expired_schedule_dispatches(
+        self,
+        *,
+        as_of: datetime | None = None,
+        limit: int | None = None,
+        recovered_by_worker_id: str | None = None,
+    ) -> list[ScheduleDispatchRecoveryRecord]:
+        ...
+
     def mark_schedule_dispatch_status(
         self,
         dispatch_id: str,
@@ -431,6 +459,8 @@ class ControlPlaneStore(Protocol):
         run_ids: tuple[str, ...] | None = None,
         failure_reason: str | None = None,
         worker_detail: str | None = None,
+        expected_status: str | None = None,
+        expected_worker_id: str | None = None,
     ) -> ScheduleDispatchRecord:
         ...
 

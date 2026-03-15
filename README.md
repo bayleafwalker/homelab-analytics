@@ -72,7 +72,7 @@ This repository now has a working end-to-end bootstrap aligned to the target arc
 - a schedule-dispatch worker loop and a minimal Helm chart now cover the first Kubernetes deployment path
 - a Next.js web shell now exposes dashboard, filterable run-monitoring, run-detail drill-down, and control-plane admin views as a separate workload
 - the Next.js web shell now also exposes operator-facing browser uploads for built-in datasets plus config-driven source-asset uploads that redirect into run detail on success and render inline validation/run feedback on failure
-- the control-plane and run-detail surfaces now add version diffs, operational freshness summaries, dispatch drill-down, retry actions for runs with supported retry context, and worker-heartbeat plus stale-dispatch visibility for queue operations
+- the control-plane and run-detail surfaces now add version diffs, operational freshness summaries, dispatch drill-down, retry actions for runs with supported retry context, worker-heartbeat visibility, stale-dispatch detection, recovered-dispatch history, and heartbeat-age/runtime queue signals for queue operations
 - landing now uses explicit blob-store and metadata-store boundaries, with the current local filesystem and SQLite path kept as the default backend
 - the transaction transform and reporting path now consume landed bytes directly, so reporting no longer depends on staging artifacts back to the local filesystem
 - built-in landing, transformation, reporting, and application capabilities are now exposed through a shared extension registry that can also load external modules from configured custom paths
@@ -86,7 +86,7 @@ This repository now has a working end-to-end bootstrap aligned to the target arc
 - manual and config-driven account-transaction ingests now share the same retry-safe promotion path into DuckDB-backed marts and current-dimension views
 - explicit subscription and temporal contract-pricing domains now exist alongside transactions, including `mart_subscription_summary`, `mart_contract_price_current`, and `mart_electricity_price_current`
 
-The main remaining gaps are OIDC/service-token auth and broader production hardening. S3-compatible landing plus Postgres-backed control-plane/reporting backends now exist, local username/password auth is available as the bootstrap path, the worker now claims and processes queued dispatches continuously with recorded heartbeats, and the web surface now has a real Next.js shell that consumes the API only.
+The main remaining gaps are OIDC/service-token auth and broader production hardening. S3-compatible landing plus Postgres-backed control-plane/reporting backends now exist, local username/password auth is available as the bootstrap path, the worker now claims and processes queued dispatches continuously with lease renewal plus stale-dispatch recovery, and the web surface now has a real Next.js shell that consumes the API only.
 
 ## Run locally
 
@@ -136,6 +136,7 @@ python -m apps.worker.main reset-local-user-password admin replace-me-new-passwo
 python -m apps.worker.main enqueue-due-schedules --as-of 2026-01-01T00:00:00+00:00
 python -m apps.worker.main list-schedule-dispatches
 python -m apps.worker.main list-worker-heartbeats
+python -m apps.worker.main recover-stale-schedule-dispatches
 python -m apps.worker.main mark-schedule-dispatch <dispatch_id> --status completed
 python -m apps.worker.main process-schedule-dispatch <dispatch_id>
 python -m apps.worker.main watch-schedule-dispatches
@@ -191,7 +192,7 @@ Current execution surfaces:
 `/health` and `/metrics` stay public. In local-auth mode, `/runs*`, `/reports*`, `/transformation-audit`, `GET /control/source-lineage`, `GET /control/publication-audit`, and the Next.js dashboard/run-detail views require at least a `reader`; `/ingest*` requires `operator`; `/config/*`, `/control/auth-audit`, `/control/schedule-dispatches`, `/extensions`, `/sources`, `/landing/*`, `/transformations/*`, persisted-ingestion processing, `/auth/users*`, and the `/control`, `/control/catalog`, and `/control/execution` admin pages require `admin`. Cookie-authenticated `POST` routes now require a CSRF token, login failures are rate-limited via control-plane auth audit history, and `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN=true` remains a temporary local/dev-only escape hatch that is not used by the Compose or Helm defaults.
 
 - `POST /landing/{extension_key}` for executable landing extensions
-- `GET /metrics` for Prometheus-compatible operational metrics
+- `GET /metrics` for Prometheus-compatible operational metrics, including queue depth, running/failed/stale dispatch gauges, recovered dispatch count, worker count, oldest heartbeat age, and failed-dispatch ratio
 - `GET /runs/{run_id}` for run-detail inspection in the API and Next.js web shell
 - `POST /runs/{run_id}/retry` for operator retry of built-in and saved-binding configured runs
 - `GET /auth/users`, `POST /auth/users`, `PATCH /auth/users/{user_id}`, and `POST /auth/users/{user_id}/password` for bootstrap local-user management

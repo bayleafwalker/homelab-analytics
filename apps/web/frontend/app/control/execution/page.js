@@ -157,6 +157,7 @@ export default async function ControlExecutionPage({ searchParams }) {
   const error = errorCopy(searchParams?.error);
   const enqueuedDispatches = scheduleDispatches.filter((record) => record.status === "enqueued");
   const failedDispatches = operationalSummary.recent_failed_dispatches || [];
+  const recoveredDispatches = operationalSummary.recent_recovered_dispatches || [];
   const failedRuns = operationalSummary.recent_failed_runs || [];
   const staleDispatches = operationalSummary.stale_running_dispatches || [];
   const workers = operationalSummary.workers || [];
@@ -207,6 +208,20 @@ export default async function ControlExecutionPage({ searchParams }) {
               {operationalSummary.queue?.stale_running_dispatches || 0}
             </div>
             <div className="muted">Running dispatches with expired claims.</div>
+          </article>
+          <article className="panel metricCard">
+            <div className="metricLabel">Recovered dispatches</div>
+            <div className="metricValue">
+              {operationalSummary.queue?.recovered_dispatches || 0}
+            </div>
+            <div className="muted">Expired claims requeued by worker recovery.</div>
+          </article>
+          <article className="panel metricCard">
+            <div className="metricLabel">Oldest heartbeat age</div>
+            <div className="metricValue">
+              {Math.round(operationalSummary.queue?.oldest_worker_heartbeat_age_seconds || 0)}s
+            </div>
+            <div className="muted">Alert if this keeps climbing while work is expected.</div>
           </article>
         </section>
 
@@ -340,6 +355,50 @@ export default async function ControlExecutionPage({ searchParams }) {
           <article className="panel section">
             <div className="sectionHeader">
               <div>
+                <div className="eyebrow">Recovery</div>
+                <h2>Recovered stale dispatches</h2>
+              </div>
+            </div>
+            {recoveredDispatches.length === 0 ? (
+              <div className="empty">No stale dispatch recoveries recorded.</div>
+            ) : (
+              <div className="tableWrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Dispatch</th>
+                      <th>Schedule</th>
+                      <th>Failure</th>
+                      <th>Completed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recoveredDispatches.slice(0, 8).map((record) => (
+                      <tr key={record.dispatch_id}>
+                        <td>
+                          <Link
+                            className="inlineLink"
+                            href={`/control/execution/dispatches/${record.dispatch_id}`}
+                          >
+                            {record.dispatch_id}
+                          </Link>
+                        </td>
+                        <td>{record.schedule_id}</td>
+                        <td>{record.failure_reason || "n/a"}</td>
+                        <td>{record.completed_at || "n/a"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </article>
+        </section>
+
+        <section className="layout">
+          <article className="panel section">
+            <div className="sectionHeader">
+              <div>
                 <div className="eyebrow">Workers</div>
                 <h2>Worker heartbeats</h2>
               </div>
@@ -355,6 +414,7 @@ export default async function ControlExecutionPage({ searchParams }) {
                       <th>Status</th>
                       <th>Active dispatch</th>
                       <th>Claim expires</th>
+                      <th>Heartbeat age</th>
                       <th>Observed</th>
                     </tr>
                   </thead>
@@ -382,6 +442,7 @@ export default async function ControlExecutionPage({ searchParams }) {
                           )}
                         </td>
                         <td>{worker.claim_expires_at || "n/a"}</td>
+                        <td>{Math.round(worker.heartbeat_age_seconds || 0)}s</td>
                         <td>{worker.observed_at}</td>
                       </tr>
                     ))}

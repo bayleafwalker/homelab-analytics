@@ -25,6 +25,7 @@ from packages.storage.control_plane import (
     PublicationAuditCreate,
     PublicationAuditRecord,
     ScheduleDispatchRecord,
+    ScheduleDispatchRecoveryRecord,
     SourceLineageCreate,
     SourceLineageRecord,
     WorkerHeartbeatCreate,
@@ -2051,6 +2052,275 @@ class IngestionConfigRepository:
             connection.commit()
         return self.get_schedule_dispatch(existing.dispatch_id)
 
+    def renew_schedule_dispatch_claim(
+        self,
+        dispatch_id: str,
+        *,
+        worker_id: str,
+        claimed_at: datetime | None = None,
+        lease_seconds: int = 300,
+        worker_detail: str | None = None,
+    ) -> ScheduleDispatchRecord:
+        resolved_claimed_at = claimed_at or datetime.now(UTC)
+        claim_expires_at = resolved_claimed_at + timedelta(seconds=lease_seconds)
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """
+                SELECT
+                    dispatch_id,
+                    schedule_id,
+                    target_kind,
+                    target_ref,
+                    enqueued_at,
+                    status,
+                    started_at,
+                    completed_at,
+                    run_ids_json,
+                    failure_reason,
+                    worker_detail,
+                    claimed_by_worker_id,
+                    claimed_at,
+                    claim_expires_at
+                FROM schedule_dispatches
+                WHERE dispatch_id = ?
+                """,
+                (dispatch_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"Unknown schedule dispatch: {dispatch_id}")
+            existing = _deserialize_schedule_dispatch_row(row)
+            if existing.status != "running":
+                raise ValueError(
+                    f"Schedule dispatch must be running before lease renewal: {dispatch_id}"
+                )
+            if existing.claimed_by_worker_id != worker_id:
+                raise ValueError(
+                    "Schedule dispatch lease can only be renewed by the claiming worker: "
+                    f"{dispatch_id}"
+                )
+            cursor = connection.execute(
+                """
+                UPDATE schedule_dispatches
+                SET worker_detail = ?,
+                    claimed_at = ?,
+                    claim_expires_at = ?
+                WHERE dispatch_id = ?
+                  AND status = 'running'
+                  AND claimed_by_worker_id = ?
+                """,
+                (
+                    worker_detail if worker_detail is not None else existing.worker_detail,
+                    resolved_claimed_at.isoformat(),
+                    claim_expires_at.isoformat(),
+                    dispatch_id,
+                    worker_id,
+                ),
+            )
+            if cursor.rowcount == 0:
+                raise ValueError(
+                    f"Schedule dispatch lease could not be renewed: {dispatch_id}"
+                )
+            connection.commit()
+        return self.get_schedule_dispatch(dispatch_id)
+
+    def requeue_expired_schedule_dispatches(
+        self,
+        *,
+        as_of: datetime | None = None,
+        limit: int | None = None,
+        recovered_by_worker_id: str | None = None,
+    ) -> list[ScheduleDispatchRecoveryRecord]:
+        resolved_as_of = as_of or datetime.now(UTC)
+        recoveries: list[ScheduleDispatchRecoveryRecord] = []
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            connection.execute("BEGIN IMMEDIATE")
+            query = """
+                SELECT
+                    dispatch_id,
+                    schedule_id,
+                    target_kind,
+                    target_ref,
+                    enqueued_at,
+                    status,
+                    started_at,
+                    completed_at,
+                    run_ids_json,
+                    failure_reason,
+                    worker_detail,
+                    claimed_by_worker_id,
+                    claimed_at,
+                    claim_expires_at
+                FROM schedule_dispatches
+                WHERE status = 'running'
+                  AND claim_expires_at IS NOT NULL
+                  AND claim_expires_at < ?
+                ORDER BY claim_expires_at, dispatch_id
+            """
+            parameters: list[object] = [resolved_as_of.isoformat()]
+            if limit is not None:
+                query += " LIMIT ?"
+                parameters.append(limit)
+            rows = connection.execute(query, tuple(parameters)).fetchall()
+            for row in rows:
+                existing = _deserialize_schedule_dispatch_row(row)
+                recovery_reason = _build_stale_dispatch_failure_reason(
+                    existing,
+                    recovered_at=resolved_as_of,
+                    recovered_by_worker_id=recovered_by_worker_id,
+                )
+                cursor = connection.execute(
+                    """
+                    UPDATE schedule_dispatches
+                    SET status = ?,
+                        completed_at = ?,
+                        failure_reason = ?,
+                        worker_detail = ?,
+                        claim_expires_at = NULL
+                    WHERE dispatch_id = ?
+                      AND status = 'running'
+                      AND claim_expires_at IS NOT NULL
+                      AND claim_expires_at < ?
+                    """,
+                    (
+                        "failed",
+                        resolved_as_of.isoformat(),
+                        recovery_reason,
+                        _build_stale_dispatch_worker_detail(
+                            existing,
+                            recovered_at=resolved_as_of,
+                            recovered_by_worker_id=recovered_by_worker_id,
+                        ),
+                        existing.dispatch_id,
+                        resolved_as_of.isoformat(),
+                    ),
+                )
+                if cursor.rowcount == 0:
+                    continue
+                stale_dispatch = ScheduleDispatchRecord(
+                    dispatch_id=existing.dispatch_id,
+                    schedule_id=existing.schedule_id,
+                    target_kind=existing.target_kind,
+                    target_ref=existing.target_ref,
+                    enqueued_at=existing.enqueued_at,
+                    status="failed",
+                    started_at=existing.started_at,
+                    completed_at=resolved_as_of,
+                    run_ids=existing.run_ids,
+                    failure_reason=recovery_reason,
+                    worker_detail=_build_stale_dispatch_worker_detail(
+                        existing,
+                        recovered_at=resolved_as_of,
+                        recovered_by_worker_id=recovered_by_worker_id,
+                    ),
+                    claimed_by_worker_id=existing.claimed_by_worker_id,
+                    claimed_at=existing.claimed_at,
+                    claim_expires_at=None,
+                )
+                schedule_row = connection.execute(
+                    """
+                    SELECT schedule_id, target_kind, target_ref, enabled, archived, max_concurrency
+                    FROM execution_schedules
+                    WHERE schedule_id = ?
+                    """,
+                    (existing.schedule_id,),
+                ).fetchone()
+                replacement_dispatch: ScheduleDispatchRecord | None = None
+                if (
+                    schedule_row is not None
+                    and not bool(schedule_row["archived"])
+                    and bool(schedule_row["enabled"])
+                ):
+                    active_count = connection.execute(
+                        """
+                        SELECT COUNT(*)
+                        FROM schedule_dispatches
+                        WHERE schedule_id = ?
+                          AND status IN ('enqueued', 'running')
+                        """,
+                        (existing.schedule_id,),
+                    ).fetchone()[0]
+                    if active_count < schedule_row["max_concurrency"]:
+                        replacement_dispatch_id = uuid.uuid4().hex[:16]
+                        replacement_detail = _build_requeued_dispatch_worker_detail(
+                            existing,
+                            recovered_at=resolved_as_of,
+                            recovered_by_worker_id=recovered_by_worker_id,
+                        )
+                        connection.execute(
+                            """
+                            INSERT INTO schedule_dispatches (
+                                dispatch_id,
+                                schedule_id,
+                                target_kind,
+                                target_ref,
+                                enqueued_at,
+                                status,
+                                started_at,
+                                completed_at,
+                                run_ids_json,
+                                failure_reason,
+                                worker_detail,
+                                claimed_by_worker_id,
+                                claimed_at,
+                                claim_expires_at
+                            )
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (
+                                replacement_dispatch_id,
+                                existing.schedule_id,
+                                schedule_row["target_kind"],
+                                schedule_row["target_ref"],
+                                resolved_as_of.isoformat(),
+                                "enqueued",
+                                None,
+                                None,
+                                json.dumps([]),
+                                None,
+                                replacement_detail,
+                                None,
+                                None,
+                                None,
+                            ),
+                        )
+                        connection.execute(
+                            """
+                            UPDATE execution_schedules
+                            SET last_enqueued_at = ?
+                            WHERE schedule_id = ?
+                            """,
+                            (resolved_as_of.isoformat(), existing.schedule_id),
+                        )
+                        replacement_dispatch = ScheduleDispatchRecord(
+                            dispatch_id=replacement_dispatch_id,
+                            schedule_id=existing.schedule_id,
+                            target_kind=schedule_row["target_kind"],
+                            target_ref=schedule_row["target_ref"],
+                            enqueued_at=resolved_as_of,
+                            status="enqueued",
+                            started_at=None,
+                            completed_at=None,
+                            run_ids=(),
+                            failure_reason=None,
+                            worker_detail=replacement_detail,
+                            claimed_by_worker_id=None,
+                            claimed_at=None,
+                            claim_expires_at=None,
+                        )
+                recoveries.append(
+                    ScheduleDispatchRecoveryRecord(
+                        stale_dispatch=stale_dispatch,
+                        replacement_dispatch=replacement_dispatch,
+                        recovered_at=resolved_as_of,
+                        recovered_by_worker_id=recovered_by_worker_id,
+                    )
+                )
+            connection.commit()
+        return recoveries
+
     def mark_schedule_dispatch_status(
         self,
         dispatch_id: str,
@@ -2061,14 +2331,30 @@ class IngestionConfigRepository:
         run_ids: tuple[str, ...] | None = None,
         failure_reason: str | None = None,
         worker_detail: str | None = None,
+        expected_status: str | None = None,
+        expected_worker_id: str | None = None,
     ) -> ScheduleDispatchRecord:
         existing = self.get_schedule_dispatch(dispatch_id)
+        if expected_status is not None and existing.status != expected_status:
+            raise ValueError(
+                "Schedule dispatch status changed before update: "
+                f"{dispatch_id} expected {expected_status}, found {existing.status}"
+            )
+        if (
+            expected_worker_id is not None
+            and existing.claimed_by_worker_id != expected_worker_id
+        ):
+            raise ValueError(
+                "Schedule dispatch claim changed before update: "
+                f"{dispatch_id} expected worker {expected_worker_id}, "
+                f"found {existing.claimed_by_worker_id}"
+            )
         if status == "enqueued":
             resolved_started_at = None
             resolved_completed_at = None
             resolved_run_ids: tuple[str, ...] = ()
             resolved_failure_reason = None
-            resolved_worker_detail = None
+            resolved_worker_detail = worker_detail
             resolved_claimed_by_worker_id = None
             resolved_claimed_at = None
             resolved_claim_expires_at = None
@@ -2110,8 +2396,7 @@ class IngestionConfigRepository:
             resolved_claimed_at = existing.claimed_at
             resolved_claim_expires_at = None
         with self._connect() as connection:
-            connection.execute(
-                """
+            query = """
                 UPDATE schedule_dispatches
                 SET status = ?,
                     started_at = ?,
@@ -2123,33 +2408,44 @@ class IngestionConfigRepository:
                     claimed_at = ?,
                     claim_expires_at = ?
                 WHERE dispatch_id = ?
-                """,
+            """
+            parameters: list[object] = [
+                status,
+                resolved_started_at.isoformat()
+                if resolved_started_at is not None
+                else None,
+                resolved_completed_at.isoformat()
+                if resolved_completed_at is not None
+                else None,
+                json.dumps(list(resolved_run_ids)),
+                resolved_failure_reason,
+                resolved_worker_detail,
+                resolved_claimed_by_worker_id,
                 (
-                    status,
-                    resolved_started_at.isoformat()
-                    if resolved_started_at is not None
-                    else None,
-                    resolved_completed_at.isoformat()
-                    if resolved_completed_at is not None
-                    else None,
-                    json.dumps(list(resolved_run_ids)),
-                    resolved_failure_reason,
-                    resolved_worker_detail,
-                    resolved_claimed_by_worker_id,
-                    (
-                        resolved_claimed_at.isoformat()
-                        if resolved_claimed_at is not None
-                        else None
-                    ),
-                    (
-                        resolved_claim_expires_at.isoformat()
-                        if resolved_claim_expires_at is not None
-                        else None
-                    ),
-                    dispatch_id,
+                    resolved_claimed_at.isoformat()
+                    if resolved_claimed_at is not None
+                    else None
                 ),
+                (
+                    resolved_claim_expires_at.isoformat()
+                    if resolved_claim_expires_at is not None
+                    else None
+                ),
+                dispatch_id,
+            ]
+            if expected_status is not None:
+                query += " AND status = ?"
+                parameters.append(expected_status)
+            if expected_worker_id is not None:
+                query += " AND claimed_by_worker_id = ?"
+                parameters.append(expected_worker_id)
+            cursor = connection.execute(
+                query,
+                tuple(parameters),
             )
             connection.commit()
+        if cursor.rowcount == 0:
+            raise ValueError(f"Schedule dispatch could not be updated: {dispatch_id}")
         return self.get_schedule_dispatch(dispatch_id)
 
     def record_worker_heartbeat(
@@ -3353,6 +3649,71 @@ def _validate_execution_schedule_target_sqlite(
         definition = repository.get_ingestion_definition(target_ref)
         if definition.archived:
             raise ValueError(f"Ingestion definition is archived: {target_ref}")
+
+
+def _build_stale_dispatch_failure_reason(
+    dispatch: ScheduleDispatchRecord,
+    *,
+    recovered_at: datetime,
+    recovered_by_worker_id: str | None = None,
+) -> str:
+    detail = (
+        "Dispatch claim expired at "
+        f"{dispatch.claim_expires_at.isoformat() if dispatch.claim_expires_at else 'unknown'} "
+        f"and was requeued at {recovered_at.isoformat()}"
+    )
+    if recovered_by_worker_id:
+        detail += f" by worker {recovered_by_worker_id}"
+    return detail
+
+
+def _build_stale_dispatch_worker_detail(
+    dispatch: ScheduleDispatchRecord,
+    *,
+    recovered_at: datetime,
+    recovered_by_worker_id: str | None = None,
+) -> str:
+    return json.dumps(
+        {
+            "dispatch_id": dispatch.dispatch_id,
+            "schedule_id": dispatch.schedule_id,
+            "target_kind": dispatch.target_kind,
+            "target_ref": dispatch.target_ref,
+            "state": "failed",
+            "recovery_state": "requeued",
+            "recovered_at": recovered_at.isoformat(),
+            "recovered_by_worker_id": recovered_by_worker_id,
+            "previous_worker_id": dispatch.claimed_by_worker_id,
+            "previous_claimed_at": (
+                dispatch.claimed_at.isoformat() if dispatch.claimed_at is not None else None
+            ),
+            "previous_claim_expires_at": (
+                dispatch.claim_expires_at.isoformat()
+                if dispatch.claim_expires_at is not None
+                else None
+            ),
+        },
+        sort_keys=True,
+    )
+
+
+def _build_requeued_dispatch_worker_detail(
+    dispatch: ScheduleDispatchRecord,
+    *,
+    recovered_at: datetime,
+    recovered_by_worker_id: str | None = None,
+) -> str:
+    return json.dumps(
+        {
+            "state": "enqueued",
+            "recovery_state": "requeued",
+            "recovered_from_dispatch_id": dispatch.dispatch_id,
+            "recovered_at": recovered_at.isoformat(),
+            "recovered_by_worker_id": recovered_by_worker_id,
+            "previous_worker_id": dispatch.claimed_by_worker_id,
+        },
+        sort_keys=True,
+    )
 
 
 def _deserialize_schedule_dispatch_row(row: sqlite3.Row) -> ScheduleDispatchRecord:

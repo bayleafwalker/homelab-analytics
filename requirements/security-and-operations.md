@@ -151,7 +151,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Developers and early testers need a low-friction local environment.
 
 **Phase:** 0
-**Status:** implemented (Compose now boots API, web, Postgres, and MinIO by default, with the worker available via profile and now defaulting to the continuous schedule-dispatch watcher over the shared data volume; the workloads use Postgres for metadata and published reporting plus MinIO for landing storage)
+**Status:** implemented (Compose now boots API, web, Postgres, and MinIO by default, with the worker available via profile and now defaulting to the continuous schedule-dispatch watcher over the shared data volume; that watcher now renews active dispatch leases, recovers expired stale dispatches, and writes heartbeat state that the API exports as operational metrics; the workloads use Postgres for metadata and published reporting plus MinIO for landing storage)
 
 **Acceptance criteria:**
 - `docker compose up` starts API, web, and worker.
@@ -169,7 +169,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Helm is the standard Kubernetes packaging format and the planned release vehicle.
 
 **Phase:** 0–1
-**Status:** implemented (basic chart with 3 workloads, PVC, configmap, service account, parsed manifest contract tests, Secret-reference wiring, and the worker deployment now defaulting to the continuous schedule-dispatch watcher)
+**Status:** implemented (basic chart with 3 workloads, PVC, configmap, service account, parsed manifest contract tests, Secret-reference wiring, and the worker deployment now defaulting to the continuous schedule-dispatch watcher with lease-renewal and stale-dispatch recovery behavior in the runtime)
 
 **Acceptance criteria:**
 - `helm lint` and `helm template` pass.
