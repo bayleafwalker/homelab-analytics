@@ -8,6 +8,7 @@ import {
   getAuthAuditEvents,
   getCurrentUser,
   getLocalUsers,
+  getOperationalSummary,
   getServiceTokens
 } from "@/lib/backend";
 
@@ -43,11 +44,22 @@ export default async function ControlPage({ searchParams }) {
     redirect("/");
   }
 
-  const [users, authAuditEvents, serviceTokens] = await Promise.all([
+  const [users, authAuditEvents, serviceTokens, operationalSummary] = await Promise.all([
     getLocalUsers(),
     getAuthAuditEvents(40),
-    getServiceTokens({ includeRevoked: true })
+    getServiceTokens({ includeRevoked: true }),
+    getOperationalSummary()
   ]);
+  const tokenSummary = operationalSummary.auth?.service_tokens || {
+    active: serviceTokens.filter((token) => !token.revoked && !token.expired).length,
+    expiring_within_7d: 0,
+    used_within_24h: 0,
+    never_used: 0
+  };
+  const tokenAuditSummary = operationalSummary.auth?.audit || {
+    service_token_events_last_7d: 0,
+    service_token_event_counts: {}
+  };
   const notice = noticeCopy(searchParams?.notice);
   const error = errorCopy(searchParams?.error);
 
@@ -57,7 +69,7 @@ export default async function ControlPage({ searchParams }) {
       user={user}
       title="Authenticated Control Plane"
       eyebrow="Admin Access"
-      lede="Bootstrap local auth is now audited and manageable from the web shell. This page still stays API-backed and intentionally thin."
+      lede="Shared deployments should prefer OIDC. Local auth stays available as an explicit break-glass path, and this page remains API-backed and intentionally thin."
     >
       <section className="stack">
         <ControlNav currentPath="/control" />
@@ -71,14 +83,24 @@ export default async function ControlPage({ searchParams }) {
             <div className="muted">Bootstrap auth identities under admin control.</div>
           </article>
           <article className="panel metricCard">
-            <div className="metricLabel">Service tokens</div>
-            <div className="metricValue">{serviceTokens.filter((token) => !token.revoked).length}</div>
-            <div className="muted">Scoped automation credentials with revocation support.</div>
+            <div className="metricLabel">Active tokens</div>
+            <div className="metricValue">{tokenSummary.active}</div>
+            <div className="muted">Scoped automation credentials currently usable.</div>
           </article>
           <article className="panel metricCard">
-            <div className="metricLabel">Recent auth events</div>
-            <div className="metricValue">{authAuditEvents.length}</div>
-            <div className="muted">Latest login, logout, user-management, and token events.</div>
+            <div className="metricLabel">Expiring in 7d</div>
+            <div className="metricValue">{tokenSummary.expiring_within_7d}</div>
+            <div className="muted">Tokens that should be rotated before they go hard-expired.</div>
+          </article>
+          <article className="panel metricCard">
+            <div className="metricLabel">Used in 24h</div>
+            <div className="metricValue">{tokenSummary.used_within_24h}</div>
+            <div className="muted">Automation credentials with recent activity.</div>
+          </article>
+          <article className="panel metricCard">
+            <div className="metricLabel">Token audit events</div>
+            <div className="metricValue">{tokenAuditSummary.service_token_events_last_7d}</div>
+            <div className="muted">Create, revoke, and failed-token events seen in the last 7 days.</div>
           </article>
         </section>
 
@@ -96,6 +118,22 @@ export default async function ControlPage({ searchParams }) {
               <Link className="inlineLink" href="/control/execution">
                 Execution
               </Link>
+            </div>
+          </div>
+          <div className="metaGrid">
+            <div className="metaItem">
+              <div className="metricLabel">Never used</div>
+              <div>{tokenSummary.never_used}</div>
+            </div>
+            <div className="metaItem">
+              <div className="metricLabel">Created / revoked / failed</div>
+              <div className="muted">
+                {(tokenAuditSummary.service_token_event_counts?.service_token_created || 0)}
+                {" / "}
+                {(tokenAuditSummary.service_token_event_counts?.service_token_revoked || 0)}
+                {" / "}
+                {(tokenAuditSummary.service_token_event_counts?.service_token_auth_failed || 0)}
+              </div>
             </div>
           </div>
           <ServiceTokenPanel initialTokens={serviceTokens} />

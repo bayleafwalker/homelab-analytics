@@ -12,6 +12,7 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
         FRONTEND_ROOT / "app" / "auth" / "callback" / "route.js"
     ).read_text()
     logout_route = (FRONTEND_ROOT / "app" / "auth" / "logout" / "route.js").read_text()
+    ready_route = (FRONTEND_ROOT / "app" / "ready" / "route.js").read_text()
     login_page = (FRONTEND_ROOT / "app" / "login" / "page.js").read_text()
     control_page = (FRONTEND_ROOT / "app" / "control" / "page.js").read_text()
     service_token_route = (
@@ -248,6 +249,8 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert "copyBackendSetCookies" in callback_route
     assert "copyBackendSetCookies" in login_route
     assert 'backendRequest("/auth/logout"' in logout_route
+    assert 'status: "ready"' in ready_route
+    assert "HOMELAB_ANALYTICS_AUTH_MODE" in ready_route
     assert "Sign In" in login_page
     assert 'action="/auth/login"' in login_page
     assert "Too many failed login attempts" in login_page
@@ -255,12 +258,14 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert 'process.env.HOMELAB_ANALYTICS_AUTH_MODE' in login_page
     assert "getLocalUsers" in control_page
     assert "getAuthAuditEvents" in control_page
+    assert "getOperationalSummary" in control_page
     assert "getServiceTokens" in control_page
     assert "ServiceTokenPanel" in control_page
     assert 'backendRequest("/auth/service-tokens"' in service_token_route
     assert "/auth/service-tokens/${params.tokenId}/revoke" in service_token_revoke_route
     assert 'fetch("/control/service-tokens"' in service_token_panel
     assert "Copy once" in service_token_panel
+    assert "expiring soon" in service_token_panel
     assert "getSourceSystems" in control_catalog_page
     assert "getSourceAssets" in control_catalog_page
     assert "getOperationalSummary" in control_catalog_page

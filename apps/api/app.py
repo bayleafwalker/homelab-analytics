@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+from collections import Counter
 from dataclasses import asdict, is_dataclass
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -577,6 +578,7 @@ def create_app(
                 ),
                 dispatch,
             )
+        auth_runtime_summary = build_auth_runtime_summary()
 
         return {
             "source_assets": finalize_operational_stats(source_asset_stats),
@@ -604,6 +606,81 @@ def create_app(
             ),
             "workers": runtime_state["workers"],
             "queue": runtime_state["queue"],
+            "auth": auth_runtime_summary,
+        }
+
+    def build_auth_runtime_summary() -> dict[str, Any]:
+        now = datetime.now(UTC)
+        service_tokens = resolved_config_repository.list_service_tokens(
+            include_revoked=True
+        )
+        active_tokens = [
+            token
+            for token in service_tokens
+            if token.revoked_at is None
+            and (token.expires_at is None or token.expires_at > now)
+        ]
+        expired_tokens = [
+            token
+            for token in service_tokens
+            if token.revoked_at is None
+            and token.expires_at is not None
+            and token.expires_at <= now
+        ]
+        expiring_soon_tokens = [
+            token
+            for token in active_tokens
+            if token.expires_at is not None
+            and token.expires_at <= now + timedelta(days=7)
+        ]
+        never_used_tokens = [
+            token for token in active_tokens if token.last_used_at is None
+        ]
+        recently_used_tokens = [
+            token
+            for token in active_tokens
+            if token.last_used_at is not None
+            and token.last_used_at >= now - timedelta(days=1)
+        ]
+        recent_auth_events = resolved_config_repository.list_auth_audit_events(
+            since=now - timedelta(days=7),
+            limit=250,
+        )
+        service_token_event_counts = Counter(
+            event.event_type
+            for event in recent_auth_events
+            if event.event_type.startswith("service_token_")
+        )
+        return {
+            "service_tokens": {
+                "total": len(service_tokens),
+                "active": len(active_tokens),
+                "revoked": len(
+                    [token for token in service_tokens if token.revoked_at is not None]
+                ),
+                "expired": len(expired_tokens),
+                "expiring_within_7d": len(expiring_soon_tokens),
+                "used_within_24h": len(recently_used_tokens),
+                "never_used": len(never_used_tokens),
+                "recently_used": _to_jsonable(
+                    sorted(
+                        recently_used_tokens,
+                        key=lambda token: token.last_used_at or datetime.min.replace(tzinfo=UTC),
+                        reverse=True,
+                    )[:10]
+                ),
+                "expiring_soon": _to_jsonable(
+                    sorted(
+                        expiring_soon_tokens,
+                        key=lambda token: token.expires_at or datetime.max.replace(tzinfo=UTC),
+                    )[:10]
+                ),
+            },
+            "audit": {
+                "recent_events_total": len(recent_auth_events),
+                "service_token_events_last_7d": sum(service_token_event_counts.values()),
+                "service_token_event_counts": dict(service_token_event_counts),
+            },
         }
 
     def is_recovered_dispatch(dispatch) -> bool:
@@ -741,6 +818,46 @@ def create_app(
             help_text="Failed dispatches divided by total terminal dispatches.",
         )
 
+    def update_auth_runtime_metrics() -> None:
+        auth_summary = build_auth_runtime_summary()
+        service_token_summary = auth_summary["service_tokens"]
+        audit_summary = auth_summary["audit"]
+        metrics_registry.set(
+            "auth_service_tokens_total",
+            float(service_token_summary["total"]),
+            help_text="Current total service-token count including revoked tokens.",
+        )
+        metrics_registry.set(
+            "auth_service_tokens_active",
+            float(service_token_summary["active"]),
+            help_text="Current active service-token count.",
+        )
+        metrics_registry.set(
+            "auth_service_tokens_expired",
+            float(service_token_summary["expired"]),
+            help_text="Current expired service-token count.",
+        )
+        metrics_registry.set(
+            "auth_service_tokens_expiring_7d",
+            float(service_token_summary["expiring_within_7d"]),
+            help_text="Current active service-token count expiring within seven days.",
+        )
+        metrics_registry.set(
+            "auth_service_tokens_never_used",
+            float(service_token_summary["never_used"]),
+            help_text="Current active service-token count that has never been used.",
+        )
+        metrics_registry.set(
+            "auth_service_tokens_used_24h",
+            float(service_token_summary["used_within_24h"]),
+            help_text="Current active service-token count used within the last twenty-four hours.",
+        )
+        metrics_registry.set(
+            "auth_service_token_audit_events_7d",
+            float(audit_summary["service_token_events_last_7d"]),
+            help_text="Service-token auth-audit events recorded in the last seven days.",
+        )
+
     def request_remote_addr(request: Request) -> str | None:
         forwarded_for = request.headers.get("x-forwarded-for", "").strip()
         if forwarded_for:
@@ -811,7 +928,7 @@ def create_app(
         return candidate
 
     def required_role_for_path(path: str) -> UserRole | None:
-        if path in {"/health", "/metrics", "/auth/login", "/auth/logout", "/auth/callback"}:
+        if path in {"/health", "/ready", "/metrics", "/auth/login", "/auth/logout", "/auth/callback"}:
             return None
         if path.startswith("/runs/") and path.endswith("/retry"):
             return UserRole.OPERATOR
@@ -848,7 +965,7 @@ def create_app(
         return None
 
     def required_service_token_scope_for_path(path: str) -> str | None:
-        if path in {"/health", "/metrics", "/auth/login", "/auth/logout", "/auth/callback"}:
+        if path in {"/health", "/ready", "/metrics", "/auth/login", "/auth/logout", "/auth/callback"}:
             return None
         if path.startswith("/ingest") or (path.startswith("/runs/") and path.endswith("/retry")):
             return SERVICE_TOKEN_SCOPE_INGEST_WRITE
@@ -897,11 +1014,34 @@ def create_app(
             auth_error_response: JSONResponse | None = None
             bearer_token = bearer_token_from_request(request)
             if bearer_token is not None:
+                parsed_service_token = parse_service_token(bearer_token)
                 request.state.principal = authenticate_service_token(
                     bearer_token,
                     resolved_auth_store,
                 )
-                if request.state.principal is None and parse_service_token(bearer_token) is not None:
+                if (
+                    request.state.principal is not None
+                    and request.state.principal.auth_provider == "service_token"
+                ):
+                    metrics_registry.inc(
+                        "auth_service_token_authenticated_requests_total",
+                        1,
+                        help_text="Total successfully authenticated service-token requests observed by this API process.",
+                    )
+                if request.state.principal is None and parsed_service_token is not None:
+                    metrics_registry.inc(
+                        "auth_service_token_failed_requests_total",
+                        1,
+                        help_text="Total rejected service-token bearer requests observed by this API process.",
+                    )
+                    record_auth_event(
+                        request,
+                        event_type="service_token_auth_failed",
+                        success=False,
+                        subject_user_id=parsed_service_token[0],
+                        subject_username=parsed_service_token[0],
+                        detail="Invalid, expired, or revoked service token.",
+                    )
                     auth_error_response = JSONResponse(
                         status_code=401,
                         content={"detail": "Invalid service token."},
@@ -1029,9 +1169,14 @@ def create_app(
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    @app.get("/ready")
+    async def ready() -> dict[str, str]:
+        return {"status": "ready", "auth_mode": resolved_auth_mode}
+
     @app.get("/metrics")
     async def metrics() -> PlainTextResponse:
         update_worker_runtime_metrics()
+        update_auth_runtime_metrics()
         return PlainTextResponse(
             metrics_registry.render_prometheus_text(),
             media_type="text/plain; version=0.0.4",

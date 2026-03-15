@@ -86,7 +86,7 @@ This repository now has a working end-to-end bootstrap aligned to the target arc
 - manual and config-driven account-transaction ingests now share the same retry-safe promotion path into DuckDB-backed marts and current-dimension views
 - explicit subscription and temporal contract-pricing domains now exist alongside transactions, including `mart_subscription_summary`, `mart_contract_price_current`, and `mart_electricity_price_current`
 
-The main remaining gaps are broader production hardening and non-interactive deployment polish. S3-compatible landing plus Postgres-backed control-plane/reporting backends now exist, local username/password auth remains available as the bootstrap or break-glass path, OIDC is supported for browser sign-in plus direct bearer-token API access, scoped service tokens now exist for automation consumers, the worker claims and processes queued dispatches continuously with lease renewal plus stale-dispatch recovery, and the web surface has a real Next.js shell that consumes the API only.
+The main remaining gaps are production rollout polish beyond the auth baseline that now exists. S3-compatible landing plus Postgres-backed control-plane/reporting backends are in place, local username/password auth remains available only as an explicit bootstrap or break-glass path, OIDC is the intended shared-deployment interactive mode, scoped service tokens exist for automation consumers, the worker claims and processes queued dispatches continuously with lease renewal plus stale-dispatch recovery, and the web surface has a real Next.js shell that consumes the API only.
 
 ## Run locally
 
@@ -112,14 +112,15 @@ Environment variables:
 - `HOMELAB_ANALYTICS_ANALYTICS_DATABASE_PATH` overrides the DuckDB warehouse path (default: `<data_dir>/analytics/warehouse.duckdb`)
 - `HOMELAB_ANALYTICS_BLOB_BACKEND` selects `filesystem` or `s3` for landed payload storage (default: `filesystem`)
 - `HOMELAB_ANALYTICS_S3_ENDPOINT_URL`, `HOMELAB_ANALYTICS_S3_BUCKET`, `HOMELAB_ANALYTICS_S3_REGION`, `HOMELAB_ANALYTICS_S3_ACCESS_KEY_ID`, `HOMELAB_ANALYTICS_S3_SECRET_ACCESS_KEY`, and `HOMELAB_ANALYTICS_S3_PREFIX` configure the S3/MinIO landing adapter when enabled
-- `HOMELAB_ANALYTICS_AUTH_MODE` selects `disabled`, `local`, or `oidc` authentication (default: `disabled`; Compose and Helm examples still use `local` for bootstrap/local development)
-- `HOMELAB_ANALYTICS_SESSION_SECRET` configures the signed app-session and OIDC state-cookie secret for cookie-backed auth modes
+- `HOMELAB_ANALYTICS_AUTH_MODE` selects `disabled`, `local`, or `oidc` authentication (default: `disabled`; the Compose example stays `local` for explicit break-glass/local development, while Helm defaults now use `oidc`)
+- `HOMELAB_ANALYTICS_SESSION_SECRET` configures the signed app-session and OIDC state-cookie secret for cookie-backed auth modes and is required for API/web startup when `auth_mode` is `local` or `oidc`
 - `HOMELAB_ANALYTICS_OIDC_ISSUER_URL`, `HOMELAB_ANALYTICS_OIDC_CLIENT_ID`, `HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET`, and `HOMELAB_ANALYTICS_OIDC_REDIRECT_URI` configure OIDC discovery, token exchange, and callback handling when `HOMELAB_ANALYTICS_AUTH_MODE=oidc`
 - `HOMELAB_ANALYTICS_OIDC_SCOPES` configures the authorization-request scopes (default: `openid,profile,email`)
 - `HOMELAB_ANALYTICS_OIDC_API_AUDIENCE` sets the accepted bearer-token audience for direct API clients (default: OIDC client ID)
 - `HOMELAB_ANALYTICS_OIDC_USERNAME_CLAIM` and `HOMELAB_ANALYTICS_OIDC_GROUPS_CLAIM` select the username and group claims used for app principals and role mapping
 - `HOMELAB_ANALYTICS_OIDC_READER_GROUPS`, `HOMELAB_ANALYTICS_OIDC_OPERATOR_GROUPS`, and `HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS` map OIDC groups into application roles; if none are configured, authenticated OIDC users default to `reader`
-- `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME` and `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD` optionally create the first local admin user at startup
+- `HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN` must be set to `true` before local bootstrap credentials are honored
+- `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME` and `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD` create the first local admin user only when `auth_mode=local` and `HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN=true`
 - `HOMELAB_ANALYTICS_AUTH_FAILURE_WINDOW_SECONDS`, `HOMELAB_ANALYTICS_AUTH_FAILURE_THRESHOLD`, and `HOMELAB_ANALYTICS_AUTH_LOCKOUT_SECONDS` tune bootstrap local-auth login lockout behavior
 - `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` keeps a temporary dev-only bypass for unauthenticated admin/control routes when needed (default: `false`)
 - `HOMELAB_ANALYTICS_EXTENSION_PATHS` adds custom import roots for external extension repositories or mounted code paths
@@ -194,10 +195,11 @@ That pattern keeps key product logic inside this repository while allowing custo
 
 Current execution surfaces:
 
-`/health` and `/metrics` stay public. In both local-auth and OIDC modes, `/runs*`, `/reports*`, `/transformation-audit`, `GET /control/source-lineage`, `GET /control/publication-audit`, and the Next.js dashboard/run-detail views require at least a `reader`; `/ingest*` requires `operator`; `/config/*`, `/control/auth-audit`, `/control/schedule-dispatches`, `/extensions`, `/sources`, `/landing/*`, `/transformations/*`, persisted-ingestion processing, `/auth/users*`, `/auth/service-tokens*`, and the `/control`, `/control/catalog`, and `/control/execution` admin pages require `admin`. Cookie-authenticated `POST` routes require a CSRF token, local login failures are rate-limited via control-plane auth audit history, OIDC browser login flows mint the same signed app session cookie through `/auth/login` and `/auth/callback`, and direct API clients can present either validated OIDC bearer JWTs or opaque `hst_...` service tokens on protected endpoints. Service tokens are scope-bound (`reports:read`, `runs:read`, `ingest:write`, `admin:write`) so automation can be limited without minting full browser identities. `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN=true` remains a temporary local/dev-only escape hatch that is not used by the Compose or Helm defaults.
+`/health`, `/ready`, and `/metrics` stay public. In both local-auth and OIDC modes, `/runs*`, `/reports*`, `/transformation-audit`, `GET /control/source-lineage`, `GET /control/publication-audit`, and the Next.js dashboard/run-detail views require at least a `reader`; `/ingest*` requires `operator`; `/config/*`, `/control/auth-audit`, `/control/schedule-dispatches`, `/extensions`, `/sources`, `/landing/*`, `/transformations/*`, persisted-ingestion processing, `/auth/users*`, `/auth/service-tokens*`, and the `/control`, `/control/catalog`, and `/control/execution` admin pages require `admin`. Cookie-authenticated `POST` routes require a CSRF token, local login failures are rate-limited via control-plane auth audit history, API/web startup now fail fast on incomplete auth config, OIDC browser login flows mint the same signed app session cookie through `/auth/login` and `/auth/callback`, and direct API clients can present either validated OIDC bearer JWTs or opaque `hst_...` service tokens on protected endpoints. Service tokens are scope-bound (`reports:read`, `runs:read`, `ingest:write`, `admin:write`) so automation can be limited without minting full browser identities, and `/metrics` now exports service-token state gauges alongside queue/runtime metrics. `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN=true` remains a temporary local/dev-only escape hatch that is not used by the Compose or Helm defaults.
 
 - `POST /landing/{extension_key}` for executable landing extensions
-- `GET /metrics` for Prometheus-compatible operational metrics, including queue depth, running/failed/stale dispatch gauges, recovered dispatch count, worker count, oldest heartbeat age, and failed-dispatch ratio
+- `GET /ready` for readiness checks once startup configuration validation has passed
+- `GET /metrics` for Prometheus-compatible operational metrics, including queue depth, running/failed/stale dispatch gauges, recovered dispatch count, worker count, oldest heartbeat age, failed-dispatch ratio, and service-token state gauges
 - `GET /runs/{run_id}` for run-detail inspection in the API and Next.js web shell
 - `POST /runs/{run_id}/retry` for operator retry of built-in and saved-binding configured runs
 - `GET /auth/me`, `GET|POST /auth/login`, `GET /auth/callback`, and `POST /auth/logout` for local or OIDC-backed session management
@@ -249,7 +251,7 @@ docker compose -f infra/examples/compose.yaml up --build
 docker compose -f infra/examples/compose.yaml run --rm worker ingest-account-transactions /data/input.csv
 ```
 
-The example Compose stack now includes Postgres and MinIO and configures the workloads to use them for control-plane state, published reporting reads, landed payload storage, bootstrap local auth, and the dedicated Next.js web image. DuckDB remains local to the shared `/data` volume as the transformation-layer store.
+The example Compose stack now includes Postgres and MinIO and configures the workloads to use them for control-plane state, published reporting reads, landed payload storage, explicit local break-glass auth, readiness checks, and the dedicated Next.js web image. DuckDB remains local to the shared `/data` volume as the transformation-layer store.
 `make compose-smoke` is the operator-facing startup check for that stack: it reuses the shared `homelab-analytics:latest` image when present, waits for API and web health, runs the worker CLI once, and then tears the stack down.
 The Compose services also now define container healthchecks for API and web, so runtime tooling can observe the same readiness contract the smoke target uses.
 The example stack pins third-party images as well, so release-ops verification is not silently tracking upstream `latest` tags.
@@ -269,4 +271,4 @@ helm install homelab-analytics charts/homelab-analytics
 
 The Helm verification gate now parses rendered manifests and asserts workload image/command wiring plus per-workload `secretEnvFrom` references, while also checking that chart output does not render inline credentials or Secret objects for the runtime stack.
 The chart also now includes `charts/homelab-analytics/values.runtime-secrets-example.yaml`, which demonstrates the intended Secret isolation split between API/web reporting access, shared bootstrap local-auth/session secrets, and worker landing/transformation access.
-The default chart values now enable `HOMELAB_ANALYTICS_AUTH_MODE=local`; runtime session/bootstrap admin values are expected to come from Secret references rather than inline chart values.
+The default chart values now enable `HOMELAB_ANALYTICS_AUTH_MODE=oidc`; API and web expect Secret-backed OIDC/session settings via `secretEnvFrom`, while local bootstrap admin credentials are no longer part of the shared-deployment default. Local auth remains available as an explicit break-glass override.

@@ -120,8 +120,8 @@ class ProjectMetadataTests(unittest.TestCase):
     def test_example_compose_defines_api_and_web_healthchecks(self) -> None:
         content = (ROOT / "infra" / "examples" / "compose.yaml").read_text()
 
-        self.assertIn("http://127.0.0.1:8080/health", content)
-        self.assertIn("http://127.0.0.1:8081/health", content)
+        self.assertIn("http://127.0.0.1:8080/ready", content)
+        self.assertIn("http://127.0.0.1:8081/ready", content)
         self.assertGreaterEqual(content.count("healthcheck:"), 3)
 
     def test_example_compose_enforces_release_ops_dependency_contract(self) -> None:
@@ -149,7 +149,7 @@ class ProjectMetadataTests(unittest.TestCase):
             self.assertEqual("5s", healthcheck["timeout"])
             self.assertEqual(12, healthcheck["retries"])
             self.assertIn(
-                f"http://127.0.0.1:{port}/health",
+                f"http://127.0.0.1:{port}/ready",
                 " ".join(healthcheck["test"]),
             )
 

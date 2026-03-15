@@ -15,7 +15,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** A standalone auth option is required before OIDC infrastructure is available, and as a break-glass fallback.
 
 **Phase:** 4
-**Status:** implemented (local-user storage exists in both SQLite and Postgres control-plane backends; API exposes `/auth/login`, `/auth/logout`, `/auth/me`, and admin user-management endpoints with signed session cookies, CSRF protection, and login lockout; auth events are recorded in control-plane audit data; the Next.js web shell authenticates through the API; worker CLI can still create/reset/list local users; Compose and Helm examples wire bootstrap local-auth secrets)
+**Status:** implemented (local-user storage exists in both SQLite and Postgres control-plane backends; API exposes `/auth/login`, `/auth/logout`, `/auth/me`, and admin user-management endpoints with signed session cookies, CSRF protection, and login lockout; auth events are recorded in control-plane audit data; API/web startup now fail fast on incomplete local-auth configuration; the Next.js web shell authenticates through the API; worker CLI can still create/reset/list local users; and bootstrap local-admin creation is now explicitly gated behind `HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN` so local auth remains a deliberate break-glass path)
 
 **Acceptance criteria:**
 - Username/password login endpoint issues a signed session cookie or JWT.
@@ -37,7 +37,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** OIDC provides centralized identity management for multi-service homelab environments.
 
 **Phase:** 4
-**Status:** implemented (OIDC settings are now supported through environment variables and Secret-backed runtime config; the API performs discovery, code exchange, signed callback/session handling, and JWT validation against issuer JWKS; the Next.js web shell proxies OIDC login and callback through the API while keeping the browser-facing auth surface on the web origin; protected API endpoints now accept validated OIDC bearer JWTs; and tests cover discovery/JWKS/token validation against a mock issuer)
+**Status:** implemented (OIDC settings are now supported through environment variables and Secret-backed runtime config; API/web startup fail fast when OIDC settings are incomplete; the API performs discovery, code exchange, signed callback/session handling, and JWT validation against issuer JWKS; the Next.js web shell proxies OIDC login and callback through the API while keeping the browser-facing auth surface on the web origin; protected API endpoints accept validated OIDC bearer JWTs; and the Helm shared-deployment defaults now assume OIDC rather than local auth)
 
 **Acceptance criteria:**
 - OIDC configuration via environment variables or Kubernetes Secret: issuer URL, client ID, client secret, redirect URI.
@@ -56,7 +56,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Automation systems need persistent credentials that do not require interactive login.
 
 **Phase:** 4
-**Status:** implemented (service tokens now live in the control plane for both SQLite and Postgres backends with hashed-secret storage, optional expiry, revocation, and last-used metadata; the API authenticates opaque `hst_...` bearer tokens before OIDC JWT validation, enforces route-to-scope checks, exposes admin create/list/revoke endpoints, and records service-token lifecycle events in auth audit history; the Next.js admin page can mint copy-once tokens and revoke them; and the worker CLI supports create/list/revoke plus snapshot import/export parity)
+**Status:** implemented (service tokens now live in the control plane for both SQLite and Postgres backends with hashed-secret storage, optional expiry, revocation, and last-used metadata; the API authenticates opaque `hst_...` bearer tokens before OIDC JWT validation, enforces route-to-scope checks, records failed-token attempts in auth audit history, exposes admin create/list/revoke endpoints, and exports service-token state gauges through `/metrics`; the Next.js admin page can mint copy-once tokens, show last-used and expiry warnings, and revoke them; and the worker CLI supports create/list/revoke plus snapshot import/export parity)
 
 **Acceptance criteria:**
 - Admin can create a named service token with an optional expiry and scope.
@@ -114,7 +114,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Least-privilege credential scoping limits blast radius of credential compromise.
 
 **Phase:** 4
-**Status:** in-progress (runtime workloads are split by role, deployment surfaces are distinct, secret references remain runtime-resolved, and the Helm chart now includes an example workload-specific Secret split for reporting/bootstrap-auth versus landing/transformation access; OIDC client credentials now follow the same Secret-backed pattern, while real least-privilege database credentials and full production isolation are still pending)
+**Status:** in-progress (runtime workloads are split by role, deployment surfaces are distinct, secret references remain runtime-resolved, and the Helm chart now defaults API/web to OIDC-specific Secret references while keeping local bootstrap credentials out of the shared-deployment default; OIDC client credentials follow the same Secret-backed pattern, while real least-privilege database credentials and full production isolation are still pending)
 
 **Acceptance criteria:**
 - Worker pods receive only landing-write and transformation-write credentials.

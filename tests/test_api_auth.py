@@ -67,6 +67,7 @@ def test_api_local_auth_login_logout_and_me() -> None:
         )
 
         assert client.get("/health").status_code == 200
+        assert client.get("/ready").status_code == 200
         assert client.get("/metrics").status_code == 200
         assert client.get("/runs").status_code == 401
 
@@ -357,6 +358,7 @@ def test_api_local_auth_supports_service_token_management_and_bearer_auth() -> N
         ]
         assert "service_token_created" in event_types
         assert "service_token_revoked" in event_types
+        assert "service_token_auth_failed" in event_types
 
 
 def test_api_service_tokens_enforce_scope_boundaries() -> None:

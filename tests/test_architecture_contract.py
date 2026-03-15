@@ -306,6 +306,7 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
         ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "callback" / "route.js"
     ).read_text()
     web_logout_route = (ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "logout" / "route.js").read_text()
+    web_ready_route = (ROOT / "apps" / "web" / "frontend" / "app" / "ready" / "route.js").read_text()
     web_service_token_route = (
         ROOT / "apps" / "web" / "frontend" / "app" / "control" / "service-tokens" / "route.js"
     ).read_text()
@@ -339,6 +340,7 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert '"/control/publication-audit"' in api_source
     assert '"/control/schedule-dispatches"' in api_source
     assert '"/control/operational-summary"' in api_source
+    assert '"/ready"' in api_source
     assert '"/runs/{run_id}/retry"' in api_source
     assert "auth_mode=resolved_settings.auth_mode" in api_main_source
     assert "session_manager=build_session_manager(resolved_settings)" in api_main_source
@@ -349,13 +351,16 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert 'backendRequest("/auth/login"' in web_login_route
     assert 'backendRequest(`/auth/callback${search}`' in web_callback_route
     assert 'backendRequest("/auth/logout"' in web_logout_route
+    assert 'status: "ready"' in web_ready_route
     assert 'outboundHeaders.set("x-csrf-token", csrfToken)' in web_backend_source
     assert "getLocalUsers" in web_control_page
     assert "getAuthAuditEvents" in web_control_page
+    assert "getOperationalSummary" in web_control_page
     assert "getServiceTokens" in web_control_page
     assert 'backendRequest("/auth/service-tokens"' in web_service_token_route
     assert "/auth/service-tokens/${params.tokenId}/revoke" in web_service_token_revoke_route
     assert 'fetch("/control/service-tokens"' in web_service_token_panel
+    assert "expiring soon" in web_service_token_panel
     assert "getSourceSystems" in web_control_catalog_page
     assert "getSourceAssets" in web_control_catalog_page
     assert "getDatasetContracts({ includeArchived: true })" in web_control_catalog_page

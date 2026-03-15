@@ -64,7 +64,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health').read()",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready').read()",
         ]
       interval: 5s
       timeout: 5s
@@ -111,7 +111,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:8081/health').then((r) => r.text()).then(() => process.exit(0)).catch(() => process.exit(1))",
+          "fetch('http://127.0.0.1:8081/ready').then((r) => r.text()).then(() => process.exit(0)).catch(() => process.exit(1))",
         ]
       interval: 5s
       timeout: 5s

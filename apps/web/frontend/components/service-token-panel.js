@@ -8,6 +8,7 @@ const SCOPE_OPTIONS = [
   { value: "ingest:write", label: "ingest:write" },
   { value: "admin:write", label: "admin:write" }
 ];
+const EXPIRING_SOON_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 function defaultScopesForRole(role) {
   if (role === "admin") {
@@ -17,6 +18,49 @@ function defaultScopesForRole(role) {
     return ["ingest:write", "runs:read", "reports:read"];
   }
   return ["reports:read"];
+}
+
+function parseTimestamp(value) {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isExpiringSoon(token) {
+  if (!token.expires_at || token.revoked || token.expired) {
+    return false;
+  }
+  const expiresAt = parseTimestamp(token.expires_at);
+  if (!expiresAt) {
+    return false;
+  }
+  return expiresAt.getTime() - Date.now() <= EXPIRING_SOON_WINDOW_MS;
+}
+
+function tokenStatusCopy(token) {
+  if (token.revoked) {
+    return "revoked";
+  }
+  if (token.expired) {
+    return "expired";
+  }
+  if (isExpiringSoon(token)) {
+    return "expiring soon";
+  }
+  return "active";
+}
+
+function tokenWarnings(token) {
+  const warnings = [];
+  if (isExpiringSoon(token)) {
+    warnings.push("Rotate soon: this token expires within 7 days.");
+  }
+  if (!token.revoked && !token.expired && !token.last_used_at) {
+    warnings.push("No usage recorded yet.");
+  }
+  return warnings;
 }
 
 export function ServiceTokenPanel({ initialTokens }) {
@@ -172,7 +216,16 @@ export function ServiceTokenPanel({ initialTokens }) {
         <div className="empty">No service tokens created yet.</div>
       ) : (
         <div className="stack compactStack">
-          {tokens.map((token) => (
+          {[...tokens]
+            .sort((left, right) => {
+              const leftPriority = left.revoked ? 2 : left.expired ? 1 : 0;
+              const rightPriority = right.revoked ? 2 : right.expired ? 1 : 0;
+              if (leftPriority !== rightPriority) {
+                return leftPriority - rightPriority;
+              }
+              return right.created_at.localeCompare(left.created_at);
+            })
+            .map((token) => (
             <section className="adminCard" key={token.token_id}>
               <div className="adminCardHeader">
                 <div>
@@ -182,7 +235,7 @@ export function ServiceTokenPanel({ initialTokens }) {
                   </div>
                 </div>
                 <span className="userBadge">
-                  {token.role} / {token.revoked ? "revoked" : token.expired ? "expired" : "active"}
+                  {token.role} / {tokenStatusCopy(token)}
                 </span>
               </div>
               <div className="metaGrid">
@@ -199,6 +252,15 @@ export function ServiceTokenPanel({ initialTokens }) {
                   <div>{token.expires_at || "never"}</div>
                 </div>
               </div>
+              {tokenWarnings(token).length > 0 ? (
+                <div className="stack compactStack">
+                  {tokenWarnings(token).map((warning) => (
+                    <div className="muted" key={warning}>
+                      {warning}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               {!token.revoked ? (
                 <div className="buttonRow">
                   <button

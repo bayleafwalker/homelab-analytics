@@ -86,12 +86,24 @@ class HelmChartTests(unittest.TestCase):
             api["spec"]["template"]["spec"]["containers"][0]["image"],
         )
         self.assertEqual(
+            "/health",
+            api["spec"]["template"]["spec"]["containers"][0]["livenessProbe"]["httpGet"]["path"],
+        )
+        self.assertEqual(
+            "/ready",
+            api["spec"]["template"]["spec"]["containers"][0]["readinessProbe"]["httpGet"]["path"],
+        )
+        self.assertEqual(
             ["homelab-analytics-api"],
             api["spec"]["template"]["spec"]["containers"][0]["command"],
         )
         self.assertEqual(
             "ghcr.io/bayleafwalker/homelab-analytics-web:2026.03.10",
             web["spec"]["template"]["spec"]["containers"][0]["image"],
+        )
+        self.assertEqual(
+            "/ready",
+            web["spec"]["template"]["spec"]["containers"][0]["readinessProbe"]["httpGet"]["path"],
         )
         self.assertNotIn(
             "command",
@@ -182,7 +194,7 @@ class HelmChartTests(unittest.TestCase):
             api_env_from,
         )
         self.assertIn(
-            {"secretRef": {"name": "homelab-analytics-auth-local"}},
+            {"secretRef": {"name": "homelab-analytics-auth-oidc"}},
             api_env_from,
         )
         self.assertEqual(api_env_from, web_env_from)
@@ -192,10 +204,6 @@ class HelmChartTests(unittest.TestCase):
         )
         self.assertIn(
             {"secretRef": {"name": "homelab-analytics-transformation-write"}},
-            worker_env_from,
-        )
-        self.assertIn(
-            {"secretRef": {"name": "homelab-analytics-auth-local"}},
             worker_env_from,
         )
         self.assertNotIn(

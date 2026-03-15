@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -7,7 +8,13 @@ from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
 from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.shared.auth import issue_service_token
 from packages.shared.metrics import metrics_registry
+from packages.storage.auth_store import (
+    SERVICE_TOKEN_SCOPE_REPORTS_READ,
+    ServiceTokenCreate,
+    UserRole,
+)
 from packages.storage.control_plane import WorkerHeartbeatCreate
 from packages.storage.ingestion_config import (
     IngestionConfigRepository,
@@ -48,9 +55,37 @@ def test_control_plane_api_exposes_schedules_lineage_audit_and_metrics() -> None
     metrics_registry.clear()
     try:
         with TemporaryDirectory() as temp_dir:
+            runtime_now = datetime.now(UTC)
             repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
             seeded = seed_source_asset_graph(repository)
             dispatch = repository.enqueue_due_execution_schedules(as_of=FIXED_DUE_AT)[0]
+            first_token = issue_service_token("token-dashboard-001")
+            repository.create_service_token(
+                ServiceTokenCreate(
+                    token_id=first_token.token_id,
+                    token_name="dashboard-reader",
+                    token_secret_hash=first_token.token_secret_hash,
+                    role=UserRole.READER,
+                    scopes=(SERVICE_TOKEN_SCOPE_REPORTS_READ,),
+                    expires_at=runtime_now + timedelta(days=2),
+                    created_at=FIXED_CREATED_AT,
+                )
+            )
+            second_token = issue_service_token("token-bot-002")
+            repository.create_service_token(
+                ServiceTokenCreate(
+                    token_id=second_token.token_id,
+                    token_name="automation-bot",
+                    token_secret_hash=second_token.token_secret_hash,
+                    role=UserRole.READER,
+                    scopes=(SERVICE_TOKEN_SCOPE_REPORTS_READ,),
+                    created_at=FIXED_CREATED_AT,
+                )
+            )
+            repository.record_service_token_use(
+                second_token.token_id,
+                used_at=runtime_now,
+            )
             service = AccountTransactionService(
                 landing_root=Path(temp_dir) / "landing",
                 metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
@@ -163,6 +198,11 @@ def test_control_plane_api_exposes_schedules_lineage_audit_and_metrics() -> None
             assert metrics_response.status_code == 200
             assert metrics_response.headers["content-type"].startswith("text/plain")
             assert "ingestion_runs_total 1" in metrics_response.text
+            assert "auth_service_tokens_total 2" in metrics_response.text
+            assert "auth_service_tokens_active 2" in metrics_response.text
+            assert "auth_service_tokens_expiring_7d 1" in metrics_response.text
+            assert "auth_service_tokens_never_used 1" in metrics_response.text
+            assert "auth_service_tokens_used_24h 1" in metrics_response.text
             assert "worker_queue_depth 1" in metrics_response.text
             assert "worker_running_dispatches 0" in metrics_response.text
             assert "worker_stale_dispatches 0" in metrics_response.text
@@ -197,6 +237,12 @@ def test_control_plane_api_exposes_schedules_lineage_audit_and_metrics() -> None
             assert summary_response.json()["queue"]["active_workers"] == 1
             assert summary_response.json()["queue"]["stale_running_dispatches"] == 0
             assert summary_response.json()["queue"]["recovered_dispatches"] == 0
+            assert summary_response.json()["auth"]["service_tokens"]["active"] == 2
+            assert (
+                summary_response.json()["auth"]["service_tokens"]["expiring_within_7d"]
+                == 1
+            )
+            assert summary_response.json()["auth"]["service_tokens"]["used_within_24h"] == 1
             assert summary_response.json()["workers"][0]["worker_id"] == "worker-alpha"
             assert "heartbeat_age_seconds" in summary_response.json()["workers"][0]
             assert summary_response.json()["recent_recovered_dispatches"] == []

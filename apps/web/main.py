@@ -4,11 +4,13 @@ import logging
 import subprocess
 
 from apps.web.app import build_web_command, build_web_environment, frontend_root
+from packages.shared.auth import validate_auth_configuration
 from packages.shared.logging import configure_logging
 from packages.shared.settings import AppSettings
 
 
 def build_runtime(settings: AppSettings) -> tuple[list[str], str, dict[str, str]]:
+    validate_auth_configuration(settings)
     return (
         build_web_command(settings),
         str(frontend_root()),
@@ -20,7 +22,14 @@ def main() -> int:
     settings = AppSettings.from_env()
     configure_logging()
     logger = logging.getLogger("homelab_analytics.web")
-    command, working_directory, environment = build_runtime(settings)
+    try:
+        command, working_directory, environment = build_runtime(settings)
+    except ValueError as exc:
+        logger.error(
+            "web startup configuration invalid",
+            extra={"auth_mode": settings.auth_mode, "error": str(exc)},
+        )
+        return 1
     logger.info(
         "web server starting",
         extra={

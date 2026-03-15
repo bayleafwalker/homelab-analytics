@@ -84,6 +84,34 @@ class WebMainTests(unittest.TestCase):
                 check=False,
             )
 
+    def test_build_runtime_rejects_oidc_without_required_settings(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="127.0.0.1",
+                api_port=8090,
+                api_base_url="http://api.internal:8090",
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+                auth_mode="oidc",
+                session_secret="session-secret",
+            )
+
+            with self.assertRaisesRegex(ValueError, "OIDC auth requires settings"):
+                build_runtime(settings)
+
 
 if __name__ == "__main__":
     unittest.main()

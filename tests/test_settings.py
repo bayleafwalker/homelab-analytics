@@ -72,6 +72,7 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual((), settings.oidc_reader_groups)
         self.assertEqual((), settings.oidc_operator_groups)
         self.assertEqual((), settings.oidc_admin_groups)
+        self.assertFalse(settings.enable_bootstrap_local_admin)
         self.assertIsNone(settings.bootstrap_admin_username)
         self.assertIsNone(settings.bootstrap_admin_password)
         self.assertEqual(900, settings.auth_failure_window_seconds)
@@ -216,6 +217,7 @@ class AppSettingsTests(unittest.TestCase):
                 "HOMELAB_ANALYTICS_OIDC_READER_GROUPS": "dash-readers",
                 "HOMELAB_ANALYTICS_OIDC_OPERATOR_GROUPS": "operators-a,operators-b",
                 "HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS": "platform-admins",
+                "HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN": "true",
                 "HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME": "admin",
                 "HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD": "admin-password",
                 "HOMELAB_ANALYTICS_AUTH_FAILURE_WINDOW_SECONDS": "600",
@@ -266,6 +268,7 @@ class AppSettingsTests(unittest.TestCase):
             settings.oidc_operator_groups,
         )
         self.assertEqual(("platform-admins",), settings.oidc_admin_groups)
+        self.assertTrue(settings.enable_bootstrap_local_admin)
         self.assertEqual("admin", settings.bootstrap_admin_username)
         self.assertEqual("admin-password", settings.bootstrap_admin_password)
         self.assertEqual(600, settings.auth_failure_window_seconds)

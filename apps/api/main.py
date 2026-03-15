@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import cast
 
 import uvicorn
@@ -15,6 +16,7 @@ from packages.shared.auth import (
     build_oidc_provider,
     build_session_manager,
     maybe_bootstrap_local_admin,
+    validate_auth_configuration,
 )
 from packages.shared.extensions import ExtensionRegistry, load_extension_registry
 from packages.shared.logging import configure_logging
@@ -96,6 +98,7 @@ def build_extension_registry(settings: AppSettings) -> ExtensionRegistry:
 
 def build_app(settings: AppSettings | None = None):
     resolved_settings = settings or AppSettings.from_env()
+    validate_auth_configuration(resolved_settings)
     config_store = build_config_store(resolved_settings)
     maybe_bootstrap_local_admin(config_store, resolved_settings)
     transformation_service = build_lazy_transformation_service(resolved_settings)
@@ -127,8 +130,17 @@ def build_app(settings: AppSettings | None = None):
 def main() -> int:
     settings = AppSettings.from_env()
     configure_logging()
+    logger = logging.getLogger("homelab_analytics.api")
+    try:
+        app = build_app(settings)
+    except ValueError as exc:
+        logger.error(
+            "api startup configuration invalid",
+            extra={"auth_mode": settings.auth_mode, "error": str(exc)},
+        )
+        return 1
     uvicorn.run(
-        build_app(settings),
+        app,
         host=settings.api_host,
         port=settings.api_port,
     )
