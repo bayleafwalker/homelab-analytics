@@ -8,6 +8,7 @@ from packages.pipelines.csv_validation import (
     ColumnType,
     DatasetContract,
 )
+from packages.pipelines.run_context import RunControlContext
 from packages.storage.blob import FilesystemBlobStore
 from packages.storage.landing_service import LandingService
 from packages.storage.run_metadata import IngestionRunStatus, RunMetadataRepository
@@ -141,6 +142,33 @@ class LandingServiceTests(unittest.TestCase):
                 "duplicate_file",
                 [issue.code for issue in second.validation.issues],
             )
+
+    def test_retry_context_is_persisted_and_bypasses_duplicate_detection(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            blob_store = FilesystemBlobStore(temp_root / "landing")
+            metadata_repository = RunMetadataRepository(temp_root / "runs.db")
+            service = LandingService(blob_store, metadata_repository)
+
+            first = service.ingest_csv_file(
+                source_path=FIXTURES / "account_transactions_valid.csv",
+                source_name="manual-upload",
+                contract=ACCOUNT_TRANSACTION_CONTRACT,
+            )
+            second = service.ingest_csv_file(
+                source_path=FIXTURES / "account_transactions_valid.csv",
+                source_name="manual-upload",
+                contract=ACCOUNT_TRANSACTION_CONTRACT,
+                run_context=RunControlContext(retry_of_run_id=first.run_id),
+            )
+
+            self.assertTrue(second.validation.passed)
+            self.assertNotIn(
+                "duplicate_file",
+                [issue.code for issue in second.validation.issues],
+            )
+            manifest = json.loads(Path(second.manifest_path).read_text())
+            self.assertEqual(first.run_id, manifest["context"]["retry_of_run_id"])
 
 
 if __name__ == "__main__":

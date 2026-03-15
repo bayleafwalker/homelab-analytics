@@ -35,7 +35,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Run visibility is essential for debugging, monitoring, and building the web UI ingestion history view.
 
 **Phase:** 1
-**Status:** implemented (`GET /runs` supports pagination via `limit`/`offset` query params and filtering by `dataset`, `status`, `from_date`, and `to_date`; response includes a `pagination` envelope with `total`, `limit`, and `offset`; `GET /runs/{id}` returns full run detail; `GET /sources` returns registered systems and assets; OpenAPI docs available at `/docs`; tests verify response shape and filtering)
+**Status:** implemented (`GET /runs` supports pagination via `limit`/`offset` query params and filtering by `dataset`, `status`, `from_date`, and `to_date`; response includes a `pagination` envelope with `total`, `limit`, and `offset`; `GET /runs/{id}` now returns full run detail plus saved control-plane context and retry capability metadata; `POST /runs/{id}/retry` replays built-in and saved-binding configured runs; `GET /sources` returns registered systems and assets; OpenAPI docs available at `/docs`; tests verify response shape, filtering, retry, and operational-summary contracts)
 
 **Acceptance criteria:**
 - `GET /runs` returns paginated run list with filtering by dataset, status, and date range.
@@ -112,7 +112,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Visibility into ingestion status builds trust in the data and enables self-service troubleshooting.
 
 **Phase:** 2
-**Status:** implemented (the Next.js shell now exposes run history with dataset/status/date filters plus run-detail views backed by the API, including validation, transformation audit, source lineage, and publication audit drill-down)
+**Status:** implemented (the Next.js shell now exposes run history with dataset/status/date filters plus run-detail views backed by the API, including validation, saved control-plane context, retry actions, transformation audit, source lineage, and publication audit drill-down)
 
 **Acceptance criteria:**
 - Run list page shows recent runs with status badges.
@@ -148,7 +148,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Configuration-driven onboarding needs a management surface for non-developer users.
 
 **Phase:** 4
-**Status:** implemented (the Next.js admin surface now supports source-system and source-asset create/edit/deactivate flows, ingestion-definition and execution-schedule management, dataset-contract and column-mapping version creation, archive/delete lifecycle for source assets, ingestion definitions, and schedules, archived-version lifecycle for versioned config entities, dependency visibility for archived-but-still-bound config, and saved mapping preview against sample CSV through the API)
+**Status:** implemented (the Next.js admin surface now supports source-system and source-asset create/edit/deactivate flows, ingestion-definition and execution-schedule management, dataset-contract and column-mapping version creation, archive/delete lifecycle for source assets, ingestion definitions, and schedules, archived-version lifecycle for versioned config entities, dependency visibility for archived-but-still-bound config, saved mapping preview against sample CSV through the API, and version diffs plus operational impact summaries for contracts, mappings, and bound assets)
 
 **Acceptance criteria:**
 - List, create, edit, and deactivate source systems.
@@ -184,7 +184,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Schedule visibility and control reduce operational burden.
 
 **Phase:** 4
-**Status:** in-progress (the Next.js execution-control view now lists schedules, supports create/edit/pause behavior through the API, can enqueue due or manual schedule dispatches, and now includes archive/delete lifecycle plus dependency and dispatch-history visibility; last-run summaries are still pending)
+**Status:** implemented (the Next.js execution-control view now lists schedules, supports create/edit/pause behavior through the API, can enqueue due or manual schedule dispatches, includes archive/delete lifecycle plus dependency and dispatch-history visibility, surfaces last-run and freshness summaries for assets/definitions/schedules, links into dispatch drill-down, and highlights recent failed runs and queue issues)
 
 **Acceptance criteria:**
 - List active schedules with next-run time and last-run status.

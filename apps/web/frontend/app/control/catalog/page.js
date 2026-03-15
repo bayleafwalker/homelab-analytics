@@ -6,9 +6,12 @@ import { ControlNav } from "@/components/control-nav";
 import { MappingPreviewPanel } from "@/components/mapping-preview-panel";
 import {
   getColumnMappings,
+  getColumnMappingDiff,
   getCurrentUser,
+  getDatasetContractDiff,
   getDatasetContracts,
   getIngestionDefinitions,
+  getOperationalSummary,
   getSourceAssets,
   getSourceSystems,
   getTransformationPackages
@@ -107,6 +110,10 @@ function referenceSummary(records, field) {
   return `${values.slice(0, 3).join(", ")} +${values.length - 3} more`;
 }
 
+function summaryFor(summaryMap, key) {
+  return (summaryMap && key && summaryMap[key]) || null;
+}
+
 function resolveContractDraft(datasetContracts, cloneId) {
   const cloned = datasetContracts.find((record) => record.dataset_contract_id === cloneId);
   if (!cloned) {
@@ -155,20 +162,35 @@ export default async function ControlCatalogPage({ searchParams }) {
     redirect("/");
   }
 
+  const contractLeftId = searchParams?.contract_left || "";
+  const contractRightId = searchParams?.contract_right || "";
+  const mappingLeftId = searchParams?.mapping_left || "";
+  const mappingRightId = searchParams?.mapping_right || "";
+
   const [
     sourceSystems,
     datasetContracts,
     columnMappings,
     transformationPackages,
     sourceAssets,
-    ingestionDefinitions
+    ingestionDefinitions,
+    operationalSummary,
+    contractDiff,
+    mappingDiff
   ] = await Promise.all([
     getSourceSystems(),
     getDatasetContracts({ includeArchived: true }),
     getColumnMappings({ includeArchived: true }),
     getTransformationPackages(),
     getSourceAssets({ includeArchived: true }),
-    getIngestionDefinitions({ includeArchived: true })
+    getIngestionDefinitions({ includeArchived: true }),
+    getOperationalSummary(),
+    contractLeftId && contractRightId && contractLeftId !== contractRightId
+      ? getDatasetContractDiff(contractLeftId, contractRightId)
+      : Promise.resolve(null),
+    mappingLeftId && mappingRightId && mappingLeftId !== mappingRightId
+      ? getColumnMappingDiff(mappingLeftId, mappingRightId)
+      : Promise.resolve(null)
   ]);
 
   const activeSourceSystems = sourceSystems.filter((record) => record.enabled);
@@ -616,6 +638,220 @@ export default async function ControlCatalogPage({ searchParams }) {
           )}
         </article>
 
+        <section className="layout">
+          <article className="panel section">
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">Versioning</div>
+                <h2>Compare dataset contracts</h2>
+              </div>
+            </div>
+            <form className="formGrid threeCol" method="get">
+              <div className="field">
+                <label htmlFor="contract-left">Left version</label>
+                <select id="contract-left" name="contract_left" defaultValue={contractLeftId}>
+                  <option value="">Select contract</option>
+                  {datasetContracts.map((record) => (
+                    <option key={record.dataset_contract_id} value={record.dataset_contract_id}>
+                      {optionLabel(record.dataset_contract_id, record.version, record.archived)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="contract-right">Right version</label>
+                <select id="contract-right" name="contract_right" defaultValue={contractRightId}>
+                  <option value="">Select contract</option>
+                  {datasetContracts.map((record) => (
+                    <option key={record.dataset_contract_id} value={record.dataset_contract_id}>
+                      {optionLabel(record.dataset_contract_id, record.version, record.archived)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="buttonRow">
+                <button className="primaryButton inlineButton" type="submit">
+                  Compare contracts
+                </button>
+              </div>
+            </form>
+            {contractDiff ? (
+              <div className="stack">
+                <div className="muted">
+                  Comparing {contractDiff.left_id} to {contractDiff.right_id}.
+                </div>
+                <div className="metaGrid">
+                  <div className="metaItem">
+                    <div className="metricLabel">Field changes</div>
+                    <div>{contractDiff.field_changes.length}</div>
+                  </div>
+                  <div className="metaItem">
+                    <div className="metricLabel">Added columns</div>
+                    <div>{contractDiff.column_changes.added.length}</div>
+                  </div>
+                  <div className="metaItem">
+                    <div className="metricLabel">Removed columns</div>
+                    <div>{contractDiff.column_changes.removed.length}</div>
+                  </div>
+                  <div className="metaItem">
+                    <div className="metricLabel">Changed columns</div>
+                    <div>{contractDiff.column_changes.changed.length}</div>
+                  </div>
+                </div>
+                <div className="tableWrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Change</th>
+                        <th>Left</th>
+                        <th>Right</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {contractDiff.field_changes.map((change) => (
+                        <tr key={`contract-field-${change.field}`}>
+                          <td>{change.field}</td>
+                          <td>{String(change.left)}</td>
+                          <td>{String(change.right)}</td>
+                        </tr>
+                      ))}
+                      {contractDiff.column_changes.added.map((column) => (
+                        <tr key={`contract-added-${column.name}`}>
+                          <td>{column.name} added</td>
+                          <td>n/a</td>
+                          <td>{`${column.type} / ${column.required ? "required" : "optional"}`}</td>
+                        </tr>
+                      ))}
+                      {contractDiff.column_changes.removed.map((column) => (
+                        <tr key={`contract-removed-${column.name}`}>
+                          <td>{column.name} removed</td>
+                          <td>{`${column.type} / ${column.required ? "required" : "optional"}`}</td>
+                          <td>n/a</td>
+                        </tr>
+                      ))}
+                      {contractDiff.column_changes.changed.map((change) => (
+                        <tr key={`contract-changed-${change.name}`}>
+                          <td>{change.name} changed</td>
+                          <td>{`${change.left.type} / ${change.left.required ? "required" : "optional"}`}</td>
+                          <td>{`${change.right.type} / ${change.right.required ? "required" : "optional"}`}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="muted">Select two contract versions to preview the schema diff.</div>
+            )}
+          </article>
+
+          <article className="panel section">
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">Versioning</div>
+                <h2>Compare column mappings</h2>
+              </div>
+            </div>
+            <form className="formGrid threeCol" method="get">
+              <div className="field">
+                <label htmlFor="mapping-left">Left version</label>
+                <select id="mapping-left" name="mapping_left" defaultValue={mappingLeftId}>
+                  <option value="">Select mapping</option>
+                  {columnMappings.map((record) => (
+                    <option key={record.column_mapping_id} value={record.column_mapping_id}>
+                      {optionLabel(record.column_mapping_id, record.version, record.archived)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="mapping-right">Right version</label>
+                <select id="mapping-right" name="mapping_right" defaultValue={mappingRightId}>
+                  <option value="">Select mapping</option>
+                  {columnMappings.map((record) => (
+                    <option key={record.column_mapping_id} value={record.column_mapping_id}>
+                      {optionLabel(record.column_mapping_id, record.version, record.archived)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="buttonRow">
+                <button className="primaryButton inlineButton" type="submit">
+                  Compare mappings
+                </button>
+              </div>
+            </form>
+            {mappingDiff ? (
+              <div className="stack">
+                <div className="muted">
+                  Comparing {mappingDiff.left_id} to {mappingDiff.right_id}.
+                </div>
+                <div className="metaGrid">
+                  <div className="metaItem">
+                    <div className="metricLabel">Field changes</div>
+                    <div>{mappingDiff.field_changes.length}</div>
+                  </div>
+                  <div className="metaItem">
+                    <div className="metricLabel">Added rules</div>
+                    <div>{mappingDiff.rule_changes.added.length}</div>
+                  </div>
+                  <div className="metaItem">
+                    <div className="metricLabel">Removed rules</div>
+                    <div>{mappingDiff.rule_changes.removed.length}</div>
+                  </div>
+                  <div className="metaItem">
+                    <div className="metricLabel">Changed rules</div>
+                    <div>{mappingDiff.rule_changes.changed.length}</div>
+                  </div>
+                </div>
+                <div className="tableWrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Change</th>
+                        <th>Left</th>
+                        <th>Right</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {mappingDiff.field_changes.map((change) => (
+                        <tr key={`mapping-field-${change.field}`}>
+                          <td>{change.field}</td>
+                          <td>{String(change.left)}</td>
+                          <td>{String(change.right)}</td>
+                        </tr>
+                      ))}
+                      {mappingDiff.rule_changes.added.map((rule) => (
+                        <tr key={`mapping-added-${rule.target_column}`}>
+                          <td>{rule.target_column} added</td>
+                          <td>n/a</td>
+                          <td>{rule.source_column || rule.default_value || "n/a"}</td>
+                        </tr>
+                      ))}
+                      {mappingDiff.rule_changes.removed.map((rule) => (
+                        <tr key={`mapping-removed-${rule.target_column}`}>
+                          <td>{rule.target_column} removed</td>
+                          <td>{rule.source_column || rule.default_value || "n/a"}</td>
+                          <td>n/a</td>
+                        </tr>
+                      ))}
+                      {mappingDiff.rule_changes.changed.map((change) => (
+                        <tr key={`mapping-changed-${change.target_column}`}>
+                          <td>{change.target_column} changed</td>
+                          <td>{change.left.source_column || change.left.default_value || "n/a"}</td>
+                          <td>{change.right.source_column || change.right.default_value || "n/a"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="muted">Select two mapping versions to preview rule changes.</div>
+            )}
+          </article>
+        </section>
+
         <article className="panel section">
           <div className="sectionHeader">
             <div>
@@ -751,6 +987,10 @@ export default async function ControlCatalogPage({ searchParams }) {
                   : null;
                 const sourceAssetDefinitions =
                   ingestionDefinitionsBySourceAssetId.get(record.source_asset_id) || [];
+                const sourceAssetSummary = summaryFor(
+                  operationalSummary.source_assets,
+                  record.source_asset_id
+                );
                 return (
                   <article className="entityCard" key={record.source_asset_id}>
                     <div className="entityHeader">
@@ -810,6 +1050,20 @@ export default async function ControlCatalogPage({ searchParams }) {
                           {datasetContract?.archived || columnMapping?.archived
                             ? "This asset is still bound to archived contract or mapping versions."
                             : "Bindings are on active contract and mapping versions."}
+                        </div>
+                      </div>
+                      <div className="metaItem">
+                        <div className="metricLabel">Observed runs</div>
+                        <div>{sourceAssetSummary?.run_count || 0}</div>
+                        <div className="muted">
+                          Last success {sourceAssetSummary?.last_success_at || "n/a"}
+                        </div>
+                      </div>
+                      <div className="metaItem">
+                        <div className="metricLabel">Archive impact</div>
+                        <div>{sourceAssetSummary?.failed_run_count || 0} failed runs</div>
+                        <div className="muted">
+                          Last failure {sourceAssetSummary?.last_failure_at || "n/a"}
                         </div>
                       </div>
                       <div className="metaItem spanTwo">
@@ -985,6 +1239,10 @@ export default async function ControlCatalogPage({ searchParams }) {
                 {datasetContracts.map((record) => {
                   const boundSourceAssets =
                     sourceAssetsByContractId.get(record.dataset_contract_id) || [];
+                  const contractSummary = summaryFor(
+                    operationalSummary.dataset_contracts,
+                    record.dataset_contract_id
+                  );
                   return (
                   <article className="entityCard" key={record.dataset_contract_id}>
                     <div className="entityHeader">
@@ -1015,11 +1273,18 @@ export default async function ControlCatalogPage({ searchParams }) {
                         </div>
                       </div>
                       <div className="metaItem">
+                        <div className="metricLabel">Observed runs</div>
+                        <div>{contractSummary?.run_count || 0}</div>
+                        <div className="muted">
+                          Last success {contractSummary?.last_success_at || "n/a"}
+                        </div>
+                      </div>
+                      <div className="metaItem">
                         <div className="metricLabel">Archive impact</div>
                         <div className="muted">
                           {record.archived && boundSourceAssets.length > 0
                             ? "Archived version is still referenced by active control-plane bindings."
-                            : "No bound source assets depend on this version."}
+                            : `Last failure ${contractSummary?.last_failure_at || "n/a"}`}
                         </div>
                       </div>
                       <div className="metaItem spanTwo">
@@ -1070,6 +1335,10 @@ export default async function ControlCatalogPage({ searchParams }) {
                   {columnMappings.map((record) => {
                     const boundSourceAssets =
                       sourceAssetsByMappingId.get(record.column_mapping_id) || [];
+                    const mappingSummary = summaryFor(
+                      operationalSummary.column_mappings,
+                      record.column_mapping_id
+                    );
                     return (
                     <article className="entityCard" key={record.column_mapping_id}>
                       <div className="entityHeader">
@@ -1102,11 +1371,18 @@ export default async function ControlCatalogPage({ searchParams }) {
                           </div>
                         </div>
                         <div className="metaItem">
+                          <div className="metricLabel">Observed runs</div>
+                          <div>{mappingSummary?.run_count || 0}</div>
+                          <div className="muted">
+                            Last success {mappingSummary?.last_success_at || "n/a"}
+                          </div>
+                        </div>
+                        <div className="metaItem">
                           <div className="metricLabel">Archive impact</div>
                           <div className="muted">
                             {record.archived && boundSourceAssets.length > 0
                               ? "Archived version is still referenced by saved source assets."
-                              : "No bound source assets depend on this version."}
+                              : `Last failure ${mappingSummary?.last_failure_at || "n/a"}`}
                           </div>
                         </div>
                         <div className="metaItem spanTwo">

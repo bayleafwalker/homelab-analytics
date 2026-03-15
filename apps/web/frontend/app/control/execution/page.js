@@ -7,6 +7,7 @@ import {
   getCurrentUser,
   getExecutionSchedules,
   getIngestionDefinitions,
+  getOperationalSummary,
   getPublicationAudit,
   getScheduleDispatches,
   getSourceAssets,
@@ -97,6 +98,10 @@ function referenceSummary(records, field) {
   return `${values.slice(0, 3).join(", ")} +${values.length - 3} more`;
 }
 
+function summaryFor(summaryMap, key) {
+  return (summaryMap && key && summaryMap[key]) || null;
+}
+
 export default async function ControlExecutionPage({ searchParams }) {
   const user = await getCurrentUser();
   if (user.role !== "admin") {
@@ -109,14 +114,16 @@ export default async function ControlExecutionPage({ searchParams }) {
     executionSchedules,
     sourceLineage,
     publicationAudit,
-    scheduleDispatches
+    scheduleDispatches,
+    operationalSummary
   ] = await Promise.all([
     getSourceAssets({ includeArchived: true }),
     getIngestionDefinitions({ includeArchived: true }),
     getExecutionSchedules({ includeArchived: true }),
     getSourceLineage(),
     getPublicationAudit(),
-    getScheduleDispatches()
+    getScheduleDispatches(),
+    getOperationalSummary()
   ]);
   const activeSourceAssets = sourceAssets.filter(
     (record) => record.enabled && !record.archived
@@ -141,6 +148,8 @@ export default async function ControlExecutionPage({ searchParams }) {
   const notice = noticeCopy(searchParams?.notice);
   const error = errorCopy(searchParams?.error);
   const enqueuedDispatches = scheduleDispatches.filter((record) => record.status === "enqueued");
+  const failedDispatches = operationalSummary.recent_failed_dispatches || [];
+  const failedRuns = operationalSummary.recent_failed_runs || [];
 
   return (
     <AppShell
@@ -171,8 +180,102 @@ export default async function ControlExecutionPage({ searchParams }) {
             <div className="metricValue">{enqueuedDispatches.length}</div>
           </article>
           <article className="panel metricCard">
-            <div className="metricLabel">Publication records</div>
-            <div className="metricValue">{publicationAudit.length}</div>
+            <div className="metricLabel">Failed runs / dispatches</div>
+            <div className="metricValue">
+              {failedRuns.length} / {failedDispatches.length}
+            </div>
+            <div className="muted">Latest queue and retry problems.</div>
+          </article>
+        </section>
+
+        <section className="layout">
+          <article className="panel section">
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">Recovery</div>
+                <h2>Recent failed runs</h2>
+              </div>
+            </div>
+            {failedRuns.length === 0 ? (
+              <div className="empty">No failed or rejected runs recorded in the current summary.</div>
+            ) : (
+              <div className="tableWrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Run</th>
+                      <th>Status</th>
+                      <th>Dataset</th>
+                      <th>Definition</th>
+                      <th>Failure</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {failedRuns.slice(0, 8).map((run) => (
+                      <tr key={run.run_id}>
+                        <td>
+                          <Link className="inlineLink" href={`/runs/${run.run_id}`}>
+                            {run.run_id}
+                          </Link>
+                        </td>
+                        <td>
+                          <span className={`statusPill status-${run.status}`}>{run.status}</span>
+                        </td>
+                        <td>{run.dataset_name}</td>
+                        <td>{run.context?.ingestion_definition_id || "manual / n/a"}</td>
+                        <td>{run.issues?.[0]?.message || run.recovery?.reason || "n/a"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </article>
+
+          <article className="panel section">
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">Queue</div>
+                <h2>Recent failed dispatches</h2>
+              </div>
+            </div>
+            {failedDispatches.length === 0 ? (
+              <div className="empty">No failed schedule dispatches recorded.</div>
+            ) : (
+              <div className="tableWrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Dispatch</th>
+                      <th>Schedule</th>
+                      <th>Status</th>
+                      <th>Enqueued</th>
+                      <th>Completed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {failedDispatches.slice(0, 8).map((record) => (
+                      <tr key={record.dispatch_id}>
+                        <td>
+                          <Link
+                            className="inlineLink"
+                            href={`/control/execution/dispatches/${record.dispatch_id}`}
+                          >
+                            {record.dispatch_id}
+                          </Link>
+                        </td>
+                        <td>{record.schedule_id}</td>
+                        <td>
+                          <span className={`statusPill status-${record.status}`}>{record.status}</span>
+                        </td>
+                        <td>{record.enqueued_at}</td>
+                        <td>{record.completed_at || "n/a"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </article>
         </section>
 
@@ -404,6 +507,10 @@ export default async function ControlExecutionPage({ searchParams }) {
                 const sourceAsset = sourceAssetById.get(record.source_asset_id);
                 const dependentSchedules =
                   executionSchedulesByTargetRef.get(record.ingestion_definition_id) || [];
+                const definitionSummary = summaryFor(
+                  operationalSummary.ingestion_definitions,
+                  record.ingestion_definition_id
+                );
                 return (
                 <article className="entityCard" key={record.ingestion_definition_id}>
                   <div className="entityHeader">
@@ -446,6 +553,20 @@ export default async function ControlExecutionPage({ searchParams }) {
                       <div>{dependentSchedules.length}</div>
                       <div className="muted">
                         {referenceSummary(dependentSchedules, "schedule_id")}
+                      </div>
+                    </div>
+                    <div className="metaItem">
+                      <div className="metricLabel">Observed runs</div>
+                      <div>{definitionSummary?.run_count || 0}</div>
+                      <div className="muted">
+                        Last success {definitionSummary?.last_success_at || "n/a"}
+                      </div>
+                    </div>
+                    <div className="metaItem">
+                      <div className="metricLabel">Failure state</div>
+                      <div>{definitionSummary?.failed_run_count || 0} failed runs</div>
+                      <div className="muted">
+                        Last failure {definitionSummary?.last_failure_at || "n/a"}
                       </div>
                     </div>
                     <div className="metaItem spanTwo">
@@ -649,6 +770,10 @@ export default async function ControlExecutionPage({ searchParams }) {
                     : null;
                 const scheduleDispatchHistory =
                   scheduleDispatchesByScheduleId.get(record.schedule_id) || [];
+                const scheduleSummary = summaryFor(
+                  operationalSummary.execution_schedules,
+                  record.schedule_id
+                );
                 return (
                 <article className="entityCard" key={record.schedule_id}>
                   <div className="entityHeader">
@@ -699,6 +824,20 @@ export default async function ControlExecutionPage({ searchParams }) {
                       <div>{scheduleDispatchHistory.length}</div>
                       <div className="muted">
                         {referenceSummary(scheduleDispatchHistory, "dispatch_id")}
+                      </div>
+                    </div>
+                    <div className="metaItem">
+                      <div className="metricLabel">Observed runs</div>
+                      <div>{scheduleSummary?.run_count || 0}</div>
+                      <div className="muted">
+                        Last success {scheduleSummary?.last_success_at || "n/a"}
+                      </div>
+                    </div>
+                    <div className="metaItem">
+                      <div className="metricLabel">Queue problems</div>
+                      <div>{scheduleSummary?.failed_dispatch_count || 0} failed dispatches</div>
+                      <div className="muted">
+                        Last failure {scheduleSummary?.last_failed_dispatch_at || "n/a"}
                       </div>
                     </div>
                   </div>
@@ -847,7 +986,14 @@ export default async function ControlExecutionPage({ searchParams }) {
                   <tbody>
                     {scheduleDispatches.slice(0, 20).map((record) => (
                       <tr key={record.dispatch_id}>
-                        <td>{record.dispatch_id}</td>
+                        <td>
+                          <Link
+                            className="inlineLink"
+                            href={`/control/execution/dispatches/${record.dispatch_id}`}
+                          >
+                            {record.dispatch_id}
+                          </Link>
+                        </td>
                         <td>{record.schedule_id}</td>
                         <td>
                           <span className={`statusPill status-${record.status}`}>{record.status}</span>

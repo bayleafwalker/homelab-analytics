@@ -132,11 +132,25 @@ export async function getDatasetContracts({ includeArchived = false } = {}) {
   return payload.dataset_contracts || [];
 }
 
+export async function getDatasetContractDiff(leftId, rightId) {
+  const payload = await backendJson(
+    `/config/dataset-contracts/${leftId}/diff${buildQuery({ other_id: rightId })}`
+  );
+  return payload.diff;
+}
+
 export async function getColumnMappings({ includeArchived = false } = {}) {
   const payload = await backendJson(
     `/config/column-mappings${buildQuery({ include_archived: includeArchived })}`
   );
   return payload.column_mappings || [];
+}
+
+export async function getColumnMappingDiff(leftId, rightId) {
+  const payload = await backendJson(
+    `/config/column-mappings/${leftId}/diff${buildQuery({ other_id: rightId })}`
+  );
+  return payload.diff;
 }
 
 export async function getTransformationPackages() {
@@ -204,6 +218,15 @@ export async function getScheduleDispatches({ scheduleId, status } = {}) {
     })}`
   );
   return payload.dispatches || [];
+}
+
+export async function getScheduleDispatch(dispatchId) {
+  const payload = await backendJson(`/control/schedule-dispatches/${dispatchId}`);
+  return payload;
+}
+
+export async function getOperationalSummary() {
+  return backendJson("/control/operational-summary");
 }
 
 export async function getTransformationAudit(runId) {

@@ -13,9 +13,27 @@ function noticeCopy(notice) {
   switch (notice) {
     case "upload-created":
       return "Upload received. Review validation, lineage, and publication state below.";
+    case "retry-created":
+      return "Retry landed successfully. Review the new run context and downstream state below.";
     default:
       return "";
   }
+}
+
+function errorCopy(error) {
+  switch (error) {
+    case "retry-failed":
+      return "Could not retry this run. Check the saved binding context and source-asset state.";
+    default:
+      return "";
+  }
+}
+
+function contextEntries(context) {
+  if (!context) {
+    return [];
+  }
+  return Object.entries(context).filter(([, value]) => Boolean(value));
 }
 
 export default async function RunDetailPage({ params, searchParams }) {
@@ -30,6 +48,10 @@ export default async function RunDetailPage({ params, searchParams }) {
   const transformationAuditColumns =
     transformationAudit.length > 0 ? Object.keys(transformationAudit[0]) : [];
   const notice = noticeCopy(searchParams?.notice);
+  const error = errorCopy(searchParams?.error);
+  const contextRows = contextEntries(run.context);
+  const retrySupported = Boolean(run.recovery?.retry_supported);
+  const canRetry = retrySupported && user.role !== "reader";
 
   return (
     <AppShell
@@ -37,14 +59,22 @@ export default async function RunDetailPage({ params, searchParams }) {
       user={user}
       title="Run Detail"
       eyebrow="Reader Access"
-      lede="Run detail stays API-backed so operators can inspect validation, transformation lineage, and publication outcomes without exposing warehouse internals in the web workload."
+      lede="Run detail stays API-backed so operators can inspect validation, transformation lineage, publication outcomes, and retry context without exposing warehouse internals in the web workload."
     >
       <section className="stack">
         {notice ? <div className="successBanner">{notice}</div> : null}
+        {error ? <div className="errorBanner">{error}</div> : null}
         <div className="buttonRow">
           <Link className="ghostButton" href="/runs">
             Back to runs
           </Link>
+          {canRetry ? (
+            <form action={`/runs/${run.run_id}/retry`} method="post">
+              <button className="primaryButton inlineButton" type="submit">
+                Retry run
+              </button>
+            </form>
+          ) : null}
         </div>
 
         <article className="panel section">
@@ -92,10 +122,39 @@ export default async function RunDetailPage({ params, searchParams }) {
               <div className="metricLabel">SHA-256</div>
               <div className="muted">{run.sha256}</div>
             </div>
+            <div className="metaItem spanTwo">
+              <div className="metricLabel">Recovery</div>
+              <div className="muted">
+                {retrySupported
+                  ? `Retry supported via ${run.recovery.retry_kind}.`
+                  : run.recovery?.reason || "Retry metadata is not available for this run."}
+              </div>
+            </div>
           </div>
         </article>
 
         <section className="layout">
+          <article className="panel section">
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">Control Plane</div>
+                <h2>Saved run context</h2>
+              </div>
+            </div>
+            {contextRows.length === 0 ? (
+              <div className="empty">No control-plane binding context was recorded for this run.</div>
+            ) : (
+              <div className="metaGrid">
+                {contextRows.map(([key, value]) => (
+                  <div className="metaItem" key={key}>
+                    <div className="metricLabel">{key.replaceAll("_", " ")}</div>
+                    <div>{value}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </article>
+
           <article className="panel section">
             <div className="sectionHeader">
               <div>
@@ -130,7 +189,9 @@ export default async function RunDetailPage({ params, searchParams }) {
               </div>
             )}
           </article>
+        </section>
 
+        <section className="layout">
           <article className="panel section">
             <div className="sectionHeader">
               <div>
@@ -151,9 +212,7 @@ export default async function RunDetailPage({ params, searchParams }) {
               </div>
             )}
           </article>
-        </section>
 
-        <section className="layout">
           <article className="panel section">
             <div className="sectionHeader">
               <div>
@@ -188,7 +247,9 @@ export default async function RunDetailPage({ params, searchParams }) {
               </div>
             )}
           </article>
+        </section>
 
+        <section className="layout">
           <article className="panel section">
             <div className="sectionHeader">
               <div>
@@ -221,42 +282,42 @@ export default async function RunDetailPage({ params, searchParams }) {
               </div>
             )}
           </article>
-        </section>
 
-        <article className="panel section">
-          <div className="sectionHeader">
-            <div>
-              <div className="eyebrow">Publication</div>
-              <h2>Published relations</h2>
+          <article className="panel section">
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">Publication</div>
+                <h2>Published relations</h2>
+              </div>
             </div>
-          </div>
-          {publicationAudit.length === 0 ? (
-            <div className="empty">No publication audit rows recorded for this run.</div>
-          ) : (
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Publication</th>
-                    <th>Relation</th>
-                    <th>Status</th>
-                    <th>Published at</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {publicationAudit.map((record) => (
-                    <tr key={record.publication_audit_id}>
-                      <td>{record.publication_key}</td>
-                      <td>{record.relation_name}</td>
-                      <td>{record.status}</td>
-                      <td>{record.published_at}</td>
+            {publicationAudit.length === 0 ? (
+              <div className="empty">No publication audit rows recorded for this run.</div>
+            ) : (
+              <div className="tableWrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Publication</th>
+                      <th>Relation</th>
+                      <th>Status</th>
+                      <th>Published at</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </article>
+                  </thead>
+                  <tbody>
+                    {publicationAudit.map((record) => (
+                      <tr key={record.publication_audit_id}>
+                        <td>{record.publication_key}</td>
+                        <td>{record.relation_name}</td>
+                        <td>{record.status}</td>
+                        <td>{record.published_at}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </article>
+        </section>
       </section>
     </AppShell>
   );

@@ -121,6 +121,25 @@ def test_control_plane_api_exposes_schedules_lineage_audit_and_metrics() -> None
                 }
             ]
 
+            dispatch_detail_response = client.get(
+                f"/control/schedule-dispatches/{dispatch.dispatch_id}"
+            )
+            assert dispatch_detail_response.status_code == 200
+            assert (
+                dispatch_detail_response.json()["schedule"]["schedule_id"]
+                == "bank_partner_poll"
+            )
+            assert (
+                dispatch_detail_response.json()["ingestion_definition"][
+                    "ingestion_definition_id"
+                ]
+                == seeded["ingestion_definition"].ingestion_definition_id
+            )
+            assert (
+                dispatch_detail_response.json()["source_asset"]["source_asset_id"]
+                == seeded["source_asset"].source_asset_id
+            )
+
             ingest_response = client.post(
                 "/ingest",
                 json={

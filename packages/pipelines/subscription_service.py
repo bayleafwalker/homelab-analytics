@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 
 from packages.pipelines.csv_validation import ColumnContract, ColumnType, DatasetContract
+from packages.pipelines.run_context import RunControlContext
 from packages.pipelines.subscriptions import (
     CanonicalSubscription,
     load_canonical_subscriptions_bytes,
@@ -55,11 +56,13 @@ class SubscriptionService:
         self,
         source_path: Path,
         source_name: str = "manual-upload",
+        run_context: RunControlContext | None = None,
     ) -> IngestionRunRecord:
         return self.ingest_bytes(
             source_bytes=source_path.read_bytes(),
             file_name=source_path.name,
             source_name=source_name,
+            run_context=run_context,
         )
 
     def ingest_bytes(
@@ -68,12 +71,14 @@ class SubscriptionService:
         source_bytes: bytes,
         file_name: str,
         source_name: str = "manual-upload",
+        run_context: RunControlContext | None = None,
     ) -> IngestionRunRecord:
         landing_result = self.landing_service.ingest_csv_bytes(
             source_bytes=source_bytes,
             file_name=file_name,
             source_name=source_name,
             contract=SUBSCRIPTION_CONTRACT,
+            run_context=run_context,
         )
         return self.metadata_repository.get_run(landing_result.run_id)
 

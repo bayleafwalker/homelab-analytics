@@ -12,6 +12,7 @@ from packages.pipelines.account_transactions import (
     load_canonical_transactions_bytes,
 )
 from packages.pipelines.csv_validation import ColumnContract, ColumnType, DatasetContract
+from packages.pipelines.run_context import RunControlContext
 from packages.storage.blob import BlobStore, FilesystemBlobStore
 from packages.storage.landing_service import LandingService
 from packages.storage.run_metadata import (
@@ -52,11 +53,13 @@ class AccountTransactionService:
         self,
         source_path: Path,
         source_name: str = "manual-upload",
+        run_context: RunControlContext | None = None,
     ) -> IngestionRunRecord:
         return self.ingest_bytes(
             source_bytes=source_path.read_bytes(),
             file_name=source_path.name,
             source_name=source_name,
+            run_context=run_context,
         )
 
     def ingest_bytes(
@@ -65,12 +68,14 @@ class AccountTransactionService:
         source_bytes: bytes,
         file_name: str,
         source_name: str = "manual-upload",
+        run_context: RunControlContext | None = None,
     ) -> IngestionRunRecord:
         landing_result = self.landing_service.ingest_csv_bytes(
             source_bytes=source_bytes,
             file_name=file_name,
             source_name=source_name,
             contract=ACCOUNT_TRANSACTION_CONTRACT,
+            run_context=run_context,
         )
         return self.metadata_repository.get_run(landing_result.run_id)
 

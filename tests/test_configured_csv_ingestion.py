@@ -107,6 +107,14 @@ class ConfiguredCsvIngestionServiceTests(unittest.TestCase):
             self.assertIn("canonical_path", manifest)
             self.assertIsNotNone(manifest["canonical_path"])
             self.assertTrue(Path(manifest["canonical_path"]).is_file())
+            self.assertEqual(
+                {
+                    "source_system_id": "bank_partner_export",
+                    "dataset_contract_id": "household_account_transactions_v1",
+                    "column_mapping_id": "bank_partner_export_v1",
+                },
+                manifest["context"],
+            )
 
 
 if __name__ == "__main__":

@@ -111,6 +111,8 @@ class ConfiguredIngestionDefinitionService:
                 source_system_id=source_asset.source_system_id,
                 dataset_contract_id=source_asset.dataset_contract_id,
                 column_mapping_id=source_asset.column_mapping_id,
+                source_asset_id=source_asset.source_asset_id,
+                ingestion_definition_id=ingestion_definition.ingestion_definition_id,
                 source_name=ingestion_definition.source_name or "configured-folder",
             )
             run_ids.append(run.run_id)
@@ -195,6 +197,8 @@ class ConfiguredIngestionDefinitionService:
             source_system_id=source_asset.source_system_id,
             dataset_contract_id=source_asset.dataset_contract_id,
             column_mapping_id=source_asset.column_mapping_id,
+            source_asset_id=source_asset.source_asset_id,
+            ingestion_definition_id=ingestion_definition.ingestion_definition_id,
             source_name=ingestion_definition.source_name or "configured-http-pull",
         )
 

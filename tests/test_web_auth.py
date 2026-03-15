@@ -198,8 +198,20 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
         / "schedule-dispatches"
         / "route.js"
     ).read_text()
+    dispatch_detail_page = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "execution"
+        / "dispatches"
+        / "[dispatchId]"
+        / "page.js"
+    ).read_text()
     run_detail_page = (
         FRONTEND_ROOT / "app" / "runs" / "[runId]" / "page.js"
+    ).read_text()
+    run_retry_route = (
+        FRONTEND_ROOT / "app" / "runs" / "[runId]" / "retry" / "route.js"
     ).read_text()
 
     assert 'backendRequest("/auth/login"' in login_route
@@ -212,6 +224,9 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert "getAuthAuditEvents" in control_page
     assert "getSourceSystems" in control_catalog_page
     assert "getSourceAssets" in control_catalog_page
+    assert "getOperationalSummary" in control_catalog_page
+    assert "getDatasetContractDiff" in control_catalog_page
+    assert "getColumnMappingDiff" in control_catalog_page
     assert "MappingPreviewPanel" in control_catalog_page
     assert "Create dataset contract version" in control_catalog_page
     assert "Create column mapping version" in control_catalog_page
@@ -224,6 +239,7 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert 'backendRequest("/config/column-mappings/preview"' in preview_route
     assert "getIngestionDefinitions" in control_execution_page
     assert "getExecutionSchedules" in control_execution_page
+    assert "getOperationalSummary" in control_execution_page
     assert "Manual Uploads" in upload_page
     assert 'action="/upload/account-transactions"' in upload_page
     assert 'action="/upload/configured-csv"' in upload_page
@@ -249,7 +265,11 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert "/config/execution-schedules/${params.scheduleId}/archive" in execution_schedule_archive_route
     assert "/config/execution-schedules/${params.scheduleId}" in execution_schedule_delete_route
     assert 'backendRequest("/control/schedule-dispatches"' in schedule_dispatch_route
+    assert "getScheduleDispatch" in dispatch_detail_page
+    assert "getOperationalSummary" in dispatch_detail_page
     assert "/ingest/ingestion-definitions/${params.ingestionDefinitionId}/process" in process_definition_route
+    assert 'backendRequest(`/runs/${params.runId}/retry`' in run_retry_route
+    assert "Retry run" in run_detail_page
 
 
 def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
@@ -267,6 +287,15 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     run_detail_source = (
         FRONTEND_ROOT / "app" / "runs" / "[runId]" / "page.js"
     ).read_text()
+    dispatch_detail_source = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "execution"
+        / "dispatches"
+        / "[dispatchId]"
+        / "page.js"
+    ).read_text()
     backend_source = (FRONTEND_ROOT / "lib" / "backend.js").read_text()
     upload_route_helper = (FRONTEND_ROOT / "lib" / "upload-route.js").read_text()
 
@@ -279,6 +308,10 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getColumnMappings" in backend_source
     assert "getIngestionDefinitions" in backend_source
     assert "getExecutionSchedules" in backend_source
+    assert "getOperationalSummary" in backend_source
+    assert "getScheduleDispatch" in backend_source
+    assert "getDatasetContractDiff" in backend_source
+    assert "getColumnMappingDiff" in backend_source
     assert "getRunsPage" in backend_source
     assert "getRun" in backend_source
     assert "getTransformationAudit" in backend_source
@@ -290,6 +323,7 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getSourceSystems" in control_catalog_source
     assert "getDatasetContracts({ includeArchived: true })" in control_catalog_source
     assert "getColumnMappings({ includeArchived: true })" in control_catalog_source
+    assert "getOperationalSummary" in control_catalog_source
     assert "getSourceAssets({ includeArchived: true })" in upload_source
     assert "backendRequest(backendPath" in upload_route_helper
     assert "encodeUploadFeedback" in upload_route_helper
@@ -297,7 +331,9 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getIngestionDefinitions" in control_execution_source
     assert "getSourceAssets({ includeArchived: true })" in control_execution_source
     assert "getExecutionSchedules({ includeArchived: true })" in control_execution_source
+    assert "getOperationalSummary" in control_execution_source
     assert "getRun" in run_detail_source
     assert "getSourceLineage" in run_detail_source
     assert "getPublicationAudit" in run_detail_source
+    assert "getScheduleDispatch" in dispatch_detail_source
     assert "ReportingService(" not in dashboard_source

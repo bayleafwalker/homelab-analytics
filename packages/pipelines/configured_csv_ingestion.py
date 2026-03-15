@@ -6,6 +6,7 @@ from io import StringIO
 from pathlib import Path
 
 from packages.pipelines.csv_validation import ValidationIssue, validate_csv_text
+from packages.pipelines.run_context import RunControlContext, merge_run_context
 from packages.storage.blob import BlobStore, FilesystemBlobStore
 from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.ingestion_config import (
@@ -49,7 +50,10 @@ class ConfiguredCsvIngestionService:
         source_system_id: str,
         dataset_contract_id: str,
         column_mapping_id: str,
+        source_asset_id: str | None = None,
+        ingestion_definition_id: str | None = None,
         source_name: str = "configured-upload",
+        run_context: RunControlContext | None = None,
     ) -> IngestionRunRecord:
         return self.ingest_bytes(
             source_bytes=source_path.read_bytes(),
@@ -57,7 +61,10 @@ class ConfiguredCsvIngestionService:
             source_system_id=source_system_id,
             dataset_contract_id=dataset_contract_id,
             column_mapping_id=column_mapping_id,
+            source_asset_id=source_asset_id,
+            ingestion_definition_id=ingestion_definition_id,
             source_name=source_name,
+            run_context=run_context,
         )
 
     def ingest_bytes(
@@ -68,7 +75,10 @@ class ConfiguredCsvIngestionService:
         source_system_id: str,
         dataset_contract_id: str,
         column_mapping_id: str,
+        source_asset_id: str | None = None,
+        ingestion_definition_id: str | None = None,
         source_name: str = "configured-upload",
+        run_context: RunControlContext | None = None,
     ) -> IngestionRunRecord:
         dataset_contract, column_mapping = self._resolve_mapping_config(
             source_system_id=source_system_id,
@@ -88,6 +98,14 @@ class ConfiguredCsvIngestionService:
             contract=resolve_dataset_contract(dataset_contract),
             validation_source_bytes=mapped_bytes,
             canonical_source_bytes=mapped_bytes,
+            run_context=merge_run_context(
+                run_context,
+                source_asset_id=source_asset_id,
+                source_system_id=source_system_id,
+                dataset_contract_id=dataset_contract_id,
+                column_mapping_id=column_mapping_id,
+                ingestion_definition_id=ingestion_definition_id,
+            ),
         )
         return self.metadata_repository.get_run(landing_result.run_id)
 

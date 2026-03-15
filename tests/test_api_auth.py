@@ -116,6 +116,13 @@ def test_api_local_auth_enforces_reader_operator_and_admin_roles() -> None:
             ).status_code
             == 403
         )
+        assert (
+            reader_client.post(
+                "/runs/example-run/retry",
+                headers=_csrf_headers(reader_client),
+            ).status_code
+            == 403
+        )
         assert reader_client.get("/config/source-systems").status_code == 403
 
     with TemporaryDirectory() as temp_dir:
@@ -140,6 +147,13 @@ def test_api_local_auth_enforces_reader_operator_and_admin_roles() -> None:
             headers=_csrf_headers(operator_client),
         )
         assert ingest.status_code == 201
+        assert (
+            operator_client.post(
+                f"/runs/{ingest.json()['run']['run_id']}/retry",
+                headers=_csrf_headers(operator_client),
+            ).status_code
+            == 201
+        )
         assert operator_client.get("/config/source-systems").status_code == 403
 
     with TemporaryDirectory() as temp_dir:

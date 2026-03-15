@@ -51,6 +51,12 @@ from packages.pipelines.reporting_service import (
     ReportingService,
     publish_promotion_reporting,
 )
+from packages.pipelines.run_context import (
+    RunControlContext,
+    merge_run_context,
+    read_run_manifest,
+    run_context_from_manifest,
+)
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.auth import (
@@ -78,12 +84,15 @@ from packages.storage.control_plane import (
     AuthAuditEventCreate,
     ControlPlaneStore,
     ExecutionScheduleCreate,
+    ScheduleDispatchRecord,
 )
 from packages.storage.ingestion_config import (
     ColumnMappingCreate,
+    ColumnMappingRecord,
     ColumnMappingRule,
     DatasetColumnConfig,
     DatasetContractConfigCreate,
+    DatasetContractConfigRecord,
     IngestionConfigRepository,
     IngestionDefinitionCreate,
     PublicationDefinitionCreate,
@@ -207,6 +216,341 @@ def create_app(
     def publish_reporting(promotion: PromotionResult | None) -> None:
         publish_promotion_reporting(resolved_reporting_service, promotion)
 
+    def load_run_manifest_and_context(
+        run: IngestionRunRecord,
+    ) -> tuple[dict[str, Any] | None, RunControlContext | None]:
+        try:
+            manifest = read_run_manifest(service.blob_store, run.manifest_path)
+        except (KeyError, OSError, ValueError) as exc:
+            logger.warning(
+                "run manifest unavailable",
+                extra={
+                    "run_id": run.run_id,
+                    "manifest_path": run.manifest_path,
+                    "error": str(exc),
+                },
+            )
+            return None, None
+        return manifest, run_context_from_manifest(manifest)
+
+    def build_run_recovery(
+        run: IngestionRunRecord,
+        context: RunControlContext | None,
+    ) -> dict[str, Any]:
+        if (
+            context is not None
+            and context.source_system_id
+            and context.dataset_contract_id
+            and context.column_mapping_id
+        ):
+            return {
+                "retry_supported": True,
+                "retry_kind": "configured_csv",
+                "reason": None,
+            }
+        if run.dataset_name == "account_transactions":
+            return {
+                "retry_supported": True,
+                "retry_kind": "account_transactions",
+                "reason": None,
+            }
+        if run.dataset_name == "subscriptions":
+            return {
+                "retry_supported": subscription_service is not None,
+                "retry_kind": "subscriptions" if subscription_service is not None else None,
+                "reason": (
+                    None
+                    if subscription_service is not None
+                    else "Subscription retry is not configured in this API runtime."
+                ),
+            }
+        if run.dataset_name == "contract_prices":
+            return {
+                "retry_supported": contract_price_service is not None,
+                "retry_kind": "contract_prices"
+                if contract_price_service is not None
+                else None,
+                "reason": (
+                    None
+                    if contract_price_service is not None
+                    else "Contract-price retry is not configured in this API runtime."
+                ),
+            }
+        return {
+            "retry_supported": False,
+            "retry_kind": None,
+            "reason": (
+                "Retry requires either a built-in dataset handler or saved configured-ingest"
+                " binding context in the landing manifest."
+            ),
+        }
+
+    def serialize_run_detail(run: IngestionRunRecord) -> dict[str, Any]:
+        _, context = load_run_manifest_and_context(run)
+        return serialize_run(
+            run,
+            context=context,
+            recovery=build_run_recovery(run, context),
+        )
+
+    def make_operational_stats() -> dict[str, Any]:
+        return {
+            "run_count": 0,
+            "failed_run_count": 0,
+            "last_run_id": None,
+            "last_run_at": None,
+            "last_run_status": None,
+            "last_success_run_id": None,
+            "last_success_at": None,
+            "last_failure_run_id": None,
+            "last_failure_at": None,
+            "dispatch_count": 0,
+            "enqueued_dispatch_count": 0,
+            "running_dispatch_count": 0,
+            "failed_dispatch_count": 0,
+            "completed_dispatch_count": 0,
+            "last_dispatch_id": None,
+            "last_dispatch_at": None,
+            "last_dispatch_status": None,
+            "last_failed_dispatch_id": None,
+            "last_failed_dispatch_at": None,
+            "_last_run_at_dt": None,
+            "_last_success_at_dt": None,
+            "_last_failure_at_dt": None,
+            "_last_dispatch_at_dt": None,
+            "_last_failed_dispatch_at_dt": None,
+        }
+
+    def update_latest_timestamp(
+        stats: dict[str, Any],
+        *,
+        marker_key: str,
+        value: datetime,
+        updates: dict[str, Any],
+    ) -> None:
+        current = stats.get(marker_key)
+        if current is None or not isinstance(current, datetime) or value >= current:
+            stats[marker_key] = value
+            for key, update_value in updates.items():
+                stats[key] = update_value
+
+    def update_operational_run_stats(
+        stats: dict[str, Any],
+        run: IngestionRunRecord,
+    ) -> None:
+        stats["run_count"] += 1
+        update_latest_timestamp(
+            stats,
+            marker_key="_last_run_at_dt",
+            value=run.created_at,
+            updates={
+                "last_run_id": run.run_id,
+                "last_run_at": run.created_at.isoformat(),
+                "last_run_status": run.status.value,
+            },
+        )
+        if run.passed:
+            update_latest_timestamp(
+                stats,
+                marker_key="_last_success_at_dt",
+                value=run.created_at,
+                updates={
+                    "last_success_run_id": run.run_id,
+                    "last_success_at": run.created_at.isoformat(),
+                },
+            )
+            return
+        stats["failed_run_count"] += 1
+        update_latest_timestamp(
+            stats,
+            marker_key="_last_failure_at_dt",
+            value=run.created_at,
+            updates={
+                "last_failure_run_id": run.run_id,
+                "last_failure_at": run.created_at.isoformat(),
+            },
+        )
+
+    def update_operational_dispatch_stats(
+        stats: dict[str, Any],
+        dispatch: ScheduleDispatchRecord,
+    ) -> None:
+        stats["dispatch_count"] += 1
+        dispatch_status_key = f"{dispatch.status}_dispatch_count"
+        if dispatch_status_key in stats:
+            stats[dispatch_status_key] += 1
+        update_latest_timestamp(
+            stats,
+            marker_key="_last_dispatch_at_dt",
+            value=dispatch.enqueued_at,
+            updates={
+                "last_dispatch_id": dispatch.dispatch_id,
+                "last_dispatch_at": dispatch.enqueued_at.isoformat(),
+                "last_dispatch_status": dispatch.status,
+            },
+        )
+        if dispatch.status == "failed":
+            failed_at = dispatch.completed_at or dispatch.enqueued_at
+            update_latest_timestamp(
+                stats,
+                marker_key="_last_failed_dispatch_at_dt",
+                value=failed_at,
+                updates={
+                    "last_failed_dispatch_id": dispatch.dispatch_id,
+                    "last_failed_dispatch_at": failed_at.isoformat(),
+                },
+            )
+
+    def finalize_operational_stats(
+        stats_by_id: dict[str, dict[str, Any]],
+    ) -> dict[str, dict[str, Any]]:
+        finalized: dict[str, dict[str, Any]] = {}
+        for key, stats in stats_by_id.items():
+            finalized[key] = {
+                stat_key: value
+                for stat_key, value in stats.items()
+                if not stat_key.startswith("_")
+            }
+        return finalized
+
+    def build_operational_summary() -> dict[str, Any]:
+        source_assets = resolved_config_repository.list_source_assets(include_archived=True)
+        dataset_contracts = resolved_config_repository.list_dataset_contracts(
+            include_archived=True
+        )
+        column_mappings = resolved_config_repository.list_column_mappings(
+            include_archived=True
+        )
+        ingestion_definitions = resolved_config_repository.list_ingestion_definitions(
+            include_archived=True
+        )
+        execution_schedules = resolved_config_repository.list_execution_schedules(
+            include_archived=True
+        )
+        source_asset_stats = {
+            record.source_asset_id: make_operational_stats() for record in source_assets
+        }
+        dataset_contract_stats = {
+            record.dataset_contract_id: make_operational_stats()
+            for record in dataset_contracts
+        }
+        column_mapping_stats = {
+            record.column_mapping_id: make_operational_stats()
+            for record in column_mappings
+        }
+        ingestion_definition_stats = {
+            record.ingestion_definition_id: make_operational_stats()
+            for record in ingestion_definitions
+        }
+        execution_schedule_stats = {
+            record.schedule_id: make_operational_stats() for record in execution_schedules
+        }
+        schedule_ids_by_target_ref: dict[str, list[str]] = {}
+        for schedule in execution_schedules:
+            if schedule.target_kind != "ingestion_definition":
+                continue
+            schedule_ids_by_target_ref.setdefault(schedule.target_ref, []).append(
+                schedule.schedule_id
+            )
+
+        failed_runs: list[dict[str, Any]] = []
+        for run in service.metadata_repository.list_runs(limit=None):
+            _, context = load_run_manifest_and_context(run)
+            if context is not None:
+                if context.source_asset_id:
+                    update_operational_run_stats(
+                        source_asset_stats.setdefault(
+                            context.source_asset_id,
+                            make_operational_stats(),
+                        ),
+                        run,
+                    )
+                if context.dataset_contract_id:
+                    update_operational_run_stats(
+                        dataset_contract_stats.setdefault(
+                            context.dataset_contract_id,
+                            make_operational_stats(),
+                        ),
+                        run,
+                    )
+                if context.column_mapping_id:
+                    update_operational_run_stats(
+                        column_mapping_stats.setdefault(
+                            context.column_mapping_id,
+                            make_operational_stats(),
+                        ),
+                        run,
+                    )
+                if context.ingestion_definition_id:
+                    update_operational_run_stats(
+                        ingestion_definition_stats.setdefault(
+                            context.ingestion_definition_id,
+                            make_operational_stats(),
+                        ),
+                        run,
+                    )
+                    for schedule_id in schedule_ids_by_target_ref.get(
+                        context.ingestion_definition_id,
+                        [],
+                    ):
+                        update_operational_run_stats(
+                            execution_schedule_stats.setdefault(
+                                schedule_id,
+                                make_operational_stats(),
+                            ),
+                            run,
+                        )
+            if not run.passed:
+                failed_runs.append(
+                    serialize_run(
+                        run,
+                        context=context,
+                        recovery=build_run_recovery(run, context),
+                    )
+                )
+
+        dispatches = resolved_config_repository.list_schedule_dispatches()
+        for dispatch in dispatches:
+            update_operational_dispatch_stats(
+                execution_schedule_stats.setdefault(
+                    dispatch.schedule_id,
+                    make_operational_stats(),
+                ),
+                dispatch,
+            )
+
+        return {
+            "source_assets": finalize_operational_stats(source_asset_stats),
+            "dataset_contracts": finalize_operational_stats(dataset_contract_stats),
+            "column_mappings": finalize_operational_stats(column_mapping_stats),
+            "ingestion_definitions": finalize_operational_stats(
+                ingestion_definition_stats
+            ),
+            "execution_schedules": finalize_operational_stats(
+                execution_schedule_stats
+            ),
+            "recent_failed_runs": failed_runs[:10],
+            "recent_failed_dispatches": _to_jsonable(
+                [
+                    dispatch
+                    for dispatch in dispatches
+                    if dispatch.status == "failed"
+                ][:10]
+            ),
+            "queue": {
+                "total_dispatches": len(dispatches),
+                "enqueued_dispatches": len(
+                    [dispatch for dispatch in dispatches if dispatch.status == "enqueued"]
+                ),
+                "running_dispatches": len(
+                    [dispatch for dispatch in dispatches if dispatch.status == "running"]
+                ),
+                "failed_dispatches": len(
+                    [dispatch for dispatch in dispatches if dispatch.status == "failed"]
+                ),
+            },
+        }
+
     def request_remote_addr(request: Request) -> str | None:
         forwarded_for = request.headers.get("x-forwarded-for", "").strip()
         if forwarded_for:
@@ -279,6 +623,8 @@ def create_app(
     def required_role_for_path(path: str) -> UserRole | None:
         if path in {"/health", "/metrics", "/auth/login", "/auth/logout"}:
             return None
+        if path.startswith("/runs/") and path.endswith("/retry"):
+            return UserRole.OPERATOR
         if path in {
             "/control/source-lineage",
             "/control/publication-audit",
@@ -732,7 +1078,137 @@ def create_app(
 
     @app.get("/runs/{run_id}")
     async def get_run(run_id: str) -> dict[str, Any]:
-        return {"run": serialize_run(service.get_run(run_id))}
+        return {"run": serialize_run_detail(service.get_run(run_id))}
+
+    @app.post("/runs/{run_id}/retry")
+    async def retry_run(run_id: str) -> JSONResponse:
+        original_run = service.metadata_repository.get_run(run_id)
+        _, context = load_run_manifest_and_context(original_run)
+        recovery = build_run_recovery(original_run, context)
+        if not recovery["retry_supported"]:
+            raise HTTPException(
+                status_code=400,
+                detail=str(recovery["reason"] or "Run retry is not supported."),
+            )
+        try:
+            source_bytes = service.blob_store.read_bytes(original_run.raw_path)
+        except (KeyError, OSError) as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="Run payload is no longer available for retry.",
+            ) from exc
+
+        retry_context = merge_run_context(context, retry_of_run_id=original_run.run_id)
+        retry_kind = recovery["retry_kind"]
+        promotion: PromotionResult | None = None
+
+        if retry_kind == "configured_csv":
+            assert context is not None
+            if (
+                context.source_system_id is None
+                or context.dataset_contract_id is None
+                or context.column_mapping_id is None
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Configured retry is missing required binding context.",
+                )
+            source_asset = None
+            if context.source_asset_id is not None:
+                source_asset = resolved_config_repository.get_source_asset(
+                    context.source_asset_id
+                )
+                if source_asset.archived:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Source asset is archived: {source_asset.source_asset_id}",
+                    )
+                if not source_asset.enabled:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Source asset is disabled: {source_asset.source_asset_id}",
+                    )
+
+            retried_run = configured_ingestion_service.ingest_bytes(
+                source_bytes=source_bytes,
+                file_name=original_run.file_name,
+                source_system_id=context.source_system_id,
+                dataset_contract_id=context.dataset_contract_id,
+                column_mapping_id=context.column_mapping_id,
+                source_asset_id=context.source_asset_id,
+                ingestion_definition_id=context.ingestion_definition_id,
+                source_name=original_run.source_name,
+                run_context=retry_context,
+            )
+            if transformation_service is not None and retried_run.passed:
+                resolved_source_asset = source_asset or resolved_config_repository.find_source_asset_by_binding(
+                    source_system_id=context.source_system_id,
+                    dataset_contract_id=context.dataset_contract_id,
+                    column_mapping_id=context.column_mapping_id,
+                )
+                if resolved_source_asset is not None:
+                    promotion = promote_source_asset_run(
+                        retried_run.run_id,
+                        source_asset=resolved_source_asset,
+                        config_repository=resolved_config_repository,
+                        landing_root=service.landing_root,
+                        metadata_repository=service.metadata_repository,
+                        transformation_service=transformation_service,
+                        blob_store=service.blob_store,
+                        extension_registry=registry,
+                    )
+                    publish_reporting(promotion)
+            return _build_run_response(retried_run, promotion=promotion)
+
+        if retry_kind == "account_transactions":
+            retried_run = service.ingest_bytes(
+                source_bytes=source_bytes,
+                file_name=original_run.file_name,
+                source_name=original_run.source_name,
+                run_context=retry_context,
+            )
+            return _build_ingest_response(
+                retried_run,
+                service,
+                transformation_service,
+                resolved_reporting_service,
+            )
+
+        if retry_kind == "subscriptions":
+            assert subscription_service is not None
+            retried_run = subscription_service.ingest_bytes(
+                source_bytes=source_bytes,
+                file_name=original_run.file_name,
+                source_name=original_run.source_name,
+                run_context=retry_context,
+            )
+            if transformation_service is not None and retried_run.passed:
+                promotion = promote_subscription_run(
+                    retried_run.run_id,
+                    subscription_service=subscription_service,
+                    transformation_service=transformation_service,
+                )
+                publish_reporting(promotion)
+            return _build_run_response(retried_run, promotion=promotion)
+
+        if retry_kind == "contract_prices":
+            assert contract_price_service is not None
+            retried_run = contract_price_service.ingest_bytes(
+                source_bytes=source_bytes,
+                file_name=original_run.file_name,
+                source_name=original_run.source_name,
+                run_context=retry_context,
+            )
+            if transformation_service is not None and retried_run.passed:
+                promotion = promote_contract_price_run(
+                    retried_run.run_id,
+                    contract_price_service=contract_price_service,
+                    transformation_service=transformation_service,
+                )
+                publish_reporting(promotion)
+            return _build_run_response(retried_run, promotion=promotion)
+
+        raise HTTPException(status_code=400, detail="Run retry is not supported.")
 
     @app.get("/extensions")
     async def list_extensions() -> dict[str, Any]:
@@ -824,6 +1300,21 @@ def create_app(
             )
         }
 
+    @app.get("/config/dataset-contracts/{dataset_contract_id}/diff")
+    async def get_dataset_contract_diff(
+        dataset_contract_id: str,
+        other_id: str,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        left = resolved_config_repository.get_dataset_contract(dataset_contract_id)
+        right = resolved_config_repository.get_dataset_contract(other_id)
+        return {
+            "diff": _build_dataset_contract_diff(
+                left,
+                right,
+            )
+        }
+
     @app.post("/config/dataset-contracts", status_code=201)
     async def create_dataset_contract(payload: DatasetContractRequest) -> dict[str, Any]:
         require_unsafe_admin()
@@ -878,6 +1369,16 @@ def create_app(
                 resolved_config_repository.get_column_mapping(column_mapping_id)
             )
         }
+
+    @app.get("/config/column-mappings/{column_mapping_id}/diff")
+    async def get_column_mapping_diff(
+        column_mapping_id: str,
+        other_id: str,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        left = resolved_config_repository.get_column_mapping(column_mapping_id)
+        right = resolved_config_repository.get_column_mapping(other_id)
+        return {"diff": _build_column_mapping_diff(left, right)}
 
     @app.post("/config/column-mappings", status_code=201)
     async def create_column_mapping(payload: ColumnMappingRequest) -> dict[str, Any]:
@@ -1280,6 +1781,11 @@ def create_app(
             )
         }
 
+    @app.get("/control/operational-summary")
+    async def get_operational_summary() -> dict[str, Any]:
+        require_unsafe_admin()
+        return build_operational_summary()
+
     @app.get("/control/schedule-dispatches")
     async def list_schedule_dispatches(
         schedule_id: str | None = None,
@@ -1293,6 +1799,37 @@ def create_app(
                     status=status,
                 )
             )
+        }
+
+    @app.get("/control/schedule-dispatches/{dispatch_id}")
+    async def get_schedule_dispatch(dispatch_id: str) -> dict[str, Any]:
+        require_unsafe_admin()
+        dispatch = next(
+            (
+                record
+                for record in resolved_config_repository.list_schedule_dispatches()
+                if record.dispatch_id == dispatch_id
+            ),
+            None,
+        )
+        if dispatch is None:
+            raise HTTPException(status_code=404, detail="Unknown schedule dispatch.")
+        schedule = resolved_config_repository.get_execution_schedule(dispatch.schedule_id)
+        ingestion_definition = (
+            resolved_config_repository.get_ingestion_definition(schedule.target_ref)
+            if schedule.target_kind == "ingestion_definition"
+            else None
+        )
+        source_asset = (
+            resolved_config_repository.get_source_asset(ingestion_definition.source_asset_id)
+            if ingestion_definition is not None
+            else None
+        )
+        return {
+            "dispatch": _to_jsonable(dispatch),
+            "schedule": _to_jsonable(schedule),
+            "ingestion_definition": _to_jsonable(ingestion_definition),
+            "source_asset": _to_jsonable(source_asset),
         }
 
     @app.post("/control/schedule-dispatches", status_code=201)
@@ -1392,6 +1929,7 @@ def create_app(
                 source_system_id=source_system_id,
                 dataset_contract_id=dataset_contract_id,
                 column_mapping_id=column_mapping_id,
+                source_asset_id=source_asset.source_asset_id if source_asset else None,
                 source_name=payload.source_name,
             )
         else:
@@ -1410,6 +1948,7 @@ def create_app(
                 source_system_id=source_system_id,
                 dataset_contract_id=dataset_contract_id,
                 column_mapping_id=column_mapping_id,
+                source_asset_id=source_asset.source_asset_id if source_asset else None,
                 source_name=payload.source_name,
             )
         promotion: PromotionResult | None = None
@@ -1940,6 +2479,106 @@ def _log_request(
     )
 
 
+def _build_dataset_contract_diff(
+    left: DatasetContractConfigRecord,
+    right: DatasetContractConfigRecord,
+) -> dict[str, Any]:
+    field_changes = []
+    for field_name, left_value, right_value in (
+        ("dataset_name", left.dataset_name, right.dataset_name),
+        ("version", left.version, right.version),
+        ("allow_extra_columns", left.allow_extra_columns, right.allow_extra_columns),
+        ("archived", left.archived, right.archived),
+    ):
+        if left_value != right_value:
+            field_changes.append(
+                {
+                    "field": field_name,
+                    "left": _to_jsonable(left_value),
+                    "right": _to_jsonable(right_value),
+                }
+            )
+    left_columns = {column.name: column for column in left.columns}
+    right_columns = {column.name: column for column in right.columns}
+    changed_columns = []
+    for column_name in sorted(set(left_columns) & set(right_columns)):
+        if left_columns[column_name] == right_columns[column_name]:
+            continue
+        changed_columns.append(
+            {
+                "name": column_name,
+                "left": _to_jsonable(left_columns[column_name]),
+                "right": _to_jsonable(right_columns[column_name]),
+            }
+        )
+    return {
+        "left_id": left.dataset_contract_id,
+        "right_id": right.dataset_contract_id,
+        "left_version": left.version,
+        "right_version": right.version,
+        "field_changes": field_changes,
+        "column_changes": {
+            "added": _to_jsonable(
+                [right_columns[name] for name in sorted(set(right_columns) - set(left_columns))]
+            ),
+            "removed": _to_jsonable(
+                [left_columns[name] for name in sorted(set(left_columns) - set(right_columns))]
+            ),
+            "changed": changed_columns,
+        },
+    }
+
+
+def _build_column_mapping_diff(
+    left: ColumnMappingRecord,
+    right: ColumnMappingRecord,
+) -> dict[str, Any]:
+    field_changes = []
+    for field_name, left_value, right_value in (
+        ("source_system_id", left.source_system_id, right.source_system_id),
+        ("dataset_contract_id", left.dataset_contract_id, right.dataset_contract_id),
+        ("version", left.version, right.version),
+        ("archived", left.archived, right.archived),
+    ):
+        if left_value != right_value:
+            field_changes.append(
+                {
+                    "field": field_name,
+                    "left": _to_jsonable(left_value),
+                    "right": _to_jsonable(right_value),
+                }
+            )
+    left_rules = {rule.target_column: rule for rule in left.rules}
+    right_rules = {rule.target_column: rule for rule in right.rules}
+    changed_rules = []
+    for target_column in sorted(set(left_rules) & set(right_rules)):
+        if left_rules[target_column] == right_rules[target_column]:
+            continue
+        changed_rules.append(
+            {
+                "target_column": target_column,
+                "left": _to_jsonable(left_rules[target_column]),
+                "right": _to_jsonable(right_rules[target_column]),
+            }
+        )
+    return {
+        "left_id": left.column_mapping_id,
+        "right_id": right.column_mapping_id,
+        "left_version": left.version,
+        "right_version": right.version,
+        "field_changes": field_changes,
+        "rule_changes": {
+            "added": _to_jsonable(
+                [right_rules[name] for name in sorted(set(right_rules) - set(left_rules))]
+            ),
+            "removed": _to_jsonable(
+                [left_rules[name] for name in sorted(set(left_rules) - set(right_rules))]
+            ),
+            "changed": changed_rules,
+        },
+    }
+
+
 def serialize_promotion(promotion: PromotionResult) -> dict[str, Any]:
     return {
         "facts_loaded": promotion.facts_loaded,
@@ -1950,8 +2589,13 @@ def serialize_promotion(promotion: PromotionResult) -> dict[str, Any]:
     }
 
 
-def serialize_run(run: IngestionRunRecord) -> dict[str, Any]:
-    return {
+def serialize_run(
+    run: IngestionRunRecord,
+    *,
+    context: RunControlContext | None = None,
+    recovery: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
         "run_id": run.run_id,
         "source_name": run.source_name,
         "dataset_name": run.dataset_name,
@@ -1974,6 +2618,11 @@ def serialize_run(run: IngestionRunRecord) -> dict[str, Any]:
         ],
         "created_at": run.created_at.isoformat(),
     }
+    if context is not None:
+        payload["context"] = context.as_manifest_dict()
+    if recovery is not None:
+        payload["recovery"] = recovery
+    return payload
 
 
 def serialize_summary(summary: MonthlyCashflowSummary) -> dict[str, Any]:
