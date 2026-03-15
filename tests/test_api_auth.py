@@ -12,6 +12,7 @@ from packages.storage.auth_store import LocalUserCreate, UserRole
 from packages.storage.ingestion_config import IngestionConfigRepository
 from packages.storage.run_metadata import RunMetadataRepository
 from tests.account_test_support import FIXTURES as ACCOUNT_FIXTURES
+from tests.control_plane_test_support import seed_source_asset_graph
 
 
 def _build_client(
@@ -267,3 +268,40 @@ def test_api_local_auth_locks_out_repeated_failed_logins() -> None:
         )
         assert locked.status_code == 429
         assert locked.json()["detail"] == "Too many failed login attempts. Try again later."
+
+
+def test_api_local_auth_allows_reader_run_lineage_and_publication_visibility() -> None:
+    with TemporaryDirectory() as temp_dir:
+        service = AccountTransactionService(
+            landing_root=Path(temp_dir) / "landing",
+            metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+        )
+        repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+        seed_source_asset_graph(repository)
+        repository.create_local_user(
+            LocalUserCreate(
+                user_id="user-reader",
+                username="reader",
+                password_hash=hash_password("reader-password"),
+                role=UserRole.READER,
+            )
+        )
+        client = TestClient(
+            create_app(
+                service,
+                config_repository=repository,
+                auth_store=repository,
+                auth_mode="local",
+                session_manager=SessionManager("test-session-secret"),
+            )
+        )
+
+        assert (
+            client.post(
+                "/auth/login",
+                json={"username": "reader", "password": "reader-password"},
+            ).status_code
+            == 200
+        )
+        assert client.get("/control/source-lineage", params={"run_id": "run-001"}).status_code == 200
+        assert client.get("/control/publication-audit", params={"run_id": "run-001"}).status_code == 200

@@ -39,6 +39,7 @@ class SourceSystemCreate:
     transport: str
     schedule_mode: str
     description: str | None = None
+    enabled: bool = True
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -50,6 +51,7 @@ class SourceSystemRecord:
     transport: str
     schedule_mode: str
     description: str | None
+    enabled: bool
     created_at: datetime
 
 
@@ -117,6 +119,7 @@ class SourceAssetCreate:
     asset_type: str
     transformation_package_id: str | None = None
     description: str | None = None
+    enabled: bool = True
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -130,6 +133,7 @@ class SourceAssetRecord:
     name: str
     asset_type: str
     description: str | None
+    enabled: bool
     created_at: datetime
 
 
@@ -244,9 +248,10 @@ class IngestionConfigRepository:
                     transport,
                     schedule_mode,
                     description,
+                    enabled,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     source_system.source_system_id,
@@ -255,10 +260,42 @@ class IngestionConfigRepository:
                     source_system.transport,
                     source_system.schedule_mode,
                     source_system.description,
+                    int(source_system.enabled),
                     source_system.created_at.isoformat(),
                 ),
             )
             connection.commit()
+        return self.get_source_system(source_system.source_system_id)
+
+    def update_source_system(
+        self,
+        source_system: SourceSystemCreate,
+    ) -> SourceSystemRecord:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE source_systems
+                SET name = ?,
+                    source_type = ?,
+                    transport = ?,
+                    schedule_mode = ?,
+                    description = ?,
+                    enabled = ?
+                WHERE source_system_id = ?
+                """,
+                (
+                    source_system.name,
+                    source_system.source_type,
+                    source_system.transport,
+                    source_system.schedule_mode,
+                    source_system.description,
+                    int(source_system.enabled),
+                    source_system.source_system_id,
+                ),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown source system: {source_system.source_system_id}")
         return self.get_source_system(source_system.source_system_id)
 
     def get_source_system(self, source_system_id: str) -> SourceSystemRecord:
@@ -273,6 +310,7 @@ class IngestionConfigRepository:
                     transport,
                     schedule_mode,
                     description,
+                    enabled,
                     created_at
                 FROM source_systems
                 WHERE source_system_id = ?
@@ -289,6 +327,7 @@ class IngestionConfigRepository:
             transport=row["transport"],
             schedule_mode=row["schedule_mode"],
             description=row["description"],
+            enabled=bool(row["enabled"]),
             created_at=datetime.fromisoformat(row["created_at"]),
         )
 
@@ -304,6 +343,7 @@ class IngestionConfigRepository:
                     transport,
                     schedule_mode,
                     description,
+                    enabled,
                     created_at
                 FROM source_systems
                 ORDER BY created_at, source_system_id
@@ -318,6 +358,7 @@ class IngestionConfigRepository:
                 transport=row["transport"],
                 schedule_mode=row["schedule_mode"],
                 description=row["description"],
+                enabled=bool(row["enabled"]),
                 created_at=datetime.fromisoformat(row["created_at"]),
             )
             for row in rows
@@ -739,9 +780,10 @@ class IngestionConfigRepository:
                     name,
                     asset_type,
                     description,
+                    enabled,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     source_asset.source_asset_id,
@@ -752,10 +794,45 @@ class IngestionConfigRepository:
                     source_asset.name,
                     source_asset.asset_type,
                     source_asset.description,
+                    int(source_asset.enabled),
                     source_asset.created_at.isoformat(),
                 ),
             )
             connection.commit()
+        return self.get_source_asset(source_asset.source_asset_id)
+
+    def update_source_asset(self, source_asset: SourceAssetCreate) -> SourceAssetRecord:
+        if source_asset.transformation_package_id is not None:
+            self.get_transformation_package(source_asset.transformation_package_id)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE source_assets
+                SET source_system_id = ?,
+                    dataset_contract_id = ?,
+                    column_mapping_id = ?,
+                    transformation_package_id = ?,
+                    name = ?,
+                    asset_type = ?,
+                    description = ?,
+                    enabled = ?
+                WHERE source_asset_id = ?
+                """,
+                (
+                    source_asset.source_system_id,
+                    source_asset.dataset_contract_id,
+                    source_asset.column_mapping_id,
+                    source_asset.transformation_package_id,
+                    source_asset.name,
+                    source_asset.asset_type,
+                    source_asset.description,
+                    int(source_asset.enabled),
+                    source_asset.source_asset_id,
+                ),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown source asset: {source_asset.source_asset_id}")
         return self.get_source_asset(source_asset.source_asset_id)
 
     def get_source_asset(self, source_asset_id: str) -> SourceAssetRecord:
@@ -772,6 +849,7 @@ class IngestionConfigRepository:
                     name,
                     asset_type,
                     description,
+                    enabled,
                     created_at
                 FROM source_assets
                 WHERE source_asset_id = ?
@@ -790,6 +868,7 @@ class IngestionConfigRepository:
             name=row["name"],
             asset_type=row["asset_type"],
             description=row["description"],
+            enabled=bool(row["enabled"]),
             created_at=datetime.fromisoformat(row["created_at"]),
         )
 
@@ -807,6 +886,7 @@ class IngestionConfigRepository:
                     name,
                     asset_type,
                     description,
+                    enabled,
                     created_at
                 FROM source_assets
                 ORDER BY created_at, source_asset_id
@@ -823,6 +903,7 @@ class IngestionConfigRepository:
                 name=row["name"],
                 asset_type=row["asset_type"],
                 description=row["description"],
+                enabled=bool(row["enabled"]),
                 created_at=datetime.fromisoformat(row["created_at"]),
             )
             for row in rows
@@ -848,11 +929,13 @@ class IngestionConfigRepository:
                     name,
                     asset_type,
                     description,
+                    enabled,
                     created_at
                 FROM source_assets
                 WHERE source_system_id = ?
                   AND dataset_contract_id = ?
                   AND column_mapping_id = ?
+                  AND enabled = 1
                 ORDER BY created_at, source_asset_id
                 """,
                 (
@@ -878,6 +961,7 @@ class IngestionConfigRepository:
             name=row["name"],
             asset_type=row["asset_type"],
             description=row["description"],
+            enabled=bool(row["enabled"]),
             created_at=datetime.fromisoformat(row["created_at"]),
         )
 
@@ -932,6 +1016,61 @@ class IngestionConfigRepository:
                 ),
             )
             connection.commit()
+        return self.get_ingestion_definition(
+            ingestion_definition.ingestion_definition_id
+        )
+
+    def update_ingestion_definition(
+        self,
+        ingestion_definition: IngestionDefinitionCreate,
+    ) -> IngestionDefinitionRecord:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE ingestion_definitions
+                SET source_asset_id = ?,
+                    transport = ?,
+                    schedule_mode = ?,
+                    source_path = ?,
+                    file_pattern = ?,
+                    processed_path = ?,
+                    failed_path = ?,
+                    poll_interval_seconds = ?,
+                    request_url = ?,
+                    request_method = ?,
+                    request_headers_json = ?,
+                    request_timeout_seconds = ?,
+                    response_format = ?,
+                    output_file_name = ?,
+                    enabled = ?,
+                    source_name = ?
+                WHERE ingestion_definition_id = ?
+                """,
+                (
+                    ingestion_definition.source_asset_id,
+                    ingestion_definition.transport,
+                    ingestion_definition.schedule_mode,
+                    ingestion_definition.source_path,
+                    ingestion_definition.file_pattern,
+                    ingestion_definition.processed_path,
+                    ingestion_definition.failed_path,
+                    ingestion_definition.poll_interval_seconds,
+                    ingestion_definition.request_url,
+                    ingestion_definition.request_method,
+                    _serialize_request_headers(ingestion_definition.request_headers),
+                    ingestion_definition.request_timeout_seconds,
+                    ingestion_definition.response_format,
+                    ingestion_definition.output_file_name,
+                    int(ingestion_definition.enabled),
+                    ingestion_definition.source_name,
+                    ingestion_definition.ingestion_definition_id,
+                ),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(
+                f"Unknown ingestion definition: {ingestion_definition.ingestion_definition_id}"
+            )
         return self.get_ingestion_definition(
             ingestion_definition.ingestion_definition_id
         )
@@ -1121,6 +1260,48 @@ class IngestionConfigRepository:
             connection.commit()
         return self.get_execution_schedule(schedule.schedule_id)
 
+    def update_execution_schedule(
+        self,
+        schedule: ExecutionScheduleCreate,
+    ) -> ExecutionScheduleRecord:
+        next_due_at = schedule.next_due_at or next_cron_occurrence(
+            schedule.cron_expression,
+            timezone=schedule.timezone,
+            after=schedule.last_enqueued_at or schedule.created_at,
+        )
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE execution_schedules
+                SET target_kind = ?,
+                    target_ref = ?,
+                    cron_expression = ?,
+                    timezone = ?,
+                    enabled = ?,
+                    max_concurrency = ?,
+                    next_due_at = ?,
+                    last_enqueued_at = ?
+                WHERE schedule_id = ?
+                """,
+                (
+                    schedule.target_kind,
+                    schedule.target_ref,
+                    schedule.cron_expression,
+                    schedule.timezone,
+                    int(schedule.enabled),
+                    schedule.max_concurrency,
+                    next_due_at.isoformat() if next_due_at else None,
+                    schedule.last_enqueued_at.isoformat()
+                    if schedule.last_enqueued_at
+                    else None,
+                    schedule.schedule_id,
+                ),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown execution schedule: {schedule.schedule_id}")
+        return self.get_execution_schedule(schedule.schedule_id)
+
     def get_execution_schedule(self, schedule_id: str) -> ExecutionScheduleRecord:
         with self._connect() as connection:
             connection.row_factory = sqlite3.Row
@@ -1307,6 +1488,83 @@ class IngestionConfigRepository:
                 params,
             ).fetchall()
         return [_deserialize_schedule_dispatch_row(row) for row in rows]
+
+    def create_schedule_dispatch(
+        self,
+        schedule_id: str,
+        *,
+        enqueued_at: datetime | None = None,
+    ) -> ScheduleDispatchRecord:
+        resolved_enqueued_at = enqueued_at or datetime.now(UTC)
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            schedule_row = connection.execute(
+                """
+                SELECT schedule_id, target_kind, target_ref, enabled, max_concurrency
+                FROM execution_schedules
+                WHERE schedule_id = ?
+                """,
+                (schedule_id,),
+            ).fetchone()
+            if schedule_row is None:
+                raise KeyError(f"Unknown execution schedule: {schedule_id}")
+            if not bool(schedule_row["enabled"]):
+                raise ValueError(f"Execution schedule is disabled: {schedule_id}")
+            active_count = connection.execute(
+                """
+                SELECT COUNT(*)
+                FROM schedule_dispatches
+                WHERE schedule_id = ?
+                  AND status IN ('enqueued', 'running')
+                """,
+                (schedule_id,),
+            ).fetchone()[0]
+            if active_count >= schedule_row["max_concurrency"]:
+                raise ValueError(
+                    f"Execution schedule already has max_concurrency active dispatches: {schedule_id}"
+                )
+            dispatch_id = uuid.uuid4().hex[:16]
+            connection.execute(
+                """
+                INSERT INTO schedule_dispatches (
+                    dispatch_id,
+                    schedule_id,
+                    target_kind,
+                    target_ref,
+                    enqueued_at,
+                    status,
+                    completed_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    dispatch_id,
+                    schedule_id,
+                    schedule_row["target_kind"],
+                    schedule_row["target_ref"],
+                    resolved_enqueued_at.isoformat(),
+                    "enqueued",
+                    None,
+                ),
+            )
+            connection.execute(
+                """
+                UPDATE execution_schedules
+                SET last_enqueued_at = ?
+                WHERE schedule_id = ?
+                """,
+                (resolved_enqueued_at.isoformat(), schedule_id),
+            )
+            connection.commit()
+        return ScheduleDispatchRecord(
+            dispatch_id=dispatch_id,
+            schedule_id=schedule_id,
+            target_kind=schedule_row["target_kind"],
+            target_ref=schedule_row["target_ref"],
+            enqueued_at=resolved_enqueued_at,
+            status="enqueued",
+            completed_at=None,
+        )
 
     def mark_schedule_dispatch_status(
         self,
@@ -1785,6 +2043,7 @@ class IngestionConfigRepository:
                         transport=source_system_record.transport,
                         schedule_mode=source_system_record.schedule_mode,
                         description=source_system_record.description,
+                        enabled=source_system_record.enabled,
                         created_at=source_system_record.created_at,
                     )
                 )
@@ -1858,6 +2117,7 @@ class IngestionConfigRepository:
                         name=source_asset_record.name,
                         asset_type=source_asset_record.asset_type,
                         description=source_asset_record.description,
+                        enabled=source_asset_record.enabled,
                         created_at=source_asset_record.created_at,
                     )
                 )
@@ -1981,6 +2241,7 @@ class IngestionConfigRepository:
                     transport TEXT NOT NULL,
                     schedule_mode TEXT NOT NULL,
                     description TEXT,
+                    enabled INTEGER NOT NULL DEFAULT 1,
                     created_at TEXT NOT NULL
                 );
 
@@ -2032,6 +2293,7 @@ class IngestionConfigRepository:
                     name TEXT NOT NULL,
                     asset_type TEXT NOT NULL,
                     description TEXT,
+                    enabled INTEGER NOT NULL DEFAULT 1,
                     created_at TEXT NOT NULL,
                     FOREIGN KEY (source_system_id) REFERENCES source_systems (source_system_id),
                     FOREIGN KEY (dataset_contract_id) REFERENCES dataset_contracts (dataset_contract_id),
@@ -2131,6 +2393,7 @@ class IngestionConfigRepository:
                 );
                 """
             )
+            self._ensure_source_system_columns(connection)
             self._ensure_source_asset_columns(connection)
             self._ensure_ingestion_definition_columns(connection)
             self._seed_builtin_transformation_packages(connection)
@@ -2140,6 +2403,16 @@ class IngestionConfigRepository:
         connection = sqlite3.connect(self.database_path)
         connection.execute("PRAGMA foreign_keys = ON")
         return closing(connection)
+
+    def _ensure_source_system_columns(self, connection: sqlite3.Connection) -> None:
+        columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(source_systems)").fetchall()
+        }
+        if "enabled" in columns:
+            return
+        connection.execute(
+            "ALTER TABLE source_systems ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1"
+        )
 
     def _ensure_ingestion_definition_columns(self, connection: sqlite3.Connection) -> None:
         columns = {
@@ -2167,11 +2440,14 @@ class IngestionConfigRepository:
         columns = {
             row[1] for row in connection.execute("PRAGMA table_info(source_assets)").fetchall()
         }
-        if "transformation_package_id" in columns:
-            return
-        connection.execute(
-            "ALTER TABLE source_assets ADD COLUMN transformation_package_id TEXT"
-        )
+        if "transformation_package_id" not in columns:
+            connection.execute(
+                "ALTER TABLE source_assets ADD COLUMN transformation_package_id TEXT"
+            )
+        if "enabled" not in columns:
+            connection.execute(
+                "ALTER TABLE source_assets ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1"
+            )
 
     def _seed_builtin_transformation_packages(
         self,

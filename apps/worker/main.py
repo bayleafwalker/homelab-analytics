@@ -867,6 +867,7 @@ def _control_plane_snapshot_from_dict(payload: dict[str, Any]) -> ControlPlaneSn
                 transport=item["transport"],
                 schedule_mode=item["schedule_mode"],
                 description=item.get("description"),
+                enabled=item.get("enabled", True),
                 created_at=datetime.fromisoformat(item["created_at"]),
             )
             for item in payload.get("source_systems", [])
@@ -939,6 +940,7 @@ def _control_plane_snapshot_from_dict(payload: dict[str, Any]) -> ControlPlaneSn
                 name=item["name"],
                 asset_type=item["asset_type"],
                 description=item.get("description"),
+                enabled=item.get("enabled", True),
                 created_at=datetime.fromisoformat(item["created_at"]),
             )
             for item in payload.get("source_assets", [])

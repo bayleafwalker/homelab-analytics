@@ -129,3 +129,109 @@ def test_control_plane_api_exposes_schedules_lineage_audit_and_metrics() -> None
             assert "worker_queue_depth 1" in metrics_response.text
     finally:
         metrics_registry.clear()
+
+
+def test_control_plane_api_updates_entities_and_enqueues_manual_dispatches() -> None:
+    with TemporaryDirectory() as temp_dir:
+        repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+        seeded = seed_source_asset_graph(repository)
+        service = AccountTransactionService(
+            landing_root=Path(temp_dir) / "landing",
+            metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+        )
+        client = TestClient(
+            create_app(
+                service,
+                config_repository=repository,
+                enable_unsafe_admin=True,
+            )
+        )
+
+        source_system_response = client.patch(
+            f"/config/source-systems/{seeded['source_system'].source_system_id}",
+            json={
+                "source_system_id": seeded["source_system"].source_system_id,
+                "name": "Bank Partner Export v2",
+                "source_type": "api",
+                "transport": "https",
+                "schedule_mode": "scheduled",
+                "description": "Updated source system.",
+                "enabled": False,
+            },
+        )
+        assert source_system_response.status_code == 200
+        assert source_system_response.json()["source_system"]["enabled"] is False
+
+        source_asset_response = client.patch(
+            f"/config/source-assets/{seeded['source_asset'].source_asset_id}",
+            json={
+                "source_asset_id": seeded["source_asset"].source_asset_id,
+                "source_system_id": seeded["source_system"].source_system_id,
+                "dataset_contract_id": seeded["dataset_contract"].dataset_contract_id,
+                "column_mapping_id": seeded["column_mapping"].column_mapping_id,
+                "name": "Bank Partner Transactions v2",
+                "asset_type": "dataset",
+                "transformation_package_id": "builtin_account_transactions",
+                "description": "Updated source asset.",
+                "enabled": False,
+            },
+        )
+        assert source_asset_response.status_code == 200
+        assert source_asset_response.json()["source_asset"]["enabled"] is False
+
+        ingestion_definition_response = client.patch(
+            f"/config/ingestion-definitions/{seeded['ingestion_definition'].ingestion_definition_id}",
+            json={
+                "ingestion_definition_id": seeded["ingestion_definition"].ingestion_definition_id,
+                "source_asset_id": seeded["source_asset"].source_asset_id,
+                "transport": "filesystem",
+                "schedule_mode": "watch-folder",
+                "source_path": "/tmp/updated-inbox",
+                "file_pattern": "*.txt",
+                "processed_path": "/tmp/updated-processed",
+                "failed_path": "/tmp/updated-failed",
+                "poll_interval_seconds": 60,
+                "request_url": None,
+                "request_method": None,
+                "request_headers": [],
+                "request_timeout_seconds": None,
+                "response_format": None,
+                "output_file_name": None,
+                "enabled": True,
+                "source_name": "configured-ingestion-v2",
+            },
+        )
+        assert ingestion_definition_response.status_code == 200
+        assert (
+            ingestion_definition_response.json()["ingestion_definition"]["file_pattern"]
+            == "*.txt"
+        )
+
+        schedule_response = client.patch(
+            "/config/execution-schedules/bank_partner_poll",
+            json={
+                "schedule_id": "bank_partner_poll",
+                "target_kind": "ingestion_definition",
+                "target_ref": seeded["ingestion_definition"].ingestion_definition_id,
+                "cron_expression": "0 * * * *",
+                "timezone": "UTC",
+                "enabled": True,
+                "max_concurrency": 2,
+            },
+        )
+        assert schedule_response.status_code == 200
+        assert schedule_response.json()["execution_schedule"]["max_concurrency"] == 2
+
+        dispatch_response = client.post(
+            "/control/schedule-dispatches",
+            json={"schedule_id": "bank_partner_poll"},
+        )
+        assert dispatch_response.status_code == 201
+        assert dispatch_response.json()["dispatch"]["schedule_id"] == "bank_partner_poll"
+
+        due_enqueue_response = client.post(
+            "/control/schedule-dispatches",
+            json={"limit": 1},
+        )
+        assert due_enqueue_response.status_code == 201
+        assert "dispatches" in due_enqueue_response.json()

@@ -13,6 +13,7 @@ class SourceSystemRequest(BaseModel):
     transport: str
     schedule_mode: str
     description: str | None = None
+    enabled: bool = True
 
 
 class DatasetColumnRequest(BaseModel):
@@ -52,6 +53,7 @@ class SourceAssetRequest(BaseModel):
     asset_type: str
     transformation_package_id: str | None = None
     description: str | None = None
+    enabled: bool = True
 
 
 class TransformationPackageRequest(BaseModel):
@@ -104,6 +106,11 @@ class ExecutionScheduleRequest(BaseModel):
     timezone: str = "UTC"
     enabled: bool = True
     max_concurrency: int = 1
+
+
+class ScheduleDispatchRequest(BaseModel):
+    schedule_id: str | None = None
+    limit: int | None = None
 
 
 class ConfiguredCsvIngestRequest(BaseModel):

@@ -10,6 +10,7 @@ from packages.storage.postgres_ingestion_config import PostgresIngestionConfigRe
 from tests.control_plane_test_support import (
     assert_auth_audit_behaviour,
     assert_control_plane_store_round_trip,
+    assert_control_plane_store_update_behaviour,
     assert_schedule_dispatch_behaviour,
     seed_source_asset_graph,
 )
@@ -30,6 +31,13 @@ def test_postgres_control_plane_store_enqueues_due_schedules_and_respects_concur
         repository = PostgresIngestionConfigRepository(dsn, schema="control")
 
         assert_schedule_dispatch_behaviour(repository)
+
+
+def test_postgres_control_plane_store_updates_entities_and_supports_manual_dispatch() -> None:
+    with running_postgres_container() as dsn:
+        repository = PostgresIngestionConfigRepository(dsn, schema="control")
+
+        assert_control_plane_store_update_behaviour(repository)
 
 
 def test_postgres_control_plane_store_records_and_filters_auth_audit_events() -> None:

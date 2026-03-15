@@ -15,8 +15,12 @@ function noticeCopy(notice) {
   switch (notice) {
     case "source-system-created":
       return "Source system created.";
+    case "source-system-updated":
+      return "Source system updated.";
     case "source-asset-created":
       return "Source asset created.";
+    case "source-asset-updated":
+      return "Source asset updated.";
     default:
       return "";
   }
@@ -26,11 +30,19 @@ function errorCopy(error) {
   switch (error) {
     case "source-system-failed":
       return "Could not create the source system.";
+    case "source-system-update-failed":
+      return "Could not update the source system.";
     case "source-asset-failed":
       return "Could not create the source asset.";
+    case "source-asset-update-failed":
+      return "Could not update the source asset.";
     default:
       return "";
   }
+}
+
+function statusCopy(enabled) {
+  return enabled ? "active" : "inactive";
 }
 
 export default async function ControlCatalogPage({ searchParams }) {
@@ -52,6 +64,17 @@ export default async function ControlCatalogPage({ searchParams }) {
     getTransformationPackages(),
     getSourceAssets()
   ]);
+
+  const activeSourceSystems = sourceSystems.filter((record) => record.enabled);
+  const contractById = new Map(
+    datasetContracts.map((record) => [record.dataset_contract_id, record])
+  );
+  const mappingById = new Map(
+    columnMappings.map((record) => [record.column_mapping_id, record])
+  );
+  const packageById = new Map(
+    transformationPackages.map((record) => [record.transformation_package_id, record])
+  );
   const notice = noticeCopy(searchParams?.notice);
   const error = errorCopy(searchParams?.error);
 
@@ -61,7 +84,7 @@ export default async function ControlCatalogPage({ searchParams }) {
       user={user}
       title="Control Catalog"
       eyebrow="Admin Access"
-      lede="Source registration stays API-backed: register source systems, bind source assets, and inspect the contracts that drive ingestion."
+      lede="Source registration stays API-backed: register systems, bind source assets, and keep contract and mapping versions explicit before ingestion starts."
     >
       <section className="stack">
         <ControlNav currentPath="/control/catalog" />
@@ -72,6 +95,10 @@ export default async function ControlCatalogPage({ searchParams }) {
           <article className="panel metricCard">
             <div className="metricLabel">Source systems</div>
             <div className="metricValue">{sourceSystems.length}</div>
+          </article>
+          <article className="panel metricCard">
+            <div className="metricLabel">Active systems</div>
+            <div className="metricValue">{activeSourceSystems.length}</div>
           </article>
           <article className="panel metricCard">
             <div className="metricLabel">Source assets</div>
@@ -131,7 +158,14 @@ export default async function ControlCatalogPage({ searchParams }) {
                 required
               />
             </div>
-            <div className="field spanThree">
+            <div className="field">
+              <label htmlFor="source-system-enabled">Initial status</label>
+              <select id="source-system-enabled" name="enabled" defaultValue="true">
+                <option value="true">active</option>
+                <option value="false">inactive</option>
+              </select>
+            </div>
+            <div className="field spanTwo">
               <label htmlFor="source-system-description">Description</label>
               <input
                 id="source-system-description"
@@ -153,13 +187,15 @@ export default async function ControlCatalogPage({ searchParams }) {
               <h2>Create source asset</h2>
             </div>
           </div>
-          {sourceSystems.length === 0 || datasetContracts.length === 0 || columnMappings.length === 0 ? (
+          {activeSourceSystems.length === 0 ||
+          datasetContracts.length === 0 ||
+          columnMappings.length === 0 ? (
             <div className="empty">
-              Source asset creation requires at least one source system, dataset contract, and
-              column mapping.
+              Source asset creation requires an active source system plus at least one dataset
+              contract and column mapping.
             </div>
           ) : (
-            <form className="formGrid threeCol" action="/control/catalog/source-assets" method="post">
+            <form className="formGrid fourCol" action="/control/catalog/source-assets" method="post">
               <div className="field">
                 <label htmlFor="source-asset-id">Asset id</label>
                 <input id="source-asset-id" name="source_asset_id" type="text" required />
@@ -179,12 +215,19 @@ export default async function ControlCatalogPage({ searchParams }) {
                 />
               </div>
               <div className="field">
+                <label htmlFor="source-asset-enabled">Initial status</label>
+                <select id="source-asset-enabled" name="enabled" defaultValue="true">
+                  <option value="true">active</option>
+                  <option value="false">inactive</option>
+                </select>
+              </div>
+              <div className="field">
                 <label htmlFor="source-system-select">Source system</label>
                 <select id="source-system-select" name="source_system_id" required defaultValue="">
                   <option value="" disabled>
                     Select source system
                   </option>
-                  {sourceSystems.map((record) => (
+                  {activeSourceSystems.map((record) => (
                     <option key={record.source_system_id} value={record.source_system_id}>
                       {record.source_system_id}
                     </option>
@@ -261,81 +304,297 @@ export default async function ControlCatalogPage({ searchParams }) {
           )}
         </article>
 
-        <section className="layout">
-          <article className="panel section">
-            <div className="sectionHeader">
-              <div>
-                <div className="eyebrow">Catalog</div>
-                <h2>Source systems</h2>
-              </div>
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Catalog</div>
+              <h2>Source systems</h2>
             </div>
-            {sourceSystems.length === 0 ? (
-              <div className="empty">No source systems registered yet.</div>
-            ) : (
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Id</th>
-                      <th>Name</th>
-                      <th>Type</th>
-                      <th>Transport</th>
-                      <th>Schedule</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sourceSystems.map((record) => (
-                      <tr key={record.source_system_id}>
-                        <td>{record.source_system_id}</td>
-                        <td>{record.name}</td>
-                        <td>{record.source_type}</td>
-                        <td>{record.transport}</td>
-                        <td>{record.schedule_mode}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </article>
+          </div>
+          {sourceSystems.length === 0 ? (
+            <div className="empty">No source systems registered yet.</div>
+          ) : (
+            <div className="entityList">
+              {sourceSystems.map((record) => (
+                <article className="entityCard" key={record.source_system_id}>
+                  <div className="entityHeader">
+                    <div>
+                      <div className="metricLabel">{record.source_system_id}</div>
+                      <h3>{record.name}</h3>
+                    </div>
+                    <span className={`statusPill status-${statusCopy(record.enabled)}`}>
+                      {statusCopy(record.enabled)}
+                    </span>
+                  </div>
+                  <div className="metaGrid">
+                    <div className="metaItem">
+                      <div className="metricLabel">Source type</div>
+                      <div>{record.source_type}</div>
+                    </div>
+                    <div className="metaItem">
+                      <div className="metricLabel">Transport</div>
+                      <div>{record.transport}</div>
+                    </div>
+                    <div className="metaItem">
+                      <div className="metricLabel">Schedule mode</div>
+                      <div>{record.schedule_mode}</div>
+                    </div>
+                    <div className="metaItem spanTwo">
+                      <div className="metricLabel">Description</div>
+                      <div className="muted">{record.description || "n/a"}</div>
+                    </div>
+                  </div>
+                  <form
+                    className="formGrid fourCol"
+                    action={`/control/catalog/source-systems/${record.source_system_id}`}
+                    method="post"
+                  >
+                    <input name="source_system_id" type="hidden" value={record.source_system_id} />
+                    <div className="field">
+                      <label htmlFor={`system-name-${record.source_system_id}`}>Name</label>
+                      <input
+                        id={`system-name-${record.source_system_id}`}
+                        name="name"
+                        type="text"
+                        defaultValue={record.name}
+                        required
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`system-type-${record.source_system_id}`}>Source type</label>
+                      <input
+                        id={`system-type-${record.source_system_id}`}
+                        name="source_type"
+                        type="text"
+                        defaultValue={record.source_type}
+                        required
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`system-transport-${record.source_system_id}`}>Transport</label>
+                      <input
+                        id={`system-transport-${record.source_system_id}`}
+                        name="transport"
+                        type="text"
+                        defaultValue={record.transport}
+                        required
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`system-schedule-${record.source_system_id}`}>Schedule mode</label>
+                      <input
+                        id={`system-schedule-${record.source_system_id}`}
+                        name="schedule_mode"
+                        type="text"
+                        defaultValue={record.schedule_mode}
+                        required
+                      />
+                    </div>
+                    <div className="field spanTwo">
+                      <label htmlFor={`system-description-${record.source_system_id}`}>Description</label>
+                      <input
+                        id={`system-description-${record.source_system_id}`}
+                        name="description"
+                        type="text"
+                        defaultValue={record.description || ""}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`system-enabled-${record.source_system_id}`}>Status</label>
+                      <select
+                        id={`system-enabled-${record.source_system_id}`}
+                        name="enabled"
+                        defaultValue={record.enabled ? "true" : "false"}
+                      >
+                        <option value="true">active</option>
+                        <option value="false">inactive</option>
+                      </select>
+                    </div>
+                    <button className="primaryButton inlineButton" type="submit">
+                      Save source system
+                    </button>
+                  </form>
+                </article>
+              ))}
+            </div>
+          )}
+        </article>
 
-          <article className="panel section">
-            <div className="sectionHeader">
-              <div>
-                <div className="eyebrow">Bindings</div>
-                <h2>Source assets</h2>
-              </div>
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Bindings</div>
+              <h2>Source assets</h2>
             </div>
-            {sourceAssets.length === 0 ? (
-              <div className="empty">No source assets registered yet.</div>
-            ) : (
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Id</th>
-                      <th>Name</th>
-                      <th>Contract</th>
-                      <th>Mapping</th>
-                      <th>Package</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sourceAssets.map((record) => (
-                      <tr key={record.source_asset_id}>
-                        <td>{record.source_asset_id}</td>
-                        <td>{record.name}</td>
-                        <td>{record.dataset_contract_id}</td>
-                        <td>{record.column_mapping_id}</td>
-                        <td>{record.transformation_package_id || "n/a"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </article>
-        </section>
+          </div>
+          {sourceAssets.length === 0 ? (
+            <div className="empty">No source assets registered yet.</div>
+          ) : (
+            <div className="entityList">
+              {sourceAssets.map((record) => {
+                const datasetContract = contractById.get(record.dataset_contract_id);
+                const columnMapping = mappingById.get(record.column_mapping_id);
+                const transformationPackage = record.transformation_package_id
+                  ? packageById.get(record.transformation_package_id)
+                  : null;
+                return (
+                  <article className="entityCard" key={record.source_asset_id}>
+                    <div className="entityHeader">
+                      <div>
+                        <div className="metricLabel">{record.source_asset_id}</div>
+                        <h3>{record.name}</h3>
+                      </div>
+                      <span className={`statusPill status-${statusCopy(record.enabled)}`}>
+                        {statusCopy(record.enabled)}
+                      </span>
+                    </div>
+                    <div className="metaGrid">
+                      <div className="metaItem">
+                        <div className="metricLabel">Source system</div>
+                        <div>{record.source_system_id}</div>
+                      </div>
+                      <div className="metaItem">
+                        <div className="metricLabel">Contract</div>
+                        <div>
+                          {record.dataset_contract_id}
+                          {datasetContract ? ` / v${datasetContract.version}` : ""}
+                        </div>
+                      </div>
+                      <div className="metaItem">
+                        <div className="metricLabel">Mapping</div>
+                        <div>
+                          {record.column_mapping_id}
+                          {columnMapping ? ` / v${columnMapping.version}` : ""}
+                        </div>
+                      </div>
+                      <div className="metaItem">
+                        <div className="metricLabel">Package</div>
+                        <div>{transformationPackage?.handler_key || record.transformation_package_id || "n/a"}</div>
+                      </div>
+                      <div className="metaItem spanTwo">
+                        <div className="metricLabel">Description</div>
+                        <div className="muted">{record.description || "n/a"}</div>
+                      </div>
+                    </div>
+                    <form
+                      className="formGrid fourCol"
+                      action={`/control/catalog/source-assets/${record.source_asset_id}`}
+                      method="post"
+                    >
+                      <input name="source_asset_id" type="hidden" value={record.source_asset_id} />
+                      <div className="field">
+                        <label htmlFor={`asset-name-${record.source_asset_id}`}>Name</label>
+                        <input
+                          id={`asset-name-${record.source_asset_id}`}
+                          name="name"
+                          type="text"
+                          defaultValue={record.name}
+                          required
+                        />
+                      </div>
+                      <div className="field">
+                        <label htmlFor={`asset-type-${record.source_asset_id}`}>Asset type</label>
+                        <input
+                          id={`asset-type-${record.source_asset_id}`}
+                          name="asset_type"
+                          type="text"
+                          defaultValue={record.asset_type}
+                          required
+                        />
+                      </div>
+                      <div className="field">
+                        <label htmlFor={`asset-system-${record.source_asset_id}`}>Source system</label>
+                        <select
+                          id={`asset-system-${record.source_asset_id}`}
+                          name="source_system_id"
+                          defaultValue={record.source_system_id}
+                          required
+                        >
+                          {sourceSystems.map((item) => (
+                            <option key={item.source_system_id} value={item.source_system_id}>
+                              {item.source_system_id}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="field">
+                        <label htmlFor={`asset-contract-${record.source_asset_id}`}>Dataset contract</label>
+                        <select
+                          id={`asset-contract-${record.source_asset_id}`}
+                          name="dataset_contract_id"
+                          defaultValue={record.dataset_contract_id}
+                          required
+                        >
+                          {datasetContracts.map((item) => (
+                            <option key={item.dataset_contract_id} value={item.dataset_contract_id}>
+                              {item.dataset_contract_id}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="field">
+                        <label htmlFor={`asset-mapping-${record.source_asset_id}`}>Column mapping</label>
+                        <select
+                          id={`asset-mapping-${record.source_asset_id}`}
+                          name="column_mapping_id"
+                          defaultValue={record.column_mapping_id}
+                          required
+                        >
+                          {columnMappings.map((item) => (
+                            <option key={item.column_mapping_id} value={item.column_mapping_id}>
+                              {item.column_mapping_id}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="field">
+                        <label htmlFor={`asset-package-${record.source_asset_id}`}>Transformation package</label>
+                        <select
+                          id={`asset-package-${record.source_asset_id}`}
+                          name="transformation_package_id"
+                          defaultValue={record.transformation_package_id || ""}
+                        >
+                          <option value="">None</option>
+                          {transformationPackages.map((item) => (
+                            <option
+                              key={item.transformation_package_id}
+                              value={item.transformation_package_id}
+                            >
+                              {item.transformation_package_id}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="field">
+                        <label htmlFor={`asset-enabled-${record.source_asset_id}`}>Status</label>
+                        <select
+                          id={`asset-enabled-${record.source_asset_id}`}
+                          name="enabled"
+                          defaultValue={record.enabled ? "true" : "false"}
+                        >
+                          <option value="true">active</option>
+                          <option value="false">inactive</option>
+                        </select>
+                      </div>
+                      <div className="field spanTwo">
+                        <label htmlFor={`asset-description-${record.source_asset_id}`}>Description</label>
+                        <input
+                          id={`asset-description-${record.source_asset_id}`}
+                          name="description"
+                          type="text"
+                          defaultValue={record.description || ""}
+                        />
+                      </div>
+                      <button className="primaryButton inlineButton" type="submit">
+                        Save source asset
+                      </button>
+                    </form>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </article>
 
         <section className="layout">
           <article className="panel section">
@@ -348,7 +607,7 @@ export default async function ControlCatalogPage({ searchParams }) {
             {datasetContracts.length === 0 ? (
               <div className="empty">No dataset contracts registered yet.</div>
             ) : (
-              <div className="stack">
+              <div className="stack compactStack">
                 {datasetContracts.map((record) => (
                   <div className="metaItem" key={record.dataset_contract_id}>
                     <div className="metricLabel">{record.dataset_contract_id}</div>
@@ -368,40 +627,36 @@ export default async function ControlCatalogPage({ searchParams }) {
                 <h2>Mappings and packages</h2>
               </div>
             </div>
-            <div className="stack">
-              <div className="metaGrid">
-                <div>
-                  <div className="metricLabel">Column mappings</div>
-                  <div className="stack compactStack">
-                    {columnMappings.length === 0 ? (
-                      <div className="empty">No mappings.</div>
-                    ) : (
-                      columnMappings.map((record) => (
-                        <div className="metaItem" key={record.column_mapping_id}>
-                          <div>{record.column_mapping_id}</div>
-                          <div className="muted">
-                            {record.source_system_id} / {record.dataset_contract_id}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <div className="metricLabel">Transformation packages</div>
-                  <div className="stack compactStack">
-                    {transformationPackages.length === 0 ? (
-                      <div className="empty">No packages.</div>
-                    ) : (
-                      transformationPackages.map((record) => (
-                        <div className="metaItem" key={record.transformation_package_id}>
-                          <div>{record.transformation_package_id}</div>
-                          <div className="muted">{record.handler_key}</div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+            <div className="metaGrid">
+              <div className="stack compactStack">
+                <div className="metricLabel">Column mappings</div>
+                {columnMappings.length === 0 ? (
+                  <div className="empty">No mappings.</div>
+                ) : (
+                  columnMappings.map((record) => (
+                    <div className="metaItem" key={record.column_mapping_id}>
+                      <div>{record.column_mapping_id}</div>
+                      <div className="muted">
+                        {record.source_system_id} / {record.dataset_contract_id} / v{record.version}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="stack compactStack">
+                <div className="metricLabel">Transformation packages</div>
+                {transformationPackages.length === 0 ? (
+                  <div className="empty">No packages.</div>
+                ) : (
+                  transformationPackages.map((record) => (
+                    <div className="metaItem" key={record.transformation_package_id}>
+                      <div>{record.transformation_package_id}</div>
+                      <div className="muted">
+                        {record.handler_key} / v{record.version}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </article>

@@ -68,6 +68,17 @@ class ConfiguredIngestionDefinitionService:
         source_asset = self.config_repository.get_source_asset(
             ingestion_definition.source_asset_id
         )
+        if not source_asset.enabled:
+            raise ValueError(
+                f"Source asset is disabled: {ingestion_definition.source_asset_id}"
+            )
+        source_system = self.config_repository.get_source_system(
+            source_asset.source_system_id
+        )
+        if not source_system.enabled:
+            raise ValueError(
+                f"Source system is disabled: {source_asset.source_system_id}"
+            )
         inbox_dir = Path(ingestion_definition.source_path)
         processed_dir = Path(
             ingestion_definition.processed_path or inbox_dir / "processed"
@@ -119,6 +130,17 @@ class ConfiguredIngestionDefinitionService:
         source_asset = self.config_repository.get_source_asset(
             ingestion_definition.source_asset_id
         )
+        if not source_asset.enabled:
+            raise ValueError(
+                f"Source asset is disabled: {ingestion_definition.source_asset_id}"
+            )
+        source_system = self.config_repository.get_source_system(
+            source_asset.source_system_id
+        )
+        if not source_system.enabled:
+            raise ValueError(
+                f"Source system is disabled: {source_asset.source_system_id}"
+            )
         if not ingestion_definition.request_url:
             raise ValueError(
                 "HTTP ingestion definitions must define request_url."

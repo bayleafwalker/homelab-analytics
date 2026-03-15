@@ -76,9 +76,9 @@ class PostgresIngestionConfigRepository:
             connection.execute(
                 """
                 INSERT INTO source_systems (
-                    source_system_id, name, source_type, transport, schedule_mode, description, created_at
+                    source_system_id, name, source_type, transport, schedule_mode, description, enabled, created_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     source_system.source_system_id,
@@ -87,16 +87,44 @@ class PostgresIngestionConfigRepository:
                     source_system.transport,
                     source_system.schedule_mode,
                     source_system.description,
+                    source_system.enabled,
                     source_system.created_at,
                 ),
             )
+        return self.get_source_system(source_system.source_system_id)
+
+    def update_source_system(self, source_system: SourceSystemCreate) -> SourceSystemRecord:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE source_systems
+                SET name = %s,
+                    source_type = %s,
+                    transport = %s,
+                    schedule_mode = %s,
+                    description = %s,
+                    enabled = %s
+                WHERE source_system_id = %s
+                """,
+                (
+                    source_system.name,
+                    source_system.source_type,
+                    source_system.transport,
+                    source_system.schedule_mode,
+                    source_system.description,
+                    source_system.enabled,
+                    source_system.source_system_id,
+                ),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown source system: {source_system.source_system_id}")
         return self.get_source_system(source_system.source_system_id)
 
     def get_source_system(self, source_system_id: str) -> SourceSystemRecord:
         with self._connect(row_factory=dict_row) as connection:
             row = connection.execute(
                 """
-                SELECT source_system_id, name, source_type, transport, schedule_mode, description, created_at
+                SELECT source_system_id, name, source_type, transport, schedule_mode, description, enabled, created_at
                 FROM source_systems
                 WHERE source_system_id = %s
                 """,
@@ -111,6 +139,7 @@ class PostgresIngestionConfigRepository:
             transport=row["transport"],
             schedule_mode=row["schedule_mode"],
             description=row["description"],
+            enabled=bool(row["enabled"]),
             created_at=row["created_at"],
         )
 
@@ -118,7 +147,7 @@ class PostgresIngestionConfigRepository:
         with self._connect(row_factory=dict_row) as connection:
             rows = connection.execute(
                 """
-                SELECT source_system_id, name, source_type, transport, schedule_mode, description, created_at
+                SELECT source_system_id, name, source_type, transport, schedule_mode, description, enabled, created_at
                 FROM source_systems
                 ORDER BY created_at, source_system_id
                 """
@@ -131,6 +160,7 @@ class PostgresIngestionConfigRepository:
                 transport=row["transport"],
                 schedule_mode=row["schedule_mode"],
                 description=row["description"],
+                enabled=bool(row["enabled"]),
                 created_at=row["created_at"],
             )
             for row in rows
@@ -424,9 +454,9 @@ class PostgresIngestionConfigRepository:
                 """
                 INSERT INTO source_assets (
                     source_asset_id, source_system_id, dataset_contract_id, column_mapping_id,
-                    transformation_package_id, name, asset_type, description, created_at
+                    transformation_package_id, name, asset_type, description, enabled, created_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     source_asset.source_asset_id,
@@ -437,9 +467,43 @@ class PostgresIngestionConfigRepository:
                     source_asset.name,
                     source_asset.asset_type,
                     source_asset.description,
+                    source_asset.enabled,
                     source_asset.created_at,
                 ),
             )
+        return self.get_source_asset(source_asset.source_asset_id)
+
+    def update_source_asset(self, source_asset: SourceAssetCreate) -> SourceAssetRecord:
+        if source_asset.transformation_package_id is not None:
+            self.get_transformation_package(source_asset.transformation_package_id)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE source_assets
+                SET source_system_id = %s,
+                    dataset_contract_id = %s,
+                    column_mapping_id = %s,
+                    transformation_package_id = %s,
+                    name = %s,
+                    asset_type = %s,
+                    description = %s,
+                    enabled = %s
+                WHERE source_asset_id = %s
+                """,
+                (
+                    source_asset.source_system_id,
+                    source_asset.dataset_contract_id,
+                    source_asset.column_mapping_id,
+                    source_asset.transformation_package_id,
+                    source_asset.name,
+                    source_asset.asset_type,
+                    source_asset.description,
+                    source_asset.enabled,
+                    source_asset.source_asset_id,
+                ),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown source asset: {source_asset.source_asset_id}")
         return self.get_source_asset(source_asset.source_asset_id)
 
     def get_source_asset(self, source_asset_id: str) -> SourceAssetRecord:
@@ -447,7 +511,7 @@ class PostgresIngestionConfigRepository:
             row = connection.execute(
                 """
                 SELECT source_asset_id, source_system_id, dataset_contract_id, column_mapping_id,
-                       transformation_package_id, name, asset_type, description, created_at
+                       transformation_package_id, name, asset_type, description, enabled, created_at
                 FROM source_assets
                 WHERE source_asset_id = %s
                 """,
@@ -464,6 +528,7 @@ class PostgresIngestionConfigRepository:
             name=row["name"],
             asset_type=row["asset_type"],
             description=row["description"],
+            enabled=bool(row["enabled"]),
             created_at=row["created_at"],
         )
 
@@ -472,7 +537,7 @@ class PostgresIngestionConfigRepository:
             rows = connection.execute(
                 """
                 SELECT source_asset_id, source_system_id, dataset_contract_id, column_mapping_id,
-                       transformation_package_id, name, asset_type, description, created_at
+                       transformation_package_id, name, asset_type, description, enabled, created_at
                 FROM source_assets
                 ORDER BY created_at, source_asset_id
                 """
@@ -487,6 +552,7 @@ class PostgresIngestionConfigRepository:
                 name=row["name"],
                 asset_type=row["asset_type"],
                 description=row["description"],
+                enabled=bool(row["enabled"]),
                 created_at=row["created_at"],
             )
             for row in rows
@@ -503,11 +569,12 @@ class PostgresIngestionConfigRepository:
             rows = connection.execute(
                 """
                 SELECT source_asset_id, source_system_id, dataset_contract_id, column_mapping_id,
-                       transformation_package_id, name, asset_type, description, created_at
+                       transformation_package_id, name, asset_type, description, enabled, created_at
                 FROM source_assets
                 WHERE source_system_id = %s
                   AND dataset_contract_id = %s
                   AND column_mapping_id = %s
+                  AND enabled = TRUE
                 ORDER BY created_at, source_asset_id
                 """,
                 (source_system_id, dataset_contract_id, column_mapping_id),
@@ -528,6 +595,7 @@ class PostgresIngestionConfigRepository:
             name=row["name"],
             asset_type=row["asset_type"],
             description=row["description"],
+            enabled=bool(row["enabled"]),
             created_at=row["created_at"],
         )
 
@@ -566,6 +634,58 @@ class PostgresIngestionConfigRepository:
                     ingestion_definition.source_name,
                     ingestion_definition.created_at,
                 ),
+            )
+        return self.get_ingestion_definition(ingestion_definition.ingestion_definition_id)
+
+    def update_ingestion_definition(
+        self,
+        ingestion_definition: IngestionDefinitionCreate,
+    ) -> IngestionDefinitionRecord:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE ingestion_definitions
+                SET source_asset_id = %s,
+                    transport = %s,
+                    schedule_mode = %s,
+                    source_path = %s,
+                    file_pattern = %s,
+                    processed_path = %s,
+                    failed_path = %s,
+                    poll_interval_seconds = %s,
+                    request_url = %s,
+                    request_method = %s,
+                    request_headers_json = %s,
+                    request_timeout_seconds = %s,
+                    response_format = %s,
+                    output_file_name = %s,
+                    enabled = %s,
+                    source_name = %s
+                WHERE ingestion_definition_id = %s
+                """,
+                (
+                    ingestion_definition.source_asset_id,
+                    ingestion_definition.transport,
+                    ingestion_definition.schedule_mode,
+                    ingestion_definition.source_path,
+                    ingestion_definition.file_pattern,
+                    ingestion_definition.processed_path,
+                    ingestion_definition.failed_path,
+                    ingestion_definition.poll_interval_seconds,
+                    ingestion_definition.request_url,
+                    ingestion_definition.request_method,
+                    _serialize_request_headers(ingestion_definition.request_headers),
+                    ingestion_definition.request_timeout_seconds,
+                    ingestion_definition.response_format,
+                    ingestion_definition.output_file_name,
+                    ingestion_definition.enabled,
+                    ingestion_definition.source_name,
+                    ingestion_definition.ingestion_definition_id,
+                ),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(
+                f"Unknown ingestion definition: {ingestion_definition.ingestion_definition_id}"
             )
         return self.get_ingestion_definition(ingestion_definition.ingestion_definition_id)
 
@@ -674,6 +794,42 @@ class PostgresIngestionConfigRepository:
                     schedule.created_at,
                 ),
             )
+        return self.get_execution_schedule(schedule.schedule_id)
+
+    def update_execution_schedule(self, schedule: ExecutionScheduleCreate) -> ExecutionScheduleRecord:
+        next_due_at = schedule.next_due_at or next_cron_occurrence(
+            schedule.cron_expression,
+            timezone=schedule.timezone,
+            after=schedule.last_enqueued_at or schedule.created_at,
+        )
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE execution_schedules
+                SET target_kind = %s,
+                    target_ref = %s,
+                    cron_expression = %s,
+                    timezone = %s,
+                    enabled = %s,
+                    max_concurrency = %s,
+                    next_due_at = %s,
+                    last_enqueued_at = %s
+                WHERE schedule_id = %s
+                """,
+                (
+                    schedule.target_kind,
+                    schedule.target_ref,
+                    schedule.cron_expression,
+                    schedule.timezone,
+                    schedule.enabled,
+                    schedule.max_concurrency,
+                    next_due_at,
+                    schedule.last_enqueued_at,
+                    schedule.schedule_id,
+                ),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown execution schedule: {schedule.schedule_id}")
         return self.get_execution_schedule(schedule.schedule_id)
 
     def get_execution_schedule(self, schedule_id: str) -> ExecutionScheduleRecord:
@@ -846,6 +1002,75 @@ class PostgresIngestionConfigRepository:
             for row in rows
         ]
         return [_deserialize_schedule_dispatch_row(row) for row in normalized]  # type: ignore[arg-type]
+
+    def create_schedule_dispatch(
+        self,
+        schedule_id: str,
+        *,
+        enqueued_at: datetime | None = None,
+    ) -> ScheduleDispatchRecord:
+        resolved_enqueued_at = enqueued_at or datetime.now(UTC)
+        with self._connect(row_factory=dict_row) as connection:
+            schedule_row = connection.execute(
+                """
+                SELECT schedule_id, target_kind, target_ref, enabled, max_concurrency
+                FROM execution_schedules
+                WHERE schedule_id = %s
+                """,
+                (schedule_id,),
+            ).fetchone()
+            if schedule_row is None:
+                raise KeyError(f"Unknown execution schedule: {schedule_id}")
+            if not bool(schedule_row["enabled"]):
+                raise ValueError(f"Execution schedule is disabled: {schedule_id}")
+            active_count = connection.execute(
+                """
+                SELECT COUNT(*) AS active_count
+                FROM schedule_dispatches
+                WHERE schedule_id = %s
+                  AND status IN ('enqueued', 'running')
+                """,
+                (schedule_id,),
+            ).fetchone()["active_count"]
+            if active_count >= schedule_row["max_concurrency"]:
+                raise ValueError(
+                    f"Execution schedule already has max_concurrency active dispatches: {schedule_id}"
+                )
+            dispatch_id = uuid.uuid4().hex[:16]
+            connection.execute(
+                """
+                INSERT INTO schedule_dispatches (
+                    dispatch_id, schedule_id, target_kind, target_ref, enqueued_at, status, completed_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    dispatch_id,
+                    schedule_id,
+                    schedule_row["target_kind"],
+                    schedule_row["target_ref"],
+                    resolved_enqueued_at,
+                    "enqueued",
+                    None,
+                ),
+            )
+            connection.execute(
+                """
+                UPDATE execution_schedules
+                SET last_enqueued_at = %s
+                WHERE schedule_id = %s
+                """,
+                (resolved_enqueued_at, schedule_id),
+            )
+        return ScheduleDispatchRecord(
+            dispatch_id=dispatch_id,
+            schedule_id=schedule_id,
+            target_kind=schedule_row["target_kind"],
+            target_ref=schedule_row["target_ref"],
+            enqueued_at=resolved_enqueued_at,
+            status="enqueued",
+            completed_at=None,
+        )
 
     def mark_schedule_dispatch_status(
         self,
@@ -1283,6 +1508,7 @@ class PostgresIngestionConfigRepository:
                         transport=source_system_record.transport,
                         schedule_mode=source_system_record.schedule_mode,
                         description=source_system_record.description,
+                        enabled=source_system_record.enabled,
                         created_at=source_system_record.created_at,
                     )
                 )
@@ -1356,6 +1582,7 @@ class PostgresIngestionConfigRepository:
                         name=source_asset_record.name,
                         asset_type=source_asset_record.asset_type,
                         description=source_asset_record.description,
+                        enabled=source_asset_record.enabled,
                         created_at=source_asset_record.created_at,
                     )
                 )
@@ -1479,6 +1706,7 @@ class PostgresIngestionConfigRepository:
                     transport TEXT NOT NULL,
                     schedule_mode TEXT NOT NULL,
                     description TEXT,
+                    enabled BOOLEAN NOT NULL DEFAULT TRUE,
                     created_at TIMESTAMPTZ NOT NULL
                 )
                 """
@@ -1542,6 +1770,7 @@ class PostgresIngestionConfigRepository:
                     name TEXT NOT NULL,
                     asset_type TEXT NOT NULL,
                     description TEXT,
+                    enabled BOOLEAN NOT NULL DEFAULT TRUE,
                     created_at TIMESTAMPTZ NOT NULL
                 )
                 """
@@ -1654,6 +1883,18 @@ class PostgresIngestionConfigRepository:
                     detail TEXT,
                     occurred_at TIMESTAMPTZ NOT NULL
                 )
+                """
+            )
+            connection.execute(
+                """
+                ALTER TABLE source_systems
+                ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT TRUE
+                """
+            )
+            connection.execute(
+                """
+                ALTER TABLE source_assets
+                ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT TRUE
                 """
             )
             self._seed_builtins(connection)

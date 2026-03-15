@@ -20,8 +20,26 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     source_system_route = (
         FRONTEND_ROOT / "app" / "control" / "catalog" / "source-systems" / "route.js"
     ).read_text()
+    source_system_update_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "source-systems"
+        / "[sourceSystemId]"
+        / "route.js"
+    ).read_text()
     source_asset_route = (
         FRONTEND_ROOT / "app" / "control" / "catalog" / "source-assets" / "route.js"
+    ).read_text()
+    source_asset_update_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "source-assets"
+        / "[sourceAssetId]"
+        / "route.js"
     ).read_text()
     ingestion_definition_route = (
         FRONTEND_ROOT
@@ -29,6 +47,15 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
         / "control"
         / "execution"
         / "ingestion-definitions"
+        / "route.js"
+    ).read_text()
+    ingestion_definition_update_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "execution"
+        / "ingestion-definitions"
+        / "[ingestionDefinitionId]"
         / "route.js"
     ).read_text()
     process_definition_route = (
@@ -49,6 +76,23 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
         / "execution-schedules"
         / "route.js"
     ).read_text()
+    execution_schedule_update_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "execution"
+        / "execution-schedules"
+        / "[scheduleId]"
+        / "route.js"
+    ).read_text()
+    schedule_dispatch_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "execution"
+        / "schedule-dispatches"
+        / "route.js"
+    ).read_text()
     run_detail_page = (
         FRONTEND_ROOT / "app" / "runs" / "[runId]" / "page.js"
     ).read_text()
@@ -67,9 +111,14 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert "getExecutionSchedules" in control_execution_page
     assert "getRun" in run_detail_page
     assert 'backendRequest("/config/source-systems"' in source_system_route
+    assert 'backendRequest(`/config/source-systems/${params.sourceSystemId}`' in source_system_update_route
     assert 'backendRequest("/config/source-assets"' in source_asset_route
+    assert 'backendRequest(`/config/source-assets/${params.sourceAssetId}`' in source_asset_update_route
     assert 'backendRequest("/config/ingestion-definitions"' in ingestion_definition_route
+    assert "/config/ingestion-definitions/${params.ingestionDefinitionId}" in ingestion_definition_update_route
     assert 'backendRequest("/config/execution-schedules"' in execution_schedule_route
+    assert "/config/execution-schedules/${params.scheduleId}" in execution_schedule_update_route
+    assert 'backendRequest("/control/schedule-dispatches"' in schedule_dispatch_route
     assert "/ingest/ingestion-definitions/${params.ingestionDefinitionId}/process" in process_definition_route
 
 
@@ -96,13 +145,17 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getSourceAssets" in backend_source
     assert "getIngestionDefinitions" in backend_source
     assert "getExecutionSchedules" in backend_source
+    assert "getRunsPage" in backend_source
     assert "getRun" in backend_source
+    assert "getTransformationAudit" in backend_source
     assert "getMonthlyCashflow" in dashboard_source
     assert "getRuns" in dashboard_source
-    assert "getRuns" in runs_source
+    assert "getRunsPage" in runs_source
     assert "getMonthlyCashflow" in reports_source
     assert "getLocalUsers" in control_source
     assert "getSourceSystems" in control_catalog_source
     assert "getIngestionDefinitions" in control_execution_source
     assert "getRun" in run_detail_source
+    assert "getSourceLineage" in run_detail_source
+    assert "getPublicationAudit" in run_detail_source
     assert "ReportingService(" not in dashboard_source

@@ -87,7 +87,9 @@ class ConfiguredCsvIngestionService:
         dataset_contract_id: str,
         column_mapping_id: str,
     ) -> tuple[DatasetContractConfigRecord, ColumnMappingRecord]:
-        self.config_repository.get_source_system(source_system_id)
+        source_system = self.config_repository.get_source_system(source_system_id)
+        if not source_system.enabled:
+            raise ValueError(f"Source system is disabled: {source_system_id}")
         dataset_contract = self.config_repository.get_dataset_contract(dataset_contract_id)
         column_mapping = self.config_repository.get_column_mapping(column_mapping_id)
 

@@ -89,6 +89,65 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     web_run_detail_page = (
         ROOT / "apps" / "web" / "frontend" / "app" / "runs" / "[runId]" / "page.js"
     ).read_text()
+    web_source_system_update_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "control"
+        / "catalog"
+        / "source-systems"
+        / "[sourceSystemId]"
+        / "route.js"
+    ).read_text()
+    web_source_asset_update_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "control"
+        / "catalog"
+        / "source-assets"
+        / "[sourceAssetId]"
+        / "route.js"
+    ).read_text()
+    web_ingestion_definition_update_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "control"
+        / "execution"
+        / "ingestion-definitions"
+        / "[ingestionDefinitionId]"
+        / "route.js"
+    ).read_text()
+    web_schedule_update_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "control"
+        / "execution"
+        / "execution-schedules"
+        / "[scheduleId]"
+        / "route.js"
+    ).read_text()
+    web_schedule_dispatch_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "control"
+        / "execution"
+        / "schedule-dispatches"
+        / "route.js"
+    ).read_text()
     web_login_page = (ROOT / "apps" / "web" / "frontend" / "app" / "login" / "page.js").read_text()
     web_login_route = (ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "login" / "route.js").read_text()
     web_logout_route = (ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "logout" / "route.js").read_text()
@@ -99,6 +158,9 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert "CSRF validation failed." in api_source
     assert '"/auth/users"' in api_source
     assert '"/control/auth-audit"' in api_source
+    assert '"/control/source-lineage"' in api_source
+    assert '"/control/publication-audit"' in api_source
+    assert '"/control/schedule-dispatches"' in api_source
     assert "auth_mode=resolved_settings.auth_mode" in api_main_source
     assert "session_manager=build_session_manager(resolved_settings)" in api_main_source
     assert "maybe_bootstrap_local_admin" in api_main_source
@@ -113,6 +175,14 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert "getIngestionDefinitions" in web_control_execution_page
     assert "getExecutionSchedules" in web_control_execution_page
     assert "getRun" in web_run_detail_page
+    assert "getSourceLineage" in web_run_detail_page
+    assert "getPublicationAudit" in web_run_detail_page
+    assert "getTransformationAudit" in web_run_detail_page
+    assert "/config/source-systems/${params.sourceSystemId}" in web_source_system_update_route
+    assert "/config/source-assets/${params.sourceAssetId}" in web_source_asset_update_route
+    assert "/config/ingestion-definitions/${params.ingestionDefinitionId}" in web_ingestion_definition_update_route
+    assert "/config/execution-schedules/${params.scheduleId}" in web_schedule_update_route
+    assert 'backendRequest("/control/schedule-dispatches"' in web_schedule_dispatch_route
     assert "build_web_environment" in web_main_source
     assert "resolved_api_base_url" in web_main_source
 

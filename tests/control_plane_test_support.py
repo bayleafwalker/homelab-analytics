@@ -330,3 +330,187 @@ def assert_schedule_dispatch_behaviour(store: ControlPlaneStore) -> None:
             status="completed",
         )
     ] == [first_dispatches[0].dispatch_id]
+
+
+def assert_control_plane_store_update_behaviour(store: ControlPlaneStore) -> None:
+    seeded = seed_source_asset_graph(store)
+
+    updated_source_system = store.update_source_system(
+        SourceSystemCreate(
+            source_system_id=seeded["source_system"].source_system_id,
+            name="Bank Partner Export v2",
+            source_type="api",
+            transport="https",
+            schedule_mode="scheduled",
+            description="Updated control-plane source system.",
+            enabled=False,
+            created_at=seeded["source_system"].created_at,
+        )
+    )
+    assert updated_source_system.name == "Bank Partner Export v2"
+    assert updated_source_system.enabled is False
+
+    restored_source_system = store.update_source_system(
+        SourceSystemCreate(
+            source_system_id=seeded["source_system"].source_system_id,
+            name=updated_source_system.name,
+            source_type=updated_source_system.source_type,
+            transport=updated_source_system.transport,
+            schedule_mode=updated_source_system.schedule_mode,
+            description=updated_source_system.description,
+            enabled=True,
+            created_at=updated_source_system.created_at,
+        )
+    )
+    assert restored_source_system.enabled is True
+
+    updated_source_asset = store.update_source_asset(
+        SourceAssetCreate(
+            source_asset_id=seeded["source_asset"].source_asset_id,
+            source_system_id=seeded["source_asset"].source_system_id,
+            dataset_contract_id=seeded["source_asset"].dataset_contract_id,
+            column_mapping_id=seeded["source_asset"].column_mapping_id,
+            transformation_package_id=seeded["source_asset"].transformation_package_id,
+            name="Bank Partner Transactions v2",
+            asset_type=seeded["source_asset"].asset_type,
+            description="Updated source asset.",
+            enabled=False,
+            created_at=seeded["source_asset"].created_at,
+        )
+    )
+    assert updated_source_asset.enabled is False
+    assert (
+        store.find_source_asset_by_binding(
+            source_system_id=seeded["source_system"].source_system_id,
+            dataset_contract_id=seeded["dataset_contract"].dataset_contract_id,
+            column_mapping_id=seeded["column_mapping"].column_mapping_id,
+        )
+        is None
+    )
+
+    restored_source_asset = store.update_source_asset(
+        SourceAssetCreate(
+            source_asset_id=updated_source_asset.source_asset_id,
+            source_system_id=updated_source_asset.source_system_id,
+            dataset_contract_id=updated_source_asset.dataset_contract_id,
+            column_mapping_id=updated_source_asset.column_mapping_id,
+            transformation_package_id=updated_source_asset.transformation_package_id,
+            name=updated_source_asset.name,
+            asset_type=updated_source_asset.asset_type,
+            description=updated_source_asset.description,
+            enabled=True,
+            created_at=updated_source_asset.created_at,
+        )
+    )
+    assert restored_source_asset.enabled is True
+
+    updated_definition = store.update_ingestion_definition(
+        IngestionDefinitionCreate(
+            ingestion_definition_id=seeded["ingestion_definition"].ingestion_definition_id,
+            source_asset_id=restored_source_asset.source_asset_id,
+            transport="filesystem",
+            schedule_mode="watch-folder",
+            source_path="/tmp/homelab/updated-inbox",
+            file_pattern="*.txt",
+            processed_path="/tmp/homelab/updated-processed",
+            failed_path="/tmp/homelab/updated-failed",
+            poll_interval_seconds=120,
+            enabled=False,
+            source_name="folder-watch-v2",
+            created_at=seeded["ingestion_definition"].created_at,
+        )
+    )
+    assert updated_definition.source_path == "/tmp/homelab/updated-inbox"
+    assert updated_definition.enabled is False
+    assert store.list_ingestion_definitions(enabled_only=True) == []
+
+    restored_definition = store.update_ingestion_definition(
+        IngestionDefinitionCreate(
+            ingestion_definition_id=updated_definition.ingestion_definition_id,
+            source_asset_id=updated_definition.source_asset_id,
+            transport=updated_definition.transport,
+            schedule_mode=updated_definition.schedule_mode,
+            source_path=updated_definition.source_path,
+            file_pattern=updated_definition.file_pattern,
+            processed_path=updated_definition.processed_path,
+            failed_path=updated_definition.failed_path,
+            poll_interval_seconds=updated_definition.poll_interval_seconds,
+            request_url=updated_definition.request_url,
+            request_method=updated_definition.request_method,
+            request_headers=updated_definition.request_headers,
+            request_timeout_seconds=updated_definition.request_timeout_seconds,
+            response_format=updated_definition.response_format,
+            output_file_name=updated_definition.output_file_name,
+            enabled=True,
+            source_name=updated_definition.source_name,
+            created_at=updated_definition.created_at,
+        )
+    )
+    assert restored_definition.enabled is True
+
+    existing_schedule = store.get_execution_schedule("bank_partner_poll")
+    updated_schedule = store.update_execution_schedule(
+        ExecutionScheduleCreate(
+            schedule_id=existing_schedule.schedule_id,
+            target_kind=existing_schedule.target_kind,
+            target_ref=existing_schedule.target_ref,
+            cron_expression="0 * * * *",
+            timezone="UTC",
+            enabled=True,
+            max_concurrency=2,
+            next_due_at=existing_schedule.next_due_at,
+            last_enqueued_at=existing_schedule.last_enqueued_at,
+            created_at=existing_schedule.created_at,
+        )
+    )
+    assert updated_schedule.cron_expression == "0 * * * *"
+    assert updated_schedule.max_concurrency == 2
+
+    manual_dispatch = store.create_schedule_dispatch(
+        updated_schedule.schedule_id,
+        enqueued_at=FIXED_DUE_AT,
+    )
+    assert manual_dispatch.schedule_id == updated_schedule.schedule_id
+    assert manual_dispatch.status == "enqueued"
+    assert (
+        store.get_execution_schedule(updated_schedule.schedule_id).last_enqueued_at
+        == FIXED_DUE_AT
+    )
+
+    second_dispatch = store.create_schedule_dispatch(
+        updated_schedule.schedule_id,
+        enqueued_at=FIXED_DUE_AT,
+    )
+    assert second_dispatch.dispatch_id != manual_dispatch.dispatch_id
+
+    try:
+        store.create_schedule_dispatch(
+            updated_schedule.schedule_id,
+            enqueued_at=FIXED_DUE_AT,
+        )
+    except ValueError as exc:
+        assert "max_concurrency" in str(exc)
+    else:
+        raise AssertionError("Expected create_schedule_dispatch to enforce max_concurrency")
+
+    disabled_schedule = store.update_execution_schedule(
+        ExecutionScheduleCreate(
+            schedule_id=updated_schedule.schedule_id,
+            target_kind=updated_schedule.target_kind,
+            target_ref=updated_schedule.target_ref,
+            cron_expression=updated_schedule.cron_expression,
+            timezone=updated_schedule.timezone,
+            enabled=False,
+            max_concurrency=updated_schedule.max_concurrency,
+            next_due_at=updated_schedule.next_due_at,
+            last_enqueued_at=updated_schedule.last_enqueued_at,
+            created_at=updated_schedule.created_at,
+        )
+    )
+    assert disabled_schedule.enabled is False
+    try:
+        store.create_schedule_dispatch(disabled_schedule.schedule_id)
+    except ValueError as exc:
+        assert "disabled" in str(exc)
+    else:
+        raise AssertionError("Expected create_schedule_dispatch to reject disabled schedules")

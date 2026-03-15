@@ -160,6 +160,9 @@ class ControlPlaneStore(Protocol):
     def create_source_system(self, source_system: "SourceSystemCreate") -> "SourceSystemRecord":
         ...
 
+    def update_source_system(self, source_system: "SourceSystemCreate") -> "SourceSystemRecord":
+        ...
+
     def get_source_system(self, source_system_id: str) -> "SourceSystemRecord":
         ...
 
@@ -222,6 +225,9 @@ class ControlPlaneStore(Protocol):
     def create_source_asset(self, source_asset: "SourceAssetCreate") -> "SourceAssetRecord":
         ...
 
+    def update_source_asset(self, source_asset: "SourceAssetCreate") -> "SourceAssetRecord":
+        ...
+
     def get_source_asset(self, source_asset_id: str) -> "SourceAssetRecord":
         ...
 
@@ -242,6 +248,11 @@ class ControlPlaneStore(Protocol):
     ) -> "IngestionDefinitionRecord":
         ...
 
+    def update_ingestion_definition(
+        self, ingestion_definition: "IngestionDefinitionCreate"
+    ) -> "IngestionDefinitionRecord":
+        ...
+
     def get_ingestion_definition(self, ingestion_definition_id: str) -> "IngestionDefinitionRecord":
         ...
 
@@ -251,6 +262,11 @@ class ControlPlaneStore(Protocol):
         ...
 
     def create_execution_schedule(
+        self, schedule: ExecutionScheduleCreate
+    ) -> ExecutionScheduleRecord:
+        ...
+
+    def update_execution_schedule(
         self, schedule: ExecutionScheduleCreate
     ) -> ExecutionScheduleRecord:
         ...
@@ -277,6 +293,14 @@ class ControlPlaneStore(Protocol):
         schedule_id: str | None = None,
         status: str | None = None,
     ) -> list[ScheduleDispatchRecord]:
+        ...
+
+    def create_schedule_dispatch(
+        self,
+        schedule_id: str,
+        *,
+        enqueued_at: datetime | None = None,
+    ) -> ScheduleDispatchRecord:
         ...
 
     def mark_schedule_dispatch_status(

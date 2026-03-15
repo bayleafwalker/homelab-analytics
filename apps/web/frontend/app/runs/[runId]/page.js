@@ -1,11 +1,25 @@
 import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
-import { getCurrentUser, getRun } from "@/lib/backend";
+import {
+  getCurrentUser,
+  getPublicationAudit,
+  getRun,
+  getSourceLineage,
+  getTransformationAudit
+} from "@/lib/backend";
 
 export default async function RunDetailPage({ params }) {
   const user = await getCurrentUser();
-  const run = await getRun(params.runId);
+  const runId = params.runId;
+  const [run, sourceLineage, publicationAudit, transformationAudit] = await Promise.all([
+    getRun(runId),
+    getSourceLineage({ runId }),
+    getPublicationAudit({ runId }),
+    getTransformationAudit(runId)
+  ]);
+  const transformationAuditColumns =
+    transformationAudit.length > 0 ? Object.keys(transformationAudit[0]) : [];
 
   return (
     <AppShell
@@ -13,7 +27,7 @@ export default async function RunDetailPage({ params }) {
       user={user}
       title="Run Detail"
       eyebrow="Reader Access"
-      lede="Run detail stays API-backed so operators can inspect validation and lineage inputs without exposing warehouse internals in the web workload."
+      lede="Run detail stays API-backed so operators can inspect validation, transformation lineage, and publication outcomes without exposing warehouse internals in the web workload."
     >
       <section className="stack">
         <div className="buttonRow">
@@ -127,6 +141,111 @@ export default async function RunDetailPage({ params }) {
             )}
           </article>
         </section>
+
+        <section className="layout">
+          <article className="panel section">
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">Transformation</div>
+                <h2>Lineage</h2>
+              </div>
+            </div>
+            {sourceLineage.length === 0 ? (
+              <div className="empty">No lineage recorded for this run yet.</div>
+            ) : (
+              <div className="tableWrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Target</th>
+                      <th>Layer</th>
+                      <th>Kind</th>
+                      <th>Rows</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sourceLineage.map((record) => (
+                      <tr key={record.lineage_id}>
+                        <td>{record.target_name}</td>
+                        <td>{record.target_layer}</td>
+                        <td>{record.target_kind}</td>
+                        <td>{record.row_count || "n/a"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </article>
+
+          <article className="panel section">
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">Transformation</div>
+                <h2>Audit</h2>
+              </div>
+            </div>
+            {transformationAudit.length === 0 ? (
+              <div className="empty">No transformation audit rows recorded for this run.</div>
+            ) : (
+              <div className="tableWrap">
+                <table>
+                  <thead>
+                    <tr>
+                      {transformationAuditColumns.map((column) => (
+                        <th key={column}>{column.replaceAll("_", " ")}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transformationAudit.map((record, index) => (
+                      <tr key={`${record.input_run_id || run.run_id}-${index}`}>
+                        {transformationAuditColumns.map((column) => (
+                          <td key={`${column}-${index}`}>{record[column] ?? "n/a"}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </article>
+        </section>
+
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Publication</div>
+              <h2>Published relations</h2>
+            </div>
+          </div>
+          {publicationAudit.length === 0 ? (
+            <div className="empty">No publication audit rows recorded for this run.</div>
+          ) : (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Publication</th>
+                    <th>Relation</th>
+                    <th>Status</th>
+                    <th>Published at</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {publicationAudit.map((record) => (
+                    <tr key={record.publication_audit_id}>
+                      <td>{record.publication_key}</td>
+                      <td>{record.relation_name}</td>
+                      <td>{record.status}</td>
+                      <td>{record.published_at}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
       </section>
     </AppShell>
   );

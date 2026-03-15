@@ -9,6 +9,18 @@ export function getApiBaseUrl() {
   return API_BASE_URL.replace(/\/$/, "");
 }
 
+function buildQuery(params = {}) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === "") {
+      continue;
+    }
+    query.set(key, String(value));
+  }
+  const serialized = query.toString();
+  return serialized ? `?${serialized}` : "";
+}
+
 function getCookieValue(cookieHeader, name) {
   return (cookieHeader || "")
     .split(";")
@@ -74,8 +86,28 @@ export async function getCurrentUser() {
 }
 
 export async function getRuns(limit = 8) {
-  const payload = await backendJson(`/runs?limit=${limit}`);
+  const payload = await backendJson(`/runs${buildQuery({ limit })}`);
   return payload.runs || [];
+}
+
+export async function getRunsPage({
+  dataset,
+  status,
+  fromDate,
+  toDate,
+  limit = 50,
+  offset = 0
+} = {}) {
+  return backendJson(
+    `/runs${buildQuery({
+      dataset,
+      status,
+      from_date: fromDate,
+      to_date: toDate,
+      limit,
+      offset
+    })}`
+  );
 }
 
 export async function getRun(runId) {
@@ -133,17 +165,36 @@ export async function getAuthAuditEvents(limit = 30) {
   return payload.auth_audit_events || [];
 }
 
-export async function getSourceLineage() {
-  const payload = await backendJson("/control/source-lineage");
+export async function getSourceLineage({ runId, targetLayer } = {}) {
+  const payload = await backendJson(
+    `/control/source-lineage${buildQuery({ run_id: runId, target_layer: targetLayer })}`
+  );
   return payload.lineage || [];
 }
 
-export async function getPublicationAudit() {
-  const payload = await backendJson("/control/publication-audit");
+export async function getPublicationAudit({ runId, publicationKey } = {}) {
+  const payload = await backendJson(
+    `/control/publication-audit${buildQuery({
+      run_id: runId,
+      publication_key: publicationKey
+    })}`
+  );
   return payload.publication_audit || [];
 }
 
-export async function getScheduleDispatches() {
-  const payload = await backendJson("/control/schedule-dispatches");
+export async function getScheduleDispatches({ scheduleId, status } = {}) {
+  const payload = await backendJson(
+    `/control/schedule-dispatches${buildQuery({
+      schedule_id: scheduleId,
+      status
+    })}`
+  );
   return payload.dispatches || [];
+}
+
+export async function getTransformationAudit(runId) {
+  const payload = await backendJson(
+    `/transformation-audit${buildQuery({ run_id: runId })}`
+  );
+  return payload.audit || [];
 }

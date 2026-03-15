@@ -70,7 +70,7 @@ This repository now has a working end-to-end bootstrap aligned to the target arc
 - shared settings and executable `apps/api` and `apps/worker` entrypoints now make the current slice runnable locally
 - project metadata, console scripts, and Docker/Compose bootstrap files now make the slice installable and containerizable
 - a watched-folder worker loop and a minimal Helm chart now cover the first Kubernetes deployment path
-- a Next.js web shell now exposes dashboard, run-monitoring, and control-plane admin views as a separate workload
+- a Next.js web shell now exposes dashboard, filterable run-monitoring, run-detail drill-down, and control-plane admin views as a separate workload
 - landing now uses explicit blob-store and metadata-store boundaries, with the current local filesystem and SQLite path kept as the default backend
 - the transaction transform and reporting path now consume landed bytes directly, so reporting no longer depends on staging artifacts back to the local filesystem
 - built-in landing, transformation, reporting, and application capabilities are now exposed through a shared extension registry that can also load external modules from configured custom paths
@@ -83,7 +83,7 @@ This repository now has a working end-to-end bootstrap aligned to the target arc
 - manual and config-driven account-transaction ingests now share the same retry-safe promotion path into DuckDB-backed marts and current-dimension views
 - explicit subscription and temporal contract-pricing domains now exist alongside transactions, including `mart_subscription_summary`, `mart_contract_price_current`, and `mart_electricity_price_current`
 
-The main remaining gaps are OIDC/service-token auth, manual upload UX, and broader production hardening. S3-compatible landing plus Postgres-backed control-plane/reporting backends now exist, local username/password auth is available as the bootstrap path, and the web surface now has a real Next.js shell that consumes the API only.
+The main remaining gaps are OIDC/service-token auth, manual upload UX, deletion/version-preview flows for config entities, and broader production hardening. S3-compatible landing plus Postgres-backed control-plane/reporting backends now exist, local username/password auth is available as the bootstrap path, and the web surface now has a real Next.js shell that consumes the API only.
 
 ## Run locally
 
@@ -181,22 +181,22 @@ That pattern keeps key product logic inside this repository while allowing custo
 
 Current execution surfaces:
 
-`/health` and `/metrics` stay public. In local-auth mode, `/runs*`, `/reports*`, and the Next.js dashboard require at least a `reader`; `/ingest*` requires `operator`; `/config/*`, `/control/*`, `/extensions`, `/sources`, `/landing/*`, `/transformations/*`, persisted-ingestion processing, `/auth/users*`, and the `/control`, `/control/catalog`, and `/control/execution` admin pages require `admin`. Cookie-authenticated `POST` routes now require a CSRF token, login failures are rate-limited via control-plane auth audit history, and `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN=true` remains a temporary local/dev-only escape hatch that is not used by the Compose or Helm defaults.
+`/health` and `/metrics` stay public. In local-auth mode, `/runs*`, `/reports*`, `/transformation-audit`, `GET /control/source-lineage`, `GET /control/publication-audit`, and the Next.js dashboard/run-detail views require at least a `reader`; `/ingest*` requires `operator`; `/config/*`, `/control/auth-audit`, `/control/schedule-dispatches`, `/extensions`, `/sources`, `/landing/*`, `/transformations/*`, persisted-ingestion processing, `/auth/users*`, and the `/control`, `/control/catalog`, and `/control/execution` admin pages require `admin`. Cookie-authenticated `POST` routes now require a CSRF token, login failures are rate-limited via control-plane auth audit history, and `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN=true` remains a temporary local/dev-only escape hatch that is not used by the Compose or Helm defaults.
 
 - `POST /landing/{extension_key}` for executable landing extensions
 - `GET /metrics` for Prometheus-compatible operational metrics
 - `GET /runs/{run_id}` for run-detail inspection in the API and Next.js web shell
 - `GET /auth/users`, `POST /auth/users`, `PATCH /auth/users/{user_id}`, and `POST /auth/users/{user_id}/password` for bootstrap local-user management
 - `GET /sources` for the current source-system and source-asset catalog
-- `GET` and `POST /config/source-systems` for source-system configuration
+- `GET`, `POST`, and `PATCH /config/source-systems/{id}` for source-system configuration
 - `GET` and `POST /config/dataset-contracts` for dataset-contract configuration
 - `GET` and `POST /config/column-mappings` for column-mapping configuration
 - `GET` and `POST /config/transformation-packages` for binding source assets to canonical transforms
 - `GET` and `POST /config/publication-definitions` for declaring published reporting outputs
-- `GET` and `POST /config/source-assets` for source-asset configuration
-- `GET` and `POST /config/ingestion-definitions` for transport, watch-folder, direct-API, and batch-extract configuration
-- `GET` and `POST /config/execution-schedules` for enqueue-only schedule definitions
-- `GET /control/source-lineage`, `GET /control/publication-audit`, and `GET /control/schedule-dispatches` for control-plane visibility
+- `GET`, `POST`, and `PATCH /config/source-assets/{id}` for source-asset configuration
+- `GET`, `POST`, and `PATCH /config/ingestion-definitions/{id}` for transport, watch-folder, direct-API, and batch-extract configuration
+- `GET`, `POST`, and `PATCH /config/execution-schedules/{id}` for enqueue-only schedule definitions
+- `GET /control/source-lineage`, `GET /control/publication-audit`, `GET /control/schedule-dispatches`, and `POST /control/schedule-dispatches` for control-plane visibility and queueing
 - `GET /control/auth-audit` for local-auth login, logout, and admin-user audit events
 - `POST /ingest` for JSON path-based ingestion and multipart file uploads
 - `POST /ingest/configured-csv` for config-driven CSV ingestion

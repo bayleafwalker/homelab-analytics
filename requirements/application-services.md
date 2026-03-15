@@ -74,7 +74,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Operational management through API enables both UI administration and scripted configuration.
 
 **Phase:** 4
-**Status:** in-progress (CRUD-style config endpoints exist for source systems, dataset contracts, column mappings, transformation packages, publication definitions, source assets, ingestion definitions, and execution schedules; control-plane read endpoints expose schedule dispatches, source lineage, publication audit, and auth audit; publication-definition creation rejects unknown built-in or extension relation keys; local auth now protects admin/control routes with an `admin` role; bootstrap user management is available through the API and the Next.js admin page while `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` remains only as a temporary local bypass)
+**Status:** in-progress (CRUD-style config endpoints now include create plus update flows for source systems, source assets, ingestion definitions, and execution schedules; manual schedule-dispatch enqueue is exposed for operator queueing while execution remains worker-owned; control-plane read endpoints expose schedule dispatches, source lineage, publication audit, and auth audit; publication-definition creation rejects unknown built-in or extension relation keys; local auth now protects admin/control routes with an `admin` role; bootstrap user management is available through the API and the Next.js admin page while `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` remains only as a temporary local bypass)
 
 **Acceptance criteria:**
 - CRUD endpoints for source systems, dataset contracts, column mappings, transformation packages, publication definitions, and schedules.
@@ -92,7 +92,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** The primary user interaction surface. Dashboards must present derived analytics clearly.
 
 **Phase:** 2
-**Status:** in-progress (the Next.js shell now covers login, dashboard, reporting, auth/security admin, control-plane catalog, and execution-control views; it consumes the API only and replaces the old server-rendered Python dashboard, but broader product surface work is still pending)
+**Status:** in-progress (the Next.js shell now covers login, dashboard, reporting, auth/security admin, control-plane catalog edit/deactivate flows, execution-control queue actions, and filterable run views; it consumes the API only and replaces the old server-rendered Python dashboard, but broader product surface work is still pending)
 
 **Acceptance criteria:**
 - Dashboard pages render from reporting API data.
@@ -112,7 +112,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Visibility into ingestion status builds trust in the data and enables self-service troubleshooting.
 
 **Phase:** 2
-**Status:** in-progress (the Next.js shell now exposes run history and run-detail views backed by the API; richer filtering is still pending)
+**Status:** implemented (the Next.js shell now exposes run history with dataset/status/date filters plus run-detail views backed by the API, including validation, transformation audit, source lineage, and publication audit drill-down)
 
 **Acceptance criteria:**
 - Run list page shows recent runs with status badges.
@@ -148,7 +148,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Configuration-driven onboarding needs a management surface for non-developer users.
 
 **Phase:** 4
-**Status:** in-progress (the Next.js admin surface now supports source-system and source-asset creation plus ingestion-definition and execution-schedule management through the API; mapping versioning, edit flows, and preview tooling are still pending)
+**Status:** in-progress (the Next.js admin surface now supports source-system and source-asset create/edit/deactivate flows plus ingestion-definition and execution-schedule create/edit/deactivate management through the API; mapping versioning and preview tooling are still pending)
 
 **Acceptance criteria:**
 - List, create, edit, and deactivate source systems.
@@ -184,7 +184,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Schedule visibility and control reduce operational burden.
 
 **Phase:** 4
-**Status:** not-started
+**Status:** in-progress (the Next.js execution-control view now lists schedules, supports create/edit/pause behavior through the API, and can enqueue due or manual schedule dispatches; delete flows and last-run summaries are still pending)
 
 **Acceptance criteria:**
 - List active schedules with next-run time and last-run status.
@@ -244,6 +244,6 @@ The platform exposes its capabilities through three application workloads: a JSO
 | APP-07 | — | — |
 | APP-08 | `apps/web/frontend/app/control/catalog/page.js`, `apps/web/frontend/app/control/execution/page.js` | `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
 | APP-09 | — | — |
-| APP-10 | — | — |
+| APP-10 | `apps/web/frontend/app/control/execution/page.js`, `apps/web/frontend/app/control/execution/schedule-dispatches/route.js` | `tests/test_web_auth.py`, `tests/test_architecture_contract.py`, `tests/test_control_plane_api_app.py` |
 | APP-11 | `apps/worker/main.py`, `packages/pipelines/config_preflight.py` | `tests/test_worker_cli.py`, `tests/test_config_preflight.py`, `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py` |
 | APP-12 | `apps/api/app.py`, `apps/web/frontend/app/health/route.js` | `tests/test_api_app.py`, `tests/test_web_app.py` |

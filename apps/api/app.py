@@ -25,6 +25,7 @@ from apps.api.models import (
     LocalUserUpdateRequest,
     LoginRequest,
     PublicationDefinitionRequest,
+    ScheduleDispatchRequest,
     SourceAssetRequest,
     SourceSystemRequest,
     TransformationPackageRequest,
@@ -189,6 +190,17 @@ def create_app(
                 detail="Unsafe admin routes are disabled until authentication is implemented.",
             )
 
+    def ensure_matching_identifier(
+        resource_name: str,
+        path_value: str,
+        body_value: str,
+    ) -> None:
+        if path_value != body_value:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{resource_name} in the request body must match the path.",
+            )
+
     def publish_reporting(promotion: PromotionResult | None) -> None:
         publish_promotion_reporting(resolved_reporting_service, promotion)
 
@@ -264,8 +276,16 @@ def create_app(
     def required_role_for_path(path: str) -> UserRole | None:
         if path in {"/health", "/metrics", "/auth/login", "/auth/logout"}:
             return None
+        if path in {
+            "/control/source-lineage",
+            "/control/publication-audit",
+            "/transformation-audit",
+        }:
+            return UserRole.READER
         if (
             path.startswith("/auth/users")
+            or path == "/control/auth-audit"
+            or path == "/control/schedule-dispatches"
             or path.startswith("/config/")
             or path.startswith("/control/")
             or path in {"/extensions", "/sources"}
@@ -279,7 +299,6 @@ def create_app(
         if (
             path.startswith("/runs")
             or path.startswith("/reports")
-            or path == "/transformation-audit"
             or path == "/auth/me"
             or path.startswith("/docs")
             or path.startswith("/redoc")
@@ -749,6 +768,33 @@ def create_app(
                 transport=payload.transport,
                 schedule_mode=payload.schedule_mode,
                 description=payload.description,
+                enabled=payload.enabled,
+            )
+        )
+        return {"source_system": _to_jsonable(source_system)}
+
+    @app.patch("/config/source-systems/{source_system_id}")
+    async def update_source_system(
+        source_system_id: str,
+        payload: SourceSystemRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        ensure_matching_identifier(
+            "source_system_id",
+            source_system_id,
+            payload.source_system_id,
+        )
+        existing = resolved_config_repository.get_source_system(source_system_id)
+        source_system = resolved_config_repository.update_source_system(
+            SourceSystemCreate(
+                source_system_id=payload.source_system_id,
+                name=payload.name,
+                source_type=payload.source_type,
+                transport=payload.transport,
+                schedule_mode=payload.schedule_mode,
+                description=payload.description,
+                enabled=payload.enabled,
+                created_at=existing.created_at,
             )
         )
         return {"source_system": _to_jsonable(source_system)}
@@ -886,6 +932,31 @@ def create_app(
                 asset_type=payload.asset_type,
                 transformation_package_id=payload.transformation_package_id,
                 description=payload.description,
+                enabled=payload.enabled,
+            )
+        )
+        return {"source_asset": _to_jsonable(source_asset)}
+
+    @app.patch("/config/source-assets/{source_asset_id}")
+    async def update_source_asset(
+        source_asset_id: str,
+        payload: SourceAssetRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        ensure_matching_identifier("source_asset_id", source_asset_id, payload.source_asset_id)
+        existing = resolved_config_repository.get_source_asset(source_asset_id)
+        source_asset = resolved_config_repository.update_source_asset(
+            SourceAssetCreate(
+                source_asset_id=payload.source_asset_id,
+                source_system_id=payload.source_system_id,
+                dataset_contract_id=payload.dataset_contract_id,
+                column_mapping_id=payload.column_mapping_id,
+                transformation_package_id=payload.transformation_package_id,
+                name=payload.name,
+                asset_type=payload.asset_type,
+                description=payload.description,
+                enabled=payload.enabled,
+                created_at=existing.created_at,
             )
         )
         return {"source_asset": _to_jsonable(source_asset)}
@@ -934,6 +1005,51 @@ def create_app(
         )
         return {"ingestion_definition": _to_jsonable(ingestion_definition)}
 
+    @app.patch("/config/ingestion-definitions/{ingestion_definition_id}")
+    async def update_ingestion_definition(
+        ingestion_definition_id: str,
+        payload: IngestionDefinitionRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        ensure_matching_identifier(
+            "ingestion_definition_id",
+            ingestion_definition_id,
+            payload.ingestion_definition_id,
+        )
+        existing = resolved_config_repository.get_ingestion_definition(
+            ingestion_definition_id
+        )
+        ingestion_definition = resolved_config_repository.update_ingestion_definition(
+            IngestionDefinitionCreate(
+                ingestion_definition_id=payload.ingestion_definition_id,
+                source_asset_id=payload.source_asset_id,
+                transport=payload.transport,
+                schedule_mode=payload.schedule_mode,
+                source_path=payload.source_path,
+                file_pattern=payload.file_pattern,
+                processed_path=payload.processed_path,
+                failed_path=payload.failed_path,
+                poll_interval_seconds=payload.poll_interval_seconds,
+                request_url=payload.request_url,
+                request_method=payload.request_method,
+                request_headers=tuple(
+                    RequestHeaderSecretRef(
+                        name=header.name,
+                        secret_name=header.secret_name,
+                        secret_key=header.secret_key,
+                    )
+                    for header in payload.request_headers
+                ),
+                request_timeout_seconds=payload.request_timeout_seconds,
+                response_format=payload.response_format,
+                output_file_name=payload.output_file_name,
+                enabled=payload.enabled,
+                source_name=payload.source_name,
+                created_at=existing.created_at,
+            )
+        )
+        return {"ingestion_definition": _to_jsonable(ingestion_definition)}
+
     @app.get("/config/execution-schedules")
     async def list_execution_schedules() -> dict[str, Any]:
         require_unsafe_admin()
@@ -957,6 +1073,30 @@ def create_app(
                 timezone=payload.timezone,
                 enabled=payload.enabled,
                 max_concurrency=payload.max_concurrency,
+            )
+        )
+        return {"execution_schedule": _to_jsonable(schedule)}
+
+    @app.patch("/config/execution-schedules/{schedule_id}")
+    async def update_execution_schedule(
+        schedule_id: str,
+        payload: ExecutionScheduleRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        ensure_matching_identifier("schedule_id", schedule_id, payload.schedule_id)
+        existing = resolved_config_repository.get_execution_schedule(schedule_id)
+        schedule = resolved_config_repository.update_execution_schedule(
+            ExecutionScheduleCreate(
+                schedule_id=payload.schedule_id,
+                target_kind=payload.target_kind,
+                target_ref=payload.target_ref,
+                cron_expression=payload.cron_expression,
+                timezone=payload.timezone,
+                enabled=payload.enabled,
+                max_concurrency=payload.max_concurrency,
+                next_due_at=existing.next_due_at,
+                last_enqueued_at=existing.last_enqueued_at,
+                created_at=existing.created_at,
             )
         )
         return {"execution_schedule": _to_jsonable(schedule)}
@@ -1006,6 +1146,43 @@ def create_app(
             )
         }
 
+    @app.post("/control/schedule-dispatches", status_code=201)
+    async def create_schedule_dispatch(
+        payload: ScheduleDispatchRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        if payload.schedule_id:
+            dispatch = resolved_config_repository.create_schedule_dispatch(
+                payload.schedule_id
+            )
+            metrics_registry.set(
+                "worker_queue_depth",
+                float(
+                    len(
+                        resolved_config_repository.list_schedule_dispatches(
+                            status="enqueued"
+                        )
+                    )
+                ),
+                help_text="Current queued schedule-dispatch count.",
+            )
+            return {"dispatch": _to_jsonable(dispatch)}
+        dispatches = resolved_config_repository.enqueue_due_execution_schedules(
+            limit=payload.limit
+        )
+        metrics_registry.set(
+            "worker_queue_depth",
+            float(
+                len(
+                    resolved_config_repository.list_schedule_dispatches(
+                        status="enqueued"
+                    )
+                )
+            ),
+            help_text="Current queued schedule-dispatch count.",
+        )
+        return {"dispatches": _to_jsonable(dispatches)}
+
     @app.post("/landing/{extension_key}", status_code=201)
     async def run_landing_extension(
         extension_key: str,
@@ -1047,9 +1224,20 @@ def create_app(
             if payload.source_asset_id
             else None
         )
+        if source_asset is not None and not source_asset.enabled:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Source asset is disabled: {source_asset.source_asset_id}",
+            )
         source_system_id = (
             source_asset.source_system_id if source_asset else payload.source_system_id
         )
+        source_system = resolved_config_repository.get_source_system(source_system_id)
+        if not source_system.enabled:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Source system is disabled: {source_system_id}",
+            )
         dataset_contract_id = (
             source_asset.dataset_contract_id
             if source_asset

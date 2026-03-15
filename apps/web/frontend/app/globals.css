@@ -279,6 +279,22 @@ th {
   background: rgba(15, 118, 110, 0.12);
 }
 
+.status-running {
+  color: var(--accent-cool);
+  background: rgba(11, 95, 131, 0.12);
+}
+
+.status-failed,
+.status-inactive {
+  color: var(--warn);
+  background: rgba(209, 73, 91, 0.12);
+}
+
+.status-active {
+  color: var(--ok);
+  background: rgba(42, 157, 143, 0.14);
+}
+
 .issue {
   color: var(--warn);
   font-size: 0.82rem;
@@ -383,6 +399,32 @@ th {
   border-radius: 20px;
   padding: 18px;
   background: rgba(255, 255, 255, 0.42);
+}
+
+.entityList {
+  display: grid;
+  gap: 16px;
+}
+
+.entityCard {
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.entityHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.entityHeader h3 {
+  margin: 4px 0 0;
+  font-size: 1.15rem;
 }
 
 .adminCardHeader {
