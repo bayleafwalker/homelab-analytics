@@ -15,7 +15,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Programmatic ingestion access is required for automation, CI/CD integration, and the web UI upload flow.
 
 **Phase:** 1
-**Status:** in-progress (FastAPI app replaces stdlib WSGI; multipart file upload and server-side path submission both work; config/admin routes now use typed request models in OpenAPI; duplicate ingests return `409`, validation failures return `400`, docs are available at `/docs`, and built-in endpoints exist for configured CSV, subscription, contract-price, and persisted ingestion-definition execution; web UI upload form is not yet built)
+**Status:** in-progress (FastAPI app replaces stdlib WSGI; multipart file upload and server-side path submission both work; config/admin routes now use typed request models in OpenAPI; duplicate ingests return `409`, validation failures return `400`, docs are available at `/docs`, built-in endpoints exist for configured CSV, subscription, contract-price, and persisted ingestion-definition execution, and configured CSV now also supports multipart browser upload bound by `source_asset_id`; inline validation UX in the web surface is still pending)
 
 **Acceptance criteria:**
 - `POST /ingest` accepts multipart file upload with source/dataset metadata, returns `{"run_id": "..."}`.
@@ -74,7 +74,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Operational management through API enables both UI administration and scripted configuration.
 
 **Phase:** 4
-**Status:** in-progress (CRUD-style config endpoints now include create plus update flows for source systems, source assets, ingestion definitions, and execution schedules; manual schedule-dispatch enqueue is exposed for operator queueing while execution remains worker-owned; control-plane read endpoints expose schedule dispatches, source lineage, publication audit, and auth audit; publication-definition creation rejects unknown built-in or extension relation keys; local auth now protects admin/control routes with an `admin` role; bootstrap user management is available through the API and the Next.js admin page while `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` remains only as a temporary local bypass)
+**Status:** in-progress (CRUD-style config endpoints now include create plus update flows for source systems, source assets, ingestion definitions, and execution schedules; dataset contracts and column mappings now also expose archived-version lifecycle plus saved-preview endpoints; manual schedule-dispatch enqueue is exposed for operator queueing while execution remains worker-owned; control-plane read endpoints expose schedule dispatches, source lineage, publication audit, and auth audit; publication-definition creation rejects unknown built-in or extension relation keys; local auth now protects admin/control routes with an `admin` role; bootstrap user management is available through the API and the Next.js admin page while `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` remains only as a temporary local bypass)
 
 **Acceptance criteria:**
 - CRUD endpoints for source systems, dataset contracts, column mappings, transformation packages, publication definitions, and schedules.
@@ -130,7 +130,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Non-technical household members should be able to import data without CLI or API knowledge.
 
 **Phase:** 2
-**Status:** not-started
+**Status:** in-progress (the Next.js shell now exposes operator-facing browser uploads for account transactions, subscriptions, contract prices, and config-driven source-asset uploads; successful uploads redirect into run detail, but inline validation rendering on the upload page is still pending)
 
 **Acceptance criteria:**
 - Upload form allows file selection, source system choice, and dataset type choice.
@@ -148,7 +148,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Configuration-driven onboarding needs a management surface for non-developer users.
 
 **Phase:** 4
-**Status:** in-progress (the Next.js admin surface now supports source-system and source-asset create/edit/deactivate flows plus ingestion-definition and execution-schedule create/edit/deactivate management through the API; mapping versioning and preview tooling are still pending)
+**Status:** implemented (the Next.js admin surface now supports source-system and source-asset create/edit/deactivate flows, ingestion-definition and execution-schedule management, dataset-contract and column-mapping version creation, archived-version lifecycle for versioned config entities, and saved mapping preview against sample CSV through the API)
 
 **Acceptance criteria:**
 - List, create, edit, and deactivate source systems.
@@ -241,7 +241,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 | APP-04 | `apps/api/app.py` | `tests/test_api_app.py` |
 | APP-05 | `apps/web/frontend/app/page.js`, `apps/web/frontend/app/reports/page.js`, `apps/web/frontend/app/control/page.js`, `apps/web/frontend/app/control/catalog/page.js`, `apps/web/frontend/app/control/execution/page.js`, `apps/web/frontend/components/app-shell.js` | `tests/test_web_app.py`, `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
 | APP-06 | `apps/web/frontend/app/runs/page.js`, `apps/web/frontend/app/runs/[runId]/page.js`, `apps/web/frontend/lib/backend.js` | `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
-| APP-07 | — | — |
+| APP-07 | `apps/web/frontend/app/upload/page.js`, `apps/web/frontend/app/upload/*/route.js`, `apps/web/frontend/lib/upload-route.js` | `tests/test_manual_upload_and_preview_api.py`, `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
 | APP-08 | `apps/web/frontend/app/control/catalog/page.js`, `apps/web/frontend/app/control/execution/page.js` | `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
 | APP-09 | — | — |
 | APP-10 | `apps/web/frontend/app/control/execution/page.js`, `apps/web/frontend/app/control/execution/schedule-dispatches/route.js` | `tests/test_web_auth.py`, `tests/test_architecture_contract.py`, `tests/test_control_plane_api_app.py` |

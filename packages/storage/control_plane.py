@@ -177,7 +177,19 @@ class ControlPlaneStore(Protocol):
     def get_dataset_contract(self, dataset_contract_id: str) -> "DatasetContractConfigRecord":
         ...
 
-    def list_dataset_contracts(self) -> list["DatasetContractConfigRecord"]:
+    def list_dataset_contracts(
+        self,
+        *,
+        include_archived: bool = False,
+    ) -> list["DatasetContractConfigRecord"]:
+        ...
+
+    def set_dataset_contract_archived_state(
+        self,
+        dataset_contract_id: str,
+        *,
+        archived: bool,
+    ) -> "DatasetContractConfigRecord":
         ...
 
     def create_column_mapping(
@@ -188,7 +200,19 @@ class ControlPlaneStore(Protocol):
     def get_column_mapping(self, column_mapping_id: str) -> "ColumnMappingRecord":
         ...
 
-    def list_column_mappings(self) -> list["ColumnMappingRecord"]:
+    def list_column_mappings(
+        self,
+        *,
+        include_archived: bool = False,
+    ) -> list["ColumnMappingRecord"]:
+        ...
+
+    def set_column_mapping_archived_state(
+        self,
+        column_mapping_id: str,
+        *,
+        archived: bool,
+    ) -> "ColumnMappingRecord":
         ...
 
     def create_transformation_package(

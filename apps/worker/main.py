@@ -886,6 +886,7 @@ def _control_plane_snapshot_from_dict(payload: dict[str, Any]) -> ControlPlaneSn
                     )
                     for column in item["columns"]
                 ),
+                archived=item.get("archived", False),
                 created_at=datetime.fromisoformat(item["created_at"]),
             )
             for item in payload.get("dataset_contracts", [])
@@ -904,6 +905,7 @@ def _control_plane_snapshot_from_dict(payload: dict[str, Any]) -> ControlPlaneSn
                     )
                     for rule in item["rules"]
                 ),
+                archived=item.get("archived", False),
                 created_at=datetime.fromisoformat(item["created_at"]),
             )
             for item in payload.get("column_mappings", [])

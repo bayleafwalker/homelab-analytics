@@ -83,8 +83,57 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     web_control_catalog_page = (
         ROOT / "apps" / "web" / "frontend" / "app" / "control" / "catalog" / "page.js"
     ).read_text()
+    web_dataset_contract_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "control"
+        / "catalog"
+        / "dataset-contracts"
+        / "route.js"
+    ).read_text()
+    web_column_mapping_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "control"
+        / "catalog"
+        / "column-mappings"
+        / "route.js"
+    ).read_text()
+    web_preview_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "control"
+        / "catalog"
+        / "preview"
+        / "route.js"
+    ).read_text()
     web_control_execution_page = (
         ROOT / "apps" / "web" / "frontend" / "app" / "control" / "execution" / "page.js"
+    ).read_text()
+    web_upload_page = (
+        ROOT / "apps" / "web" / "frontend" / "app" / "upload" / "page.js"
+    ).read_text()
+    web_upload_route_helper = (
+        ROOT / "apps" / "web" / "frontend" / "lib" / "upload-route.js"
+    ).read_text()
+    web_upload_configured_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "upload"
+        / "configured-csv"
+        / "route.js"
     ).read_text()
     web_run_detail_page = (
         ROOT / "apps" / "web" / "frontend" / "app" / "runs" / "[runId]" / "page.js"
@@ -172,8 +221,18 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert "getAuthAuditEvents" in web_control_page
     assert "getSourceSystems" in web_control_catalog_page
     assert "getSourceAssets" in web_control_catalog_page
+    assert "getDatasetContracts({ includeArchived: true })" in web_control_catalog_page
+    assert "getColumnMappings({ includeArchived: true })" in web_control_catalog_page
+    assert "MappingPreviewPanel" in web_control_catalog_page
+    assert "/config/dataset-contracts" in web_dataset_contract_route
+    assert "/config/column-mappings" in web_column_mapping_route
+    assert 'backendRequest("/config/column-mappings/preview"' in web_preview_route
     assert "getIngestionDefinitions" in web_control_execution_page
     assert "getExecutionSchedules" in web_control_execution_page
+    assert "Manual Uploads" in web_upload_page
+    assert "getSourceAssets" in web_upload_page
+    assert "backendRequest(backendPath" in web_upload_route_helper
+    assert 'backendPath: "/ingest/configured-csv"' in web_upload_configured_route
     assert "getRun" in web_run_detail_page
     assert "getSourceLineage" in web_run_detail_page
     assert "getPublicationAudit" in web_run_detail_page

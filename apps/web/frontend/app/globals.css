@@ -295,6 +295,11 @@ th {
   background: rgba(42, 157, 143, 0.14);
 }
 
+.status-archived {
+  color: var(--accent-warm);
+  background: rgba(201, 106, 61, 0.14);
+}
+
 .issue {
   color: var(--warn);
   font-size: 0.82rem;
@@ -359,6 +364,17 @@ th {
   background: rgba(255, 255, 255, 0.86);
   padding: 12px 14px;
   font: inherit;
+}
+
+.field textarea {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.86);
+  padding: 12px 14px;
+  font: inherit;
+  resize: vertical;
+  min-height: 140px;
 }
 
 .spanTwo {
@@ -455,6 +471,15 @@ th {
 
 .compactStack {
   gap: 10px;
+}
+
+.specBlock {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.84rem;
+  color: var(--muted);
 }
 
 .buttonRow {

@@ -174,15 +174,16 @@ class PostgresIngestionConfigRepository:
             connection.execute(
                 """
                 INSERT INTO dataset_contracts (
-                    dataset_contract_id, dataset_name, version, allow_extra_columns, columns_json, created_at
+                    dataset_contract_id, dataset_name, version, allow_extra_columns, archived, columns_json, created_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     dataset_contract.dataset_contract_id,
                     dataset_contract.dataset_name,
                     dataset_contract.version,
                     dataset_contract.allow_extra_columns,
+                    dataset_contract.archived,
                     json.dumps(
                         [
                             {
@@ -202,7 +203,7 @@ class PostgresIngestionConfigRepository:
         with self._connect(row_factory=dict_row) as connection:
             row = connection.execute(
                 """
-                SELECT dataset_contract_id, dataset_name, version, allow_extra_columns, columns_json, created_at
+                SELECT dataset_contract_id, dataset_name, version, allow_extra_columns, archived, columns_json, created_at
                 FROM dataset_contracts
                 WHERE dataset_contract_id = %s
                 """,
@@ -216,18 +217,24 @@ class PostgresIngestionConfigRepository:
             version=row["version"],
             allow_extra_columns=bool(row["allow_extra_columns"]),
             columns=_deserialize_columns(row["columns_json"]),
+            archived=bool(row["archived"]),
             created_at=row["created_at"],
         )
 
-    def list_dataset_contracts(self) -> list[DatasetContractConfigRecord]:
+    def list_dataset_contracts(
+        self,
+        *,
+        include_archived: bool = False,
+    ) -> list[DatasetContractConfigRecord]:
         with self._connect(row_factory=dict_row) as connection:
-            rows = connection.execute(
-                """
-                SELECT dataset_contract_id, dataset_name, version, allow_extra_columns, columns_json, created_at
+            sql = """
+                SELECT dataset_contract_id, dataset_name, version, allow_extra_columns, archived, columns_json, created_at
                 FROM dataset_contracts
-                ORDER BY created_at, dataset_contract_id
-                """
-            ).fetchall()
+            """
+            if not include_archived:
+                sql += " WHERE archived = FALSE"
+            sql += " ORDER BY created_at, dataset_contract_id"
+            rows = connection.execute(sql).fetchall()
         return [
             DatasetContractConfigRecord(
                 dataset_contract_id=row["dataset_contract_id"],
@@ -235,10 +242,30 @@ class PostgresIngestionConfigRepository:
                 version=row["version"],
                 allow_extra_columns=bool(row["allow_extra_columns"]),
                 columns=_deserialize_columns(row["columns_json"]),
+                archived=bool(row["archived"]),
                 created_at=row["created_at"],
             )
             for row in rows
         ]
+
+    def set_dataset_contract_archived_state(
+        self,
+        dataset_contract_id: str,
+        *,
+        archived: bool,
+    ) -> DatasetContractConfigRecord:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE dataset_contracts
+                SET archived = %s
+                WHERE dataset_contract_id = %s
+                """,
+                (archived, dataset_contract_id),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown dataset contract: {dataset_contract_id}")
+        return self.get_dataset_contract(dataset_contract_id)
 
     def create_column_mapping(self, column_mapping: ColumnMappingCreate) -> ColumnMappingRecord:
         _validate_mapping_rules(column_mapping.rules)
@@ -246,15 +273,16 @@ class PostgresIngestionConfigRepository:
             connection.execute(
                 """
                 INSERT INTO column_mappings (
-                    column_mapping_id, source_system_id, dataset_contract_id, version, rules_json, created_at
+                    column_mapping_id, source_system_id, dataset_contract_id, version, archived, rules_json, created_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     column_mapping.column_mapping_id,
                     column_mapping.source_system_id,
                     column_mapping.dataset_contract_id,
                     column_mapping.version,
+                    column_mapping.archived,
                     json.dumps([asdict(rule) for rule in column_mapping.rules]),
                     column_mapping.created_at,
                 ),
@@ -265,7 +293,7 @@ class PostgresIngestionConfigRepository:
         with self._connect(row_factory=dict_row) as connection:
             row = connection.execute(
                 """
-                SELECT column_mapping_id, source_system_id, dataset_contract_id, version, rules_json, created_at
+                SELECT column_mapping_id, source_system_id, dataset_contract_id, version, archived, rules_json, created_at
                 FROM column_mappings
                 WHERE column_mapping_id = %s
                 """,
@@ -279,18 +307,24 @@ class PostgresIngestionConfigRepository:
             dataset_contract_id=row["dataset_contract_id"],
             version=row["version"],
             rules=_deserialize_rules(row["rules_json"]),
+            archived=bool(row["archived"]),
             created_at=row["created_at"],
         )
 
-    def list_column_mappings(self) -> list[ColumnMappingRecord]:
+    def list_column_mappings(
+        self,
+        *,
+        include_archived: bool = False,
+    ) -> list[ColumnMappingRecord]:
         with self._connect(row_factory=dict_row) as connection:
-            rows = connection.execute(
-                """
-                SELECT column_mapping_id, source_system_id, dataset_contract_id, version, rules_json, created_at
+            sql = """
+                SELECT column_mapping_id, source_system_id, dataset_contract_id, version, archived, rules_json, created_at
                 FROM column_mappings
-                ORDER BY created_at, column_mapping_id
-                """
-            ).fetchall()
+            """
+            if not include_archived:
+                sql += " WHERE archived = FALSE"
+            sql += " ORDER BY created_at, column_mapping_id"
+            rows = connection.execute(sql).fetchall()
         return [
             ColumnMappingRecord(
                 column_mapping_id=row["column_mapping_id"],
@@ -298,10 +332,30 @@ class PostgresIngestionConfigRepository:
                 dataset_contract_id=row["dataset_contract_id"],
                 version=row["version"],
                 rules=_deserialize_rules(row["rules_json"]),
+                archived=bool(row["archived"]),
                 created_at=row["created_at"],
             )
             for row in rows
         ]
+
+    def set_column_mapping_archived_state(
+        self,
+        column_mapping_id: str,
+        *,
+        archived: bool,
+    ) -> ColumnMappingRecord:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE column_mappings
+                SET archived = %s
+                WHERE column_mapping_id = %s
+                """,
+                (archived, column_mapping_id),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown column mapping: {column_mapping_id}")
+        return self.get_column_mapping(column_mapping_id)
 
     def create_transformation_package(
         self,
@@ -447,6 +501,14 @@ class PostgresIngestionConfigRepository:
         ]
 
     def create_source_asset(self, source_asset: SourceAssetCreate) -> SourceAssetRecord:
+        dataset_contract = self.get_dataset_contract(source_asset.dataset_contract_id)
+        if dataset_contract.archived:
+            raise ValueError(
+                f"Dataset contract is archived: {source_asset.dataset_contract_id}"
+            )
+        column_mapping = self.get_column_mapping(source_asset.column_mapping_id)
+        if column_mapping.archived:
+            raise ValueError(f"Column mapping is archived: {source_asset.column_mapping_id}")
         if source_asset.transformation_package_id is not None:
             self.get_transformation_package(source_asset.transformation_package_id)
         with self._connect() as connection:
@@ -474,6 +536,14 @@ class PostgresIngestionConfigRepository:
         return self.get_source_asset(source_asset.source_asset_id)
 
     def update_source_asset(self, source_asset: SourceAssetCreate) -> SourceAssetRecord:
+        dataset_contract = self.get_dataset_contract(source_asset.dataset_contract_id)
+        if dataset_contract.archived:
+            raise ValueError(
+                f"Dataset contract is archived: {source_asset.dataset_contract_id}"
+            )
+        column_mapping = self.get_column_mapping(source_asset.column_mapping_id)
+        if column_mapping.archived:
+            raise ValueError(f"Column mapping is archived: {source_asset.column_mapping_id}")
         if source_asset.transformation_package_id is not None:
             self.get_transformation_package(source_asset.transformation_package_id)
         with self._connect() as connection:
@@ -1484,8 +1554,8 @@ class PostgresIngestionConfigRepository:
     def export_snapshot(self) -> ControlPlaneSnapshot:
         return ControlPlaneSnapshot(
             source_systems=tuple(self.list_source_systems()),
-            dataset_contracts=tuple(self.list_dataset_contracts()),
-            column_mappings=tuple(self.list_column_mappings()),
+            dataset_contracts=tuple(self.list_dataset_contracts(include_archived=True)),
+            column_mappings=tuple(self.list_column_mappings(include_archived=True)),
             transformation_packages=tuple(self.list_transformation_packages()),
             publication_definitions=tuple(self.list_publication_definitions()),
             source_assets=tuple(self.list_source_assets()),
@@ -1523,6 +1593,7 @@ class PostgresIngestionConfigRepository:
                         version=dataset_contract_record.version,
                         allow_extra_columns=dataset_contract_record.allow_extra_columns,
                         columns=dataset_contract_record.columns,
+                        archived=dataset_contract_record.archived,
                         created_at=dataset_contract_record.created_at,
                     )
                 )
@@ -1537,6 +1608,7 @@ class PostgresIngestionConfigRepository:
                         dataset_contract_id=column_mapping_record.dataset_contract_id,
                         version=column_mapping_record.version,
                         rules=column_mapping_record.rules,
+                        archived=column_mapping_record.archived,
                         created_at=column_mapping_record.created_at,
                     )
                 )
@@ -1718,6 +1790,7 @@ class PostgresIngestionConfigRepository:
                     dataset_name TEXT NOT NULL,
                     version INTEGER NOT NULL,
                     allow_extra_columns BOOLEAN NOT NULL,
+                    archived BOOLEAN NOT NULL DEFAULT FALSE,
                     columns_json TEXT NOT NULL,
                     created_at TIMESTAMPTZ NOT NULL
                 )
@@ -1730,6 +1803,7 @@ class PostgresIngestionConfigRepository:
                     source_system_id TEXT NOT NULL REFERENCES source_systems (source_system_id),
                     dataset_contract_id TEXT NOT NULL REFERENCES dataset_contracts (dataset_contract_id),
                     version INTEGER NOT NULL,
+                    archived BOOLEAN NOT NULL DEFAULT FALSE,
                     rules_json TEXT NOT NULL,
                     created_at TIMESTAMPTZ NOT NULL
                 )
@@ -1889,6 +1963,18 @@ class PostgresIngestionConfigRepository:
                 """
                 ALTER TABLE source_systems
                 ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT TRUE
+                """
+            )
+            connection.execute(
+                """
+                ALTER TABLE dataset_contracts
+                ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE
+                """
+            )
+            connection.execute(
+                """
+                ALTER TABLE column_mappings
+                ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE
                 """
             )
             connection.execute(

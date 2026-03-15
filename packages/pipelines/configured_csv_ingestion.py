@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import csv
+from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
 
+from packages.pipelines.csv_validation import ValidationIssue, validate_csv_text
 from packages.storage.blob import BlobStore, FilesystemBlobStore
 from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.ingestion_config import (
@@ -13,6 +15,15 @@ from packages.storage.ingestion_config import (
 )
 from packages.storage.landing_service import LandingService
 from packages.storage.run_metadata import IngestionRunRecord, RunMetadataStore
+
+
+@dataclass(frozen=True)
+class ConfiguredCsvPreview:
+    source_header: list[str]
+    mapped_header: list[str]
+    sample_row_count: int
+    preview_rows: list[dict[str, str]]
+    issues: list[ValidationIssue]
 
 
 class ConfiguredCsvIngestionService:
@@ -91,7 +102,11 @@ class ConfiguredCsvIngestionService:
         if not source_system.enabled:
             raise ValueError(f"Source system is disabled: {source_system_id}")
         dataset_contract = self.config_repository.get_dataset_contract(dataset_contract_id)
+        if dataset_contract.archived:
+            raise ValueError(f"Dataset contract is archived: {dataset_contract_id}")
         column_mapping = self.config_repository.get_column_mapping(column_mapping_id)
+        if column_mapping.archived:
+            raise ValueError(f"Column mapping is archived: {column_mapping_id}")
 
         if column_mapping.source_system_id != source_system_id:
             raise ValueError(
@@ -102,6 +117,27 @@ class ConfiguredCsvIngestionService:
                 "Column mapping dataset contract does not match the requested dataset contract."
             )
         return dataset_contract, column_mapping
+
+    def preview_mapping(
+        self,
+        *,
+        source_bytes: bytes,
+        source_system_id: str,
+        dataset_contract_id: str,
+        column_mapping_id: str,
+        preview_limit: int = 5,
+    ) -> ConfiguredCsvPreview:
+        dataset_contract, column_mapping = self._resolve_mapping_config(
+            source_system_id=source_system_id,
+            dataset_contract_id=dataset_contract_id,
+            column_mapping_id=column_mapping_id,
+        )
+        return preview_mapped_csv(
+            source_bytes=source_bytes,
+            dataset_contract=dataset_contract,
+            column_mapping=column_mapping,
+            preview_limit=preview_limit,
+        )
 
 
 def map_csv_columns(
@@ -145,3 +181,35 @@ def map_csv_columns(
         writer.writerow(mapped_row)
 
     return output_buffer.getvalue().encode("utf-8")
+
+
+def preview_mapped_csv(
+    *,
+    source_bytes: bytes,
+    dataset_contract: DatasetContractConfigRecord,
+    column_mapping: ColumnMappingRecord,
+    preview_limit: int = 5,
+) -> ConfiguredCsvPreview:
+    source_text = source_bytes.decode("utf-8")
+    mapped_bytes = map_csv_columns(
+        source_bytes=source_bytes,
+        dataset_contract=dataset_contract,
+        column_mapping=column_mapping,
+    )
+    validation = validate_csv_text(
+        mapped_bytes.decode("utf-8"),
+        resolve_dataset_contract(dataset_contract),
+    )
+    preview_rows = []
+    for index, row in enumerate(csv.DictReader(StringIO(mapped_bytes.decode("utf-8")))):
+        if index >= max(preview_limit, 0):
+            break
+        preview_rows.append({key: (value or "") for key, value in row.items()})
+    source_header = next(csv.reader(StringIO(source_text)), [])
+    return ConfiguredCsvPreview(
+        source_header=[column.strip() for column in source_header],
+        mapped_header=validation.header,
+        sample_row_count=validation.row_count,
+        preview_rows=preview_rows,
+        issues=validation.issues,
+    )

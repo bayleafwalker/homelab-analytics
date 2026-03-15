@@ -115,11 +115,22 @@ class ScheduleDispatchRequest(BaseModel):
 
 class ConfiguredCsvIngestRequest(BaseModel):
     source_path: str
-    source_system_id: str
-    dataset_contract_id: str
-    column_mapping_id: str
+    source_system_id: str | None = None
+    dataset_contract_id: str | None = None
+    column_mapping_id: str | None = None
     source_asset_id: str | None = None
     source_name: str = "configured-upload"
+
+
+class ArchivedStateRequest(BaseModel):
+    archived: bool
+
+
+class ColumnMappingPreviewRequest(BaseModel):
+    dataset_contract_id: str
+    column_mapping_id: str
+    sample_csv: str
+    preview_limit: int = 5
 
 
 class LoginRequest(BaseModel):

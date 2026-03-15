@@ -125,13 +125,17 @@ export async function getSourceSystems() {
   return payload.source_systems || [];
 }
 
-export async function getDatasetContracts() {
-  const payload = await backendJson("/config/dataset-contracts");
+export async function getDatasetContracts({ includeArchived = false } = {}) {
+  const payload = await backendJson(
+    `/config/dataset-contracts${buildQuery({ include_archived: includeArchived })}`
+  );
   return payload.dataset_contracts || [];
 }
 
-export async function getColumnMappings() {
-  const payload = await backendJson("/config/column-mappings");
+export async function getColumnMappings({ includeArchived = false } = {}) {
+  const payload = await backendJson(
+    `/config/column-mappings${buildQuery({ include_archived: includeArchived })}`
+  );
   return payload.column_mappings || [];
 }
 

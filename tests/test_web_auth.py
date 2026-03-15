@@ -14,8 +14,53 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     control_catalog_page = (
         FRONTEND_ROOT / "app" / "control" / "catalog" / "page.js"
     ).read_text()
+    dataset_contract_route = (
+        FRONTEND_ROOT / "app" / "control" / "catalog" / "dataset-contracts" / "route.js"
+    ).read_text()
+    dataset_contract_archive_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "dataset-contracts"
+        / "[datasetContractId]"
+        / "archive"
+        / "route.js"
+    ).read_text()
+    column_mapping_route = (
+        FRONTEND_ROOT / "app" / "control" / "catalog" / "column-mappings" / "route.js"
+    ).read_text()
+    column_mapping_archive_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "column-mappings"
+        / "[columnMappingId]"
+        / "archive"
+        / "route.js"
+    ).read_text()
+    preview_route = (
+        FRONTEND_ROOT / "app" / "control" / "catalog" / "preview" / "route.js"
+    ).read_text()
     control_execution_page = (
         FRONTEND_ROOT / "app" / "control" / "execution" / "page.js"
+    ).read_text()
+    upload_page = (FRONTEND_ROOT / "app" / "upload" / "page.js").read_text()
+    upload_account_route = (
+        FRONTEND_ROOT / "app" / "upload" / "account-transactions" / "route.js"
+    ).read_text()
+    upload_subscription_route = (
+        FRONTEND_ROOT / "app" / "upload" / "subscriptions" / "route.js"
+    ).read_text()
+    upload_contract_price_route = (
+        FRONTEND_ROOT / "app" / "upload" / "contract-prices" / "route.js"
+    ).read_text()
+    upload_configured_route = (
+        FRONTEND_ROOT / "app" / "upload" / "configured-csv" / "route.js"
+    ).read_text()
+    mapping_preview_component = (
+        FRONTEND_ROOT / "components" / "mapping-preview-panel.js"
     ).read_text()
     source_system_route = (
         FRONTEND_ROOT / "app" / "control" / "catalog" / "source-systems" / "route.js"
@@ -107,8 +152,27 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert "getAuthAuditEvents" in control_page
     assert "getSourceSystems" in control_catalog_page
     assert "getSourceAssets" in control_catalog_page
+    assert "MappingPreviewPanel" in control_catalog_page
+    assert "Create dataset contract version" in control_catalog_page
+    assert "Create column mapping version" in control_catalog_page
+    assert "parseColumnsSpec" in dataset_contract_route
+    assert "/config/dataset-contracts" in dataset_contract_route
+    assert "/config/dataset-contracts/${params.datasetContractId}/archive" in dataset_contract_archive_route
+    assert "parseRulesSpec" in column_mapping_route
+    assert "/config/column-mappings" in column_mapping_route
+    assert "/config/column-mappings/${params.columnMappingId}/archive" in column_mapping_archive_route
+    assert 'backendRequest("/config/column-mappings/preview"' in preview_route
     assert "getIngestionDefinitions" in control_execution_page
     assert "getExecutionSchedules" in control_execution_page
+    assert "Manual Uploads" in upload_page
+    assert 'action="/upload/account-transactions"' in upload_page
+    assert 'action="/upload/configured-csv"' in upload_page
+    assert "proxyUploadRequest" in upload_account_route
+    assert 'backendPath: "/ingest/account-transactions"' in upload_account_route
+    assert 'backendPath: "/ingest/subscriptions"' in upload_subscription_route
+    assert 'backendPath: "/ingest/contract-prices"' in upload_contract_price_route
+    assert 'backendPath: "/ingest/configured-csv"' in upload_configured_route
+    assert 'fetch("/control/catalog/preview"' in mapping_preview_component
     assert "getRun" in run_detail_page
     assert 'backendRequest("/config/source-systems"' in source_system_route
     assert 'backendRequest(`/config/source-systems/${params.sourceSystemId}`' in source_system_update_route
@@ -130,6 +194,7 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     control_catalog_source = (
         FRONTEND_ROOT / "app" / "control" / "catalog" / "page.js"
     ).read_text()
+    upload_source = (FRONTEND_ROOT / "app" / "upload" / "page.js").read_text()
     control_execution_source = (
         FRONTEND_ROOT / "app" / "control" / "execution" / "page.js"
     ).read_text()
@@ -137,12 +202,15 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
         FRONTEND_ROOT / "app" / "runs" / "[runId]" / "page.js"
     ).read_text()
     backend_source = (FRONTEND_ROOT / "lib" / "backend.js").read_text()
+    upload_route_helper = (FRONTEND_ROOT / "lib" / "upload-route.js").read_text()
 
     assert "HOMELAB_ANALYTICS_API_BASE_URL" in backend_source
     assert 'fetch(`${getApiBaseUrl()}${path}`' in backend_source
     assert 'outboundHeaders.set("x-csrf-token", csrfToken)' in backend_source
     assert "getSourceSystems" in backend_source
     assert "getSourceAssets" in backend_source
+    assert "getDatasetContracts" in backend_source
+    assert "getColumnMappings" in backend_source
     assert "getIngestionDefinitions" in backend_source
     assert "getExecutionSchedules" in backend_source
     assert "getRunsPage" in backend_source
@@ -154,6 +222,10 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getMonthlyCashflow" in reports_source
     assert "getLocalUsers" in control_source
     assert "getSourceSystems" in control_catalog_source
+    assert "getDatasetContracts({ includeArchived: true })" in control_catalog_source
+    assert "getColumnMappings({ includeArchived: true })" in control_catalog_source
+    assert "getSourceAssets" in upload_source
+    assert "backendRequest(backendPath" in upload_route_helper
     assert "getIngestionDefinitions" in control_execution_source
     assert "getRun" in run_detail_source
     assert "getSourceLineage" in run_detail_source

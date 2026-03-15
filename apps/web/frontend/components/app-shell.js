@@ -1,11 +1,19 @@
 import Link from "next/link";
 
+function hasRequiredRole(user, requiredRole) {
+  const roleOrder = { reader: 0, operator: 1, admin: 2 };
+  return roleOrder[user?.role] >= roleOrder[requiredRole];
+}
+
 function navItemsForUser(user) {
   const items = [
     { href: "/", label: "Dashboard" },
     { href: "/runs", label: "Runs" },
     { href: "/reports", label: "Reports" }
   ];
+  if (hasRequiredRole(user, "operator")) {
+    items.push({ href: "/upload", label: "Upload" });
+  }
   if (user?.role === "admin") {
     items.push({ href: "/control", label: "Control" });
   }

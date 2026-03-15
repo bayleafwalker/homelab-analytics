@@ -9,7 +9,16 @@ import {
   getTransformationAudit
 } from "@/lib/backend";
 
-export default async function RunDetailPage({ params }) {
+function noticeCopy(notice) {
+  switch (notice) {
+    case "upload-created":
+      return "Upload received. Review validation, lineage, and publication state below.";
+    default:
+      return "";
+  }
+}
+
+export default async function RunDetailPage({ params, searchParams }) {
   const user = await getCurrentUser();
   const runId = params.runId;
   const [run, sourceLineage, publicationAudit, transformationAudit] = await Promise.all([
@@ -20,6 +29,7 @@ export default async function RunDetailPage({ params }) {
   ]);
   const transformationAuditColumns =
     transformationAudit.length > 0 ? Object.keys(transformationAudit[0]) : [];
+  const notice = noticeCopy(searchParams?.notice);
 
   return (
     <AppShell
@@ -30,6 +40,7 @@ export default async function RunDetailPage({ params }) {
       lede="Run detail stays API-backed so operators can inspect validation, transformation lineage, and publication outcomes without exposing warehouse internals in the web workload."
     >
       <section className="stack">
+        {notice ? <div className="successBanner">{notice}</div> : null}
         <div className="buttonRow">
           <Link className="ghostButton" href="/runs">
             Back to runs

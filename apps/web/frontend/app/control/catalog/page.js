@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
 import { ControlNav } from "@/components/control-nav";
+import { MappingPreviewPanel } from "@/components/mapping-preview-panel";
 import {
   getColumnMappings,
   getCurrentUser,
@@ -10,6 +12,11 @@ import {
   getSourceSystems,
   getTransformationPackages
 } from "@/lib/backend";
+import {
+  formatColumnsSpec,
+  formatRulesSpec,
+  suggestVersionId
+} from "@/lib/config-spec";
 
 function noticeCopy(notice) {
   switch (notice) {
@@ -21,6 +28,14 @@ function noticeCopy(notice) {
       return "Source asset created.";
     case "source-asset-updated":
       return "Source asset updated.";
+    case "dataset-contract-created":
+      return "Dataset contract version created.";
+    case "dataset-contract-archived":
+      return "Dataset contract archive state updated.";
+    case "column-mapping-created":
+      return "Column mapping version created.";
+    case "column-mapping-archived":
+      return "Column mapping archive state updated.";
     default:
       return "";
   }
@@ -36,6 +51,14 @@ function errorCopy(error) {
       return "Could not create the source asset.";
     case "source-asset-update-failed":
       return "Could not update the source asset.";
+    case "dataset-contract-failed":
+      return "Could not create the dataset contract version.";
+    case "dataset-contract-archive-failed":
+      return "Could not update the dataset contract archive state.";
+    case "column-mapping-failed":
+      return "Could not create the column mapping version.";
+    case "column-mapping-archive-failed":
+      return "Could not update the column mapping archive state.";
     default:
       return "";
   }
@@ -43,6 +66,56 @@ function errorCopy(error) {
 
 function statusCopy(enabled) {
   return enabled ? "active" : "inactive";
+}
+
+function archiveCopy(archived) {
+  return archived ? "archived" : "active";
+}
+
+function optionLabel(record, version, archived = false) {
+  return `${record}${version ? ` / v${version}` : ""}${archived ? " / archived" : ""}`;
+}
+
+function resolveContractDraft(datasetContracts, cloneId) {
+  const cloned = datasetContracts.find((record) => record.dataset_contract_id === cloneId);
+  if (!cloned) {
+    return {
+      datasetContractId: "",
+      datasetName: "",
+      version: "1",
+      allowExtraColumns: "false",
+      columnsSpec: ""
+    };
+  }
+  const nextVersion = cloned.version + 1;
+  return {
+    datasetContractId: suggestVersionId(cloned.dataset_contract_id, nextVersion),
+    datasetName: cloned.dataset_name,
+    version: String(nextVersion),
+    allowExtraColumns: cloned.allow_extra_columns ? "true" : "false",
+    columnsSpec: formatColumnsSpec(cloned.columns)
+  };
+}
+
+function resolveMappingDraft(columnMappings, cloneId) {
+  const cloned = columnMappings.find((record) => record.column_mapping_id === cloneId);
+  if (!cloned) {
+    return {
+      columnMappingId: "",
+      sourceSystemId: "",
+      datasetContractId: "",
+      version: "1",
+      rulesSpec: ""
+    };
+  }
+  const nextVersion = cloned.version + 1;
+  return {
+    columnMappingId: suggestVersionId(cloned.column_mapping_id, nextVersion),
+    sourceSystemId: cloned.source_system_id,
+    datasetContractId: cloned.dataset_contract_id,
+    version: String(nextVersion),
+    rulesSpec: formatRulesSpec(cloned.rules)
+  };
 }
 
 export default async function ControlCatalogPage({ searchParams }) {
@@ -59,13 +132,17 @@ export default async function ControlCatalogPage({ searchParams }) {
     sourceAssets
   ] = await Promise.all([
     getSourceSystems(),
-    getDatasetContracts(),
-    getColumnMappings(),
+    getDatasetContracts({ includeArchived: true }),
+    getColumnMappings({ includeArchived: true }),
     getTransformationPackages(),
     getSourceAssets()
   ]);
 
   const activeSourceSystems = sourceSystems.filter((record) => record.enabled);
+  const activeDatasetContracts = datasetContracts.filter((record) => !record.archived);
+  const archivedDatasetContracts = datasetContracts.filter((record) => record.archived);
+  const activeColumnMappings = columnMappings.filter((record) => !record.archived);
+  const archivedColumnMappings = columnMappings.filter((record) => record.archived);
   const contractById = new Map(
     datasetContracts.map((record) => [record.dataset_contract_id, record])
   );
@@ -75,6 +152,8 @@ export default async function ControlCatalogPage({ searchParams }) {
   const packageById = new Map(
     transformationPackages.map((record) => [record.transformation_package_id, record])
   );
+  const contractDraft = resolveContractDraft(datasetContracts, searchParams?.contract_clone);
+  const mappingDraft = resolveMappingDraft(columnMappings, searchParams?.mapping_clone);
   const notice = noticeCopy(searchParams?.notice);
   const error = errorCopy(searchParams?.error);
 
@@ -84,7 +163,7 @@ export default async function ControlCatalogPage({ searchParams }) {
       user={user}
       title="Control Catalog"
       eyebrow="Admin Access"
-      lede="Source registration stays API-backed: register systems, bind source assets, and keep contract and mapping versions explicit before ingestion starts."
+      lede="Version source registration, contract design, and mapping changes explicitly. Browser uploads and configured ingestion should reuse saved control-plane versions instead of inventing ad hoc schemas."
     >
       <section className="stack">
         <ControlNav currentPath="/control/catalog" />
@@ -107,7 +186,10 @@ export default async function ControlCatalogPage({ searchParams }) {
           <article className="panel metricCard">
             <div className="metricLabel">Contracts / mappings</div>
             <div className="metricValue">
-              {datasetContracts.length} / {columnMappings.length}
+              {activeDatasetContracts.length} / {activeColumnMappings.length}
+            </div>
+            <div className="muted">
+              {archivedDatasetContracts.length} archived contracts / {archivedColumnMappings.length} archived mappings
             </div>
           </article>
         </section>
@@ -188,11 +270,11 @@ export default async function ControlCatalogPage({ searchParams }) {
             </div>
           </div>
           {activeSourceSystems.length === 0 ||
-          datasetContracts.length === 0 ||
-          columnMappings.length === 0 ? (
+          activeDatasetContracts.length === 0 ||
+          activeColumnMappings.length === 0 ? (
             <div className="empty">
-              Source asset creation requires an active source system plus at least one dataset
-              contract and column mapping.
+              Source asset creation requires an active source system plus at least one active
+              dataset contract and column mapping version.
             </div>
           ) : (
             <form className="formGrid fourCol" action="/control/catalog/source-assets" method="post">
@@ -245,9 +327,9 @@ export default async function ControlCatalogPage({ searchParams }) {
                   <option value="" disabled>
                     Select contract
                   </option>
-                  {datasetContracts.map((record) => (
+                  {activeDatasetContracts.map((record) => (
                     <option key={record.dataset_contract_id} value={record.dataset_contract_id}>
-                      {record.dataset_contract_id}
+                      {optionLabel(record.dataset_contract_id, record.version)}
                     </option>
                   ))}
                 </select>
@@ -263,9 +345,9 @@ export default async function ControlCatalogPage({ searchParams }) {
                   <option value="" disabled>
                     Select mapping
                   </option>
-                  {columnMappings.map((record) => (
+                  {activeColumnMappings.map((record) => (
                     <option key={record.column_mapping_id} value={record.column_mapping_id}>
-                      {record.column_mapping_id}
+                      {optionLabel(record.column_mapping_id, record.version)}
                     </option>
                   ))}
                 </select>
@@ -301,6 +383,194 @@ export default async function ControlCatalogPage({ searchParams }) {
                 Create source asset
               </button>
             </form>
+          )}
+        </article>
+
+        <section className="layout">
+          <article className="panel section">
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">Versioning</div>
+                <h2>Create dataset contract version</h2>
+              </div>
+            </div>
+            <div className="muted">
+              One line per column: <code>name,type,required|optional</code>.
+            </div>
+            <form className="formGrid threeCol" action="/control/catalog/dataset-contracts" method="post">
+              <div className="field">
+                <label htmlFor="dataset-contract-id">Contract id</label>
+                <input
+                  id="dataset-contract-id"
+                  name="dataset_contract_id"
+                  type="text"
+                  defaultValue={contractDraft.datasetContractId}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="dataset-contract-name">Dataset name</label>
+                <input
+                  id="dataset-contract-name"
+                  name="dataset_name"
+                  type="text"
+                  defaultValue={contractDraft.datasetName}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="dataset-contract-version">Version</label>
+                <input
+                  id="dataset-contract-version"
+                  name="version"
+                  type="number"
+                  min="1"
+                  defaultValue={contractDraft.version}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="dataset-contract-allow-extra">Allow extra columns</label>
+                <select
+                  id="dataset-contract-allow-extra"
+                  name="allow_extra_columns"
+                  defaultValue={contractDraft.allowExtraColumns}
+                >
+                  <option value="false">false</option>
+                  <option value="true">true</option>
+                </select>
+              </div>
+              <div className="buttonRow">
+                <Link className="ghostButton" href="/control/catalog">
+                  Clear draft
+                </Link>
+              </div>
+              <div className="field spanThree">
+                <label htmlFor="dataset-contract-columns">Columns</label>
+                <textarea
+                  id="dataset-contract-columns"
+                  name="columns_spec"
+                  rows={10}
+                  defaultValue={contractDraft.columnsSpec}
+                  placeholder={"booked_at,date,required\naccount_id,string,required\ndescription,string,optional"}
+                  required
+                />
+              </div>
+              <button className="primaryButton inlineButton" type="submit">
+                Create contract version
+              </button>
+            </form>
+          </article>
+
+          <article className="panel section">
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">Versioning</div>
+                <h2>Create column mapping version</h2>
+              </div>
+            </div>
+            <div className="muted">
+              One line per rule: <code>target_column,source_column,default_value</code>.
+            </div>
+            <form className="formGrid threeCol" action="/control/catalog/column-mappings" method="post">
+              <div className="field">
+                <label htmlFor="column-mapping-id">Mapping id</label>
+                <input
+                  id="column-mapping-id"
+                  name="column_mapping_id"
+                  type="text"
+                  defaultValue={mappingDraft.columnMappingId}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="column-mapping-source-system">Source system</label>
+                <select
+                  id="column-mapping-source-system"
+                  name="source_system_id"
+                  defaultValue={mappingDraft.sourceSystemId}
+                  required
+                >
+                  <option value="" disabled>
+                    Select source system
+                  </option>
+                  {activeSourceSystems.map((record) => (
+                    <option key={record.source_system_id} value={record.source_system_id}>
+                      {record.source_system_id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="column-mapping-contract">Dataset contract</label>
+                <select
+                  id="column-mapping-contract"
+                  name="dataset_contract_id"
+                  defaultValue={mappingDraft.datasetContractId}
+                  required
+                >
+                  <option value="" disabled>
+                    Select contract
+                  </option>
+                  {activeDatasetContracts.map((record) => (
+                    <option key={record.dataset_contract_id} value={record.dataset_contract_id}>
+                      {optionLabel(record.dataset_contract_id, record.version)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="column-mapping-version">Version</label>
+                <input
+                  id="column-mapping-version"
+                  name="version"
+                  type="number"
+                  min="1"
+                  defaultValue={mappingDraft.version}
+                  required
+                />
+              </div>
+              <div className="buttonRow">
+                <Link className="ghostButton" href="/control/catalog">
+                  Clear draft
+                </Link>
+              </div>
+              <div className="field spanThree">
+                <label htmlFor="column-mapping-rules">Rules</label>
+                <textarea
+                  id="column-mapping-rules"
+                  name="rules_spec"
+                  rows={10}
+                  defaultValue={mappingDraft.rulesSpec}
+                  placeholder={"booked_at,booking_date,\namount,amount_eur,\ncurrency,,EUR"}
+                  required
+                />
+              </div>
+              <button className="primaryButton inlineButton" type="submit">
+                Create mapping version
+              </button>
+            </form>
+          </article>
+        </section>
+
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Preview</div>
+              <h2>Mapping preview</h2>
+            </div>
+          </div>
+          {activeDatasetContracts.length === 0 || activeColumnMappings.length === 0 ? (
+            <div className="empty">
+              Create an active dataset contract and column mapping before previewing sample CSV.
+            </div>
+          ) : (
+            <MappingPreviewPanel
+              datasetContracts={activeDatasetContracts}
+              columnMappings={activeColumnMappings}
+              initialContractId={mappingDraft.datasetContractId || activeDatasetContracts[0]?.dataset_contract_id}
+              initialMappingId={mappingDraft.columnMappingId || activeColumnMappings[0]?.column_mapping_id}
+            />
           )}
         </article>
 
@@ -458,6 +728,7 @@ export default async function ControlCatalogPage({ searchParams }) {
                         <div>
                           {record.dataset_contract_id}
                           {datasetContract ? ` / v${datasetContract.version}` : ""}
+                          {datasetContract?.archived ? " / archived" : ""}
                         </div>
                       </div>
                       <div className="metaItem">
@@ -465,6 +736,7 @@ export default async function ControlCatalogPage({ searchParams }) {
                         <div>
                           {record.column_mapping_id}
                           {columnMapping ? ` / v${columnMapping.version}` : ""}
+                          {columnMapping?.archived ? " / archived" : ""}
                         </div>
                       </div>
                       <div className="metaItem">
@@ -527,7 +799,11 @@ export default async function ControlCatalogPage({ searchParams }) {
                         >
                           {datasetContracts.map((item) => (
                             <option key={item.dataset_contract_id} value={item.dataset_contract_id}>
-                              {item.dataset_contract_id}
+                              {optionLabel(
+                                item.dataset_contract_id,
+                                item.version,
+                                item.archived
+                              )}
                             </option>
                           ))}
                         </select>
@@ -542,7 +818,11 @@ export default async function ControlCatalogPage({ searchParams }) {
                         >
                           {columnMappings.map((item) => (
                             <option key={item.column_mapping_id} value={item.column_mapping_id}>
-                              {item.column_mapping_id}
+                              {optionLabel(
+                                item.column_mapping_id,
+                                item.version,
+                                item.archived
+                              )}
                             </option>
                           ))}
                         </select>
@@ -607,59 +887,152 @@ export default async function ControlCatalogPage({ searchParams }) {
             {datasetContracts.length === 0 ? (
               <div className="empty">No dataset contracts registered yet.</div>
             ) : (
-              <div className="stack compactStack">
+              <div className="entityList">
                 {datasetContracts.map((record) => (
-                  <div className="metaItem" key={record.dataset_contract_id}>
-                    <div className="metricLabel">{record.dataset_contract_id}</div>
-                    <div className="muted">
-                      {record.dataset_name} / v{record.version} / {record.columns.length} columns
+                  <article className="entityCard" key={record.dataset_contract_id}>
+                    <div className="entityHeader">
+                      <div>
+                        <div className="metricLabel">{record.dataset_contract_id}</div>
+                        <h3>
+                          {record.dataset_name} / v{record.version}
+                        </h3>
+                      </div>
+                      <span className={`statusPill status-${record.archived ? "archived" : "active"}`}>
+                        {archiveCopy(record.archived)}
+                      </span>
                     </div>
-                  </div>
+                    <div className="metaGrid">
+                      <div className="metaItem">
+                        <div className="metricLabel">Columns</div>
+                        <div>{record.columns.length}</div>
+                      </div>
+                      <div className="metaItem">
+                        <div className="metricLabel">Allow extra columns</div>
+                        <div>{record.allow_extra_columns ? "true" : "false"}</div>
+                      </div>
+                      <div className="metaItem spanTwo">
+                        <div className="metricLabel">Specification</div>
+                        <pre className="specBlock">{formatColumnsSpec(record.columns)}</pre>
+                      </div>
+                    </div>
+                    <div className="buttonRow">
+                      <Link
+                        className="ghostButton"
+                        href={`/control/catalog?contract_clone=${record.dataset_contract_id}`}
+                      >
+                        Create next version
+                      </Link>
+                      <form
+                        action={`/control/catalog/dataset-contracts/${record.dataset_contract_id}/archive`}
+                        method="post"
+                      >
+                        <input
+                          name="archived"
+                          type="hidden"
+                          value={record.archived ? "false" : "true"}
+                        />
+                        <button className="ghostButton" type="submit">
+                          {record.archived ? "Restore version" : "Archive version"}
+                        </button>
+                      </form>
+                    </div>
+                  </article>
                 ))}
               </div>
             )}
           </article>
 
-          <article className="panel section">
-            <div className="sectionHeader">
-              <div>
-                <div className="eyebrow">Dependencies</div>
-                <h2>Mappings and packages</h2>
+          <div className="stack">
+            <article className="panel section">
+              <div className="sectionHeader">
+                <div>
+                  <div className="eyebrow">Dependencies</div>
+                  <h2>Column mappings</h2>
+                </div>
               </div>
-            </div>
-            <div className="metaGrid">
-              <div className="stack compactStack">
-                <div className="metricLabel">Column mappings</div>
-                {columnMappings.length === 0 ? (
-                  <div className="empty">No mappings.</div>
-                ) : (
-                  columnMappings.map((record) => (
-                    <div className="metaItem" key={record.column_mapping_id}>
-                      <div>{record.column_mapping_id}</div>
-                      <div className="muted">
-                        {record.source_system_id} / {record.dataset_contract_id} / v{record.version}
+              {columnMappings.length === 0 ? (
+                <div className="empty">No column mappings registered yet.</div>
+              ) : (
+                <div className="entityList">
+                  {columnMappings.map((record) => (
+                    <article className="entityCard" key={record.column_mapping_id}>
+                      <div className="entityHeader">
+                        <div>
+                          <div className="metricLabel">{record.column_mapping_id}</div>
+                          <h3>
+                            {record.source_system_id} / v{record.version}
+                          </h3>
+                        </div>
+                        <span
+                          className={`statusPill status-${record.archived ? "archived" : "active"}`}
+                        >
+                          {archiveCopy(record.archived)}
+                        </span>
                       </div>
-                    </div>
-                  ))
-                )}
+                      <div className="metaGrid">
+                        <div className="metaItem">
+                          <div className="metricLabel">Dataset contract</div>
+                          <div>{record.dataset_contract_id}</div>
+                        </div>
+                        <div className="metaItem">
+                          <div className="metricLabel">Rules</div>
+                          <div>{record.rules.length}</div>
+                        </div>
+                        <div className="metaItem spanTwo">
+                          <div className="metricLabel">Specification</div>
+                          <pre className="specBlock">{formatRulesSpec(record.rules)}</pre>
+                        </div>
+                      </div>
+                      <div className="buttonRow">
+                        <Link
+                          className="ghostButton"
+                          href={`/control/catalog?mapping_clone=${record.column_mapping_id}`}
+                        >
+                          Create next version
+                        </Link>
+                        <form
+                          action={`/control/catalog/column-mappings/${record.column_mapping_id}/archive`}
+                          method="post"
+                        >
+                          <input
+                            name="archived"
+                            type="hidden"
+                            value={record.archived ? "false" : "true"}
+                          />
+                          <button className="ghostButton" type="submit">
+                            {record.archived ? "Restore version" : "Archive version"}
+                          </button>
+                        </form>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </article>
+
+            <article className="panel section">
+              <div className="sectionHeader">
+                <div>
+                  <div className="eyebrow">Dependencies</div>
+                  <h2>Transformation packages</h2>
+                </div>
               </div>
-              <div className="stack compactStack">
-                <div className="metricLabel">Transformation packages</div>
-                {transformationPackages.length === 0 ? (
-                  <div className="empty">No packages.</div>
-                ) : (
-                  transformationPackages.map((record) => (
+              {transformationPackages.length === 0 ? (
+                <div className="empty">No transformation packages.</div>
+              ) : (
+                <div className="stack compactStack">
+                  {transformationPackages.map((record) => (
                     <div className="metaItem" key={record.transformation_package_id}>
-                      <div>{record.transformation_package_id}</div>
+                      <div className="metricLabel">{record.transformation_package_id}</div>
                       <div className="muted">
                         {record.handler_key} / v{record.version}
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </article>
+                  ))}
+                </div>
+              )}
+            </article>
+          </div>
         </section>
       </section>
     </AppShell>

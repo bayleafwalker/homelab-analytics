@@ -335,6 +335,38 @@ def assert_schedule_dispatch_behaviour(store: ControlPlaneStore) -> None:
 def assert_control_plane_store_update_behaviour(store: ControlPlaneStore) -> None:
     seeded = seed_source_asset_graph(store)
 
+    archived_contract = store.set_dataset_contract_archived_state(
+        seeded["dataset_contract"].dataset_contract_id,
+        archived=True,
+    )
+    assert archived_contract.archived is True
+    assert store.list_dataset_contracts() == []
+    assert store.list_dataset_contracts(include_archived=True)[0].dataset_contract_id == (
+        seeded["dataset_contract"].dataset_contract_id
+    )
+
+    restored_contract = store.set_dataset_contract_archived_state(
+        seeded["dataset_contract"].dataset_contract_id,
+        archived=False,
+    )
+    assert restored_contract.archived is False
+
+    archived_mapping = store.set_column_mapping_archived_state(
+        seeded["column_mapping"].column_mapping_id,
+        archived=True,
+    )
+    assert archived_mapping.archived is True
+    assert store.list_column_mappings() == []
+    assert store.list_column_mappings(include_archived=True)[0].column_mapping_id == (
+        seeded["column_mapping"].column_mapping_id
+    )
+
+    restored_mapping = store.set_column_mapping_archived_state(
+        seeded["column_mapping"].column_mapping_id,
+        archived=False,
+    )
+    assert restored_mapping.archived is False
+
     updated_source_system = store.update_source_system(
         SourceSystemCreate(
             source_system_id=seeded["source_system"].source_system_id,

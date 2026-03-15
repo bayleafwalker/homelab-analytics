@@ -12,9 +12,12 @@ from typing import Any, cast
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
+from pydantic import ValidationError
 from starlette.datastructures import UploadFile
 
 from apps.api.models import (
+    ArchivedStateRequest,
+    ColumnMappingPreviewRequest,
     ColumnMappingRequest,
     ConfiguredCsvIngestRequest,
     DatasetContractRequest,
@@ -800,11 +803,24 @@ def create_app(
         return {"source_system": _to_jsonable(source_system)}
 
     @app.get("/config/dataset-contracts")
-    async def list_dataset_contracts() -> dict[str, Any]:
+    async def list_dataset_contracts(
+        include_archived: bool = False,
+    ) -> dict[str, Any]:
         require_unsafe_admin()
         return {
             "dataset_contracts": _to_jsonable(
-                resolved_config_repository.list_dataset_contracts()
+                resolved_config_repository.list_dataset_contracts(
+                    include_archived=include_archived
+                )
+            )
+        }
+
+    @app.get("/config/dataset-contracts/{dataset_contract_id}")
+    async def get_dataset_contract(dataset_contract_id: str) -> dict[str, Any]:
+        require_unsafe_admin()
+        return {
+            "dataset_contract": _to_jsonable(
+                resolved_config_repository.get_dataset_contract(dataset_contract_id)
             )
         }
 
@@ -829,12 +845,37 @@ def create_app(
         )
         return {"dataset_contract": _to_jsonable(dataset_contract)}
 
+    @app.patch("/config/dataset-contracts/{dataset_contract_id}/archive")
+    async def set_dataset_contract_archived_state(
+        dataset_contract_id: str,
+        payload: ArchivedStateRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        dataset_contract = resolved_config_repository.set_dataset_contract_archived_state(
+            dataset_contract_id,
+            archived=payload.archived,
+        )
+        return {"dataset_contract": _to_jsonable(dataset_contract)}
+
     @app.get("/config/column-mappings")
-    async def list_column_mappings() -> dict[str, Any]:
+    async def list_column_mappings(
+        include_archived: bool = False,
+    ) -> dict[str, Any]:
         require_unsafe_admin()
         return {
             "column_mappings": _to_jsonable(
-                resolved_config_repository.list_column_mappings()
+                resolved_config_repository.list_column_mappings(
+                    include_archived=include_archived
+                )
+            )
+        }
+
+    @app.get("/config/column-mappings/{column_mapping_id}")
+    async def get_column_mapping(column_mapping_id: str) -> dict[str, Any]:
+        require_unsafe_admin()
+        return {
+            "column_mapping": _to_jsonable(
+                resolved_config_repository.get_column_mapping(column_mapping_id)
             )
         }
 
@@ -858,6 +899,42 @@ def create_app(
             )
         )
         return {"column_mapping": _to_jsonable(column_mapping)}
+
+    @app.patch("/config/column-mappings/{column_mapping_id}/archive")
+    async def set_column_mapping_archived_state(
+        column_mapping_id: str,
+        payload: ArchivedStateRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        column_mapping = resolved_config_repository.set_column_mapping_archived_state(
+            column_mapping_id,
+            archived=payload.archived,
+        )
+        return {"column_mapping": _to_jsonable(column_mapping)}
+
+    @app.post("/config/column-mappings/preview")
+    async def preview_column_mapping(
+        payload: ColumnMappingPreviewRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        column_mapping = resolved_config_repository.get_column_mapping(
+            payload.column_mapping_id
+        )
+        if column_mapping.dataset_contract_id != payload.dataset_contract_id:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Column mapping dataset contract does not match the requested preview contract."
+                ),
+            )
+        preview = configured_ingestion_service.preview_mapping(
+            source_bytes=payload.sample_csv.encode("utf-8"),
+            source_system_id=column_mapping.source_system_id,
+            dataset_contract_id=payload.dataset_contract_id,
+            column_mapping_id=payload.column_mapping_id,
+            preview_limit=payload.preview_limit,
+        )
+        return {"preview": _to_jsonable(preview)}
 
     @app.get("/config/transformation-packages")
     async def list_transformation_packages() -> dict[str, Any]:
@@ -1216,43 +1293,53 @@ def create_app(
         )
 
     @app.post("/ingest/configured-csv", status_code=201)
-    async def ingest_configured_csv(
-        payload: ConfiguredCsvIngestRequest,
-    ) -> JSONResponse:
-        source_asset = (
-            resolved_config_repository.get_source_asset(payload.source_asset_id)
-            if payload.source_asset_id
-            else None
-        )
-        if source_asset is not None and not source_asset.enabled:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Source asset is disabled: {source_asset.source_asset_id}",
+    async def ingest_configured_csv(request: Request) -> JSONResponse:
+        content_type = request.headers.get("content-type", "")
+        if content_type.startswith("multipart/form-data"):
+            form = await request.form()
+            upload = _require_upload(form.get("file"))
+            payload = ConfiguredCsvIngestRequest(
+                source_path="",
+                source_asset_id=str(form.get("source_asset_id") or "") or None,
+                source_system_id=str(form.get("source_system_id") or "") or None,
+                dataset_contract_id=str(form.get("dataset_contract_id") or "") or None,
+                column_mapping_id=str(form.get("column_mapping_id") or "") or None,
+                source_name=str(form.get("source_name") or "configured-upload"),
             )
-        source_system_id = (
-            source_asset.source_system_id if source_asset else payload.source_system_id
-        )
-        source_system = resolved_config_repository.get_source_system(source_system_id)
-        if not source_system.enabled:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Source system is disabled: {source_system_id}",
+            source_asset, source_system_id, dataset_contract_id, column_mapping_id = (
+                _resolve_configured_ingest_binding(
+                    payload,
+                    config_repository=resolved_config_repository,
+                )
             )
-        dataset_contract_id = (
-            source_asset.dataset_contract_id
-            if source_asset
-            else payload.dataset_contract_id
-        )
-        column_mapping_id = (
-            source_asset.column_mapping_id if source_asset else payload.column_mapping_id
-        )
-        run = configured_ingestion_service.ingest_file(
-            source_path=Path(payload.source_path),
-            source_system_id=source_system_id,
-            dataset_contract_id=dataset_contract_id,
-            column_mapping_id=column_mapping_id,
-            source_name=payload.source_name,
-        )
+            source_bytes = await upload.read()
+            await upload.close()
+            run = configured_ingestion_service.ingest_bytes(
+                source_bytes=source_bytes,
+                file_name=getattr(upload, "filename", None) or "configured-upload.csv",
+                source_system_id=source_system_id,
+                dataset_contract_id=dataset_contract_id,
+                column_mapping_id=column_mapping_id,
+                source_name=payload.source_name,
+            )
+        else:
+            try:
+                payload = ConfiguredCsvIngestRequest(**(await request.json()))
+            except ValidationError as exc:
+                raise HTTPException(status_code=422, detail=exc.errors()) from exc
+            source_asset, source_system_id, dataset_contract_id, column_mapping_id = (
+                _resolve_configured_ingest_binding(
+                    payload,
+                    config_repository=resolved_config_repository,
+                )
+            )
+            run = configured_ingestion_service.ingest_file(
+                source_path=Path(payload.source_path),
+                source_system_id=source_system_id,
+                dataset_contract_id=dataset_contract_id,
+                column_mapping_id=column_mapping_id,
+                source_name=payload.source_name,
+            )
         promotion: PromotionResult | None = None
         if transformation_service is not None and run.passed:
             resolved_source_asset = source_asset or resolved_config_repository.find_source_asset_by_binding(
@@ -1655,6 +1742,80 @@ def _build_run_response(
     if promotion is not None:
         body["promotion"] = serialize_promotion(promotion)
     return JSONResponse(status_code=status_code, content=body)
+
+
+def _resolve_configured_ingest_binding(
+    payload: ConfiguredCsvIngestRequest,
+    *,
+    config_repository: ControlPlaneStore,
+):
+    source_asset = (
+        config_repository.get_source_asset(payload.source_asset_id)
+        if payload.source_asset_id
+        else None
+    )
+    if source_asset is not None:
+        if not source_asset.enabled:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Source asset is disabled: {source_asset.source_asset_id}",
+            )
+        if (
+            payload.source_system_id
+            and payload.source_system_id != source_asset.source_system_id
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="source_system_id does not match the selected source asset.",
+            )
+        if (
+            payload.dataset_contract_id
+            and payload.dataset_contract_id != source_asset.dataset_contract_id
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="dataset_contract_id does not match the selected source asset.",
+            )
+        if (
+            payload.column_mapping_id
+            and payload.column_mapping_id != source_asset.column_mapping_id
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="column_mapping_id does not match the selected source asset.",
+            )
+        source_system_id = source_asset.source_system_id
+        dataset_contract_id = source_asset.dataset_contract_id
+        column_mapping_id = source_asset.column_mapping_id
+    else:
+        missing_fields = [
+            field_name
+            for field_name, value in (
+                ("source_system_id", payload.source_system_id),
+                ("dataset_contract_id", payload.dataset_contract_id),
+                ("column_mapping_id", payload.column_mapping_id),
+            )
+            if not value
+        ]
+        if missing_fields:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "source_asset_id or explicit configured-ingest binding is required; "
+                    f"missing {', '.join(missing_fields)}."
+                ),
+            )
+        source_system_id = str(payload.source_system_id)
+        dataset_contract_id = str(payload.dataset_contract_id)
+        column_mapping_id = str(payload.column_mapping_id)
+
+    source_system = config_repository.get_source_system(source_system_id)
+    if not source_system.enabled:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Source system is disabled: {source_system_id}",
+        )
+    return source_asset, source_system_id, dataset_contract_id, column_mapping_id
 
 
 def _observe_ingest_run(run: IngestionRunRecord) -> None:
