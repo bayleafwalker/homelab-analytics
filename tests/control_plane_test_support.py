@@ -5,6 +5,13 @@ from threading import Barrier, Lock, Thread
 from typing import Any
 
 from packages.pipelines.csv_validation import ColumnType
+from packages.shared.auth import issue_service_token
+from packages.storage.auth_store import (
+    SERVICE_TOKEN_SCOPE_INGEST_WRITE,
+    SERVICE_TOKEN_SCOPE_REPORTS_READ,
+    ServiceTokenCreate,
+    UserRole,
+)
 from packages.storage.control_plane import (
     AuthAuditEventCreate,
     ControlPlaneStore,
@@ -262,6 +269,48 @@ def assert_auth_audit_behaviour(store: ControlPlaneStore) -> None:
         limit=5,
     )
     assert [event.event_id for event in failed_events] == ["auth-001"]
+
+
+def assert_service_token_behaviour(store: ControlPlaneStore) -> None:
+    issued_token = issue_service_token("token-001")
+    created = store.create_service_token(
+        ServiceTokenCreate(
+            token_id=issued_token.token_id,
+            token_name="home-assistant",
+            token_secret_hash=issued_token.token_secret_hash,
+            role=UserRole.OPERATOR,
+            scopes=(
+                SERVICE_TOKEN_SCOPE_REPORTS_READ,
+                SERVICE_TOKEN_SCOPE_INGEST_WRITE,
+            ),
+            expires_at=FIXED_CREATED_AT + timedelta(days=30),
+            created_at=FIXED_CREATED_AT,
+        )
+    )
+
+    assert created.token_name == "home-assistant"
+    assert created.scopes == (
+        SERVICE_TOKEN_SCOPE_REPORTS_READ,
+        SERVICE_TOKEN_SCOPE_INGEST_WRITE,
+    )
+    assert [record.token_id for record in store.list_service_tokens()] == ["token-001"]
+
+    used = store.record_service_token_use(
+        "token-001",
+        used_at=FIXED_CREATED_AT + timedelta(hours=6),
+    )
+    assert used.last_used_at == FIXED_CREATED_AT + timedelta(hours=6)
+
+    revoked = store.revoke_service_token(
+        "token-001",
+        revoked_at=FIXED_CREATED_AT + timedelta(days=2),
+    )
+    assert revoked.revoked_at == FIXED_CREATED_AT + timedelta(days=2)
+    assert store.list_service_tokens() == []
+    assert store.list_service_tokens(include_revoked=True)[0].token_secret_hash == issued_token.token_secret_hash
+    assert any(
+        record.token_id == "token-001" for record in store.export_snapshot().service_tokens
+    )
 
 
 def assert_schedule_dispatch_behaviour(store: ControlPlaneStore) -> None:

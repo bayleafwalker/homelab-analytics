@@ -86,7 +86,7 @@ This repository now has a working end-to-end bootstrap aligned to the target arc
 - manual and config-driven account-transaction ingests now share the same retry-safe promotion path into DuckDB-backed marts and current-dimension views
 - explicit subscription and temporal contract-pricing domains now exist alongside transactions, including `mart_subscription_summary`, `mart_contract_price_current`, and `mart_electricity_price_current`
 
-The main remaining gaps are service-token auth and broader production hardening. S3-compatible landing plus Postgres-backed control-plane/reporting backends now exist, local username/password auth remains available as the bootstrap or break-glass path, OIDC is now supported for browser sign-in plus direct bearer-token API access, the worker now claims and processes queued dispatches continuously with lease renewal plus stale-dispatch recovery, and the web surface now has a real Next.js shell that consumes the API only.
+The main remaining gaps are broader production hardening and non-interactive deployment polish. S3-compatible landing plus Postgres-backed control-plane/reporting backends now exist, local username/password auth remains available as the bootstrap or break-glass path, OIDC is supported for browser sign-in plus direct bearer-token API access, scoped service tokens now exist for automation consumers, the worker claims and processes queued dispatches continuously with lease renewal plus stale-dispatch recovery, and the web surface has a real Next.js shell that consumes the API only.
 
 ## Run locally
 
@@ -194,7 +194,7 @@ That pattern keeps key product logic inside this repository while allowing custo
 
 Current execution surfaces:
 
-`/health` and `/metrics` stay public. In both local-auth and OIDC modes, `/runs*`, `/reports*`, `/transformation-audit`, `GET /control/source-lineage`, `GET /control/publication-audit`, and the Next.js dashboard/run-detail views require at least a `reader`; `/ingest*` requires `operator`; `/config/*`, `/control/auth-audit`, `/control/schedule-dispatches`, `/extensions`, `/sources`, `/landing/*`, `/transformations/*`, persisted-ingestion processing, `/auth/users*`, and the `/control`, `/control/catalog`, and `/control/execution` admin pages require `admin`. Cookie-authenticated `POST` routes require a CSRF token, local login failures are rate-limited via control-plane auth audit history, OIDC browser login flows mint the same signed app session cookie through `/auth/login` and `/auth/callback`, and direct API clients can present validated OIDC bearer JWTs on protected endpoints. `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN=true` remains a temporary local/dev-only escape hatch that is not used by the Compose or Helm defaults.
+`/health` and `/metrics` stay public. In both local-auth and OIDC modes, `/runs*`, `/reports*`, `/transformation-audit`, `GET /control/source-lineage`, `GET /control/publication-audit`, and the Next.js dashboard/run-detail views require at least a `reader`; `/ingest*` requires `operator`; `/config/*`, `/control/auth-audit`, `/control/schedule-dispatches`, `/extensions`, `/sources`, `/landing/*`, `/transformations/*`, persisted-ingestion processing, `/auth/users*`, `/auth/service-tokens*`, and the `/control`, `/control/catalog`, and `/control/execution` admin pages require `admin`. Cookie-authenticated `POST` routes require a CSRF token, local login failures are rate-limited via control-plane auth audit history, OIDC browser login flows mint the same signed app session cookie through `/auth/login` and `/auth/callback`, and direct API clients can present either validated OIDC bearer JWTs or opaque `hst_...` service tokens on protected endpoints. Service tokens are scope-bound (`reports:read`, `runs:read`, `ingest:write`, `admin:write`) so automation can be limited without minting full browser identities. `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN=true` remains a temporary local/dev-only escape hatch that is not used by the Compose or Helm defaults.
 
 - `POST /landing/{extension_key}` for executable landing extensions
 - `GET /metrics` for Prometheus-compatible operational metrics, including queue depth, running/failed/stale dispatch gauges, recovered dispatch count, worker count, oldest heartbeat age, and failed-dispatch ratio
@@ -202,6 +202,7 @@ Current execution surfaces:
 - `POST /runs/{run_id}/retry` for operator retry of built-in and saved-binding configured runs
 - `GET /auth/me`, `GET|POST /auth/login`, `GET /auth/callback`, and `POST /auth/logout` for local or OIDC-backed session management
 - `GET /auth/users`, `POST /auth/users`, `PATCH /auth/users/{user_id}`, and `POST /auth/users/{user_id}/password` for bootstrap local-user management
+- `GET /auth/service-tokens`, `POST /auth/service-tokens`, and `POST /auth/service-tokens/{token_id}/revoke` for automation-token lifecycle management
 - `GET /sources` for the current source-system and source-asset catalog
 - `GET`, `POST`, and `PATCH /config/source-systems/{id}` for source-system configuration
 - `GET` and `POST /config/dataset-contracts`, `GET /config/dataset-contracts/{id}/diff`, and `PATCH /config/dataset-contracts/{id}/archive` for dataset-contract configuration, diffing, and archived-version lifecycle
@@ -212,7 +213,7 @@ Current execution surfaces:
 - `GET`, `POST`, `PATCH /config/ingestion-definitions/{id}`, `PATCH /config/ingestion-definitions/{id}/archive`, and `DELETE /config/ingestion-definitions/{id}` for transport, watch-folder, direct-API, and batch-extract configuration
 - `GET`, `POST`, `PATCH /config/execution-schedules/{id}`, `PATCH /config/execution-schedules/{id}/archive`, and `DELETE /config/execution-schedules/{id}` for enqueue-only schedule definitions
 - `GET /control/source-lineage`, `GET /control/publication-audit`, `GET /control/operational-summary`, `GET /control/schedule-dispatches`, `GET /control/schedule-dispatches/{id}`, and `POST /control/schedule-dispatches` for control-plane visibility and queueing
-- `GET /control/auth-audit` for local-auth login, logout, and admin-user audit events
+- `GET /control/auth-audit` for login, logout, local-user admin, and service-token audit events
 - `POST /ingest` for JSON path-based ingestion and multipart file uploads
 - `POST /ingest/configured-csv` for config-driven CSV ingestion from server-side paths or multipart browser uploads bound by `source_asset_id`
 - `POST /ingest/subscriptions` and `POST /ingest/contract-prices` for built-in non-transaction domains

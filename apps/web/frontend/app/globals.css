@@ -488,6 +488,40 @@ th {
   gap: 10px;
 }
 
+.choiceGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.36);
+}
+
+.tokenReveal {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  border-radius: 16px;
+  padding: 14px;
+  background: rgba(15, 118, 110, 0.08);
+}
+
+.tokenReveal code {
+  overflow-x: auto;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(19, 40, 51, 0.08);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.84rem;
+}
+
 .inlineLink {
   color: var(--accent-cool);
   font-weight: 700;
@@ -537,7 +571,8 @@ th {
   .adminFormGrid,
   .compactForm,
   .formGrid,
-  .metaGrid {
+  .metaGrid,
+  .choiceGrid {
     grid-template-columns: 1fr;
   }
 

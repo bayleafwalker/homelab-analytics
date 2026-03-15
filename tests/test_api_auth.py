@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any, cast
 
 from fastapi.testclient import TestClient
 
@@ -15,10 +16,16 @@ from tests.account_test_support import FIXTURES as ACCOUNT_FIXTURES
 from tests.control_plane_test_support import seed_source_asset_graph
 
 
+class _StubReportingService:
+    def get_monthly_cashflow(self, from_month=None, to_month=None):
+        return []
+
+
 def _build_client(
     temp_dir: str,
     *,
     users: tuple[tuple[str, str, UserRole], ...],
+    reporting_service: Any | None = None,
 ) -> TestClient:
     service = AccountTransactionService(
         landing_root=Path(temp_dir) / "landing",
@@ -41,6 +48,7 @@ def _build_client(
             auth_store=repository,
             auth_mode="local",
             session_manager=SessionManager("test-session-secret"),
+            reporting_service=cast(Any, reporting_service),
         )
     )
 
@@ -204,6 +212,7 @@ def test_api_local_auth_supports_admin_user_management_and_audit() -> None:
         client = _build_client(
             temp_dir,
             users=(("admin", "admin-password", UserRole.ADMIN),),
+            reporting_service=_StubReportingService(),
         )
 
         assert (
@@ -260,6 +269,135 @@ def test_api_local_auth_supports_admin_user_management_and_audit() -> None:
         assert "password_reset" in event_types
         assert "user_updated" in event_types
         assert "user_created" in event_types
+
+
+def test_api_local_auth_supports_service_token_management_and_bearer_auth() -> None:
+    with TemporaryDirectory() as temp_dir:
+        client = _build_client(
+            temp_dir,
+            users=(("admin", "admin-password", UserRole.ADMIN),),
+            reporting_service=_StubReportingService(),
+        )
+
+        assert (
+            client.post(
+                "/auth/login",
+                json={"username": "admin", "password": "admin-password"},
+            ).status_code
+            == 200
+        )
+        headers = _csrf_headers(client)
+
+        created = client.post(
+            "/auth/service-tokens",
+            json={
+                "token_name": "home-assistant",
+                "role": "operator",
+                "scopes": ["reports:read", "runs:read", "ingest:write"],
+            },
+            headers=headers,
+        )
+        assert created.status_code == 201
+        created_payload = created.json()
+        assert created_payload["token_value"].startswith("hst_")
+        assert created_payload["service_token"]["token_name"] == "home-assistant"
+        token_id = created_payload["service_token"]["token_id"]
+        token_value = created_payload["token_value"]
+
+        listed = client.get("/auth/service-tokens")
+        assert listed.status_code == 200
+        assert [token["token_id"] for token in listed.json()["service_tokens"]] == [token_id]
+
+        me = client.get(
+            "/auth/me",
+            headers={"authorization": f"Bearer {token_value}"},
+        )
+        assert me.status_code == 200
+        assert me.json()["principal"]["auth_provider"] == "service_token"
+        assert me.json()["user"]["scopes"] == [
+            "reports:read",
+            "runs:read",
+            "ingest:write",
+        ]
+
+        ingest = client.post(
+            "/ingest",
+            json={
+                "source_path": str(ACCOUNT_FIXTURES / "account_transactions_valid.csv"),
+                "source_name": "service-token-upload",
+            },
+            headers={"authorization": f"Bearer {token_value}"},
+        )
+        assert ingest.status_code == 201
+        assert (
+            client.get(
+                "/config/source-systems",
+                headers={"authorization": f"Bearer {token_value}"},
+            ).status_code
+            == 403
+        )
+
+        revoked = client.post(
+            f"/auth/service-tokens/{token_id}/revoke",
+            headers=headers,
+        )
+        assert revoked.status_code == 200
+        assert revoked.json()["service_token"]["revoked"] is True
+
+        rejected = client.get(
+            "/runs",
+            headers={"authorization": f"Bearer {token_value}"},
+        )
+        assert rejected.status_code == 401
+
+        audit_response = client.get("/control/auth-audit?limit=20")
+        assert audit_response.status_code == 200
+        event_types = [
+            event["event_type"] for event in audit_response.json()["auth_audit_events"]
+        ]
+        assert "service_token_created" in event_types
+        assert "service_token_revoked" in event_types
+
+
+def test_api_service_tokens_enforce_scope_boundaries() -> None:
+    with TemporaryDirectory() as temp_dir:
+        client = _build_client(
+            temp_dir,
+            users=(("admin", "admin-password", UserRole.ADMIN),),
+            reporting_service=_StubReportingService(),
+        )
+        assert (
+            client.post(
+                "/auth/login",
+                json={"username": "admin", "password": "admin-password"},
+            ).status_code
+            == 200
+        )
+        created = client.post(
+            "/auth/service-tokens",
+            json={
+                "token_name": "dashboard-reader",
+                "role": "reader",
+                "scopes": ["reports:read"],
+            },
+            headers=_csrf_headers(client),
+        )
+        assert created.status_code == 201
+        token_value = created.json()["token_value"]
+
+        assert (
+            client.get(
+                "/reports/monthly-cashflow",
+                headers={"authorization": f"Bearer {token_value}"},
+            ).status_code
+            == 200
+        )
+        denied = client.get(
+            "/runs",
+            headers={"authorization": f"Bearer {token_value}"},
+        )
+        assert denied.status_code == 403
+        assert denied.json()["detail"] == "runs:read scope required."
 
 
 def test_api_local_auth_locks_out_repeated_failed_logins() -> None:

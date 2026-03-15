@@ -198,6 +198,13 @@ export async function getLocalUsers() {
   return payload.users || [];
 }
 
+export async function getServiceTokens({ includeRevoked = false } = {}) {
+  const payload = await backendJson(
+    `/auth/service-tokens${buildQuery({ include_revoked: includeRevoked })}`
+  );
+  return payload.service_tokens || [];
+}
+
 export async function getAuthAuditEvents(limit = 30) {
   const payload = await backendJson(`/control/auth-audit?limit=${limit}`);
   return payload.auth_audit_events || [];

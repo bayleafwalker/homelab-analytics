@@ -226,7 +226,7 @@ Use one DSN with separate schemas by default:
 
 - API and web workloads should consume published reporting relations when Postgres reporting is enabled
 - worker jobs and local bootstrap flows may continue to read the DuckDB warehouse directly
-- bootstrap auth is local username/password with HTTP-only signed session cookies; `/health` and `/metrics` stay public, while admin/control routes require an `admin` role
+- bootstrap auth is local username/password with HTTP-only signed session cookies; OIDC is the production interactive path; scoped service tokens are available for automation clients; `/health` and `/metrics` stay public, while admin/control routes require an `admin` role
 - `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` is a temporary local-only escape hatch and should stay disabled in shared deployment manifests
 - the web workload should stay API-backed: the current Next.js shell consumes API routes only, and any future product/admin UI should continue to avoid server-side warehouse or control-plane reads in the web runtime
 

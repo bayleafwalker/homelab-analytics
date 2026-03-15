@@ -11,6 +11,7 @@ from tests.control_plane_test_support import (
     assert_schedule_dispatch_behaviour,
     assert_schedule_dispatch_claim_is_exclusive,
     assert_schedule_dispatch_resilience_behaviour,
+    assert_service_token_behaviour,
 )
 
 
@@ -54,3 +55,10 @@ def test_sqlite_control_plane_store_records_and_filters_auth_audit_events() -> N
         repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
 
         assert_auth_audit_behaviour(repository)
+
+
+def test_sqlite_control_plane_store_manages_service_tokens() -> None:
+    with TemporaryDirectory() as temp_dir:
+        repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+
+        assert_service_token_behaviour(repository)

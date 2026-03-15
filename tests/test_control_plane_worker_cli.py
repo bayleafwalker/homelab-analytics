@@ -140,6 +140,7 @@ def test_worker_cli_exports_and_imports_control_plane_snapshots() -> None:
             "publication_audit": 1,
             "auth_audit_events": 0,
             "local_users": 0,
+            "service_tokens": 0,
         }
 
         with TemporaryDirectory() as target_dir:

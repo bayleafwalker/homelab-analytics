@@ -6,7 +6,11 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from packages.shared.extensions import ExtensionRegistry
-    from packages.storage.auth_store import LocalUserRecord
+    from packages.storage.auth_store import (
+        LocalUserRecord,
+        ServiceTokenCreate,
+        ServiceTokenRecord,
+    )
     from packages.storage.ingestion_config import (
         ColumnMappingCreate,
         ColumnMappingRecord,
@@ -189,6 +193,7 @@ class ControlPlaneSnapshot:
     publication_audit: tuple[PublicationAuditRecord, ...] = ()
     auth_audit_events: tuple[AuthAuditEventRecord, ...] = ()
     local_users: tuple["LocalUserRecord", ...] = ()
+    service_tokens: tuple["ServiceTokenRecord", ...] = ()
 
 
 class ControlPlaneStore(Protocol):
@@ -512,6 +517,38 @@ class ControlPlaneStore(Protocol):
         since: datetime | None = None,
         limit: int | None = None,
     ) -> list[AuthAuditEventRecord]:
+        ...
+
+    def create_service_token(
+        self,
+        token: "ServiceTokenCreate",
+    ) -> "ServiceTokenRecord":
+        ...
+
+    def get_service_token(self, token_id: str) -> "ServiceTokenRecord":
+        ...
+
+    def list_service_tokens(
+        self,
+        *,
+        include_revoked: bool = False,
+    ) -> list["ServiceTokenRecord"]:
+        ...
+
+    def revoke_service_token(
+        self,
+        token_id: str,
+        *,
+        revoked_at: datetime | None = None,
+    ) -> "ServiceTokenRecord":
+        ...
+
+    def record_service_token_use(
+        self,
+        token_id: str,
+        *,
+        used_at: datetime | None = None,
+    ) -> "ServiceTokenRecord":
         ...
 
     def export_snapshot(self) -> ControlPlaneSnapshot:

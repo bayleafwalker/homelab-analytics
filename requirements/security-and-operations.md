@@ -56,7 +56,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Automation systems need persistent credentials that do not require interactive login.
 
 **Phase:** 4
-**Status:** not-started
+**Status:** implemented (service tokens now live in the control plane for both SQLite and Postgres backends with hashed-secret storage, optional expiry, revocation, and last-used metadata; the API authenticates opaque `hst_...` bearer tokens before OIDC JWT validation, enforces route-to-scope checks, exposes admin create/list/revoke endpoints, and records service-token lifecycle events in auth audit history; the Next.js admin page can mint copy-once tokens and revoke them; and the worker CLI supports create/list/revoke plus snapshot import/export parity)
 
 **Acceptance criteria:**
 - Admin can create a named service token with an optional expiry and scope.
@@ -75,7 +75,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Not all household members or automation systems should have full configuration access.
 
 **Phase:** 4
-**Status:** in-progress (local auth and OIDC now both enforce `reader`, `operator`, and `admin` roles across API and Next.js web routes, including admin-only local-user management and auth-audit visibility; the remaining gap is extending the same role model to service-token paths)
+**Status:** implemented (local auth, OIDC, and service tokens now all enforce the shared `reader`, `operator`, and `admin` separation across API and Next.js web routes; cookie-backed identities are role-gated directly, while service tokens layer explicit scopes such as `reports:read`, `runs:read`, `ingest:write`, and `admin:write` on top of the same route model)
 
 **Acceptance criteria:**
 - Read-only role can view dashboards and reports but cannot ingest or configure.
@@ -284,8 +284,8 @@ The platform must handle sensitive financial and personal data securely, deploy 
 |---|---|---|
 | SEC-01 | `packages/shared/auth.py`, `packages/storage/auth_store.py`, `packages/storage/ingestion_config.py`, `packages/storage/postgres_ingestion_config.py`, `apps/api/app.py`, `apps/web/app.py`, `apps/worker/main.py` | `tests/test_api_auth.py`, `tests/test_web_auth.py`, `tests/test_worker_auth_cli.py`, `tests/test_sqlite_auth_store_contract.py`, `tests/test_postgres_auth_store_integration.py` |
 | SEC-02 | `packages/shared/auth.py`, `packages/shared/settings.py`, `apps/api/app.py`, `apps/api/main.py`, `apps/web/app.py`, `apps/web/frontend/app/auth/login/route.js`, `apps/web/frontend/app/auth/callback/route.js` | `tests/test_api_oidc.py`, `tests/test_web_auth.py`, `tests/test_settings.py` |
-| SEC-03 | — | — |
-| SEC-04 | `packages/shared/auth.py`, `apps/api/app.py`, `apps/web/app.py` | `tests/test_api_auth.py`, `tests/test_api_oidc.py`, `tests/test_web_auth.py` |
+| SEC-03 | `packages/shared/auth.py`, `packages/storage/auth_store.py`, `packages/storage/control_plane.py`, `packages/storage/ingestion_config.py`, `packages/storage/postgres_ingestion_config.py`, `apps/api/app.py`, `apps/web/frontend/app/control/page.js`, `apps/web/frontend/components/service-token-panel.js`, `apps/worker/main.py` | `tests/test_api_auth.py`, `tests/test_api_oidc.py`, `tests/test_worker_auth_cli.py`, `tests/test_sqlite_control_plane_contract.py`, `tests/test_postgres_ingestion_config_integration.py`, `tests/test_web_auth.py` |
+| SEC-04 | `packages/shared/auth.py`, `apps/api/app.py`, `apps/web/app.py`, `apps/web/frontend/app/control/page.js` | `tests/test_api_auth.py`, `tests/test_api_oidc.py`, `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
 | SEC-05 | `packages/shared/secrets.py`, `packages/storage/ingestion_config.py`, `packages/pipelines/configured_ingestion_definition.py`, `charts/homelab-analytics/` | `tests/test_ingestion_config_repository.py`, `tests/test_configured_ingestion_definition.py`, `tests/test_helm_chart.py` |
 | SEC-06 | `apps/api/main.py`, `apps/web/main.py`, `apps/worker/main.py`, `charts/homelab-analytics/` | `tests/test_helm_chart.py`, `tests/test_project_metadata.py` |
 | OPS-01 | `infra/docker/Dockerfile` | `tests/test_project_metadata.py` |

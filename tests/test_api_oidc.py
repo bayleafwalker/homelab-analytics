@@ -8,8 +8,17 @@ from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
 from packages.pipelines.account_transaction_service import AccountTransactionService
-from packages.shared.auth import build_oidc_provider, build_session_manager
+from packages.shared.auth import (
+    build_oidc_provider,
+    build_session_manager,
+    issue_service_token,
+)
 from packages.shared.settings import AppSettings
+from packages.storage.auth_store import (
+    SERVICE_TOKEN_SCOPE_RUNS_READ,
+    ServiceTokenCreate,
+    UserRole,
+)
 from packages.storage.ingestion_config import IngestionConfigRepository
 from packages.storage.run_metadata import RunMetadataRepository
 from tests.account_test_support import FIXTURES as ACCOUNT_FIXTURES
@@ -229,3 +238,44 @@ def test_api_oidc_rejects_valid_bearer_token_without_role_mapping() -> None:
 
         assert response.status_code == 403
         assert "not mapped" in response.json()["detail"]
+
+
+def test_api_oidc_accepts_service_tokens_before_oidc_jwt_validation() -> None:
+    issuer = MockOidcIssuer()
+    with TemporaryDirectory() as temp_dir:
+        settings = _oidc_settings(temp_dir, issuer, admin_groups=("admins",))
+        service = AccountTransactionService(
+            landing_root=Path(temp_dir) / "landing",
+            metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+        )
+        repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+        issued_token = issue_service_token("token-oidc-001")
+        repository.create_service_token(
+            ServiceTokenCreate(
+                token_id=issued_token.token_id,
+                token_name="automation-reader",
+                token_secret_hash=issued_token.token_secret_hash,
+                role=UserRole.READER,
+                scopes=(SERVICE_TOKEN_SCOPE_RUNS_READ,),
+            )
+        )
+        client = TestClient(
+            create_app(
+                service,
+                config_repository=repository,
+                auth_store=repository,
+                auth_mode="oidc",
+                session_manager=build_session_manager(settings),
+                oidc_provider=build_oidc_provider(
+                    settings,
+                    http_client=issuer.http_client(),
+                ),
+            )
+        )
+
+        response = client.get(
+            "/runs",
+            headers={"authorization": f"Bearer {issued_token.token_value}"},
+        )
+
+        assert response.status_code == 200

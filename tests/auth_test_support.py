@@ -2,8 +2,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from packages.shared.auth import hash_password
-from packages.storage.auth_store import AuthStore, LocalUserCreate, UserRole
+from packages.shared.auth import hash_password, issue_service_token
+from packages.storage.auth_store import (
+    SERVICE_TOKEN_SCOPE_REPORTS_READ,
+    AuthStore,
+    LocalUserCreate,
+    ServiceTokenCreate,
+    UserRole,
+)
 
 FIXED_CREATED_AT = datetime(2026, 2, 1, tzinfo=UTC)
 FIXED_LOGIN_AT = datetime(2026, 2, 2, tzinfo=UTC)
@@ -49,5 +55,34 @@ def assert_auth_store_round_trip(store: AuthStore) -> None:
     )
     assert logged_in_user.last_login_at == FIXED_LOGIN_AT
 
+    issued_token = issue_service_token("token-reader-001")
+    token = store.create_service_token(
+        ServiceTokenCreate(
+            token_id=issued_token.token_id,
+            token_name="dashboard-reader",
+            token_secret_hash=issued_token.token_secret_hash,
+            role=UserRole.READER,
+            scopes=(SERVICE_TOKEN_SCOPE_REPORTS_READ,),
+            created_at=FIXED_CREATED_AT,
+        )
+    )
+    assert store.get_service_token(token.token_id) == token
+    assert store.list_service_tokens() == [token]
+
+    used_token = store.record_service_token_use(
+        token.token_id,
+        used_at=FIXED_LOGIN_AT,
+    )
+    assert used_token.last_used_at == FIXED_LOGIN_AT
+
+    revoked_token = store.revoke_service_token(
+        token.token_id,
+        revoked_at=FIXED_LOGIN_AT,
+    )
+    assert revoked_token.revoked_at == FIXED_LOGIN_AT
+    assert store.list_service_tokens() == []
+    assert store.list_service_tokens(include_revoked=True)[0].token_id == token.token_id
+
     snapshot = store.export_snapshot()
     assert [record.user_id for record in snapshot.local_users] == [user.user_id]
+    assert [record.token_id for record in snapshot.service_tokens] == [token.token_id]

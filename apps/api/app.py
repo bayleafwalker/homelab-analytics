@@ -30,6 +30,7 @@ from apps.api.models import (
     LoginRequest,
     PublicationDefinitionRequest,
     ScheduleDispatchRequest,
+    ServiceTokenCreateRequest,
     SourceAssetRequest,
     SourceSystemRequest,
     TransformationPackageRequest,
@@ -66,11 +67,16 @@ from packages.shared.auth import (
     OidcAuthorizationError,
     OidcProvider,
     SessionManager,
+    authenticate_service_token,
     has_required_role,
+    has_required_service_token_scope,
     hash_password,
+    issue_service_token,
     normalize_return_to,
+    parse_service_token,
     serialize_authenticated_user,
     serialize_principal,
+    serialize_service_token,
     serialize_user,
     verify_password,
 )
@@ -81,9 +87,16 @@ from packages.shared.extensions import (
 )
 from packages.shared.metrics import metrics_registry
 from packages.storage.auth_store import (
+    SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
+    SERVICE_TOKEN_SCOPE_INGEST_WRITE,
+    SERVICE_TOKEN_SCOPE_REPORTS_READ,
+    SERVICE_TOKEN_SCOPE_RUNS_READ,
     AuthStore,
     LocalUserCreate,
+    ServiceTokenCreate,
     UserRole,
+    normalize_service_token_name,
+    normalize_service_token_scopes,
     normalize_username,
 )
 from packages.storage.control_plane import (
@@ -810,6 +823,7 @@ def create_app(
             return UserRole.READER
         if (
             path.startswith("/auth/users")
+            or path.startswith("/auth/service-tokens")
             or path == "/control/auth-audit"
             or path == "/control/schedule-dispatches"
             or path.startswith("/config/")
@@ -833,6 +847,35 @@ def create_app(
             return UserRole.READER
         return None
 
+    def required_service_token_scope_for_path(path: str) -> str | None:
+        if path in {"/health", "/metrics", "/auth/login", "/auth/logout", "/auth/callback"}:
+            return None
+        if path.startswith("/ingest") or (path.startswith("/runs/") and path.endswith("/retry")):
+            return SERVICE_TOKEN_SCOPE_INGEST_WRITE
+        if (
+            path.startswith("/runs")
+            or path == "/control/source-lineage"
+            or path == "/control/publication-audit"
+            or path == "/transformation-audit"
+        ):
+            return SERVICE_TOKEN_SCOPE_RUNS_READ
+        if path.startswith("/reports"):
+            return SERVICE_TOKEN_SCOPE_REPORTS_READ
+        if (
+            path.startswith("/auth/users")
+            or path.startswith("/auth/service-tokens")
+            or path == "/control/auth-audit"
+            or path == "/control/schedule-dispatches"
+            or path.startswith("/config/")
+            or path.startswith("/control/")
+            or path in {"/extensions", "/sources"}
+            or path.startswith("/landing/")
+            or path.startswith("/transformations/")
+            or path.startswith("/ingest/ingestion-definitions/")
+        ):
+            return SERVICE_TOKEN_SCOPE_ADMIN_WRITE
+        return None
+
     def bearer_token_from_request(request: Request) -> str | None:
         header_value = request.headers.get("authorization", "").strip()
         if not header_value:
@@ -850,10 +893,20 @@ def create_app(
         if resolved_auth_mode in {"local", "oidc"}:
             assert resolved_session_manager is not None
             required_role = required_role_for_path(request.url.path)
+            required_scope = required_service_token_scope_for_path(request.url.path)
             auth_error_response: JSONResponse | None = None
-            if resolved_auth_mode == "oidc":
-                bearer_token = bearer_token_from_request(request)
-                if bearer_token is not None:
+            bearer_token = bearer_token_from_request(request)
+            if bearer_token is not None:
+                request.state.principal = authenticate_service_token(
+                    bearer_token,
+                    resolved_auth_store,
+                )
+                if request.state.principal is None and parse_service_token(bearer_token) is not None:
+                    auth_error_response = JSONResponse(
+                        status_code=401,
+                        content={"detail": "Invalid service token."},
+                    )
+                elif request.state.principal is None and resolved_auth_mode == "oidc":
                     assert resolved_oidc_provider is not None
                     try:
                         request.state.principal = resolved_oidc_provider.authenticate_bearer_token(
@@ -869,12 +922,6 @@ def create_app(
                             status_code=401,
                             content={"detail": "Invalid bearer token."},
                         )
-                else:
-                    request.state.principal = resolved_session_manager.authenticate(
-                        request.cookies.get(resolved_session_manager.cookie_name),
-                        resolved_auth_store,
-                    )
-                    request.state.auth_via_cookie = request.state.principal is not None
             else:
                 request.state.principal = resolved_session_manager.authenticate(
                     request.cookies.get(resolved_session_manager.cookie_name),
@@ -928,6 +975,22 @@ def create_app(
                         status_code=403,
                         content={
                             "detail": f"{required_role.value} role required.",
+                        },
+                    )
+                    _log_request(logger, request.method, request.url.path, 403, started)
+                    return response
+                if (
+                    request.state.principal is not None
+                    and request.state.principal.auth_provider == "service_token"
+                    and not has_required_service_token_scope(
+                        request.state.principal.scopes,
+                        required_scope,
+                    )
+                ):
+                    response = JSONResponse(
+                        status_code=403,
+                        content={
+                            "detail": f"{required_scope or 'required'} scope required.",
                         },
                     )
                     _log_request(logger, request.method, request.url.path, 403, started)
@@ -1391,6 +1454,85 @@ def create_app(
             subject_username=user.username,
         )
         return {"user": serialize_user(user)}
+
+    @app.get("/auth/service-tokens")
+    async def list_service_tokens(
+        include_revoked: bool = False,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        return {
+            "service_tokens": [
+                serialize_service_token(token)
+                for token in resolved_auth_store.list_service_tokens(
+                    include_revoked=include_revoked
+                )
+            ]
+        }
+
+    @app.post("/auth/service-tokens", status_code=201)
+    async def create_service_token_endpoint(
+        request: Request,
+        payload: ServiceTokenCreateRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        principal = cast(
+            AuthenticatedPrincipal | None,
+            getattr(request.state, "principal", None),
+        )
+        if payload.expires_at is not None and payload.expires_at <= datetime.now(UTC):
+            raise HTTPException(
+                status_code=400,
+                detail="Service-token expiry must be in the future.",
+            )
+        issued_token = issue_service_token(f"token-{uuid.uuid4().hex}")
+        token = resolved_auth_store.create_service_token(
+            ServiceTokenCreate(
+                token_id=issued_token.token_id,
+                token_name=normalize_service_token_name(payload.token_name),
+                token_secret_hash=issued_token.token_secret_hash,
+                role=payload.role,
+                scopes=normalize_service_token_scopes(payload.scopes),
+                expires_at=payload.expires_at,
+            )
+        )
+        record_auth_event(
+            request,
+            event_type="service_token_created",
+            success=True,
+            actor=principal,
+            subject_user_id=token.token_id,
+            subject_username=token.token_name,
+            detail=(
+                f"role={token.role.value} scopes={','.join(token.scopes)} "
+                f"expires_at={token.expires_at.isoformat() if token.expires_at else 'none'}"
+            ),
+        )
+        return {
+            "service_token": serialize_service_token(token),
+            "token_value": issued_token.token_value,
+        }
+
+    @app.post("/auth/service-tokens/{token_id}/revoke")
+    async def revoke_service_token_endpoint(
+        token_id: str,
+        request: Request,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        principal = cast(
+            AuthenticatedPrincipal | None,
+            getattr(request.state, "principal", None),
+        )
+        token = resolved_auth_store.revoke_service_token(token_id)
+        record_auth_event(
+            request,
+            event_type="service_token_revoked",
+            success=True,
+            actor=principal,
+            subject_user_id=token.token_id,
+            subject_username=token.token_name,
+            detail=f"revoked_at={token.revoked_at.isoformat() if token.revoked_at else 'unknown'}",
+        )
+        return {"service_token": serialize_service_token(token)}
 
     @app.get("/control/auth-audit")
     async def list_auth_audit(

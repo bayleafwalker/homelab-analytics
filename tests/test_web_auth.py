@@ -14,6 +14,21 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     logout_route = (FRONTEND_ROOT / "app" / "auth" / "logout" / "route.js").read_text()
     login_page = (FRONTEND_ROOT / "app" / "login" / "page.js").read_text()
     control_page = (FRONTEND_ROOT / "app" / "control" / "page.js").read_text()
+    service_token_route = (
+        FRONTEND_ROOT / "app" / "control" / "service-tokens" / "route.js"
+    ).read_text()
+    service_token_revoke_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "service-tokens"
+        / "[tokenId]"
+        / "revoke"
+        / "route.js"
+    ).read_text()
+    service_token_panel = (
+        FRONTEND_ROOT / "components" / "service-token-panel.js"
+    ).read_text()
     control_catalog_page = (
         FRONTEND_ROOT / "app" / "control" / "catalog" / "page.js"
     ).read_text()
@@ -240,6 +255,12 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert 'process.env.HOMELAB_ANALYTICS_AUTH_MODE' in login_page
     assert "getLocalUsers" in control_page
     assert "getAuthAuditEvents" in control_page
+    assert "getServiceTokens" in control_page
+    assert "ServiceTokenPanel" in control_page
+    assert 'backendRequest("/auth/service-tokens"' in service_token_route
+    assert "/auth/service-tokens/${params.tokenId}/revoke" in service_token_revoke_route
+    assert 'fetch("/control/service-tokens"' in service_token_panel
+    assert "Copy once" in service_token_panel
     assert "getSourceSystems" in control_catalog_page
     assert "getSourceAssets" in control_catalog_page
     assert "getOperationalSummary" in control_catalog_page
@@ -334,6 +355,7 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getColumnMappings" in backend_source
     assert "getIngestionDefinitions" in backend_source
     assert "getExecutionSchedules" in backend_source
+    assert "getServiceTokens" in backend_source
     assert "getOperationalSummary" in backend_source
     assert "getScheduleDispatch" in backend_source
     assert "getDatasetContractDiff" in backend_source

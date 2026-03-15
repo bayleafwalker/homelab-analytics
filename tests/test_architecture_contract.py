@@ -306,6 +306,24 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
         ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "callback" / "route.js"
     ).read_text()
     web_logout_route = (ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "logout" / "route.js").read_text()
+    web_service_token_route = (
+        ROOT / "apps" / "web" / "frontend" / "app" / "control" / "service-tokens" / "route.js"
+    ).read_text()
+    web_service_token_revoke_route = (
+        ROOT
+        / "apps"
+        / "web"
+        / "frontend"
+        / "app"
+        / "control"
+        / "service-tokens"
+        / "[tokenId]"
+        / "revoke"
+        / "route.js"
+    ).read_text()
+    web_service_token_panel = (
+        ROOT / "apps" / "web" / "frontend" / "components" / "service-token-panel.js"
+    ).read_text()
     web_run_retry_route = (
         ROOT / "apps" / "web" / "frontend" / "app" / "runs" / "[runId]" / "retry" / "route.js"
     ).read_text()
@@ -315,6 +333,7 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert "Authentication required." in api_source
     assert "CSRF validation failed." in api_source
     assert '"/auth/users"' in api_source
+    assert '"/auth/service-tokens"' in api_source
     assert '"/control/auth-audit"' in api_source
     assert '"/control/source-lineage"' in api_source
     assert '"/control/publication-audit"' in api_source
@@ -333,6 +352,10 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert 'outboundHeaders.set("x-csrf-token", csrfToken)' in web_backend_source
     assert "getLocalUsers" in web_control_page
     assert "getAuthAuditEvents" in web_control_page
+    assert "getServiceTokens" in web_control_page
+    assert 'backendRequest("/auth/service-tokens"' in web_service_token_route
+    assert "/auth/service-tokens/${params.tokenId}/revoke" in web_service_token_revoke_route
+    assert 'fetch("/control/service-tokens"' in web_service_token_panel
     assert "getSourceSystems" in web_control_catalog_page
     assert "getSourceAssets" in web_control_catalog_page
     assert "getDatasetContracts({ includeArchived: true })" in web_control_catalog_page

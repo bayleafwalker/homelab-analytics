@@ -3,7 +3,13 @@ import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
 import { ControlNav } from "@/components/control-nav";
-import { getAuthAuditEvents, getCurrentUser, getLocalUsers } from "@/lib/backend";
+import { ServiceTokenPanel } from "@/components/service-token-panel";
+import {
+  getAuthAuditEvents,
+  getCurrentUser,
+  getLocalUsers,
+  getServiceTokens
+} from "@/lib/backend";
 
 function noticeCopy(notice) {
   switch (notice) {
@@ -37,9 +43,10 @@ export default async function ControlPage({ searchParams }) {
     redirect("/");
   }
 
-  const [users, authAuditEvents] = await Promise.all([
+  const [users, authAuditEvents, serviceTokens] = await Promise.all([
     getLocalUsers(),
-    getAuthAuditEvents(40)
+    getAuthAuditEvents(40),
+    getServiceTokens({ includeRevoked: true })
   ]);
   const notice = noticeCopy(searchParams?.notice);
   const error = errorCopy(searchParams?.error);
@@ -64,13 +71,23 @@ export default async function ControlPage({ searchParams }) {
             <div className="muted">Bootstrap auth identities under admin control.</div>
           </article>
           <article className="panel metricCard">
-            <div className="metricLabel">Recent auth events</div>
-            <div className="metricValue">{authAuditEvents.length}</div>
-            <div className="muted">Latest login, logout, and user-management activity.</div>
+            <div className="metricLabel">Service tokens</div>
+            <div className="metricValue">{serviceTokens.filter((token) => !token.revoked).length}</div>
+            <div className="muted">Scoped automation credentials with revocation support.</div>
           </article>
           <article className="panel metricCard">
-            <div className="metricLabel">Control pages</div>
-            <div className="metricValue">2</div>
+            <div className="metricLabel">Recent auth events</div>
+            <div className="metricValue">{authAuditEvents.length}</div>
+            <div className="muted">Latest login, logout, user-management, and token events.</div>
+          </article>
+        </section>
+
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Automation Access</div>
+              <h2>Service tokens</h2>
+            </div>
             <div className="muted">
               <Link className="inlineLink" href="/control/catalog">
                 Catalog
@@ -80,8 +97,9 @@ export default async function ControlPage({ searchParams }) {
                 Execution
               </Link>
             </div>
-          </article>
-        </section>
+          </div>
+          <ServiceTokenPanel initialTokens={serviceTokens} />
+        </article>
 
         <article className="panel section">
           <div className="sectionHeader">

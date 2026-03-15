@@ -13,7 +13,11 @@ from packages.shared.extensions import ExtensionRegistry
 from packages.storage.auth_store import (
     LocalUserCreate,
     LocalUserRecord,
+    ServiceTokenCreate,
+    ServiceTokenRecord,
     UserRole,
+    normalize_service_token_name,
+    normalize_service_token_scopes,
     normalize_username,
 )
 from packages.storage.control_plane import (
@@ -2810,6 +2814,133 @@ class IngestionConfigRepository:
             raise KeyError(f"Unknown local user: {user_id}")
         return self.get_local_user(user_id)
 
+    def create_service_token(self, token: ServiceTokenCreate) -> ServiceTokenRecord:
+        token_name = normalize_service_token_name(token.token_name)
+        scopes = normalize_service_token_scopes(token.scopes)
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO service_tokens (
+                    token_id,
+                    token_name,
+                    token_secret_hash,
+                    role,
+                    scopes_json,
+                    expires_at,
+                    created_at,
+                    last_used_at,
+                    revoked_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    token.token_id,
+                    token_name,
+                    token.token_secret_hash,
+                    token.role.value,
+                    json.dumps(list(scopes)),
+                    token.expires_at.isoformat() if token.expires_at else None,
+                    token.created_at.isoformat(),
+                    token.last_used_at.isoformat() if token.last_used_at else None,
+                    token.revoked_at.isoformat() if token.revoked_at else None,
+                ),
+            )
+            connection.commit()
+        return self.get_service_token(token.token_id)
+
+    def get_service_token(self, token_id: str) -> ServiceTokenRecord:
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            row = connection.execute(
+                """
+                SELECT
+                    token_id,
+                    token_name,
+                    token_secret_hash,
+                    role,
+                    scopes_json,
+                    expires_at,
+                    created_at,
+                    last_used_at,
+                    revoked_at
+                FROM service_tokens
+                WHERE token_id = ?
+                """,
+                (token_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown service token: {token_id}")
+        return _deserialize_service_token_row(row)
+
+    def list_service_tokens(
+        self,
+        *,
+        include_revoked: bool = False,
+    ) -> list[ServiceTokenRecord]:
+        sql = """
+            SELECT
+                token_id,
+                token_name,
+                token_secret_hash,
+                role,
+                scopes_json,
+                expires_at,
+                created_at,
+                last_used_at,
+                revoked_at
+            FROM service_tokens
+        """
+        params: list[object] = []
+        if not include_revoked:
+            sql += " WHERE revoked_at IS NULL"
+        sql += " ORDER BY created_at, token_name"
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(sql, params).fetchall()
+        return [_deserialize_service_token_row(row) for row in rows]
+
+    def revoke_service_token(
+        self,
+        token_id: str,
+        *,
+        revoked_at: datetime | None = None,
+    ) -> ServiceTokenRecord:
+        resolved_revoked_at = revoked_at or datetime.now(UTC)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE service_tokens
+                SET revoked_at = COALESCE(revoked_at, ?)
+                WHERE token_id = ?
+                """,
+                (resolved_revoked_at.isoformat(), token_id),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown service token: {token_id}")
+        return self.get_service_token(token_id)
+
+    def record_service_token_use(
+        self,
+        token_id: str,
+        *,
+        used_at: datetime | None = None,
+    ) -> ServiceTokenRecord:
+        resolved_used_at = used_at or datetime.now(UTC)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE service_tokens
+                SET last_used_at = ?
+                WHERE token_id = ?
+                """,
+                (resolved_used_at.isoformat(), token_id),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown service token: {token_id}")
+        return self.get_service_token(token_id)
+
     def record_auth_audit_events(
         self,
         entries: tuple[AuthAuditEventCreate, ...],
@@ -2936,6 +3067,7 @@ class IngestionConfigRepository:
             publication_audit=tuple(self.list_publication_audit()),
             auth_audit_events=tuple(self.list_auth_audit_events()),
             local_users=tuple(self.list_local_users()),
+            service_tokens=tuple(self.list_service_tokens(include_revoked=True)),
         )
 
     def import_snapshot(self, snapshot: ControlPlaneSnapshot) -> None:
@@ -3170,6 +3302,23 @@ class IngestionConfigRepository:
                 )
             except sqlite3.IntegrityError:
                 continue
+        for service_token_record in snapshot.service_tokens:
+            try:
+                self.create_service_token(
+                    ServiceTokenCreate(
+                        token_id=service_token_record.token_id,
+                        token_name=service_token_record.token_name,
+                        token_secret_hash=service_token_record.token_secret_hash,
+                        role=service_token_record.role,
+                        scopes=service_token_record.scopes,
+                        expires_at=service_token_record.expires_at,
+                        created_at=service_token_record.created_at,
+                        last_used_at=service_token_record.last_used_at,
+                        revoked_at=service_token_record.revoked_at,
+                    )
+                )
+            except sqlite3.IntegrityError:
+                continue
 
     def _initialize(self) -> None:
         with self._connect() as connection:
@@ -3351,6 +3500,17 @@ class IngestionConfigRepository:
                     user_agent TEXT,
                     detail TEXT,
                     occurred_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS service_tokens (
+                    token_id TEXT PRIMARY KEY,
+                    token_name TEXT NOT NULL,
+                    token_secret_hash TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    scopes_json TEXT NOT NULL,
+                    expires_at TEXT,
+                    created_at TEXT NOT NULL,
+                    last_used_at TEXT,
+                    revoked_at TEXT
                 );
                 """
             )
@@ -3812,6 +3972,32 @@ def _deserialize_local_user_row(row: sqlite3.Row) -> LocalUserRecord:
             if row["last_login_at"]
             else None
         ),
+    )
+
+
+def _coerce_datetime_value(value: str | datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    return datetime.fromisoformat(value)
+
+
+def _deserialize_service_token_row(row: sqlite3.Row) -> ServiceTokenRecord:
+    raw_scopes = row["scopes_json"]
+    decoded_scopes = json.loads(raw_scopes) if isinstance(raw_scopes, str) else raw_scopes
+    created_at = _coerce_datetime_value(row["created_at"])
+    assert created_at is not None
+    return ServiceTokenRecord(
+        token_id=row["token_id"],
+        token_name=row["token_name"],
+        token_secret_hash=row["token_secret_hash"],
+        role=UserRole(row["role"]),
+        scopes=normalize_service_token_scopes(decoded_scopes),
+        expires_at=_coerce_datetime_value(row["expires_at"]),
+        created_at=created_at,
+        last_used_at=_coerce_datetime_value(row["last_used_at"]),
+        revoked_at=_coerce_datetime_value(row["revoked_at"]),
     )
 
 

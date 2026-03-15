@@ -91,3 +91,51 @@ def test_worker_cli_bootstraps_local_admin_from_settings() -> None:
         )
         assert exit_code == 0
         assert json.loads(stdout.getvalue())["users"][0]["username"] == "bootstrap-admin"
+
+
+def test_worker_cli_manages_service_tokens() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(temp_dir)
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        exit_code = main(
+            [
+                "create-service-token",
+                "home-assistant",
+                "--role",
+                "operator",
+                "--scope",
+                "reports:read",
+                "--scope",
+                "ingest:write",
+            ],
+            stdout=stdout,
+            stderr=stderr,
+            settings=settings,
+        )
+        assert exit_code == 0
+        created = json.loads(stdout.getvalue())
+        assert created["service_token"]["token_name"] == "home-assistant"
+        assert created["token_value"].startswith("hst_")
+        token_id = created["service_token"]["token_id"]
+
+        stdout = io.StringIO()
+        exit_code = main(
+            ["list-service-tokens", "--include-revoked"],
+            stdout=stdout,
+            stderr=stderr,
+            settings=settings,
+        )
+        assert exit_code == 0
+        assert json.loads(stdout.getvalue())["service_tokens"][0]["token_id"] == token_id
+
+        stdout = io.StringIO()
+        exit_code = main(
+            ["revoke-service-token", token_id],
+            stdout=stdout,
+            stderr=stderr,
+            settings=settings,
+        )
+        assert exit_code == 0
+        assert json.loads(stdout.getvalue())["service_token"]["revoked"] is True

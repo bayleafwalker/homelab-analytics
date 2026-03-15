@@ -21,12 +21,14 @@ from packages.storage.auth_store import (
     AuthStore,
     LocalUserCreate,
     LocalUserRecord,
+    ServiceTokenRecord,
     UserRole,
 )
 
 SESSION_COOKIE_NAME = "homelab_analytics_session"
 CSRF_COOKIE_NAME = "homelab_analytics_csrf"
 OIDC_STATE_COOKIE_NAME = "homelab_analytics_oidc_state"
+SERVICE_TOKEN_VALUE_PREFIX = "hst_"
 SESSION_MAX_AGE_SECONDS = 60 * 60 * 12
 OIDC_STATE_MAX_AGE_SECONDS = 60 * 10
 _ROLE_ORDER = {
@@ -49,14 +51,22 @@ class AuthenticatedPrincipal:
     user_id: str
     username: str
     role: UserRole
-    auth_provider: Literal["local", "oidc"] = "local"
+    auth_provider: Literal["local", "oidc", "service_token"] = "local"
     csrf_token: str | None = None
+    scopes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class IssuedSession:
     cookie_value: str
     csrf_token: str
+
+
+@dataclass(frozen=True)
+class IssuedServiceToken:
+    token_id: str
+    token_value: str
+    token_secret_hash: str
 
 
 @dataclass(frozen=True)
@@ -89,6 +99,50 @@ def has_required_role(role: UserRole, required_role: UserRole) -> bool:
     return _ROLE_ORDER[role] >= _ROLE_ORDER[required_role]
 
 
+def hash_service_token_secret(secret: str) -> str:
+    if not secret:
+        raise ValueError("Service-token secret must not be empty.")
+    return hashlib.sha256(secret.encode("utf-8")).hexdigest()
+
+
+def verify_service_token_secret(secret: str, token_secret_hash: str) -> bool:
+    if not secret:
+        return False
+    return hmac.compare_digest(hash_service_token_secret(secret), token_secret_hash)
+
+
+def issue_service_token(token_id: str) -> IssuedServiceToken:
+    if not token_id.strip():
+        raise ValueError("Service-token id must not be empty.")
+    token_secret = secrets.token_urlsafe(32)
+    return IssuedServiceToken(
+        token_id=token_id,
+        token_value=f"{SERVICE_TOKEN_VALUE_PREFIX}{token_id}.{token_secret}",
+        token_secret_hash=hash_service_token_secret(token_secret),
+    )
+
+
+def parse_service_token(token_value: str | None) -> tuple[str, str] | None:
+    if not token_value or "." not in token_value:
+        return None
+    prefix_and_id, secret = token_value.split(".", 1)
+    if not prefix_and_id.startswith(SERVICE_TOKEN_VALUE_PREFIX) or not secret:
+        return None
+    token_id = prefix_and_id[len(SERVICE_TOKEN_VALUE_PREFIX) :].strip()
+    if not token_id:
+        return None
+    return token_id, secret
+
+
+def has_required_service_token_scope(
+    scopes: tuple[str, ...],
+    required_scope: str | None,
+) -> bool:
+    if required_scope is None:
+        return True
+    return required_scope in set(scopes)
+
+
 def serialize_user(user: LocalUserRecord) -> dict[str, object]:
     return {
         "user_id": user.user_id,
@@ -102,7 +156,7 @@ def serialize_user(user: LocalUserRecord) -> dict[str, object]:
 
 
 def serialize_authenticated_user(principal: AuthenticatedPrincipal) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "user_id": principal.user_id,
         "username": principal.username,
         "role": principal.role.value,
@@ -111,15 +165,39 @@ def serialize_authenticated_user(principal: AuthenticatedPrincipal) -> dict[str,
         "last_login_at": None,
         "auth_provider": principal.auth_provider,
     }
+    if principal.auth_provider == "service_token":
+        payload["scopes"] = list(principal.scopes)
+        payload["token_id"] = principal.user_id
+    return payload
+
+
+def serialize_service_token(
+    token: ServiceTokenRecord,
+) -> dict[str, object]:
+    return {
+        "token_id": token.token_id,
+        "token_name": token.token_name,
+        "role": token.role.value,
+        "scopes": list(token.scopes),
+        "expires_at": token.expires_at.isoformat() if token.expires_at else None,
+        "created_at": token.created_at.isoformat(),
+        "last_used_at": token.last_used_at.isoformat() if token.last_used_at else None,
+        "revoked_at": token.revoked_at.isoformat() if token.revoked_at else None,
+        "revoked": token.revoked_at is not None,
+        "expired": token.expires_at is not None and token.expires_at <= datetime.now(UTC),
+    }
 
 
 def serialize_principal(principal: AuthenticatedPrincipal) -> dict[str, str]:
-    return {
+    payload = {
         "user_id": principal.user_id,
         "username": principal.username,
         "role": principal.role.value,
         "auth_provider": principal.auth_provider,
     }
+    if principal.auth_provider == "service_token":
+        payload["scopes"] = ",".join(principal.scopes)
+    return payload
 
 
 def build_session_manager(settings: AppSettings) -> "SessionManager | None":
@@ -182,6 +260,38 @@ def maybe_bootstrap_local_admin(
     if existing.role != UserRole.ADMIN:
         raise ValueError("Bootstrap local admin username already exists without admin role.")
     return existing
+
+
+def principal_from_service_token(token: ServiceTokenRecord) -> AuthenticatedPrincipal:
+    return AuthenticatedPrincipal(
+        user_id=token.token_id,
+        username=token.token_name,
+        role=token.role,
+        auth_provider="service_token",
+        scopes=token.scopes,
+    )
+
+
+def authenticate_service_token(
+    token_value: str | None,
+    auth_store: AuthStore,
+) -> AuthenticatedPrincipal | None:
+    parsed = parse_service_token(token_value)
+    if parsed is None:
+        return None
+    token_id, token_secret = parsed
+    try:
+        token = auth_store.get_service_token(token_id)
+    except KeyError:
+        return None
+    if token.revoked_at is not None:
+        return None
+    if token.expires_at is not None and token.expires_at <= datetime.now(UTC):
+        return None
+    if not verify_service_token_secret(token_secret, token.token_secret_hash):
+        return None
+    token = auth_store.record_service_token_use(token.token_id)
+    return principal_from_service_token(token)
 
 
 class SessionManager:

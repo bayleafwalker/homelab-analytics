@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 from packages.pipelines.csv_validation import ColumnType
@@ -151,3 +153,10 @@ class LocalUserUpdateRequest(BaseModel):
 
 class LocalUserPasswordResetRequest(BaseModel):
     password: str
+
+
+class ServiceTokenCreateRequest(BaseModel):
+    token_name: str
+    role: UserRole
+    scopes: list[str]
+    expires_at: datetime | None = None

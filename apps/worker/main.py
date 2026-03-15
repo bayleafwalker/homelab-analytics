@@ -9,6 +9,7 @@ import socket
 import sys
 import threading
 import time
+import uuid
 from dataclasses import asdict, is_dataclass
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -44,7 +45,9 @@ from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.auth import (
     hash_password,
+    issue_service_token,
     maybe_bootstrap_local_admin,
+    serialize_service_token,
     serialize_user,
 )
 from packages.shared.extensions import (
@@ -55,7 +58,13 @@ from packages.shared.extensions import (
 from packages.shared.logging import configure_logging
 from packages.shared.metrics import metrics_registry
 from packages.shared.settings import AppSettings
-from packages.storage.auth_store import LocalUserCreate, LocalUserRecord, UserRole
+from packages.storage.auth_store import (
+    LocalUserCreate,
+    LocalUserRecord,
+    ServiceTokenCreate,
+    ServiceTokenRecord,
+    UserRole,
+)
 from packages.storage.control_plane import (
     AuthAuditEventRecord,
     ControlPlaneSnapshot,
@@ -962,6 +971,20 @@ def main(
             )
             return 0
 
+        if args.command == "list-service-tokens":
+            _write_json(
+                output,
+                {
+                    "service_tokens": [
+                        serialize_service_token(token)
+                        for token in config_repository.list_service_tokens(
+                            include_revoked=getattr(args, "include_revoked", False)
+                        )
+                    ]
+                },
+            )
+            return 0
+
         if args.command == "create-local-admin-user":
             user = config_repository.create_local_user(
                 LocalUserCreate(
@@ -974,6 +997,32 @@ def main(
             _write_json(output, {"user": serialize_user(user)})
             return 0
 
+        if args.command == "create-service-token":
+            expires_at = (
+                datetime.fromisoformat(args.expires_at)
+                if getattr(args, "expires_at", "")
+                else None
+            )
+            issued_token = issue_service_token(f"token-{uuid.uuid4().hex}")
+            token = config_repository.create_service_token(
+                ServiceTokenCreate(
+                    token_id=issued_token.token_id,
+                    token_name=args.token_name,
+                    token_secret_hash=issued_token.token_secret_hash,
+                    role=UserRole(args.role),
+                    scopes=tuple(args.scope),
+                    expires_at=expires_at,
+                )
+            )
+            _write_json(
+                output,
+                {
+                    "service_token": serialize_service_token(token),
+                    "token_value": issued_token.token_value,
+                },
+            )
+            return 0
+
         if args.command == "reset-local-user-password":
             user = config_repository.get_local_user_by_username(args.username)
             updated_user = config_repository.update_local_user_password(
@@ -981,6 +1030,11 @@ def main(
                 password_hash=hash_password(args.password),
             )
             _write_json(output, {"user": serialize_user(updated_user)})
+            return 0
+
+        if args.command == "revoke-service-token":
+            token = config_repository.revoke_service_token(args.token_id)
+            _write_json(output, {"service_token": serialize_service_token(token)})
             return 0
 
         if args.command == "list-schedule-dispatches":
@@ -1108,6 +1162,7 @@ def main(
                         "publication_audit": len(snapshot.publication_audit),
                         "auth_audit_events": len(snapshot.auth_audit_events),
                         "local_users": len(snapshot.local_users),
+                        "service_tokens": len(snapshot.service_tokens),
                     },
                 },
             )
@@ -1301,12 +1356,30 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("list-ingestion-definitions")
     subparsers.add_parser("list-execution-schedules")
     subparsers.add_parser("list-local-users")
+    list_service_tokens_parser = subparsers.add_parser("list-service-tokens")
+    list_service_tokens_parser.add_argument("--include-revoked", action="store_true")
     create_admin_parser = subparsers.add_parser("create-local-admin-user")
     create_admin_parser.add_argument("username")
     create_admin_parser.add_argument("password")
+    create_service_token_parser = subparsers.add_parser("create-service-token")
+    create_service_token_parser.add_argument("token_name")
+    create_service_token_parser.add_argument(
+        "--role",
+        default="reader",
+        choices=["reader", "operator", "admin"],
+    )
+    create_service_token_parser.add_argument(
+        "--scope",
+        action="append",
+        default=[],
+        help="Repeatable service-token scope.",
+    )
+    create_service_token_parser.add_argument("--expires-at", default="")
     reset_password_parser = subparsers.add_parser("reset-local-user-password")
     reset_password_parser.add_argument("username")
     reset_password_parser.add_argument("password")
+    revoke_service_token_parser = subparsers.add_parser("revoke-service-token")
+    revoke_service_token_parser.add_argument("token_id")
     dispatches_parser = subparsers.add_parser("list-schedule-dispatches")
     dispatches_parser.add_argument("--schedule-id", default="")
     dispatches_parser.add_argument("--status", default="")
@@ -1439,6 +1512,7 @@ def _control_plane_snapshot_to_dict(snapshot: ControlPlaneSnapshot) -> dict[str,
         "publication_audit": list(snapshot.publication_audit),
         "auth_audit_events": list(snapshot.auth_audit_events),
         "local_users": list(snapshot.local_users),
+        "service_tokens": list(snapshot.service_tokens),
     }
 
 
@@ -1644,6 +1718,32 @@ def _control_plane_snapshot_from_dict(payload: dict[str, Any]) -> ControlPlaneSn
                 ),
             )
             for item in payload.get("local_users", [])
+        ),
+        service_tokens=tuple(
+            ServiceTokenRecord(
+                token_id=item["token_id"],
+                token_name=item["token_name"],
+                token_secret_hash=item["token_secret_hash"],
+                role=UserRole(item["role"]),
+                scopes=tuple(item["scopes"]),
+                expires_at=(
+                    datetime.fromisoformat(item["expires_at"])
+                    if item.get("expires_at")
+                    else None
+                ),
+                created_at=datetime.fromisoformat(item["created_at"]),
+                last_used_at=(
+                    datetime.fromisoformat(item["last_used_at"])
+                    if item.get("last_used_at")
+                    else None
+                ),
+                revoked_at=(
+                    datetime.fromisoformat(item["revoked_at"])
+                    if item.get("revoked_at")
+                    else None
+                ),
+            )
+            for item in payload.get("service_tokens", [])
         ),
     )
 

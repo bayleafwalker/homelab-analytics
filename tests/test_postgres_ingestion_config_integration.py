@@ -14,6 +14,7 @@ from tests.control_plane_test_support import (
     assert_schedule_dispatch_behaviour,
     assert_schedule_dispatch_claim_is_exclusive,
     assert_schedule_dispatch_resilience_behaviour,
+    assert_service_token_behaviour,
     seed_source_asset_graph,
 )
 from tests.postgres_test_support import running_postgres_container
@@ -61,6 +62,13 @@ def test_postgres_control_plane_store_records_and_filters_auth_audit_events() ->
         repository = PostgresIngestionConfigRepository(dsn, schema="control")
 
         assert_auth_audit_behaviour(repository)
+
+
+def test_postgres_control_plane_store_manages_service_tokens() -> None:
+    with running_postgres_container() as dsn:
+        repository = PostgresIngestionConfigRepository(dsn, schema="control")
+
+        assert_service_token_behaviour(repository)
 
 
 def test_sqlite_snapshot_imports_into_postgres_control_plane_store() -> None:
