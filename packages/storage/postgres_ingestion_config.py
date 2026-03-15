@@ -1,0 +1,1537 @@
+from __future__ import annotations
+
+import json
+import uuid
+from dataclasses import asdict
+from datetime import UTC, datetime
+
+import psycopg
+from psycopg.rows import dict_row
+
+from packages.shared.extensions import ExtensionRegistry
+from packages.storage.auth_store import (
+    LocalUserCreate,
+    LocalUserRecord,
+    UserRole,
+    normalize_username,
+)
+from packages.storage.control_plane import (
+    ControlPlaneSnapshot,
+    ExecutionScheduleCreate,
+    ExecutionScheduleRecord,
+    PublicationAuditCreate,
+    PublicationAuditRecord,
+    ScheduleDispatchRecord,
+    SourceLineageCreate,
+    SourceLineageRecord,
+)
+from packages.storage.ingestion_config import (
+    _BUILTIN_PUBLICATION_DEFINITIONS,
+    _BUILTIN_TRANSFORMATION_PACKAGES,
+    ColumnMappingCreate,
+    ColumnMappingRecord,
+    DatasetContractConfigCreate,
+    DatasetContractConfigRecord,
+    IngestionDefinitionCreate,
+    IngestionDefinitionRecord,
+    PublicationDefinitionCreate,
+    PublicationDefinitionRecord,
+    SourceAssetCreate,
+    SourceAssetRecord,
+    SourceSystemCreate,
+    SourceSystemRecord,
+    TransformationPackageCreate,
+    TransformationPackageRecord,
+    _deserialize_columns,
+    _deserialize_publication_audit_row,
+    _deserialize_request_headers,
+    _deserialize_rules,
+    _deserialize_schedule_dispatch_row,
+    _deserialize_source_lineage_row,
+    _serialize_request_headers,
+    _validate_mapping_rules,
+    validate_publication_key,
+)
+from packages.storage.postgres_support import configure_search_path, initialize_schema
+from packages.storage.scheduling import next_cron_occurrence
+
+
+class PostgresIngestionConfigRepository:
+    def __init__(self, dsn: str, *, schema: str = "public") -> None:
+        self.dsn = dsn
+        self.schema = schema
+        initialize_schema(dsn, schema)
+        self._initialize()
+
+    def _connect(self, *, row_factory=None):
+        connection = psycopg.connect(self.dsn, row_factory=row_factory)
+        configure_search_path(connection, self.schema)
+        return connection
+
+    def create_source_system(self, source_system: SourceSystemCreate) -> SourceSystemRecord:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO source_systems (
+                    source_system_id, name, source_type, transport, schedule_mode, description, created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    source_system.source_system_id,
+                    source_system.name,
+                    source_system.source_type,
+                    source_system.transport,
+                    source_system.schedule_mode,
+                    source_system.description,
+                    source_system.created_at,
+                ),
+            )
+        return self.get_source_system(source_system.source_system_id)
+
+    def get_source_system(self, source_system_id: str) -> SourceSystemRecord:
+        with self._connect(row_factory=dict_row) as connection:
+            row = connection.execute(
+                """
+                SELECT source_system_id, name, source_type, transport, schedule_mode, description, created_at
+                FROM source_systems
+                WHERE source_system_id = %s
+                """,
+                (source_system_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown source system: {source_system_id}")
+        return SourceSystemRecord(
+            source_system_id=row["source_system_id"],
+            name=row["name"],
+            source_type=row["source_type"],
+            transport=row["transport"],
+            schedule_mode=row["schedule_mode"],
+            description=row["description"],
+            created_at=row["created_at"],
+        )
+
+    def list_source_systems(self) -> list[SourceSystemRecord]:
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(
+                """
+                SELECT source_system_id, name, source_type, transport, schedule_mode, description, created_at
+                FROM source_systems
+                ORDER BY created_at, source_system_id
+                """
+            ).fetchall()
+        return [
+            SourceSystemRecord(
+                source_system_id=row["source_system_id"],
+                name=row["name"],
+                source_type=row["source_type"],
+                transport=row["transport"],
+                schedule_mode=row["schedule_mode"],
+                description=row["description"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    def create_dataset_contract(
+        self,
+        dataset_contract: DatasetContractConfigCreate,
+    ) -> DatasetContractConfigRecord:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO dataset_contracts (
+                    dataset_contract_id, dataset_name, version, allow_extra_columns, columns_json, created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    dataset_contract.dataset_contract_id,
+                    dataset_contract.dataset_name,
+                    dataset_contract.version,
+                    dataset_contract.allow_extra_columns,
+                    json.dumps(
+                        [
+                            {
+                                "name": column.name,
+                                "type": column.type.value,
+                                "required": column.required,
+                            }
+                            for column in dataset_contract.columns
+                        ]
+                    ),
+                    dataset_contract.created_at,
+                ),
+            )
+        return self.get_dataset_contract(dataset_contract.dataset_contract_id)
+
+    def get_dataset_contract(self, dataset_contract_id: str) -> DatasetContractConfigRecord:
+        with self._connect(row_factory=dict_row) as connection:
+            row = connection.execute(
+                """
+                SELECT dataset_contract_id, dataset_name, version, allow_extra_columns, columns_json, created_at
+                FROM dataset_contracts
+                WHERE dataset_contract_id = %s
+                """,
+                (dataset_contract_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown dataset contract: {dataset_contract_id}")
+        return DatasetContractConfigRecord(
+            dataset_contract_id=row["dataset_contract_id"],
+            dataset_name=row["dataset_name"],
+            version=row["version"],
+            allow_extra_columns=bool(row["allow_extra_columns"]),
+            columns=_deserialize_columns(row["columns_json"]),
+            created_at=row["created_at"],
+        )
+
+    def list_dataset_contracts(self) -> list[DatasetContractConfigRecord]:
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(
+                """
+                SELECT dataset_contract_id, dataset_name, version, allow_extra_columns, columns_json, created_at
+                FROM dataset_contracts
+                ORDER BY created_at, dataset_contract_id
+                """
+            ).fetchall()
+        return [
+            DatasetContractConfigRecord(
+                dataset_contract_id=row["dataset_contract_id"],
+                dataset_name=row["dataset_name"],
+                version=row["version"],
+                allow_extra_columns=bool(row["allow_extra_columns"]),
+                columns=_deserialize_columns(row["columns_json"]),
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    def create_column_mapping(self, column_mapping: ColumnMappingCreate) -> ColumnMappingRecord:
+        _validate_mapping_rules(column_mapping.rules)
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO column_mappings (
+                    column_mapping_id, source_system_id, dataset_contract_id, version, rules_json, created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    column_mapping.column_mapping_id,
+                    column_mapping.source_system_id,
+                    column_mapping.dataset_contract_id,
+                    column_mapping.version,
+                    json.dumps([asdict(rule) for rule in column_mapping.rules]),
+                    column_mapping.created_at,
+                ),
+            )
+        return self.get_column_mapping(column_mapping.column_mapping_id)
+
+    def get_column_mapping(self, column_mapping_id: str) -> ColumnMappingRecord:
+        with self._connect(row_factory=dict_row) as connection:
+            row = connection.execute(
+                """
+                SELECT column_mapping_id, source_system_id, dataset_contract_id, version, rules_json, created_at
+                FROM column_mappings
+                WHERE column_mapping_id = %s
+                """,
+                (column_mapping_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown column mapping: {column_mapping_id}")
+        return ColumnMappingRecord(
+            column_mapping_id=row["column_mapping_id"],
+            source_system_id=row["source_system_id"],
+            dataset_contract_id=row["dataset_contract_id"],
+            version=row["version"],
+            rules=_deserialize_rules(row["rules_json"]),
+            created_at=row["created_at"],
+        )
+
+    def list_column_mappings(self) -> list[ColumnMappingRecord]:
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(
+                """
+                SELECT column_mapping_id, source_system_id, dataset_contract_id, version, rules_json, created_at
+                FROM column_mappings
+                ORDER BY created_at, column_mapping_id
+                """
+            ).fetchall()
+        return [
+            ColumnMappingRecord(
+                column_mapping_id=row["column_mapping_id"],
+                source_system_id=row["source_system_id"],
+                dataset_contract_id=row["dataset_contract_id"],
+                version=row["version"],
+                rules=_deserialize_rules(row["rules_json"]),
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    def create_transformation_package(
+        self,
+        transformation_package: TransformationPackageCreate,
+    ) -> TransformationPackageRecord:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO transformation_packages (
+                    transformation_package_id, name, handler_key, version, description, created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    transformation_package.transformation_package_id,
+                    transformation_package.name,
+                    transformation_package.handler_key,
+                    transformation_package.version,
+                    transformation_package.description,
+                    transformation_package.created_at,
+                ),
+            )
+        return self.get_transformation_package(transformation_package.transformation_package_id)
+
+    def get_transformation_package(self, transformation_package_id: str) -> TransformationPackageRecord:
+        with self._connect(row_factory=dict_row) as connection:
+            row = connection.execute(
+                """
+                SELECT transformation_package_id, name, handler_key, version, description, created_at
+                FROM transformation_packages
+                WHERE transformation_package_id = %s
+                """,
+                (transformation_package_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown transformation package: {transformation_package_id}")
+        return TransformationPackageRecord(
+            transformation_package_id=row["transformation_package_id"],
+            name=row["name"],
+            handler_key=row["handler_key"],
+            version=row["version"],
+            description=row["description"],
+            created_at=row["created_at"],
+        )
+
+    def list_transformation_packages(self) -> list[TransformationPackageRecord]:
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(
+                """
+                SELECT transformation_package_id, name, handler_key, version, description, created_at
+                FROM transformation_packages
+                ORDER BY created_at, transformation_package_id
+                """
+            ).fetchall()
+        return [
+            TransformationPackageRecord(
+                transformation_package_id=row["transformation_package_id"],
+                name=row["name"],
+                handler_key=row["handler_key"],
+                version=row["version"],
+                description=row["description"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    def create_publication_definition(
+        self,
+        publication_definition: PublicationDefinitionCreate,
+        *,
+        extension_registry: ExtensionRegistry | None = None,
+    ) -> PublicationDefinitionRecord:
+        validate_publication_key(
+            publication_definition.publication_key,
+            extension_registry=extension_registry,
+        )
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO publication_definitions (
+                    publication_definition_id, transformation_package_id, publication_key, name, description, created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    publication_definition.publication_definition_id,
+                    publication_definition.transformation_package_id,
+                    publication_definition.publication_key,
+                    publication_definition.name,
+                    publication_definition.description,
+                    publication_definition.created_at,
+                ),
+            )
+        return self.get_publication_definition(publication_definition.publication_definition_id)
+
+    def get_publication_definition(self, publication_definition_id: str) -> PublicationDefinitionRecord:
+        with self._connect(row_factory=dict_row) as connection:
+            row = connection.execute(
+                """
+                SELECT publication_definition_id, transformation_package_id, publication_key, name, description, created_at
+                FROM publication_definitions
+                WHERE publication_definition_id = %s
+                """,
+                (publication_definition_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown publication definition: {publication_definition_id}")
+        return PublicationDefinitionRecord(
+            publication_definition_id=row["publication_definition_id"],
+            transformation_package_id=row["transformation_package_id"],
+            publication_key=row["publication_key"],
+            name=row["name"],
+            description=row["description"],
+            created_at=row["created_at"],
+        )
+
+    def list_publication_definitions(
+        self,
+        *,
+        transformation_package_id: str | None = None,
+    ) -> list[PublicationDefinitionRecord]:
+        sql = """
+            SELECT publication_definition_id, transformation_package_id, publication_key, name, description, created_at
+            FROM publication_definitions
+        """
+        params: tuple[object, ...] = ()
+        if transformation_package_id is not None:
+            sql += " WHERE transformation_package_id = %s"
+            params = (transformation_package_id,)
+        sql += " ORDER BY created_at, publication_definition_id"
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(sql, params).fetchall()
+        return [
+            PublicationDefinitionRecord(
+                publication_definition_id=row["publication_definition_id"],
+                transformation_package_id=row["transformation_package_id"],
+                publication_key=row["publication_key"],
+                name=row["name"],
+                description=row["description"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    def create_source_asset(self, source_asset: SourceAssetCreate) -> SourceAssetRecord:
+        if source_asset.transformation_package_id is not None:
+            self.get_transformation_package(source_asset.transformation_package_id)
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO source_assets (
+                    source_asset_id, source_system_id, dataset_contract_id, column_mapping_id,
+                    transformation_package_id, name, asset_type, description, created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    source_asset.source_asset_id,
+                    source_asset.source_system_id,
+                    source_asset.dataset_contract_id,
+                    source_asset.column_mapping_id,
+                    source_asset.transformation_package_id,
+                    source_asset.name,
+                    source_asset.asset_type,
+                    source_asset.description,
+                    source_asset.created_at,
+                ),
+            )
+        return self.get_source_asset(source_asset.source_asset_id)
+
+    def get_source_asset(self, source_asset_id: str) -> SourceAssetRecord:
+        with self._connect(row_factory=dict_row) as connection:
+            row = connection.execute(
+                """
+                SELECT source_asset_id, source_system_id, dataset_contract_id, column_mapping_id,
+                       transformation_package_id, name, asset_type, description, created_at
+                FROM source_assets
+                WHERE source_asset_id = %s
+                """,
+                (source_asset_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown source asset: {source_asset_id}")
+        return SourceAssetRecord(
+            source_asset_id=row["source_asset_id"],
+            source_system_id=row["source_system_id"],
+            dataset_contract_id=row["dataset_contract_id"],
+            column_mapping_id=row["column_mapping_id"],
+            transformation_package_id=row["transformation_package_id"],
+            name=row["name"],
+            asset_type=row["asset_type"],
+            description=row["description"],
+            created_at=row["created_at"],
+        )
+
+    def list_source_assets(self) -> list[SourceAssetRecord]:
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(
+                """
+                SELECT source_asset_id, source_system_id, dataset_contract_id, column_mapping_id,
+                       transformation_package_id, name, asset_type, description, created_at
+                FROM source_assets
+                ORDER BY created_at, source_asset_id
+                """
+            ).fetchall()
+        return [
+            SourceAssetRecord(
+                source_asset_id=row["source_asset_id"],
+                source_system_id=row["source_system_id"],
+                dataset_contract_id=row["dataset_contract_id"],
+                column_mapping_id=row["column_mapping_id"],
+                transformation_package_id=row["transformation_package_id"],
+                name=row["name"],
+                asset_type=row["asset_type"],
+                description=row["description"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    def find_source_asset_by_binding(
+        self,
+        *,
+        source_system_id: str,
+        dataset_contract_id: str,
+        column_mapping_id: str,
+    ) -> SourceAssetRecord | None:
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(
+                """
+                SELECT source_asset_id, source_system_id, dataset_contract_id, column_mapping_id,
+                       transformation_package_id, name, asset_type, description, created_at
+                FROM source_assets
+                WHERE source_system_id = %s
+                  AND dataset_contract_id = %s
+                  AND column_mapping_id = %s
+                ORDER BY created_at, source_asset_id
+                """,
+                (source_system_id, dataset_contract_id, column_mapping_id),
+            ).fetchall()
+        if not rows:
+            return None
+        if len(rows) > 1:
+            raise ValueError(
+                "Multiple source assets match the configured CSV binding; use source_asset_id-bound ingestion instead."
+            )
+        row = rows[0]
+        return SourceAssetRecord(
+            source_asset_id=row["source_asset_id"],
+            source_system_id=row["source_system_id"],
+            dataset_contract_id=row["dataset_contract_id"],
+            column_mapping_id=row["column_mapping_id"],
+            transformation_package_id=row["transformation_package_id"],
+            name=row["name"],
+            asset_type=row["asset_type"],
+            description=row["description"],
+            created_at=row["created_at"],
+        )
+
+    def create_ingestion_definition(
+        self,
+        ingestion_definition: IngestionDefinitionCreate,
+    ) -> IngestionDefinitionRecord:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO ingestion_definitions (
+                    ingestion_definition_id, source_asset_id, transport, schedule_mode, source_path, file_pattern,
+                    processed_path, failed_path, poll_interval_seconds, request_url, request_method,
+                    request_headers_json, request_timeout_seconds, response_format, output_file_name,
+                    enabled, source_name, created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    ingestion_definition.ingestion_definition_id,
+                    ingestion_definition.source_asset_id,
+                    ingestion_definition.transport,
+                    ingestion_definition.schedule_mode,
+                    ingestion_definition.source_path,
+                    ingestion_definition.file_pattern,
+                    ingestion_definition.processed_path,
+                    ingestion_definition.failed_path,
+                    ingestion_definition.poll_interval_seconds,
+                    ingestion_definition.request_url,
+                    ingestion_definition.request_method,
+                    _serialize_request_headers(ingestion_definition.request_headers),
+                    ingestion_definition.request_timeout_seconds,
+                    ingestion_definition.response_format,
+                    ingestion_definition.output_file_name,
+                    ingestion_definition.enabled,
+                    ingestion_definition.source_name,
+                    ingestion_definition.created_at,
+                ),
+            )
+        return self.get_ingestion_definition(ingestion_definition.ingestion_definition_id)
+
+    def get_ingestion_definition(self, ingestion_definition_id: str) -> IngestionDefinitionRecord:
+        with self._connect(row_factory=dict_row) as connection:
+            row = connection.execute(
+                """
+                SELECT ingestion_definition_id, source_asset_id, transport, schedule_mode, source_path, file_pattern,
+                       processed_path, failed_path, poll_interval_seconds, request_url, request_method,
+                       request_headers_json, request_timeout_seconds, response_format, output_file_name,
+                       enabled, source_name, created_at
+                FROM ingestion_definitions
+                WHERE ingestion_definition_id = %s
+                """,
+                (ingestion_definition_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown ingestion definition: {ingestion_definition_id}")
+        return IngestionDefinitionRecord(
+            ingestion_definition_id=row["ingestion_definition_id"],
+            source_asset_id=row["source_asset_id"],
+            transport=row["transport"],
+            schedule_mode=row["schedule_mode"],
+            source_path=row["source_path"],
+            file_pattern=row["file_pattern"],
+            processed_path=row["processed_path"],
+            failed_path=row["failed_path"],
+            poll_interval_seconds=row["poll_interval_seconds"],
+            request_url=row["request_url"],
+            request_method=row["request_method"],
+            request_headers=_deserialize_request_headers(row["request_headers_json"]),
+            request_timeout_seconds=row["request_timeout_seconds"],
+            response_format=row["response_format"],
+            output_file_name=row["output_file_name"],
+            enabled=bool(row["enabled"]),
+            source_name=row["source_name"],
+            created_at=row["created_at"],
+        )
+
+    def list_ingestion_definitions(
+        self,
+        *,
+        enabled_only: bool = False,
+    ) -> list[IngestionDefinitionRecord]:
+        sql = """
+            SELECT ingestion_definition_id, source_asset_id, transport, schedule_mode, source_path, file_pattern,
+                   processed_path, failed_path, poll_interval_seconds, request_url, request_method,
+                   request_headers_json, request_timeout_seconds, response_format, output_file_name,
+                   enabled, source_name, created_at
+            FROM ingestion_definitions
+        """
+        if enabled_only:
+            sql += " WHERE enabled = TRUE"
+        sql += " ORDER BY created_at, ingestion_definition_id"
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(sql).fetchall()
+        return [
+            IngestionDefinitionRecord(
+                ingestion_definition_id=row["ingestion_definition_id"],
+                source_asset_id=row["source_asset_id"],
+                transport=row["transport"],
+                schedule_mode=row["schedule_mode"],
+                source_path=row["source_path"],
+                file_pattern=row["file_pattern"],
+                processed_path=row["processed_path"],
+                failed_path=row["failed_path"],
+                poll_interval_seconds=row["poll_interval_seconds"],
+                request_url=row["request_url"],
+                request_method=row["request_method"],
+                request_headers=_deserialize_request_headers(row["request_headers_json"]),
+                request_timeout_seconds=row["request_timeout_seconds"],
+                response_format=row["response_format"],
+                output_file_name=row["output_file_name"],
+                enabled=bool(row["enabled"]),
+                source_name=row["source_name"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    def create_execution_schedule(self, schedule: ExecutionScheduleCreate) -> ExecutionScheduleRecord:
+        next_due_at = schedule.next_due_at or next_cron_occurrence(
+            schedule.cron_expression,
+            timezone=schedule.timezone,
+            after=schedule.created_at,
+        )
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO execution_schedules (
+                    schedule_id, target_kind, target_ref, cron_expression, timezone, enabled,
+                    max_concurrency, next_due_at, last_enqueued_at, created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    schedule.schedule_id,
+                    schedule.target_kind,
+                    schedule.target_ref,
+                    schedule.cron_expression,
+                    schedule.timezone,
+                    schedule.enabled,
+                    schedule.max_concurrency,
+                    next_due_at,
+                    schedule.last_enqueued_at,
+                    schedule.created_at,
+                ),
+            )
+        return self.get_execution_schedule(schedule.schedule_id)
+
+    def get_execution_schedule(self, schedule_id: str) -> ExecutionScheduleRecord:
+        with self._connect(row_factory=dict_row) as connection:
+            row = connection.execute(
+                """
+                SELECT schedule_id, target_kind, target_ref, cron_expression, timezone, enabled,
+                       max_concurrency, next_due_at, last_enqueued_at, created_at
+                FROM execution_schedules
+                WHERE schedule_id = %s
+                """,
+                (schedule_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown execution schedule: {schedule_id}")
+        return ExecutionScheduleRecord(
+            schedule_id=row["schedule_id"],
+            target_kind=row["target_kind"],
+            target_ref=row["target_ref"],
+            cron_expression=row["cron_expression"],
+            timezone=row["timezone"],
+            enabled=bool(row["enabled"]),
+            max_concurrency=row["max_concurrency"],
+            next_due_at=row["next_due_at"],
+            last_enqueued_at=row["last_enqueued_at"],
+            created_at=row["created_at"],
+        )
+
+    def list_execution_schedules(self, *, enabled_only: bool = False) -> list[ExecutionScheduleRecord]:
+        sql = """
+            SELECT schedule_id, target_kind, target_ref, cron_expression, timezone, enabled,
+                   max_concurrency, next_due_at, last_enqueued_at, created_at
+            FROM execution_schedules
+        """
+        if enabled_only:
+            sql += " WHERE enabled = TRUE"
+        sql += " ORDER BY created_at, schedule_id"
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(sql).fetchall()
+        return [
+            ExecutionScheduleRecord(
+                schedule_id=row["schedule_id"],
+                target_kind=row["target_kind"],
+                target_ref=row["target_ref"],
+                cron_expression=row["cron_expression"],
+                timezone=row["timezone"],
+                enabled=bool(row["enabled"]),
+                max_concurrency=row["max_concurrency"],
+                next_due_at=row["next_due_at"],
+                last_enqueued_at=row["last_enqueued_at"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    def enqueue_due_execution_schedules(
+        self,
+        *,
+        as_of: datetime | None = None,
+        limit: int | None = None,
+    ) -> list[ScheduleDispatchRecord]:
+        dispatches: list[ScheduleDispatchRecord] = []
+        resolved_as_of = as_of or datetime.now(UTC)
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(
+                """
+                SELECT schedule_id, target_kind, target_ref, cron_expression, timezone, enabled,
+                       max_concurrency, next_due_at, last_enqueued_at, created_at
+                FROM execution_schedules
+                WHERE enabled = TRUE
+                  AND next_due_at IS NOT NULL
+                  AND next_due_at <= %s
+                ORDER BY next_due_at, schedule_id
+                """,
+                (resolved_as_of,),
+            ).fetchall()
+            for row in rows:
+                if limit is not None and len(dispatches) >= limit:
+                    break
+                active_count = connection.execute(
+                    """
+                    SELECT COUNT(*) AS active_count
+                    FROM schedule_dispatches
+                    WHERE schedule_id = %s
+                      AND status IN ('enqueued', 'running')
+                    """,
+                    (row["schedule_id"],),
+                ).fetchone()["active_count"]
+                if active_count >= row["max_concurrency"]:
+                    continue
+                dispatch_id = uuid.uuid4().hex[:16]
+                connection.execute(
+                    """
+                    INSERT INTO schedule_dispatches (
+                        dispatch_id, schedule_id, target_kind, target_ref, enqueued_at, status, completed_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        dispatch_id,
+                        row["schedule_id"],
+                        row["target_kind"],
+                        row["target_ref"],
+                        resolved_as_of,
+                        "enqueued",
+                        None,
+                    ),
+                )
+                next_due_at = next_cron_occurrence(
+                    row["cron_expression"],
+                    timezone=row["timezone"],
+                    after=resolved_as_of,
+                )
+                connection.execute(
+                    """
+                    UPDATE execution_schedules
+                    SET last_enqueued_at = %s, next_due_at = %s
+                    WHERE schedule_id = %s
+                    """,
+                    (resolved_as_of, next_due_at, row["schedule_id"]),
+                )
+                dispatches.append(
+                    ScheduleDispatchRecord(
+                        dispatch_id=dispatch_id,
+                        schedule_id=row["schedule_id"],
+                        target_kind=row["target_kind"],
+                        target_ref=row["target_ref"],
+                        enqueued_at=resolved_as_of,
+                        status="enqueued",
+                        completed_at=None,
+                    )
+                )
+        return dispatches
+
+    def list_schedule_dispatches(
+        self,
+        *,
+        schedule_id: str | None = None,
+        status: str | None = None,
+    ) -> list[ScheduleDispatchRecord]:
+        clauses: list[str] = []
+        params: list[object] = []
+        if schedule_id is not None:
+            clauses.append("schedule_id = %s")
+            params.append(schedule_id)
+        if status is not None:
+            clauses.append("status = %s")
+            params.append(status)
+        where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(
+                f"""
+                SELECT dispatch_id, schedule_id, target_kind, target_ref, enqueued_at, status, completed_at
+                FROM schedule_dispatches
+                {where_sql}
+                ORDER BY enqueued_at DESC, dispatch_id DESC
+                """,
+                params,
+            ).fetchall()
+        normalized = [
+            {
+                "dispatch_id": row["dispatch_id"],
+                "schedule_id": row["schedule_id"],
+                "target_kind": row["target_kind"],
+                "target_ref": row["target_ref"],
+                "enqueued_at": row["enqueued_at"].isoformat(),
+                "status": row["status"],
+                "completed_at": row["completed_at"].isoformat() if row["completed_at"] else None,
+            }
+            for row in rows
+        ]
+        return [_deserialize_schedule_dispatch_row(row) for row in normalized]  # type: ignore[arg-type]
+
+    def mark_schedule_dispatch_status(
+        self,
+        dispatch_id: str,
+        *,
+        status: str,
+        completed_at: datetime | None = None,
+    ) -> ScheduleDispatchRecord:
+        resolved_completed_at = completed_at if status in {"completed", "failed"} else None
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE schedule_dispatches
+                SET status = %s, completed_at = %s
+                WHERE dispatch_id = %s
+                """,
+                (status, resolved_completed_at, dispatch_id),
+            )
+        for row in self.list_schedule_dispatches():
+            if row.dispatch_id == dispatch_id:
+                return row
+        raise KeyError(f"Unknown schedule dispatch: {dispatch_id}")
+
+    def record_source_lineage(
+        self,
+        entries: tuple[SourceLineageCreate, ...],
+    ) -> list[SourceLineageRecord]:
+        if not entries:
+            return []
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.executemany(
+                    """
+                    INSERT INTO source_lineage (
+                        lineage_id, input_run_id, target_layer, target_name, target_kind,
+                        row_count, source_system, source_run_id, recorded_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    [
+                        (
+                            entry.lineage_id,
+                            entry.input_run_id,
+                            entry.target_layer,
+                            entry.target_name,
+                            entry.target_kind,
+                            entry.row_count,
+                            entry.source_system,
+                            entry.source_run_id,
+                            entry.recorded_at,
+                        )
+                        for entry in entries
+                    ],
+                )
+        return self.list_source_lineage()
+
+    def list_source_lineage(
+        self,
+        *,
+        input_run_id: str | None = None,
+        target_layer: str | None = None,
+    ) -> list[SourceLineageRecord]:
+        clauses: list[str] = []
+        params: list[object] = []
+        if input_run_id is not None:
+            clauses.append("input_run_id = %s")
+            params.append(input_run_id)
+        if target_layer is not None:
+            clauses.append("target_layer = %s")
+            params.append(target_layer)
+        where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(
+                f"""
+                SELECT lineage_id, input_run_id, target_layer, target_name, target_kind,
+                       row_count, source_system, source_run_id, recorded_at
+                FROM source_lineage
+                {where_sql}
+                ORDER BY recorded_at, lineage_id
+                """,
+                params,
+            ).fetchall()
+        normalized = [
+            {
+                "lineage_id": row["lineage_id"],
+                "input_run_id": row["input_run_id"],
+                "target_layer": row["target_layer"],
+                "target_name": row["target_name"],
+                "target_kind": row["target_kind"],
+                "row_count": row["row_count"],
+                "source_system": row["source_system"],
+                "source_run_id": row["source_run_id"],
+                "recorded_at": row["recorded_at"].isoformat(),
+            }
+            for row in rows
+        ]
+        return [_deserialize_source_lineage_row(row) for row in normalized]  # type: ignore[arg-type]
+
+    def record_publication_audit(
+        self,
+        entries: tuple[PublicationAuditCreate, ...],
+    ) -> list[PublicationAuditRecord]:
+        if not entries:
+            return []
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.executemany(
+                    """
+                    INSERT INTO publication_audit (
+                        publication_audit_id, run_id, publication_key, relation_name, status, published_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    [
+                        (
+                            entry.publication_audit_id,
+                            entry.run_id,
+                            entry.publication_key,
+                            entry.relation_name,
+                            entry.status,
+                            entry.published_at,
+                        )
+                        for entry in entries
+                    ],
+                )
+        return self.list_publication_audit()
+
+    def list_publication_audit(
+        self,
+        *,
+        run_id: str | None = None,
+        publication_key: str | None = None,
+    ) -> list[PublicationAuditRecord]:
+        clauses: list[str] = []
+        params: list[object] = []
+        if run_id is not None:
+            clauses.append("run_id = %s")
+            params.append(run_id)
+        if publication_key is not None:
+            clauses.append("publication_key = %s")
+            params.append(publication_key)
+        where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(
+                f"""
+                SELECT publication_audit_id, run_id, publication_key, relation_name, status, published_at
+                FROM publication_audit
+                {where_sql}
+                ORDER BY published_at, publication_audit_id
+                """,
+                params,
+            ).fetchall()
+        normalized = [
+            {
+                "publication_audit_id": row["publication_audit_id"],
+                "run_id": row["run_id"],
+                "publication_key": row["publication_key"],
+                "relation_name": row["relation_name"],
+                "status": row["status"],
+                "published_at": row["published_at"].isoformat(),
+            }
+            for row in rows
+        ]
+        return [_deserialize_publication_audit_row(row) for row in normalized]  # type: ignore[arg-type]
+
+    def create_local_user(self, user: LocalUserCreate) -> LocalUserRecord:
+        username = normalize_username(user.username)
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO local_users (
+                    user_id, username, password_hash, role, enabled, created_at, last_login_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    user.user_id,
+                    username,
+                    user.password_hash,
+                    user.role.value,
+                    user.enabled,
+                    user.created_at,
+                    user.last_login_at,
+                ),
+            )
+        return self.get_local_user(user.user_id)
+
+    def get_local_user(self, user_id: str) -> LocalUserRecord:
+        with self._connect(row_factory=dict_row) as connection:
+            row = connection.execute(
+                """
+                SELECT user_id, username, password_hash, role, enabled, created_at, last_login_at
+                FROM local_users
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown local user: {user_id}")
+        return _deserialize_local_user_row(row)
+
+    def get_local_user_by_username(self, username: str) -> LocalUserRecord:
+        normalized_username = normalize_username(username)
+        with self._connect(row_factory=dict_row) as connection:
+            row = connection.execute(
+                """
+                SELECT user_id, username, password_hash, role, enabled, created_at, last_login_at
+                FROM local_users
+                WHERE username = %s
+                """,
+                (normalized_username,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown local user: {normalized_username}")
+        return _deserialize_local_user_row(row)
+
+    def list_local_users(self, *, enabled_only: bool = False) -> list[LocalUserRecord]:
+        sql = """
+            SELECT user_id, username, password_hash, role, enabled, created_at, last_login_at
+            FROM local_users
+        """
+        params: list[object] = []
+        if enabled_only:
+            sql += " WHERE enabled = %s"
+            params.append(True)
+        sql += " ORDER BY created_at, username"
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(sql, params).fetchall()
+        return [_deserialize_local_user_row(row) for row in rows]
+
+    def update_local_user_password(
+        self,
+        user_id: str,
+        *,
+        password_hash: str,
+    ) -> LocalUserRecord:
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE local_users
+                    SET password_hash = %s
+                    WHERE user_id = %s
+                    """,
+                    (password_hash, user_id),
+                )
+                if cursor.rowcount == 0:
+                    raise KeyError(f"Unknown local user: {user_id}")
+        return self.get_local_user(user_id)
+
+    def record_local_user_login(
+        self,
+        user_id: str,
+        *,
+        logged_in_at: datetime | None = None,
+    ) -> LocalUserRecord:
+        resolved_logged_in_at = logged_in_at or datetime.now(UTC)
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE local_users
+                    SET last_login_at = %s
+                    WHERE user_id = %s
+                    """,
+                    (resolved_logged_in_at, user_id),
+                )
+                if cursor.rowcount == 0:
+                    raise KeyError(f"Unknown local user: {user_id}")
+        return self.get_local_user(user_id)
+
+    def export_snapshot(self) -> ControlPlaneSnapshot:
+        return ControlPlaneSnapshot(
+            source_systems=tuple(self.list_source_systems()),
+            dataset_contracts=tuple(self.list_dataset_contracts()),
+            column_mappings=tuple(self.list_column_mappings()),
+            transformation_packages=tuple(self.list_transformation_packages()),
+            publication_definitions=tuple(self.list_publication_definitions()),
+            source_assets=tuple(self.list_source_assets()),
+            ingestion_definitions=tuple(self.list_ingestion_definitions()),
+            execution_schedules=tuple(self.list_execution_schedules()),
+            source_lineage=tuple(self.list_source_lineage()),
+            publication_audit=tuple(self.list_publication_audit()),
+            local_users=tuple(self.list_local_users()),
+        )
+
+    def import_snapshot(self, snapshot: ControlPlaneSnapshot) -> None:
+        for source_system_record in snapshot.source_systems:
+            try:
+                self.create_source_system(
+                    SourceSystemCreate(
+                        source_system_id=source_system_record.source_system_id,
+                        name=source_system_record.name,
+                        source_type=source_system_record.source_type,
+                        transport=source_system_record.transport,
+                        schedule_mode=source_system_record.schedule_mode,
+                        description=source_system_record.description,
+                        created_at=source_system_record.created_at,
+                    )
+                )
+            except psycopg.Error:
+                continue
+        for dataset_contract_record in snapshot.dataset_contracts:
+            try:
+                self.create_dataset_contract(
+                    DatasetContractConfigCreate(
+                        dataset_contract_id=dataset_contract_record.dataset_contract_id,
+                        dataset_name=dataset_contract_record.dataset_name,
+                        version=dataset_contract_record.version,
+                        allow_extra_columns=dataset_contract_record.allow_extra_columns,
+                        columns=dataset_contract_record.columns,
+                        created_at=dataset_contract_record.created_at,
+                    )
+                )
+            except psycopg.Error:
+                continue
+        for column_mapping_record in snapshot.column_mappings:
+            try:
+                self.create_column_mapping(
+                    ColumnMappingCreate(
+                        column_mapping_id=column_mapping_record.column_mapping_id,
+                        source_system_id=column_mapping_record.source_system_id,
+                        dataset_contract_id=column_mapping_record.dataset_contract_id,
+                        version=column_mapping_record.version,
+                        rules=column_mapping_record.rules,
+                        created_at=column_mapping_record.created_at,
+                    )
+                )
+            except psycopg.Error:
+                continue
+        for transformation_package_record in snapshot.transformation_packages:
+            try:
+                self.create_transformation_package(
+                    TransformationPackageCreate(
+                        transformation_package_id=transformation_package_record.transformation_package_id,
+                        name=transformation_package_record.name,
+                        handler_key=transformation_package_record.handler_key,
+                        version=transformation_package_record.version,
+                        description=transformation_package_record.description,
+                        created_at=transformation_package_record.created_at,
+                    )
+                )
+            except psycopg.Error:
+                continue
+        for publication_definition_record in snapshot.publication_definitions:
+            try:
+                self.create_publication_definition(
+                    PublicationDefinitionCreate(
+                        publication_definition_id=publication_definition_record.publication_definition_id,
+                        transformation_package_id=publication_definition_record.transformation_package_id,
+                        publication_key=publication_definition_record.publication_key,
+                        name=publication_definition_record.name,
+                        description=publication_definition_record.description,
+                        created_at=publication_definition_record.created_at,
+                    )
+                )
+            except psycopg.Error:
+                continue
+        for source_asset_record in snapshot.source_assets:
+            try:
+                self.create_source_asset(
+                    SourceAssetCreate(
+                        source_asset_id=source_asset_record.source_asset_id,
+                        source_system_id=source_asset_record.source_system_id,
+                        dataset_contract_id=source_asset_record.dataset_contract_id,
+                        column_mapping_id=source_asset_record.column_mapping_id,
+                        transformation_package_id=source_asset_record.transformation_package_id,
+                        name=source_asset_record.name,
+                        asset_type=source_asset_record.asset_type,
+                        description=source_asset_record.description,
+                        created_at=source_asset_record.created_at,
+                    )
+                )
+            except psycopg.Error:
+                continue
+        for ingestion_definition_record in snapshot.ingestion_definitions:
+            try:
+                self.create_ingestion_definition(
+                    IngestionDefinitionCreate(
+                        ingestion_definition_id=ingestion_definition_record.ingestion_definition_id,
+                        source_asset_id=ingestion_definition_record.source_asset_id,
+                        transport=ingestion_definition_record.transport,
+                        schedule_mode=ingestion_definition_record.schedule_mode,
+                        source_path=ingestion_definition_record.source_path,
+                        file_pattern=ingestion_definition_record.file_pattern,
+                        processed_path=ingestion_definition_record.processed_path,
+                        failed_path=ingestion_definition_record.failed_path,
+                        poll_interval_seconds=ingestion_definition_record.poll_interval_seconds,
+                        request_url=ingestion_definition_record.request_url,
+                        request_method=ingestion_definition_record.request_method,
+                        request_headers=ingestion_definition_record.request_headers,
+                        request_timeout_seconds=ingestion_definition_record.request_timeout_seconds,
+                        response_format=ingestion_definition_record.response_format,
+                        output_file_name=ingestion_definition_record.output_file_name,
+                        enabled=ingestion_definition_record.enabled,
+                        source_name=ingestion_definition_record.source_name,
+                        created_at=ingestion_definition_record.created_at,
+                    )
+                )
+            except psycopg.Error:
+                continue
+        for execution_schedule_record in snapshot.execution_schedules:
+            try:
+                self.create_execution_schedule(
+                    ExecutionScheduleCreate(
+                        schedule_id=execution_schedule_record.schedule_id,
+                        target_kind=execution_schedule_record.target_kind,
+                        target_ref=execution_schedule_record.target_ref,
+                        cron_expression=execution_schedule_record.cron_expression,
+                        timezone=execution_schedule_record.timezone,
+                        enabled=execution_schedule_record.enabled,
+                        max_concurrency=execution_schedule_record.max_concurrency,
+                        next_due_at=execution_schedule_record.next_due_at,
+                        last_enqueued_at=execution_schedule_record.last_enqueued_at,
+                        created_at=execution_schedule_record.created_at,
+                    )
+                )
+            except psycopg.Error:
+                continue
+        self.record_source_lineage(
+            tuple(
+                SourceLineageCreate(
+                    lineage_id=record.lineage_id,
+                    input_run_id=record.input_run_id,
+                    target_layer=record.target_layer,
+                    target_name=record.target_name,
+                    target_kind=record.target_kind,
+                    row_count=record.row_count,
+                    source_system=record.source_system,
+                    source_run_id=record.source_run_id,
+                    recorded_at=record.recorded_at,
+                )
+                for record in snapshot.source_lineage
+            )
+        )
+        self.record_publication_audit(
+            tuple(
+                PublicationAuditCreate(
+                    publication_audit_id=record.publication_audit_id,
+                    run_id=record.run_id,
+                    publication_key=record.publication_key,
+                    relation_name=record.relation_name,
+                    status=record.status,
+                    published_at=record.published_at,
+                )
+                for record in snapshot.publication_audit
+            )
+        )
+        for local_user_record in snapshot.local_users:
+            try:
+                self.create_local_user(
+                    LocalUserCreate(
+                        user_id=local_user_record.user_id,
+                        username=local_user_record.username,
+                        password_hash=local_user_record.password_hash,
+                        role=local_user_record.role,
+                        enabled=local_user_record.enabled,
+                        created_at=local_user_record.created_at,
+                        last_login_at=local_user_record.last_login_at,
+                    )
+                )
+            except psycopg.Error:
+                continue
+
+    def _initialize(self) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS source_systems (
+                    source_system_id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    source_type TEXT NOT NULL,
+                    transport TEXT NOT NULL,
+                    schedule_mode TEXT NOT NULL,
+                    description TEXT,
+                    created_at TIMESTAMPTZ NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS dataset_contracts (
+                    dataset_contract_id TEXT PRIMARY KEY,
+                    dataset_name TEXT NOT NULL,
+                    version INTEGER NOT NULL,
+                    allow_extra_columns BOOLEAN NOT NULL,
+                    columns_json TEXT NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS column_mappings (
+                    column_mapping_id TEXT PRIMARY KEY,
+                    source_system_id TEXT NOT NULL REFERENCES source_systems (source_system_id),
+                    dataset_contract_id TEXT NOT NULL REFERENCES dataset_contracts (dataset_contract_id),
+                    version INTEGER NOT NULL,
+                    rules_json TEXT NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS transformation_packages (
+                    transformation_package_id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    handler_key TEXT NOT NULL,
+                    version INTEGER NOT NULL,
+                    description TEXT,
+                    created_at TIMESTAMPTZ NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS publication_definitions (
+                    publication_definition_id TEXT PRIMARY KEY,
+                    transformation_package_id TEXT NOT NULL REFERENCES transformation_packages (transformation_package_id),
+                    publication_key TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    created_at TIMESTAMPTZ NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS source_assets (
+                    source_asset_id TEXT PRIMARY KEY,
+                    source_system_id TEXT NOT NULL REFERENCES source_systems (source_system_id),
+                    dataset_contract_id TEXT NOT NULL REFERENCES dataset_contracts (dataset_contract_id),
+                    column_mapping_id TEXT NOT NULL REFERENCES column_mappings (column_mapping_id),
+                    transformation_package_id TEXT REFERENCES transformation_packages (transformation_package_id),
+                    name TEXT NOT NULL,
+                    asset_type TEXT NOT NULL,
+                    description TEXT,
+                    created_at TIMESTAMPTZ NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS ingestion_definitions (
+                    ingestion_definition_id TEXT PRIMARY KEY,
+                    source_asset_id TEXT NOT NULL REFERENCES source_assets (source_asset_id),
+                    transport TEXT NOT NULL,
+                    schedule_mode TEXT NOT NULL,
+                    source_path TEXT NOT NULL,
+                    file_pattern TEXT NOT NULL,
+                    processed_path TEXT,
+                    failed_path TEXT,
+                    poll_interval_seconds INTEGER,
+                    request_url TEXT,
+                    request_method TEXT,
+                    request_headers_json TEXT,
+                    request_timeout_seconds INTEGER,
+                    response_format TEXT,
+                    output_file_name TEXT,
+                    enabled BOOLEAN NOT NULL,
+                    source_name TEXT,
+                    created_at TIMESTAMPTZ NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS execution_schedules (
+                    schedule_id TEXT PRIMARY KEY,
+                    target_kind TEXT NOT NULL,
+                    target_ref TEXT NOT NULL,
+                    cron_expression TEXT NOT NULL,
+                    timezone TEXT NOT NULL,
+                    enabled BOOLEAN NOT NULL,
+                    max_concurrency INTEGER NOT NULL,
+                    next_due_at TIMESTAMPTZ,
+                    last_enqueued_at TIMESTAMPTZ,
+                    created_at TIMESTAMPTZ NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS schedule_dispatches (
+                    dispatch_id TEXT PRIMARY KEY,
+                    schedule_id TEXT NOT NULL REFERENCES execution_schedules (schedule_id),
+                    target_kind TEXT NOT NULL,
+                    target_ref TEXT NOT NULL,
+                    enqueued_at TIMESTAMPTZ NOT NULL,
+                    status TEXT NOT NULL,
+                    completed_at TIMESTAMPTZ
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS source_lineage (
+                    lineage_id TEXT PRIMARY KEY,
+                    input_run_id TEXT,
+                    target_layer TEXT NOT NULL,
+                    target_name TEXT NOT NULL,
+                    target_kind TEXT NOT NULL,
+                    row_count INTEGER,
+                    source_system TEXT,
+                    source_run_id TEXT,
+                    recorded_at TIMESTAMPTZ NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS publication_audit (
+                    publication_audit_id TEXT PRIMARY KEY,
+                    run_id TEXT,
+                    publication_key TEXT NOT NULL,
+                    relation_name TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    published_at TIMESTAMPTZ NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS local_users (
+                    user_id TEXT PRIMARY KEY,
+                    username TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    enabled BOOLEAN NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL,
+                    last_login_at TIMESTAMPTZ
+                )
+                """
+            )
+            self._seed_builtins(connection)
+
+    def _seed_builtins(self, connection: psycopg.Connection) -> None:
+        now = datetime.now(UTC)
+        with connection.cursor() as cursor:
+            cursor.executemany(
+                """
+                INSERT INTO transformation_packages (
+                    transformation_package_id, name, handler_key, version, description, created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (transformation_package_id) DO NOTHING
+                """,
+                [
+                    (
+                        package.transformation_package_id,
+                        package.name,
+                        package.handler_key,
+                        package.version,
+                        package.description,
+                        now,
+                    )
+                    for package in _BUILTIN_TRANSFORMATION_PACKAGES
+                ],
+            )
+            cursor.executemany(
+                """
+                INSERT INTO publication_definitions (
+                    publication_definition_id, transformation_package_id, publication_key, name, description, created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (publication_definition_id) DO NOTHING
+                """,
+                [
+                    (
+                        publication.publication_definition_id,
+                        publication.transformation_package_id,
+                        publication.publication_key,
+                        publication.name,
+                        publication.description,
+                        now,
+                    )
+                    for publication in _BUILTIN_PUBLICATION_DEFINITIONS
+                ],
+            )
+
+
+def _deserialize_local_user_row(row: dict[str, object]) -> LocalUserRecord:
+    return LocalUserRecord(
+        user_id=str(row["user_id"]),
+        username=str(row["username"]),
+        password_hash=str(row["password_hash"]),
+        role=UserRole(str(row["role"])),
+        enabled=bool(row["enabled"]),
+        created_at=row["created_at"],  # type: ignore[arg-type]
+        last_login_at=row["last_login_at"],  # type: ignore[arg-type]
+    )

@@ -72,14 +72,21 @@ from packages.pipelines.utility_models import (
     utility_bill_id,
     utility_usage_id,
 )
+from packages.storage.control_plane import SourceLineageCreate, SourceLineageStore
 from packages.storage.duckdb_store import DuckDBStore
 
 
 class TransformationService:
     """Loads validated landing data into the transformation and reporting layers."""
 
-    def __init__(self, store: DuckDBStore) -> None:
+    def __init__(
+        self,
+        store: DuckDBStore,
+        *,
+        control_plane_store: SourceLineageStore | None = None,
+    ) -> None:
         self._store = store
+        self._control_plane_store = control_plane_store
         self._ensure_schema()
 
     def _ensure_schema(self) -> None:
@@ -157,6 +164,31 @@ class TransformationService:
             "direction": direction,
         }
 
+    def _record_lineage(
+        self,
+        *,
+        run_id: str | None,
+        source_system: str | None,
+        records: list[tuple[str, str, int | None]],
+    ) -> None:
+        if run_id is None or self._control_plane_store is None:
+            return
+        self._control_plane_store.record_source_lineage(
+            tuple(
+                SourceLineageCreate(
+                    lineage_id=uuid.uuid4().hex[:16],
+                    input_run_id=run_id,
+                    source_run_id=run_id,
+                    source_system=source_system,
+                    target_layer="transformation",
+                    target_name=target_name,
+                    target_kind=target_kind,
+                    row_count=row_count,
+                )
+                for target_name, target_kind, row_count in records
+            )
+        )
+
     # -- public API ----------------------------------------------------------
 
     def load_transactions(
@@ -165,6 +197,7 @@ class TransformationService:
         *,
         run_id: str | None = None,
         effective_date: date | None = None,
+        source_system: str | None = None,
     ) -> int:
         """Ingest a batch of canonical transaction dicts.
 
@@ -183,10 +216,22 @@ class TransformationService:
         with self._store.atomic():
             # 1. Upsert dimensions
             accounts = extract_accounts(rows)
-            accounts_upserted = self._store.upsert_dimension_rows(DIM_ACCOUNT, accounts, effective_date=eff)
+            accounts_upserted = self._store.upsert_dimension_rows(
+                DIM_ACCOUNT,
+                accounts,
+                effective_date=eff,
+                source_system=source_system,
+                source_run_id=run_id,
+            )
 
             counterparties = extract_counterparties(rows)
-            counterparties_upserted = self._store.upsert_dimension_rows(DIM_COUNTERPARTY, counterparties, effective_date=eff)
+            counterparties_upserted = self._store.upsert_dimension_rows(
+                DIM_COUNTERPARTY,
+                counterparties,
+                effective_date=eff,
+                source_system=source_system,
+                source_run_id=run_id,
+            )
 
             # 2. Insert facts
             fact_rows = []
@@ -243,6 +288,15 @@ class TransformationService:
                     "accounts_upserted": accounts_upserted,
                     "counterparties_upserted": counterparties_upserted,
                 }
+            ],
+        )
+        self._record_lineage(
+            run_id=run_id,
+            source_system=source_system,
+            records=[
+                ("dim_account", "dimension", accounts_upserted),
+                ("dim_counterparty", "dimension", counterparties_upserted),
+                ("fact_transaction", "fact", inserted),
             ],
         )
         return inserted
@@ -485,6 +539,7 @@ class TransformationService:
         *,
         run_id: str | None = None,
         effective_date: date | None = None,
+        source_system: str | None = None,
     ) -> int:
         """Ingest a batch of canonical subscription dicts.
 
@@ -501,7 +556,13 @@ class TransformationService:
         with self._store.atomic():
             # 1. Upsert dim_contract
             contracts = extract_contracts(rows)
-            self._store.upsert_dimension_rows(DIM_CONTRACT, contracts, effective_date=eff)
+            contracts_upserted = self._store.upsert_dimension_rows(
+                DIM_CONTRACT,
+                contracts,
+                effective_date=eff,
+                source_system=source_system,
+                source_run_id=run_id,
+            )
 
             # 2. Insert fact rows
             fact_rows = []
@@ -528,6 +589,14 @@ class TransformationService:
 
             inserted = self._store.insert_rows(FACT_SUBSCRIPTION_CHARGE_TABLE, fact_rows)
 
+        self._record_lineage(
+            run_id=run_id,
+            source_system=source_system,
+            records=[
+                ("dim_contract", "dimension", contracts_upserted),
+                ("fact_subscription_charge", "fact", inserted),
+            ],
+        )
         return inserted
 
     def refresh_subscription_summary(self) -> int:
@@ -606,6 +675,7 @@ class TransformationService:
         *,
         run_id: str | None = None,
         effective_date: date | None = None,
+        source_system: str | None = None,
     ) -> int:
         if not rows:
             return 0
@@ -614,7 +684,13 @@ class TransformationService:
 
         with self._store.atomic():
             contracts = extract_contract_rows(rows)
-            self._store.upsert_dimension_rows(DIM_CONTRACT, contracts, effective_date=eff)
+            contracts_upserted = self._store.upsert_dimension_rows(
+                DIM_CONTRACT,
+                contracts,
+                effective_date=eff,
+                source_system=source_system,
+                source_run_id=run_id,
+            )
 
             fact_rows = []
             for row in rows:
@@ -643,6 +719,14 @@ class TransformationService:
 
             inserted = self._store.insert_rows(FACT_CONTRACT_PRICE_TABLE, fact_rows)
 
+        self._record_lineage(
+            run_id=run_id,
+            source_system=source_system,
+            records=[
+                ("dim_contract", "dimension", contracts_upserted),
+                ("fact_contract_price", "fact", inserted),
+            ],
+        )
         return inserted
 
     def refresh_contract_price_current(self) -> int:
@@ -723,6 +807,7 @@ class TransformationService:
         *,
         run_id: str | None = None,
         effective_date: date | None = None,
+        source_system: str | None = None,
     ) -> int:
         if not rows:
             return 0
@@ -731,7 +816,13 @@ class TransformationService:
 
         with self._store.atomic():
             meters = extract_meters_from_usage(rows)
-            self._store.upsert_dimension_rows(DIM_METER, meters, effective_date=eff)
+            meters_upserted = self._store.upsert_dimension_rows(
+                DIM_METER,
+                meters,
+                effective_date=eff,
+                source_system=source_system,
+                source_run_id=run_id,
+            )
 
             fact_rows = []
             for row in rows:
@@ -767,6 +858,14 @@ class TransformationService:
 
             inserted = self._store.insert_rows(FACT_UTILITY_USAGE_TABLE, fact_rows)
 
+        self._record_lineage(
+            run_id=run_id,
+            source_system=source_system,
+            records=[
+                ("dim_meter", "dimension", meters_upserted),
+                ("fact_utility_usage", "fact", inserted),
+            ],
+        )
         return inserted
 
     def load_bills(
@@ -775,6 +874,7 @@ class TransformationService:
         *,
         run_id: str | None = None,
         effective_date: date | None = None,
+        source_system: str | None = None,
     ) -> int:
         if not rows:
             return 0
@@ -783,7 +883,13 @@ class TransformationService:
 
         with self._store.atomic():
             meters = extract_meters_from_bills(rows)
-            self._store.upsert_dimension_rows(DIM_METER, meters, effective_date=eff)
+            meters_upserted = self._store.upsert_dimension_rows(
+                DIM_METER,
+                meters,
+                effective_date=eff,
+                source_system=source_system,
+                source_run_id=run_id,
+            )
 
             fact_rows = []
             for row in rows:
@@ -838,6 +944,14 @@ class TransformationService:
 
             inserted = self._store.insert_rows(FACT_BILL_TABLE, fact_rows)
 
+        self._record_lineage(
+            run_id=run_id,
+            source_system=source_system,
+            records=[
+                ("dim_meter", "dimension", meters_upserted),
+                ("fact_bill", "fact", inserted),
+            ],
+        )
         return inserted
 
     def refresh_utility_cost_summary(self) -> int:

@@ -3,10 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from packages.shared.extensions import ExtensionRegistry
+from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.ingestion_config import (
     ColumnMappingRecord,
     DatasetContractConfigRecord,
-    IngestionConfigRepository,
     IngestionDefinitionRecord,
     PublicationDefinitionRecord,
     SourceAssetRecord,
@@ -50,7 +50,7 @@ class ConfigPreflightReport:
 
 
 def run_config_preflight(
-    config_repository: IngestionConfigRepository,
+    config_repository: ControlPlaneStore,
     *,
     extension_registry: ExtensionRegistry | None = None,
     source_asset_id: str | None = None,
@@ -195,7 +195,7 @@ def run_config_preflight(
 
 def _resolve_scoped_source_asset_ids(
     *,
-    config_repository: IngestionConfigRepository,
+    config_repository: ControlPlaneStore,
     source_asset_id: str | None,
     ingestion_definition_id: str | None,
     all_ingestion_definitions: list[IngestionDefinitionRecord],

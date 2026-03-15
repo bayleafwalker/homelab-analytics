@@ -1,21 +1,25 @@
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import asdict, is_dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.datastructures import UploadFile
 
 from apps.api.models import (
     ColumnMappingRequest,
     ConfiguredCsvIngestRequest,
     DatasetContractRequest,
+    ExecutionScheduleRequest,
     IngestionDefinitionRequest,
+    LoginRequest,
     PublicationDefinitionRequest,
     SourceAssetRequest,
     SourceSystemRequest,
@@ -41,11 +45,22 @@ from packages.pipelines.reporting_service import (
 )
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
+from packages.shared.auth import (
+    AuthenticatedPrincipal,
+    SessionManager,
+    has_required_role,
+    serialize_principal,
+    serialize_user,
+    verify_password,
+)
 from packages.shared.extensions import (
     ExtensionRegistry,
     build_builtin_extension_registry,
     serialize_extension_registry,
 )
+from packages.shared.metrics import metrics_registry
+from packages.storage.auth_store import AuthStore, UserRole
+from packages.storage.control_plane import ControlPlaneStore, ExecutionScheduleCreate
 from packages.storage.ingestion_config import (
     ColumnMappingCreate,
     ColumnMappingRule,
@@ -65,16 +80,32 @@ from packages.storage.run_metadata import IngestionRunRecord, IngestionRunStatus
 def create_app(
     service: AccountTransactionService,
     extension_registry: ExtensionRegistry | None = None,
-    config_repository: IngestionConfigRepository | None = None,
+    config_repository: ControlPlaneStore | None = None,
     transformation_service: TransformationService | None = None,
     reporting_service: ReportingService | None = None,
     subscription_service: SubscriptionService | None = None,
     contract_price_service: ContractPriceService | None = None,
+    auth_store: AuthStore | None = None,
+    auth_mode: str = "disabled",
+    session_manager: SessionManager | None = None,
+    enable_unsafe_admin: bool = False,
 ) -> FastAPI:
     registry = extension_registry or build_builtin_extension_registry()
     resolved_config_repository = config_repository or IngestionConfigRepository(
         service.landing_root.parent / "config.db"
     )
+    resolved_auth_store_candidate = auth_store or resolved_config_repository
+    resolved_auth_mode = auth_mode.lower()
+    if resolved_auth_mode not in {"disabled", "local"}:
+        raise ValueError(f"Unsupported auth mode: {auth_mode!r}")
+    if resolved_auth_mode == "local" and session_manager is None:
+        raise ValueError("Local auth requires a configured session manager.")
+    if resolved_auth_mode == "local" and not isinstance(
+        resolved_auth_store_candidate, AuthStore
+    ):
+        raise ValueError("Local auth requires an auth-capable control-plane store.")
+    resolved_auth_store = cast(AuthStore, resolved_auth_store_candidate)
+    resolved_session_manager = session_manager
     configured_ingestion_service = ConfiguredCsvIngestionService(
         landing_root=service.landing_root,
         metadata_repository=service.metadata_repository,
@@ -99,9 +130,118 @@ def create_app(
         )
     )
     app = FastAPI(title="Homelab Analytics API")
+    logger = logging.getLogger("homelab_analytics.api")
+
+    metrics_registry.inc(
+        "ingestion_runs_total",
+        0,
+        help_text="Total ingestion runs observed by the API.",
+    )
+    metrics_registry.inc(
+        "ingestion_failures_total",
+        0,
+        help_text="Total failed or rejected ingestion runs observed by the API.",
+    )
+    metrics_registry.inc(
+        "ingestion_duration_seconds",
+        0,
+        help_text="Cumulative ingestion handling duration in seconds.",
+    )
+    metrics_registry.set(
+        "worker_queue_depth",
+        0,
+        help_text="Current queued schedule-dispatch count.",
+    )
+
+    def require_unsafe_admin() -> None:
+        if resolved_auth_mode == "local":
+            return
+        if not enable_unsafe_admin:
+            raise HTTPException(
+                status_code=404,
+                detail="Unsafe admin routes are disabled until authentication is implemented.",
+            )
 
     def publish_reporting(promotion: PromotionResult | None) -> None:
         publish_promotion_reporting(resolved_reporting_service, promotion)
+
+    def required_role_for_path(path: str) -> UserRole | None:
+        if path in {"/health", "/metrics", "/auth/login", "/auth/logout"}:
+            return None
+        if (
+            path.startswith("/config/")
+            or path.startswith("/control/")
+            or path in {"/extensions", "/sources"}
+            or path.startswith("/landing/")
+            or path.startswith("/transformations/")
+            or path.startswith("/ingest/ingestion-definitions/")
+        ):
+            return UserRole.ADMIN
+        if path.startswith("/ingest"):
+            return UserRole.OPERATOR
+        if (
+            path.startswith("/runs")
+            or path.startswith("/reports")
+            or path == "/transformation-audit"
+            or path == "/auth/me"
+            or path.startswith("/docs")
+            or path.startswith("/redoc")
+            or path == "/openapi.json"
+        ):
+            return UserRole.READER
+        return None
+
+    @app.middleware("http")
+    async def authenticate_and_log_request(request: Request, call_next):
+        started = time.perf_counter()
+        request.state.principal = None
+        if resolved_auth_mode == "local":
+            assert resolved_session_manager is not None
+            required_role = required_role_for_path(request.url.path)
+            request.state.principal = resolved_session_manager.authenticate(
+                request.cookies.get(resolved_session_manager.cookie_name),
+                resolved_auth_store,
+            )
+            if required_role is not None:
+                admin_bypass = enable_unsafe_admin and required_role == UserRole.ADMIN
+                if request.state.principal is None and not admin_bypass:
+                    response = JSONResponse(
+                        status_code=401,
+                        content={"detail": "Authentication required."},
+                    )
+                    _log_request(logger, request.method, request.url.path, 401, started)
+                    return response
+                if (
+                    request.state.principal is not None
+                    and not has_required_role(
+                        request.state.principal.role,
+                        required_role,
+                    )
+                ):
+                    response = JSONResponse(
+                        status_code=403,
+                        content={
+                            "detail": f"{required_role.value} role required.",
+                        },
+                    )
+                    _log_request(logger, request.method, request.url.path, 403, started)
+                    return response
+        response = await call_next(request)
+        if request.url.path.startswith("/ingest"):
+            duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            metrics_registry.inc(
+                "ingestion_duration_seconds",
+                duration_ms / 1000,
+                help_text="Cumulative ingestion handling duration in seconds.",
+            )
+        _log_request(
+            logger,
+            request.method,
+            request.url.path,
+            response.status_code,
+            started,
+        )
+        return response
 
     @app.exception_handler(FileNotFoundError)
     async def handle_missing_file(_, exc: FileNotFoundError) -> JSONResponse:
@@ -119,6 +259,90 @@ def create_app(
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/metrics")
+    async def metrics() -> PlainTextResponse:
+        metrics_registry.set(
+            "worker_queue_depth",
+            float(
+                len(
+                    resolved_config_repository.list_schedule_dispatches(
+                        status="enqueued"
+                    )
+                )
+            ),
+            help_text="Current queued schedule-dispatch count.",
+        )
+        return PlainTextResponse(
+            metrics_registry.render_prometheus_text(),
+            media_type="text/plain; version=0.0.4",
+        )
+
+    @app.post("/auth/login")
+    async def login(payload: LoginRequest) -> JSONResponse:
+        if resolved_auth_mode != "local":
+            raise HTTPException(
+                status_code=400,
+                detail="Local authentication is not enabled.",
+            )
+        try:
+            user = resolved_auth_store.get_local_user_by_username(payload.username)
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid username or password.",
+            ) from exc
+        if not user.enabled or not verify_password(payload.password, user.password_hash):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid username or password.",
+            )
+        user = resolved_auth_store.record_local_user_login(user.user_id)
+        assert resolved_session_manager is not None
+        response = JSONResponse(
+            {
+                "auth_mode": "local",
+                "authenticated": True,
+                "user": serialize_user(user),
+                "principal": serialize_principal(request_principal_from_user(user)),
+            }
+        )
+        response.set_cookie(
+            key=resolved_session_manager.cookie_name,
+            value=resolved_session_manager.issue_session_cookie(user),
+            httponly=True,
+            max_age=resolved_session_manager.max_age_seconds,
+            path="/",
+            samesite="lax",
+        )
+        return response
+
+    @app.post("/auth/logout")
+    async def logout() -> JSONResponse:
+        response = JSONResponse({"logged_out": True})
+        if resolved_session_manager is not None:
+            response.delete_cookie(
+                resolved_session_manager.cookie_name,
+                path="/",
+                httponly=True,
+                samesite="lax",
+            )
+        return response
+
+    @app.get("/auth/me")
+    async def auth_me(request: Request) -> dict[str, Any]:
+        if resolved_auth_mode != "local":
+            return {"auth_mode": "disabled", "authenticated": False}
+        principal = getattr(request.state, "principal", None)
+        if principal is None:
+            raise HTTPException(status_code=401, detail="Authentication required.")
+        user = resolved_auth_store.get_local_user(principal.user_id)
+        return {
+            "auth_mode": "local",
+            "authenticated": True,
+            "user": serialize_user(user),
+            "principal": serialize_principal(principal),
+        }
 
     @app.get("/runs")
     async def list_runs(
@@ -158,10 +382,12 @@ def create_app(
 
     @app.get("/extensions")
     async def list_extensions() -> dict[str, Any]:
+        require_unsafe_admin()
         return {"extensions": serialize_extension_registry(registry)}
 
     @app.get("/sources")
     async def list_sources() -> dict[str, Any]:
+        require_unsafe_admin()
         return {
             "source_systems": _to_jsonable(
                 resolved_config_repository.list_source_systems()
@@ -173,6 +399,7 @@ def create_app(
 
     @app.get("/config/source-systems")
     async def list_source_systems() -> dict[str, Any]:
+        require_unsafe_admin()
         return {
             "source_systems": _to_jsonable(
                 resolved_config_repository.list_source_systems()
@@ -181,6 +408,7 @@ def create_app(
 
     @app.post("/config/source-systems", status_code=201)
     async def create_source_system(payload: SourceSystemRequest) -> dict[str, Any]:
+        require_unsafe_admin()
         source_system = resolved_config_repository.create_source_system(
             SourceSystemCreate(
                 source_system_id=payload.source_system_id,
@@ -195,6 +423,7 @@ def create_app(
 
     @app.get("/config/dataset-contracts")
     async def list_dataset_contracts() -> dict[str, Any]:
+        require_unsafe_admin()
         return {
             "dataset_contracts": _to_jsonable(
                 resolved_config_repository.list_dataset_contracts()
@@ -203,6 +432,7 @@ def create_app(
 
     @app.post("/config/dataset-contracts", status_code=201)
     async def create_dataset_contract(payload: DatasetContractRequest) -> dict[str, Any]:
+        require_unsafe_admin()
         dataset_contract = resolved_config_repository.create_dataset_contract(
             DatasetContractConfigCreate(
                 dataset_contract_id=payload.dataset_contract_id,
@@ -223,6 +453,7 @@ def create_app(
 
     @app.get("/config/column-mappings")
     async def list_column_mappings() -> dict[str, Any]:
+        require_unsafe_admin()
         return {
             "column_mappings": _to_jsonable(
                 resolved_config_repository.list_column_mappings()
@@ -231,6 +462,7 @@ def create_app(
 
     @app.post("/config/column-mappings", status_code=201)
     async def create_column_mapping(payload: ColumnMappingRequest) -> dict[str, Any]:
+        require_unsafe_admin()
         column_mapping = resolved_config_repository.create_column_mapping(
             ColumnMappingCreate(
                 column_mapping_id=payload.column_mapping_id,
@@ -251,6 +483,7 @@ def create_app(
 
     @app.get("/config/transformation-packages")
     async def list_transformation_packages() -> dict[str, Any]:
+        require_unsafe_admin()
         return {
             "transformation_packages": _to_jsonable(
                 resolved_config_repository.list_transformation_packages()
@@ -261,6 +494,7 @@ def create_app(
     async def create_transformation_package(
         payload: TransformationPackageRequest,
     ) -> dict[str, Any]:
+        require_unsafe_admin()
         transformation_package = resolved_config_repository.create_transformation_package(
             TransformationPackageCreate(
                 transformation_package_id=payload.transformation_package_id,
@@ -276,6 +510,7 @@ def create_app(
     async def list_publication_definitions(
         transformation_package_id: str | None = None,
     ) -> dict[str, Any]:
+        require_unsafe_admin()
         return {
             "publication_definitions": _to_jsonable(
                 resolved_config_repository.list_publication_definitions(
@@ -288,6 +523,7 @@ def create_app(
     async def create_publication_definition(
         payload: PublicationDefinitionRequest,
     ) -> dict[str, Any]:
+        require_unsafe_admin()
         publication_definition = resolved_config_repository.create_publication_definition(
             PublicationDefinitionCreate(
                 publication_definition_id=payload.publication_definition_id,
@@ -302,10 +538,12 @@ def create_app(
 
     @app.get("/config/source-assets")
     async def list_source_assets() -> dict[str, Any]:
+        require_unsafe_admin()
         return {"source_assets": _to_jsonable(resolved_config_repository.list_source_assets())}
 
     @app.post("/config/source-assets", status_code=201)
     async def create_source_asset(payload: SourceAssetRequest) -> dict[str, Any]:
+        require_unsafe_admin()
         source_asset = resolved_config_repository.create_source_asset(
             SourceAssetCreate(
                 source_asset_id=payload.source_asset_id,
@@ -322,6 +560,7 @@ def create_app(
 
     @app.get("/config/ingestion-definitions")
     async def list_ingestion_definitions() -> dict[str, Any]:
+        require_unsafe_admin()
         return {
             "ingestion_definitions": _to_jsonable(
                 resolved_config_repository.list_ingestion_definitions()
@@ -332,6 +571,7 @@ def create_app(
     async def create_ingestion_definition(
         payload: IngestionDefinitionRequest,
     ) -> dict[str, Any]:
+        require_unsafe_admin()
         ingestion_definition = resolved_config_repository.create_ingestion_definition(
             IngestionDefinitionCreate(
                 ingestion_definition_id=payload.ingestion_definition_id,
@@ -362,11 +602,84 @@ def create_app(
         )
         return {"ingestion_definition": _to_jsonable(ingestion_definition)}
 
+    @app.get("/config/execution-schedules")
+    async def list_execution_schedules() -> dict[str, Any]:
+        require_unsafe_admin()
+        return {
+            "execution_schedules": _to_jsonable(
+                resolved_config_repository.list_execution_schedules()
+            )
+        }
+
+    @app.post("/config/execution-schedules", status_code=201)
+    async def create_execution_schedule(
+        payload: ExecutionScheduleRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        schedule = resolved_config_repository.create_execution_schedule(
+            ExecutionScheduleCreate(
+                schedule_id=payload.schedule_id,
+                target_kind=payload.target_kind,
+                target_ref=payload.target_ref,
+                cron_expression=payload.cron_expression,
+                timezone=payload.timezone,
+                enabled=payload.enabled,
+                max_concurrency=payload.max_concurrency,
+            )
+        )
+        return {"execution_schedule": _to_jsonable(schedule)}
+
+    @app.get("/control/source-lineage")
+    async def get_source_lineage(
+        run_id: str | None = None,
+        target_layer: str | None = None,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        return {
+            "lineage": _to_jsonable(
+                resolved_config_repository.list_source_lineage(
+                    input_run_id=run_id,
+                    target_layer=target_layer,
+                )
+            )
+        }
+
+    @app.get("/control/publication-audit")
+    async def get_publication_audit(
+        run_id: str | None = None,
+        publication_key: str | None = None,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        return {
+            "publication_audit": _to_jsonable(
+                resolved_config_repository.list_publication_audit(
+                    run_id=run_id,
+                    publication_key=publication_key,
+                )
+            )
+        }
+
+    @app.get("/control/schedule-dispatches")
+    async def list_schedule_dispatches(
+        schedule_id: str | None = None,
+        status: str | None = None,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        return {
+            "dispatches": _to_jsonable(
+                resolved_config_repository.list_schedule_dispatches(
+                    schedule_id=schedule_id,
+                    status=status,
+                )
+            )
+        }
+
     @app.post("/landing/{extension_key}", status_code=201)
     async def run_landing_extension(
         extension_key: str,
         payload: dict[str, Any],
     ) -> dict[str, Any]:
+        require_unsafe_admin()
         result = registry.execute(
             "landing",
             extension_key,
@@ -474,6 +787,7 @@ def create_app(
         body: dict[str, Any] = {"run": serialize_run(run)}
         if promotion is not None:
             body["promotion"] = serialize_promotion(promotion)
+        _observe_ingest_run(run)
         status_code = 409 if any(i.code == "duplicate_file" for i in run.issues) else (
             201 if run.passed else 400
         )
@@ -512,6 +826,7 @@ def create_app(
         body: dict[str, Any] = {"run": serialize_run(run)}
         if promotion is not None:
             body["promotion"] = serialize_promotion(promotion)
+        _observe_ingest_run(run)
         status_code = 409 if any(i.code == "duplicate_file" for i in run.issues) else (
             201 if run.passed else 400
         )
@@ -519,6 +834,7 @@ def create_app(
 
     @app.post("/ingest/ingestion-definitions/{ingestion_definition_id}/process", status_code=201)
     async def process_ingestion_definition(ingestion_definition_id: str) -> dict[str, Any]:
+        require_unsafe_admin()
         result = configured_definition_service.process_ingestion_definition(
             ingestion_definition_id
         )
@@ -553,6 +869,7 @@ def create_app(
         extension_key: str,
         run_id: str | None = None,
     ) -> dict[str, Any]:
+        require_unsafe_admin()
         if not run_id:
             raise HTTPException(status_code=400, detail="run_id is required")
         result = registry.execute(
@@ -807,6 +1124,7 @@ def _build_run_response(
     *,
     promotion: PromotionResult | None = None,
 ) -> JSONResponse:
+    _observe_ingest_run(run)
     if any(issue.code == "duplicate_file" for issue in run.issues):
         status_code = 409
     elif run.passed:
@@ -817,6 +1135,46 @@ def _build_run_response(
     if promotion is not None:
         body["promotion"] = serialize_promotion(promotion)
     return JSONResponse(status_code=status_code, content=body)
+
+
+def _observe_ingest_run(run: IngestionRunRecord) -> None:
+    metrics_registry.inc(
+        "ingestion_runs_total",
+        1,
+        help_text="Total ingestion runs observed by the API.",
+    )
+    if not run.passed:
+        metrics_registry.inc(
+            "ingestion_failures_total",
+            1,
+            help_text="Total failed or rejected ingestion runs observed by the API.",
+        )
+
+
+def request_principal_from_user(user) -> AuthenticatedPrincipal:
+    return AuthenticatedPrincipal(
+        user_id=user.user_id,
+        username=user.username,
+        role=user.role,
+    )
+
+
+def _log_request(
+    logger: logging.Logger,
+    method: str,
+    path: str,
+    status_code: int,
+    started: float,
+) -> None:
+    logger.info(
+        "request handled",
+        extra={
+            "method": method,
+            "path": path,
+            "status_code": status_code,
+            "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+        },
+    )
 
 
 def serialize_promotion(promotion: PromotionResult) -> dict[str, Any]:

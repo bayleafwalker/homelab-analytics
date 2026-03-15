@@ -55,7 +55,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Dashboard UI and external consumers (e.g. Home Assistant) access analytics data through the same API.
 
 **Phase:** 1–3
-**Status:** in-progress (`GET /reports/monthly-cashflow` is warehouse-backed with optional `from_month`/`to_month` filters; current-dimension, subscription-summary, contract-price, electricity-price, and utility-cost-summary endpoints are exposed from reporting-layer models; executable reporting extensions now advertise whether they are `published` or `warehouse` backed, published extensions can declare publication relations for Postgres-backed execution, and config-driven publication definitions can include those relation keys during promotion; export formats and remaining mart endpoints are still pending)
+**Status:** in-progress (`GET /reports/monthly-cashflow` and the other built-in marts read through the reporting-service contract; when Postgres published reporting is configured, API/web app-facing reads now require published relations instead of falling back to DuckDB; current-dimension, subscription-summary, contract-price, electricity-price, and utility-cost-summary endpoints are exposed from reporting-layer models; executable reporting extensions now advertise whether they are `published` or `warehouse` backed, published extensions can declare publication relations for Postgres-backed execution, and config-driven publication definitions can include those relation keys during promotion; export formats and remaining mart endpoints are still pending)
 
 **Acceptance criteria:**
 - `GET /reports/{mart_name}` returns mart data with query parameters for date range and filters.
@@ -74,7 +74,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Operational management through API enables both UI administration and scripted configuration.
 
 **Phase:** 4
-**Status:** in-progress (CRUD-style config endpoints exist for source systems, dataset contracts, column mappings, transformation packages, publication definitions, source assets, and ingestion definitions; publication-definition creation now rejects unknown built-in or extension relation keys; authentication and role enforcement are still pending)
+**Status:** in-progress (CRUD-style config endpoints exist for source systems, dataset contracts, column mappings, transformation packages, publication definitions, source assets, ingestion definitions, and execution schedules; control-plane read endpoints expose schedule dispatches, source lineage, and publication audit; publication-definition creation rejects unknown built-in or extension relation keys; local auth now protects admin/control routes with an `admin` role, while `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` remains only as a temporary local bypass)
 
 **Acceptance criteria:**
 - CRUD endpoints for source systems, dataset contracts, column mappings, transformation packages, publication definitions, and schedules.
@@ -92,7 +92,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** The primary user interaction surface. Dashboards must present derived analytics clearly.
 
 **Phase:** 2
-**Status:** in-progress (server-rendered HTML dashboard exists; no React/Next.js frontend)
+**Status:** in-progress (a minimal Next.js shell now exists for login, dashboard, runs, and reporting views; it consumes the API only and replaces the old server-rendered Python dashboard, but broader product/admin surface work is still pending)
 
 **Acceptance criteria:**
 - Dashboard pages render from reporting API data.
@@ -112,7 +112,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Visibility into ingestion status builds trust in the data and enables self-service troubleshooting.
 
 **Phase:** 2
-**Status:** in-progress (basic run list shown in server-rendered dashboard)
+**Status:** in-progress (the Next.js shell now exposes a basic run-history view backed by the API; detail pages and richer filtering are still pending)
 
 **Acceptance criteria:**
 - Run list page shows recent runs with status badges.
@@ -202,7 +202,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** The worker is the execution engine for all data processing. CLI interface enables scripting, debugging, and Kubernetes Job integration.
 
 **Phase:** 0
-**Status:** implemented (JSON-emitting commands cover account ingestion, configured CSV ingestion, ingestion-definition processing, config preflight verification, inbox processing/watch, extension execution, subscription and contract-price ingestion/reporting, warehouse-backed monthly cashflow reporting, and utility cost summary reporting)
+**Status:** implemented (JSON-emitting commands cover account ingestion, configured CSV ingestion, ingestion-definition processing, config preflight verification, inbox processing/watch, extension execution, subscription and contract-price ingestion/reporting, utility cost summary reporting, execution-schedule enqueue/list/mark flows, control-plane import/export, and local-user bootstrap/reset/list operations)
 
 **Acceptance criteria:**
 - All subcommands emit JSON for parseable output.
@@ -239,11 +239,11 @@ The platform exposes its capabilities through three application workloads: a JSO
 | APP-02 | `apps/api/app.py` | `tests/test_api_app.py` |
 | APP-03 | `apps/api/app.py` | `tests/test_api_app.py`, `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py` |
 | APP-04 | `apps/api/app.py` | `tests/test_api_app.py` |
-| APP-05 | `apps/web/app.py` | `tests/test_web_app.py` |
-| APP-06 | `apps/web/app.py` | `tests/test_web_app.py` |
+| APP-05 | `apps/web/frontend/app/page.js`, `apps/web/frontend/app/reports/page.js`, `apps/web/frontend/components/app-shell.js` | `tests/test_web_app.py`, `tests/test_web_auth.py` |
+| APP-06 | `apps/web/frontend/app/runs/page.js`, `apps/web/frontend/lib/backend.js` | `tests/test_web_auth.py` |
 | APP-07 | — | — |
 | APP-08 | — | — |
 | APP-09 | — | — |
 | APP-10 | — | — |
 | APP-11 | `apps/worker/main.py`, `packages/pipelines/config_preflight.py` | `tests/test_worker_cli.py`, `tests/test_config_preflight.py`, `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py` |
-| APP-12 | `apps/api/app.py`, `apps/web/app.py` | `tests/test_api_app.py`, `tests/test_web_app.py` |
+| APP-12 | `apps/api/app.py`, `apps/web/frontend/app/health/route.js` | `tests/test_api_app.py`, `tests/test_web_app.py` |

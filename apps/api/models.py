@@ -95,6 +95,16 @@ class IngestionDefinitionRequest(BaseModel):
     source_name: str | None = None
 
 
+class ExecutionScheduleRequest(BaseModel):
+    schedule_id: str
+    target_kind: str
+    target_ref: str
+    cron_expression: str
+    timezone: str = "UTC"
+    enabled: bool = True
+    max_concurrency: int = 1
+
+
 class ConfiguredCsvIngestRequest(BaseModel):
     source_path: str
     source_system_id: str
@@ -102,3 +112,8 @@ class ConfiguredCsvIngestRequest(BaseModel):
     column_mapping_id: str
     source_asset_id: str | None = None
     source_name: str = "configured-upload"
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str

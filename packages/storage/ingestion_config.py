@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import uuid
 from contextlib import closing
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
@@ -9,6 +10,23 @@ from pathlib import Path
 
 from packages.pipelines.csv_validation import ColumnContract, ColumnType, DatasetContract
 from packages.shared.extensions import ExtensionRegistry
+from packages.storage.auth_store import (
+    LocalUserCreate,
+    LocalUserRecord,
+    UserRole,
+    normalize_username,
+)
+from packages.storage.control_plane import (
+    ControlPlaneSnapshot,
+    ExecutionScheduleCreate,
+    ExecutionScheduleRecord,
+    PublicationAuditCreate,
+    PublicationAuditRecord,
+    ScheduleDispatchRecord,
+    SourceLineageCreate,
+    SourceLineageRecord,
+)
+from packages.storage.scheduling import next_cron_occurrence
 
 
 @dataclass(frozen=True)
@@ -1057,6 +1075,740 @@ class IngestionConfigRepository:
             for row in rows
         ]
 
+    def create_execution_schedule(
+        self,
+        schedule: ExecutionScheduleCreate,
+    ) -> ExecutionScheduleRecord:
+        next_due_at = schedule.next_due_at or next_cron_occurrence(
+            schedule.cron_expression,
+            timezone=schedule.timezone,
+            after=schedule.created_at,
+        )
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO execution_schedules (
+                    schedule_id,
+                    target_kind,
+                    target_ref,
+                    cron_expression,
+                    timezone,
+                    enabled,
+                    max_concurrency,
+                    next_due_at,
+                    last_enqueued_at,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    schedule.schedule_id,
+                    schedule.target_kind,
+                    schedule.target_ref,
+                    schedule.cron_expression,
+                    schedule.timezone,
+                    int(schedule.enabled),
+                    schedule.max_concurrency,
+                    next_due_at.isoformat(),
+                    schedule.last_enqueued_at.isoformat()
+                    if schedule.last_enqueued_at
+                    else None,
+                    schedule.created_at.isoformat(),
+                ),
+            )
+            connection.commit()
+        return self.get_execution_schedule(schedule.schedule_id)
+
+    def get_execution_schedule(self, schedule_id: str) -> ExecutionScheduleRecord:
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            row = connection.execute(
+                """
+                SELECT
+                    schedule_id,
+                    target_kind,
+                    target_ref,
+                    cron_expression,
+                    timezone,
+                    enabled,
+                    max_concurrency,
+                    next_due_at,
+                    last_enqueued_at,
+                    created_at
+                FROM execution_schedules
+                WHERE schedule_id = ?
+                """,
+                (schedule_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown execution schedule: {schedule_id}")
+        return _deserialize_execution_schedule_row(row)
+
+    def list_execution_schedules(
+        self,
+        *,
+        enabled_only: bool = False,
+    ) -> list[ExecutionScheduleRecord]:
+        query = """
+            SELECT
+                schedule_id,
+                target_kind,
+                target_ref,
+                cron_expression,
+                timezone,
+                enabled,
+                max_concurrency,
+                next_due_at,
+                last_enqueued_at,
+                created_at
+            FROM execution_schedules
+        """
+        if enabled_only:
+            query += " WHERE enabled = 1"
+        query += " ORDER BY created_at, schedule_id"
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(query).fetchall()
+        return [_deserialize_execution_schedule_row(row) for row in rows]
+
+    def enqueue_due_execution_schedules(
+        self,
+        *,
+        as_of: datetime | None = None,
+        limit: int | None = None,
+    ) -> list[ScheduleDispatchRecord]:
+        dispatches: list[ScheduleDispatchRecord] = []
+        resolved_as_of = as_of or datetime.now(UTC)
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            schedule_rows = connection.execute(
+                """
+                SELECT
+                    schedule_id,
+                    target_kind,
+                    target_ref,
+                    cron_expression,
+                    timezone,
+                    enabled,
+                    max_concurrency,
+                    next_due_at,
+                    last_enqueued_at,
+                    created_at
+                FROM execution_schedules
+                WHERE enabled = 1
+                  AND next_due_at IS NOT NULL
+                  AND next_due_at <= ?
+                ORDER BY next_due_at, schedule_id
+                """,
+                (resolved_as_of.isoformat(),),
+            ).fetchall()
+            for row in schedule_rows:
+                if limit is not None and len(dispatches) >= limit:
+                    break
+                active_count = connection.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM schedule_dispatches
+                    WHERE schedule_id = ?
+                      AND status IN ('enqueued', 'running')
+                    """,
+                    (row["schedule_id"],),
+                ).fetchone()[0]
+                if active_count >= row["max_concurrency"]:
+                    continue
+                dispatch_id = uuid.uuid4().hex[:16]
+                connection.execute(
+                    """
+                    INSERT INTO schedule_dispatches (
+                        dispatch_id,
+                        schedule_id,
+                        target_kind,
+                        target_ref,
+                        enqueued_at,
+                        status,
+                        completed_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        dispatch_id,
+                        row["schedule_id"],
+                        row["target_kind"],
+                        row["target_ref"],
+                        resolved_as_of.isoformat(),
+                        "enqueued",
+                        None,
+                    ),
+                )
+                next_due_at = next_cron_occurrence(
+                    row["cron_expression"],
+                    timezone=row["timezone"],
+                    after=resolved_as_of,
+                )
+                connection.execute(
+                    """
+                    UPDATE execution_schedules
+                    SET last_enqueued_at = ?, next_due_at = ?
+                    WHERE schedule_id = ?
+                    """,
+                    (
+                        resolved_as_of.isoformat(),
+                        next_due_at.isoformat(),
+                        row["schedule_id"],
+                    ),
+                )
+                dispatches.append(
+                    ScheduleDispatchRecord(
+                        dispatch_id=dispatch_id,
+                        schedule_id=row["schedule_id"],
+                        target_kind=row["target_kind"],
+                        target_ref=row["target_ref"],
+                        enqueued_at=resolved_as_of,
+                        status="enqueued",
+                        completed_at=None,
+                    )
+                )
+            connection.commit()
+        return dispatches
+
+    def list_schedule_dispatches(
+        self,
+        *,
+        schedule_id: str | None = None,
+        status: str | None = None,
+    ) -> list[ScheduleDispatchRecord]:
+        clauses: list[str] = []
+        params: list[str] = []
+        if schedule_id is not None:
+            clauses.append("schedule_id = ?")
+            params.append(schedule_id)
+        if status is not None:
+            clauses.append("status = ?")
+            params.append(status)
+        where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(
+                f"""
+                SELECT
+                    dispatch_id,
+                    schedule_id,
+                    target_kind,
+                    target_ref,
+                    enqueued_at,
+                    status,
+                    completed_at
+                FROM schedule_dispatches
+                {where_sql}
+                ORDER BY enqueued_at DESC, dispatch_id DESC
+                """,
+                params,
+            ).fetchall()
+        return [_deserialize_schedule_dispatch_row(row) for row in rows]
+
+    def mark_schedule_dispatch_status(
+        self,
+        dispatch_id: str,
+        *,
+        status: str,
+        completed_at: datetime | None = None,
+    ) -> ScheduleDispatchRecord:
+        resolved_completed_at = completed_at if status in {"completed", "failed"} else None
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE schedule_dispatches
+                SET status = ?, completed_at = ?
+                WHERE dispatch_id = ?
+                """,
+                (
+                    status,
+                    resolved_completed_at.isoformat()
+                    if resolved_completed_at is not None
+                    else None,
+                    dispatch_id,
+                ),
+            )
+            connection.commit()
+        rows = self.list_schedule_dispatches()
+        for row in rows:
+            if row.dispatch_id == dispatch_id:
+                return row
+        raise KeyError(f"Unknown schedule dispatch: {dispatch_id}")
+
+    def record_source_lineage(
+        self,
+        entries: tuple[SourceLineageCreate, ...],
+    ) -> list[SourceLineageRecord]:
+        if not entries:
+            return []
+        with self._connect() as connection:
+            connection.executemany(
+                """
+                INSERT INTO source_lineage (
+                    lineage_id,
+                    input_run_id,
+                    target_layer,
+                    target_name,
+                    target_kind,
+                    row_count,
+                    source_system,
+                    source_run_id,
+                    recorded_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        entry.lineage_id,
+                        entry.input_run_id,
+                        entry.target_layer,
+                        entry.target_name,
+                        entry.target_kind,
+                        entry.row_count,
+                        entry.source_system,
+                        entry.source_run_id,
+                        entry.recorded_at.isoformat(),
+                    )
+                    for entry in entries
+                ],
+            )
+            connection.commit()
+        return self.list_source_lineage()
+
+    def list_source_lineage(
+        self,
+        *,
+        input_run_id: str | None = None,
+        target_layer: str | None = None,
+    ) -> list[SourceLineageRecord]:
+        clauses: list[str] = []
+        params: list[str] = []
+        if input_run_id is not None:
+            clauses.append("input_run_id = ?")
+            params.append(input_run_id)
+        if target_layer is not None:
+            clauses.append("target_layer = ?")
+            params.append(target_layer)
+        where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(
+                f"""
+                SELECT
+                    lineage_id,
+                    input_run_id,
+                    target_layer,
+                    target_name,
+                    target_kind,
+                    row_count,
+                    source_system,
+                    source_run_id,
+                    recorded_at
+                FROM source_lineage
+                {where_sql}
+                ORDER BY recorded_at, lineage_id
+                """,
+                params,
+            ).fetchall()
+        return [_deserialize_source_lineage_row(row) for row in rows]
+
+    def record_publication_audit(
+        self,
+        entries: tuple[PublicationAuditCreate, ...],
+    ) -> list[PublicationAuditRecord]:
+        if not entries:
+            return []
+        with self._connect() as connection:
+            connection.executemany(
+                """
+                INSERT INTO publication_audit (
+                    publication_audit_id,
+                    run_id,
+                    publication_key,
+                    relation_name,
+                    status,
+                    published_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        entry.publication_audit_id,
+                        entry.run_id,
+                        entry.publication_key,
+                        entry.relation_name,
+                        entry.status,
+                        entry.published_at.isoformat(),
+                    )
+                    for entry in entries
+                ],
+            )
+            connection.commit()
+        return self.list_publication_audit()
+
+    def list_publication_audit(
+        self,
+        *,
+        run_id: str | None = None,
+        publication_key: str | None = None,
+    ) -> list[PublicationAuditRecord]:
+        clauses: list[str] = []
+        params: list[str] = []
+        if run_id is not None:
+            clauses.append("run_id = ?")
+            params.append(run_id)
+        if publication_key is not None:
+            clauses.append("publication_key = ?")
+            params.append(publication_key)
+        where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(
+                f"""
+                SELECT
+                    publication_audit_id,
+                    run_id,
+                    publication_key,
+                    relation_name,
+                    status,
+                    published_at
+                FROM publication_audit
+                {where_sql}
+                ORDER BY published_at, publication_audit_id
+                """,
+                params,
+            ).fetchall()
+        return [_deserialize_publication_audit_row(row) for row in rows]
+
+    def create_local_user(self, user: LocalUserCreate) -> LocalUserRecord:
+        username = normalize_username(user.username)
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO local_users (
+                    user_id,
+                    username,
+                    password_hash,
+                    role,
+                    enabled,
+                    created_at,
+                    last_login_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    user.user_id,
+                    username,
+                    user.password_hash,
+                    user.role.value,
+                    int(user.enabled),
+                    user.created_at.isoformat(),
+                    user.last_login_at.isoformat() if user.last_login_at else None,
+                ),
+            )
+            connection.commit()
+        return self.get_local_user(user.user_id)
+
+    def get_local_user(self, user_id: str) -> LocalUserRecord:
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            row = connection.execute(
+                """
+                SELECT
+                    user_id,
+                    username,
+                    password_hash,
+                    role,
+                    enabled,
+                    created_at,
+                    last_login_at
+                FROM local_users
+                WHERE user_id = ?
+                """,
+                (user_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown local user: {user_id}")
+        return _deserialize_local_user_row(row)
+
+    def get_local_user_by_username(self, username: str) -> LocalUserRecord:
+        normalized_username = normalize_username(username)
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            row = connection.execute(
+                """
+                SELECT
+                    user_id,
+                    username,
+                    password_hash,
+                    role,
+                    enabled,
+                    created_at,
+                    last_login_at
+                FROM local_users
+                WHERE username = ?
+                """,
+                (normalized_username,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown local user: {normalized_username}")
+        return _deserialize_local_user_row(row)
+
+    def list_local_users(self, *, enabled_only: bool = False) -> list[LocalUserRecord]:
+        sql = """
+            SELECT
+                user_id,
+                username,
+                password_hash,
+                role,
+                enabled,
+                created_at,
+                last_login_at
+            FROM local_users
+        """
+        if enabled_only:
+            sql += " WHERE enabled = 1"
+        sql += " ORDER BY created_at, username"
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(sql).fetchall()
+        return [_deserialize_local_user_row(row) for row in rows]
+
+    def update_local_user_password(
+        self,
+        user_id: str,
+        *,
+        password_hash: str,
+    ) -> LocalUserRecord:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE local_users
+                SET password_hash = ?
+                WHERE user_id = ?
+                """,
+                (password_hash, user_id),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown local user: {user_id}")
+        return self.get_local_user(user_id)
+
+    def record_local_user_login(
+        self,
+        user_id: str,
+        *,
+        logged_in_at: datetime | None = None,
+    ) -> LocalUserRecord:
+        resolved_logged_in_at = logged_in_at or datetime.now(UTC)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE local_users
+                SET last_login_at = ?
+                WHERE user_id = ?
+                """,
+                (resolved_logged_in_at.isoformat(), user_id),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown local user: {user_id}")
+        return self.get_local_user(user_id)
+
+    def export_snapshot(self) -> ControlPlaneSnapshot:
+        return ControlPlaneSnapshot(
+            source_systems=tuple(self.list_source_systems()),
+            dataset_contracts=tuple(self.list_dataset_contracts()),
+            column_mappings=tuple(self.list_column_mappings()),
+            transformation_packages=tuple(self.list_transformation_packages()),
+            publication_definitions=tuple(self.list_publication_definitions()),
+            source_assets=tuple(self.list_source_assets()),
+            ingestion_definitions=tuple(self.list_ingestion_definitions()),
+            execution_schedules=tuple(self.list_execution_schedules()),
+            source_lineage=tuple(self.list_source_lineage()),
+            publication_audit=tuple(self.list_publication_audit()),
+            local_users=tuple(self.list_local_users()),
+        )
+
+    def import_snapshot(self, snapshot: ControlPlaneSnapshot) -> None:
+        for source_system_record in snapshot.source_systems:
+            try:
+                self.create_source_system(
+                    SourceSystemCreate(
+                        source_system_id=source_system_record.source_system_id,
+                        name=source_system_record.name,
+                        source_type=source_system_record.source_type,
+                        transport=source_system_record.transport,
+                        schedule_mode=source_system_record.schedule_mode,
+                        description=source_system_record.description,
+                        created_at=source_system_record.created_at,
+                    )
+                )
+            except sqlite3.IntegrityError:
+                continue
+        for dataset_contract_record in snapshot.dataset_contracts:
+            try:
+                self.create_dataset_contract(
+                    DatasetContractConfigCreate(
+                        dataset_contract_id=dataset_contract_record.dataset_contract_id,
+                        dataset_name=dataset_contract_record.dataset_name,
+                        version=dataset_contract_record.version,
+                        allow_extra_columns=dataset_contract_record.allow_extra_columns,
+                        columns=dataset_contract_record.columns,
+                        created_at=dataset_contract_record.created_at,
+                    )
+                )
+            except sqlite3.IntegrityError:
+                continue
+        for column_mapping_record in snapshot.column_mappings:
+            try:
+                self.create_column_mapping(
+                    ColumnMappingCreate(
+                        column_mapping_id=column_mapping_record.column_mapping_id,
+                        source_system_id=column_mapping_record.source_system_id,
+                        dataset_contract_id=column_mapping_record.dataset_contract_id,
+                        version=column_mapping_record.version,
+                        rules=column_mapping_record.rules,
+                        created_at=column_mapping_record.created_at,
+                    )
+                )
+            except sqlite3.IntegrityError:
+                continue
+        for transformation_package_record in snapshot.transformation_packages:
+            try:
+                self.create_transformation_package(
+                    TransformationPackageCreate(
+                        transformation_package_id=transformation_package_record.transformation_package_id,
+                        name=transformation_package_record.name,
+                        handler_key=transformation_package_record.handler_key,
+                        version=transformation_package_record.version,
+                        description=transformation_package_record.description,
+                        created_at=transformation_package_record.created_at,
+                    )
+                )
+            except sqlite3.IntegrityError:
+                continue
+        for publication_definition_record in snapshot.publication_definitions:
+            try:
+                self.create_publication_definition(
+                    PublicationDefinitionCreate(
+                        publication_definition_id=publication_definition_record.publication_definition_id,
+                        transformation_package_id=publication_definition_record.transformation_package_id,
+                        publication_key=publication_definition_record.publication_key,
+                        name=publication_definition_record.name,
+                        description=publication_definition_record.description,
+                        created_at=publication_definition_record.created_at,
+                    )
+                )
+            except sqlite3.IntegrityError:
+                continue
+        for source_asset_record in snapshot.source_assets:
+            try:
+                self.create_source_asset(
+                    SourceAssetCreate(
+                        source_asset_id=source_asset_record.source_asset_id,
+                        source_system_id=source_asset_record.source_system_id,
+                        dataset_contract_id=source_asset_record.dataset_contract_id,
+                        column_mapping_id=source_asset_record.column_mapping_id,
+                        transformation_package_id=source_asset_record.transformation_package_id,
+                        name=source_asset_record.name,
+                        asset_type=source_asset_record.asset_type,
+                        description=source_asset_record.description,
+                        created_at=source_asset_record.created_at,
+                    )
+                )
+            except sqlite3.IntegrityError:
+                continue
+        for ingestion_definition_record in snapshot.ingestion_definitions:
+            try:
+                self.create_ingestion_definition(
+                    IngestionDefinitionCreate(
+                        ingestion_definition_id=ingestion_definition_record.ingestion_definition_id,
+                        source_asset_id=ingestion_definition_record.source_asset_id,
+                        transport=ingestion_definition_record.transport,
+                        schedule_mode=ingestion_definition_record.schedule_mode,
+                        source_path=ingestion_definition_record.source_path,
+                        file_pattern=ingestion_definition_record.file_pattern,
+                        processed_path=ingestion_definition_record.processed_path,
+                        failed_path=ingestion_definition_record.failed_path,
+                        poll_interval_seconds=ingestion_definition_record.poll_interval_seconds,
+                        request_url=ingestion_definition_record.request_url,
+                        request_method=ingestion_definition_record.request_method,
+                        request_headers=ingestion_definition_record.request_headers,
+                        request_timeout_seconds=ingestion_definition_record.request_timeout_seconds,
+                        response_format=ingestion_definition_record.response_format,
+                        output_file_name=ingestion_definition_record.output_file_name,
+                        enabled=ingestion_definition_record.enabled,
+                        source_name=ingestion_definition_record.source_name,
+                        created_at=ingestion_definition_record.created_at,
+                    )
+                )
+            except sqlite3.IntegrityError:
+                continue
+        for execution_schedule_record in snapshot.execution_schedules:
+            try:
+                self.create_execution_schedule(
+                    ExecutionScheduleCreate(
+                        schedule_id=execution_schedule_record.schedule_id,
+                        target_kind=execution_schedule_record.target_kind,
+                        target_ref=execution_schedule_record.target_ref,
+                        cron_expression=execution_schedule_record.cron_expression,
+                        timezone=execution_schedule_record.timezone,
+                        enabled=execution_schedule_record.enabled,
+                        max_concurrency=execution_schedule_record.max_concurrency,
+                        next_due_at=execution_schedule_record.next_due_at,
+                        last_enqueued_at=execution_schedule_record.last_enqueued_at,
+                        created_at=execution_schedule_record.created_at,
+                    )
+                )
+            except sqlite3.IntegrityError:
+                continue
+        self.record_source_lineage(
+            tuple(
+                SourceLineageCreate(
+                    lineage_id=record.lineage_id,
+                    input_run_id=record.input_run_id,
+                    target_layer=record.target_layer,
+                    target_name=record.target_name,
+                    target_kind=record.target_kind,
+                    row_count=record.row_count,
+                    source_system=record.source_system,
+                    source_run_id=record.source_run_id,
+                    recorded_at=record.recorded_at,
+                )
+                for record in snapshot.source_lineage
+            )
+        )
+        self.record_publication_audit(
+            tuple(
+                PublicationAuditCreate(
+                    publication_audit_id=record.publication_audit_id,
+                    run_id=record.run_id,
+                    publication_key=record.publication_key,
+                    relation_name=record.relation_name,
+                    status=record.status,
+                    published_at=record.published_at,
+                )
+                for record in snapshot.publication_audit
+            )
+        )
+        for local_user_record in snapshot.local_users:
+            try:
+                self.create_local_user(
+                    LocalUserCreate(
+                        user_id=local_user_record.user_id,
+                        username=local_user_record.username,
+                        password_hash=local_user_record.password_hash,
+                        role=local_user_record.role,
+                        enabled=local_user_record.enabled,
+                        created_at=local_user_record.created_at,
+                        last_login_at=local_user_record.last_login_at,
+                    )
+                )
+            except sqlite3.IntegrityError:
+                continue
+
     def _initialize(self) -> None:
         with self._connect() as connection:
             connection.executescript(
@@ -1146,6 +1898,61 @@ class IngestionConfigRepository:
                     source_name TEXT,
                     created_at TEXT NOT NULL,
                     FOREIGN KEY (source_asset_id) REFERENCES source_assets (source_asset_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS execution_schedules (
+                    schedule_id TEXT PRIMARY KEY,
+                    target_kind TEXT NOT NULL,
+                    target_ref TEXT NOT NULL,
+                    cron_expression TEXT NOT NULL,
+                    timezone TEXT NOT NULL,
+                    enabled INTEGER NOT NULL,
+                    max_concurrency INTEGER NOT NULL,
+                    next_due_at TEXT,
+                    last_enqueued_at TEXT,
+                    created_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS schedule_dispatches (
+                    dispatch_id TEXT PRIMARY KEY,
+                    schedule_id TEXT NOT NULL,
+                    target_kind TEXT NOT NULL,
+                    target_ref TEXT NOT NULL,
+                    enqueued_at TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    completed_at TEXT,
+                    FOREIGN KEY (schedule_id) REFERENCES execution_schedules (schedule_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS source_lineage (
+                    lineage_id TEXT PRIMARY KEY,
+                    input_run_id TEXT,
+                    target_layer TEXT NOT NULL,
+                    target_name TEXT NOT NULL,
+                    target_kind TEXT NOT NULL,
+                    row_count INTEGER,
+                    source_system TEXT,
+                    source_run_id TEXT,
+                    recorded_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS publication_audit (
+                    publication_audit_id TEXT PRIMARY KEY,
+                    run_id TEXT,
+                    publication_key TEXT NOT NULL,
+                    relation_name TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    published_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS local_users (
+                    user_id TEXT PRIMARY KEY,
+                    username TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    enabled INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    last_login_at TEXT
                 );
                 """
             )
@@ -1304,6 +2111,80 @@ def _deserialize_request_headers(value: str | None) -> tuple[RequestHeaderSecret
             secret_key=header["secret_key"],
         )
         for header in json.loads(value)
+    )
+
+
+def _deserialize_execution_schedule_row(row: sqlite3.Row) -> ExecutionScheduleRecord:
+    return ExecutionScheduleRecord(
+        schedule_id=row["schedule_id"],
+        target_kind=row["target_kind"],
+        target_ref=row["target_ref"],
+        cron_expression=row["cron_expression"],
+        timezone=row["timezone"],
+        enabled=bool(row["enabled"]),
+        max_concurrency=row["max_concurrency"],
+        next_due_at=datetime.fromisoformat(row["next_due_at"])
+        if row["next_due_at"]
+        else None,
+        last_enqueued_at=datetime.fromisoformat(row["last_enqueued_at"])
+        if row["last_enqueued_at"]
+        else None,
+        created_at=datetime.fromisoformat(row["created_at"]),
+    )
+
+
+def _deserialize_schedule_dispatch_row(row: sqlite3.Row) -> ScheduleDispatchRecord:
+    return ScheduleDispatchRecord(
+        dispatch_id=row["dispatch_id"],
+        schedule_id=row["schedule_id"],
+        target_kind=row["target_kind"],
+        target_ref=row["target_ref"],
+        enqueued_at=datetime.fromisoformat(row["enqueued_at"]),
+        status=row["status"],
+        completed_at=datetime.fromisoformat(row["completed_at"])
+        if row["completed_at"]
+        else None,
+    )
+
+
+def _deserialize_source_lineage_row(row: sqlite3.Row) -> SourceLineageRecord:
+    return SourceLineageRecord(
+        lineage_id=row["lineage_id"],
+        input_run_id=row["input_run_id"],
+        target_layer=row["target_layer"],
+        target_name=row["target_name"],
+        target_kind=row["target_kind"],
+        row_count=row["row_count"],
+        source_system=row["source_system"],
+        source_run_id=row["source_run_id"],
+        recorded_at=datetime.fromisoformat(row["recorded_at"]),
+    )
+
+
+def _deserialize_publication_audit_row(row: sqlite3.Row) -> PublicationAuditRecord:
+    return PublicationAuditRecord(
+        publication_audit_id=row["publication_audit_id"],
+        run_id=row["run_id"],
+        publication_key=row["publication_key"],
+        relation_name=row["relation_name"],
+        status=row["status"],
+        published_at=datetime.fromisoformat(row["published_at"]),
+    )
+
+
+def _deserialize_local_user_row(row: sqlite3.Row) -> LocalUserRecord:
+    return LocalUserRecord(
+        user_id=row["user_id"],
+        username=row["username"],
+        password_hash=row["password_hash"],
+        role=UserRole(row["role"]),
+        enabled=bool(row["enabled"]),
+        created_at=datetime.fromisoformat(row["created_at"]),
+        last_login_at=(
+            datetime.fromisoformat(row["last_login_at"])
+            if row["last_login_at"]
+            else None
+        ),
     )
 
 

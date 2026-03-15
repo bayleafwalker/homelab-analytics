@@ -1,6 +1,7 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -8,9 +9,11 @@ from fastapi.testclient import TestClient
 from apps.api.main import (
     build_app,
     build_lazy_transformation_service,
+    build_reporting_service,
     build_service,
     build_transformation_service,
 )
+from packages.pipelines.reporting_service import ReportingAccessMode
 from packages.shared.settings import AppSettings
 from tests.account_test_support import FIXTURES as ACCOUNT_FIXTURES
 from tests.contract_price_test_support import FIXTURES as CONTRACT_PRICE_FIXTURES
@@ -130,6 +133,40 @@ class ApiMainTests(unittest.TestCase):
             build_lazy_transformation_service(settings)
 
             self.assertFalse(settings.resolved_analytics_database_path.exists())
+
+    def test_build_reporting_service_uses_published_mode_for_postgres_reporting(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                postgres_dsn="postgresql://homelab:homelab@localhost:5432/homelab",
+                reporting_backend="postgres",
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+            )
+
+            transformation_service = build_transformation_service(settings)
+            with patch("apps.api.main.build_reporting_store", return_value=object()):
+                reporting_service = build_reporting_service(
+                    settings,
+                    transformation_service,
+                )
+
+            self.assertEqual(ReportingAccessMode.PUBLISHED, reporting_service._access_mode)
+            transformation_service.store.close()
 
     def test_built_app_supports_account_ingest_and_monthly_cashflow_reporting(self) -> None:
         with TemporaryDirectory() as temp_dir:

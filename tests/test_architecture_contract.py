@@ -36,7 +36,8 @@ def test_transformation_service_does_not_import_application_or_reporting_modules
 
 def test_app_reporting_paths_do_not_compute_cashflow_from_landing_service() -> None:
     api_source = (ROOT / "apps" / "api" / "app.py").read_text()
-    web_source = (ROOT / "apps" / "web" / "app.py").read_text()
+    web_dashboard_source = (ROOT / "apps" / "web" / "frontend" / "app" / "page.js").read_text()
+    web_backend_source = (ROOT / "apps" / "web" / "frontend" / "lib" / "backend.js").read_text()
 
     legacy_call_re = re.compile(r"(?<![A-Za-z0-9_])service\.get_monthly_cashflow\(")
     direct_transform_re = re.compile(
@@ -44,11 +45,11 @@ def test_app_reporting_paths_do_not_compute_cashflow_from_landing_service() -> N
     )
 
     assert legacy_call_re.search(api_source) is None
-    assert legacy_call_re.search(web_source) is None
     assert direct_transform_re.search(api_source) is None
-    assert direct_transform_re.search(web_source) is None
     assert "resolved_reporting_service.get_monthly_cashflow(" in api_source
-    assert "resolved_reporting_service.get_monthly_cashflow(" in web_source
+    assert "getMonthlyCashflow" in web_dashboard_source
+    assert "HOMELAB_ANALYTICS_API_BASE_URL" in web_backend_source
+    assert "ReportingService(" not in web_dashboard_source
 
 
 def test_app_reporting_routes_flow_through_reporting_service_contract() -> None:
@@ -59,6 +60,39 @@ def test_app_reporting_routes_flow_through_reporting_service_contract() -> None:
     assert "reporting_service=resolved_reporting_service" in api_source
     assert "publish_promotion_reporting(" in api_source
     assert "publish_promotion_reporting(" in worker_source
+
+
+def test_runtime_builders_preserve_published_vs_warehouse_reporting_boundary() -> None:
+    api_main_source = (ROOT / "apps" / "api" / "main.py").read_text()
+    web_main_source = (ROOT / "apps" / "web" / "main.py").read_text()
+    web_app_source = (ROOT / "apps" / "web" / "app.py").read_text()
+    worker_main_source = (ROOT / "apps" / "worker" / "main.py").read_text()
+
+    assert "ReportingAccessMode.PUBLISHED" in api_main_source
+    assert "settings.reporting_backend.lower() == \"postgres\"" in api_main_source
+    assert "access_mode=ReportingAccessMode.WAREHOUSE" in worker_main_source
+    assert "build_web_environment" in web_main_source
+    assert "HOMELAB_ANALYTICS_API_BASE_URL" in web_app_source
+
+
+def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> None:
+    api_source = (ROOT / "apps" / "api" / "app.py").read_text()
+    api_main_source = (ROOT / "apps" / "api" / "main.py").read_text()
+    web_login_page = (ROOT / "apps" / "web" / "frontend" / "app" / "login" / "page.js").read_text()
+    web_login_route = (ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "login" / "route.js").read_text()
+    web_logout_route = (ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "logout" / "route.js").read_text()
+    web_main_source = (ROOT / "apps" / "web" / "main.py").read_text()
+
+    assert "required_role_for_path" in api_source
+    assert "Authentication required." in api_source
+    assert "auth_mode=resolved_settings.auth_mode" in api_main_source
+    assert "session_manager=build_session_manager(resolved_settings)" in api_main_source
+    assert "maybe_bootstrap_local_admin" in api_main_source
+    assert 'action="/auth/login"' in web_login_page
+    assert 'backendRequest("/auth/login"' in web_login_route
+    assert 'backendRequest("/auth/logout"' in web_logout_route
+    assert "build_web_environment" in web_main_source
+    assert "resolved_api_base_url" in web_main_source
 
 
 def test_executable_reporting_extensions_declare_explicit_data_access() -> None:

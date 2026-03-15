@@ -10,9 +10,12 @@ import pytest
 
 from packages.shared.settings import AppSettings
 from packages.storage.blob import FilesystemBlobStore
+from packages.storage.ingestion_config import IngestionConfigRepository
 from packages.storage.run_metadata import RunMetadataRepository
 from packages.storage.runtime import (
+    build_auth_store,
     build_blob_store,
+    build_config_store,
     build_reporting_store,
     build_run_metadata_store,
 )
@@ -108,7 +111,8 @@ def test_build_run_metadata_store_constructs_postgres_repository() -> None:
             build_run_metadata_store(settings)
 
     repository.assert_called_once_with(
-        "postgresql://homelab:homelab@postgres:5432/homelab"
+        "postgresql://homelab:homelab@postgres:5432/homelab",
+        schema="control",
     )
 
 
@@ -142,5 +146,48 @@ def test_build_reporting_store_constructs_postgres_store() -> None:
             build_reporting_store(settings)
 
     store_factory.assert_called_once_with(
-        "postgresql://homelab:homelab@postgres:5432/homelab"
+        "postgresql://homelab:homelab@postgres:5432/homelab",
+        schema="reporting",
     )
+
+
+def test_build_config_store_defaults_to_sqlite() -> None:
+    with TemporaryDirectory() as temp_dir:
+        store = build_config_store(_build_settings(temp_dir))
+
+    assert isinstance(store, IngestionConfigRepository)
+
+
+def test_build_config_store_requires_dsn_for_postgres() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(temp_dir, config_backend="postgres")
+
+        with pytest.raises(
+            ValueError,
+            match="Postgres config backend requires HOMELAB_ANALYTICS_POSTGRES_DSN",
+        ):
+            build_config_store(settings)
+
+
+def test_build_config_store_constructs_postgres_repository() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(
+            temp_dir,
+            config_backend="POSTGRES",
+            postgres_dsn="postgresql://homelab:homelab@postgres:5432/homelab",
+        )
+
+        with patch("packages.storage.runtime.PostgresIngestionConfigRepository") as repository:
+            build_config_store(settings)
+
+    repository.assert_called_once_with(
+        "postgresql://homelab:homelab@postgres:5432/homelab",
+        schema="control",
+    )
+
+
+def test_build_auth_store_reuses_config_store_backend() -> None:
+    with TemporaryDirectory() as temp_dir:
+        store = build_auth_store(_build_settings(temp_dir))
+
+    assert isinstance(store, IngestionConfigRepository)

@@ -148,7 +148,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** SCD Type 2 preserves historical context for point-in-time reporting without losing current state.
 
 **Phase:** 1
-**Status:** in-progress (`DuckDBStore` provides SCD-2 insert, update, close, current-view, and point-in-time queries; source-lineage columns are still pending)
+**Status:** implemented (`DuckDBStore` now persists SCD-2 insert, update, close, current-view, and point-in-time queries together with `source_system` and `source_run_id` lineage columns on current and historical dimension rows)
 
 **Acceptance criteria:**
 - Inserting a new dimension record sets `is_current = TRUE` and `valid_to = NULL` (or far-future sentinel).
@@ -204,7 +204,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Bridge tables enable many-to-many relationships (e.g. transaction-to-category) and lineage tables enable auditability beyond run metadata.
 
 **Phase:** 2–3
-**Status:** not-started
+**Status:** in-progress (control-plane repositories now persist source-lineage and publication-audit metadata; category and budget bridge models remain pending)
 
 **Acceptance criteria:**
 - Category mapping bridge persists user-defined or rule-inferred category assignments.
@@ -345,7 +345,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** A complete audit trail is essential for trust in derived analytics and for debugging data issues.
 
 **Phase:** 1–2
-**Status:** in-progress (ingestion audit is complete via `RunMetadataRepository`; transformation audit is now implemented — `transformation_audit` table in DuckDB records input run ID, fact/dimension counts, and duration for every `load_transactions()` call; `GET /transformation-audit` API endpoint is queryable by run ID; reporting mart refresh audit is not yet implemented)
+**Status:** in-progress (ingestion audit is complete via `RunMetadataRepository`; transformation audit is implemented in DuckDB; control-plane repositories now persist source-lineage plus publication-audit records for published reporting refreshes, and API control endpoints can query that metadata; broader mart/run traceability and non-published reporting audit remain pending)
 
 **Acceptance criteria:**
 - Ingestion audit: run ID, timestamp, source, file hash, validation status, issue count.
@@ -391,12 +391,12 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 | PLT-07 | SCD handling | `packages/storage/duckdb_store.py`, `packages/pipelines/transformation_service.py` | `tests/test_scd_dimension.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py` |
 | PLT-08 | Transformation | `packages/pipelines/normalization.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_normalization.py` |
 | PLT-09 | Transformation | `packages/pipelines/transformation_service.py`, `packages/pipelines/transaction_models.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/contract_price_models.py` | `tests/test_architecture_contract.py`, `tests/test_transformation_service.py` |
-| PLT-10 | Transformation, Bridge models | — | — |
+| PLT-10 | Transformation, Bridge models | `packages/storage/control_plane.py`, `packages/storage/ingestion_config.py`, `packages/storage/postgres_ingestion_config.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py` | `tests/test_sqlite_control_plane_contract.py`, `tests/test_postgres_ingestion_config_integration.py`, `tests/test_control_plane_api_app.py`, `tests/test_s3_postgres_control_plane_integration.py` |
 | PLT-11 | Reporting | `packages/storage/duckdb_store.py`, `packages/storage/postgres_reporting.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py`, `apps/api/app.py` | `tests/test_transformation_normalization.py`, `tests/test_subscription_domain.py`, `tests/test_api_app.py`, `tests/test_postgres_reporting_integration.py` |
 | PLT-12 | Reporting | `packages/storage/postgres_reporting.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_monthly_cashflow_reporting.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py`, `tests/test_utility_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py`, `tests/test_postgres_reporting_integration.py`, `tests/test_reporting_api_app.py` |
 | PLT-13 | Reporting publication forms | — | — |
 | PLT-14 | Storage pattern, Compute model | `pyproject.toml`, `packages/storage/duckdb_store.py`, `packages/storage/postgres_run_metadata.py`, `packages/storage/postgres_reporting.py`, `packages/storage/runtime.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py` | `tests/test_project_metadata.py`, `tests/test_transformation_service.py`, `tests/test_storage_runtime.py`, `tests/test_postgres_run_metadata_integration.py`, `tests/test_postgres_reporting_integration.py`, `tests/test_reporting_service.py` |
 | PLT-15 | Transformation, Atomicity | `packages/storage/duckdb_store.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_service.py` |
 | PLT-16 | Input and landing | `packages/storage/run_metadata.py`, `packages/storage/landing_service.py` | `tests/test_landing_service.py`, `tests/test_run_metadata_repository.py` |
-| PLT-17 | Audit trail | `packages/pipelines/transformation_service.py`, `packages/pipelines/transaction_models.py` | `tests/test_transformation_service.py`, `tests/test_api_app.py` |
+| PLT-17 | Audit trail | `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py`, `packages/storage/control_plane.py`, `packages/storage/ingestion_config.py`, `packages/storage/postgres_ingestion_config.py`, `packages/pipelines/transaction_models.py` | `tests/test_transformation_service.py`, `tests/test_api_app.py`, `tests/test_control_plane_api_app.py`, `tests/test_sqlite_control_plane_contract.py`, `tests/test_postgres_ingestion_config_integration.py`, `tests/test_s3_postgres_control_plane_integration.py` |
 | PLT-18 | Canonical data flow | `packages/pipelines/promotion.py`, `packages/pipelines/account_transaction_service.py`, `packages/pipelines/subscription_service.py`, `packages/pipelines/contract_price_service.py`, `packages/storage/landing_service.py`, `packages/storage/ingestion_config.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_promotion.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py` |

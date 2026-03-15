@@ -5,10 +5,10 @@ from io import StringIO
 from pathlib import Path
 
 from packages.storage.blob import BlobStore, FilesystemBlobStore
+from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.ingestion_config import (
     ColumnMappingRecord,
     DatasetContractConfigRecord,
-    IngestionConfigRepository,
     resolve_dataset_contract,
 )
 from packages.storage.landing_service import LandingService
@@ -20,7 +20,7 @@ class ConfiguredCsvIngestionService:
         self,
         landing_root: Path,
         metadata_repository: RunMetadataStore,
-        config_repository: IngestionConfigRepository,
+        config_repository: ControlPlaneStore,
         blob_store: BlobStore | None = None,
     ) -> None:
         self.landing_root = landing_root

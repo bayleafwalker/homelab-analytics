@@ -27,7 +27,15 @@ _SURROGATE_KEY_TYPE = "VARCHAR"
 _SCD_VALID_FROM = "valid_from"
 _SCD_VALID_TO = "valid_to"
 _SCD_IS_CURRENT = "is_current"
-_SCD_META_COLUMNS = (_SCD_VALID_FROM, _SCD_VALID_TO, _SCD_IS_CURRENT)
+_SCD_SOURCE_SYSTEM = "source_system"
+_SCD_SOURCE_RUN_ID = "source_run_id"
+_SCD_META_COLUMNS = (
+    _SCD_VALID_FROM,
+    _SCD_VALID_TO,
+    _SCD_IS_CURRENT,
+    _SCD_SOURCE_SYSTEM,
+    _SCD_SOURCE_RUN_ID,
+)
 
 # Sentinel date used as valid_to for current rows.
 _FAR_FUTURE = date(9999, 12, 31)
@@ -124,8 +132,21 @@ class DuckDBStore:
         cols.append(f"{_SCD_VALID_FROM} DATE NOT NULL")
         cols.append(f"{_SCD_VALID_TO} DATE NOT NULL")
         cols.append(f"{_SCD_IS_CURRENT} BOOLEAN NOT NULL")
+        cols.append(f"{_SCD_SOURCE_SYSTEM} VARCHAR")
+        cols.append(f"{_SCD_SOURCE_RUN_ID} VARCHAR")
         ddl = f"CREATE TABLE IF NOT EXISTS {defn.table_name} ({', '.join(cols)})"
         self._con.execute(ddl)
+        existing_columns = {
+            row[1] for row in self._con.execute(f"PRAGMA table_info('{defn.table_name}')").fetchall()
+        }
+        if _SCD_SOURCE_SYSTEM not in existing_columns:
+            self._con.execute(
+                f"ALTER TABLE {defn.table_name} ADD COLUMN {_SCD_SOURCE_SYSTEM} VARCHAR"
+            )
+        if _SCD_SOURCE_RUN_ID not in existing_columns:
+            self._con.execute(
+                f"ALTER TABLE {defn.table_name} ADD COLUMN {_SCD_SOURCE_RUN_ID} VARCHAR"
+            )
 
     def ensure_current_dimension_view(
         self,
@@ -156,6 +177,8 @@ class DuckDBStore:
         rows: list[dict[str, Any]],
         *,
         effective_date: date | None = None,
+        source_system: str | None = None,
+        source_run_id: str | None = None,
     ) -> int:
         """Insert-or-update dimension rows using SCD Type 2 semantics.
 
@@ -191,7 +214,7 @@ class DuckDBStore:
                 values = (
                     [sk]
                     + [row[c] for c in defn.all_business_columns]
-                    + [eff, _FAR_FUTURE, True]
+                    + [eff, _FAR_FUTURE, True, source_system, source_run_id]
                 )
                 self._con.execute(
                     f"INSERT INTO {defn.table_name} ({', '.join(col_names)}) VALUES ({placeholders})",
@@ -220,7 +243,7 @@ class DuckDBStore:
                 values = (
                     [sk]
                     + [row[c] for c in defn.all_business_columns]
-                    + [eff, _FAR_FUTURE, True]
+                    + [eff, _FAR_FUTURE, True, source_system, source_run_id]
                 )
                 self._con.execute(
                     f"INSERT INTO {defn.table_name} ({', '.join(col_names)}) VALUES ({placeholders})",

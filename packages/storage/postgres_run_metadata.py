@@ -8,6 +8,7 @@ import psycopg
 from psycopg.rows import dict_row
 
 from packages.pipelines.csv_validation import ValidationIssue
+from packages.storage.postgres_support import configure_search_path, initialize_schema
 from packages.storage.run_metadata import (
     IngestionRunCreate,
     IngestionRunRecord,
@@ -17,12 +18,19 @@ from packages.storage.run_metadata import (
 
 
 class PostgresRunMetadataRepository:
-    def __init__(self, dsn: str) -> None:
+    def __init__(self, dsn: str, *, schema: str = "public") -> None:
         self.dsn = dsn
+        self.schema = schema
+        initialize_schema(dsn, schema)
         self._initialize()
 
+    def _connect(self, *, row_factory=None):
+        connection = psycopg.connect(self.dsn, row_factory=row_factory)
+        configure_search_path(connection, self.schema)
+        return connection
+
     def create_run(self, run: IngestionRunCreate) -> IngestionRunRecord:
-        with psycopg.connect(self.dsn) as connection:
+        with self._connect() as connection:
             connection.execute(
                 """
                 INSERT INTO ingestion_runs (
@@ -86,7 +94,7 @@ class PostgresRunMetadataRepository:
         return self.get_run(run.run_id)
 
     def get_run(self, run_id: str) -> IngestionRunRecord:
-        with psycopg.connect(self.dsn, row_factory=dict_row) as connection:
+        with self._connect(row_factory=dict_row) as connection:
             run_row = connection.execute(
                 """
                 SELECT
@@ -164,7 +172,7 @@ class PostgresRunMetadataRepository:
             query += " LIMIT %s OFFSET %s"
             params = [*params, limit, offset]
 
-        with psycopg.connect(self.dsn, row_factory=dict_row) as connection:
+        with self._connect(row_factory=dict_row) as connection:
             run_rows = connection.execute(query, params).fetchall()
             issues_by_run = self._load_issues_for_run_ids(
                 connection,
@@ -189,7 +197,7 @@ class PostgresRunMetadataRepository:
             from_date,
             to_date,
         )
-        with psycopg.connect(self.dsn) as connection:
+        with self._connect() as connection:
             row = connection.execute(
                 f"SELECT COUNT(*) FROM ingestion_runs {where_sql}",
                 params,
@@ -208,7 +216,7 @@ class PostgresRunMetadataRepository:
         if dataset_name is not None:
             clauses.append("dataset_name = %s")
             params.append(dataset_name)
-        with psycopg.connect(self.dsn) as connection:
+        with self._connect() as connection:
             row = connection.execute(
                 f"""
                 SELECT run_id
@@ -224,7 +232,7 @@ class PostgresRunMetadataRepository:
         return self.get_run(str(row[0]))
 
     def _initialize(self) -> None:
-        with psycopg.connect(self.dsn) as connection:
+        with self._connect() as connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS ingestion_runs (

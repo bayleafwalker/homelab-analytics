@@ -49,9 +49,17 @@ class AppSettingsTests(unittest.TestCase):
             Path("/tmp/homelab-analytics/analytics/warehouse.duckdb"),
             settings.resolved_analytics_database_path,
         )
+        self.assertEqual("sqlite", settings.config_backend)
         self.assertEqual("sqlite", settings.metadata_backend)
+        self.assertEqual("control", settings.control_schema)
         self.assertEqual("duckdb", settings.reporting_backend)
+        self.assertEqual("reporting", settings.reporting_schema)
         self.assertEqual("filesystem", settings.blob_backend)
+        self.assertEqual("disabled", settings.auth_mode)
+        self.assertIsNone(settings.session_secret)
+        self.assertIsNone(settings.bootstrap_admin_username)
+        self.assertIsNone(settings.bootstrap_admin_password)
+        self.assertFalse(settings.enable_unsafe_admin)
         self.assertIsNone(settings.postgres_dsn)
         self.assertIsNone(settings.s3_endpoint_url)
         self.assertIsNone(settings.s3_bucket)
@@ -161,10 +169,13 @@ class AppSettingsTests(unittest.TestCase):
             {
                 "HOMELAB_ANALYTICS_DATA_DIR": "/tmp/homelab-test",
                 "HOMELAB_ANALYTICS_METADATA_BACKEND": "postgres",
+                "HOMELAB_ANALYTICS_CONFIG_BACKEND": "postgres",
                 "HOMELAB_ANALYTICS_POSTGRES_DSN": (
                     "postgresql://homelab:homelab@postgres:5432/homelab"
                 ),
+                "HOMELAB_ANALYTICS_CONTROL_SCHEMA": "platform_control",
                 "HOMELAB_ANALYTICS_REPORTING_BACKEND": "postgres",
+                "HOMELAB_ANALYTICS_REPORTING_SCHEMA": "published_reporting",
                 "HOMELAB_ANALYTICS_BLOB_BACKEND": "s3",
                 "HOMELAB_ANALYTICS_S3_ENDPOINT_URL": "http://minio:9000",
                 "HOMELAB_ANALYTICS_S3_BUCKET": "homelab-landing",
@@ -172,15 +183,23 @@ class AppSettingsTests(unittest.TestCase):
                 "HOMELAB_ANALYTICS_S3_ACCESS_KEY_ID": "minio",
                 "HOMELAB_ANALYTICS_S3_SECRET_ACCESS_KEY": "password",
                 "HOMELAB_ANALYTICS_S3_PREFIX": "bronze",
+                "HOMELAB_ANALYTICS_AUTH_MODE": "local",
+                "HOMELAB_ANALYTICS_SESSION_SECRET": "session-secret",
+                "HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME": "admin",
+                "HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD": "admin-password",
+                "HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN": "true",
             }
         )
 
+        self.assertEqual("postgres", settings.config_backend)
         self.assertEqual("postgres", settings.metadata_backend)
         self.assertEqual(
             "postgresql://homelab:homelab@postgres:5432/homelab",
             settings.postgres_dsn,
         )
+        self.assertEqual("platform_control", settings.control_schema)
         self.assertEqual("postgres", settings.reporting_backend)
+        self.assertEqual("published_reporting", settings.reporting_schema)
         self.assertEqual("s3", settings.blob_backend)
         self.assertEqual("http://minio:9000", settings.s3_endpoint_url)
         self.assertEqual("homelab-landing", settings.s3_bucket)
@@ -188,6 +207,11 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual("minio", settings.s3_access_key_id)
         self.assertEqual("password", settings.s3_secret_access_key)
         self.assertEqual("bronze", settings.s3_prefix)
+        self.assertEqual("local", settings.auth_mode)
+        self.assertEqual("session-secret", settings.session_secret)
+        self.assertEqual("admin", settings.bootstrap_admin_username)
+        self.assertEqual("admin-password", settings.bootstrap_admin_password)
+        self.assertTrue(settings.enable_unsafe_admin)
 
 
 if __name__ == "__main__":

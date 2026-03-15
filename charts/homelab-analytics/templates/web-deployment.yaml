@@ -25,10 +25,8 @@ spec:
       serviceAccountName: {{ include "homelab-analytics.serviceAccountName" . }}
       containers:
         - name: web
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command:
-            - homelab-analytics-web
+          image: "{{ .Values.webImage.repository }}:{{ .Values.webImage.tag }}"
+          imagePullPolicy: {{ .Values.webImage.pullPolicy }}
           ports:
             - name: http
               containerPort: {{ .Values.web.port }}
@@ -36,8 +34,14 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "homelab-analytics.fullname" . }}-config
-          {{- with .Values.extraEnv }}
+            {{- range .Values.web.secretEnvFrom }}
+            - secretRef:
+                name: {{ . | quote }}
+            {{- end }}
           env:
+            - name: HOMELAB_ANALYTICS_API_BASE_URL
+              value: {{ printf "http://%s-api:%v" (include "homelab-analytics.fullname" .) .Values.api.port | quote }}
+          {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:

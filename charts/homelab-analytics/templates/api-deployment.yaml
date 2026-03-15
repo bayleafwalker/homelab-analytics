@@ -36,6 +36,10 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "homelab-analytics.fullname" . }}-config
+            {{- range .Values.api.secretEnvFrom }}
+            - secretRef:
+                name: {{ . | quote }}
+            {{- end }}
           {{- with .Values.extraEnv }}
           env:
             {{- toYaml . | nindent 12 }}

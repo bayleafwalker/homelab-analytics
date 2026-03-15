@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
 from packages.shared.secrets import EnvironmentSecretResolver, SecretReference, SecretResolver
 from packages.storage.blob import BlobStore, FilesystemBlobStore
-from packages.storage.ingestion_config import IngestionConfigRepository
+from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.run_metadata import RunMetadataStore
 
 
@@ -26,7 +26,7 @@ class ConfiguredIngestionDefinitionService:
         self,
         landing_root: Path,
         metadata_repository: RunMetadataStore,
-        config_repository: IngestionConfigRepository,
+        config_repository: ControlPlaneStore,
         blob_store: BlobStore | None = None,
         secret_resolver: SecretResolver | None = None,
     ) -> None:

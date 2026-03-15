@@ -15,10 +15,10 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** A standalone auth option is required before OIDC infrastructure is available, and as a break-glass fallback.
 
 **Phase:** 4
-**Status:** not-started
+**Status:** in-progress (local-user storage now exists in both SQLite and Postgres control-plane backends; API exposes `/auth/login`, `/auth/logout`, and `/auth/me` with HTTP-only signed session cookies; the placeholder web app requires local auth in local-auth mode; worker CLI can create/reset/list local users; Compose and Helm examples now wire bootstrap local-auth secrets)
 
 **Acceptance criteria:**
-- Username/password login endpoint issues a session token or JWT.
+- Username/password login endpoint issues a signed session cookie or JWT.
 - Web UI login page authenticates against the local store.
 - At least one admin user can be created during initial setup.
 - Passwords are stored hashed (bcrypt or argon2).
@@ -73,7 +73,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Not all household members or automation systems should have full configuration access.
 
 **Phase:** 4
-**Status:** not-started
+**Status:** in-progress (local auth now enforces `reader`, `operator`, and `admin` roles across API and placeholder web routes; the remaining gap is extending the same role model to future OIDC and service-token paths)
 
 **Acceptance criteria:**
 - Read-only role can view dashboards and reports but cannot ingest or configure.
@@ -92,13 +92,13 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Secrets in version control are a security risk. Cluster-native management integrates with GitOps workflows.
 
 **Phase:** 1 (infrastructure pattern), 4 (full implementation)
-**Status:** in-progress (architecture and runtime patterns are in place: HTTP ingestion definitions persist secret references instead of raw credential values, and runtime secret resolution is supported via environment-backed providers; Helm/cluster wiring is still pending)
+**Status:** in-progress (architecture and runtime patterns are in place: HTTP ingestion definitions persist secret references instead of raw credential values, runtime secret resolution is supported via environment-backed providers, the Helm chart supports per-workload Secret references with tests that block inline credential rendering, example Secret manifests now exist for database/bootstrap-local-auth/blob/OIDC/provider credentials, and the repo includes example ExternalSecret and SOPS-managed Secret manifests; cluster wiring is still pending)
 
 **Acceptance criteria:**
 - Helm chart values reference Kubernetes Secrets by name, never inline credential values.
 - Application configuration stores secret references, not resolved secret values.
 - Documentation describes External Secrets Operator and SOPS-based Secret creation.
-- At least one example Secret manifest exists for each credential class: database, blob storage, OIDC, provider API.
+- At least one example Secret manifest exists for each credential class: database, bootstrap local auth, blob storage, OIDC, provider API.
 - Tests verify that no template output contains hardcoded credentials.
 
 **Dependencies:** none
@@ -112,11 +112,11 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Least-privilege credential scoping limits blast radius of credential compromise.
 
 **Phase:** 4
-**Status:** in-progress (runtime workloads are split by role, deployment surfaces are distinct, and secret references remain runtime-resolved; workload-specific credentials and Postgres/OIDC isolation are still pending)
+**Status:** in-progress (runtime workloads are split by role, deployment surfaces are distinct, secret references remain runtime-resolved, and the Helm chart now includes an example workload-specific Secret split for reporting/bootstrap-auth versus landing/transformation access; real least-privilege credentials and full Postgres/OIDC isolation are still pending)
 
 **Acceptance criteria:**
 - Worker pods receive only landing-write and transformation-write credentials.
-- API/web pods receive only reporting-read credentials and OIDC secrets.
+- API/web pods receive only reporting-read credentials plus auth/session secrets.
 - Helm values support separate Secret references per workload.
 
 **Dependencies:** SEC-05
@@ -125,18 +125,18 @@ The platform must handle sensitive financial and personal data securely, deploy 
 
 ### OPS-01: Docker images
 
-**Description:** Docker images published for API, worker, and web workloads. Single base image preferred.
+**Description:** Docker images published for API, worker, and web workloads, with workload-appropriate runtimes.
 
 **Rationale:** Container images are the deployment unit for Kubernetes and Compose.
 
 **Phase:** 0
-**Status:** implemented (single Dockerfile with CMD override)
+**Status:** implemented (API and worker ship from the shared Python image, while web now ships from a dedicated Next.js/Node image with a standalone build)
 
 **Acceptance criteria:**
-- `docker build` produces a working image.
-- Image runs as each workload via CMD or entrypoint override.
-- Image is based on a minimal Python base (e.g. python:3.12-slim).
-- Image size is under 200MB.
+- `docker build -f infra/docker/Dockerfile` produces a working API/worker image.
+- `docker build -f infra/docker/web.Dockerfile` produces a working web image.
+- API and worker run from the shared Python image via CMD or entrypoint override.
+- Web runs from a dedicated Node/Next standalone image.
 
 **Dependencies:** none
 
@@ -167,7 +167,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Helm is the standard Kubernetes packaging format and the planned release vehicle.
 
 **Phase:** 0–1
-**Status:** implemented (basic chart with 3 workloads, PVC, configmap, service account)
+**Status:** implemented (basic chart with 3 workloads, PVC, configmap, service account, parsed manifest contract tests, and Secret-reference wiring)
 
 **Acceptance criteria:**
 - `helm lint` and `helm template` pass.
@@ -225,7 +225,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Metrics enable operational monitoring and alerting through existing cluster Prometheus.
 
 **Phase:** 4
-**Status:** not-started
+**Status:** implemented (API and web workloads expose `/metrics`, and runtime code now emits Prometheus-compatible ingestion counters, failure counters, cumulative duration, and queue-depth gauges)
 
 **Acceptance criteria:**
 - `/metrics` endpoint returns Prometheus text format.
@@ -243,7 +243,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Structured logs enable efficient searching, filtering, and correlation in centralized log systems.
 
 **Phase:** 2
-**Status:** not-started
+**Status:** implemented (API, web, and worker workloads now use structured JSON logging, including request/command context fields instead of ad hoc startup prints)
 
 **Acceptance criteria:**
 - Log entries are JSON objects with: timestamp, level, logger, message, and structured context fields.
@@ -262,7 +262,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** The current zero-dependency implementation was deliberate for bootstrap. Production use requires real frameworks and engines.
 
 **Phase:** 1–2
-**Status:** in-progress (FastAPI, DuckDB, Polars/PyArrow, boto3-backed S3 storage, psycopg-backed Postgres metadata, and Postgres-backed published-reporting reads are now in the runtime path; React/Next.js web and broader Postgres-backed reporting publication remain pending)
+**Status:** in-progress (FastAPI, DuckDB, Polars/PyArrow, boto3-backed S3 storage, psycopg-backed Postgres metadata/control-plane state, and Postgres-backed published-reporting reads/publication are now in the runtime path; React/Next.js web remains pending)
 
 **Acceptance criteria:**
 - FastAPI replaces `wsgiref`-based WSGI app.
@@ -280,10 +280,10 @@ The platform must handle sensitive financial and personal data securely, deploy 
 
 | Requirement | Implementation module | Test file |
 |---|---|---|
-| SEC-01 | — | — |
+| SEC-01 | `packages/shared/auth.py`, `packages/storage/auth_store.py`, `packages/storage/ingestion_config.py`, `packages/storage/postgres_ingestion_config.py`, `apps/api/app.py`, `apps/web/app.py`, `apps/worker/main.py` | `tests/test_api_auth.py`, `tests/test_web_auth.py`, `tests/test_worker_auth_cli.py`, `tests/test_sqlite_auth_store_contract.py`, `tests/test_postgres_auth_store_integration.py` |
 | SEC-02 | — | — |
 | SEC-03 | — | — |
-| SEC-04 | — | — |
+| SEC-04 | `packages/shared/auth.py`, `apps/api/app.py`, `apps/web/app.py` | `tests/test_api_auth.py`, `tests/test_web_auth.py` |
 | SEC-05 | `packages/shared/secrets.py`, `packages/storage/ingestion_config.py`, `packages/pipelines/configured_ingestion_definition.py`, `charts/homelab-analytics/` | `tests/test_ingestion_config_repository.py`, `tests/test_configured_ingestion_definition.py`, `tests/test_helm_chart.py` |
 | SEC-06 | `apps/api/main.py`, `apps/web/main.py`, `apps/worker/main.py`, `charts/homelab-analytics/` | `tests/test_helm_chart.py`, `tests/test_project_metadata.py` |
 | OPS-01 | `infra/docker/Dockerfile` | `tests/test_project_metadata.py` |
@@ -291,6 +291,6 @@ The platform must handle sensitive financial and personal data securely, deploy 
 | OPS-03 | `charts/homelab-analytics/` | `tests/test_helm_chart.py` |
 | OPS-04 | — | — |
 | OPS-05 | `.github/workflows/verify.yaml`, `Makefile` | `tests/test_verification_tooling.py` |
-| OPS-06 | — | — |
-| OPS-07 | — | — |
+| OPS-06 | `apps/api/app.py`, `apps/web/app.py`, `apps/worker/main.py`, `packages/shared/metrics.py` | `tests/test_control_plane_api_app.py`, `tests/test_control_plane_worker_cli.py`, `tests/test_web_app.py` |
+| OPS-07 | `packages/shared/logging.py`, `apps/api/main.py`, `apps/web/main.py`, `apps/worker/main.py` | `tests/test_logging.py` |
 | OPS-08 | `pyproject.toml`, `apps/api/app.py`, `packages/storage/duckdb_store.py`, `packages/storage/postgres_reporting.py`, `packages/storage/postgres_run_metadata.py`, `packages/storage/s3_blob.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py` | `tests/test_project_metadata.py`, `tests/test_blob_store.py`, `tests/test_postgres_reporting_integration.py`, `tests/test_postgres_run_metadata_integration.py`, `tests/test_api_app.py`, `tests/test_reporting_api_app.py`, `tests/test_transformation_service.py` |

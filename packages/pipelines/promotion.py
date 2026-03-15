@@ -27,8 +27,8 @@ from packages.pipelines.utility_bill_service import UtilityBillService
 from packages.pipelines.utility_usage_service import UtilityUsageService
 from packages.shared.extensions import ExtensionRegistry
 from packages.storage.blob import BlobStore
+from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.ingestion_config import (
-    IngestionConfigRepository,
     SourceAssetRecord,
 )
 from packages.storage.run_metadata import RunMetadataStore
@@ -122,7 +122,11 @@ def promote_run(
         for tx in canonical_rows
     ]
 
-    facts_loaded = transformation_service.load_transactions(row_dicts, run_id=run_id)
+    facts_loaded = transformation_service.load_transactions(
+        row_dicts,
+        run_id=run_id,
+        source_system=run.source_name,
+    )
 
     marts_refreshed = _refresh_marts(transformation_service)
 
@@ -251,7 +255,11 @@ def promote_subscription_run(
         for sub in canonical_rows
     ]
 
-    facts_loaded = transformation_service.load_subscriptions(row_dicts, run_id=run_id)
+    facts_loaded = transformation_service.load_subscriptions(
+        row_dicts,
+        run_id=run_id,
+        source_system=run.source_name,
+    )
     transformation_service.refresh_subscription_summary()
 
     return PromotionResult(
@@ -321,6 +329,7 @@ def promote_contract_price_run(
     facts_loaded = transformation_service.load_contract_prices(
         row_dicts,
         run_id=run_id,
+        source_system=run.source_name,
     )
     marts_refreshed = _refresh_contract_price_marts(transformation_service)
     return PromotionResult(
@@ -385,7 +394,11 @@ def promote_utility_usage_run(
         for row in canonical_rows
     ]
 
-    facts_loaded = transformation_service.load_utility_usage(row_dicts, run_id=run_id)
+    facts_loaded = transformation_service.load_utility_usage(
+        row_dicts,
+        run_id=run_id,
+        source_system=run.source_name,
+    )
     transformation_service.refresh_utility_cost_summary()
 
     return PromotionResult(
@@ -455,7 +468,11 @@ def promote_utility_bill_run(
         for row in canonical_rows
     ]
 
-    facts_loaded = transformation_service.load_bills(row_dicts, run_id=run_id)
+    facts_loaded = transformation_service.load_bills(
+        row_dicts,
+        run_id=run_id,
+        source_system=run.source_name,
+    )
     transformation_service.refresh_utility_cost_summary()
 
     return PromotionResult(
@@ -470,7 +487,7 @@ def promote_source_asset_run(
     run_id: str,
     *,
     source_asset: SourceAssetRecord,
-    config_repository: IngestionConfigRepository,
+    config_repository: ControlPlaneStore,
     landing_root,
     metadata_repository: RunMetadataStore,
     transformation_service: TransformationService,

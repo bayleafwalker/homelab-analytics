@@ -125,7 +125,7 @@ BUILTIN_EXTENSIONS = (
         key="cashflow_dashboard",
         kind="web",
         description="Built-in dashboard surface for the current cash-flow reporting view.",
-        module="apps.web.app",
+        module="apps.web.frontend",
         source="builtin",
     ),
 )

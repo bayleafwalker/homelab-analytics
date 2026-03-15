@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
 from datetime import date
+from enum import StrEnum
 from typing import Any, Callable
 
 from packages.pipelines.contract_price_models import (
@@ -39,6 +41,12 @@ from packages.pipelines.utility_models import (
     MART_UTILITY_COST_SUMMARY_TABLE,
 )
 from packages.shared.extensions import ExtensionRegistry
+from packages.storage.control_plane import (
+    PublicationAuditCreate,
+    PublicationAuditStore,
+    SourceLineageCreate,
+    SourceLineageStore,
+)
 from packages.storage.duckdb_store import DimensionDefinition
 from packages.storage.postgres_reporting import PostgresReportingStore
 
@@ -134,6 +142,12 @@ _AUDIT_TRIGGER_MARTS = frozenset(
 )
 
 
+class ReportingAccessMode(StrEnum):
+    PREFER_PUBLISHED = "prefer_published"
+    PUBLISHED = "published"
+    WAREHOUSE = "warehouse"
+
+
 def publish_promotion_reporting(
     reporting_service: "ReportingService | None",
     promotion: PromotionResult | None,
@@ -141,10 +155,31 @@ def publish_promotion_reporting(
     if reporting_service is None or promotion is None:
         return []
 
-    published = reporting_service.publish_publications(promotion.publication_keys)
+    try:
+        published = reporting_service.publish_publications(
+            promotion.publication_keys,
+            run_id=promotion.run_id,
+        )
+    except TypeError:
+        published = reporting_service.publish_publications(promotion.publication_keys)
     if _AUDIT_TRIGGER_MARTS & set(promotion.marts_refreshed):
-        published.extend(
-            reporting_service.publish_auxiliary_relations([TRANSFORMATION_AUDIT_TABLE])
+        try:
+            published.extend(
+                reporting_service.publish_auxiliary_relations(
+                    [TRANSFORMATION_AUDIT_TABLE],
+                    run_id=promotion.run_id,
+                )
+            )
+        except TypeError:
+            published.extend(
+                reporting_service.publish_auxiliary_relations(
+                    [TRANSFORMATION_AUDIT_TABLE]
+                )
+            )
+    if hasattr(reporting_service, "record_reporting_lineage"):
+        reporting_service.record_reporting_lineage(
+            run_id=promotion.run_id,
+            relation_names=published,
         )
     return published
 
@@ -155,13 +190,22 @@ class ReportingService:
         transformation_service: TransformationService,
         publication_store: PostgresReportingStore | None = None,
         extension_registry: ExtensionRegistry | None = None,
+        access_mode: ReportingAccessMode = ReportingAccessMode.PREFER_PUBLISHED,
+        control_plane_store: SourceLineageStore | PublicationAuditStore | None = None,
     ) -> None:
         self._transformation_service = transformation_service
         self._publication_store = publication_store
         self._extension_registry = extension_registry
+        self._access_mode = access_mode
+        self._control_plane_store = control_plane_store
         _validate_extension_publication_conflicts(extension_registry)
 
-    def publish_publications(self, publication_keys: list[str]) -> list[str]:
+    def publish_publications(
+        self,
+        publication_keys: list[str],
+        *,
+        run_id: str | None = None,
+    ) -> list[str]:
         if self._publication_store is None:
             return []
 
@@ -169,15 +213,32 @@ class ReportingService:
         for publication_key in publication_keys:
             self._publish_relation(publication_key)
             published.append(publication_key)
+            self._record_publication_audit(
+                publication_key=publication_key,
+                relation_name=publication_key,
+                run_id=run_id,
+                status="published",
+            )
         return published
 
-    def publish_auxiliary_relations(self, relation_names: list[str]) -> list[str]:
+    def publish_auxiliary_relations(
+        self,
+        relation_names: list[str],
+        *,
+        run_id: str | None = None,
+    ) -> list[str]:
         if self._publication_store is None:
             return []
         published: list[str] = []
         for relation_name in relation_names:
             self._publish_relation(relation_name)
             published.append(relation_name)
+            self._record_publication_audit(
+                publication_key=relation_name,
+                relation_name=relation_name,
+                run_id=run_id,
+                status="published",
+            )
         return published
 
     def get_monthly_cashflow(
@@ -278,9 +339,21 @@ class ReportingService:
         if granularity not in {"day", "month"}:
             raise ValueError(f"Unsupported granularity: {granularity!r}")
 
+        if self._access_mode == ReportingAccessMode.WAREHOUSE:
+            return self._transformation_service.get_utility_cost_summary(
+                utility_type=utility_type,
+                meter_id=meter_id,
+                from_period=from_period,
+                to_period=to_period,
+                granularity=granularity,
+            )
         if self._publication_store is None or not self._publication_store.table_exists(
             MART_UTILITY_COST_SUMMARY_TABLE
         ):
+            if self._access_mode == ReportingAccessMode.PUBLISHED:
+                raise KeyError(
+                    "Published reporting relation is unavailable: mart_utility_cost_summary"
+                )
             return self._transformation_service.get_utility_cost_summary(
                 utility_type=utility_type,
                 meter_id=meter_id,
@@ -390,6 +463,30 @@ class ReportingService:
             f"ORDER BY {relation.order_by}",
         )
 
+    def record_reporting_lineage(
+        self,
+        *,
+        run_id: str | None,
+        relation_names: list[str],
+    ) -> None:
+        if run_id is None or self._control_plane_store is None:
+            return
+        if not isinstance(self._control_plane_store, SourceLineageStore):
+            return
+        self._control_plane_store.record_source_lineage(
+            tuple(
+                SourceLineageCreate(
+                    lineage_id=uuid.uuid4().hex[:16],
+                    input_run_id=run_id,
+                    source_run_id=run_id,
+                    target_layer="reporting",
+                    target_name=relation_name,
+                    target_kind=_relation_kind(relation_name),
+                )
+                for relation_name in relation_names
+            )
+        )
+
     def _fetch_published_or_fallback(
         self,
         relation_name: str,
@@ -397,9 +494,15 @@ class ReportingService:
         where_clause: tuple[str, list[Any]],
         order_by_sql: str,
     ) -> list[dict[str, Any]]:
+        if self._access_mode == ReportingAccessMode.WAREHOUSE:
+            return fallback()
         if self._publication_store is None or not self._publication_store.table_exists(
             relation_name
         ):
+            if self._access_mode == ReportingAccessMode.PUBLISHED:
+                raise KeyError(
+                    f"Published reporting relation is unavailable: {relation_name}"
+                )
             return fallback()
         where_sql, params = where_clause
         return self._publication_store.fetchall_dicts(
@@ -451,6 +554,30 @@ class ReportingService:
             f"SELECT * FROM {relation.relation_name} ORDER BY {relation.order_by}"
         )
 
+    def _record_publication_audit(
+        self,
+        *,
+        publication_key: str,
+        relation_name: str,
+        run_id: str | None,
+        status: str,
+    ) -> None:
+        if self._control_plane_store is None:
+            return
+        if not isinstance(self._control_plane_store, PublicationAuditStore):
+            return
+        self._control_plane_store.record_publication_audit(
+            (
+                PublicationAuditCreate(
+                    publication_audit_id=uuid.uuid4().hex[:16],
+                    run_id=run_id,
+                    publication_key=publication_key,
+                    relation_name=relation_name,
+                    status=status,
+                ),
+            )
+        )
+
 
 def _build_where_clause(
     *clauses: tuple[str, Any | None],
@@ -483,3 +610,11 @@ def _validate_extension_publication_conflicts(
         raise ValueError(
             f"Extension publication relations conflict with built-in relations: {conflict_names}"
         )
+
+
+def _relation_kind(relation_name: str) -> str:
+    if relation_name == TRANSFORMATION_AUDIT_TABLE:
+        return "audit"
+    if relation_name.startswith("mart_"):
+        return "mart"
+    return "published_relation"

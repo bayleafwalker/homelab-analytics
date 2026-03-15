@@ -6,6 +6,8 @@ RUFF := $(PYTHON) -m ruff
 MYPY := $(PYTHON) -m mypy
 PIP_AUDIT := $(PYTHON) -m pip_audit
 COMPOSE_FILE := infra/examples/compose.yaml
+APP_IMAGE := homelab-analytics:latest
+WEB_IMAGE := homelab-analytics-web:latest
 
 TEST ?=
 DOMAIN ?=
@@ -37,7 +39,7 @@ test-e2e-local:
 	$(PYTEST) -q -m e2e
 
 test-storage-adapters:
-	$(PYTEST) -q tests/test_blob_store.py tests/test_run_metadata_repository.py tests/test_storage_runtime.py tests/test_postgres_run_metadata_integration.py tests/test_postgres_reporting_integration.py
+	$(PYTEST) -q tests/test_blob_store.py tests/test_run_metadata_repository.py tests/test_storage_runtime.py tests/test_sqlite_control_plane_contract.py tests/test_sqlite_auth_store_contract.py tests/test_postgres_run_metadata_integration.py tests/test_postgres_ingestion_config_integration.py tests/test_postgres_auth_store_integration.py tests/test_postgres_reporting_integration.py tests/test_s3_postgres_control_plane_integration.py
 
 verify-config:
 	$(PYTHON) -m apps.worker.main verify-config $(VERIFY_CONFIG_ARGS)
@@ -55,12 +57,13 @@ helm-lint:
 	helm lint charts/homelab-analytics
 
 docker-build:
-	docker build -f infra/docker/Dockerfile -t homelab-analytics .
+	docker build -f infra/docker/Dockerfile -t $(APP_IMAGE) .
+	docker build -f infra/docker/web.Dockerfile -t $(WEB_IMAGE) .
 
 compose-smoke:
 	@set -euo pipefail; \
 	trap 'docker compose -f $(COMPOSE_FILE) down -v --remove-orphans' EXIT; \
-	if ! docker image inspect homelab-analytics:latest >/dev/null 2>&1; then \
+	if ! docker image inspect $(APP_IMAGE) >/dev/null 2>&1 || ! docker image inspect $(WEB_IMAGE) >/dev/null 2>&1; then \
 		$(MAKE) docker-build; \
 	fi; \
 	docker compose -f $(COMPOSE_FILE) up -d api web; \

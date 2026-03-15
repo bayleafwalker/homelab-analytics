@@ -35,7 +35,7 @@ The platform must accept data from heterogeneous sources — manual file uploads
 **Rationale:** Folder-based ingestion lets users drop exports into a shared folder rather than interacting with the UI every time.
 
 **Phase:** 1–2
-**Status:** in-progress (hard-coded polling loop exists for account-transactions inbox, and config-driven filesystem ingestion definitions can now process a watched folder; scheduler/general multi-source orchestration is still pending)
+**Status:** in-progress (hard-coded polling loop exists for account-transactions inbox; config-driven filesystem ingestion definitions can process a watched folder; explicit `execution_schedule` and `schedule_dispatch` control-plane entities now exist for enqueue-only scheduling; broader scheduler/general multi-source orchestration is still pending)
 
 **Acceptance criteria:**
 - Configuration defines watched directories, expected dataset, and polling interval.

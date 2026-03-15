@@ -41,7 +41,7 @@ Landing responsibilities:
 Landing storage is the bronze layer:
 
 - immutable object storage for raw payloads and snapshots
-- landing metadata in Postgres
+- landing and control-plane metadata in Postgres `control` schema, with SQLite retained only as a local bootstrap fallback
 - optional temporary local work files on PVC
 
 Typical landing checks:
@@ -121,6 +121,8 @@ Reporting publication forms:
 - API endpoints for downstream tools
 - dashboard datasets for interactive charts
 
+When published reporting is configured, API and web workloads should read from those published relations rather than querying the DuckDB warehouse directly. Warehouse reads remain a worker/local-development contract.
+
 Reporting extensibility:
 
 - keep primary marts and shared metrics in the application repository
@@ -168,15 +170,21 @@ Configuration entities:
 - `source_system`
 - `source_asset`
 - `ingestion_definition`
+- `execution_schedule`
+- `schedule_dispatch`
 - `dataset_contract`
 - `column_mapping`
 - `transformation_package`
 - `publication_definition`
+- `source_lineage`
+- `publication_audit`
 
 Binding rules:
 
 - a `source_asset` binds one landed dataset to one canonical mapping and one transformation package
 - an `ingestion_definition` describes only how bytes arrive; it must not hard-code downstream transformation behavior
+- an `execution_schedule` describes only when a target is enqueued; it must not embed transformation or reporting logic
+- schedule execution records belong in `schedule_dispatch`, and the scheduler should enqueue work rather than run transformations inline
 - `publication_definition` declares which gold outputs a transformation package publishes
 - worker and API promotion should dispatch from source-asset configuration, not inferred file headers or route-specific heuristics
 
@@ -208,6 +216,19 @@ Metadata that spans all layers belongs in Postgres:
 - lineage
 - publication metadata
 
+Use one DSN with separate schemas by default:
+
+- `control` for source registry, contracts, mappings, source assets, ingestion definitions, schedules, dispatch records, lineage, publication audit, and run metadata
+- `reporting` for published marts and current-dimension relations
+
+## Application and control-plane boundary
+
+- API and web workloads should consume published reporting relations when Postgres reporting is enabled
+- worker jobs and local bootstrap flows may continue to read the DuckDB warehouse directly
+- bootstrap auth is local username/password with HTTP-only signed session cookies; `/health` and `/metrics` stay public, while admin/control routes require an `admin` role
+- `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` is a temporary local-only escape hatch and should stay disabled in shared deployment manifests
+- the web workload should stay API-backed: the current Next.js shell consumes API routes only, and any future product/admin UI should continue to avoid server-side warehouse or control-plane reads in the web runtime
+
 ## Compute model
 
 The default engine should be Python workers using Polars and DuckDB:
@@ -215,6 +236,11 @@ The default engine should be Python workers using Polars and DuckDB:
 - Polars for parsing and vectorized transformation
 - DuckDB for local SQL, Parquet operations, and analytic joins
 - PyArrow for interchange between storage and compute
+
+Operational defaults:
+
+- structured JSON logs from API, web, and worker workloads
+- Prometheus-compatible `/metrics` surfaces for ingestion counters, failures, duration, and queue depth
 
 Spark remains an optional later execution backend for larger workloads, but not the initial default.
 

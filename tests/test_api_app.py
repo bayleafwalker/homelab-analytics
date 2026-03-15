@@ -46,6 +46,8 @@ class ApiAppTests(unittest.TestCase):
                             Path(temp_dir) / "runs.db"
                         ),
                     )
+                    ,
+                    enable_unsafe_admin=True,
                 )
             )
 
@@ -63,7 +65,8 @@ class ApiAppTests(unittest.TestCase):
                         metadata_repository=RunMetadataRepository(
                             Path(temp_dir) / "runs.db"
                         ),
-                    )
+                    ),
+                    enable_unsafe_admin=True,
                 )
             )
 
@@ -81,7 +84,8 @@ class ApiAppTests(unittest.TestCase):
                         metadata_repository=RunMetadataRepository(
                             Path(temp_dir) / "runs.db"
                         ),
-                    )
+                    ),
+                    enable_unsafe_admin=True,
                 )
             )
 
@@ -108,7 +112,8 @@ class ApiAppTests(unittest.TestCase):
                         metadata_repository=RunMetadataRepository(
                             Path(temp_dir) / "runs.db"
                         ),
-                    )
+                    ),
+                    enable_unsafe_admin=True,
                 )
             )
 
@@ -178,7 +183,8 @@ class ApiAppTests(unittest.TestCase):
                         metadata_repository=RunMetadataRepository(
                             Path(temp_dir) / "runs.db"
                         ),
-                    )
+                    ),
+                    enable_unsafe_admin=True,
                 )
             )
 
@@ -273,7 +279,8 @@ class ApiAppTests(unittest.TestCase):
                         metadata_repository=RunMetadataRepository(
                             Path(temp_dir) / "runs.db"
                         ),
-                    )
+                    ),
+                    enable_unsafe_admin=True,
                 )
             )
 
@@ -303,6 +310,7 @@ class ApiAppTests(unittest.TestCase):
                         ),
                     ),
                     transformation_service=TransformationService(DuckDBStore.memory()),
+                    enable_unsafe_admin=True,
                 )
             )
 
@@ -463,6 +471,7 @@ class ApiAppTests(unittest.TestCase):
                     ),
                     extension_registry=registry,
                     config_repository=IngestionConfigRepository(temp_root / "config.db"),
+                    enable_unsafe_admin=True,
                 )
             )
 
@@ -644,6 +653,7 @@ class ApiAppTests(unittest.TestCase):
                         metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
                     ),
                     config_repository=IngestionConfigRepository(temp_root / "config.db"),
+                    enable_unsafe_admin=True,
                 )
             )
 
@@ -681,6 +691,7 @@ class ApiAppTests(unittest.TestCase):
                         metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
                     ),
                     config_repository=IngestionConfigRepository(temp_root / "config.db"),
+                    enable_unsafe_admin=True,
                 )
             )
 
@@ -820,6 +831,7 @@ class ApiAppTests(unittest.TestCase):
                         metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
                     ),
                     config_repository=IngestionConfigRepository(temp_root / "config.db"),
+                    enable_unsafe_admin=True,
                 )
             )
 
@@ -1352,6 +1364,7 @@ class ApiAppTests(unittest.TestCase):
                     ),
                     config_repository=IngestionConfigRepository(temp_root / "config.db"),
                     transformation_service=TransformationService(DuckDBStore.memory()),
+                    enable_unsafe_admin=True,
                 )
             )
 

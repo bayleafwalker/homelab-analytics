@@ -83,11 +83,11 @@ This repository now has a working end-to-end bootstrap aligned to the target arc
 - manual and config-driven account-transaction ingests now share the same retry-safe promotion path into DuckDB-backed marts and current-dimension views
 - explicit subscription and temporal contract-pricing domains now exist alongside transactions, including `mart_subscription_summary`, `mart_contract_price_current`, and `mart_electricity_price_current`
 
-The main remaining gaps are production backends and product hardening: S3-compatible bronze storage, Postgres metadata/gold publication, authenticated admin surfaces, and a richer web UI.
+The main remaining gaps are OIDC/service-token auth, deeper control-plane UX, and broader production hardening. S3-compatible landing plus Postgres-backed control-plane/reporting backends now exist, local username/password auth is available as the bootstrap path, and the web surface now has a real Next.js shell that consumes the API only.
 
 ## Run locally
 
-Current API entrypoints use FastAPI; worker and web remain lightweight Python entrypoints.
+Current API entrypoints use FastAPI; the worker remains a lightweight Python entrypoint; and the web workload is now a Next.js frontend with a thin Python launcher for the built standalone server.
 
 When a DuckDB transformation service is configured, built-in datasets auto-promote successful runs into the current silver/gold path through source-asset transformation bindings and publication definitions. Re-running promotion for the same run is idempotent and refreshes marts without duplicating facts, and config-driven publication definitions can now include registered extension publication relations. Publication-definition creation rejects unknown `publication_key` values unless they match a built-in mart or a registered published extension relation.
 
@@ -95,14 +95,22 @@ Environment variables:
 
 - `HOMELAB_ANALYTICS_DATA_DIR` defaults to `.local/homelab-analytics` under the current working directory
 - `HOMELAB_ANALYTICS_CONFIG_DATABASE_PATH` overrides the SQLite ingestion-config database path (default: `<data_dir>/config.db`)
+- `HOMELAB_ANALYTICS_CONFIG_BACKEND` selects `sqlite` or `postgres` for control-plane configuration, schedules, lineage, and publication audit (default: `sqlite`)
 - `HOMELAB_ANALYTICS_METADATA_BACKEND` selects `sqlite` or `postgres` for ingestion run metadata (default: `sqlite`)
-- `HOMELAB_ANALYTICS_POSTGRES_DSN` configures the Postgres metadata backend when enabled
+- `HOMELAB_ANALYTICS_POSTGRES_DSN` configures the shared Postgres backend used by control-plane, metadata, and published-reporting adapters when enabled
+- `HOMELAB_ANALYTICS_CONTROL_SCHEMA` sets the Postgres schema for control-plane and metadata state (default: `control`)
 - `HOMELAB_ANALYTICS_REPORTING_BACKEND` selects `duckdb` or `postgres` for published reporting reads (default: `duckdb`)
+- `HOMELAB_ANALYTICS_REPORTING_SCHEMA` sets the Postgres schema for published reporting relations (default: `reporting`)
 - `HOMELAB_ANALYTICS_API_HOST` defaults to `0.0.0.0`
 - `HOMELAB_ANALYTICS_API_PORT` defaults to `8080`
+- `HOMELAB_ANALYTICS_API_BASE_URL` overrides the backend API origin used by the Next.js web workload (default: `http://127.0.0.1:<api_port>`)
 - `HOMELAB_ANALYTICS_ANALYTICS_DATABASE_PATH` overrides the DuckDB warehouse path (default: `<data_dir>/analytics/warehouse.duckdb`)
 - `HOMELAB_ANALYTICS_BLOB_BACKEND` selects `filesystem` or `s3` for landed payload storage (default: `filesystem`)
 - `HOMELAB_ANALYTICS_S3_ENDPOINT_URL`, `HOMELAB_ANALYTICS_S3_BUCKET`, `HOMELAB_ANALYTICS_S3_REGION`, `HOMELAB_ANALYTICS_S3_ACCESS_KEY_ID`, `HOMELAB_ANALYTICS_S3_SECRET_ACCESS_KEY`, and `HOMELAB_ANALYTICS_S3_PREFIX` configure the S3/MinIO landing adapter when enabled
+- `HOMELAB_ANALYTICS_AUTH_MODE` selects `disabled` or `local` authentication (default: `disabled`; Compose and Helm examples use `local`)
+- `HOMELAB_ANALYTICS_SESSION_SECRET` configures the HTTP-only signed session cookie secret for local auth
+- `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME` and `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD` optionally create the first local admin user at startup
+- `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` keeps a temporary dev-only bypass for unauthenticated admin/control routes when needed (default: `false`)
 - `HOMELAB_ANALYTICS_EXTENSION_PATHS` adds custom import roots for external extension repositories or mounted code paths
 - `HOMELAB_ANALYTICS_EXTENSION_MODULES` lists Python modules to import and register into the layer extension registry
 - `HOMELAB_ANALYTICS_SECRET__<SECRET_NAME>__<SECRET_KEY>` provides runtime values for secret references used by HTTP ingestion definitions
@@ -115,6 +123,15 @@ python -m apps.worker.main ingest-subscriptions tests/fixtures/subscriptions_val
 python -m apps.worker.main ingest-contract-prices tests/fixtures/contract_prices_valid.csv
 python -m apps.worker.main list-runs
 python -m apps.worker.main list-ingestion-definitions
+python -m apps.worker.main list-execution-schedules
+python -m apps.worker.main list-local-users
+python -m apps.worker.main create-local-admin-user admin replace-me-password
+python -m apps.worker.main reset-local-user-password admin replace-me-new-password
+python -m apps.worker.main enqueue-due-schedules --as-of 2026-01-01T00:00:00+00:00
+python -m apps.worker.main list-schedule-dispatches
+python -m apps.worker.main mark-schedule-dispatch <dispatch_id> --status completed
+python -m apps.worker.main export-control-plane /tmp/control-plane.json
+python -m apps.worker.main import-control-plane /tmp/control-plane.json
 python -m apps.worker.main verify-config
 python -m apps.worker.main list-extensions
 python -m apps.worker.main report-monthly-cashflow
@@ -163,7 +180,10 @@ That pattern keeps key product logic inside this repository while allowing custo
 
 Current execution surfaces:
 
+`/health` and `/metrics` stay public. In local-auth mode, `/runs*`, `/reports*`, and the placeholder web dashboard require at least a `reader`; `/ingest*` requires `operator`; `/config/*`, `/control/*`, `/extensions`, `/sources`, `/landing/*`, `/transformations/*`, and persisted-ingestion processing require `admin`. `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN=true` remains a temporary local/dev-only escape hatch and is not used by the Compose or Helm defaults.
+
 - `POST /landing/{extension_key}` for executable landing extensions
+- `GET /metrics` for Prometheus-compatible operational metrics
 - `GET /sources` for the current source-system and source-asset catalog
 - `GET` and `POST /config/source-systems` for source-system configuration
 - `GET` and `POST /config/dataset-contracts` for dataset-contract configuration
@@ -172,6 +192,8 @@ Current execution surfaces:
 - `GET` and `POST /config/publication-definitions` for declaring published reporting outputs
 - `GET` and `POST /config/source-assets` for source-asset configuration
 - `GET` and `POST /config/ingestion-definitions` for transport, watch-folder, direct-API, and batch-extract configuration
+- `GET` and `POST /config/execution-schedules` for enqueue-only schedule definitions
+- `GET /control/source-lineage`, `GET /control/publication-audit`, and `GET /control/schedule-dispatches` for control-plane visibility
 - `POST /ingest` for JSON path-based ingestion and multipart file uploads
 - `POST /ingest/configured-csv` for config-driven CSV ingestion
 - `POST /ingest/subscriptions` and `POST /ingest/contract-prices` for built-in non-transaction domains
@@ -189,6 +211,7 @@ The repository now includes `pyproject.toml` with console scripts.
 python -m pip install -e .
 homelab-analytics-worker list-runs
 homelab-analytics-api
+# build apps/web/frontend first, or use the Docker web image below
 homelab-analytics-web
 ```
 
@@ -198,6 +221,7 @@ Bootstrap artifacts now exist for image and Compose-based execution.
 
 ```bash
 docker build -f infra/docker/Dockerfile -t homelab-analytics .
+docker build -f infra/docker/web.Dockerfile -t homelab-analytics-web .
 docker run --rm -p 8080:8080 -v "$(pwd)/.local/homelab-analytics:/data" homelab-analytics
 
 make compose-smoke
@@ -205,11 +229,13 @@ docker compose -f infra/examples/compose.yaml up --build
 docker compose -f infra/examples/compose.yaml run --rm worker ingest-account-transactions /data/input.csv
 ```
 
-The example Compose stack now includes Postgres and MinIO and configures the workloads to use them for metadata, published reporting reads, and landed payload storage. DuckDB remains local to the shared `/data` volume as the transformation-layer store.
+The example Compose stack now includes Postgres and MinIO and configures the workloads to use them for control-plane state, published reporting reads, landed payload storage, bootstrap local auth, and the dedicated Next.js web image. DuckDB remains local to the shared `/data` volume as the transformation-layer store.
 `make compose-smoke` is the operator-facing startup check for that stack: it reuses the shared `homelab-analytics:latest` image when present, waits for API and web health, runs the worker CLI once, and then tears the stack down.
 The Compose services also now define container healthchecks for API and web, so runtime tooling can observe the same readiness contract the smoke target uses.
 The example stack pins third-party images as well, so release-ops verification is not silently tracking upstream `latest` tags.
 The repo also now ships a `.dockerignore` that strips local virtualenvs, caches, tests, and docs from the build context so routine container verification stays cheap.
+
+For Kubernetes-facing secret handling, the repository now includes example Secret manifests under `infra/examples/secrets/` for the current credential classes: database, bootstrap local auth, blob storage, OIDC, and provider API access. It also includes an External Secrets Operator example for the Postgres DSN and a SOPS-style encrypted Secret example for provider credentials. These are placeholders only and meant to show the intended cluster-managed patterns, not to be applied unchanged.
 
 ## Run with Helm
 
@@ -220,3 +246,7 @@ helm lint charts/homelab-analytics
 helm template homelab-analytics charts/homelab-analytics
 helm install homelab-analytics charts/homelab-analytics
 ```
+
+The Helm verification gate now parses rendered manifests and asserts workload image/command wiring plus per-workload `secretEnvFrom` references, while also checking that chart output does not render inline credentials or Secret objects for the runtime stack.
+The chart also now includes `charts/homelab-analytics/values.runtime-secrets-example.yaml`, which demonstrates the intended Secret isolation split between API/web reporting access, shared bootstrap local-auth/session secrets, and worker landing/transformation access.
+The default chart values now enable `HOMELAB_ANALYTICS_AUTH_MODE=local`; runtime session/bootstrap admin values are expected to come from Secret references rather than inline chart values.
