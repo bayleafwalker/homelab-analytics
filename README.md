@@ -86,7 +86,7 @@ This repository now has a working end-to-end bootstrap aligned to the target arc
 - manual and config-driven account-transaction ingests now share the same retry-safe promotion path into DuckDB-backed marts and current-dimension views
 - explicit subscription and temporal contract-pricing domains now exist alongside transactions, including `mart_subscription_summary`, `mart_contract_price_current`, and `mart_electricity_price_current`
 
-The main remaining gaps are OIDC/service-token auth and broader production hardening. S3-compatible landing plus Postgres-backed control-plane/reporting backends now exist, local username/password auth is available as the bootstrap path, the worker now claims and processes queued dispatches continuously with lease renewal plus stale-dispatch recovery, and the web surface now has a real Next.js shell that consumes the API only.
+The main remaining gaps are service-token auth and broader production hardening. S3-compatible landing plus Postgres-backed control-plane/reporting backends now exist, local username/password auth remains available as the bootstrap or break-glass path, OIDC is now supported for browser sign-in plus direct bearer-token API access, the worker now claims and processes queued dispatches continuously with lease renewal plus stale-dispatch recovery, and the web surface now has a real Next.js shell that consumes the API only.
 
 ## Run locally
 
@@ -112,8 +112,13 @@ Environment variables:
 - `HOMELAB_ANALYTICS_ANALYTICS_DATABASE_PATH` overrides the DuckDB warehouse path (default: `<data_dir>/analytics/warehouse.duckdb`)
 - `HOMELAB_ANALYTICS_BLOB_BACKEND` selects `filesystem` or `s3` for landed payload storage (default: `filesystem`)
 - `HOMELAB_ANALYTICS_S3_ENDPOINT_URL`, `HOMELAB_ANALYTICS_S3_BUCKET`, `HOMELAB_ANALYTICS_S3_REGION`, `HOMELAB_ANALYTICS_S3_ACCESS_KEY_ID`, `HOMELAB_ANALYTICS_S3_SECRET_ACCESS_KEY`, and `HOMELAB_ANALYTICS_S3_PREFIX` configure the S3/MinIO landing adapter when enabled
-- `HOMELAB_ANALYTICS_AUTH_MODE` selects `disabled` or `local` authentication (default: `disabled`; Compose and Helm examples use `local`)
-- `HOMELAB_ANALYTICS_SESSION_SECRET` configures the HTTP-only signed session cookie secret for local auth
+- `HOMELAB_ANALYTICS_AUTH_MODE` selects `disabled`, `local`, or `oidc` authentication (default: `disabled`; Compose and Helm examples still use `local` for bootstrap/local development)
+- `HOMELAB_ANALYTICS_SESSION_SECRET` configures the signed app-session and OIDC state-cookie secret for cookie-backed auth modes
+- `HOMELAB_ANALYTICS_OIDC_ISSUER_URL`, `HOMELAB_ANALYTICS_OIDC_CLIENT_ID`, `HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET`, and `HOMELAB_ANALYTICS_OIDC_REDIRECT_URI` configure OIDC discovery, token exchange, and callback handling when `HOMELAB_ANALYTICS_AUTH_MODE=oidc`
+- `HOMELAB_ANALYTICS_OIDC_SCOPES` configures the authorization-request scopes (default: `openid,profile,email`)
+- `HOMELAB_ANALYTICS_OIDC_API_AUDIENCE` sets the accepted bearer-token audience for direct API clients (default: OIDC client ID)
+- `HOMELAB_ANALYTICS_OIDC_USERNAME_CLAIM` and `HOMELAB_ANALYTICS_OIDC_GROUPS_CLAIM` select the username and group claims used for app principals and role mapping
+- `HOMELAB_ANALYTICS_OIDC_READER_GROUPS`, `HOMELAB_ANALYTICS_OIDC_OPERATOR_GROUPS`, and `HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS` map OIDC groups into application roles; if none are configured, authenticated OIDC users default to `reader`
 - `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME` and `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD` optionally create the first local admin user at startup
 - `HOMELAB_ANALYTICS_AUTH_FAILURE_WINDOW_SECONDS`, `HOMELAB_ANALYTICS_AUTH_FAILURE_THRESHOLD`, and `HOMELAB_ANALYTICS_AUTH_LOCKOUT_SECONDS` tune bootstrap local-auth login lockout behavior
 - `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` keeps a temporary dev-only bypass for unauthenticated admin/control routes when needed (default: `false`)
@@ -189,12 +194,13 @@ That pattern keeps key product logic inside this repository while allowing custo
 
 Current execution surfaces:
 
-`/health` and `/metrics` stay public. In local-auth mode, `/runs*`, `/reports*`, `/transformation-audit`, `GET /control/source-lineage`, `GET /control/publication-audit`, and the Next.js dashboard/run-detail views require at least a `reader`; `/ingest*` requires `operator`; `/config/*`, `/control/auth-audit`, `/control/schedule-dispatches`, `/extensions`, `/sources`, `/landing/*`, `/transformations/*`, persisted-ingestion processing, `/auth/users*`, and the `/control`, `/control/catalog`, and `/control/execution` admin pages require `admin`. Cookie-authenticated `POST` routes now require a CSRF token, login failures are rate-limited via control-plane auth audit history, and `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN=true` remains a temporary local/dev-only escape hatch that is not used by the Compose or Helm defaults.
+`/health` and `/metrics` stay public. In both local-auth and OIDC modes, `/runs*`, `/reports*`, `/transformation-audit`, `GET /control/source-lineage`, `GET /control/publication-audit`, and the Next.js dashboard/run-detail views require at least a `reader`; `/ingest*` requires `operator`; `/config/*`, `/control/auth-audit`, `/control/schedule-dispatches`, `/extensions`, `/sources`, `/landing/*`, `/transformations/*`, persisted-ingestion processing, `/auth/users*`, and the `/control`, `/control/catalog`, and `/control/execution` admin pages require `admin`. Cookie-authenticated `POST` routes require a CSRF token, local login failures are rate-limited via control-plane auth audit history, OIDC browser login flows mint the same signed app session cookie through `/auth/login` and `/auth/callback`, and direct API clients can present validated OIDC bearer JWTs on protected endpoints. `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN=true` remains a temporary local/dev-only escape hatch that is not used by the Compose or Helm defaults.
 
 - `POST /landing/{extension_key}` for executable landing extensions
 - `GET /metrics` for Prometheus-compatible operational metrics, including queue depth, running/failed/stale dispatch gauges, recovered dispatch count, worker count, oldest heartbeat age, and failed-dispatch ratio
 - `GET /runs/{run_id}` for run-detail inspection in the API and Next.js web shell
 - `POST /runs/{run_id}/retry` for operator retry of built-in and saved-binding configured runs
+- `GET /auth/me`, `GET|POST /auth/login`, `GET /auth/callback`, and `POST /auth/logout` for local or OIDC-backed session management
 - `GET /auth/users`, `POST /auth/users`, `PATCH /auth/users/{user_id}`, and `POST /auth/users/{user_id}/password` for bootstrap local-user management
 - `GET /sources` for the current source-system and source-asset catalog
 - `GET`, `POST`, and `PATCH /config/source-systems/{id}` for source-system configuration

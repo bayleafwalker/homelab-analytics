@@ -11,6 +11,6 @@ Current foundation:
 - API, web, and worker depend on Postgres health and MinIO startup explicitly; that release-ops contract is pinned by the fast test suite
 - third-party runtime images are pinned to explicit tags, including MinIO, so the example stack does not drift with upstream `latest`
 - `secrets/auth-local.env.example` provides example local-auth session/bootstrap values for the Compose stack
-- `secrets/*.example.yaml` provides example Kubernetes Secret manifests for database, bootstrap local auth, blob storage, OIDC, and provider API credentials
+- `secrets/*.example.yaml` provides example Kubernetes Secret manifests for database, bootstrap local auth, blob storage, OIDC session/provider credentials, and provider API credentials
 - `secrets/postgres-external-secret.example.yaml` shows the External Secrets Operator path for cluster-managed database credentials
 - `secrets/provider-api-secret.sops.example.yaml` shows the SOPS-encrypted Secret path for Git-managed provider credentials

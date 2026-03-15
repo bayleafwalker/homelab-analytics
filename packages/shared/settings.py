@@ -41,6 +41,17 @@ class AppSettings:
     s3_prefix: str = ""
     auth_mode: str = "disabled"
     session_secret: str | None = None
+    oidc_issuer_url: str | None = None
+    oidc_client_id: str | None = None
+    oidc_client_secret: str | None = None
+    oidc_redirect_uri: str | None = None
+    oidc_scopes: tuple[str, ...] = ("openid", "profile", "email")
+    oidc_api_audience: str | None = None
+    oidc_username_claim: str = "preferred_username"
+    oidc_groups_claim: str = "groups"
+    oidc_reader_groups: tuple[str, ...] = ()
+    oidc_operator_groups: tuple[str, ...] = ()
+    oidc_admin_groups: tuple[str, ...] = ()
     bootstrap_admin_username: str | None = None
     bootstrap_admin_password: str | None = None
     auth_failure_window_seconds: int = 900
@@ -124,6 +135,43 @@ class AppSettings:
         s3_prefix = env.get("HOMELAB_ANALYTICS_S3_PREFIX", "")
         auth_mode = env.get("HOMELAB_ANALYTICS_AUTH_MODE", "disabled")
         session_secret = env.get("HOMELAB_ANALYTICS_SESSION_SECRET") or None
+        oidc_issuer_url = env.get("HOMELAB_ANALYTICS_OIDC_ISSUER_URL") or None
+        oidc_client_id = env.get("HOMELAB_ANALYTICS_OIDC_CLIENT_ID") or None
+        oidc_client_secret = env.get("HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET") or None
+        oidc_redirect_uri = env.get("HOMELAB_ANALYTICS_OIDC_REDIRECT_URI") or None
+        oidc_scopes = tuple(
+            _split_config_value(
+                env.get("HOMELAB_ANALYTICS_OIDC_SCOPES", "openid,profile,email"),
+                delimiter=",",
+            )
+        )
+        oidc_api_audience = env.get("HOMELAB_ANALYTICS_OIDC_API_AUDIENCE") or None
+        oidc_username_claim = env.get(
+            "HOMELAB_ANALYTICS_OIDC_USERNAME_CLAIM",
+            "preferred_username",
+        )
+        oidc_groups_claim = env.get(
+            "HOMELAB_ANALYTICS_OIDC_GROUPS_CLAIM",
+            "groups",
+        )
+        oidc_reader_groups = tuple(
+            _split_config_value(
+                env.get("HOMELAB_ANALYTICS_OIDC_READER_GROUPS", ""),
+                delimiter=",",
+            )
+        )
+        oidc_operator_groups = tuple(
+            _split_config_value(
+                env.get("HOMELAB_ANALYTICS_OIDC_OPERATOR_GROUPS", ""),
+                delimiter=",",
+            )
+        )
+        oidc_admin_groups = tuple(
+            _split_config_value(
+                env.get("HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS", ""),
+                delimiter=",",
+            )
+        )
         bootstrap_admin_username = (
             env.get("HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME") or None
         )
@@ -178,6 +226,17 @@ class AppSettings:
             s3_prefix=s3_prefix,
             auth_mode=auth_mode,
             session_secret=session_secret,
+            oidc_issuer_url=oidc_issuer_url,
+            oidc_client_id=oidc_client_id,
+            oidc_client_secret=oidc_client_secret,
+            oidc_redirect_uri=oidc_redirect_uri,
+            oidc_scopes=oidc_scopes,
+            oidc_api_audience=oidc_api_audience,
+            oidc_username_claim=oidc_username_claim,
+            oidc_groups_claim=oidc_groups_claim,
+            oidc_reader_groups=oidc_reader_groups,
+            oidc_operator_groups=oidc_operator_groups,
+            oidc_admin_groups=oidc_admin_groups,
             bootstrap_admin_username=bootstrap_admin_username,
             bootstrap_admin_password=bootstrap_admin_password,
             auth_failure_window_seconds=auth_failure_window_seconds,

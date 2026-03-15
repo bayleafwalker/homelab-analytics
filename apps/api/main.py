@@ -11,7 +11,11 @@ from packages.pipelines.lazy_transformation_service import LazyTransformationSer
 from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
-from packages.shared.auth import build_session_manager, maybe_bootstrap_local_admin
+from packages.shared.auth import (
+    build_oidc_provider,
+    build_session_manager,
+    maybe_bootstrap_local_admin,
+)
 from packages.shared.extensions import ExtensionRegistry, load_extension_registry
 from packages.shared.logging import configure_logging
 from packages.shared.settings import AppSettings
@@ -112,6 +116,7 @@ def build_app(settings: AppSettings | None = None):
         auth_store=config_store,
         auth_mode=resolved_settings.auth_mode,
         session_manager=build_session_manager(resolved_settings),
+        oidc_provider=build_oidc_provider(resolved_settings),
         auth_failure_window_seconds=resolved_settings.auth_failure_window_seconds,
         auth_failure_threshold=resolved_settings.auth_failure_threshold,
         auth_lockout_seconds=resolved_settings.auth_lockout_seconds,

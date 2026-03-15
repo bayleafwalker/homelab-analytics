@@ -10,8 +10,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, cast
 
+import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from pydantic import ValidationError
 from starlette.datastructures import UploadFile
 
@@ -61,9 +62,14 @@ from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.auth import (
     AuthenticatedPrincipal,
+    OidcAuthenticationError,
+    OidcAuthorizationError,
+    OidcProvider,
     SessionManager,
     has_required_role,
     hash_password,
+    normalize_return_to,
+    serialize_authenticated_user,
     serialize_principal,
     serialize_user,
     verify_password,
@@ -115,6 +121,7 @@ def create_app(
     auth_store: AuthStore | None = None,
     auth_mode: str = "disabled",
     session_manager: SessionManager | None = None,
+    oidc_provider: OidcProvider | None = None,
     auth_failure_window_seconds: int = 900,
     auth_failure_threshold: int = 5,
     auth_lockout_seconds: int = 900,
@@ -126,16 +133,19 @@ def create_app(
     )
     resolved_auth_store_candidate = auth_store or resolved_config_repository
     resolved_auth_mode = auth_mode.lower()
-    if resolved_auth_mode not in {"disabled", "local"}:
+    if resolved_auth_mode not in {"disabled", "local", "oidc"}:
         raise ValueError(f"Unsupported auth mode: {auth_mode!r}")
-    if resolved_auth_mode == "local" and session_manager is None:
-        raise ValueError("Local auth requires a configured session manager.")
-    if resolved_auth_mode == "local" and not isinstance(
+    if resolved_auth_mode in {"local", "oidc"} and session_manager is None:
+        raise ValueError("Cookie-backed auth requires a configured session manager.")
+    if resolved_auth_mode == "oidc" and oidc_provider is None:
+        raise ValueError("OIDC auth requires a configured OIDC provider.")
+    if resolved_auth_mode in {"local", "oidc"} and not isinstance(
         resolved_auth_store_candidate, AuthStore
     ):
-        raise ValueError("Local auth requires an auth-capable control-plane store.")
+        raise ValueError("Configured auth requires an auth-capable control-plane store.")
     resolved_auth_store = cast(AuthStore, resolved_auth_store_candidate)
     resolved_session_manager = session_manager
+    resolved_oidc_provider = oidc_provider
     configured_ingestion_service = ConfiguredCsvIngestionService(
         landing_root=service.landing_root,
         metadata_repository=service.metadata_repository,
@@ -229,7 +239,7 @@ def create_app(
     )
 
     def require_unsafe_admin() -> None:
-        if resolved_auth_mode == "local":
+        if resolved_auth_mode in {"local", "oidc"}:
             return
         if not enable_unsafe_admin:
             raise HTTPException(
@@ -788,7 +798,7 @@ def create_app(
         return candidate
 
     def required_role_for_path(path: str) -> UserRole | None:
-        if path in {"/health", "/metrics", "/auth/login", "/auth/logout"}:
+        if path in {"/health", "/metrics", "/auth/login", "/auth/logout", "/auth/callback"}:
             return None
         if path.startswith("/runs/") and path.endswith("/retry"):
             return UserRole.OPERATOR
@@ -823,19 +833,66 @@ def create_app(
             return UserRole.READER
         return None
 
+    def bearer_token_from_request(request: Request) -> str | None:
+        header_value = request.headers.get("authorization", "").strip()
+        if not header_value:
+            return None
+        scheme, _, token = header_value.partition(" ")
+        if scheme.lower() != "bearer" or not token.strip():
+            return None
+        return token.strip()
+
     @app.middleware("http")
     async def authenticate_and_log_request(request: Request, call_next):
         started = time.perf_counter()
         request.state.principal = None
-        if resolved_auth_mode == "local":
+        request.state.auth_via_cookie = False
+        if resolved_auth_mode in {"local", "oidc"}:
             assert resolved_session_manager is not None
             required_role = required_role_for_path(request.url.path)
-            request.state.principal = resolved_session_manager.authenticate(
-                request.cookies.get(resolved_session_manager.cookie_name),
-                resolved_auth_store,
-            )
+            auth_error_response: JSONResponse | None = None
+            if resolved_auth_mode == "oidc":
+                bearer_token = bearer_token_from_request(request)
+                if bearer_token is not None:
+                    assert resolved_oidc_provider is not None
+                    try:
+                        request.state.principal = resolved_oidc_provider.authenticate_bearer_token(
+                            bearer_token
+                        )
+                    except OidcAuthorizationError as exc:
+                        auth_error_response = JSONResponse(
+                            status_code=403,
+                            content={"detail": str(exc)},
+                        )
+                    except OidcAuthenticationError:
+                        auth_error_response = JSONResponse(
+                            status_code=401,
+                            content={"detail": "Invalid bearer token."},
+                        )
+                else:
+                    request.state.principal = resolved_session_manager.authenticate(
+                        request.cookies.get(resolved_session_manager.cookie_name),
+                        resolved_auth_store,
+                    )
+                    request.state.auth_via_cookie = request.state.principal is not None
+            else:
+                request.state.principal = resolved_session_manager.authenticate(
+                    request.cookies.get(resolved_session_manager.cookie_name),
+                    resolved_auth_store,
+                )
+                request.state.auth_via_cookie = request.state.principal is not None
+            if auth_error_response is not None:
+                _log_request(
+                    logger,
+                    request.method,
+                    request.url.path,
+                    auth_error_response.status_code,
+                    started,
+                )
+                return auth_error_response
             if (
                 request.state.principal is not None
+                and bool(getattr(request.state, "auth_via_cookie", False))
                 and request.method.upper() not in {"GET", "HEAD", "OPTIONS"}
             ):
                 csrf_header = request.headers.get("x-csrf-token")
@@ -1028,6 +1085,147 @@ def create_app(
         )
         return response
 
+    @app.get("/auth/login")
+    async def start_oidc_login(request: Request) -> RedirectResponse:
+        if resolved_auth_mode != "oidc":
+            raise HTTPException(
+                status_code=400,
+                detail="OIDC authentication is not enabled.",
+            )
+        assert resolved_oidc_provider is not None
+        try:
+            redirect = resolved_oidc_provider.build_login_redirect(
+                request.query_params.get("return_to")
+            )
+        except (OidcAuthenticationError, httpx.HTTPError) as exc:
+            raise HTTPException(
+                status_code=502,
+                detail="OIDC discovery failed.",
+            ) from exc
+        secure_cookie = cookie_secure_for_request(request)
+        response = RedirectResponse(redirect.authorization_url, status_code=303)
+        response.set_cookie(
+            key=resolved_oidc_provider.state_cookie_name,
+            value=redirect.state_cookie_value,
+            httponly=True,
+            max_age=resolved_oidc_provider.state_max_age_seconds,
+            expires=resolved_oidc_provider.state_max_age_seconds,
+            path="/",
+            samesite=resolved_oidc_provider.same_site,
+            secure=secure_cookie,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.get("/auth/callback")
+    async def oidc_callback(request: Request) -> RedirectResponse:
+        if resolved_auth_mode != "oidc":
+            raise HTTPException(
+                status_code=400,
+                detail="OIDC authentication is not enabled.",
+            )
+        assert resolved_session_manager is not None
+        assert resolved_oidc_provider is not None
+        provider_error = request.query_params.get("error")
+        code = request.query_params.get("code")
+        state = request.query_params.get("state")
+        if provider_error or not code or not state:
+            record_auth_event(
+                request,
+                event_type="login_failed",
+                success=False,
+                detail=provider_error or "OIDC callback missing code or state.",
+            )
+            response = RedirectResponse("/login?error=oidc-failed", status_code=303)
+            response.delete_cookie(
+                resolved_oidc_provider.state_cookie_name,
+                path="/",
+                httponly=True,
+                samesite=resolved_oidc_provider.same_site,
+                secure=cookie_secure_for_request(request),
+            )
+            response.headers["Cache-Control"] = "no-store"
+            return response
+        try:
+            principal, return_to = resolved_oidc_provider.authenticate_callback(
+                code=code,
+                state=state,
+                cookie_value=request.cookies.get(resolved_oidc_provider.state_cookie_name),
+            )
+        except OidcAuthorizationError as exc:
+            record_auth_event(
+                request,
+                event_type="login_failed",
+                success=False,
+                detail=str(exc),
+            )
+            response = RedirectResponse("/login?error=oidc-unmapped", status_code=303)
+            response.delete_cookie(
+                resolved_oidc_provider.state_cookie_name,
+                path="/",
+                httponly=True,
+                samesite=resolved_oidc_provider.same_site,
+                secure=cookie_secure_for_request(request),
+            )
+            response.headers["Cache-Control"] = "no-store"
+            return response
+        except (OidcAuthenticationError, httpx.HTTPError) as exc:
+            record_auth_event(
+                request,
+                event_type="login_failed",
+                success=False,
+                detail=str(exc),
+            )
+            response = RedirectResponse("/login?error=oidc-failed", status_code=303)
+            response.delete_cookie(
+                resolved_oidc_provider.state_cookie_name,
+                path="/",
+                httponly=True,
+                samesite=resolved_oidc_provider.same_site,
+                secure=cookie_secure_for_request(request),
+            )
+            response.headers["Cache-Control"] = "no-store"
+            return response
+        record_auth_event(
+            request,
+            event_type="login_succeeded",
+            success=True,
+            subject_user_id=principal.user_id,
+            subject_username=principal.username,
+        )
+        issued_session = resolved_session_manager.issue_session(principal)
+        secure_cookie = cookie_secure_for_request(request)
+        response = RedirectResponse(normalize_return_to(return_to), status_code=303)
+        response.headers["Cache-Control"] = "no-store"
+        response.set_cookie(
+            key=resolved_session_manager.cookie_name,
+            value=issued_session.cookie_value,
+            httponly=True,
+            max_age=resolved_session_manager.max_age_seconds,
+            expires=resolved_session_manager.max_age_seconds,
+            path="/",
+            samesite=resolved_session_manager.same_site,
+            secure=secure_cookie,
+        )
+        response.set_cookie(
+            key=resolved_session_manager.csrf_cookie_name,
+            value=issued_session.csrf_token,
+            httponly=False,
+            max_age=resolved_session_manager.max_age_seconds,
+            expires=resolved_session_manager.max_age_seconds,
+            path="/",
+            samesite=resolved_session_manager.same_site,
+            secure=secure_cookie,
+        )
+        response.delete_cookie(
+            resolved_oidc_provider.state_cookie_name,
+            path="/",
+            httponly=True,
+            samesite=resolved_oidc_provider.same_site,
+            secure=secure_cookie,
+        )
+        return response
+
     @app.post("/auth/logout")
     async def logout(request: Request) -> JSONResponse:
         response = JSONResponse({"logged_out": True})
@@ -1060,20 +1258,32 @@ def create_app(
                 samesite=resolved_session_manager.same_site,
                 secure=secure_cookie,
             )
+        if resolved_oidc_provider is not None:
+            response.delete_cookie(
+                resolved_oidc_provider.state_cookie_name,
+                path="/",
+                httponly=True,
+                samesite=resolved_oidc_provider.same_site,
+                secure=cookie_secure_for_request(request),
+            )
         return response
 
     @app.get("/auth/me")
     async def auth_me(request: Request) -> dict[str, Any]:
-        if resolved_auth_mode != "local":
+        if resolved_auth_mode == "disabled":
             return {"auth_mode": "disabled", "authenticated": False}
         principal = getattr(request.state, "principal", None)
         if principal is None:
             raise HTTPException(status_code=401, detail="Authentication required.")
-        user = resolved_auth_store.get_local_user(principal.user_id)
+        if principal.auth_provider == "local":
+            user = resolved_auth_store.get_local_user(principal.user_id)
+            serialized_user = serialize_user(user)
+        else:
+            serialized_user = serialize_authenticated_user(principal)
         return {
-            "auth_mode": "local",
+            "auth_mode": resolved_auth_mode,
             "authenticated": True,
-            "user": serialize_user(user),
+            "user": serialized_user,
             "principal": serialize_principal(principal),
         }
 

@@ -15,7 +15,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** A standalone auth option is required before OIDC infrastructure is available, and as a break-glass fallback.
 
 **Phase:** 4
-**Status:** in-progress (local-user storage now exists in both SQLite and Postgres control-plane backends; API exposes `/auth/login`, `/auth/logout`, `/auth/me`, and admin user-management endpoints with signed session cookies, CSRF protection, and login lockout; auth events are recorded in control-plane audit data; the Next.js web shell now includes a thin authenticated admin page; worker CLI can still create/reset/list local users; Compose and Helm examples wire bootstrap local-auth secrets)
+**Status:** implemented (local-user storage exists in both SQLite and Postgres control-plane backends; API exposes `/auth/login`, `/auth/logout`, `/auth/me`, and admin user-management endpoints with signed session cookies, CSRF protection, and login lockout; auth events are recorded in control-plane audit data; the Next.js web shell authenticates through the API; worker CLI can still create/reset/list local users; Compose and Helm examples wire bootstrap local-auth secrets)
 
 **Acceptance criteria:**
 - Username/password login endpoint issues a signed session cookie or JWT.
@@ -37,7 +37,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** OIDC provides centralized identity management for multi-service homelab environments.
 
 **Phase:** 4
-**Status:** not-started
+**Status:** implemented (OIDC settings are now supported through environment variables and Secret-backed runtime config; the API performs discovery, code exchange, signed callback/session handling, and JWT validation against issuer JWKS; the Next.js web shell proxies OIDC login and callback through the API while keeping the browser-facing auth surface on the web origin; protected API endpoints now accept validated OIDC bearer JWTs; and tests cover discovery/JWKS/token validation against a mock issuer)
 
 **Acceptance criteria:**
 - OIDC configuration via environment variables or Kubernetes Secret: issuer URL, client ID, client secret, redirect URI.
@@ -75,7 +75,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Not all household members or automation systems should have full configuration access.
 
 **Phase:** 4
-**Status:** in-progress (local auth now enforces `reader`, `operator`, and `admin` roles across API and Next.js web routes, including admin-only local-user management and auth-audit visibility; the remaining gap is extending the same role model to future OIDC and service-token paths)
+**Status:** in-progress (local auth and OIDC now both enforce `reader`, `operator`, and `admin` roles across API and Next.js web routes, including admin-only local-user management and auth-audit visibility; the remaining gap is extending the same role model to service-token paths)
 
 **Acceptance criteria:**
 - Read-only role can view dashboards and reports but cannot ingest or configure.
@@ -114,7 +114,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Least-privilege credential scoping limits blast radius of credential compromise.
 
 **Phase:** 4
-**Status:** in-progress (runtime workloads are split by role, deployment surfaces are distinct, secret references remain runtime-resolved, and the Helm chart now includes an example workload-specific Secret split for reporting/bootstrap-auth versus landing/transformation access; real least-privilege credentials and full Postgres/OIDC isolation are still pending)
+**Status:** in-progress (runtime workloads are split by role, deployment surfaces are distinct, secret references remain runtime-resolved, and the Helm chart now includes an example workload-specific Secret split for reporting/bootstrap-auth versus landing/transformation access; OIDC client credentials now follow the same Secret-backed pattern, while real least-privilege database credentials and full production isolation are still pending)
 
 **Acceptance criteria:**
 - Worker pods receive only landing-write and transformation-write credentials.
@@ -283,9 +283,9 @@ The platform must handle sensitive financial and personal data securely, deploy 
 | Requirement | Implementation module | Test file |
 |---|---|---|
 | SEC-01 | `packages/shared/auth.py`, `packages/storage/auth_store.py`, `packages/storage/ingestion_config.py`, `packages/storage/postgres_ingestion_config.py`, `apps/api/app.py`, `apps/web/app.py`, `apps/worker/main.py` | `tests/test_api_auth.py`, `tests/test_web_auth.py`, `tests/test_worker_auth_cli.py`, `tests/test_sqlite_auth_store_contract.py`, `tests/test_postgres_auth_store_integration.py` |
-| SEC-02 | — | — |
+| SEC-02 | `packages/shared/auth.py`, `packages/shared/settings.py`, `apps/api/app.py`, `apps/api/main.py`, `apps/web/app.py`, `apps/web/frontend/app/auth/login/route.js`, `apps/web/frontend/app/auth/callback/route.js` | `tests/test_api_oidc.py`, `tests/test_web_auth.py`, `tests/test_settings.py` |
 | SEC-03 | — | — |
-| SEC-04 | `packages/shared/auth.py`, `apps/api/app.py`, `apps/web/app.py` | `tests/test_api_auth.py`, `tests/test_web_auth.py` |
+| SEC-04 | `packages/shared/auth.py`, `apps/api/app.py`, `apps/web/app.py` | `tests/test_api_auth.py`, `tests/test_api_oidc.py`, `tests/test_web_auth.py` |
 | SEC-05 | `packages/shared/secrets.py`, `packages/storage/ingestion_config.py`, `packages/pipelines/configured_ingestion_definition.py`, `charts/homelab-analytics/` | `tests/test_ingestion_config_repository.py`, `tests/test_configured_ingestion_definition.py`, `tests/test_helm_chart.py` |
 | SEC-06 | `apps/api/main.py`, `apps/web/main.py`, `apps/worker/main.py`, `charts/homelab-analytics/` | `tests/test_helm_chart.py`, `tests/test_project_metadata.py` |
 | OPS-01 | `infra/docker/Dockerfile` | `tests/test_project_metadata.py` |

@@ -61,6 +61,17 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual("filesystem", settings.blob_backend)
         self.assertEqual("disabled", settings.auth_mode)
         self.assertIsNone(settings.session_secret)
+        self.assertIsNone(settings.oidc_issuer_url)
+        self.assertIsNone(settings.oidc_client_id)
+        self.assertIsNone(settings.oidc_client_secret)
+        self.assertIsNone(settings.oidc_redirect_uri)
+        self.assertEqual(("openid", "profile", "email"), settings.oidc_scopes)
+        self.assertIsNone(settings.oidc_api_audience)
+        self.assertEqual("preferred_username", settings.oidc_username_claim)
+        self.assertEqual("groups", settings.oidc_groups_claim)
+        self.assertEqual((), settings.oidc_reader_groups)
+        self.assertEqual((), settings.oidc_operator_groups)
+        self.assertEqual((), settings.oidc_admin_groups)
         self.assertIsNone(settings.bootstrap_admin_username)
         self.assertIsNone(settings.bootstrap_admin_password)
         self.assertEqual(900, settings.auth_failure_window_seconds)
@@ -194,6 +205,17 @@ class AppSettingsTests(unittest.TestCase):
                 "HOMELAB_ANALYTICS_S3_PREFIX": "bronze",
                 "HOMELAB_ANALYTICS_AUTH_MODE": "local",
                 "HOMELAB_ANALYTICS_SESSION_SECRET": "session-secret",
+                "HOMELAB_ANALYTICS_OIDC_ISSUER_URL": "https://auth.example.test/application/o/homelab/",
+                "HOMELAB_ANALYTICS_OIDC_CLIENT_ID": "homelab-analytics",
+                "HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET": "oidc-client-secret",
+                "HOMELAB_ANALYTICS_OIDC_REDIRECT_URI": "https://analytics.example.test/auth/callback",
+                "HOMELAB_ANALYTICS_OIDC_SCOPES": "openid,profile,email,groups",
+                "HOMELAB_ANALYTICS_OIDC_API_AUDIENCE": "homelab-analytics-api",
+                "HOMELAB_ANALYTICS_OIDC_USERNAME_CLAIM": "email",
+                "HOMELAB_ANALYTICS_OIDC_GROUPS_CLAIM": "roles",
+                "HOMELAB_ANALYTICS_OIDC_READER_GROUPS": "dash-readers",
+                "HOMELAB_ANALYTICS_OIDC_OPERATOR_GROUPS": "operators-a,operators-b",
+                "HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS": "platform-admins",
                 "HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME": "admin",
                 "HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD": "admin-password",
                 "HOMELAB_ANALYTICS_AUTH_FAILURE_WINDOW_SECONDS": "600",
@@ -221,6 +243,29 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual("bronze", settings.s3_prefix)
         self.assertEqual("local", settings.auth_mode)
         self.assertEqual("session-secret", settings.session_secret)
+        self.assertEqual(
+            "https://auth.example.test/application/o/homelab/",
+            settings.oidc_issuer_url,
+        )
+        self.assertEqual("homelab-analytics", settings.oidc_client_id)
+        self.assertEqual("oidc-client-secret", settings.oidc_client_secret)
+        self.assertEqual(
+            "https://analytics.example.test/auth/callback",
+            settings.oidc_redirect_uri,
+        )
+        self.assertEqual(
+            ("openid", "profile", "email", "groups"),
+            settings.oidc_scopes,
+        )
+        self.assertEqual("homelab-analytics-api", settings.oidc_api_audience)
+        self.assertEqual("email", settings.oidc_username_claim)
+        self.assertEqual("roles", settings.oidc_groups_claim)
+        self.assertEqual(("dash-readers",), settings.oidc_reader_groups)
+        self.assertEqual(
+            ("operators-a", "operators-b"),
+            settings.oidc_operator_groups,
+        )
+        self.assertEqual(("platform-admins",), settings.oidc_admin_groups)
         self.assertEqual("admin", settings.bootstrap_admin_username)
         self.assertEqual("admin-password", settings.bootstrap_admin_password)
         self.assertEqual(600, settings.auth_failure_window_seconds)

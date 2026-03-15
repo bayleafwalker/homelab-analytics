@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { backendRequest } from "@/lib/backend";
+import { backendRequest, copyBackendSetCookies } from "@/lib/backend";
 
 export async function POST(request) {
   const response = await backendRequest("/auth/logout", {
@@ -10,9 +10,6 @@ export async function POST(request) {
   const redirectResponse = NextResponse.redirect(new URL("/login", request.url), {
     status: 303
   });
-  const setCookie = response.headers.get("set-cookie");
-  if (setCookie) {
-    redirectResponse.headers.set("set-cookie", setCookie);
-  }
+  copyBackendSetCookies(response, redirectResponse.headers);
   return redirectResponse;
 }

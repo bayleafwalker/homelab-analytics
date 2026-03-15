@@ -16,6 +16,7 @@ dependencies = [
     "httpx>=0.24",
     "polars>=1.0",
     "psycopg[binary]>=3.2",
+    "PyJWT[crypto]>=2.10",
     "python-multipart>=0.0.9",
     "pytz>=2024.1",
     "pyarrow>=17.0",

@@ -49,6 +49,7 @@ class ProjectMetadataTests(unittest.TestCase):
         self.assertTrue(any(dep.startswith("fastapi") for dep in dependencies))
         self.assertTrue(any(dep.startswith("polars") for dep in dependencies))
         self.assertTrue(any(dep.startswith("pyarrow") for dep in dependencies))
+        self.assertTrue(any(dep.startswith("PyJWT") for dep in dependencies))
         self.assertTrue(
             any(dep.startswith("python-multipart") for dep in dependencies)
         )

@@ -69,6 +69,16 @@ export async function backendRequest(
   });
 }
 
+export function copyBackendSetCookies(sourceResponse, targetHeaders) {
+  const getSetCookie = sourceResponse.headers.getSetCookie?.bind(sourceResponse.headers);
+  const cookieValues = getSetCookie
+    ? getSetCookie()
+    : [sourceResponse.headers.get("set-cookie")].filter(Boolean);
+  for (const cookieValue of cookieValues) {
+    targetHeaders.append("set-cookie", cookieValue);
+  }
+}
+
 export async function backendJson(path) {
   const response = await backendRequest(path);
   if (response.status === 401) {

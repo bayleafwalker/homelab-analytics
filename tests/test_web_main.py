@@ -39,6 +39,7 @@ class WebMainTests(unittest.TestCase):
             self.assertEqual("0.0.0.0", environment["HOSTNAME"])
             self.assertEqual("8081", environment["PORT"])
             self.assertEqual("http://api.internal:8090", environment["HOMELAB_ANALYTICS_API_BASE_URL"])
+            self.assertEqual("disabled", environment["HOMELAB_ANALYTICS_AUTH_MODE"])
 
     def test_main_executes_next_runtime_command(self) -> None:
         with TemporaryDirectory() as temp_dir:

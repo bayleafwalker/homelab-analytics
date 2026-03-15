@@ -8,6 +8,9 @@ FRONTEND_ROOT = ROOT / "apps" / "web" / "frontend"
 
 def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     login_route = (FRONTEND_ROOT / "app" / "auth" / "login" / "route.js").read_text()
+    callback_route = (
+        FRONTEND_ROOT / "app" / "auth" / "callback" / "route.js"
+    ).read_text()
     logout_route = (FRONTEND_ROOT / "app" / "auth" / "logout" / "route.js").read_text()
     login_page = (FRONTEND_ROOT / "app" / "login" / "page.js").read_text()
     control_page = (FRONTEND_ROOT / "app" / "control" / "page.js").read_text()
@@ -225,11 +228,16 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     ).read_text()
 
     assert 'backendRequest("/auth/login"' in login_route
-    assert "set-cookie" in login_route
+    assert 'backendRequest(`/auth/login${search}`' in login_route
+    assert 'backendRequest(`/auth/callback${search}`' in callback_route
+    assert "copyBackendSetCookies" in callback_route
+    assert "copyBackendSetCookies" in login_route
     assert 'backendRequest("/auth/logout"' in logout_route
     assert "Sign In" in login_page
     assert 'action="/auth/login"' in login_page
     assert "Too many failed login attempts" in login_page
+    assert "Sign In with OIDC" in login_page
+    assert 'process.env.HOMELAB_ANALYTICS_AUTH_MODE' in login_page
     assert "getLocalUsers" in control_page
     assert "getAuthAuditEvents" in control_page
     assert "getSourceSystems" in control_catalog_page
