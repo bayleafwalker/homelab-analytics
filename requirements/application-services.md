@@ -202,7 +202,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** The worker is the execution engine for all data processing. CLI interface enables scripting, debugging, and Kubernetes Job integration.
 
 **Phase:** 0
-**Status:** implemented (JSON-emitting commands cover account ingestion, configured CSV ingestion, ingestion-definition processing, config preflight verification, inbox processing/watch, extension execution, subscription and contract-price ingestion/reporting, utility cost summary reporting, execution-schedule enqueue/list/mark flows, dispatch processing, worker heartbeat listing, stale-dispatch recovery, continuous schedule-dispatch watching with lease renewal and graceful-stop support, control-plane import/export, and local-user bootstrap/reset/list operations)
+**Status:** implemented (JSON-emitting commands cover account ingestion, configured CSV ingestion, ingestion-definition processing, config preflight verification, inbox processing/watch, extension execution, subscription and contract-price ingestion/reporting, utility cost summary reporting, execution-schedule enqueue/list/mark flows, dispatch processing, worker heartbeat listing, stale-dispatch recovery, continuous schedule-dispatch watching with lease renewal and graceful-stop support, control-plane import/export, local-user bootstrap/reset/list operations, and service-token lifecycle operations)
 
 **Acceptance criteria:**
 - All subcommands emit JSON for parseable output.
@@ -216,15 +216,16 @@ The platform exposes its capabilities through three application workloads: a JSO
 
 ### APP-12: Health endpoints
 
-**Description:** All workloads expose `/health` for liveness and readiness probes.
+**Description:** API and web workloads expose `/health` and `/ready` for liveness and readiness probes.
 
 **Rationale:** Kubernetes probes require health endpoints for reliable pod lifecycle management.
 
 **Phase:** 0
-**Status:** implemented (API and web both expose `/health`)
+**Status:** implemented (API and web both expose `/health` and `/ready`, and the chart plus Compose examples now use `/ready` as the startup contract)
 
 **Acceptance criteria:**
-- `GET /health` returns 200 with `{"status": "ok"}` (API) or plain text "ok" (web).
+- `GET /health` returns 200 with `{"status": "ok"}` (API) or plain text `ok` (web).
+- `GET /ready` returns 200 only after startup configuration validation succeeds.
 - Worker health is implicit (process exit code).
 
 **Dependencies:** none

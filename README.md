@@ -101,6 +101,7 @@ Environment variables:
 - `HOMELAB_ANALYTICS_CONFIG_BACKEND` selects `sqlite` or `postgres` for control-plane configuration, schedules, lineage, and publication audit (default: `sqlite`)
 - `HOMELAB_ANALYTICS_METADATA_BACKEND` selects `sqlite` or `postgres` for ingestion run metadata (default: `sqlite`)
 - `HOMELAB_ANALYTICS_POSTGRES_DSN` configures the shared Postgres backend used by control-plane, metadata, and published-reporting adapters when enabled
+- `HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN`, `HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN`, and `HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN` override the shared DSN per concern so API and worker workloads can run with different database roles while still falling back to `HOMELAB_ANALYTICS_POSTGRES_DSN` in local/bootstrap environments
 - `HOMELAB_ANALYTICS_CONTROL_SCHEMA` sets the Postgres schema for control-plane and metadata state (default: `control`)
 - `HOMELAB_ANALYTICS_REPORTING_BACKEND` selects `duckdb` or `postgres` for published reporting reads (default: `duckdb`)
 - `HOMELAB_ANALYTICS_REPORTING_SCHEMA` sets the Postgres schema for published reporting relations (default: `reporting`)
@@ -251,17 +252,17 @@ docker compose -f infra/examples/compose.yaml up --build
 docker compose -f infra/examples/compose.yaml run --rm worker ingest-account-transactions /data/input.csv
 ```
 
-The example Compose stack now includes Postgres and MinIO and configures the workloads to use them for control-plane state, published reporting reads, landed payload storage, explicit local break-glass auth, readiness checks, and the dedicated Next.js web image. DuckDB remains local to the shared `/data` volume as the transformation-layer store.
+The example Compose stack now includes Postgres and MinIO and configures the workloads to use them for control-plane state, published reporting reads, landed payload storage, explicit local break-glass auth, readiness checks, and the dedicated Next.js web image. API and worker now consume the purpose-specific Postgres DSN environment variables even though the local example still points them at the same bootstrap Postgres role. DuckDB remains local to the shared `/data` volume as the transformation-layer store.
 `make compose-smoke` is the operator-facing startup check for that stack: it reuses the shared `homelab-analytics:latest` image when present, waits for API and web health, runs the worker CLI once, and then tears the stack down.
 The Compose services also now define container healthchecks for API and web, so runtime tooling can observe the same readiness contract the smoke target uses.
 The example stack pins third-party images as well, so release-ops verification is not silently tracking upstream `latest` tags.
 The repo also now ships a `.dockerignore` that strips local virtualenvs, caches, tests, and docs from the build context so routine container verification stays cheap.
 
-For Kubernetes-facing secret handling, the repository now includes example Secret manifests under `infra/examples/secrets/` for the current credential classes: database, bootstrap local auth, blob storage, OIDC, and provider API access. It also includes an External Secrets Operator example for the Postgres DSN and a SOPS-style encrypted Secret example for provider credentials. These are placeholders only and meant to show the intended cluster-managed patterns, not to be applied unchanged.
+For Kubernetes-facing secret handling, the repository now includes example Secret manifests under `infra/examples/secrets/` for the current credential classes: bootstrap single-DSN database access, workload-scoped API and worker database access, bootstrap local auth, blob storage, OIDC, and provider API access. It also includes an External Secrets Operator example for the bootstrap Postgres DSN and a SOPS-style encrypted Secret example for provider credentials. These are placeholders only and meant to show the intended cluster-managed patterns, not to be applied unchanged.
 
 ## Run with Helm
 
-The repository now includes a minimal chart for the current API and watched-folder worker slice.
+The repository now includes a chart for the current API, Next.js web, and continuous worker slice.
 
 ```bash
 helm lint charts/homelab-analytics
@@ -269,6 +270,6 @@ helm template homelab-analytics charts/homelab-analytics
 helm install homelab-analytics charts/homelab-analytics
 ```
 
-The Helm verification gate now parses rendered manifests and asserts workload image/command wiring plus per-workload `secretEnvFrom` references, while also checking that chart output does not render inline credentials or Secret objects for the runtime stack.
-The chart also now includes `charts/homelab-analytics/values.runtime-secrets-example.yaml`, which demonstrates the intended Secret isolation split between API/web reporting access, shared bootstrap local-auth/session secrets, and worker landing/transformation access.
-The default chart values now enable `HOMELAB_ANALYTICS_AUTH_MODE=oidc`; API and web expect Secret-backed OIDC/session settings via `secretEnvFrom`, while local bootstrap admin credentials are no longer part of the shared-deployment default. Local auth remains available as an explicit break-glass override.
+The Helm verification gate now parses rendered manifests and asserts workload image/command wiring, ingress and alert-rule rendering, and per-workload `secretEnvFrom` references, while also checking that chart output does not render inline credentials or Secret objects for the runtime stack.
+The chart also now includes `charts/homelab-analytics/values.runtime-secrets-example.yaml`, which demonstrates the intended Secret isolation split between API database/blob/OIDC access, web OIDC-only access, and worker database/blob/landing/transformation access. `charts/homelab-analytics/values.oidc-ingress-example.yaml` shows the shared-deployment path with OIDC, TLS-enabled ingress, and `PrometheusRule` alerts.
+The default chart values now enable `HOMELAB_ANALYTICS_AUTH_MODE=oidc`; API and web expect Secret-backed OIDC/session settings via `secretEnvFrom`, while local bootstrap admin credentials are no longer part of the shared-deployment default. The example values and runbooks under `docs/runbooks/` cover the expected ingress callback shape, runtime Secret split, and backup/restore flow. Local auth remains available as an explicit break-glass override.

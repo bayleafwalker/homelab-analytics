@@ -8,6 +8,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 CHART_DIR = ROOT / "charts" / "homelab-analytics"
 RUNTIME_SECRETS_EXAMPLE = CHART_DIR / "values.runtime-secrets-example.yaml"
+OIDC_INGRESS_EXAMPLE = CHART_DIR / "values.oidc-ingress-example.yaml"
 
 
 @unittest.skipIf(shutil.which("helm") is None, "helm is not installed")
@@ -190,14 +191,30 @@ class HelmChartTests(unittest.TestCase):
         ]["spec"]["containers"][0]["envFrom"]
 
         self.assertIn(
-            {"secretRef": {"name": "homelab-analytics-reporting-read"}},
+            {"secretRef": {"name": "homelab-analytics-api-database"}},
+            api_env_from,
+        )
+        self.assertIn(
+            {"secretRef": {"name": "homelab-analytics-blob-storage"}},
             api_env_from,
         )
         self.assertIn(
             {"secretRef": {"name": "homelab-analytics-auth-oidc"}},
             api_env_from,
         )
-        self.assertEqual(api_env_from, web_env_from)
+        self.assertEqual(
+            {"secretRef": {"name": "homelab-analytics-auth-oidc"}},
+            web_env_from[-1],
+        )
+        self.assertEqual(2, len(web_env_from))
+        self.assertIn(
+            {"secretRef": {"name": "homelab-analytics-worker-database"}},
+            worker_env_from,
+        )
+        self.assertIn(
+            {"secretRef": {"name": "homelab-analytics-blob-storage"}},
+            worker_env_from,
+        )
         self.assertIn(
             {"secretRef": {"name": "homelab-analytics-landing-write"}},
             worker_env_from,
@@ -209,6 +226,50 @@ class HelmChartTests(unittest.TestCase):
         self.assertNotIn(
             {"secretRef": {"name": "homelab-analytics-landing-write"}},
             api_env_from,
+        )
+
+    def test_chart_oidc_ingress_example_renders_ingress_and_alert_rules(self) -> None:
+        documents = self._rendered_documents("-f", str(OIDC_INGRESS_EXAMPLE))
+
+        resources = {
+            (document["kind"], document["metadata"]["name"]): document
+            for document in documents
+        }
+
+        ingress = resources[("Ingress", "test-release-homelab-analytics")]
+        rule = resources[("PrometheusRule", "test-release-homelab-analytics")]
+        api = resources[("Deployment", "test-release-homelab-analytics-api")]
+        web = resources[("Deployment", "test-release-homelab-analytics-web")]
+        worker = resources[("Deployment", "test-release-homelab-analytics-worker")]
+
+        self.assertEqual("nginx", ingress["spec"]["ingressClassName"])
+        self.assertEqual("analytics.example.internal", ingress["spec"]["rules"][0]["host"])
+        self.assertEqual(
+            "homelab-analytics-web-tls",
+            ingress["spec"]["tls"][0]["secretName"],
+        )
+        expressions = [entry["expr"] for entry in rule["spec"]["groups"][0]["rules"]]
+        self.assertTrue(
+            any("worker_stale_dispatches > 0" in expression for expression in expressions)
+        )
+        self.assertTrue(
+            any("auth_service_tokens_expiring_7d" in expression for expression in expressions)
+        )
+        self.assertIn(
+            {"secretRef": {"name": "homelab-analytics-api-database"}},
+            api["spec"]["template"]["spec"]["containers"][0]["envFrom"],
+        )
+        self.assertEqual(
+            {"secretRef": {"name": "homelab-analytics-auth-oidc"}},
+            web["spec"]["template"]["spec"]["containers"][0]["envFrom"][-1],
+        )
+        self.assertEqual(
+            2,
+            len(web["spec"]["template"]["spec"]["containers"][0]["envFrom"]),
+        )
+        self.assertIn(
+            {"secretRef": {"name": "homelab-analytics-worker-database"}},
+            worker["spec"]["template"]["spec"]["containers"][0]["envFrom"],
         )
 
 

@@ -1,5 +1,8 @@
 image:
-  tag: "2026.03.10"
+  tag: "2026.03.15"
+
+webImage:
+  tag: "2026.03.15"
 
 commonEnv:
   HOMELAB_ANALYTICS_DATA_DIR: /data
@@ -30,3 +33,22 @@ worker:
     - homelab-analytics-blob-storage
     - homelab-analytics-landing-write
     - homelab-analytics-transformation-write
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    nginx.ingress.kubernetes.io/proxy-body-size: 64m
+  host: analytics.example.internal
+  path: /
+  pathType: Prefix
+  tls:
+    enabled: true
+    secretName: homelab-analytics-web-tls
+
+monitoring:
+  prometheusRule:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack

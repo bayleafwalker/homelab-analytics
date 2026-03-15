@@ -94,7 +94,7 @@ def test_build_run_metadata_store_requires_dsn_for_postgres() -> None:
 
         with pytest.raises(
             ValueError,
-            match="Postgres metadata backend requires HOMELAB_ANALYTICS_POSTGRES_DSN",
+            match="HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN or HOMELAB_ANALYTICS_POSTGRES_DSN",
         ):
             build_run_metadata_store(settings)
 
@@ -116,6 +116,24 @@ def test_build_run_metadata_store_constructs_postgres_repository() -> None:
     )
 
 
+def test_build_run_metadata_store_prefers_metadata_specific_dsn() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(
+            temp_dir,
+            metadata_backend="postgres",
+            postgres_dsn="postgresql://fallback:fallback@postgres:5432/homelab",
+            metadata_postgres_dsn="postgresql://metadata:metadata@postgres:5432/homelab",
+        )
+
+        with patch("packages.storage.runtime.PostgresRunMetadataRepository") as repository:
+            build_run_metadata_store(settings)
+
+    repository.assert_called_once_with(
+        "postgresql://metadata:metadata@postgres:5432/homelab",
+        schema="control",
+    )
+
+
 def test_build_reporting_store_defaults_to_duckdb() -> None:
     with TemporaryDirectory() as temp_dir:
         store = build_reporting_store(_build_settings(temp_dir))
@@ -129,7 +147,7 @@ def test_build_reporting_store_requires_dsn_for_postgres() -> None:
 
         with pytest.raises(
             ValueError,
-            match="Postgres reporting backend requires HOMELAB_ANALYTICS_POSTGRES_DSN",
+            match="HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN or HOMELAB_ANALYTICS_POSTGRES_DSN",
         ):
             build_reporting_store(settings)
 
@@ -151,6 +169,24 @@ def test_build_reporting_store_constructs_postgres_store() -> None:
     )
 
 
+def test_build_reporting_store_prefers_reporting_specific_dsn() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(
+            temp_dir,
+            reporting_backend="postgres",
+            postgres_dsn="postgresql://fallback:fallback@postgres:5432/homelab",
+            reporting_postgres_dsn="postgresql://reporting:reporting@postgres:5432/homelab",
+        )
+
+        with patch("packages.storage.runtime.PostgresReportingStore") as store_factory:
+            build_reporting_store(settings)
+
+    store_factory.assert_called_once_with(
+        "postgresql://reporting:reporting@postgres:5432/homelab",
+        schema="reporting",
+    )
+
+
 def test_build_config_store_defaults_to_sqlite() -> None:
     with TemporaryDirectory() as temp_dir:
         store = build_config_store(_build_settings(temp_dir))
@@ -164,7 +200,7 @@ def test_build_config_store_requires_dsn_for_postgres() -> None:
 
         with pytest.raises(
             ValueError,
-            match="Postgres config backend requires HOMELAB_ANALYTICS_POSTGRES_DSN",
+            match="HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN or HOMELAB_ANALYTICS_POSTGRES_DSN",
         ):
             build_config_store(settings)
 
@@ -182,6 +218,24 @@ def test_build_config_store_constructs_postgres_repository() -> None:
 
     repository.assert_called_once_with(
         "postgresql://homelab:homelab@postgres:5432/homelab",
+        schema="control",
+    )
+
+
+def test_build_config_store_prefers_control_specific_dsn() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(
+            temp_dir,
+            config_backend="postgres",
+            postgres_dsn="postgresql://fallback:fallback@postgres:5432/homelab",
+            control_postgres_dsn="postgresql://control:control@postgres:5432/homelab",
+        )
+
+        with patch("packages.storage.runtime.PostgresIngestionConfigRepository") as repository:
+            build_config_store(settings)
+
+    repository.assert_called_once_with(
+        "postgresql://control:control@postgres:5432/homelab",
         schema="control",
     )
 

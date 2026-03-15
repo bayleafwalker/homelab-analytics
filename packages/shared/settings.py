@@ -29,6 +29,9 @@ class AppSettings:
     config_backend: str = "sqlite"
     metadata_backend: str = "sqlite"
     postgres_dsn: str | None = None
+    control_postgres_dsn: str | None = None
+    metadata_postgres_dsn: str | None = None
+    reporting_postgres_dsn: str | None = None
     control_schema: str = "control"
     reporting_backend: str = "duckdb"
     reporting_schema: str = "reporting"
@@ -79,6 +82,18 @@ class AppSettings:
     def resolved_api_base_url(self) -> str:
         return self.api_base_url or f"http://127.0.0.1:{self.api_port}"
 
+    @property
+    def resolved_control_postgres_dsn(self) -> str | None:
+        return self.control_postgres_dsn or self.postgres_dsn
+
+    @property
+    def resolved_metadata_postgres_dsn(self) -> str | None:
+        return self.metadata_postgres_dsn or self.postgres_dsn
+
+    @property
+    def resolved_reporting_postgres_dsn(self) -> str | None:
+        return self.reporting_postgres_dsn or self.postgres_dsn
+
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> "AppSettings":
         env = environ or os.environ
@@ -122,6 +137,15 @@ class AppSettings:
         config_backend = env.get("HOMELAB_ANALYTICS_CONFIG_BACKEND", "sqlite")
         metadata_backend = env.get("HOMELAB_ANALYTICS_METADATA_BACKEND", "sqlite")
         postgres_dsn = env.get("HOMELAB_ANALYTICS_POSTGRES_DSN") or None
+        control_postgres_dsn = (
+            env.get("HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN") or None
+        )
+        metadata_postgres_dsn = (
+            env.get("HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN") or None
+        )
+        reporting_postgres_dsn = (
+            env.get("HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN") or None
+        )
         control_schema = env.get("HOMELAB_ANALYTICS_CONTROL_SCHEMA", "control")
         reporting_backend = env.get("HOMELAB_ANALYTICS_REPORTING_BACKEND", "duckdb")
         reporting_schema = env.get("HOMELAB_ANALYTICS_REPORTING_SCHEMA", "reporting")
@@ -218,6 +242,9 @@ class AppSettings:
             config_backend=config_backend,
             metadata_backend=metadata_backend,
             postgres_dsn=postgres_dsn,
+            control_postgres_dsn=control_postgres_dsn,
+            metadata_postgres_dsn=metadata_postgres_dsn,
+            reporting_postgres_dsn=reporting_postgres_dsn,
             control_schema=control_schema,
             reporting_backend=reporting_backend,
             reporting_schema=reporting_schema,

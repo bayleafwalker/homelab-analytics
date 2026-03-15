@@ -36,12 +36,13 @@ def build_run_metadata_store(settings: AppSettings) -> RunMetadataStore:
     if backend == "sqlite":
         return RunMetadataRepository(settings.metadata_database_path)
     if backend == "postgres":
-        if not settings.postgres_dsn:
+        resolved_dsn = settings.resolved_metadata_postgres_dsn
+        if not resolved_dsn:
             raise ValueError(
-                "Postgres metadata backend requires HOMELAB_ANALYTICS_POSTGRES_DSN."
+                "Postgres metadata backend requires HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN or HOMELAB_ANALYTICS_POSTGRES_DSN."
             )
         return PostgresRunMetadataRepository(
-            settings.postgres_dsn,
+            resolved_dsn,
             schema=settings.control_schema,
         )
     raise ValueError(f"Unsupported metadata backend: {settings.metadata_backend!r}")
@@ -54,12 +55,13 @@ def build_config_store(
     if backend == "sqlite":
         return IngestionConfigRepository(settings.resolved_config_database_path)
     if backend == "postgres":
-        if not settings.postgres_dsn:
+        resolved_dsn = settings.resolved_control_postgres_dsn
+        if not resolved_dsn:
             raise ValueError(
-                "Postgres config backend requires HOMELAB_ANALYTICS_POSTGRES_DSN."
+                "Postgres config backend requires HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN or HOMELAB_ANALYTICS_POSTGRES_DSN."
             )
         return PostgresIngestionConfigRepository(
-            settings.postgres_dsn,
+            resolved_dsn,
             schema=settings.control_schema,
         )
     raise ValueError(f"Unsupported config backend: {settings.config_backend!r}")
@@ -74,12 +76,13 @@ def build_reporting_store(settings: AppSettings) -> PostgresReportingStore | Non
     if backend == "duckdb":
         return None
     if backend == "postgres":
-        if not settings.postgres_dsn:
+        resolved_dsn = settings.resolved_reporting_postgres_dsn
+        if not resolved_dsn:
             raise ValueError(
-                "Postgres reporting backend requires HOMELAB_ANALYTICS_POSTGRES_DSN."
+                "Postgres reporting backend requires HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN or HOMELAB_ANALYTICS_POSTGRES_DSN."
             )
         return PostgresReportingStore(
-            settings.postgres_dsn,
+            resolved_dsn,
             schema=settings.reporting_schema,
         )
     raise ValueError(f"Unsupported reporting backend: {settings.reporting_backend!r}")

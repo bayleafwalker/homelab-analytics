@@ -1,0 +1,33 @@
+{{- if and .Values.ingress.enabled .Values.web.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "homelab-analytics.fullname" . }}
+  labels:
+    {{- include "homelab-analytics.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . | quote }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.path | quote }}
+            pathType: {{ .Values.ingress.pathType }}
+            backend:
+              service:
+                name: {{ include "homelab-analytics.fullname" . }}-web
+                port:
+                  number: {{ .Values.web.port }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      secretName: {{ default (printf "%s-tls" (include "homelab-analytics.fullname" .)) .Values.ingress.tls.secretName | quote }}
+  {{- end }}
+{{- end }}

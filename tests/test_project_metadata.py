@@ -64,8 +64,11 @@ class ProjectMetadataTests(unittest.TestCase):
             "infra/docker/web.Dockerfile",
             "infra/examples/compose.yaml",
             "charts/homelab-analytics/values.runtime-secrets-example.yaml",
+            "charts/homelab-analytics/values.oidc-ingress-example.yaml",
             "apps/web/frontend/package.json",
             "infra/examples/secrets/postgres-secret.example.yaml",
+            "infra/examples/secrets/postgres-api-secret.example.yaml",
+            "infra/examples/secrets/postgres-worker-secret.example.yaml",
             "infra/examples/secrets/postgres-external-secret.example.yaml",
             "infra/examples/secrets/auth-local.env.example",
             "infra/examples/secrets/auth-local-secret.example.yaml",
@@ -73,6 +76,8 @@ class ProjectMetadataTests(unittest.TestCase):
             "infra/examples/secrets/oidc-secret.example.yaml",
             "infra/examples/secrets/provider-api-secret.example.yaml",
             "infra/examples/secrets/provider-api-secret.sops.example.yaml",
+            "docs/runbooks/operations.md",
+            "docs/runbooks/backup-and-restore.md",
         ]
 
         missing = [path for path in expected_files if not (ROOT / path).is_file()]
@@ -166,15 +171,17 @@ class ProjectMetadataTests(unittest.TestCase):
             self.assertNotIn("HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN", service["environment"])
 
     def test_example_secret_manifests_cover_current_credential_classes(self) -> None:
-        examples = {
-            "database": ROOT / "infra" / "examples" / "secrets" / "postgres-secret.example.yaml",
-            "auth-local": ROOT / "infra" / "examples" / "secrets" / "auth-local-secret.example.yaml",
-            "blob-storage": ROOT / "infra" / "examples" / "secrets" / "blob-storage-secret.example.yaml",
-            "oidc": ROOT / "infra" / "examples" / "secrets" / "oidc-secret.example.yaml",
-            "provider-api": ROOT / "infra" / "examples" / "secrets" / "provider-api-secret.example.yaml",
-        }
+        examples = [
+            ("database", ROOT / "infra" / "examples" / "secrets" / "postgres-secret.example.yaml"),
+            ("database", ROOT / "infra" / "examples" / "secrets" / "postgres-api-secret.example.yaml"),
+            ("database", ROOT / "infra" / "examples" / "secrets" / "postgres-worker-secret.example.yaml"),
+            ("auth-local", ROOT / "infra" / "examples" / "secrets" / "auth-local-secret.example.yaml"),
+            ("blob-storage", ROOT / "infra" / "examples" / "secrets" / "blob-storage-secret.example.yaml"),
+            ("oidc", ROOT / "infra" / "examples" / "secrets" / "oidc-secret.example.yaml"),
+            ("provider-api", ROOT / "infra" / "examples" / "secrets" / "provider-api-secret.example.yaml"),
+        ]
 
-        for expected_type, path in examples.items():
+        for expected_type, path in examples:
             manifest = yaml.safe_load(path.read_text())
             self.assertEqual("Secret", manifest["kind"])
             self.assertEqual("Opaque", manifest["type"])
@@ -201,7 +208,7 @@ class ProjectMetadataTests(unittest.TestCase):
         self.assertEqual("database", manifest["metadata"]["annotations"]["homelab-analytics.example/type"])
         self.assertEqual("ClusterSecretStore", manifest["spec"]["secretStoreRef"]["kind"])
         self.assertEqual(
-            "POSTGRES_DSN",
+            "HOMELAB_ANALYTICS_POSTGRES_DSN",
             manifest["spec"]["data"][0]["secretKey"],
         )
 

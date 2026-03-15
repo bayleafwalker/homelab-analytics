@@ -1,0 +1,75 @@
+{{- if .Values.monitoring.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "homelab-analytics.fullname" . }}
+  labels:
+    {{- include "homelab-analytics.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: {{ include "homelab-analytics.fullname" . }}.runtime
+      rules:
+        {{- if .Values.api.enabled }}
+        - alert: HomelabAnalyticsApiUnavailable
+          expr: kube_deployment_status_replicas_unavailable{namespace="{{ .Release.Namespace }}",deployment="{{ include "homelab-analytics.fullname" . }}-api"} > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: API deployment has unavailable replicas.
+            description: The API deployment is not meeting its desired ready replica count.
+        {{- end }}
+        {{- if .Values.web.enabled }}
+        - alert: HomelabAnalyticsWebUnavailable
+          expr: kube_deployment_status_replicas_unavailable{namespace="{{ .Release.Namespace }}",deployment="{{ include "homelab-analytics.fullname" . }}-web"} > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Web deployment has unavailable replicas.
+            description: The web deployment is not meeting its desired ready replica count.
+        {{- end }}
+        - alert: HomelabAnalyticsStaleDispatches
+          expr: worker_stale_dispatches > 0
+          for: {{ .Values.monitoring.prometheusRule.dispatchStaleFor }}
+          labels:
+            severity: critical
+          annotations:
+            summary: Stale schedule dispatches detected.
+            description: One or more schedule dispatches are still marked running with expired claims.
+        - alert: HomelabAnalyticsWorkerHeartbeatStale
+          expr: worker_oldest_heartbeat_age_seconds > {{ .Values.monitoring.prometheusRule.heartbeatAgeThresholdSeconds }}
+          for: {{ .Values.monitoring.prometheusRule.heartbeatAgeFor }}
+          labels:
+            severity: warning
+          annotations:
+            summary: Worker heartbeat age is above the configured threshold.
+            description: No worker heartbeat has been refreshed within the expected interval.
+        - alert: HomelabAnalyticsDispatchFailureRateHigh
+          expr: worker_failed_dispatch_ratio > {{ .Values.monitoring.prometheusRule.dispatchFailureRatioThreshold }}
+          for: {{ .Values.monitoring.prometheusRule.dispatchFailureRatioFor }}
+          labels:
+            severity: warning
+          annotations:
+            summary: Schedule dispatch failure ratio is elevated.
+            description: Failed schedule dispatches exceed the configured terminal-dispatch ratio threshold.
+        - alert: HomelabAnalyticsAuthFailuresHigh
+          expr: increase(auth_failures_total[5m]) >= {{ .Values.monitoring.prometheusRule.authFailuresThreshold }}
+          for: {{ .Values.monitoring.prometheusRule.authFailuresFor }}
+          labels:
+            severity: warning
+          annotations:
+            summary: Authentication failures are elevated.
+            description: Login or auth failures have crossed the configured threshold in the recent window.
+        - alert: HomelabAnalyticsServiceTokensExpiring
+          expr: auth_service_tokens_expiring_7d >= {{ .Values.monitoring.prometheusRule.serviceTokensExpiringThreshold }}
+          for: {{ .Values.monitoring.prometheusRule.serviceTokensExpiringFor }}
+          labels:
+            severity: warning
+          annotations:
+            summary: Service tokens are expiring soon.
+            description: One or more active service tokens will expire within seven days.
+{{- end }}

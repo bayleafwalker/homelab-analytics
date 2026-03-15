@@ -94,13 +94,13 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Secrets in version control are a security risk. Cluster-native management integrates with GitOps workflows.
 
 **Phase:** 1 (infrastructure pattern), 4 (full implementation)
-**Status:** in-progress (architecture and runtime patterns are in place: HTTP ingestion definitions persist secret references instead of raw credential values, runtime secret resolution is supported via environment-backed providers, the Helm chart supports per-workload Secret references with tests that block inline credential rendering, example Secret manifests now exist for database/bootstrap-local-auth/blob/OIDC/provider credentials, and the repo includes example ExternalSecret and SOPS-managed Secret manifests; cluster wiring is still pending)
+**Status:** in-progress (architecture and runtime patterns are in place: HTTP ingestion definitions persist secret references instead of raw credential values, runtime secret resolution is supported via environment-backed providers, the Helm chart supports per-workload Secret references with tests that block inline credential rendering, example Secret manifests now exist for bootstrap single-DSN database access, workload-scoped API and worker database access, bootstrap-local-auth, blob, OIDC, and provider credentials, and the repo includes example ExternalSecret and SOPS-managed Secret manifests; cluster wiring is still pending)
 
 **Acceptance criteria:**
 - Helm chart values reference Kubernetes Secrets by name, never inline credential values.
 - Application configuration stores secret references, not resolved secret values.
 - Documentation describes External Secrets Operator and SOPS-based Secret creation.
-- At least one example Secret manifest exists for each credential class: database, bootstrap local auth, blob storage, OIDC, provider API.
+- At least one example Secret manifest exists for each credential class: bootstrap database, workload-scoped database, bootstrap local auth, blob storage, OIDC, provider API.
 - Tests verify that no template output contains hardcoded credentials.
 
 **Dependencies:** none
@@ -114,11 +114,12 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Least-privilege credential scoping limits blast radius of credential compromise.
 
 **Phase:** 4
-**Status:** in-progress (runtime workloads are split by role, deployment surfaces are distinct, secret references remain runtime-resolved, and the Helm chart now defaults API/web to OIDC-specific Secret references while keeping local bootstrap credentials out of the shared-deployment default; OIDC client credentials follow the same Secret-backed pattern, while real least-privilege database credentials and full production isolation are still pending)
+**Status:** implemented (runtime workloads are split by role, deployment surfaces are distinct, secret references remain runtime-resolved, the settings/runtime layer now supports purpose-specific Postgres DSNs with shared-DSN fallback, web remains API-backed without direct database credentials, and the Helm examples now show API and worker database Secrets separated by workload alongside distinct OIDC and blob-storage Secrets)
 
 **Acceptance criteria:**
-- Worker pods receive only landing-write and transformation-write credentials.
-- API/web pods receive only reporting-read credentials plus auth/session secrets.
+- Worker pods receive only worker-scoped database credentials plus landing/transformation/blob credentials.
+- API pods receive only API-scoped database credentials plus auth/session/blob credentials.
+- Web pods receive only auth/session configuration and API origin settings.
 - Helm values support separate Secret references per workload.
 
 **Dependencies:** SEC-05
@@ -151,7 +152,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Developers and early testers need a low-friction local environment.
 
 **Phase:** 0
-**Status:** implemented (Compose now boots API, web, Postgres, and MinIO by default, with the worker available via profile and now defaulting to the continuous schedule-dispatch watcher over the shared data volume; that watcher now renews active dispatch leases, recovers expired stale dispatches, and writes heartbeat state that the API exports as operational metrics; the workloads use Postgres for metadata and published reporting plus MinIO for landing storage)
+**Status:** implemented (Compose now boots API, web, Postgres, and MinIO by default, with the worker available via profile and now defaulting to the continuous schedule-dispatch watcher over the shared data volume; that watcher now renews active dispatch leases, recovers expired stale dispatches, and writes heartbeat state that the API exports as operational metrics; API and worker now use the purpose-specific Postgres DSN environment variables while local Compose still points them at the same bootstrap role; and the workloads use Postgres for control-plane state and published reporting plus MinIO for landing storage)
 
 **Acceptance criteria:**
 - `docker compose up` starts API, web, and worker.
@@ -169,12 +170,12 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Helm is the standard Kubernetes packaging format and the planned release vehicle.
 
 **Phase:** 0–1
-**Status:** implemented (basic chart with 3 workloads, PVC, configmap, service account, parsed manifest contract tests, Secret-reference wiring, and the worker deployment now defaulting to the continuous schedule-dispatch watcher with lease-renewal and stale-dispatch recovery behavior in the runtime)
+**Status:** implemented (the chart now covers API, web, and worker workloads, PVC, configmap, service account, parsed manifest contract tests, per-workload Secret-reference wiring, optional web ingress with TLS support, optional PrometheusRule rendering for operational alerts, and the worker deployment now defaults to the continuous schedule-dispatch watcher with lease-renewal and stale-dispatch recovery behavior in the runtime)
 
 **Acceptance criteria:**
 - `helm lint` and `helm template` pass.
 - Chart renders Deployment, Service, ConfigMap, PVC, and ServiceAccount resources.
-- Values support: image tag, replica count, resource limits, Postgres connection, S3 endpoint, ingress toggle.
+- Values support: image tag, replica count, resource limits, Postgres connection, S3 endpoint, ingress toggle, and alert-rule toggle.
 - Tests verify rendered resource names and structure.
 
 **Dependencies:** none
@@ -227,7 +228,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Metrics enable operational monitoring and alerting through existing cluster Prometheus.
 
 **Phase:** 4
-**Status:** implemented (API and web workloads expose `/metrics`, and runtime code now emits Prometheus-compatible ingestion counters, failure counters, cumulative duration, and queue-depth gauges)
+**Status:** implemented (API and web workloads expose `/metrics`, runtime code now emits Prometheus-compatible ingestion counters, failure counters, cumulative duration, queue-depth gauges, worker heartbeat/stale-dispatch gauges, auth-failure counters, and service-token lifecycle gauges, and the chart can now render example PrometheusRule alerts against those signals)
 
 **Acceptance criteria:**
 - `/metrics` endpoint returns Prometheus text format.
@@ -264,7 +265,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** The current zero-dependency implementation was deliberate for bootstrap. Production use requires real frameworks and engines.
 
 **Phase:** 1–2
-**Status:** in-progress (FastAPI, DuckDB, Polars/PyArrow, boto3-backed S3 storage, psycopg-backed Postgres metadata/control-plane state, and Postgres-backed published-reporting reads/publication are now in the runtime path; React/Next.js web remains pending)
+**Status:** implemented (FastAPI, DuckDB, Polars/PyArrow, boto3-backed S3 storage, psycopg-backed Postgres metadata/control-plane state, Postgres-backed published-reporting reads/publication, and the Next.js web workload are now in the runtime path)
 
 **Acceptance criteria:**
 - FastAPI replaces `wsgiref`-based WSGI app.
@@ -275,6 +276,25 @@ The platform must handle sensitive financial and personal data securely, deploy 
 - Existing tests continue to pass after migration.
 
 **Dependencies:** PLT-14
+
+---
+
+### OPS-09: Backup and restore runbooks
+
+**Description:** Shared deployments document repeatable backup and restore flows for Postgres state, landed object storage, and local warehouse artifacts that still matter operationally.
+
+**Rationale:** Production posture requires recovery steps that can be executed before and after incidents, not just working runtime code.
+
+**Phase:** 4
+**Status:** in-progress (operator-facing runbooks now exist for deployment operations plus backup/restore, including Postgres schema dump/restore guidance, control-plane snapshot export/import guidance, S3 mirror examples, DuckDB artifact handling, and post-restore validation steps; automated CronJob packaging and cluster backup wiring are still pending)
+
+**Acceptance criteria:**
+- Documentation covers Postgres backup and restore for `control` and `reporting` schemas.
+- Documentation covers landed object-storage backup and restore.
+- Documentation covers when DuckDB artifacts still need backup or can be rebuilt.
+- Post-restore verification steps include readiness, worker visibility, and control-plane validation.
+
+**Dependencies:** OPS-02, OPS-03
 
 ---
 
@@ -296,3 +316,4 @@ The platform must handle sensitive financial and personal data securely, deploy 
 | OPS-06 | `apps/api/app.py`, `apps/web/app.py`, `apps/worker/main.py`, `packages/shared/metrics.py` | `tests/test_control_plane_api_app.py`, `tests/test_control_plane_worker_cli.py`, `tests/test_web_app.py` |
 | OPS-07 | `packages/shared/logging.py`, `apps/api/main.py`, `apps/web/main.py`, `apps/worker/main.py` | `tests/test_logging.py` |
 | OPS-08 | `pyproject.toml`, `apps/api/app.py`, `packages/storage/duckdb_store.py`, `packages/storage/postgres_reporting.py`, `packages/storage/postgres_run_metadata.py`, `packages/storage/s3_blob.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py` | `tests/test_project_metadata.py`, `tests/test_blob_store.py`, `tests/test_postgres_reporting_integration.py`, `tests/test_postgres_run_metadata_integration.py`, `tests/test_api_app.py`, `tests/test_reporting_api_app.py`, `tests/test_transformation_service.py` |
+| OPS-09 | `docs/runbooks/operations.md`, `docs/runbooks/backup-and-restore.md` | `tests/test_repository_contract.py`, `tests/test_project_metadata.py` |

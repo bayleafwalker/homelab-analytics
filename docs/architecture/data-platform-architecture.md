@@ -222,6 +222,12 @@ Use one DSN with separate schemas by default:
 - `control` for source registry, contracts, mappings, source assets, ingestion definitions, schedules, dispatch records, lineage, publication audit, and run metadata
 - `reporting` for published marts and current-dimension relations
 
+Runtime deployments should still support per-purpose DSN overrides so workload credentials can differ by privilege:
+
+- API can receive control-plane and reporting DSNs aligned to its control/admin and read paths
+- worker can receive write-capable control-plane, metadata, and reporting DSNs
+- web remains API-backed and should avoid direct database credentials entirely
+
 ## Application and control-plane boundary
 
 - API and web workloads should consume published reporting relations when Postgres reporting is enabled
@@ -241,7 +247,8 @@ The default engine should be Python workers using Polars and DuckDB:
 Operational defaults:
 
 - structured JSON logs from API, web, and worker workloads
-- Prometheus-compatible `/metrics` surfaces for ingestion counters, failures, duration, and queue depth
+- Prometheus-compatible `/metrics` surfaces for ingestion counters, failures, duration, queue depth, worker heartbeat/stale-dispatch state, auth-failure signals, and service-token lifecycle state
+- ingress or reverse-proxy routing should terminate at the web workload, with the OIDC callback served at `/auth/callback`
 
 Spark remains an optional later execution backend for larger workloads, but not the initial default.
 

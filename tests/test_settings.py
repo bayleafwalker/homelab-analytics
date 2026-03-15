@@ -80,6 +80,9 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual(900, settings.auth_lockout_seconds)
         self.assertFalse(settings.enable_unsafe_admin)
         self.assertIsNone(settings.postgres_dsn)
+        self.assertIsNone(settings.control_postgres_dsn)
+        self.assertIsNone(settings.metadata_postgres_dsn)
+        self.assertIsNone(settings.reporting_postgres_dsn)
         self.assertIsNone(settings.s3_endpoint_url)
         self.assertIsNone(settings.s3_bucket)
         self.assertEqual("us-east-1", settings.s3_region)
@@ -194,6 +197,15 @@ class AppSettingsTests(unittest.TestCase):
                 "HOMELAB_ANALYTICS_POSTGRES_DSN": (
                     "postgresql://homelab:homelab@postgres:5432/homelab"
                 ),
+                "HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN": (
+                    "postgresql://api-control:api-control@postgres:5432/homelab"
+                ),
+                "HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN": (
+                    "postgresql://api-metadata:api-metadata@postgres:5432/homelab"
+                ),
+                "HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN": (
+                    "postgresql://api-reporting:api-reporting@postgres:5432/homelab"
+                ),
                 "HOMELAB_ANALYTICS_CONTROL_SCHEMA": "platform_control",
                 "HOMELAB_ANALYTICS_REPORTING_BACKEND": "postgres",
                 "HOMELAB_ANALYTICS_REPORTING_SCHEMA": "published_reporting",
@@ -232,6 +244,18 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual(
             "postgresql://homelab:homelab@postgres:5432/homelab",
             settings.postgres_dsn,
+        )
+        self.assertEqual(
+            "postgresql://api-control:api-control@postgres:5432/homelab",
+            settings.control_postgres_dsn,
+        )
+        self.assertEqual(
+            "postgresql://api-metadata:api-metadata@postgres:5432/homelab",
+            settings.metadata_postgres_dsn,
+        )
+        self.assertEqual(
+            "postgresql://api-reporting:api-reporting@postgres:5432/homelab",
+            settings.reporting_postgres_dsn,
         )
         self.assertEqual("platform_control", settings.control_schema)
         self.assertEqual("postgres", settings.reporting_backend)

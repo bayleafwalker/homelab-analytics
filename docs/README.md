@@ -27,3 +27,8 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 ## Notes
 
 - `notes/appservice-cluster-integration-notes.md` — cluster deployment notes for the `appservice` GitOps repository.
+
+## Runbooks
+
+- `runbooks/operations.md` — deployment, ingress, readiness, and alert-response guidance for shared environments.
+- `runbooks/backup-and-restore.md` — backup and restore guidance for Postgres control-plane state, landed object storage, and DuckDB artifacts.

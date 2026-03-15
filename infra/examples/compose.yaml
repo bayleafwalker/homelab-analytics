@@ -41,9 +41,12 @@ services:
         condition: service_started
     environment:
       HOMELAB_ANALYTICS_DATA_DIR: /data
+      HOMELAB_ANALYTICS_CONFIG_BACKEND: postgres
       HOMELAB_ANALYTICS_METADATA_BACKEND: postgres
-      HOMELAB_ANALYTICS_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
+      HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
+      HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
       HOMELAB_ANALYTICS_REPORTING_BACKEND: postgres
+      HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
       HOMELAB_ANALYTICS_BLOB_BACKEND: s3
       HOMELAB_ANALYTICS_AUTH_MODE: local
       HOMELAB_ANALYTICS_S3_ENDPOINT_URL: http://minio:9000
@@ -86,19 +89,8 @@ services:
       minio:
         condition: service_started
     environment:
-      HOMELAB_ANALYTICS_DATA_DIR: /data
-      HOMELAB_ANALYTICS_METADATA_BACKEND: postgres
-      HOMELAB_ANALYTICS_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
-      HOMELAB_ANALYTICS_REPORTING_BACKEND: postgres
-      HOMELAB_ANALYTICS_BLOB_BACKEND: s3
       HOMELAB_ANALYTICS_AUTH_MODE: local
       HOMELAB_ANALYTICS_API_BASE_URL: http://api:8080
-      HOMELAB_ANALYTICS_S3_ENDPOINT_URL: http://minio:9000
-      HOMELAB_ANALYTICS_S3_BUCKET: homelab-landing
-      HOMELAB_ANALYTICS_S3_REGION: us-east-1
-      HOMELAB_ANALYTICS_S3_ACCESS_KEY_ID: minioadmin
-      HOMELAB_ANALYTICS_S3_SECRET_ACCESS_KEY: minioadmin
-      HOMELAB_ANALYTICS_S3_PREFIX: bronze
       HOMELAB_ANALYTICS_WEB_HOST: 0.0.0.0
       HOMELAB_ANALYTICS_WEB_PORT: 8081
     ports:
@@ -132,9 +124,12 @@ services:
         condition: service_started
     environment:
       HOMELAB_ANALYTICS_DATA_DIR: /data
+      HOMELAB_ANALYTICS_CONFIG_BACKEND: postgres
       HOMELAB_ANALYTICS_METADATA_BACKEND: postgres
-      HOMELAB_ANALYTICS_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
+      HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
+      HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
       HOMELAB_ANALYTICS_REPORTING_BACKEND: postgres
+      HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
       HOMELAB_ANALYTICS_BLOB_BACKEND: s3
       HOMELAB_ANALYTICS_AUTH_MODE: local
       HOMELAB_ANALYTICS_S3_ENDPOINT_URL: http://minio:9000
