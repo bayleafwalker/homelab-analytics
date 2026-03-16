@@ -98,10 +98,11 @@ def test_worker_main_delegates_to_runtime_and_command_handlers() -> None:
     assert '"watch-schedule-dispatches"' in worker_handler_source
 
 
-def test_api_app_imports_shared_support_helpers() -> None:
+def test_api_app_imports_shared_support_modules() -> None:
     imports = _import_names(ROOT / "apps" / "api" / "app.py")
 
     assert "apps.api.support" in imports
+    assert "apps.api.runtime_state" in imports
 
 
 def test_postgres_ingestion_backend_imports_split_catalog_modules() -> None:
