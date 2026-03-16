@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from datetime import datetime
 
 from packages.storage.auth_store import (
+    LocalUserRecord,
     ServiceTokenRecord,
     UserRole,
     normalize_service_token_scopes,
@@ -216,6 +217,22 @@ def _deserialize_auth_audit_event_row(
         user_agent=str(row["user_agent"]) if row["user_agent"] is not None else None,
         detail=str(row["detail"]) if row["detail"] is not None else None,
         occurred_at=occurred_at,
+    )
+
+
+def _deserialize_local_user_row(
+    row: Mapping[str, object],
+) -> LocalUserRecord:
+    created_at = _coerce_datetime_value(row["created_at"])
+    assert created_at is not None
+    return LocalUserRecord(
+        user_id=str(row["user_id"]),
+        username=str(row["username"]),
+        password_hash=str(row["password_hash"]),
+        role=UserRole(str(row["role"])),
+        enabled=bool(row["enabled"]),
+        created_at=created_at,
+        last_login_at=_coerce_datetime_value(row["last_login_at"]),
     )
 
 
