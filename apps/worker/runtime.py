@@ -19,6 +19,9 @@ from packages.pipelines.reporting_service import (
     ReportingService,
 )
 from packages.pipelines.subscription_service import SubscriptionService
+from packages.pipelines.transformation_domain_registry import (
+    TransformationDomainRegistry,
+)
 from packages.pipelines.transformation_refresh_registry import (
     PublicationRefreshRegistry,
 )
@@ -47,6 +50,7 @@ class WorkerRuntime:
     configured_definition_service: ConfiguredIngestionDefinitionService
     extension_registry: ExtensionRegistry
     promotion_handler_registry: PromotionHandlerRegistry
+    transformation_domain_registry: TransformationDomainRegistry
     publication_refresh_registry: PublicationRefreshRegistry
 
 
@@ -80,6 +84,7 @@ def build_transformation_service(
     settings: AppSettings,
     *,
     publication_refresh_registry: PublicationRefreshRegistry | None = None,
+    domain_registry: TransformationDomainRegistry | None = None,
 ) -> TransformationService:
     analytics_path = settings.resolved_analytics_database_path
     analytics_path.parent.mkdir(parents=True, exist_ok=True)
@@ -87,6 +92,7 @@ def build_transformation_service(
         DuckDBStore.open(str(analytics_path)),
         control_plane_store=build_config_store(settings),
         publication_refresh_registry=publication_refresh_registry,
+        domain_registry=domain_registry,
     )
 
 
@@ -147,5 +153,6 @@ def build_worker_runtime(
         ),
         extension_registry=extension_registry,
         promotion_handler_registry=pipeline_registries.promotion_handler_registry,
+        transformation_domain_registry=pipeline_registries.transformation_domain_registry,
         publication_refresh_registry=pipeline_registries.publication_refresh_registry,
     )

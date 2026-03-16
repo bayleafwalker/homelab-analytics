@@ -142,7 +142,7 @@ Recommended loading pattern:
 - extend the import path with operator-configured custom paths or checked-out external repositories
 - import explicitly configured extension modules
 - require each extension module to register itself into a shared layer registry
-- allow extension modules to optionally define `register_pipeline_registries(...)` so configured transformation packages can add promotion handlers and publication refresh handlers through the same module-loading path
+- allow extension modules to optionally define `register_pipeline_registries(...)` so configured transformation packages can add promotion handlers, transformation domain handlers, and publication refresh handlers through the same module-loading path
 - allow executable extensions to expose handlers that can be invoked by worker jobs or application APIs
 
 Layer expectations:

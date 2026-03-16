@@ -463,6 +463,9 @@ def test_watch_schedule_dispatches_records_stopped_heartbeat_on_shutdown() -> No
             configured_definition_service=configured_definition_service,
             extension_registry=extension_registry,
             promotion_handler_registry=pipeline_registries.promotion_handler_registry,
+            transformation_domain_registry=(
+                pipeline_registries.transformation_domain_registry
+            ),
             publication_refresh_registry=pipeline_registries.publication_refresh_registry,
             logger=logging.getLogger("test.worker.shutdown"),
             worker_id="worker-stop",

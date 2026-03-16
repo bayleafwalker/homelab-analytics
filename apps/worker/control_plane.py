@@ -22,6 +22,9 @@ from packages.pipelines.configured_ingestion_definition import (
 from packages.pipelines.promotion import PromotionResult
 from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.pipelines.reporting_service import publish_promotion_reporting
+from packages.pipelines.transformation_domain_registry import (
+    TransformationDomainRegistry,
+)
 from packages.pipelines.transformation_refresh_registry import (
     PublicationRefreshRegistry,
 )
@@ -197,6 +200,7 @@ def _promote_configured_ingestion_runs(
     config_repository,
     extension_registry: ExtensionRegistry,
     promotion_handler_registry: PromotionHandlerRegistry,
+    transformation_domain_registry: TransformationDomainRegistry,
     publication_refresh_registry: PublicationRefreshRegistry,
 ) -> list[PromotionResult]:
     from packages.pipelines.promotion import promote_source_asset_run
@@ -206,6 +210,7 @@ def _promote_configured_ingestion_runs(
     transformation_service = build_transformation_service(
         settings,
         publication_refresh_registry=publication_refresh_registry,
+        domain_registry=transformation_domain_registry,
     )
     reporting_service = build_reporting_service(
         settings,
@@ -244,6 +249,7 @@ def _process_configured_ingestion_definition(
     configured_definition_service: ConfiguredIngestionDefinitionService,
     extension_registry: ExtensionRegistry,
     promotion_handler_registry: PromotionHandlerRegistry,
+    transformation_domain_registry: TransformationDomainRegistry,
     publication_refresh_registry: PublicationRefreshRegistry,
 ) -> dict[str, object]:
     process_result = configured_definition_service.process_ingestion_definition(
@@ -258,6 +264,7 @@ def _process_configured_ingestion_definition(
             config_repository=config_repository,
             extension_registry=extension_registry,
             promotion_handler_registry=promotion_handler_registry,
+            transformation_domain_registry=transformation_domain_registry,
             publication_refresh_registry=publication_refresh_registry,
         ),
     }
@@ -332,6 +339,7 @@ def _process_schedule_dispatch(
     configured_definition_service: ConfiguredIngestionDefinitionService,
     extension_registry: ExtensionRegistry,
     promotion_handler_registry: PromotionHandlerRegistry,
+    transformation_domain_registry: TransformationDomainRegistry,
     publication_refresh_registry: PublicationRefreshRegistry,
     logger: logging.Logger,
     worker_id: str,
@@ -391,6 +399,7 @@ def _process_schedule_dispatch(
             config_repository=config_repository,
             extension_registry=extension_registry,
             promotion_handler_registry=promotion_handler_registry,
+            transformation_domain_registry=transformation_domain_registry,
             publication_refresh_registry=publication_refresh_registry,
         )
     except Exception as exc:
@@ -501,6 +510,7 @@ def _watch_schedule_dispatches(
     configured_definition_service: ConfiguredIngestionDefinitionService,
     extension_registry: ExtensionRegistry,
     promotion_handler_registry: PromotionHandlerRegistry,
+    transformation_domain_registry: TransformationDomainRegistry,
     publication_refresh_registry: PublicationRefreshRegistry,
     logger: logging.Logger,
     worker_id: str,
@@ -585,6 +595,7 @@ def _watch_schedule_dispatches(
                 configured_definition_service=configured_definition_service,
                 extension_registry=extension_registry,
                 promotion_handler_registry=promotion_handler_registry,
+                transformation_domain_registry=transformation_domain_registry,
                 publication_refresh_registry=publication_refresh_registry,
                 logger=logger,
                 worker_id=worker_id,

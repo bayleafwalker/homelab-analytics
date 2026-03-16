@@ -62,6 +62,7 @@ def _build_reporting_runtime(
     transformation_service = build_transformation_service(
         runtime.settings,
         publication_refresh_registry=runtime.publication_refresh_registry,
+        domain_registry=runtime.transformation_domain_registry,
     )
     return transformation_service, build_reporting_service(
         runtime.settings,
@@ -425,6 +426,7 @@ def _handle_process_schedule_dispatch(args: Namespace, runtime: WorkerRuntime) -
         configured_definition_service=runtime.configured_definition_service,
         extension_registry=runtime.extension_registry,
         promotion_handler_registry=runtime.promotion_handler_registry,
+        transformation_domain_registry=runtime.transformation_domain_registry,
         publication_refresh_registry=runtime.publication_refresh_registry,
         logger=runtime.logger,
         worker_id=worker_id,
@@ -448,6 +450,7 @@ def _handle_watch_schedule_dispatches(args: Namespace, runtime: WorkerRuntime) -
         configured_definition_service=runtime.configured_definition_service,
         extension_registry=runtime.extension_registry,
         promotion_handler_registry=runtime.promotion_handler_registry,
+        transformation_domain_registry=runtime.transformation_domain_registry,
         publication_refresh_registry=runtime.publication_refresh_registry,
         logger=runtime.logger,
         worker_id=worker_id,
@@ -578,6 +581,7 @@ def _handle_process_ingestion_definition(args: Namespace, runtime: WorkerRuntime
         configured_definition_service=runtime.configured_definition_service,
         extension_registry=runtime.extension_registry,
         promotion_handler_registry=runtime.promotion_handler_registry,
+        transformation_domain_registry=runtime.transformation_domain_registry,
         publication_refresh_registry=runtime.publication_refresh_registry,
     )
     _write_json(runtime.output, payload)
