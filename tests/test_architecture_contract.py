@@ -101,6 +101,7 @@ def test_worker_main_delegates_to_runtime_and_command_handlers() -> None:
 def test_api_app_imports_shared_support_modules() -> None:
     imports = _import_names(ROOT / "apps" / "api" / "app.py")
 
+    assert "apps.api.auth_runtime" in imports
     assert "apps.api.support" in imports
     assert "apps.api.runtime_state" in imports
 
@@ -135,6 +136,7 @@ def test_sqlite_ingestion_backend_imports_split_catalog_modules() -> None:
 
 def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> None:
     api_source = (ROOT / "apps" / "api" / "app.py").read_text()
+    auth_runtime_source = (ROOT / "apps" / "api" / "auth_runtime.py").read_text()
     auth_route_source = (
         ROOT / "apps" / "api" / "routes" / "auth_routes.py"
     ).read_text()
@@ -400,12 +402,14 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     ).read_text()
     web_main_source = (ROOT / "apps" / "web" / "main.py").read_text()
 
-    assert "required_role_for_path" in api_source
-    assert "Authentication required." in api_source
-    assert "CSRF validation failed." in api_source
-    assert '"/auth/users"' in api_source
-    assert '"/auth/service-tokens"' in api_source
-    assert '"/control/auth-audit"' in api_source
+    assert "register_auth_middleware(" in api_source
+    assert "build_auth_event_recorder(" in api_source
+    assert "required_role_for_path" in auth_runtime_source
+    assert "Authentication required." in auth_runtime_source
+    assert "CSRF validation failed." in auth_runtime_source
+    assert '"/auth/users"' in auth_runtime_source
+    assert '"/auth/service-tokens"' in auth_runtime_source
+    assert '"/control/auth-audit"' in auth_runtime_source
     assert '"/auth/users"' in auth_route_source
     assert '"/auth/service-tokens"' in auth_route_source
     assert '"/control/auth-audit"' in auth_route_source
