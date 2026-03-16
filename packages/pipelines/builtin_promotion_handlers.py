@@ -9,7 +9,6 @@ from packages.pipelines.builtin_packages import (
     get_builtin_transformation_package_spec,
     get_builtin_transformation_package_spec_by_handler_key,
 )
-from packages.pipelines.builtin_reporting import PUBLICATION_RELATIONS
 from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.promotion_registry import (
     BuiltinPromotionHandler,
@@ -31,7 +30,6 @@ class BuiltinPromotionFlowSpec:
     serialize_row: Callable[[Any], dict[str, Any]]
     count_existing: Callable[[TransformationService, str], int]
     load_rows: Callable[[TransformationService, list[dict[str, Any]], str, str], int]
-    refresh_outputs: Callable[[TransformationService], list[str]]
     required_header: set[str] | None = None
     contract_mismatch_reason: str | None = None
 
@@ -95,62 +93,6 @@ def _skipped_result(
         publication_keys=publication_keys or [],
         skipped=True,
         skip_reason=skip_reason,
-    )
-
-
-def _refresh_account_transaction_outputs(
-    transformation_service: TransformationService,
-) -> list[str]:
-    transformation_service.refresh_monthly_cashflow()
-    transformation_service.refresh_monthly_cashflow_by_counterparty()
-    return list(
-        get_builtin_transformation_package_spec(
-            "builtin_account_transactions"
-        ).refresh_publication_keys
-    )
-
-
-def _refresh_subscription_outputs(
-    transformation_service: TransformationService,
-) -> list[str]:
-    transformation_service.refresh_subscription_summary()
-    return list(
-        get_builtin_transformation_package_spec(
-            "builtin_subscriptions"
-        ).refresh_publication_keys
-    )
-
-
-def _refresh_contract_price_outputs(
-    transformation_service: TransformationService,
-) -> list[str]:
-    transformation_service.refresh_contract_price_current()
-    return list(
-        get_builtin_transformation_package_spec(
-            "builtin_contract_prices"
-        ).refresh_publication_keys
-    )
-
-
-def _refresh_utility_usage_outputs(
-    transformation_service: TransformationService,
-) -> list[str]:
-    transformation_service.refresh_utility_cost_summary()
-    return list(
-        get_builtin_transformation_package_spec(
-            "builtin_utility_usage"
-        ).refresh_publication_keys
-    )
-
-
-def _refresh_utility_bill_outputs(
-    transformation_service: TransformationService,
-) -> list[str]:
-    transformation_service.refresh_utility_cost_summary()
-    return list(
-        get_builtin_transformation_package_spec(
-            "builtin_utility_bills"
-        ).refresh_publication_keys
     )
 
 
@@ -240,7 +182,6 @@ _ACCOUNT_TRANSACTION_FLOW = BuiltinPromotionFlowSpec(
         run_id
     ),
     load_rows=_load_transaction_rows,
-    refresh_outputs=_refresh_account_transaction_outputs,
     required_header=_ACCOUNT_TRANSACTION_HEADER,
     contract_mismatch_reason="run does not match the account-transaction canonical contract",
 )
@@ -269,7 +210,6 @@ _SUBSCRIPTION_FLOW = BuiltinPromotionFlowSpec(
         run_id
     ),
     load_rows=_load_subscription_rows,
-    refresh_outputs=_refresh_subscription_outputs,
 )
 
 _CONTRACT_PRICE_FLOW = BuiltinPromotionFlowSpec(
@@ -298,7 +238,6 @@ _CONTRACT_PRICE_FLOW = BuiltinPromotionFlowSpec(
         run_id
     ),
     load_rows=_load_contract_price_rows,
-    refresh_outputs=_refresh_contract_price_outputs,
     required_header=_CONTRACT_PRICE_HEADER,
     contract_mismatch_reason="run does not match the contract-price canonical contract",
 )
@@ -327,7 +266,6 @@ _UTILITY_USAGE_FLOW = BuiltinPromotionFlowSpec(
         run_id
     ),
     load_rows=_load_utility_usage_rows,
-    refresh_outputs=_refresh_utility_usage_outputs,
     required_header=_UTILITY_USAGE_HEADER,
     contract_mismatch_reason="run does not match the utility-usage canonical contract",
 )
@@ -361,7 +299,6 @@ _UTILITY_BILL_FLOW = BuiltinPromotionFlowSpec(
         run_id
     ),
     load_rows=_load_utility_bill_rows,
-    refresh_outputs=_refresh_utility_bill_outputs,
     required_header=_UTILITY_BILL_HEADER,
     contract_mismatch_reason="run does not match the utility-bill canonical contract",
 )
@@ -373,20 +310,6 @@ _BUILTIN_PROMOTION_FLOWS = (
     _UTILITY_USAGE_FLOW,
     _UTILITY_BILL_FLOW,
 )
-
-
-def _validate_refresh_publications() -> None:
-    for flow in _BUILTIN_PROMOTION_FLOWS:
-        unknown_keys = sorted(
-            set(flow.refresh_publication_keys) - set(PUBLICATION_RELATIONS)
-        )
-        if unknown_keys:
-            raise ValueError(
-                "Built-in transformation package refresh publications are not declared in the reporting registry: "
-                f"{flow.package_spec.transformation_package_id}: {unknown_keys}"
-            )
-
-
 def _promote_with_flow(
     run_id: str,
     *,
@@ -409,7 +332,9 @@ def _promote_with_flow(
             or "run does not match the canonical contract",
         )
     if flow.count_existing(transformation_service, run_id) > 0:
-        marts_refreshed = flow.refresh_outputs(transformation_service)
+        marts_refreshed = transformation_service.refresh_publications(
+            flow.refresh_publication_keys
+        )
         return _skipped_result(
             run_id,
             publication_keys=flow.publication_keys,
@@ -426,7 +351,9 @@ def _promote_with_flow(
         run_id,
         run.source_name,
     )
-    marts_refreshed = flow.refresh_outputs(transformation_service)
+    marts_refreshed = transformation_service.refresh_publications(
+        flow.refresh_publication_keys
+    )
     return PromotionResult(
         run_id=run_id,
         facts_loaded=facts_loaded,
@@ -537,6 +464,3 @@ def get_builtin_promotion_handler(handler_key: str) -> BuiltinPromotionHandler:
         raise ValueError(
             f"Unsupported built-in transformation package handler: {handler_key}"
         ) from exc
-
-
-_validate_refresh_publications()

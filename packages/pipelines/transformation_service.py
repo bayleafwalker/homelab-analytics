@@ -7,6 +7,9 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from packages.pipelines.builtin_transformation_refresh import (
+    refresh_builtin_publications,
+)
 from packages.pipelines.normalization import (
     normalize_currency_code,
     normalize_timestamp_utc,
@@ -168,6 +171,12 @@ class TransformationService:
 
     def refresh_monthly_cashflow(self) -> int:
         return refresh_monthly_cashflow(self._store)
+
+    def refresh_publications(
+        self,
+        publication_keys: list[str] | tuple[str, ...],
+    ) -> list[str]:
+        return refresh_builtin_publications(self, publication_keys)
 
     def get_monthly_cashflow(
         self,

@@ -163,6 +163,23 @@ def test_mart_includes_additional_data_after_second_load(svc: TransformationServ
     assert len(svc.get_monthly_cashflow()) == 2
 
 
+def test_refresh_publications_uses_builtin_refresh_registry(
+    svc: TransformationService,
+) -> None:
+    svc.load_transactions(LANDING_ROWS)
+
+    refreshed = svc.refresh_publications(
+        ["mart_monthly_cashflow", "mart_monthly_cashflow_by_counterparty"]
+    )
+
+    assert refreshed == [
+        "mart_monthly_cashflow",
+        "mart_monthly_cashflow_by_counterparty",
+    ]
+    assert len(svc.get_monthly_cashflow()) == 2
+    assert len(svc.get_monthly_cashflow_by_counterparty()) == 4
+
+
 # ---------------------------------------------------------------------------
 # PLT-15: Atomic run processing
 # ---------------------------------------------------------------------------
