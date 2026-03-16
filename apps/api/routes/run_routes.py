@@ -20,7 +20,7 @@ from packages.pipelines.run_context import merge_run_context
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.extensions import ExtensionRegistry
-from packages.storage.control_plane import AssetCatalogStore
+from packages.storage.control_plane import ConfigCatalogStore
 from packages.storage.run_metadata import IngestionRunRecord, IngestionRunStatus
 
 
@@ -29,7 +29,7 @@ def register_run_routes(
     *,
     service: AccountTransactionService,
     configured_ingestion_service: ConfiguredCsvIngestionService,
-    resolved_config_repository: AssetCatalogStore,
+    resolved_config_repository: ConfigCatalogStore,
     transformation_service: TransformationService | None,
     resolved_reporting_service: ReportingService | None,
     subscription_service: SubscriptionService | None,

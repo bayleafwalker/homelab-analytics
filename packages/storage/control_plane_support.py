@@ -83,12 +83,32 @@ def _build_requeued_dispatch_worker_detail(
     )
 
 
-def _coerce_datetime_value(value: str | datetime | None) -> datetime | None:
+def _coerce_datetime_value(value: object) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
         return value
+    if not isinstance(value, str):
+        raise TypeError(f"Unsupported datetime value: {value!r}")
     return datetime.fromisoformat(value)
+
+
+def _coerce_int_value(value: object) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return int(value)
+    raise TypeError(f"Unsupported integer value: {value!r}")
+
+
+def _coerce_string_sequence(value: object) -> tuple[str, ...] | list[str]:
+    if isinstance(value, tuple) and all(isinstance(item, str) for item in value):
+        return value
+    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return value
+    raise TypeError(f"Unsupported string sequence value: {value!r}")
 
 
 def _deserialize_schedule_dispatch_row(
@@ -145,7 +165,7 @@ def _deserialize_source_lineage_row(
         target_layer=str(row["target_layer"]),
         target_name=str(row["target_name"]),
         target_kind=str(row["target_kind"]),
-        row_count=int(row["row_count"]) if row["row_count"] is not None else None,
+        row_count=_coerce_int_value(row["row_count"]),
         source_system=(
             str(row["source_system"]) if row["source_system"] is not None else None
         ),
@@ -211,7 +231,7 @@ def _deserialize_service_token_row(
         token_name=str(row["token_name"]),
         token_secret_hash=str(row["token_secret_hash"]),
         role=UserRole(str(row["role"])),
-        scopes=normalize_service_token_scopes(decoded_scopes),
+        scopes=normalize_service_token_scopes(_coerce_string_sequence(decoded_scopes)),
         expires_at=_coerce_datetime_value(row["expires_at"]),
         created_at=created_at,
         last_used_at=_coerce_datetime_value(row["last_used_at"]),

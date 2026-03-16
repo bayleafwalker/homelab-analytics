@@ -12,6 +12,7 @@ Current foundation:
 - persisted ingestion configuration entities for source systems, dataset contracts, and column mappings
 - SQLite and Postgres config backends now split source-system, contract, mapping, transformation-package, and publication-definition persistence into backend-specific source/contract catalog modules
 - SQLite and Postgres config backends now split source-asset and ingestion-definition persistence into backend-specific asset/definition catalog modules
+- SQLite and Postgres config backends now split execution schedules, schedule dispatches, and worker heartbeat persistence into backend-specific execution control-plane modules
 - backend-neutral ingestion catalog models plus shared serialization, publication-validation, and built-in package seed helpers used by both SQLite and Postgres config repositories
 - persisted source assets and ingestion definitions for config-driven folder and HTTP pull execution, including request headers and timeout settings
 - aggregate-scoped control-plane protocols for source registry, contract catalog, asset catalog, scheduling, and audit surfaces shared across SQLite and Postgres backends

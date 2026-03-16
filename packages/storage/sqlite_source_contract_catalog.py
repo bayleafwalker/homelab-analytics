@@ -64,6 +64,9 @@ def _deserialize_publication_definition_row(
 
 
 class SQLiteSourceContractCatalogMixin:
+    def _connect(self) -> sqlite3.Connection:
+        raise NotImplementedError
+
     def create_source_system(
         self,
         source_system: SourceSystemCreate,

@@ -33,6 +33,7 @@ from apps.worker.serialization import (
 )
 from packages.pipelines.config_preflight import run_config_preflight
 from packages.pipelines.promotion import (
+    PromotionResult,
     promote_contract_price_run,
     promote_run,
     promote_source_asset_run,
@@ -42,6 +43,7 @@ from packages.pipelines.reporting_service import (
     ReportingService,
     publish_promotion_reporting,
 )
+from packages.pipelines.transformation_service import TransformationService
 from packages.shared.auth import (
     hash_password,
     issue_service_token,
@@ -56,7 +58,7 @@ WorkerCommandHandler = Callable[[Namespace, WorkerRuntime], int]
 
 def _build_reporting_runtime(
     runtime: WorkerRuntime,
-) -> tuple[object, ReportingService]:
+) -> tuple[TransformationService, ReportingService]:
     transformation_service = build_transformation_service(runtime.settings)
     return transformation_service, build_reporting_service(
         runtime.settings,
@@ -67,12 +69,12 @@ def _build_reporting_runtime(
 
 def _publish_reporting(
     reporting_service: ReportingService | None,
-    promotion,
+    promotion: PromotionResult | None,
 ) -> None:
     publish_promotion_reporting(reporting_service, promotion)
 
 
-def _serialize_promotion_payload(promotion) -> dict[str, object]:
+def _serialize_promotion_payload(promotion: PromotionResult) -> dict[str, object]:
     return {"run_id": promotion.run_id, **serialize_promotion(promotion)}
 
 
@@ -124,7 +126,7 @@ def _handle_ingest_configured_csv(args: Namespace, runtime: WorkerRuntime) -> in
             )
         )
         if resolved_source_asset is not None:
-            payload["promotion"] = promote_source_asset_run(
+            promotion = promote_source_asset_run(
                 run.run_id,
                 source_asset=resolved_source_asset,
                 config_repository=runtime.config_repository,
@@ -134,7 +136,8 @@ def _handle_ingest_configured_csv(args: Namespace, runtime: WorkerRuntime) -> in
                 blob_store=runtime.service.blob_store,
                 extension_registry=runtime.extension_registry,
             )
-            _publish_reporting(reporting_service, payload["promotion"])
+            _publish_reporting(reporting_service, promotion)
+            payload["promotion"] = promotion
     _write_json(runtime.output, payload)
     return 0
 
@@ -236,12 +239,13 @@ def _handle_ingest_account_transactions(args: Namespace, runtime: WorkerRuntime)
     payload: dict[str, object] = {"run": serialize_run(run)}
     if run.passed:
         transformation_service, reporting_service = _build_reporting_runtime(runtime)
-        payload["promotion"] = promote_run(
+        promotion = promote_run(
             run.run_id,
             account_service=runtime.service,
             transformation_service=transformation_service,
         )
-        _publish_reporting(reporting_service, payload["promotion"])
+        _publish_reporting(reporting_service, promotion)
+        payload["promotion"] = promotion
     _write_json(runtime.output, payload)
     return 0
 

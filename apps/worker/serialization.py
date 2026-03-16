@@ -47,7 +47,7 @@ def _serialize_inbox_result(
 
 
 def _json_default(value: object) -> object:
-    if is_dataclass(value):
+    if is_dataclass(value) and not isinstance(value, type):
         return asdict(value)
     if isinstance(value, Decimal):
         return str(value)

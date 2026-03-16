@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+from datetime import datetime
+from typing import cast
+
+import psycopg
 from psycopg.rows import dict_row
 
+from packages.storage.control_plane import ExecutionStore
 from packages.storage.ingestion_catalog import (
+    ColumnMappingRecord,
+    DatasetContractConfigRecord,
     IngestionDefinitionCreate,
     IngestionDefinitionRecord,
     SourceAssetCreate,
     SourceAssetRecord,
+    TransformationPackageRecord,
     _deserialize_request_headers,
     _serialize_request_headers,
 )
@@ -28,7 +36,7 @@ def _deserialize_source_asset_row(row: dict[str, object]) -> SourceAssetRecord:
         description=str(row["description"]) if row["description"] is not None else None,
         enabled=bool(row["enabled"]),
         archived=bool(row["archived"]),
-        created_at=row["created_at"],  # type: ignore[arg-type]
+        created_at=_coerce_datetime_value(row["created_at"]),
     )
 
 
@@ -45,7 +53,7 @@ def _deserialize_ingestion_definition_row(
         processed_path=str(row["processed_path"]) if row["processed_path"] is not None else None,
         failed_path=str(row["failed_path"]) if row["failed_path"] is not None else None,
         poll_interval_seconds=(
-            int(row["poll_interval_seconds"])
+            _coerce_int_value(row["poll_interval_seconds"])
             if row["poll_interval_seconds"] is not None
             else None
         ),
@@ -59,7 +67,7 @@ def _deserialize_ingestion_definition_row(
             else None
         ),
         request_timeout_seconds=(
-            int(row["request_timeout_seconds"])
+            _coerce_int_value(row["request_timeout_seconds"])
             if row["request_timeout_seconds"] is not None
             else None
         ),
@@ -72,11 +80,52 @@ def _deserialize_ingestion_definition_row(
         enabled=bool(row["enabled"]),
         archived=bool(row["archived"]),
         source_name=str(row["source_name"]) if row["source_name"] is not None else None,
-        created_at=row["created_at"],  # type: ignore[arg-type]
+        created_at=_coerce_datetime_value(row["created_at"]),
     )
 
 
+def _coerce_datetime_value(value: object) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        return datetime.fromisoformat(value)
+    raise TypeError(f"Unsupported datetime value: {value!r}")
+
+
+def _coerce_int_value(value: object) -> int:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return int(value)
+    raise TypeError(f"Unsupported integer value: {value!r}")
+
+
+def _coerce_row_mapping(row: object) -> dict[str, object]:
+    if not isinstance(row, dict):
+        raise TypeError(f"Unsupported row value: {row!r}")
+    return cast(dict[str, object], row)
+
+
 class PostgresAssetDefinitionCatalogMixin:
+    def _connect(
+        self,
+        *,
+        row_factory: object = None,
+    ) -> psycopg.Connection[object]:
+        raise NotImplementedError
+
+    def get_dataset_contract(self, dataset_contract_id: str) -> DatasetContractConfigRecord:
+        raise NotImplementedError
+
+    def get_column_mapping(self, column_mapping_id: str) -> ColumnMappingRecord:
+        raise NotImplementedError
+
+    def get_transformation_package(
+        self,
+        transformation_package_id: str,
+    ) -> TransformationPackageRecord:
+        raise NotImplementedError
+
     def _validate_source_asset_dependencies(
         self,
         source_asset: SourceAssetCreate,
@@ -166,7 +215,7 @@ class PostgresAssetDefinitionCatalogMixin:
             ).fetchone()
         if row is None:
             raise KeyError(f"Unknown source asset: {source_asset_id}")
-        return _deserialize_source_asset_row(row)
+        return _deserialize_source_asset_row(_coerce_row_mapping(row))
 
     def list_source_assets(
         self,
@@ -183,7 +232,7 @@ class PostgresAssetDefinitionCatalogMixin:
                 sql += " WHERE archived = FALSE"
             sql += " ORDER BY created_at, source_asset_id"
             rows = connection.execute(sql).fetchall()
-        return [_deserialize_source_asset_row(row) for row in rows]
+        return [_deserialize_source_asset_row(_coerce_row_mapping(row)) for row in rows]
 
     def set_source_asset_archived_state(
         self,
@@ -255,7 +304,7 @@ class PostgresAssetDefinitionCatalogMixin:
             raise ValueError(
                 "Multiple source assets match the configured CSV binding; use source_asset_id-bound ingestion instead."
             )
-        return _deserialize_source_asset_row(rows[0])
+        return _deserialize_source_asset_row(_coerce_row_mapping(rows[0]))
 
     def _validate_ingestion_definition_dependencies(
         self,
@@ -377,7 +426,7 @@ class PostgresAssetDefinitionCatalogMixin:
             ).fetchone()
         if row is None:
             raise KeyError(f"Unknown ingestion definition: {ingestion_definition_id}")
-        return _deserialize_ingestion_definition_row(row)
+        return _deserialize_ingestion_definition_row(_coerce_row_mapping(row))
 
     def list_ingestion_definitions(
         self,
@@ -402,7 +451,10 @@ class PostgresAssetDefinitionCatalogMixin:
         sql += " ORDER BY created_at, ingestion_definition_id"
         with self._connect(row_factory=dict_row) as connection:
             rows = connection.execute(sql).fetchall()
-        return [_deserialize_ingestion_definition_row(row) for row in rows]
+        return [
+            _deserialize_ingestion_definition_row(_coerce_row_mapping(row))
+            for row in rows
+        ]
 
     def set_ingestion_definition_archived_state(
         self,
@@ -428,9 +480,10 @@ class PostgresAssetDefinitionCatalogMixin:
         definition = self.get_ingestion_definition(ingestion_definition_id)
         if not definition.archived:
             raise ValueError("Archive ingestion definition before deleting it.")
+        execution_store = cast(ExecutionStore, self)
         dependent_schedules = [
             record.schedule_id
-            for record in self.list_execution_schedules(include_archived=True)
+            for record in execution_store.list_execution_schedules(include_archived=True)
             if record.target_kind == "ingestion_definition"
             and record.target_ref == ingestion_definition_id
         ]

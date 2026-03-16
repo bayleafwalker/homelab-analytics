@@ -25,7 +25,7 @@ from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.extensions import ExtensionRegistry
-from packages.storage.control_plane import AssetCatalogStore
+from packages.storage.control_plane import ConfigCatalogStore
 
 
 def register_ingest_routes(
@@ -35,7 +35,7 @@ def register_ingest_routes(
     registry: ExtensionRegistry,
     configured_ingestion_service: ConfiguredCsvIngestionService,
     configured_definition_service: ConfiguredIngestionDefinitionService,
-    resolved_config_repository: AssetCatalogStore,
+    resolved_config_repository: ConfigCatalogStore,
     transformation_service: TransformationService | None,
     resolved_reporting_service: ReportingService | None,
     subscription_service: SubscriptionService | None,

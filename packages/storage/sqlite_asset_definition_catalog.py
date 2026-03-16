@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import datetime
+from typing import cast
 
+from packages.storage.control_plane import ExecutionStore
 from packages.storage.ingestion_catalog import (
+    ColumnMappingRecord,
+    DatasetContractConfigRecord,
     IngestionDefinitionCreate,
     IngestionDefinitionRecord,
     SourceAssetCreate,
     SourceAssetRecord,
+    TransformationPackageRecord,
     _deserialize_request_headers,
     _serialize_request_headers,
 )
@@ -56,6 +61,21 @@ def _deserialize_ingestion_definition_row(
 
 
 class SQLiteAssetDefinitionCatalogMixin:
+    def _connect(self) -> sqlite3.Connection:
+        raise NotImplementedError
+
+    def get_dataset_contract(self, dataset_contract_id: str) -> DatasetContractConfigRecord:
+        raise NotImplementedError
+
+    def get_column_mapping(self, column_mapping_id: str) -> ColumnMappingRecord:
+        raise NotImplementedError
+
+    def get_transformation_package(
+        self,
+        transformation_package_id: str,
+    ) -> TransformationPackageRecord:
+        raise NotImplementedError
+
     def _validate_source_asset_dependencies(
         self,
         source_asset: SourceAssetCreate,
@@ -521,9 +541,10 @@ class SQLiteAssetDefinitionCatalogMixin:
         definition = self.get_ingestion_definition(ingestion_definition_id)
         if not definition.archived:
             raise ValueError("Archive ingestion definition before deleting it.")
+        execution_store = cast(ExecutionStore, self)
         dependent_schedules = [
             record.schedule_id
-            for record in self.list_execution_schedules(include_archived=True)
+            for record in execution_store.list_execution_schedules(include_archived=True)
             if record.target_kind == "ingestion_definition"
             and record.target_ref == ingestion_definition_id
         ]

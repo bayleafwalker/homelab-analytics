@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict
+from datetime import datetime
+from typing import cast
 
+import psycopg
 from psycopg.rows import dict_row
 
 from packages.shared.extensions import ExtensionRegistry
@@ -33,7 +36,7 @@ def _deserialize_source_system_row(row: dict[str, object]) -> SourceSystemRecord
         schedule_mode=str(row["schedule_mode"]),
         description=str(row["description"]) if row["description"] is not None else None,
         enabled=bool(row["enabled"]),
-        created_at=row["created_at"],  # type: ignore[arg-type]
+        created_at=_coerce_datetime_value(row["created_at"]),
     )
 
 
@@ -44,9 +47,9 @@ def _deserialize_transformation_package_row(
         transformation_package_id=str(row["transformation_package_id"]),
         name=str(row["name"]),
         handler_key=str(row["handler_key"]),
-        version=int(row["version"]),
+        version=_coerce_int_value(row["version"]),
         description=str(row["description"]) if row["description"] is not None else None,
-        created_at=row["created_at"],  # type: ignore[arg-type]
+        created_at=_coerce_datetime_value(row["created_at"]),
     )
 
 
@@ -59,11 +62,66 @@ def _deserialize_publication_definition_row(
         publication_key=str(row["publication_key"]),
         name=str(row["name"]),
         description=str(row["description"]) if row["description"] is not None else None,
-        created_at=row["created_at"],  # type: ignore[arg-type]
+        created_at=_coerce_datetime_value(row["created_at"]),
+    )
+
+
+def _coerce_datetime_value(value: object) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        return datetime.fromisoformat(value)
+    raise TypeError(f"Unsupported datetime value: {value!r}")
+
+
+def _coerce_int_value(value: object) -> int:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return int(value)
+    raise TypeError(f"Unsupported integer value: {value!r}")
+
+
+def _coerce_row_mapping(row: object) -> dict[str, object]:
+    if not isinstance(row, dict):
+        raise TypeError(f"Unsupported row value: {row!r}")
+    return cast(dict[str, object], row)
+
+
+def _deserialize_dataset_contract_row(
+    row: dict[str, object],
+) -> DatasetContractConfigRecord:
+    return DatasetContractConfigRecord(
+        dataset_contract_id=str(row["dataset_contract_id"]),
+        dataset_name=str(row["dataset_name"]),
+        version=_coerce_int_value(row["version"]),
+        allow_extra_columns=bool(row["allow_extra_columns"]),
+        columns=_deserialize_columns(str(row["columns_json"])),
+        archived=bool(row["archived"]),
+        created_at=_coerce_datetime_value(row["created_at"]),
+    )
+
+
+def _deserialize_column_mapping_row(row: dict[str, object]) -> ColumnMappingRecord:
+    return ColumnMappingRecord(
+        column_mapping_id=str(row["column_mapping_id"]),
+        source_system_id=str(row["source_system_id"]),
+        dataset_contract_id=str(row["dataset_contract_id"]),
+        version=_coerce_int_value(row["version"]),
+        rules=_deserialize_rules(str(row["rules_json"])),
+        archived=bool(row["archived"]),
+        created_at=_coerce_datetime_value(row["created_at"]),
     )
 
 
 class PostgresSourceContractCatalogMixin:
+    def _connect(
+        self,
+        *,
+        row_factory: object = None,
+    ) -> psycopg.Connection[object]:
+        raise NotImplementedError
+
     def create_source_system(self, source_system: SourceSystemCreate) -> SourceSystemRecord:
         with self._connect() as connection:
             connection.execute(
@@ -125,7 +183,7 @@ class PostgresSourceContractCatalogMixin:
             ).fetchone()
         if row is None:
             raise KeyError(f"Unknown source system: {source_system_id}")
-        return _deserialize_source_system_row(row)
+        return _deserialize_source_system_row(_coerce_row_mapping(row))
 
     def list_source_systems(self) -> list[SourceSystemRecord]:
         with self._connect(row_factory=dict_row) as connection:
@@ -136,7 +194,7 @@ class PostgresSourceContractCatalogMixin:
                 ORDER BY created_at, source_system_id
                 """
             ).fetchall()
-        return [_deserialize_source_system_row(row) for row in rows]
+        return [_deserialize_source_system_row(_coerce_row_mapping(row)) for row in rows]
 
     def create_dataset_contract(
         self,
@@ -183,15 +241,7 @@ class PostgresSourceContractCatalogMixin:
             ).fetchone()
         if row is None:
             raise KeyError(f"Unknown dataset contract: {dataset_contract_id}")
-        return DatasetContractConfigRecord(
-            dataset_contract_id=str(row["dataset_contract_id"]),
-            dataset_name=str(row["dataset_name"]),
-            version=int(row["version"]),
-            allow_extra_columns=bool(row["allow_extra_columns"]),
-            columns=_deserialize_columns(str(row["columns_json"])),
-            archived=bool(row["archived"]),
-            created_at=row["created_at"],  # type: ignore[arg-type]
-        )
+        return _deserialize_dataset_contract_row(_coerce_row_mapping(row))
 
     def list_dataset_contracts(
         self,
@@ -207,18 +257,7 @@ class PostgresSourceContractCatalogMixin:
                 sql += " WHERE archived = FALSE"
             sql += " ORDER BY created_at, dataset_contract_id"
             rows = connection.execute(sql).fetchall()
-        return [
-            DatasetContractConfigRecord(
-                dataset_contract_id=str(row["dataset_contract_id"]),
-                dataset_name=str(row["dataset_name"]),
-                version=int(row["version"]),
-                allow_extra_columns=bool(row["allow_extra_columns"]),
-                columns=_deserialize_columns(str(row["columns_json"])),
-                archived=bool(row["archived"]),
-                created_at=row["created_at"],  # type: ignore[arg-type]
-            )
-            for row in rows
-        ]
+        return [_deserialize_dataset_contract_row(_coerce_row_mapping(row)) for row in rows]
 
     def set_dataset_contract_archived_state(
         self,
@@ -273,15 +312,7 @@ class PostgresSourceContractCatalogMixin:
             ).fetchone()
         if row is None:
             raise KeyError(f"Unknown column mapping: {column_mapping_id}")
-        return ColumnMappingRecord(
-            column_mapping_id=str(row["column_mapping_id"]),
-            source_system_id=str(row["source_system_id"]),
-            dataset_contract_id=str(row["dataset_contract_id"]),
-            version=int(row["version"]),
-            rules=_deserialize_rules(str(row["rules_json"])),
-            archived=bool(row["archived"]),
-            created_at=row["created_at"],  # type: ignore[arg-type]
-        )
+        return _deserialize_column_mapping_row(_coerce_row_mapping(row))
 
     def list_column_mappings(
         self,
@@ -297,18 +328,7 @@ class PostgresSourceContractCatalogMixin:
                 sql += " WHERE archived = FALSE"
             sql += " ORDER BY created_at, column_mapping_id"
             rows = connection.execute(sql).fetchall()
-        return [
-            ColumnMappingRecord(
-                column_mapping_id=str(row["column_mapping_id"]),
-                source_system_id=str(row["source_system_id"]),
-                dataset_contract_id=str(row["dataset_contract_id"]),
-                version=int(row["version"]),
-                rules=_deserialize_rules(str(row["rules_json"])),
-                archived=bool(row["archived"]),
-                created_at=row["created_at"],  # type: ignore[arg-type]
-            )
-            for row in rows
-        ]
+        return [_deserialize_column_mapping_row(_coerce_row_mapping(row)) for row in rows]
 
     def set_column_mapping_archived_state(
         self,
@@ -364,7 +384,7 @@ class PostgresSourceContractCatalogMixin:
             ).fetchone()
         if row is None:
             raise KeyError(f"Unknown transformation package: {transformation_package_id}")
-        return _deserialize_transformation_package_row(row)
+        return _deserialize_transformation_package_row(_coerce_row_mapping(row))
 
     def list_transformation_packages(self) -> list[TransformationPackageRecord]:
         with self._connect(row_factory=dict_row) as connection:
@@ -375,7 +395,10 @@ class PostgresSourceContractCatalogMixin:
                 ORDER BY created_at, transformation_package_id
                 """
             ).fetchall()
-        return [_deserialize_transformation_package_row(row) for row in rows]
+        return [
+            _deserialize_transformation_package_row(_coerce_row_mapping(row))
+            for row in rows
+        ]
 
     def create_publication_definition(
         self,
@@ -418,7 +441,7 @@ class PostgresSourceContractCatalogMixin:
             ).fetchone()
         if row is None:
             raise KeyError(f"Unknown publication definition: {publication_definition_id}")
-        return _deserialize_publication_definition_row(row)
+        return _deserialize_publication_definition_row(_coerce_row_mapping(row))
 
     def list_publication_definitions(
         self,
@@ -436,4 +459,7 @@ class PostgresSourceContractCatalogMixin:
         sql += " ORDER BY created_at, publication_definition_id"
         with self._connect(row_factory=dict_row) as connection:
             rows = connection.execute(sql, params).fetchall()
-        return [_deserialize_publication_definition_row(row) for row in rows]
+        return [
+            _deserialize_publication_definition_row(_coerce_row_mapping(row))
+            for row in rows
+        ]
