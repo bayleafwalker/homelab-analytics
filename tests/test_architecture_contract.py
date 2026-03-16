@@ -34,6 +34,15 @@ def test_transformation_service_does_not_import_application_or_reporting_modules
     assert not any(name.startswith("packages.analytics") for name in imports)
 
 
+def test_transformation_service_imports_split_domain_modules() -> None:
+    imports = _import_names(ROOT / "packages" / "pipelines" / "transformation_service.py")
+
+    assert "packages.pipelines.transformation_transactions" in imports
+    assert "packages.pipelines.transformation_subscriptions" in imports
+    assert "packages.pipelines.transformation_contract_prices" in imports
+    assert "packages.pipelines.transformation_utilities" in imports
+
+
 def test_app_reporting_paths_do_not_compute_cashflow_from_landing_service() -> None:
     api_source = (
         ROOT / "apps" / "api" / "routes" / "report_routes.py"
