@@ -193,6 +193,7 @@ Binding rules:
 - workers should claim `schedule_dispatch` rows before execution, renew those claims while work is still active, recover expired claims by failing and requeueing stale dispatches, update dispatches through `running` and terminal states, and publish lightweight heartbeat state for control-plane visibility
 - `publication_definition` declares which gold outputs a transformation package publishes
 - worker and API promotion should dispatch from source-asset configuration, not inferred file headers or route-specific heuristics
+- control-plane transformation-package creation should validate `handler_key` values against the loaded promotion-handler registry so invalid runtime wiring is rejected before it is persisted
 
 For folder-like external systems, prefer sync-to-folder first:
 

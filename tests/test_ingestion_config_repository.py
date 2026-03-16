@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from packages.pipelines.csv_validation import ColumnType
+from packages.pipelines.promotion_registry import get_default_promotion_handler_registry
 from packages.shared.extensions import ExtensionPublication, ExtensionRegistry, LayerExtension
 from packages.storage.ingestion_config import (
     ColumnMappingCreate,
@@ -19,6 +20,7 @@ from packages.storage.ingestion_config import (
     allowed_publication_keys,
     resolve_dataset_contract,
     validate_publication_key,
+    validate_transformation_handler_key,
 )
 
 
@@ -411,6 +413,25 @@ class IngestionConfigRepositoryTests(unittest.TestCase):
     def test_validate_publication_key_rejects_unknown_keys(self) -> None:
         with self.assertRaisesRegex(ValueError, "mart_unknown_current"):
             validate_publication_key("mart_unknown_current")
+
+    def test_validate_transformation_handler_key_rejects_unknown_keys(self) -> None:
+        with self.assertRaisesRegex(ValueError, "custom.unknown_handler"):
+            validate_transformation_handler_key("custom.unknown_handler")
+
+    def test_repository_rejects_unknown_transformation_handler_at_creation_time(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+
+            with self.assertRaisesRegex(ValueError, "custom.unknown_handler"):
+                repository.create_transformation_package(
+                    TransformationPackageCreate(
+                        transformation_package_id="custom_unknown_package",
+                        name="Custom unknown package",
+                        handler_key="custom.unknown_handler",
+                        version=1,
+                    ),
+                    promotion_handler_registry=get_default_promotion_handler_registry(),
+                )
 
     def test_repository_rejects_unknown_publication_key_at_creation_time(self) -> None:
         with TemporaryDirectory() as temp_dir:

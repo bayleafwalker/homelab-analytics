@@ -46,7 +46,10 @@ from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.promotion import (
     PromotionResult,
 )
-from packages.pipelines.promotion_registry import PromotionHandlerRegistry
+from packages.pipelines.promotion_registry import (
+    PromotionHandlerRegistry,
+    get_default_promotion_handler_registry,
+)
 from packages.pipelines.reporting_service import (
     ReportingService,
     publish_promotion_reporting,
@@ -96,6 +99,9 @@ def create_app(
     enable_unsafe_admin: bool = False,
 ) -> FastAPI:
     registry = extension_registry or build_builtin_extension_registry()
+    resolved_promotion_handler_registry = (
+        promotion_handler_registry or get_default_promotion_handler_registry()
+    )
     resolved_config_repository = config_repository or IngestionConfigRepository(
         service.landing_root.parent / "config.db"
     )
@@ -374,7 +380,7 @@ def create_app(
         subscription_service=subscription_service,
         contract_price_service=contract_price_service,
         registry=registry,
-        promotion_handler_registry=promotion_handler_registry,
+        promotion_handler_registry=resolved_promotion_handler_registry,
         load_run_manifest_and_context=load_run_manifest_and_context,
         build_run_recovery=build_run_recovery,
         serialize_run=serialize_run,
@@ -386,6 +392,7 @@ def create_app(
     register_config_routes(
         app,
         registry=registry,
+        promotion_handler_registry=resolved_promotion_handler_registry,
         resolved_config_repository=resolved_config_repository,
         configured_ingestion_service=configured_ingestion_service,
         require_unsafe_admin=require_unsafe_admin,
@@ -428,7 +435,7 @@ def create_app(
         subscription_service=subscription_service,
         contract_price_service=contract_price_service,
         require_unsafe_admin=require_unsafe_admin,
-        promotion_handler_registry=promotion_handler_registry,
+        promotion_handler_registry=resolved_promotion_handler_registry,
         publish_reporting=publish_reporting,
         resolve_configured_ingest_binding=lambda payload: resolve_configured_ingest_binding(
             payload,

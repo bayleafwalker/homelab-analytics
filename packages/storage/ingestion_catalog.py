@@ -333,6 +333,29 @@ def allowed_publication_keys(
     return allowed_keys
 
 
+def allowed_transformation_handler_keys(*, promotion_handler_registry=None) -> set[str]:
+    from packages.pipelines.promotion_registry import get_default_promotion_handler_registry
+
+    registry = promotion_handler_registry or get_default_promotion_handler_registry()
+    return {handler.handler_key for handler in registry.list()}
+
+
+def validate_transformation_handler_key(
+    handler_key: str,
+    *,
+    promotion_handler_registry=None,
+) -> None:
+    if handler_key in allowed_transformation_handler_keys(
+        promotion_handler_registry=promotion_handler_registry
+    ):
+        return
+
+    raise ValueError(
+        "Unknown transformation handler key. Register a promotion handler or use an existing built-in handler key: "
+        f"{handler_key!r}"
+    )
+
+
 def validate_publication_key(
     publication_key: str,
     *,

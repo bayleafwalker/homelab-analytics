@@ -24,6 +24,7 @@ from packages.storage.ingestion_catalog import (
     _deserialize_rules,
     _validate_mapping_rules,
     validate_publication_key,
+    validate_transformation_handler_key,
 )
 
 
@@ -352,7 +353,14 @@ class PostgresSourceContractCatalogMixin:
     def create_transformation_package(
         self,
         transformation_package: TransformationPackageCreate,
+        *,
+        promotion_handler_registry=None,
     ) -> TransformationPackageRecord:
+        if promotion_handler_registry is not None:
+            validate_transformation_handler_key(
+                transformation_package.handler_key,
+                promotion_handler_registry=promotion_handler_registry,
+            )
         with self._connect() as connection:
             connection.execute(
                 """

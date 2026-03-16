@@ -11,6 +11,12 @@ from apps.api.app import create_app
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.csv_validation import ColumnType
+from packages.pipelines.promotion_registry import (
+    PromotionHandler,
+    PromotionHandlerRegistry,
+    get_default_promotion_handler_registry,
+)
+from packages.pipelines.promotion_types import PromotionResult
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transaction_models import DIM_ACCOUNT
 from packages.pipelines.transformation_service import TransformationService
@@ -463,6 +469,22 @@ class ApiAppTests(unittest.TestCase):
                     ),
                 )
             )
+            promotion_handler_registry = PromotionHandlerRegistry()
+            for handler in get_default_promotion_handler_registry().list():
+                promotion_handler_registry.register(handler)
+            promotion_handler_registry.register(
+                PromotionHandler(
+                    handler_key="custom_budget_transform",
+                    default_publications=("mart_budget_current",),
+                    supported_publications=("mart_budget_current",),
+                    runner=lambda runtime: PromotionResult(
+                        run_id=runtime.run_id,
+                        facts_loaded=0,
+                        marts_refreshed=["mart_budget_current"],
+                        publication_keys=["mart_budget_current"],
+                    ),
+                )
+            )
             client = TestClient(
                 create_app(
                     AccountTransactionService(
@@ -471,6 +493,7 @@ class ApiAppTests(unittest.TestCase):
                     ),
                     extension_registry=registry,
                     config_repository=IngestionConfigRepository(temp_root / "config.db"),
+                    promotion_handler_registry=promotion_handler_registry,
                     enable_unsafe_admin=True,
                 )
             )
@@ -671,6 +694,35 @@ class ApiAppTests(unittest.TestCase):
             self.assertEqual(400, response.status_code)
             self.assertIn("Unknown publication key", response.json()["error"])
             self.assertIn("mart_unknown_current", response.json()["error"])
+
+    def test_transformation_package_creation_rejects_unknown_handler_key(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=temp_root / "landing",
+                        metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
+                    ),
+                    config_repository=IngestionConfigRepository(temp_root / "config.db"),
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            response = client.post(
+                "/config/transformation-packages",
+                json={
+                    "transformation_package_id": "invalid_budget_v1",
+                    "name": "Invalid Budget Transform",
+                    "handler_key": "custom_budget_transform",
+                    "version": 1,
+                    "description": "Should fail validation",
+                },
+            )
+
+            self.assertEqual(400, response.status_code)
+            self.assertIn("Unknown transformation handler key", response.json()["error"])
+            self.assertIn("custom_budget_transform", response.json()["error"])
 
     def test_source_assets_and_ingestion_definitions_are_exposed_and_executable(
         self,

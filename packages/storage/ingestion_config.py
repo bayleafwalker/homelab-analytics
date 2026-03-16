@@ -34,8 +34,10 @@ from packages.storage.ingestion_catalog import (
     TransformationPackageCreate,
     TransformationPackageRecord,
     allowed_publication_keys,
+    allowed_transformation_handler_keys,
     resolve_dataset_contract,
     validate_publication_key,
+    validate_transformation_handler_key,
 )
 from packages.storage.sqlite_asset_definition_catalog import (
     SQLiteAssetDefinitionCatalogMixin,
@@ -74,8 +76,10 @@ __all__ = [
     "TransformationPackageCreate",
     "TransformationPackageRecord",
     "allowed_publication_keys",
+    "allowed_transformation_handler_keys",
     "resolve_dataset_contract",
     "validate_publication_key",
+    "validate_transformation_handler_key",
     "_BUILTIN_PUBLICATION_DEFINITIONS",
     "_BUILTIN_TRANSFORMATION_PACKAGES",
 ]

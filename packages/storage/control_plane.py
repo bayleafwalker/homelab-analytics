@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 from packages.storage.auth_store import AuthStore
 
 if TYPE_CHECKING:
+    from packages.pipelines.promotion_registry import PromotionHandlerRegistry
     from packages.shared.extensions import ExtensionRegistry
     from packages.storage.auth_store import LocalUserRecord, ServiceTokenRecord
     from packages.storage.ingestion_catalog import (
@@ -258,7 +259,10 @@ class ContractCatalogStore(Protocol):
         ...
 
     def create_transformation_package(
-        self, transformation_package: "TransformationPackageCreate"
+        self,
+        transformation_package: "TransformationPackageCreate",
+        *,
+        promotion_handler_registry: "PromotionHandlerRegistry | None" = None,
     ) -> "TransformationPackageRecord":
         ...
 

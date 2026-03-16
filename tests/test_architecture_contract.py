@@ -111,6 +111,16 @@ def test_api_app_imports_shared_support_modules() -> None:
     assert "apps.api.runtime_state" in imports
 
 
+def test_config_routes_validate_transformation_packages_against_loaded_handlers() -> None:
+    api_app_source = (ROOT / "apps" / "api" / "app.py").read_text()
+    config_route_source = (ROOT / "apps" / "api" / "routes" / "config_routes.py").read_text()
+
+    assert "get_default_promotion_handler_registry()" in api_app_source
+    assert "promotion_handler_registry=resolved_promotion_handler_registry" in api_app_source
+    assert "promotion_handler_registry: PromotionHandlerRegistry" in config_route_source
+    assert "promotion_handler_registry=promotion_handler_registry" in config_route_source
+
+
 def test_promotion_orchestration_imports_shared_registry_contracts() -> None:
     imports = _import_names(ROOT / "packages" / "pipelines" / "promotion.py")
     builtin_handler_imports = _import_names(

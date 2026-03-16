@@ -17,6 +17,7 @@ from apps.api.models import (
     TransformationPackageRequest,
 )
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
+from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.shared.extensions import ExtensionRegistry, serialize_extension_registry
 from packages.storage.control_plane import (
     ControlPlaneAdminStore,
@@ -42,6 +43,7 @@ def register_config_routes(
     app: FastAPI,
     *,
     registry: ExtensionRegistry,
+    promotion_handler_registry: PromotionHandlerRegistry,
     resolved_config_repository: ControlPlaneAdminStore,
     configured_ingestion_service: ConfiguredCsvIngestionService,
     require_unsafe_admin: Callable[[], None],
@@ -304,7 +306,8 @@ def register_config_routes(
                 handler_key=payload.handler_key,
                 version=payload.version,
                 description=payload.description,
-            )
+            ),
+            promotion_handler_registry=promotion_handler_registry,
         )
         return {"transformation_package": to_jsonable(transformation_package)}
 
