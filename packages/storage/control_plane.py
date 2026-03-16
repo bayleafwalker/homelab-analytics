@@ -279,6 +279,7 @@ class ContractCatalogStore(Protocol):
         publication_definition: "PublicationDefinitionCreate",
         *,
         extension_registry: "ExtensionRegistry | None" = None,
+        promotion_handler_registry: "PromotionHandlerRegistry | None" = None,
     ) -> "PublicationDefinitionRecord":
         ...
 

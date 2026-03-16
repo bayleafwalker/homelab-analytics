@@ -447,6 +447,26 @@ class IngestionConfigRepositoryTests(unittest.TestCase):
                     )
                 )
 
+    def test_repository_rejects_unsupported_builtin_publication_key_at_creation_time(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "builtin_account_transactions.*mart_contract_price_current",
+            ):
+                repository.create_publication_definition(
+                    PublicationDefinitionCreate(
+                        publication_definition_id="pub_invalid_builtin_mapping",
+                        transformation_package_id="builtin_account_transactions",
+                        publication_key="mart_contract_price_current",
+                        name="Invalid built-in mapping",
+                    ),
+                    promotion_handler_registry=get_default_promotion_handler_registry(),
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

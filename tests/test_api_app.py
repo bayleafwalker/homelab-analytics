@@ -695,6 +695,41 @@ class ApiAppTests(unittest.TestCase):
             self.assertIn("Unknown publication key", response.json()["error"])
             self.assertIn("mart_unknown_current", response.json()["error"])
 
+    def test_publication_definition_creation_rejects_unsupported_builtin_mapping(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=temp_root / "landing",
+                        metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
+                    ),
+                    config_repository=IngestionConfigRepository(temp_root / "config.db"),
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            response = client.post(
+                "/config/publication-definitions",
+                json={
+                    "publication_definition_id": "invalid_builtin_mapping",
+                    "transformation_package_id": "builtin_account_transactions",
+                    "publication_key": "mart_contract_price_current",
+                    "name": "Invalid built-in mapping",
+                    "description": "Should fail validation",
+                },
+            )
+
+            self.assertEqual(400, response.status_code)
+            self.assertIn(
+                "Publication key is not supported by the selected transformation package handler",
+                response.json()["error"],
+            )
+            self.assertIn("builtin_account_transactions", response.json()["error"])
+            self.assertIn("mart_contract_price_current", response.json()["error"])
+
     def test_transformation_package_creation_rejects_unknown_handler_key(self) -> None:
         with TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)

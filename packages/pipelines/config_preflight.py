@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.shared.extensions import ExtensionRegistry
 from packages.storage.control_plane import ConfigCatalogStore
 from packages.storage.ingestion_config import (
@@ -13,6 +14,7 @@ from packages.storage.ingestion_config import (
     SourceSystemRecord,
     TransformationPackageRecord,
     validate_publication_key,
+    validate_publication_support,
 )
 
 
@@ -53,6 +55,7 @@ def run_config_preflight(
     config_repository: ConfigCatalogStore,
     *,
     extension_registry: ExtensionRegistry | None = None,
+    promotion_handler_registry: PromotionHandlerRegistry | None = None,
     source_asset_id: str | None = None,
     ingestion_definition_id: str | None = None,
 ) -> ConfigPreflightReport:
@@ -166,6 +169,7 @@ def run_config_preflight(
         publication_definitions=scoped_publication_definitions,
         transformation_packages=all_transformation_packages,
         extension_registry=extension_registry,
+        promotion_handler_registry=promotion_handler_registry,
     )
     _check_ingestion_definitions(
         issues=issues,
@@ -423,12 +427,13 @@ def _check_publication_definitions(
     publication_definitions: list[PublicationDefinitionRecord],
     transformation_packages: dict[str, TransformationPackageRecord],
     extension_registry: ExtensionRegistry | None,
+    promotion_handler_registry: PromotionHandlerRegistry | None,
 ) -> None:
     for publication_definition in publication_definitions:
-        if (
+        transformation_package = transformation_packages.get(
             publication_definition.transformation_package_id
-            not in transformation_packages
-        ):
+        )
+        if transformation_package is None:
             issues.append(
                 _issue(
                     code="missing_transformation_package",
@@ -449,6 +454,25 @@ def _check_publication_definitions(
             issues.append(
                 _issue(
                     code="unknown_publication_key",
+                    entity_type="publication_definition",
+                    entity_id=publication_definition.publication_definition_id,
+                    message=str(exc),
+                )
+            )
+        if transformation_package is None or promotion_handler_registry is None:
+            continue
+        try:
+            validate_publication_support(
+                publication_definition.publication_key,
+                handler_key=transformation_package.handler_key,
+                transformation_package_id=transformation_package.transformation_package_id,
+                extension_registry=extension_registry,
+                promotion_handler_registry=promotion_handler_registry,
+            )
+        except ValueError as exc:
+            issues.append(
+                _issue(
+                    code="unsupported_publication_key",
                     entity_type="publication_definition",
                     entity_id=publication_definition.publication_definition_id,
                     message=str(exc),

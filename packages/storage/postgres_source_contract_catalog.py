@@ -24,6 +24,7 @@ from packages.storage.ingestion_catalog import (
     _deserialize_rules,
     _validate_mapping_rules,
     validate_publication_key,
+    validate_publication_support,
     validate_transformation_handler_key,
 )
 
@@ -413,11 +414,23 @@ class PostgresSourceContractCatalogMixin:
         publication_definition: PublicationDefinitionCreate,
         *,
         extension_registry: ExtensionRegistry | None = None,
+        promotion_handler_registry=None,
     ) -> PublicationDefinitionRecord:
         validate_publication_key(
             publication_definition.publication_key,
             extension_registry=extension_registry,
         )
+        if promotion_handler_registry is not None:
+            transformation_package = self.get_transformation_package(
+                publication_definition.transformation_package_id
+            )
+            validate_publication_support(
+                publication_definition.publication_key,
+                handler_key=transformation_package.handler_key,
+                transformation_package_id=transformation_package.transformation_package_id,
+                extension_registry=extension_registry,
+                promotion_handler_registry=promotion_handler_registry,
+            )
         with self._connect() as connection:
             connection.execute(
                 """

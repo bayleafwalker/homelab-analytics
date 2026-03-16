@@ -194,6 +194,7 @@ Binding rules:
 - `publication_definition` declares which gold outputs a transformation package publishes
 - worker and API promotion should dispatch from source-asset configuration, not inferred file headers or route-specific heuristics
 - control-plane transformation-package creation should validate `handler_key` values against the loaded promotion-handler registry so invalid runtime wiring is rejected before it is persisted
+- control-plane publication-definition creation and `verify-config` should validate built-in publication keys against the selected package handler, while still allowing extension-declared publication relations
 
 For folder-like external systems, prefer sync-to-folder first:
 

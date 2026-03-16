@@ -356,6 +356,38 @@ def validate_transformation_handler_key(
     )
 
 
+def validate_publication_support(
+    publication_key: str,
+    *,
+    handler_key: str,
+    transformation_package_id: str | None = None,
+    extension_registry: ExtensionRegistry | None = None,
+    promotion_handler_registry,
+) -> None:
+    validate_publication_key(
+        publication_key,
+        extension_registry=extension_registry,
+    )
+    extension_publication_keys: set[str] = set()
+    if extension_registry is not None:
+        extension_publication_keys.update(
+            publication.relation_name
+            for publication in extension_registry.list_reporting_publications()
+        )
+    if publication_key in extension_publication_keys:
+        return
+
+    handler = promotion_handler_registry.get(handler_key)
+    if publication_key in handler.supported_publications:
+        return
+
+    subject = transformation_package_id or handler_key
+    raise ValueError(
+        "Publication key is not supported by the selected transformation package handler: "
+        f"{subject!r} does not support {publication_key!r}"
+    )
+
+
 def validate_publication_key(
     publication_key: str,
     *,

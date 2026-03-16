@@ -512,6 +512,7 @@ def _handle_verify_config(args: Namespace, runtime: WorkerRuntime) -> int:
     report = run_config_preflight(
         runtime.config_repository,
         extension_registry=runtime.extension_registry,
+        promotion_handler_registry=runtime.promotion_handler_registry,
         source_asset_id=getattr(args, "source_asset_id", None) or None,
         ingestion_definition_id=(getattr(args, "ingestion_definition_id", None) or None),
     )

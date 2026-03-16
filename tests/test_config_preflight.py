@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 
 from packages.pipelines.config_preflight import run_config_preflight
 from packages.pipelines.csv_validation import ColumnType
+from packages.pipelines.promotion_registry import get_default_promotion_handler_registry
 from packages.storage.ingestion_config import (
     ColumnMappingCreate,
     ColumnMappingRule,
@@ -197,6 +198,44 @@ class ConfigPreflightTests(unittest.TestCase):
             self.assertFalse(report.passed)
             self.assertEqual(
                 ["unknown_publication_key"],
+                [issue.code for issue in report.issues],
+            )
+
+    def test_preflight_reports_unsupported_persisted_publication_mappings(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+            with repository._connect() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO publication_definitions (
+                        publication_definition_id,
+                        transformation_package_id,
+                        publication_key,
+                        name,
+                        description,
+                        created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        "pub_invalid_builtin_mapping",
+                        "builtin_account_transactions",
+                        "mart_contract_price_current",
+                        "Invalid built-in mapping",
+                        None,
+                        "2026-03-10T00:00:00+00:00",
+                    ),
+                )
+                connection.commit()
+
+            report = run_config_preflight(
+                repository,
+                promotion_handler_registry=get_default_promotion_handler_registry(),
+            )
+
+            self.assertFalse(report.passed)
+            self.assertEqual(
+                ["unsupported_publication_key"],
                 [issue.code for issue in report.issues],
             )
 

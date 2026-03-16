@@ -338,6 +338,7 @@ def register_config_routes(
                 description=payload.description,
             ),
             extension_registry=registry,
+            promotion_handler_registry=promotion_handler_registry,
         )
         return {"publication_definition": to_jsonable(publication_definition)}
 
