@@ -8,7 +8,7 @@ from pathlib import Path
 from packages.pipelines.csv_validation import ValidationIssue, validate_csv_text
 from packages.pipelines.run_context import RunControlContext, merge_run_context
 from packages.storage.blob import BlobStore, FilesystemBlobStore
-from packages.storage.control_plane import ControlPlaneStore
+from packages.storage.control_plane import ConfiguredCsvBindingStore
 from packages.storage.ingestion_config import (
     ColumnMappingRecord,
     DatasetContractConfigRecord,
@@ -32,7 +32,7 @@ class ConfiguredCsvIngestionService:
         self,
         landing_root: Path,
         metadata_repository: RunMetadataStore,
-        config_repository: ControlPlaneStore,
+        config_repository: ConfiguredCsvBindingStore,
         blob_store: BlobStore | None = None,
     ) -> None:
         self.landing_root = landing_root

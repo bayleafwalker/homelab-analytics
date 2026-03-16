@@ -4,11 +4,10 @@ import json
 import sqlite3
 import uuid
 from contextlib import closing
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from packages.pipelines.csv_validation import ColumnContract, ColumnType, DatasetContract
 from packages.shared.extensions import ExtensionRegistry
 from packages.storage.auth_store import (
     LocalUserCreate,
@@ -35,212 +34,73 @@ from packages.storage.control_plane import (
     WorkerHeartbeatCreate,
     WorkerHeartbeatRecord,
 )
+from packages.storage.control_plane_support import (
+    _build_requeued_dispatch_worker_detail,
+    _build_stale_dispatch_failure_reason,
+    _build_stale_dispatch_worker_detail,
+    _deserialize_auth_audit_event_row,
+    _deserialize_publication_audit_row,
+    _deserialize_schedule_dispatch_row,
+    _deserialize_service_token_row,
+    _deserialize_source_lineage_row,
+    _deserialize_worker_heartbeat_row,
+)
+from packages.storage.ingestion_catalog import (
+    _BUILTIN_PUBLICATION_DEFINITIONS,
+    _BUILTIN_TRANSFORMATION_PACKAGES,
+    ColumnMappingCreate,
+    ColumnMappingRecord,
+    ColumnMappingRule,
+    DatasetColumnConfig,
+    DatasetContractConfigCreate,
+    DatasetContractConfigRecord,
+    IngestionDefinitionCreate,
+    IngestionDefinitionRecord,
+    PublicationDefinitionCreate,
+    PublicationDefinitionRecord,
+    RequestHeaderSecretRef,
+    SourceAssetCreate,
+    SourceAssetRecord,
+    SourceSystemCreate,
+    SourceSystemRecord,
+    TransformationPackageCreate,
+    TransformationPackageRecord,
+    _deserialize_columns,
+    _deserialize_request_headers,
+    _deserialize_rules,
+    _serialize_request_headers,
+    _validate_mapping_rules,
+    allowed_publication_keys,
+    resolve_dataset_contract,
+    validate_publication_key,
+)
 from packages.storage.scheduling import next_cron_occurrence
 
-
-@dataclass(frozen=True)
-class SourceSystemCreate:
-    source_system_id: str
-    name: str
-    source_type: str
-    transport: str
-    schedule_mode: str
-    description: str | None = None
-    enabled: bool = True
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-
-
-@dataclass(frozen=True)
-class SourceSystemRecord:
-    source_system_id: str
-    name: str
-    source_type: str
-    transport: str
-    schedule_mode: str
-    description: str | None
-    enabled: bool
-    created_at: datetime
-
-
-@dataclass(frozen=True)
-class DatasetColumnConfig:
-    name: str
-    type: ColumnType
-    required: bool = True
-
-
-@dataclass(frozen=True)
-class DatasetContractConfigCreate:
-    dataset_contract_id: str
-    dataset_name: str
-    version: int
-    allow_extra_columns: bool
-    columns: tuple[DatasetColumnConfig, ...]
-    archived: bool = False
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-
-
-@dataclass(frozen=True)
-class DatasetContractConfigRecord:
-    dataset_contract_id: str
-    dataset_name: str
-    version: int
-    allow_extra_columns: bool
-    columns: tuple[DatasetColumnConfig, ...]
-    archived: bool
-    created_at: datetime
-
-
-@dataclass(frozen=True)
-class ColumnMappingRule:
-    target_column: str
-    source_column: str | None = None
-    default_value: str | None = None
-
-
-@dataclass(frozen=True)
-class ColumnMappingCreate:
-    column_mapping_id: str
-    source_system_id: str
-    dataset_contract_id: str
-    version: int
-    rules: tuple[ColumnMappingRule, ...]
-    archived: bool = False
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-
-
-@dataclass(frozen=True)
-class ColumnMappingRecord:
-    column_mapping_id: str
-    source_system_id: str
-    dataset_contract_id: str
-    version: int
-    rules: tuple[ColumnMappingRule, ...]
-    archived: bool
-    created_at: datetime
-
-
-@dataclass(frozen=True)
-class SourceAssetCreate:
-    source_asset_id: str
-    source_system_id: str
-    dataset_contract_id: str
-    column_mapping_id: str
-    name: str
-    asset_type: str
-    transformation_package_id: str | None = None
-    description: str | None = None
-    enabled: bool = True
-    archived: bool = False
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-
-
-@dataclass(frozen=True)
-class SourceAssetRecord:
-    source_asset_id: str
-    source_system_id: str
-    dataset_contract_id: str
-    column_mapping_id: str
-    transformation_package_id: str | None
-    name: str
-    asset_type: str
-    description: str | None
-    enabled: bool
-    archived: bool
-    created_at: datetime
-
-
-@dataclass(frozen=True)
-class TransformationPackageCreate:
-    transformation_package_id: str
-    name: str
-    handler_key: str
-    version: int
-    description: str | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-
-
-@dataclass(frozen=True)
-class TransformationPackageRecord:
-    transformation_package_id: str
-    name: str
-    handler_key: str
-    version: int
-    description: str | None
-    created_at: datetime
-
-
-@dataclass(frozen=True)
-class PublicationDefinitionCreate:
-    publication_definition_id: str
-    transformation_package_id: str
-    publication_key: str
-    name: str
-    description: str | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-
-
-@dataclass(frozen=True)
-class PublicationDefinitionRecord:
-    publication_definition_id: str
-    transformation_package_id: str
-    publication_key: str
-    name: str
-    description: str | None
-    created_at: datetime
-
-
-@dataclass(frozen=True)
-class RequestHeaderSecretRef:
-    name: str
-    secret_name: str
-    secret_key: str
-
-
-@dataclass(frozen=True)
-class IngestionDefinitionCreate:
-    ingestion_definition_id: str
-    source_asset_id: str
-    transport: str
-    schedule_mode: str
-    source_path: str
-    file_pattern: str = "*.csv"
-    processed_path: str | None = None
-    failed_path: str | None = None
-    poll_interval_seconds: int | None = None
-    request_url: str | None = None
-    request_method: str | None = None
-    request_headers: tuple[RequestHeaderSecretRef, ...] = ()
-    request_timeout_seconds: int | None = None
-    response_format: str | None = None
-    output_file_name: str | None = None
-    enabled: bool = True
-    archived: bool = False
-    source_name: str | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-
-
-@dataclass(frozen=True)
-class IngestionDefinitionRecord:
-    ingestion_definition_id: str
-    source_asset_id: str
-    transport: str
-    schedule_mode: str
-    source_path: str
-    file_pattern: str
-    processed_path: str | None
-    failed_path: str | None
-    poll_interval_seconds: int | None
-    request_url: str | None
-    request_method: str | None
-    request_headers: tuple[RequestHeaderSecretRef, ...]
-    request_timeout_seconds: int | None
-    response_format: str | None
-    output_file_name: str | None
-    enabled: bool
-    archived: bool
-    source_name: str | None
-    created_at: datetime
+__all__ = [
+    "ColumnMappingCreate",
+    "ColumnMappingRecord",
+    "ColumnMappingRule",
+    "DatasetColumnConfig",
+    "DatasetContractConfigCreate",
+    "DatasetContractConfigRecord",
+    "IngestionConfigRepository",
+    "IngestionDefinitionCreate",
+    "IngestionDefinitionRecord",
+    "PublicationDefinitionCreate",
+    "PublicationDefinitionRecord",
+    "RequestHeaderSecretRef",
+    "SourceAssetCreate",
+    "SourceAssetRecord",
+    "SourceSystemCreate",
+    "SourceSystemRecord",
+    "TransformationPackageCreate",
+    "TransformationPackageRecord",
+    "allowed_publication_keys",
+    "resolve_dataset_contract",
+    "validate_publication_key",
+    "_BUILTIN_PUBLICATION_DEFINITIONS",
+    "_BUILTIN_TRANSFORMATION_PACKAGES",
+]
 
 
 class IngestionConfigRepository:
@@ -3714,72 +3574,6 @@ class IngestionConfigRepository:
                 ),
             )
 
-
-def resolve_dataset_contract(
-    dataset_contract: DatasetContractConfigRecord,
-) -> DatasetContract:
-    return DatasetContract(
-        dataset_name=dataset_contract.dataset_name,
-        columns=tuple(
-            ColumnContract(
-                name=column.name,
-                type=column.type,
-                required=column.required,
-            )
-            for column in dataset_contract.columns
-        ),
-        allow_extra_columns=dataset_contract.allow_extra_columns,
-    )
-
-
-def _deserialize_columns(value: str) -> tuple[DatasetColumnConfig, ...]:
-    return tuple(
-        DatasetColumnConfig(
-            name=column["name"],
-            type=ColumnType(column["type"]),
-            required=column["required"],
-        )
-        for column in json.loads(value)
-    )
-
-
-def _deserialize_rules(value: str) -> tuple[ColumnMappingRule, ...]:
-    return tuple(
-        ColumnMappingRule(
-            target_column=rule["target_column"],
-            source_column=rule.get("source_column"),
-            default_value=rule.get("default_value"),
-        )
-        for rule in json.loads(value)
-    )
-
-
-def _serialize_request_headers(headers: tuple[RequestHeaderSecretRef, ...]) -> str:
-    return json.dumps(
-        [
-            {
-                "name": header.name,
-                "secret_name": header.secret_name,
-                "secret_key": header.secret_key,
-            }
-            for header in headers
-        ]
-    )
-
-
-def _deserialize_request_headers(value: str | None) -> tuple[RequestHeaderSecretRef, ...]:
-    if not value:
-        return ()
-    return tuple(
-        RequestHeaderSecretRef(
-            name=header["name"],
-            secret_name=header["secret_name"],
-            secret_key=header["secret_key"],
-        )
-        for header in json.loads(value)
-    )
-
-
 def _deserialize_execution_schedule_row(row: sqlite3.Row) -> ExecutionScheduleRecord:
     return ExecutionScheduleRecord(
         schedule_id=row["schedule_id"],
@@ -3811,154 +3605,6 @@ def _validate_execution_schedule_target_sqlite(
             raise ValueError(f"Ingestion definition is archived: {target_ref}")
 
 
-def _build_stale_dispatch_failure_reason(
-    dispatch: ScheduleDispatchRecord,
-    *,
-    recovered_at: datetime,
-    recovered_by_worker_id: str | None = None,
-) -> str:
-    detail = (
-        "Dispatch claim expired at "
-        f"{dispatch.claim_expires_at.isoformat() if dispatch.claim_expires_at else 'unknown'} "
-        f"and was requeued at {recovered_at.isoformat()}"
-    )
-    if recovered_by_worker_id:
-        detail += f" by worker {recovered_by_worker_id}"
-    return detail
-
-
-def _build_stale_dispatch_worker_detail(
-    dispatch: ScheduleDispatchRecord,
-    *,
-    recovered_at: datetime,
-    recovered_by_worker_id: str | None = None,
-) -> str:
-    return json.dumps(
-        {
-            "dispatch_id": dispatch.dispatch_id,
-            "schedule_id": dispatch.schedule_id,
-            "target_kind": dispatch.target_kind,
-            "target_ref": dispatch.target_ref,
-            "state": "failed",
-            "recovery_state": "requeued",
-            "recovered_at": recovered_at.isoformat(),
-            "recovered_by_worker_id": recovered_by_worker_id,
-            "previous_worker_id": dispatch.claimed_by_worker_id,
-            "previous_claimed_at": (
-                dispatch.claimed_at.isoformat() if dispatch.claimed_at is not None else None
-            ),
-            "previous_claim_expires_at": (
-                dispatch.claim_expires_at.isoformat()
-                if dispatch.claim_expires_at is not None
-                else None
-            ),
-        },
-        sort_keys=True,
-    )
-
-
-def _build_requeued_dispatch_worker_detail(
-    dispatch: ScheduleDispatchRecord,
-    *,
-    recovered_at: datetime,
-    recovered_by_worker_id: str | None = None,
-) -> str:
-    return json.dumps(
-        {
-            "state": "enqueued",
-            "recovery_state": "requeued",
-            "recovered_from_dispatch_id": dispatch.dispatch_id,
-            "recovered_at": recovered_at.isoformat(),
-            "recovered_by_worker_id": recovered_by_worker_id,
-            "previous_worker_id": dispatch.claimed_by_worker_id,
-        },
-        sort_keys=True,
-    )
-
-
-def _deserialize_schedule_dispatch_row(row: sqlite3.Row) -> ScheduleDispatchRecord:
-    return ScheduleDispatchRecord(
-        dispatch_id=row["dispatch_id"],
-        schedule_id=row["schedule_id"],
-        target_kind=row["target_kind"],
-        target_ref=row["target_ref"],
-        enqueued_at=datetime.fromisoformat(row["enqueued_at"]),
-        status=row["status"],
-        started_at=datetime.fromisoformat(row["started_at"])
-        if row["started_at"]
-        else None,
-        completed_at=datetime.fromisoformat(row["completed_at"])
-        if row["completed_at"]
-        else None,
-        run_ids=tuple(json.loads(row["run_ids_json"] or "[]")),
-        failure_reason=row["failure_reason"],
-        worker_detail=row["worker_detail"],
-        claimed_by_worker_id=row["claimed_by_worker_id"],
-        claimed_at=datetime.fromisoformat(row["claimed_at"])
-        if row["claimed_at"]
-        else None,
-        claim_expires_at=datetime.fromisoformat(row["claim_expires_at"])
-        if row["claim_expires_at"]
-        else None,
-    )
-
-
-def _deserialize_worker_heartbeat_row(row: sqlite3.Row) -> WorkerHeartbeatRecord:
-    return WorkerHeartbeatRecord(
-        worker_id=row["worker_id"],
-        status=row["status"],
-        active_dispatch_id=row["active_dispatch_id"],
-        detail=row["detail"],
-        observed_at=datetime.fromisoformat(row["observed_at"]),
-    )
-
-
-def _deserialize_source_lineage_row(row: sqlite3.Row) -> SourceLineageRecord:
-    return SourceLineageRecord(
-        lineage_id=row["lineage_id"],
-        input_run_id=row["input_run_id"],
-        target_layer=row["target_layer"],
-        target_name=row["target_name"],
-        target_kind=row["target_kind"],
-        row_count=row["row_count"],
-        source_system=row["source_system"],
-        source_run_id=row["source_run_id"],
-        recorded_at=datetime.fromisoformat(row["recorded_at"]),
-    )
-
-
-def _deserialize_publication_audit_row(row: sqlite3.Row) -> PublicationAuditRecord:
-    return PublicationAuditRecord(
-        publication_audit_id=row["publication_audit_id"],
-        run_id=row["run_id"],
-        publication_key=row["publication_key"],
-        relation_name=row["relation_name"],
-        status=row["status"],
-        published_at=datetime.fromisoformat(row["published_at"]),
-    )
-
-
-def _deserialize_auth_audit_event_row(row: sqlite3.Row) -> AuthAuditEventRecord:
-    occurred_at = row["occurred_at"]
-    return AuthAuditEventRecord(
-        event_id=row["event_id"],
-        event_type=row["event_type"],
-        success=bool(row["success"]),
-        actor_user_id=row["actor_user_id"],
-        actor_username=row["actor_username"],
-        subject_user_id=row["subject_user_id"],
-        subject_username=row["subject_username"],
-        remote_addr=row["remote_addr"],
-        user_agent=row["user_agent"],
-        detail=row["detail"],
-        occurred_at=(
-            occurred_at
-            if isinstance(occurred_at, datetime)
-            else datetime.fromisoformat(occurred_at)
-        ),
-    )
-
-
 def _deserialize_local_user_row(row: sqlite3.Row) -> LocalUserRecord:
     return LocalUserRecord(
         user_id=row["user_id"],
@@ -3972,197 +3618,4 @@ def _deserialize_local_user_row(row: sqlite3.Row) -> LocalUserRecord:
             if row["last_login_at"]
             else None
         ),
-    )
-
-
-def _coerce_datetime_value(value: str | datetime | None) -> datetime | None:
-    if value is None:
-        return None
-    if isinstance(value, datetime):
-        return value
-    return datetime.fromisoformat(value)
-
-
-def _deserialize_service_token_row(row: sqlite3.Row) -> ServiceTokenRecord:
-    raw_scopes = row["scopes_json"]
-    decoded_scopes = json.loads(raw_scopes) if isinstance(raw_scopes, str) else raw_scopes
-    created_at = _coerce_datetime_value(row["created_at"])
-    assert created_at is not None
-    return ServiceTokenRecord(
-        token_id=row["token_id"],
-        token_name=row["token_name"],
-        token_secret_hash=row["token_secret_hash"],
-        role=UserRole(row["role"]),
-        scopes=normalize_service_token_scopes(decoded_scopes),
-        expires_at=_coerce_datetime_value(row["expires_at"]),
-        created_at=created_at,
-        last_used_at=_coerce_datetime_value(row["last_used_at"]),
-        revoked_at=_coerce_datetime_value(row["revoked_at"]),
-    )
-
-
-def _validate_mapping_rules(rules: tuple[ColumnMappingRule, ...]) -> None:
-    seen_targets: set[str] = set()
-
-    for rule in rules:
-        if rule.target_column in seen_targets:
-            raise ValueError(
-                f"Duplicate mapping rule for target column: {rule.target_column}"
-            )
-        if rule.source_column is None and rule.default_value is None:
-            raise ValueError(
-                f"Mapping rule must define source_column or default_value for target column: {rule.target_column}"
-            )
-        seen_targets.add(rule.target_column)
-
-
-_BUILTIN_TRANSFORMATION_PACKAGES = (
-    TransformationPackageCreate(
-        transformation_package_id="builtin_account_transactions",
-        name="Built-in account transactions",
-        handler_key="account_transactions",
-        version=1,
-        description="Canonical account transaction transformation and reporting flow.",
-    ),
-    TransformationPackageCreate(
-        transformation_package_id="builtin_subscriptions",
-        name="Built-in subscriptions",
-        handler_key="subscriptions",
-        version=1,
-        description="Recurring subscription transformation and summary publications.",
-    ),
-    TransformationPackageCreate(
-        transformation_package_id="builtin_contract_prices",
-        name="Built-in contract prices",
-        handler_key="contract_prices",
-        version=1,
-        description="Contract pricing and electricity tariff transformation and publications.",
-    ),
-    TransformationPackageCreate(
-        transformation_package_id="builtin_utility_usage",
-        name="Built-in utility usage",
-        handler_key="utility_usage",
-        version=1,
-        description="Utility usage transformation and reporting publications.",
-    ),
-    TransformationPackageCreate(
-        transformation_package_id="builtin_utility_bills",
-        name="Built-in utility bills",
-        handler_key="utility_bills",
-        version=1,
-        description="Utility bill transformation and reporting publications.",
-    ),
-)
-
-
-_BUILTIN_PUBLICATION_DEFINITIONS = (
-    PublicationDefinitionCreate(
-        publication_definition_id="pub_account_transactions_monthly_cashflow",
-        transformation_package_id="builtin_account_transactions",
-        publication_key="mart_monthly_cashflow",
-        name="Monthly cashflow mart",
-    ),
-    PublicationDefinitionCreate(
-        publication_definition_id="pub_account_transactions_counterparty_cashflow",
-        transformation_package_id="builtin_account_transactions",
-        publication_key="mart_monthly_cashflow_by_counterparty",
-        name="Monthly cashflow by counterparty mart",
-    ),
-    PublicationDefinitionCreate(
-        publication_definition_id="pub_account_transactions_current_accounts",
-        transformation_package_id="builtin_account_transactions",
-        publication_key="rpt_current_dim_account",
-        name="Current account view",
-    ),
-    PublicationDefinitionCreate(
-        publication_definition_id="pub_account_transactions_current_counterparties",
-        transformation_package_id="builtin_account_transactions",
-        publication_key="rpt_current_dim_counterparty",
-        name="Current counterparty view",
-    ),
-    PublicationDefinitionCreate(
-        publication_definition_id="pub_subscriptions_summary",
-        transformation_package_id="builtin_subscriptions",
-        publication_key="mart_subscription_summary",
-        name="Subscription summary mart",
-    ),
-    PublicationDefinitionCreate(
-        publication_definition_id="pub_subscriptions_current_contracts",
-        transformation_package_id="builtin_subscriptions",
-        publication_key="rpt_current_dim_contract",
-        name="Current contract view",
-    ),
-    PublicationDefinitionCreate(
-        publication_definition_id="pub_contract_prices_current",
-        transformation_package_id="builtin_contract_prices",
-        publication_key="mart_contract_price_current",
-        name="Current contract price mart",
-    ),
-    PublicationDefinitionCreate(
-        publication_definition_id="pub_contract_prices_electricity_current",
-        transformation_package_id="builtin_contract_prices",
-        publication_key="mart_electricity_price_current",
-        name="Current electricity price mart",
-    ),
-    PublicationDefinitionCreate(
-        publication_definition_id="pub_contract_prices_current_contracts",
-        transformation_package_id="builtin_contract_prices",
-        publication_key="rpt_current_dim_contract",
-        name="Current contract view",
-    ),
-    PublicationDefinitionCreate(
-        publication_definition_id="pub_utility_usage_summary",
-        transformation_package_id="builtin_utility_usage",
-        publication_key="mart_utility_cost_summary",
-        name="Utility cost summary mart",
-    ),
-    PublicationDefinitionCreate(
-        publication_definition_id="pub_utility_usage_current_meters",
-        transformation_package_id="builtin_utility_usage",
-        publication_key="rpt_current_dim_meter",
-        name="Current meter view",
-    ),
-    PublicationDefinitionCreate(
-        publication_definition_id="pub_utility_bills_summary",
-        transformation_package_id="builtin_utility_bills",
-        publication_key="mart_utility_cost_summary",
-        name="Utility cost summary mart",
-    ),
-    PublicationDefinitionCreate(
-        publication_definition_id="pub_utility_bills_current_meters",
-        transformation_package_id="builtin_utility_bills",
-        publication_key="rpt_current_dim_meter",
-        name="Current meter view",
-    ),
-)
-
-
-def allowed_publication_keys(
-    *,
-    extension_registry: ExtensionRegistry | None = None,
-) -> set[str]:
-    from packages.pipelines.reporting_service import PUBLICATION_RELATIONS
-
-    allowed_keys = set(PUBLICATION_RELATIONS)
-    if extension_registry is not None:
-        allowed_keys.update(
-            publication.relation_name
-            for publication in extension_registry.list_reporting_publications()
-        )
-    return allowed_keys
-
-
-def validate_publication_key(
-    publication_key: str,
-    *,
-    extension_registry: ExtensionRegistry | None = None,
-) -> None:
-    if publication_key in allowed_publication_keys(
-        extension_registry=extension_registry
-    ):
-        return
-
-    raise ValueError(
-        "Unknown publication key. Register a published reporting relation or use an existing built-in publication key: "
-        f"{publication_key!r}"
     )

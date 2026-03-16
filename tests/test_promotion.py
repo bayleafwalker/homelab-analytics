@@ -3,13 +3,19 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.pipelines.builtin_packages import BUILTIN_TRANSFORMATION_PACKAGE_SPECS
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
 from packages.pipelines.csv_validation import ColumnType
-from packages.pipelines.promotion import promote_run, promote_source_asset_run
+from packages.pipelines.promotion import (
+    get_builtin_promotion_handler,
+    promote_run,
+    promote_source_asset_run,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.extensions import ExtensionPublication, ExtensionRegistry, LayerExtension
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.ingestion_config import (
+    _BUILTIN_PUBLICATION_DEFINITIONS,
     ColumnMappingCreate,
     ColumnMappingRule,
     DatasetColumnConfig,
@@ -26,6 +32,23 @@ FIXTURES = ROOT / "tests" / "fixtures"
 
 
 class PromotionTests(unittest.TestCase):
+    def test_builtin_promotion_handlers_align_with_builtin_publication_definitions(
+        self,
+    ) -> None:
+        builtins_by_package = {}
+        for publication in _BUILTIN_PUBLICATION_DEFINITIONS:
+            builtins_by_package.setdefault(
+                publication.transformation_package_id,
+                [],
+            ).append(publication.publication_key)
+
+        for spec in BUILTIN_TRANSFORMATION_PACKAGE_SPECS:
+            handler = get_builtin_promotion_handler(spec.handler_key)
+            self.assertEqual(
+                tuple(builtins_by_package[spec.transformation_package_id]),
+                handler.default_publications,
+            )
+
     def test_promote_run_is_idempotent_for_same_run(self) -> None:
         with TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)

@@ -202,7 +202,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** The worker is the execution engine for all data processing. CLI interface enables scripting, debugging, and Kubernetes Job integration.
 
 **Phase:** 0
-**Status:** implemented (JSON-emitting commands cover account ingestion, configured CSV ingestion, ingestion-definition processing, config preflight verification, inbox processing/watch, extension execution, subscription and contract-price ingestion/reporting, utility cost summary reporting, execution-schedule enqueue/list/mark flows, dispatch processing, worker heartbeat listing, stale-dispatch recovery, continuous schedule-dispatch watching with lease renewal and graceful-stop support, control-plane import/export, local-user bootstrap/reset/list operations, and service-token lifecycle operations)
+**Status:** implemented (JSON-emitting commands cover account ingestion, configured CSV ingestion, ingestion-definition processing, config preflight verification, inbox processing/watch, extension execution, subscription and contract-price ingestion/reporting, utility cost summary reporting, execution-schedule enqueue/list/mark flows, dispatch processing, worker heartbeat listing, stale-dispatch recovery, continuous schedule-dispatch watching with lease renewal and graceful-stop support, control-plane import/export, local-user bootstrap/reset/list operations, and service-token lifecycle operations; the legacy account-transactions inbox commands now bootstrap a persisted compatibility binding into the configured watch-folder flow instead of using a separate worker-only ingestion path)
 
 **Acceptance criteria:**
 - All subcommands emit JSON for parseable output.
@@ -236,15 +236,15 @@ The platform exposes its capabilities through three application workloads: a JSO
 
 | Requirement | Implementation module | Test file |
 |---|---|---|
-| APP-01 | `apps/api/app.py` | `tests/test_api_app.py` |
-| APP-02 | `apps/api/app.py` | `tests/test_api_app.py` |
-| APP-03 | `apps/api/app.py` | `tests/test_api_app.py`, `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py` |
-| APP-04 | `apps/api/app.py` | `tests/test_api_app.py` |
+| APP-01 | `apps/api/app.py`, `apps/api/routes/ingest_routes.py` | `tests/test_api_app.py` |
+| APP-02 | `apps/api/app.py`, `apps/api/routes/run_routes.py`, `apps/api/routes/config_routes.py` | `tests/test_api_app.py` |
+| APP-03 | `apps/api/app.py`, `apps/api/routes/report_routes.py` | `tests/test_api_app.py`, `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py` |
+| APP-04 | `apps/api/app.py`, `apps/api/routes/auth_routes.py`, `apps/api/routes/config_routes.py`, `apps/api/routes/control_routes.py`, `apps/api/routes/ingest_routes.py` | `tests/test_api_app.py` |
 | APP-05 | `apps/web/frontend/app/page.js`, `apps/web/frontend/app/reports/page.js`, `apps/web/frontend/app/control/page.js`, `apps/web/frontend/app/control/catalog/page.js`, `apps/web/frontend/app/control/execution/page.js`, `apps/web/frontend/components/app-shell.js` | `tests/test_web_app.py`, `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
 | APP-06 | `apps/web/frontend/app/runs/page.js`, `apps/web/frontend/app/runs/[runId]/page.js`, `apps/web/frontend/lib/backend.js` | `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
 | APP-07 | `apps/web/frontend/app/upload/page.js`, `apps/web/frontend/app/upload/*/route.js`, `apps/web/frontend/lib/upload-route.js` | `tests/test_manual_upload_and_preview_api.py`, `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
 | APP-08 | `apps/web/frontend/app/control/catalog/page.js`, `apps/web/frontend/app/control/execution/page.js` | `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
 | APP-09 | — | — |
 | APP-10 | `apps/web/frontend/app/control/execution/page.js`, `apps/web/frontend/app/control/execution/schedule-dispatches/route.js` | `tests/test_web_auth.py`, `tests/test_architecture_contract.py`, `tests/test_control_plane_api_app.py` |
-| APP-11 | `apps/worker/main.py`, `packages/pipelines/config_preflight.py` | `tests/test_worker_cli.py`, `tests/test_config_preflight.py`, `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py` |
+| APP-11 | `apps/worker/main.py`, `apps/worker/runtime.py`, `apps/worker/command_handlers.py`, `apps/worker/control_plane.py`, `apps/worker/serialization.py`, `packages/pipelines/config_preflight.py` | `tests/test_worker_cli.py`, `tests/test_control_plane_worker_cli.py`, `tests/test_config_preflight.py`, `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py` |
 | APP-12 | `apps/api/app.py`, `apps/web/frontend/app/health/route.js` | `tests/test_api_app.py`, `tests/test_web_app.py` |

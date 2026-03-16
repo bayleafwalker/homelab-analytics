@@ -7,6 +7,9 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from apps.worker.main import build_service, main
+from packages.pipelines.bootstrap_account_transaction_watch import (
+    LEGACY_ACCOUNT_TRANSACTION_WATCH_INGESTION_DEFINITION_ID,
+)
 from packages.pipelines.csv_validation import ColumnType
 from packages.shared.secrets import build_secret_env_var_name
 from packages.shared.settings import AppSettings
@@ -381,6 +384,71 @@ class WorkerCliTests(unittest.TestCase):
             payload = json.loads(stdout.getvalue())
             self.assertEqual(1, payload["result"]["processed_files"])
             self.assertEqual(0, payload["result"]["rejected_files"])
+
+    def test_cli_bootstraps_account_transaction_watch_folder_into_configured_flow(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+            settings.account_transactions_inbox_dir.mkdir(parents=True)
+            (
+                settings.account_transactions_inbox_dir / "valid.csv"
+            ).write_text((FIXTURES / "account_transactions_valid.csv").read_text())
+
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            exit_code = main(
+                ["process-account-transactions-inbox"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(1, payload["result"]["discovered_files"])
+            self.assertEqual(1, payload["result"]["processed_files"])
+            self.assertEqual(0, payload["result"]["rejected_files"])
+            self.assertEqual([], list(settings.account_transactions_inbox_dir.iterdir()))
+            self.assertEqual(1, len(list(settings.processed_files_dir.iterdir())))
+            self.assertEqual([], list(settings.failed_files_dir.iterdir()))
+
+            config_repository = IngestionConfigRepository(
+                settings.landing_root.parent / "config.db"
+            )
+            ingestion_definition = config_repository.get_ingestion_definition(
+                LEGACY_ACCOUNT_TRANSACTION_WATCH_INGESTION_DEFINITION_ID
+            )
+            self.assertEqual(
+                str(settings.account_transactions_inbox_dir),
+                ingestion_definition.source_path,
+            )
+            self.assertEqual(
+                str(settings.processed_files_dir),
+                ingestion_definition.processed_path,
+            )
+            self.assertEqual(
+                str(settings.failed_files_dir),
+                ingestion_definition.failed_path,
+            )
 
     def test_cli_processes_http_ingestion_definition(self) -> None:
         from tests.test_configured_ingestion_definition import run_csv_server

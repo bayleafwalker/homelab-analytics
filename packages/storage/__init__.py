@@ -1,4 +1,25 @@
 from .blob import BlobStore, FilesystemBlobStore, InMemoryBlobStore
+from .ingestion_catalog import (
+    ColumnMappingCreate,
+    ColumnMappingRecord,
+    ColumnMappingRule,
+    DatasetColumnConfig,
+    DatasetContractConfigCreate,
+    DatasetContractConfigRecord,
+    IngestionDefinitionCreate,
+    IngestionDefinitionRecord,
+    PublicationDefinitionCreate,
+    PublicationDefinitionRecord,
+    RequestHeaderSecretRef,
+    SourceAssetCreate,
+    SourceAssetRecord,
+    SourceSystemCreate,
+    SourceSystemRecord,
+    TransformationPackageCreate,
+    TransformationPackageRecord,
+    resolve_dataset_contract,
+)
+from .ingestion_config import IngestionConfigRepository
 from .runtime import build_blob_store, build_reporting_store, build_run_metadata_store
 
 try:
@@ -21,27 +42,6 @@ try:
 except ModuleNotFoundError as exc:
     if exc.name not in {"boto3", "botocore"}:
         raise
-from .ingestion_config import (
-    ColumnMappingCreate,
-    ColumnMappingRecord,
-    ColumnMappingRule,
-    DatasetColumnConfig,
-    DatasetContractConfigCreate,
-    DatasetContractConfigRecord,
-    IngestionConfigRepository,
-    IngestionDefinitionCreate,
-    IngestionDefinitionRecord,
-    PublicationDefinitionCreate,
-    PublicationDefinitionRecord,
-    RequestHeaderSecretRef,
-    SourceAssetCreate,
-    SourceAssetRecord,
-    SourceSystemCreate,
-    SourceSystemRecord,
-    TransformationPackageCreate,
-    TransformationPackageRecord,
-    resolve_dataset_contract,
-)
 from .landing_service import LandingRunResult, LandingService
 from .local_landing import ingest_csv_file
 from .run_metadata import (

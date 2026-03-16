@@ -35,7 +35,9 @@ def test_transformation_service_does_not_import_application_or_reporting_modules
 
 
 def test_app_reporting_paths_do_not_compute_cashflow_from_landing_service() -> None:
-    api_source = (ROOT / "apps" / "api" / "app.py").read_text()
+    api_source = (
+        ROOT / "apps" / "api" / "routes" / "report_routes.py"
+    ).read_text()
     web_dashboard_source = (ROOT / "apps" / "web" / "frontend" / "app" / "page.js").read_text()
     web_backend_source = (ROOT / "apps" / "web" / "frontend" / "lib" / "backend.js").read_text()
 
@@ -53,30 +55,72 @@ def test_app_reporting_paths_do_not_compute_cashflow_from_landing_service() -> N
 
 
 def test_app_reporting_routes_flow_through_reporting_service_contract() -> None:
-    api_source = (ROOT / "apps" / "api" / "app.py").read_text()
-    worker_source = (ROOT / "apps" / "worker" / "main.py").read_text()
+    api_source = (
+        ROOT / "apps" / "api" / "routes" / "report_routes.py"
+    ).read_text()
+    api_app_source = (ROOT / "apps" / "api" / "app.py").read_text()
+    worker_handler_source = (
+        ROOT / "apps" / "worker" / "command_handlers.py"
+    ).read_text()
+    worker_control_plane_source = (
+        ROOT / "apps" / "worker" / "control_plane.py"
+    ).read_text()
 
     assert "resolved_reporting_service.get_transformation_audit(" in api_source
     assert "reporting_service=resolved_reporting_service" in api_source
-    assert "publish_promotion_reporting(" in api_source
-    assert "publish_promotion_reporting(" in worker_source
+    assert "publish_promotion_reporting(" in api_app_source
+    assert "publish_promotion_reporting(" in worker_handler_source
+    assert "publish_promotion_reporting(" in worker_control_plane_source
 
 
 def test_runtime_builders_preserve_published_vs_warehouse_reporting_boundary() -> None:
     api_main_source = (ROOT / "apps" / "api" / "main.py").read_text()
     web_main_source = (ROOT / "apps" / "web" / "main.py").read_text()
     web_app_source = (ROOT / "apps" / "web" / "app.py").read_text()
-    worker_main_source = (ROOT / "apps" / "worker" / "main.py").read_text()
+    worker_runtime_source = (ROOT / "apps" / "worker" / "runtime.py").read_text()
 
     assert "ReportingAccessMode.PUBLISHED" in api_main_source
     assert "settings.reporting_backend.lower() == \"postgres\"" in api_main_source
-    assert "access_mode=ReportingAccessMode.WAREHOUSE" in worker_main_source
+    assert "access_mode=ReportingAccessMode.WAREHOUSE" in worker_runtime_source
     assert "build_web_environment" in web_main_source
     assert "HOMELAB_ANALYTICS_API_BASE_URL" in web_app_source
 
 
+def test_worker_main_delegates_to_runtime_and_command_handlers() -> None:
+    worker_main_source = (ROOT / "apps" / "worker" / "main.py").read_text()
+    worker_handler_source = (
+        ROOT / "apps" / "worker" / "command_handlers.py"
+    ).read_text()
+
+    assert "build_worker_runtime(" in worker_main_source
+    assert "dispatch_worker_command(" in worker_main_source
+    assert "build_worker_command_handlers()" in worker_handler_source
+    assert '"watch-schedule-dispatches"' in worker_handler_source
+
+
+def test_postgres_ingestion_backend_imports_neutral_catalog_module() -> None:
+    imports = _import_names(
+        ROOT / "packages" / "storage" / "postgres_ingestion_config.py"
+    )
+
+    assert "packages.storage.ingestion_catalog" in imports
+    assert "packages.storage.ingestion_config" not in imports
+
+
 def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> None:
     api_source = (ROOT / "apps" / "api" / "app.py").read_text()
+    auth_route_source = (
+        ROOT / "apps" / "api" / "routes" / "auth_routes.py"
+    ).read_text()
+    control_route_source = (
+        ROOT / "apps" / "api" / "routes" / "control_routes.py"
+    ).read_text()
+    ingest_route_source = (
+        ROOT / "apps" / "api" / "routes" / "ingest_routes.py"
+    ).read_text()
+    run_route_source = (
+        ROOT / "apps" / "api" / "routes" / "run_routes.py"
+    ).read_text()
     api_main_source = (ROOT / "apps" / "api" / "main.py").read_text()
     web_backend_source = (ROOT / "apps" / "web" / "frontend" / "lib" / "backend.js").read_text()
     web_control_page = (ROOT / "apps" / "web" / "frontend" / "app" / "control" / "page.js").read_text()
@@ -336,12 +380,19 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert '"/auth/users"' in api_source
     assert '"/auth/service-tokens"' in api_source
     assert '"/control/auth-audit"' in api_source
-    assert '"/control/source-lineage"' in api_source
-    assert '"/control/publication-audit"' in api_source
-    assert '"/control/schedule-dispatches"' in api_source
-    assert '"/control/operational-summary"' in api_source
+    assert '"/auth/users"' in auth_route_source
+    assert '"/auth/service-tokens"' in auth_route_source
+    assert '"/control/auth-audit"' in auth_route_source
+    assert '"/control/source-lineage"' in control_route_source
+    assert '"/control/publication-audit"' in control_route_source
+    assert '"/control/schedule-dispatches"' in control_route_source
+    assert '"/control/operational-summary"' in control_route_source
     assert '"/ready"' in api_source
-    assert '"/runs/{run_id}/retry"' in api_source
+    assert '"/ingest/configured-csv"' in ingest_route_source
+    assert '"/transformations/{extension_key}"' in ingest_route_source
+    assert '"/runs/{run_id}/retry"' in run_route_source
+    assert "register_auth_routes(" in api_source
+    assert "register_ingest_routes(" in api_source
     assert "auth_mode=resolved_settings.auth_mode" in api_main_source
     assert "session_manager=build_session_manager(resolved_settings)" in api_main_source
     assert "oidc_provider=build_oidc_provider(resolved_settings)" in api_main_source

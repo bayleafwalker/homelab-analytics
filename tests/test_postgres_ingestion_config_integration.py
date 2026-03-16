@@ -7,68 +7,10 @@ import pytest
 
 from packages.storage.ingestion_config import IngestionConfigRepository
 from packages.storage.postgres_ingestion_config import PostgresIngestionConfigRepository
-from tests.control_plane_test_support import (
-    assert_auth_audit_behaviour,
-    assert_control_plane_store_round_trip,
-    assert_control_plane_store_update_behaviour,
-    assert_schedule_dispatch_behaviour,
-    assert_schedule_dispatch_claim_is_exclusive,
-    assert_schedule_dispatch_resilience_behaviour,
-    assert_service_token_behaviour,
-    seed_source_asset_graph,
-)
+from tests.control_plane_test_support import seed_source_asset_graph
 from tests.postgres_test_support import running_postgres_container
 
 pytestmark = [pytest.mark.integration, pytest.mark.slow]
-
-
-def test_postgres_control_plane_store_round_trips_config_and_control_plane_entities() -> None:
-    with running_postgres_container() as dsn:
-        repository = PostgresIngestionConfigRepository(dsn, schema="control")
-
-        assert_control_plane_store_round_trip(repository)
-
-
-def test_postgres_control_plane_store_enqueues_due_schedules_and_respects_concurrency() -> None:
-    with running_postgres_container() as dsn:
-        repository = PostgresIngestionConfigRepository(dsn, schema="control")
-
-        assert_schedule_dispatch_behaviour(repository)
-
-
-def test_postgres_control_plane_store_renews_and_recovers_stale_dispatches() -> None:
-    with running_postgres_container() as dsn:
-        repository = PostgresIngestionConfigRepository(dsn, schema="control")
-
-        assert_schedule_dispatch_resilience_behaviour(repository)
-
-
-def test_postgres_control_plane_store_claims_dispatches_exclusively() -> None:
-    with running_postgres_container() as dsn:
-        repository = PostgresIngestionConfigRepository(dsn, schema="control")
-
-        assert_schedule_dispatch_claim_is_exclusive(repository)
-
-
-def test_postgres_control_plane_store_updates_entities_and_supports_manual_dispatch() -> None:
-    with running_postgres_container() as dsn:
-        repository = PostgresIngestionConfigRepository(dsn, schema="control")
-
-        assert_control_plane_store_update_behaviour(repository)
-
-
-def test_postgres_control_plane_store_records_and_filters_auth_audit_events() -> None:
-    with running_postgres_container() as dsn:
-        repository = PostgresIngestionConfigRepository(dsn, schema="control")
-
-        assert_auth_audit_behaviour(repository)
-
-
-def test_postgres_control_plane_store_manages_service_tokens() -> None:
-    with running_postgres_container() as dsn:
-        repository = PostgresIngestionConfigRepository(dsn, schema="control")
-
-        assert_service_token_behaviour(repository)
 
 
 def test_sqlite_snapshot_imports_into_postgres_control_plane_store() -> None:

@@ -4,14 +4,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
+from packages.storage.auth_store import AuthStore
+
 if TYPE_CHECKING:
     from packages.shared.extensions import ExtensionRegistry
-    from packages.storage.auth_store import (
-        LocalUserRecord,
-        ServiceTokenCreate,
-        ServiceTokenRecord,
-    )
-    from packages.storage.ingestion_config import (
+    from packages.storage.auth_store import LocalUserRecord, ServiceTokenRecord
+    from packages.storage.ingestion_catalog import (
         ColumnMappingCreate,
         ColumnMappingRecord,
         DatasetContractConfigCreate,
@@ -196,7 +194,8 @@ class ControlPlaneSnapshot:
     service_tokens: tuple["ServiceTokenRecord", ...] = ()
 
 
-class ControlPlaneStore(Protocol):
+@runtime_checkable
+class SourceRegistryStore(Protocol):
     def create_source_system(self, source_system: "SourceSystemCreate") -> "SourceSystemRecord":
         ...
 
@@ -209,6 +208,9 @@ class ControlPlaneStore(Protocol):
     def list_source_systems(self) -> list["SourceSystemRecord"]:
         ...
 
+
+@runtime_checkable
+class ContractCatalogStore(Protocol):
     def create_dataset_contract(
         self, dataset_contract: "DatasetContractConfigCreate"
     ) -> "DatasetContractConfigRecord":
@@ -282,10 +284,15 @@ class ControlPlaneStore(Protocol):
         ...
 
     def list_publication_definitions(
-        self, *, transformation_package_id: str | None = None
+        self,
+        *,
+        transformation_package_id: str | None = None,
     ) -> list["PublicationDefinitionRecord"]:
         ...
 
+
+@runtime_checkable
+class AssetCatalogStore(Protocol):
     def create_source_asset(self, source_asset: "SourceAssetCreate") -> "SourceAssetRecord":
         ...
 
@@ -354,6 +361,9 @@ class ControlPlaneStore(Protocol):
     def delete_ingestion_definition(self, ingestion_definition_id: str) -> None:
         ...
 
+
+@runtime_checkable
+class ExecutionStore(Protocol):
     def create_execution_schedule(
         self, schedule: ExecutionScheduleCreate
     ) -> ExecutionScheduleRecord:
@@ -478,6 +488,9 @@ class ControlPlaneStore(Protocol):
     def list_worker_heartbeats(self) -> list[WorkerHeartbeatRecord]:
         ...
 
+
+@runtime_checkable
+class SourceLineageStore(Protocol):
     def record_source_lineage(
         self, entries: tuple[SourceLineageCreate, ...]
     ) -> list[SourceLineageRecord]:
@@ -491,16 +504,25 @@ class ControlPlaneStore(Protocol):
     ) -> list[SourceLineageRecord]:
         ...
 
+
+@runtime_checkable
+class PublicationAuditStore(Protocol):
     def record_publication_audit(
         self, entries: tuple[PublicationAuditCreate, ...]
     ) -> list[PublicationAuditRecord]:
         ...
 
     def list_publication_audit(
-        self, *, run_id: str | None = None, publication_key: str | None = None
+        self,
+        *,
+        run_id: str | None = None,
+        publication_key: str | None = None,
     ) -> list[PublicationAuditRecord]:
         ...
 
+
+@runtime_checkable
+class AuthAuditStore(Protocol):
     def record_auth_audit_events(
         self, entries: tuple[AuthAuditEventCreate, ...]
     ) -> list[AuthAuditEventRecord]:
@@ -519,38 +541,9 @@ class ControlPlaneStore(Protocol):
     ) -> list[AuthAuditEventRecord]:
         ...
 
-    def create_service_token(
-        self,
-        token: "ServiceTokenCreate",
-    ) -> "ServiceTokenRecord":
-        ...
 
-    def get_service_token(self, token_id: str) -> "ServiceTokenRecord":
-        ...
-
-    def list_service_tokens(
-        self,
-        *,
-        include_revoked: bool = False,
-    ) -> list["ServiceTokenRecord"]:
-        ...
-
-    def revoke_service_token(
-        self,
-        token_id: str,
-        *,
-        revoked_at: datetime | None = None,
-    ) -> "ServiceTokenRecord":
-        ...
-
-    def record_service_token_use(
-        self,
-        token_id: str,
-        *,
-        used_at: datetime | None = None,
-    ) -> "ServiceTokenRecord":
-        ...
-
+@runtime_checkable
+class SnapshotStore(Protocol):
     def export_snapshot(self) -> ControlPlaneSnapshot:
         ...
 
@@ -559,24 +552,50 @@ class ControlPlaneStore(Protocol):
 
 
 @runtime_checkable
-class SourceLineageStore(Protocol):
-    def record_source_lineage(
-        self, entries: tuple[SourceLineageCreate, ...]
-    ) -> list[SourceLineageRecord]:
-        ...
+class ConfiguredCsvBindingStore(
+    SourceRegistryStore,
+    ContractCatalogStore,
+    Protocol,
+):
+    ...
 
 
 @runtime_checkable
-class PublicationAuditStore(Protocol):
-    def record_publication_audit(
-        self, entries: tuple[PublicationAuditCreate, ...]
-    ) -> list[PublicationAuditRecord]:
-        ...
+class IngestionCatalogStore(
+    SourceRegistryStore,
+    AssetCatalogStore,
+    Protocol,
+):
+    ...
 
 
 @runtime_checkable
-class AuthAuditStore(Protocol):
-    def record_auth_audit_events(
-        self, entries: tuple[AuthAuditEventCreate, ...]
-    ) -> list[AuthAuditEventRecord]:
-        ...
+class ConfigCatalogStore(
+    SourceRegistryStore,
+    ContractCatalogStore,
+    AssetCatalogStore,
+    Protocol,
+):
+    ...
+
+
+@runtime_checkable
+class ControlPlaneAdminStore(
+    ConfigCatalogStore,
+    ExecutionStore,
+    SourceLineageStore,
+    PublicationAuditStore,
+    AuthAuditStore,
+    Protocol,
+):
+    ...
+
+
+@runtime_checkable
+class ControlPlaneStore(
+    ControlPlaneAdminStore,
+    AuthStore,
+    SnapshotStore,
+    Protocol,
+):
+    ...

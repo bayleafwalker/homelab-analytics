@@ -13,11 +13,23 @@ from packages.storage.auth_store import (
     UserRole,
 )
 from packages.storage.control_plane import (
+    AssetCatalogStore,
     AuthAuditEventCreate,
+    AuthAuditStore,
+    ConfigCatalogStore,
+    ConfiguredCsvBindingStore,
+    ContractCatalogStore,
+    ControlPlaneAdminStore,
     ControlPlaneStore,
     ExecutionScheduleCreate,
+    ExecutionStore,
+    IngestionCatalogStore,
     PublicationAuditCreate,
+    PublicationAuditStore,
+    SnapshotStore,
     SourceLineageCreate,
+    SourceLineageStore,
+    SourceRegistryStore,
     WorkerHeartbeatCreate,
 )
 from packages.storage.ingestion_config import (
@@ -33,6 +45,22 @@ from packages.storage.ingestion_config import (
 FIXED_CREATED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 FIXED_DUE_AT = datetime(2026, 1, 1, 0, 0, tzinfo=UTC)
 FIXED_AUDIT_AT = datetime(2026, 1, 2, 12, 0, tzinfo=UTC)
+
+
+def assert_control_plane_protocol_conformance(store: object) -> None:
+    assert isinstance(store, SourceRegistryStore)
+    assert isinstance(store, ContractCatalogStore)
+    assert isinstance(store, AssetCatalogStore)
+    assert isinstance(store, ExecutionStore)
+    assert isinstance(store, SourceLineageStore)
+    assert isinstance(store, PublicationAuditStore)
+    assert isinstance(store, AuthAuditStore)
+    assert isinstance(store, SnapshotStore)
+    assert isinstance(store, ConfiguredCsvBindingStore)
+    assert isinstance(store, IngestionCatalogStore)
+    assert isinstance(store, ConfigCatalogStore)
+    assert isinstance(store, ControlPlaneAdminStore)
+    assert isinstance(store, ControlPlaneStore)
 
 
 def seed_source_asset_graph(

@@ -20,14 +20,22 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 
 from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.pipelines.builtin_packages import (
+    get_builtin_transformation_package_spec,
+    get_builtin_transformation_package_spec_by_handler_key,
+)
 from packages.pipelines.contract_price_service import ContractPriceService
+from packages.pipelines.promotion_registry import (
+    BuiltinPromotionHandler,
+    PromotionRuntime,
+)
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
 from packages.pipelines.utility_bill_service import UtilityBillService
 from packages.pipelines.utility_usage_service import UtilityUsageService
 from packages.shared.extensions import ExtensionRegistry
 from packages.storage.blob import BlobStore
-from packages.storage.control_plane import ControlPlaneStore
+from packages.storage.control_plane import ContractCatalogStore
 from packages.storage.ingestion_config import (
     SourceAssetRecord,
 )
@@ -40,12 +48,11 @@ _ACCOUNT_TRANSACTION_HEADER = {
     "amount",
     "currency",
 }
-_ACCOUNT_TRANSACTION_PUBLICATIONS = [
-    "mart_monthly_cashflow",
-    "mart_monthly_cashflow_by_counterparty",
-    "rpt_current_dim_account",
-    "rpt_current_dim_counterparty",
-]
+_ACCOUNT_TRANSACTION_PUBLICATIONS = list(
+    get_builtin_transformation_package_spec(
+        "builtin_account_transactions"
+    ).publication_keys
+)
 
 
 @dataclass(frozen=True)
@@ -159,10 +166,9 @@ _SUBSCRIPTION_HEADER = {
     "currency",
     "start_date",
 }
-_SUBSCRIPTION_PUBLICATIONS = [
-    "mart_subscription_summary",
-    "rpt_current_dim_contract",
-]
+_SUBSCRIPTION_PUBLICATIONS = list(
+    get_builtin_transformation_package_spec("builtin_subscriptions").publication_keys
+)
 _CONTRACT_PRICE_HEADER = {
     "contract_name",
     "provider",
@@ -173,11 +179,11 @@ _CONTRACT_PRICE_HEADER = {
     "currency",
     "valid_from",
 }
-_CONTRACT_PRICE_PUBLICATIONS = [
-    "mart_contract_price_current",
-    "mart_electricity_price_current",
-    "rpt_current_dim_contract",
-]
+_CONTRACT_PRICE_PUBLICATIONS = list(
+    get_builtin_transformation_package_spec(
+        "builtin_contract_prices"
+    ).publication_keys
+)
 _UTILITY_USAGE_HEADER = {
     "meter_id",
     "meter_name",
@@ -196,10 +202,9 @@ _UTILITY_BILL_HEADER = {
     "billed_amount",
     "currency",
 }
-_UTILITY_PUBLICATIONS = [
-    "mart_utility_cost_summary",
-    "rpt_current_dim_meter",
-]
+_UTILITY_PUBLICATIONS = list(
+    get_builtin_transformation_package_spec("builtin_utility_usage").publication_keys
+)
 
 
 def promote_subscription_run(
@@ -483,11 +488,117 @@ def promote_utility_bill_run(
     )
 
 
+def _run_account_transaction_promotion(runtime: PromotionRuntime) -> PromotionResult:
+    return promote_run(
+        runtime.run_id,
+        account_service=AccountTransactionService(
+            landing_root=runtime.landing_root,
+            metadata_repository=runtime.metadata_repository,
+            blob_store=runtime.blob_store,
+        ),
+        transformation_service=runtime.transformation_service,  # type: ignore[arg-type]
+    )
+
+
+def _run_subscription_promotion(runtime: PromotionRuntime) -> PromotionResult:
+    return promote_subscription_run(
+        runtime.run_id,
+        subscription_service=SubscriptionService(
+            landing_root=runtime.landing_root,
+            metadata_repository=runtime.metadata_repository,
+            blob_store=runtime.blob_store,
+        ),
+        transformation_service=runtime.transformation_service,  # type: ignore[arg-type]
+    )
+
+
+def _run_contract_price_promotion(runtime: PromotionRuntime) -> PromotionResult:
+    return promote_contract_price_run(
+        runtime.run_id,
+        contract_price_service=ContractPriceService(
+            landing_root=runtime.landing_root,
+            metadata_repository=runtime.metadata_repository,
+            blob_store=runtime.blob_store,
+        ),
+        transformation_service=runtime.transformation_service,  # type: ignore[arg-type]
+    )
+
+
+def _run_utility_usage_promotion(runtime: PromotionRuntime) -> PromotionResult:
+    return promote_utility_usage_run(
+        runtime.run_id,
+        utility_usage_service=UtilityUsageService(
+            landing_root=runtime.landing_root,
+            metadata_repository=runtime.metadata_repository,
+            blob_store=runtime.blob_store,
+        ),
+        transformation_service=runtime.transformation_service,  # type: ignore[arg-type]
+    )
+
+
+def _run_utility_bill_promotion(runtime: PromotionRuntime) -> PromotionResult:
+    return promote_utility_bill_run(
+        runtime.run_id,
+        utility_bill_service=UtilityBillService(
+            landing_root=runtime.landing_root,
+            metadata_repository=runtime.metadata_repository,
+            blob_store=runtime.blob_store,
+        ),
+        transformation_service=runtime.transformation_service,  # type: ignore[arg-type]
+    )
+
+
+_BUILTIN_PROMOTION_HANDLERS = {
+    handler.handler_key: handler
+    for handler in (
+        BuiltinPromotionHandler(
+            package_spec=get_builtin_transformation_package_spec_by_handler_key(
+                "account_transactions"
+            ),
+            runner=_run_account_transaction_promotion,
+        ),
+        BuiltinPromotionHandler(
+            package_spec=get_builtin_transformation_package_spec_by_handler_key(
+                "subscriptions"
+            ),
+            runner=_run_subscription_promotion,
+        ),
+        BuiltinPromotionHandler(
+            package_spec=get_builtin_transformation_package_spec_by_handler_key(
+                "contract_prices"
+            ),
+            runner=_run_contract_price_promotion,
+        ),
+        BuiltinPromotionHandler(
+            package_spec=get_builtin_transformation_package_spec_by_handler_key(
+                "utility_usage"
+            ),
+            runner=_run_utility_usage_promotion,
+        ),
+        BuiltinPromotionHandler(
+            package_spec=get_builtin_transformation_package_spec_by_handler_key(
+                "utility_bills"
+            ),
+            runner=_run_utility_bill_promotion,
+        ),
+    )
+}
+
+
+def get_builtin_promotion_handler(handler_key: str) -> BuiltinPromotionHandler:
+    try:
+        return _BUILTIN_PROMOTION_HANDLERS[handler_key]
+    except KeyError as exc:
+        raise ValueError(
+            f"Unsupported built-in transformation package handler: {handler_key}"
+        ) from exc
+
+
 def promote_source_asset_run(
     run_id: str,
     *,
     source_asset: SourceAssetRecord,
-    config_repository: ControlPlaneStore,
+    config_repository: ContractCatalogStore,
     landing_root,
     metadata_repository: RunMetadataStore,
     transformation_service: TransformationService,
@@ -521,90 +632,23 @@ def promote_source_asset_run(
         if extension_registry is not None
         else []
     )
-
-    if transformation_package.handler_key == "account_transactions":
-        result = promote_run(
-            run_id,
-            account_service=AccountTransactionService(
-                landing_root=landing_root,
-                metadata_repository=metadata_repository,
-                blob_store=blob_store,
-            ),
+    handler = get_builtin_promotion_handler(transformation_package.handler_key)
+    result = handler.runner(
+        PromotionRuntime(
+            run_id=run_id,
+            landing_root=landing_root,
+            metadata_repository=metadata_repository,
+            config_repository=config_repository,
             transformation_service=transformation_service,
+            blob_store=blob_store,
+            extension_registry=extension_registry,
         )
-        return _apply_publication_selection(
-            result,
-            supported_publications=_ACCOUNT_TRANSACTION_PUBLICATIONS,
-            configured_publications=configured_publications,
-            additional_publications=extension_publications,
-        )
-    if transformation_package.handler_key == "subscriptions":
-        result = promote_subscription_run(
-            run_id,
-            subscription_service=SubscriptionService(
-                landing_root=landing_root,
-                metadata_repository=metadata_repository,
-                blob_store=blob_store,
-            ),
-            transformation_service=transformation_service,
-        )
-        return _apply_publication_selection(
-            result,
-            supported_publications=_SUBSCRIPTION_PUBLICATIONS,
-            configured_publications=configured_publications,
-            additional_publications=extension_publications,
-        )
-    if transformation_package.handler_key == "contract_prices":
-        result = promote_contract_price_run(
-            run_id,
-            contract_price_service=ContractPriceService(
-                landing_root=landing_root,
-                metadata_repository=metadata_repository,
-                blob_store=blob_store,
-            ),
-            transformation_service=transformation_service,
-        )
-        return _apply_publication_selection(
-            result,
-            supported_publications=_CONTRACT_PRICE_PUBLICATIONS,
-            configured_publications=configured_publications,
-            additional_publications=extension_publications,
-        )
-    if transformation_package.handler_key == "utility_usage":
-        result = promote_utility_usage_run(
-            run_id,
-            utility_usage_service=UtilityUsageService(
-                landing_root=landing_root,
-                metadata_repository=metadata_repository,
-                blob_store=blob_store,
-            ),
-            transformation_service=transformation_service,
-        )
-        return _apply_publication_selection(
-            result,
-            supported_publications=_UTILITY_PUBLICATIONS,
-            configured_publications=configured_publications,
-            additional_publications=extension_publications,
-        )
-    if transformation_package.handler_key == "utility_bills":
-        result = promote_utility_bill_run(
-            run_id,
-            utility_bill_service=UtilityBillService(
-                landing_root=landing_root,
-                metadata_repository=metadata_repository,
-                blob_store=blob_store,
-            ),
-            transformation_service=transformation_service,
-        )
-        return _apply_publication_selection(
-            result,
-            supported_publications=_UTILITY_PUBLICATIONS,
-            configured_publications=configured_publications,
-            additional_publications=extension_publications,
-        )
-
-    raise ValueError(
-        f"Unsupported built-in transformation package handler: {transformation_package.handler_key}"
+    )
+    return _apply_publication_selection(
+        result,
+        supported_publications=list(handler.supported_publications),
+        configured_publications=configured_publications,
+        additional_publications=extension_publications,
     )
 
 
