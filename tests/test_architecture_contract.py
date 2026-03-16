@@ -110,10 +110,14 @@ def test_api_app_imports_shared_support_modules() -> None:
 
 def test_promotion_orchestration_imports_shared_registry_contracts() -> None:
     imports = _import_names(ROOT / "packages" / "pipelines" / "promotion.py")
+    builtin_handler_imports = _import_names(
+        ROOT / "packages" / "pipelines" / "builtin_promotion_handlers.py"
+    )
 
     assert "packages.pipelines.promotion_registry" in imports
     assert "packages.pipelines.builtin_promotion_handlers" in imports
     assert "packages.pipelines.promotion_types" in imports
+    assert "packages.pipelines.promotion_registry" in builtin_handler_imports
 
 
 def test_reporting_service_imports_shared_builtin_reporting_registry() -> None:
