@@ -106,6 +106,13 @@ def test_api_app_imports_shared_support_modules() -> None:
     assert "apps.api.runtime_state" in imports
 
 
+def test_promotion_orchestration_imports_split_builtin_handlers() -> None:
+    imports = _import_names(ROOT / "packages" / "pipelines" / "promotion.py")
+
+    assert "packages.pipelines.builtin_promotion_handlers" in imports
+    assert "packages.pipelines.promotion_types" in imports
+
+
 def test_postgres_ingestion_backend_imports_split_catalog_modules() -> None:
     imports = _import_names(
         ROOT / "packages" / "storage" / "postgres_ingestion_config.py"

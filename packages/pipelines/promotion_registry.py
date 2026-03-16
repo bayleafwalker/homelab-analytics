@@ -5,13 +5,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from packages.pipelines.builtin_packages import BuiltinTransformationPackageSpec
+from packages.pipelines.promotion_types import PromotionResult
 from packages.shared.extensions import ExtensionRegistry
 from packages.storage.blob import BlobStore
 from packages.storage.control_plane import ContractCatalogStore
 from packages.storage.run_metadata import RunMetadataStore
 
 if TYPE_CHECKING:
-    from packages.pipelines.promotion import PromotionResult
     from packages.pipelines.transformation_service import TransformationService
 
 
