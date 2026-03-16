@@ -16,6 +16,7 @@ Current foundation:
 - SQLite and Postgres config backends now split source-lineage and publication-audit persistence into backend-specific provenance control-plane modules
 - SQLite and Postgres config backends now split local-user, service-token, and auth-audit persistence into backend-specific auth control-plane modules
 - SQLite and Postgres config backends now split schema bootstrap and migration compatibility shims into backend-specific control-plane schema modules
+- backend-neutral control-plane snapshot export/import helpers now replay shared catalog, execution, provenance, and auth state across SQLite and Postgres repositories
 - backend-neutral ingestion catalog models plus shared serialization, publication-validation, and built-in package seed helpers used by both SQLite and Postgres config repositories
 - persisted source assets and ingestion definitions for config-driven folder and HTTP pull execution, including request headers and timeout settings
 - aggregate-scoped control-plane protocols for source registry, contract catalog, asset catalog, scheduling, and audit surfaces shared across SQLite and Postgres backends

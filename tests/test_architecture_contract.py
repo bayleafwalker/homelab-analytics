@@ -103,7 +103,7 @@ def test_postgres_ingestion_backend_imports_split_catalog_modules() -> None:
         ROOT / "packages" / "storage" / "postgres_ingestion_config.py"
     )
 
-    assert "packages.storage.ingestion_catalog" in imports
+    assert "packages.storage.control_plane_snapshot" in imports
     assert "packages.storage.postgres_asset_definition_catalog" in imports
     assert "packages.storage.postgres_auth_control_plane" in imports
     assert "packages.storage.postgres_control_plane_schema" in imports
@@ -117,6 +117,7 @@ def test_sqlite_ingestion_backend_imports_split_catalog_modules() -> None:
     imports = _import_names(ROOT / "packages" / "storage" / "ingestion_config.py")
 
     assert "packages.storage.ingestion_catalog" in imports
+    assert "packages.storage.control_plane_snapshot" in imports
     assert "packages.storage.sqlite_asset_definition_catalog" in imports
     assert "packages.storage.sqlite_auth_control_plane" in imports
     assert "packages.storage.sqlite_control_plane_schema" in imports
