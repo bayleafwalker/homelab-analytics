@@ -10,6 +10,7 @@ Current foundation:
 - production-oriented adapter scaffolding for S3-compatible blob storage and Postgres-backed run metadata
 - Postgres-backed publication storage for reporting marts and current-dimension snapshots
 - persisted ingestion configuration entities for source systems, dataset contracts, and column mappings
+- SQLite and Postgres config backends now split source-system, contract, mapping, transformation-package, and publication-definition persistence into backend-specific source/contract catalog modules
 - backend-neutral ingestion catalog models plus shared serialization, publication-validation, and built-in package seed helpers used by both SQLite and Postgres config repositories
 - persisted source assets and ingestion definitions for config-driven folder and HTTP pull execution, including request headers and timeout settings
 - aggregate-scoped control-plane protocols for source registry, contract catalog, asset catalog, scheduling, and audit surfaces shared across SQLite and Postgres backends

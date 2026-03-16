@@ -104,7 +104,15 @@ def test_postgres_ingestion_backend_imports_neutral_catalog_module() -> None:
     )
 
     assert "packages.storage.ingestion_catalog" in imports
+    assert "packages.storage.postgres_source_contract_catalog" in imports
     assert "packages.storage.ingestion_config" not in imports
+
+
+def test_sqlite_ingestion_backend_imports_split_source_contract_catalog_module() -> None:
+    imports = _import_names(ROOT / "packages" / "storage" / "ingestion_config.py")
+
+    assert "packages.storage.ingestion_catalog" in imports
+    assert "packages.storage.sqlite_source_contract_catalog" in imports
 
 
 def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> None:
