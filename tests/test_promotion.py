@@ -15,8 +15,12 @@ from packages.pipelines.promotion import (
 from packages.pipelines.promotion_registry import (
     PromotionHandler,
     PromotionHandlerRegistry,
+    PromotionRuntime,
+    register_domain_canonical_promotion_handler,
 )
 from packages.pipelines.promotion_types import PromotionResult
+from packages.pipelines.transformation_domain_registry import TransformationDomainRegistry
+from packages.pipelines.transformation_refresh_registry import PublicationRefreshRegistry
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.extensions import ExtensionPublication, ExtensionRegistry, LayerExtension
 from packages.storage.duckdb_store import DuckDBStore
@@ -383,6 +387,89 @@ class PromotionTests(unittest.TestCase):
 
             self.assertFalse(result.skipped)
             self.assertIn("mart_budget_projection", result.publication_keys)
+
+    def test_register_domain_canonical_promotion_handler_registers_domain_and_handler(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            service = AccountTransactionService(
+                landing_root=temp_root / "landing",
+                metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
+            )
+            run = service.ingest_file(FIXTURES / "account_transactions_valid.csv")
+            publication_refresh_registry = PublicationRefreshRegistry()
+            publication_refresh_registry.register("mart_budget_projection", lambda service: 0)
+            transformation_domain_registry = TransformationDomainRegistry()
+            transformation_service = TransformationService(
+                DuckDBStore.memory(),
+                domain_registry=transformation_domain_registry,
+                publication_refresh_registry=publication_refresh_registry,
+            )
+            promotion_handler_registry = PromotionHandlerRegistry()
+
+            register_domain_canonical_promotion_handler(
+                promotion_handler_registry=promotion_handler_registry,
+                transformation_domain_registry=transformation_domain_registry,
+                handler_key="custom_budget_transform",
+                domain_key="custom_budget_domain",
+                default_publications=("mart_budget_projection",),
+                refresh_publication_keys=("mart_budget_projection",),
+                build_runtime_service=lambda runtime: AccountTransactionService(
+                    landing_root=runtime.landing_root,
+                    metadata_repository=runtime.metadata_repository,
+                    blob_store=runtime.blob_store,
+                ),
+                get_run=lambda runtime_service, run_id: runtime_service.get_run(run_id),
+                get_canonical_rows=lambda runtime_service, run_id: (
+                    runtime_service.get_canonical_transactions(run_id)
+                ),
+                serialize_row=lambda row: {
+                    "booked_at": str(row.booked_at),
+                    "account_id": row.account_id,
+                    "counterparty_name": row.counterparty_name,
+                    "amount": str(row.amount),
+                    "currency": row.currency,
+                    "description": row.description or "",
+                },
+                load_rows=lambda domain_service, rows, run_id, effective_date, source_system: (
+                    domain_service.load_transactions(
+                        rows,
+                        run_id=run_id,
+                        effective_date=effective_date,
+                        source_system=source_system,
+                    )
+                ),
+                count_rows=lambda domain_service, run_id: domain_service.count_transactions(
+                    run_id=run_id
+                ),
+                required_header={
+                    "booked_at",
+                    "account_id",
+                    "counterparty_name",
+                    "amount",
+                    "currency",
+                },
+                contract_mismatch_reason=(
+                    "run does not match the account-transaction canonical contract"
+                ),
+            )
+
+            result = promotion_handler_registry.get("custom_budget_transform").runner(
+                PromotionRuntime(
+                    run_id=run.run_id,
+                    landing_root=temp_root / "landing",
+                    metadata_repository=service.metadata_repository,
+                    config_repository=object(),  # type: ignore[arg-type]
+                    transformation_service=transformation_service,
+                )
+            )
+
+            self.assertEqual(("custom_budget_domain",), transformation_domain_registry.domain_keys())
+            self.assertEqual(2, transformation_service.count_transactions(run.run_id))
+            self.assertEqual(2, result.facts_loaded)
+            self.assertEqual(["mart_budget_projection"], result.marts_refreshed)
+            self.assertEqual(["mart_budget_projection"], result.publication_keys)
 
 
 if __name__ == "__main__":

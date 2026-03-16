@@ -364,7 +364,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Split execution paths create drift between what ingestion stores and what reporting publishes, which breaks lineage and makes operational behavior harder to reason about.
 
 **Phase:** 1
-**Status:** implemented (manual and config-driven built-in runs now promote through one source-asset-driven path; `transformation_package` selects the canonical promotion handler, `publication_definition` constrains which marts refresh, config-driven sources preserve raw bronze bytes while storing a canonical projection artifact for promotion, and re-promoting the same run is a retry-safe no-op)
+**Status:** implemented (manual and config-driven built-in runs now promote through one source-asset-driven path; `transformation_package` selects the canonical promotion handler, `publication_definition` constrains which marts refresh, config-driven sources preserve raw bronze bytes while storing a canonical projection artifact for promotion, re-promoting the same run is a retry-safe no-op, and extension modules can register custom transformation domains and canonical promotion handlers through the same registry contract)
 
 **Acceptance criteria:**
 - A worker or API entrypoint can promote a landed run into the configured transformation store.

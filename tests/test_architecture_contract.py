@@ -116,11 +116,15 @@ def test_promotion_orchestration_imports_shared_registry_contracts() -> None:
     builtin_handler_imports = _import_names(
         ROOT / "packages" / "pipelines" / "builtin_promotion_handlers.py"
     )
+    promotion_registry_imports = _import_names(
+        ROOT / "packages" / "pipelines" / "promotion_registry.py"
+    )
 
     assert "packages.pipelines.promotion_registry" in imports
     assert "packages.pipelines.builtin_promotion_handlers" in imports
     assert "packages.pipelines.promotion_types" in imports
     assert "packages.pipelines.promotion_registry" in builtin_handler_imports
+    assert "packages.pipelines.transformation_domain_registry" in promotion_registry_imports
 
 
 def test_reporting_service_imports_shared_builtin_reporting_registry() -> None:

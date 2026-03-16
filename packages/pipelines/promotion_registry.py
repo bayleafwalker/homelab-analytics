@@ -5,6 +5,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar
 
 from packages.pipelines.promotion_types import PromotionResult
+from packages.pipelines.transformation_domain_registry import (
+    TransformationCountHandler,
+    TransformationDomainHandler,
+    TransformationDomainRegistry,
+    TransformationLoadHandler,
+)
 from packages.shared.extensions import ExtensionRegistry
 from packages.storage.blob import BlobStore
 from packages.storage.control_plane import ContractCatalogStore
@@ -177,6 +183,52 @@ def build_canonical_promotion_handler(
         supported_publications=resolved_supported_publications,
         runner=run,
     )
+
+
+def register_domain_canonical_promotion_handler(
+    *,
+    promotion_handler_registry: "PromotionHandlerRegistry",
+    transformation_domain_registry: TransformationDomainRegistry,
+    handler_key: str,
+    domain_key: str,
+    default_publications: tuple[str, ...],
+    build_runtime_service: Callable[[PromotionRuntime], ServiceT],
+    get_run: Callable[[ServiceT, str], Any],
+    get_canonical_rows: Callable[[ServiceT, str], list[RowT]],
+    serialize_row: Callable[[RowT], dict[str, Any]],
+    load_rows: TransformationLoadHandler,
+    count_rows: TransformationCountHandler,
+    refresh_publication_keys: tuple[str, ...] = (),
+    supported_publications: tuple[str, ...] | None = None,
+    required_header: set[str] | None = None,
+    contract_mismatch_reason: str | None = None,
+) -> PromotionHandler:
+    """Register a transformation-domain loader and matching canonical handler together."""
+
+    transformation_domain_registry.register(
+        TransformationDomainHandler(
+            domain_key=domain_key,
+            load_rows=load_rows,
+            count_rows=count_rows,
+        )
+    )
+    handler = build_canonical_promotion_handler(
+        handler_key=handler_key,
+        default_publications=default_publications,
+        refresh_publication_keys=refresh_publication_keys,
+        supported_publications=supported_publications,
+        processor=build_domain_canonical_promotion_processor(
+            domain_key=domain_key,
+            build_runtime_service=build_runtime_service,
+            get_run=get_run,
+            get_canonical_rows=get_canonical_rows,
+            serialize_row=serialize_row,
+            required_header=required_header,
+            contract_mismatch_reason=contract_mismatch_reason,
+        ),
+    )
+    promotion_handler_registry.register(handler)
+    return handler
 
 
 class PromotionHandlerRegistry:
