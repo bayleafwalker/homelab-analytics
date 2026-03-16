@@ -93,6 +93,7 @@ Transformation extensibility:
 - allow external transformation packages to register additional canonical models, enrichments, and mapping logic
 - resolve package promotion handlers and publication refresh sets through shared registries rather than hard-wiring package branches into the central orchestrators
 - expose a shared canonical-promotion processor contract so built-in and external packages can reuse the same idempotent run-promotion lifecycle
+- expose transformation domain keys through a shared registry so promotion handlers can target reusable canonical loaders without depending on individual service methods
 - require every external transformation to publish its canonical target, version, and lineage metadata
 
 ### 3. Reporting

@@ -32,6 +32,10 @@ from packages.pipelines.transformation_contract_prices import (
     load_contract_prices,
     refresh_contract_price_current,
 )
+from packages.pipelines.transformation_domain_registry import (
+    TransformationDomainRegistry,
+    get_default_transformation_domain_registry,
+)
 from packages.pipelines.transformation_refresh_registry import (
     PublicationRefreshRegistry,
     get_default_publication_refresh_registry,
@@ -79,12 +83,14 @@ class TransformationService:
         *,
         control_plane_store: SourceLineageStore | None = None,
         publication_refresh_registry: PublicationRefreshRegistry | None = None,
+        domain_registry: TransformationDomainRegistry | None = None,
     ) -> None:
         self._store = store
         self._control_plane_store = control_plane_store
         self._publication_refresh_registry = (
             publication_refresh_registry or get_default_publication_refresh_registry()
         )
+        self._domain_registry = domain_registry or get_default_transformation_domain_registry()
         self._ensure_schema()
 
     def _ensure_schema(self) -> None:
@@ -174,6 +180,24 @@ class TransformationService:
             source_system=source_system,
         )
 
+    def load_domain_rows(
+        self,
+        domain_key: str,
+        rows: list[dict[str, Any]],
+        *,
+        run_id: str | None = None,
+        effective_date: date | None = None,
+        source_system: str | None = None,
+    ) -> int:
+        return self._domain_registry.load(
+            self,
+            domain_key,
+            rows,
+            run_id=run_id,
+            effective_date=effective_date,
+            source_system=source_system,
+        )
+
     def refresh_monthly_cashflow(self) -> int:
         return refresh_monthly_cashflow(self._store)
 
@@ -199,6 +223,9 @@ class TransformationService:
 
     def count_transactions(self, run_id: str | None = None) -> int:
         return count_transactions(self._store, run_id=run_id)
+
+    def count_domain_rows(self, domain_key: str, *, run_id: str | None = None) -> int:
+        return self._domain_registry.count(self, domain_key, run_id=run_id)
 
     def count_subscriptions(self, run_id: str | None = None) -> int:
         return count_subscriptions(self._store, run_id=run_id)

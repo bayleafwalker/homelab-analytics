@@ -14,6 +14,7 @@ from packages.pipelines.promotion_registry import (
     PromotionHandler,
     PromotionHandlerRegistry,
     build_canonical_promotion_handler,
+    build_domain_canonical_promotion_processor,
     run_canonical_promotion,
 )
 from packages.pipelines.promotion_types import PromotionResult
@@ -72,76 +73,10 @@ _UTILITY_BILL_HEADER = {
     "billed_amount",
     "currency",
 }
-
-
-def _load_transaction_rows(
-    transformation_service: TransformationService,
-    rows: list[dict[str, Any]],
-    run_id: str,
-    source_name: str,
-) -> int:
-    return transformation_service.load_transactions(
-        rows,
-        run_id=run_id,
-        source_system=source_name,
-    )
-
-
-def _load_subscription_rows(
-    transformation_service: TransformationService,
-    rows: list[dict[str, Any]],
-    run_id: str,
-    source_name: str,
-) -> int:
-    return transformation_service.load_subscriptions(
-        rows,
-        run_id=run_id,
-        source_system=source_name,
-    )
-
-
-def _load_contract_price_rows(
-    transformation_service: TransformationService,
-    rows: list[dict[str, Any]],
-    run_id: str,
-    source_name: str,
-) -> int:
-    return transformation_service.load_contract_prices(
-        rows,
-        run_id=run_id,
-        source_system=source_name,
-    )
-
-
-def _load_utility_usage_rows(
-    transformation_service: TransformationService,
-    rows: list[dict[str, Any]],
-    run_id: str,
-    source_name: str,
-) -> int:
-    return transformation_service.load_utility_usage(
-        rows,
-        run_id=run_id,
-        source_system=source_name,
-    )
-
-
-def _load_utility_bill_rows(
-    transformation_service: TransformationService,
-    rows: list[dict[str, Any]],
-    run_id: str,
-    source_name: str,
-) -> int:
-    return transformation_service.load_bills(
-        rows,
-        run_id=run_id,
-        source_system=source_name,
-    )
-
-
 _ACCOUNT_TRANSACTION_SPEC = BuiltinPromotionSpec(
     package_spec=get_builtin_transformation_package_spec("builtin_account_transactions"),
-    processor=CanonicalPromotionProcessor(
+    processor=build_domain_canonical_promotion_processor(
+        domain_key="account_transactions",
         build_runtime_service=lambda runtime: AccountTransactionService(
             landing_root=runtime.landing_root,
             metadata_repository=runtime.metadata_repository,
@@ -157,10 +92,6 @@ _ACCOUNT_TRANSACTION_SPEC = BuiltinPromotionSpec(
             "currency": row.currency,
             "description": row.description or "",
         },
-        count_existing=lambda transformation_service, run_id: (
-            transformation_service.count_transactions(run_id)
-        ),
-        load_rows=_load_transaction_rows,
         required_header=_ACCOUNT_TRANSACTION_HEADER,
         contract_mismatch_reason="run does not match the account-transaction canonical contract",
     ),
@@ -168,7 +99,8 @@ _ACCOUNT_TRANSACTION_SPEC = BuiltinPromotionSpec(
 
 _SUBSCRIPTION_SPEC = BuiltinPromotionSpec(
     package_spec=get_builtin_transformation_package_spec("builtin_subscriptions"),
-    processor=CanonicalPromotionProcessor(
+    processor=build_domain_canonical_promotion_processor(
+        domain_key="subscriptions",
         build_runtime_service=lambda runtime: SubscriptionService(
             landing_root=runtime.landing_root,
             metadata_repository=runtime.metadata_repository,
@@ -187,16 +119,13 @@ _SUBSCRIPTION_SPEC = BuiltinPromotionSpec(
             "start_date": str(row.start_date),
             "end_date": str(row.end_date) if row.end_date else None,
         },
-        count_existing=lambda transformation_service, run_id: (
-            transformation_service.count_subscriptions(run_id)
-        ),
-        load_rows=_load_subscription_rows,
     ),
 )
 
 _CONTRACT_PRICE_SPEC = BuiltinPromotionSpec(
     package_spec=get_builtin_transformation_package_spec("builtin_contract_prices"),
-    processor=CanonicalPromotionProcessor(
+    processor=build_domain_canonical_promotion_processor(
+        domain_key="contract_prices",
         build_runtime_service=lambda runtime: ContractPriceService(
             landing_root=runtime.landing_root,
             metadata_repository=runtime.metadata_repository,
@@ -217,10 +146,6 @@ _CONTRACT_PRICE_SPEC = BuiltinPromotionSpec(
             "valid_from": str(row.valid_from),
             "valid_to": str(row.valid_to) if row.valid_to else None,
         },
-        count_existing=lambda transformation_service, run_id: (
-            transformation_service.count_contract_prices(run_id)
-        ),
-        load_rows=_load_contract_price_rows,
         required_header=_CONTRACT_PRICE_HEADER,
         contract_mismatch_reason="run does not match the contract-price canonical contract",
     ),
@@ -228,7 +153,8 @@ _CONTRACT_PRICE_SPEC = BuiltinPromotionSpec(
 
 _UTILITY_USAGE_SPEC = BuiltinPromotionSpec(
     package_spec=get_builtin_transformation_package_spec("builtin_utility_usage"),
-    processor=CanonicalPromotionProcessor(
+    processor=build_domain_canonical_promotion_processor(
+        domain_key="utility_usage",
         build_runtime_service=lambda runtime: UtilityUsageService(
             landing_root=runtime.landing_root,
             metadata_repository=runtime.metadata_repository,
@@ -247,10 +173,6 @@ _UTILITY_USAGE_SPEC = BuiltinPromotionSpec(
             "usage_unit": row.usage_unit,
             "reading_source": row.reading_source,
         },
-        count_existing=lambda transformation_service, run_id: (
-            transformation_service.count_utility_usage(run_id)
-        ),
-        load_rows=_load_utility_usage_rows,
         required_header=_UTILITY_USAGE_HEADER,
         contract_mismatch_reason="run does not match the utility-usage canonical contract",
     ),
@@ -258,7 +180,8 @@ _UTILITY_USAGE_SPEC = BuiltinPromotionSpec(
 
 _UTILITY_BILL_SPEC = BuiltinPromotionSpec(
     package_spec=get_builtin_transformation_package_spec("builtin_utility_bills"),
-    processor=CanonicalPromotionProcessor(
+    processor=build_domain_canonical_promotion_processor(
+        domain_key="utility_bills",
         build_runtime_service=lambda runtime: UtilityBillService(
             landing_root=runtime.landing_root,
             metadata_repository=runtime.metadata_repository,
@@ -282,10 +205,6 @@ _UTILITY_BILL_SPEC = BuiltinPromotionSpec(
             "usage_unit": row.usage_unit,
             "invoice_date": str(row.invoice_date) if row.invoice_date else None,
         },
-        count_existing=lambda transformation_service, run_id: transformation_service.count_bills(
-            run_id
-        ),
-        load_rows=_load_utility_bill_rows,
         required_header=_UTILITY_BILL_HEADER,
         contract_mismatch_reason="run does not match the utility-bill canonical contract",
     ),

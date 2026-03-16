@@ -114,6 +114,23 @@ def test_load_transactions_populates_dimensions(svc: TransformationService) -> N
     assert names == {"Electric Utility", "Employer"}
 
 
+def test_load_domain_rows_uses_registered_builtin_domain(svc: TransformationService) -> None:
+    inserted = svc.load_domain_rows(
+        "account_transactions",
+        LANDING_ROWS,
+        run_id="run-domain-001",
+        source_system="manual-upload",
+    )
+
+    assert inserted == 4
+    assert svc.count_domain_rows("account_transactions", run_id="run-domain-001") == 4
+
+
+def test_load_domain_rows_rejects_unknown_domain(svc: TransformationService) -> None:
+    with pytest.raises(ValueError, match="Unsupported transformation domain"):
+        svc.load_domain_rows("unknown_domain", LANDING_ROWS)
+
+
 # ---------------------------------------------------------------------------
 # mart_monthly_cashflow
 # ---------------------------------------------------------------------------

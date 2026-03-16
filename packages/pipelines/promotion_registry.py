@@ -53,6 +53,37 @@ class CanonicalPromotionProcessor(Generic[ServiceT, RowT]):
     contract_mismatch_reason: str | None = None
 
 
+def build_domain_canonical_promotion_processor(
+    *,
+    domain_key: str,
+    build_runtime_service: Callable[[PromotionRuntime], ServiceT],
+    get_run: Callable[[ServiceT, str], Any],
+    get_canonical_rows: Callable[[ServiceT, str], list[RowT]],
+    serialize_row: Callable[[RowT], dict[str, Any]],
+    required_header: set[str] | None = None,
+    contract_mismatch_reason: str | None = None,
+) -> CanonicalPromotionProcessor[ServiceT, RowT]:
+    return CanonicalPromotionProcessor(
+        build_runtime_service=build_runtime_service,
+        get_run=get_run,
+        get_canonical_rows=get_canonical_rows,
+        serialize_row=serialize_row,
+        count_existing=lambda transformation_service, run_id: (
+            transformation_service.count_domain_rows(domain_key, run_id=run_id)
+        ),
+        load_rows=lambda transformation_service, rows, run_id, source_name: (
+            transformation_service.load_domain_rows(
+                domain_key,
+                rows,
+                run_id=run_id,
+                source_system=source_name,
+            )
+        ),
+        required_header=required_header,
+        contract_mismatch_reason=contract_mismatch_reason,
+    )
+
+
 def _skipped_result(
     run_id: str,
     *,
