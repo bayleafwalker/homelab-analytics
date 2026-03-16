@@ -36,6 +36,7 @@ class ColumnMappingRuleRequest(BaseModel):
     target_column: str
     source_column: str | None = None
     default_value: str | None = None
+    function_key: str | None = None
 
 
 class ColumnMappingRequest(BaseModel):
@@ -72,6 +73,26 @@ class PublicationDefinitionRequest(BaseModel):
     publication_key: str
     name: str
     description: str | None = None
+
+
+class ExtensionRegistrySourceRequest(BaseModel):
+    extension_registry_source_id: str
+    name: str
+    source_kind: str
+    location: str
+    desired_ref: str | None = None
+    subdirectory: str | None = None
+    auth_secret_name: str | None = None
+    auth_secret_key: str | None = None
+    enabled: bool = True
+
+
+class ExtensionRegistrySyncRequest(BaseModel):
+    activate: bool = False
+
+
+class ExtensionRegistryActivationRequest(BaseModel):
+    extension_registry_revision_id: str
 
 
 class RequestHeaderRequest(BaseModel):

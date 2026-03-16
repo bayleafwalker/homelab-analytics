@@ -23,6 +23,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 
 - `plans/homelab-analytics-platform-plan.md` — strategic decisions and rationale from the bootstrap phase. Detailed requirements now live in `requirements/` at the repository root.
 - `plans/additional-data-domains.md` — planned data domains beyond account transactions, with source systems, canonical models, and marts for each.
+- `plans/external-registry-inclusion.md` — control-plane plan and implementation direction for GitHub or custom-folder extension sources and custom-function registration.
 
 ## Notes
 

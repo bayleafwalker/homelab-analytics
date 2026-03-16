@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 from packages.pipelines.config_preflight import run_config_preflight
 from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.promotion_registry import get_default_promotion_handler_registry
+from packages.shared.function_registry import FunctionRegistry, RegisteredFunction
 from packages.storage.ingestion_config import (
     ColumnMappingCreate,
     ColumnMappingRule,
@@ -165,6 +166,118 @@ class ConfigPreflightTests(unittest.TestCase):
                 "unknown_target_column",
                 {issue.code for issue in report.issues},
             )
+
+    def test_preflight_reports_unknown_mapping_functions(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+            repository.create_source_system(
+                SourceSystemCreate(
+                    source_system_id="bank_partner_export",
+                    name="Bank Partner Export",
+                    source_type="file-drop",
+                    transport="filesystem",
+                    schedule_mode="manual",
+                )
+            )
+            repository.create_dataset_contract(
+                DatasetContractConfigCreate(
+                    dataset_contract_id="household_account_transactions_v1",
+                    dataset_name="household_account_transactions",
+                    version=1,
+                    allow_extra_columns=False,
+                    columns=(
+                        DatasetColumnConfig("booked_at", ColumnType.DATE),
+                        DatasetColumnConfig("account_id", ColumnType.STRING),
+                        DatasetColumnConfig("counterparty_name", ColumnType.STRING),
+                    ),
+                )
+            )
+            repository.create_column_mapping(
+                ColumnMappingCreate(
+                    column_mapping_id="bank_partner_export_v1",
+                    source_system_id="bank_partner_export",
+                    dataset_contract_id="household_account_transactions_v1",
+                    version=1,
+                    rules=(
+                        ColumnMappingRule("booked_at", source_column="booking_date"),
+                        ColumnMappingRule("account_id", source_column="account_number"),
+                        ColumnMappingRule(
+                            "counterparty_name",
+                            source_column="payee",
+                            function_key="missing_normalizer",
+                        ),
+                    ),
+                )
+            )
+
+            report = run_config_preflight(repository)
+
+            self.assertFalse(report.passed)
+            self.assertIn(
+                "unknown_mapping_function",
+                {issue.code for issue in report.issues},
+            )
+
+    def test_preflight_accepts_registered_mapping_functions(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+            repository.create_source_system(
+                SourceSystemCreate(
+                    source_system_id="bank_partner_export",
+                    name="Bank Partner Export",
+                    source_type="file-drop",
+                    transport="filesystem",
+                    schedule_mode="manual",
+                )
+            )
+            repository.create_dataset_contract(
+                DatasetContractConfigCreate(
+                    dataset_contract_id="household_account_transactions_v1",
+                    dataset_name="household_account_transactions",
+                    version=1,
+                    allow_extra_columns=False,
+                    columns=(
+                        DatasetColumnConfig("booked_at", ColumnType.DATE),
+                        DatasetColumnConfig("account_id", ColumnType.STRING),
+                        DatasetColumnConfig("counterparty_name", ColumnType.STRING),
+                    ),
+                )
+            )
+            repository.create_column_mapping(
+                ColumnMappingCreate(
+                    column_mapping_id="bank_partner_export_v1",
+                    source_system_id="bank_partner_export",
+                    dataset_contract_id="household_account_transactions_v1",
+                    version=1,
+                    rules=(
+                        ColumnMappingRule("booked_at", source_column="booking_date"),
+                        ColumnMappingRule("account_id", source_column="account_number"),
+                        ColumnMappingRule(
+                            "counterparty_name",
+                            source_column="payee",
+                            function_key="normalize_counterparty",
+                        ),
+                    ),
+                )
+            )
+            function_registry = FunctionRegistry()
+            function_registry.register(
+                RegisteredFunction(
+                    function_key="normalize_counterparty",
+                    kind="column_mapping_value",
+                    description="Normalize mapped values.",
+                    module="tests.test_config_preflight",
+                    source="test",
+                    handler=lambda *, value, **_: value.upper(),
+                )
+            )
+
+            report = run_config_preflight(
+                repository,
+                function_registry=function_registry,
+            )
+
+            self.assertTrue(report.passed)
 
     def test_preflight_reports_invalid_persisted_publication_keys(self) -> None:
         with TemporaryDirectory() as temp_dir:

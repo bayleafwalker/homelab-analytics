@@ -251,6 +251,23 @@ class PromotionHandlerRegistry:
         return [self._handlers[handler_key] for handler_key in sorted(self._handlers)]
 
 
+def serialize_promotion_handler(handler: PromotionHandler) -> dict[str, object]:
+    return {
+        "handler_key": handler.handler_key,
+        "default_publications": list(handler.default_publications),
+        "supported_publications": list(handler.supported_publications),
+    }
+
+
+def serialize_promotion_handler_registry(
+    registry: PromotionHandlerRegistry,
+) -> list[dict[str, object]]:
+    return [
+        serialize_promotion_handler(handler)
+        for handler in registry.list()
+    ]
+
+
 _DEFAULT_PROMOTION_HANDLER_REGISTRY: PromotionHandlerRegistry | None = None
 
 

@@ -144,6 +144,7 @@ Recommended loading pattern:
 - import explicitly configured extension modules
 - require each extension module to register itself into a shared layer registry
 - allow extension modules to optionally define `register_pipeline_registries(...)` so configured transformation packages can add package catalog declarations, promotion handlers, transformation domain handlers, and publication refresh handlers through the same module-loading path
+- allow extension modules to optionally define `register_functions(function_registry)` so custom callables are loaded through the same module-loading path instead of ad hoc imports
 - allow executable extensions to expose handlers that can be invoked by worker jobs or application APIs
 
 Layer expectations:
@@ -153,11 +154,46 @@ Layer expectations:
 - reporting extensions can add marts, publication jobs, API resources, and dashboard-facing aggregates
 - application extensions can add online UI, API, or operational integration surfaces that consume the same reporting contracts
 
+Registry source expectations:
+
+- external code sources should be persisted as control-plane configuration rather than worker-only environment variables when operators need UI-managed inclusion
+- support two source kinds through one acquisition model: mounted custom folders and Git repositories, with GitHub handled as the first Git provider instead of a separate bespoke plugin path
+- every external source should expose a small manifest that declares import roots, extension modules, optional function modules, and compatibility metadata before activation
+- workers should sync or validate a source into a local cache, resolve an immutable revision, and only then activate it for registry loading
+- runtime code loading should continue to happen from local filesystem paths; GitHub inclusion is an acquisition and version-resolution concern, not a second execution mechanism
+
+Custom function expectations:
+
+- custom functions are additive helpers registered by key, not arbitrary import strings embedded in user configuration
+- each function should declare its owning layer, function kind, input contract, output contract, and whether it is deterministic or side-effecting
+- the first supported binding point is configured CSV column mapping, where a rule may reference a `function_key` to transform the resolved source/default value before canonical validation and landing manifests are written
+- config entities such as dataset checks, mapping transforms, transformation packages, and reporting publications should reference registered function keys instead of raw Python paths
+- application-facing reporting functions must still respect published-versus-warehouse access contracts and must not create landing-to-dashboard shortcuts
+
 Executable reporting extensions must declare whether they are `published` or `warehouse` backed. Application-facing execution should not infer that contract from handler internals or silently fall back to landed bytes.
 
 If a reporting extension is `published`, it may also declare one or more named publication relations with schema and source SQL so those relations can be copied into the Postgres publication store through the same publication-key contract used by built-in marts. Source-asset publication definitions may reference those relation names directly, and config/admin publication-definition creation should reject unknown relation names before they are persisted.
 
 This keeps the platform auditable while still allowing household-specific or community-contributed logic to live outside the main repository.
+
+## External registry source model
+
+UI-managed external inclusion should use explicit control-plane records rather than only startup environment variables.
+
+Recommended entities:
+
+- `extension_registry_source`: operator-declared source of external code with `source_kind` (`path` or `git`), location, auth secret reference, default ref, and enabled state
+- `extension_registry_revision`: immutable synced result with resolved commit SHA or path fingerprint, manifest digest, sync status, and local cache path
+- `extension_registry_activation`: the active revision set that API and worker processes load at startup or through an explicit reload action
+- discovered exports from an active revision should be queryable in the control plane so admins can bind handler keys, publication keys, and function keys without guessing module internals
+
+Loading lifecycle:
+
+- admin creates or updates an external source definition
+- worker or control-plane sync validates the manifest and resolves a local cached revision
+- validation rejects missing modules, duplicate keys, incompatible platform versions, or unsupported function contracts before activation
+- runtime processes load built-ins plus the active cached revisions through the same extension and pipeline registries already used for in-repo and env-configured modules
+- initial implementation should prefer explicit reload or restart after activation rather than implicit hot-reload during request handling
 
 ## Mapping and ingestion configuration model
 

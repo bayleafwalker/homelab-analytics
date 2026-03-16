@@ -21,6 +21,9 @@ from packages.storage.postgres_auth_control_plane import (
 from packages.storage.postgres_control_plane_schema import (
     initialize_postgres_control_plane_schema,
 )
+from packages.storage.postgres_external_registry_catalog import (
+    PostgresExternalRegistryCatalogMixin,
+)
 from packages.storage.postgres_execution_control_plane import (
     PostgresExecutionControlPlaneMixin,
 )
@@ -36,6 +39,7 @@ from packages.storage.postgres_support import configure_search_path, initialize_
 class PostgresIngestionConfigRepository(
     PostgresSourceContractCatalogMixin,
     PostgresAssetDefinitionCatalogMixin,
+    PostgresExternalRegistryCatalogMixin,
     PostgresExecutionControlPlaneMixin,
     PostgresProvenanceControlPlaneMixin,
     PostgresAuthControlPlaneMixin,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException
@@ -9,6 +10,9 @@ from apps.api.models import (
     ColumnMappingPreviewRequest,
     ColumnMappingRequest,
     DatasetContractRequest,
+    ExtensionRegistryActivationRequest,
+    ExtensionRegistrySourceRequest,
+    ExtensionRegistrySyncRequest,
     ExecutionScheduleRequest,
     IngestionDefinitionRequest,
     PublicationDefinitionRequest,
@@ -17,11 +21,24 @@ from apps.api.models import (
     TransformationPackageRequest,
 )
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
-from packages.pipelines.promotion_registry import PromotionHandlerRegistry
+from packages.pipelines.promotion_registry import (
+    PromotionHandlerRegistry,
+    serialize_promotion_handler_registry,
+)
+from packages.shared.external_registry import sync_extension_registry_source
 from packages.shared.extensions import ExtensionRegistry, serialize_extension_registry
+from packages.shared.function_registry import (
+    FunctionRegistry,
+    serialize_function_registry,
+    validate_function_key,
+)
+from packages.shared.secrets import EnvironmentSecretResolver
 from packages.storage.control_plane import (
     ControlPlaneAdminStore,
     ExecutionScheduleCreate,
+)
+from packages.storage.external_registry_catalog import (
+    ExtensionRegistrySourceCreate,
 )
 from packages.storage.ingestion_config import (
     ColumnMappingCreate,
@@ -37,14 +54,17 @@ from packages.storage.ingestion_config import (
     SourceSystemCreate,
     TransformationPackageCreate,
 )
+from packages.storage.ingestion_catalog import serialize_publication_keys
 
 
 def register_config_routes(
     app: FastAPI,
     *,
     registry: ExtensionRegistry,
+    function_registry: FunctionRegistry,
     promotion_handler_registry: PromotionHandlerRegistry,
     resolved_config_repository: ControlPlaneAdminStore,
+    external_registry_cache_root: Path,
     configured_ingestion_service: ConfiguredCsvIngestionService,
     require_unsafe_admin: Callable[[], None],
     ensure_matching_identifier: Callable[[str, str, str], None],
@@ -60,6 +80,30 @@ def register_config_routes(
     async def list_extensions() -> dict[str, Any]:
         require_unsafe_admin()
         return {"extensions": serialize_extension_registry(registry)}
+
+    @app.get("/functions")
+    async def list_functions() -> dict[str, Any]:
+        require_unsafe_admin()
+        return {"functions": serialize_function_registry(function_registry)}
+
+    @app.get("/config/transformation-handlers")
+    async def list_transformation_handlers() -> dict[str, Any]:
+        require_unsafe_admin()
+        return {
+            "transformation_handlers": serialize_promotion_handler_registry(
+                promotion_handler_registry
+            )
+        }
+
+    @app.get("/config/publication-keys")
+    async def list_publication_keys() -> dict[str, Any]:
+        require_unsafe_admin()
+        return {
+            "publication_keys": serialize_publication_keys(
+                extension_registry=registry,
+                promotion_handler_registry=promotion_handler_registry,
+            )
+        }
 
     @app.get("/sources")
     async def list_sources() -> dict[str, Any]:
@@ -231,6 +275,13 @@ def register_config_routes(
     @app.post("/config/column-mappings", status_code=201)
     async def create_column_mapping(payload: ColumnMappingRequest) -> dict[str, Any]:
         require_unsafe_admin()
+        for rule in payload.rules:
+            if rule.function_key:
+                validate_function_key(
+                    rule.function_key,
+                    function_registry=function_registry,
+                    kind="column_mapping_value",
+                )
         column_mapping = resolved_config_repository.create_column_mapping(
             ColumnMappingCreate(
                 column_mapping_id=payload.column_mapping_id,
@@ -242,6 +293,7 @@ def register_config_routes(
                         target_column=rule.target_column,
                         source_column=rule.source_column,
                         default_value=rule.default_value,
+                        function_key=rule.function_key,
                     )
                     for rule in payload.rules
                 ),
@@ -286,11 +338,15 @@ def register_config_routes(
         return {"preview": to_jsonable(preview)}
 
     @app.get("/config/transformation-packages")
-    async def list_transformation_packages() -> dict[str, Any]:
+    async def list_transformation_packages(
+        include_archived: bool = False,
+    ) -> dict[str, Any]:
         require_unsafe_admin()
         return {
             "transformation_packages": to_jsonable(
-                resolved_config_repository.list_transformation_packages()
+                resolved_config_repository.list_transformation_packages(
+                    include_archived=include_archived
+                )
             )
         }
 
@@ -311,15 +367,60 @@ def register_config_routes(
         )
         return {"transformation_package": to_jsonable(transformation_package)}
 
+    @app.patch("/config/transformation-packages/{transformation_package_id}")
+    async def update_transformation_package(
+        transformation_package_id: str,
+        payload: TransformationPackageRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        ensure_matching_identifier(
+            "transformation_package_id",
+            transformation_package_id,
+            payload.transformation_package_id,
+        )
+        existing = resolved_config_repository.get_transformation_package(
+            transformation_package_id
+        )
+        transformation_package = resolved_config_repository.update_transformation_package(
+            TransformationPackageCreate(
+                transformation_package_id=payload.transformation_package_id,
+                name=payload.name,
+                handler_key=payload.handler_key,
+                version=payload.version,
+                description=payload.description,
+                archived=existing.archived,
+                created_at=existing.created_at,
+            ),
+            extension_registry=registry,
+            promotion_handler_registry=promotion_handler_registry,
+        )
+        return {"transformation_package": to_jsonable(transformation_package)}
+
+    @app.patch("/config/transformation-packages/{transformation_package_id}/archive")
+    async def set_transformation_package_archived_state(
+        transformation_package_id: str,
+        payload: ArchivedStateRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        transformation_package = (
+            resolved_config_repository.set_transformation_package_archived_state(
+                transformation_package_id,
+                archived=payload.archived,
+            )
+        )
+        return {"transformation_package": to_jsonable(transformation_package)}
+
     @app.get("/config/publication-definitions")
     async def list_publication_definitions(
         transformation_package_id: str | None = None,
+        include_archived: bool = False,
     ) -> dict[str, Any]:
         require_unsafe_admin()
         return {
             "publication_definitions": to_jsonable(
                 resolved_config_repository.list_publication_definitions(
-                    transformation_package_id=transformation_package_id
+                    transformation_package_id=transformation_package_id,
+                    include_archived=include_archived,
                 )
             )
         }
@@ -341,6 +442,213 @@ def register_config_routes(
             promotion_handler_registry=promotion_handler_registry,
         )
         return {"publication_definition": to_jsonable(publication_definition)}
+
+    @app.patch("/config/publication-definitions/{publication_definition_id}")
+    async def update_publication_definition(
+        publication_definition_id: str,
+        payload: PublicationDefinitionRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        ensure_matching_identifier(
+            "publication_definition_id",
+            publication_definition_id,
+            payload.publication_definition_id,
+        )
+        existing = resolved_config_repository.get_publication_definition(
+            publication_definition_id
+        )
+        publication_definition = resolved_config_repository.update_publication_definition(
+            PublicationDefinitionCreate(
+                publication_definition_id=payload.publication_definition_id,
+                transformation_package_id=payload.transformation_package_id,
+                publication_key=payload.publication_key,
+                name=payload.name,
+                description=payload.description,
+                archived=existing.archived,
+                created_at=existing.created_at,
+            ),
+            extension_registry=registry,
+            promotion_handler_registry=promotion_handler_registry,
+        )
+        return {"publication_definition": to_jsonable(publication_definition)}
+
+    @app.patch("/config/publication-definitions/{publication_definition_id}/archive")
+    async def set_publication_definition_archived_state(
+        publication_definition_id: str,
+        payload: ArchivedStateRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        publication_definition = (
+            resolved_config_repository.set_publication_definition_archived_state(
+                publication_definition_id,
+                archived=payload.archived,
+            )
+        )
+        return {"publication_definition": to_jsonable(publication_definition)}
+
+    @app.get("/config/extension-registry-sources")
+    async def list_extension_registry_sources(
+        include_archived: bool = False,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        return {
+            "extension_registry_sources": to_jsonable(
+                resolved_config_repository.list_extension_registry_sources(
+                    include_archived=include_archived
+                )
+            )
+        }
+
+    @app.get("/config/extension-registry-sources/{extension_registry_source_id}")
+    async def get_extension_registry_source(
+        extension_registry_source_id: str,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        return {
+            "extension_registry_source": to_jsonable(
+                resolved_config_repository.get_extension_registry_source(
+                    extension_registry_source_id
+                )
+            )
+        }
+
+    @app.post("/config/extension-registry-sources", status_code=201)
+    async def create_extension_registry_source(
+        payload: ExtensionRegistrySourceRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        source = resolved_config_repository.create_extension_registry_source(
+            ExtensionRegistrySourceCreate(
+                extension_registry_source_id=payload.extension_registry_source_id,
+                name=payload.name,
+                source_kind=payload.source_kind,
+                location=payload.location,
+                desired_ref=payload.desired_ref,
+                subdirectory=payload.subdirectory,
+                auth_secret_name=payload.auth_secret_name,
+                auth_secret_key=payload.auth_secret_key,
+                enabled=payload.enabled,
+            )
+        )
+        return {"extension_registry_source": to_jsonable(source)}
+
+    @app.patch("/config/extension-registry-sources/{extension_registry_source_id}")
+    async def update_extension_registry_source(
+        extension_registry_source_id: str,
+        payload: ExtensionRegistrySourceRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        ensure_matching_identifier(
+            "extension_registry_source_id",
+            extension_registry_source_id,
+            payload.extension_registry_source_id,
+        )
+        existing = resolved_config_repository.get_extension_registry_source(
+            extension_registry_source_id
+        )
+        source = resolved_config_repository.update_extension_registry_source(
+            ExtensionRegistrySourceCreate(
+                extension_registry_source_id=payload.extension_registry_source_id,
+                name=payload.name,
+                source_kind=payload.source_kind,
+                location=payload.location,
+                desired_ref=payload.desired_ref,
+                subdirectory=payload.subdirectory,
+                auth_secret_name=payload.auth_secret_name,
+                auth_secret_key=payload.auth_secret_key,
+                enabled=payload.enabled,
+                archived=existing.archived,
+                created_at=existing.created_at,
+            )
+        )
+        return {"extension_registry_source": to_jsonable(source)}
+
+    @app.patch(
+        "/config/extension-registry-sources/{extension_registry_source_id}/archive"
+    )
+    async def set_extension_registry_source_archived_state(
+        extension_registry_source_id: str,
+        payload: ArchivedStateRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        source = resolved_config_repository.set_extension_registry_source_archived_state(
+            extension_registry_source_id,
+            archived=payload.archived,
+        )
+        return {"extension_registry_source": to_jsonable(source)}
+
+    @app.post("/config/extension-registry-sources/{extension_registry_source_id}/sync")
+    async def sync_extension_registry_source_route(
+        extension_registry_source_id: str,
+        payload: ExtensionRegistrySyncRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        result = sync_extension_registry_source(
+            resolved_config_repository,
+            extension_registry_source_id,
+            activate=payload.activate,
+            cache_root=external_registry_cache_root,
+            secret_resolver=EnvironmentSecretResolver(),
+        )
+        if not result.passed:
+            raise ValueError(
+                result.revision.validation_error
+                or "External registry sync failed."
+            )
+        return {
+            "extension_registry_source": to_jsonable(result.source),
+            "extension_registry_revision": to_jsonable(result.revision),
+            "extension_registry_activation": to_jsonable(result.activation),
+        }
+
+    @app.post(
+        "/config/extension-registry-sources/{extension_registry_source_id}/activate"
+    )
+    async def activate_extension_registry_source(
+        extension_registry_source_id: str,
+        payload: ExtensionRegistryActivationRequest,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        activation = resolved_config_repository.activate_extension_registry_revision(
+            extension_registry_source_id=extension_registry_source_id,
+            extension_registry_revision_id=payload.extension_registry_revision_id,
+        )
+        return {"extension_registry_activation": to_jsonable(activation)}
+
+    @app.get("/config/extension-registry-revisions")
+    async def list_extension_registry_revisions(
+        extension_registry_source_id: str | None = None,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        return {
+            "extension_registry_revisions": to_jsonable(
+                resolved_config_repository.list_extension_registry_revisions(
+                    extension_registry_source_id=extension_registry_source_id
+                )
+            )
+        }
+
+    @app.get("/config/extension-registry-revisions/{extension_registry_revision_id}")
+    async def get_extension_registry_revision(
+        extension_registry_revision_id: str,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        return {
+            "extension_registry_revision": to_jsonable(
+                resolved_config_repository.get_extension_registry_revision(
+                    extension_registry_revision_id
+                )
+            )
+        }
+
+    @app.get("/config/extension-registry-activations")
+    async def list_extension_registry_activations() -> dict[str, Any]:
+        require_unsafe_admin()
+        return {
+            "extension_registry_activations": to_jsonable(
+                resolved_config_repository.list_extension_registry_activations()
+            )
+        }
 
     @app.get("/config/source-assets")
     async def list_source_assets(

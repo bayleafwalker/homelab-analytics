@@ -9,15 +9,24 @@ from fastapi.testclient import TestClient
 
 from apps.api.main import (
     build_app,
+    build_function_registry,
     build_lazy_transformation_service,
     build_reporting_service,
     build_service,
     build_transformation_service,
 )
+from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.reporting_service import ReportingAccessMode
+from packages.shared.external_registry import sync_extension_registry_source
 from packages.shared.settings import AppSettings
 from packages.storage.ingestion_config import (
+    ColumnMappingCreate,
+    ColumnMappingRule,
+    DatasetColumnConfig,
+    DatasetContractConfigCreate,
+    ExtensionRegistrySourceCreate,
     IngestionConfigRepository,
+    SourceSystemCreate,
     SourceAssetCreate,
 )
 from tests.account_test_support import (
@@ -30,6 +39,7 @@ from tests.account_test_support import (
     FIXTURES as ACCOUNT_FIXTURES,
 )
 from tests.contract_price_test_support import FIXTURES as CONTRACT_PRICE_FIXTURES
+from tests.external_registry_test_support import create_path_function_extension
 from tests.subscription_test_support import FIXTURES as SUBSCRIPTION_FIXTURES
 
 
@@ -98,6 +108,172 @@ class ApiMainTests(unittest.TestCase):
             app = build_app(settings)
 
             self.assertIsInstance(app, FastAPI)
+
+    def test_build_function_registry_loads_active_external_functions(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            settings = AppSettings(
+                data_dir=temp_root,
+                landing_root=temp_root / "landing",
+                metadata_database_path=temp_root / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    temp_root / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    temp_root / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    temp_root / "failed" / "account-transactions"
+                ),
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+            )
+            function_extension = create_path_function_extension(
+                temp_root,
+                module_name="custom_function_registry_module",
+                function_key="normalize_counterparty",
+            )
+            repository = IngestionConfigRepository(settings.resolved_config_database_path)
+            repository.create_extension_registry_source(
+                ExtensionRegistrySourceCreate(
+                    extension_registry_source_id="household-functions",
+                    name="Household Functions",
+                    source_kind="path",
+                    location=str(function_extension.root),
+                )
+            )
+            sync_extension_registry_source(
+                repository,
+                "household-functions",
+                activate=True,
+                cache_root=settings.resolved_external_registry_cache_root,
+            )
+
+            registry = build_function_registry(settings, config_repository=repository)
+
+            self.assertEqual(
+                "normalize_counterparty",
+                registry.list(kind="column_mapping_value")[0].function_key,
+            )
+
+    def test_build_app_applies_active_external_functions_to_mapping_preview(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            settings = AppSettings(
+                data_dir=temp_root,
+                landing_root=temp_root / "landing",
+                metadata_database_path=temp_root / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    temp_root / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    temp_root / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    temp_root / "failed" / "account-transactions"
+                ),
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+                enable_unsafe_admin=True,
+            )
+            function_extension = create_path_function_extension(
+                temp_root,
+                module_name="custom_function_preview_module",
+                function_key="normalize_counterparty",
+            )
+            repository = IngestionConfigRepository(settings.resolved_config_database_path)
+            repository.create_extension_registry_source(
+                ExtensionRegistrySourceCreate(
+                    extension_registry_source_id="household-functions",
+                    name="Household Functions",
+                    source_kind="path",
+                    location=str(function_extension.root),
+                )
+            )
+            sync_extension_registry_source(
+                repository,
+                "household-functions",
+                activate=True,
+                cache_root=settings.resolved_external_registry_cache_root,
+            )
+            repository.create_source_system(
+                SourceSystemCreate(
+                    source_system_id="bank_partner_export",
+                    name="Bank Partner Export",
+                    source_type="file-drop",
+                    transport="filesystem",
+                    schedule_mode="manual",
+                )
+            )
+            repository.create_dataset_contract(
+                DatasetContractConfigCreate(
+                    dataset_contract_id="household_account_transactions_v1",
+                    dataset_name="household_account_transactions",
+                    version=1,
+                    allow_extra_columns=False,
+                    columns=(
+                        DatasetColumnConfig("booked_at", ColumnType.DATE),
+                        DatasetColumnConfig("account_id", ColumnType.STRING),
+                        DatasetColumnConfig("counterparty_name", ColumnType.STRING),
+                    ),
+                )
+            )
+            repository.create_column_mapping(
+                ColumnMappingCreate(
+                    column_mapping_id="bank_partner_export_v1",
+                    source_system_id="bank_partner_export",
+                    dataset_contract_id="household_account_transactions_v1",
+                    version=1,
+                    rules=(
+                        ColumnMappingRule("booked_at", source_column="booking_date"),
+                        ColumnMappingRule("account_id", source_column="account_number"),
+                        ColumnMappingRule(
+                            "counterparty_name",
+                            source_column="payee",
+                            function_key="normalize_counterparty",
+                        ),
+                    ),
+                )
+            )
+            client = TestClient(build_app(settings))
+
+            functions_response = client.get("/functions")
+            self.assertEqual(200, functions_response.status_code)
+            self.assertEqual(
+                "normalize_counterparty",
+                functions_response.json()["functions"]["column_mapping_value"][0][
+                    "function_key"
+                ],
+            )
+
+            preview_response = client.post(
+                "/config/column-mappings/preview",
+                json={
+                    "dataset_contract_id": "household_account_transactions_v1",
+                    "column_mapping_id": "bank_partner_export_v1",
+                    "sample_csv": "\n".join(
+                        [
+                            "booking_date,account_number,payee",
+                            "2026-01-01,ACC-001,coffee shop",
+                        ]
+                    )
+                    + "\n",
+                    "preview_limit": 5,
+                },
+            )
+            self.assertEqual(200, preview_response.status_code)
+            self.assertEqual(
+                "normalized:coffee shop",
+                preview_response.json()["preview"]["preview_rows"][0][
+                    "counterparty_name"
+                ],
+            )
 
     def test_build_app_rejects_local_auth_without_session_secret(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -359,6 +535,28 @@ class ApiMainTests(unittest.TestCase):
             client = TestClient(build_app(settings))
             synced_repository = IngestionConfigRepository(
                 settings.resolved_config_database_path
+            )
+            handler_response = client.get("/config/transformation-handlers")
+            self.assertEqual(200, handler_response.status_code)
+            self.assertTrue(
+                any(
+                    handler["handler_key"] == "custom_budget_transform"
+                    and handler["supported_publications"]
+                    == ["mart_budget_projection"]
+                    for handler in handler_response.json()["transformation_handlers"]
+                )
+            )
+            publication_response = client.get("/config/publication-keys")
+            self.assertEqual(200, publication_response.status_code)
+            self.assertTrue(
+                any(
+                    publication["publication_key"] == "mart_budget_projection"
+                    and "custom_budget_transform"
+                    in publication["supported_handlers"]
+                    and "budget_projection_publication"
+                    in publication["reporting_extensions"]
+                    for publication in publication_response.json()["publication_keys"]
+                )
             )
             self.assertEqual(
                 "custom_budget_transform",

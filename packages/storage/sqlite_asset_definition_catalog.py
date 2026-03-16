@@ -89,7 +89,14 @@ class SQLiteAssetDefinitionCatalogMixin:
         if column_mapping.archived:
             raise ValueError(f"Column mapping is archived: {source_asset.column_mapping_id}")
         if source_asset.transformation_package_id is not None:
-            self.get_transformation_package(source_asset.transformation_package_id)
+            transformation_package = self.get_transformation_package(
+                source_asset.transformation_package_id
+            )
+            if transformation_package.archived:
+                raise ValueError(
+                    "Transformation package is archived: "
+                    f"{source_asset.transformation_package_id}"
+                )
 
     def create_source_asset(self, source_asset: SourceAssetCreate) -> SourceAssetRecord:
         self._validate_source_asset_dependencies(source_asset)

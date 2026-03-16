@@ -13,6 +13,13 @@ from packages.storage.control_plane_snapshot import (
     export_control_plane_snapshot,
     import_control_plane_snapshot,
 )
+from packages.storage.external_registry_catalog import (
+    ExtensionRegistryActivationRecord,
+    ExtensionRegistryRevisionCreate,
+    ExtensionRegistryRevisionRecord,
+    ExtensionRegistrySourceCreate,
+    ExtensionRegistrySourceRecord,
+)
 from packages.storage.ingestion_catalog import (
     _BUILTIN_PUBLICATION_DEFINITIONS,
     _BUILTIN_TRANSFORMATION_PACKAGES,
@@ -50,6 +57,9 @@ from packages.storage.sqlite_control_plane_schema import (
 from packages.storage.sqlite_execution_control_plane import (
     SQLiteExecutionControlPlaneMixin,
 )
+from packages.storage.sqlite_external_registry_catalog import (
+    SQLiteExternalRegistryCatalogMixin,
+)
 from packages.storage.sqlite_provenance_control_plane import (
     SQLiteProvenanceControlPlaneMixin,
 )
@@ -64,6 +74,11 @@ __all__ = [
     "DatasetColumnConfig",
     "DatasetContractConfigCreate",
     "DatasetContractConfigRecord",
+    "ExtensionRegistryActivationRecord",
+    "ExtensionRegistryRevisionCreate",
+    "ExtensionRegistryRevisionRecord",
+    "ExtensionRegistrySourceCreate",
+    "ExtensionRegistrySourceRecord",
     "IngestionConfigRepository",
     "IngestionDefinitionCreate",
     "IngestionDefinitionRecord",
@@ -90,6 +105,7 @@ __all__ = [
 class IngestionConfigRepository(
     SQLiteSourceContractCatalogMixin,
     SQLiteAssetDefinitionCatalogMixin,
+    SQLiteExternalRegistryCatalogMixin,
     SQLiteExecutionControlPlaneMixin,
     SQLiteProvenanceControlPlaneMixin,
     SQLiteAuthControlPlaneMixin,

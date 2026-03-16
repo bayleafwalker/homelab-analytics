@@ -51,6 +51,7 @@ def _deserialize_transformation_package_row(
         handler_key=str(row["handler_key"]),
         version=_coerce_int_value(row["version"]),
         description=str(row["description"]) if row["description"] is not None else None,
+        archived=bool(row["archived"]),
         created_at=_coerce_datetime_value(row["created_at"]),
     )
 
@@ -64,6 +65,7 @@ def _deserialize_publication_definition_row(
         publication_key=str(row["publication_key"]),
         name=str(row["name"]),
         description=str(row["description"]) if row["description"] is not None else None,
+        archived=bool(row["archived"]),
         created_at=_coerce_datetime_value(row["created_at"]),
     )
 
@@ -123,6 +125,95 @@ class PostgresSourceContractCatalogMixin:
         row_factory: object = None,
     ) -> psycopg.Connection[object]:
         raise NotImplementedError
+
+    def _list_active_source_asset_ids_for_transformation_package(
+        self,
+        transformation_package_id: str,
+    ) -> list[str]:
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(
+                """
+                SELECT source_asset_id
+                FROM source_assets
+                WHERE transformation_package_id = %s
+                  AND archived = FALSE
+                ORDER BY source_asset_id
+                """,
+                (transformation_package_id,),
+            ).fetchall()
+        return [
+            str(_coerce_row_mapping(row)["source_asset_id"])
+            for row in rows
+        ]
+
+    def _list_active_publication_definition_ids_for_transformation_package(
+        self,
+        transformation_package_id: str,
+    ) -> list[str]:
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(
+                """
+                SELECT publication_definition_id
+                FROM publication_definitions
+                WHERE transformation_package_id = %s
+                  AND archived = FALSE
+                ORDER BY publication_definition_id
+                """,
+                (transformation_package_id,),
+            ).fetchall()
+        return [
+            str(_coerce_row_mapping(row)["publication_definition_id"])
+            for row in rows
+        ]
+
+    def _validate_publication_definition_dependencies(
+        self,
+        publication_definition: PublicationDefinitionCreate,
+        *,
+        extension_registry: ExtensionRegistry | None = None,
+        promotion_handler_registry=None,
+    ) -> None:
+        validate_publication_key(
+            publication_definition.publication_key,
+            extension_registry=extension_registry,
+        )
+        transformation_package = self.get_transformation_package(
+            publication_definition.transformation_package_id
+        )
+        if transformation_package.archived:
+            raise ValueError(
+                "Transformation package is archived: "
+                f"{publication_definition.transformation_package_id}"
+            )
+        if promotion_handler_registry is not None:
+            validate_publication_support(
+                publication_definition.publication_key,
+                handler_key=transformation_package.handler_key,
+                transformation_package_id=transformation_package.transformation_package_id,
+                extension_registry=extension_registry,
+                promotion_handler_registry=promotion_handler_registry,
+            )
+
+    def _validate_existing_publication_support_for_transformation_package(
+        self,
+        transformation_package_id: str,
+        *,
+        handler_key: str,
+        extension_registry: ExtensionRegistry | None = None,
+        promotion_handler_registry=None,
+    ) -> None:
+        if promotion_handler_registry is None:
+            return
+        for publication_definition in self.list_publication_definitions(
+            transformation_package_id=transformation_package_id,
+        ):
+            validate_publication_support(
+                publication_definition.publication_key,
+                handler_key=handler_key,
+                transformation_package_id=transformation_package_id,
+                extension_registry=extension_registry,
+                promotion_handler_registry=promotion_handler_registry,
+            )
 
     def create_source_system(self, source_system: SourceSystemCreate) -> SourceSystemRecord:
         with self._connect() as connection:
@@ -355,6 +446,7 @@ class PostgresSourceContractCatalogMixin:
         self,
         transformation_package: TransformationPackageCreate,
         *,
+        extension_registry: ExtensionRegistry | None = None,
         promotion_handler_registry=None,
     ) -> TransformationPackageRecord:
         if promotion_handler_registry is not None:
@@ -362,13 +454,19 @@ class PostgresSourceContractCatalogMixin:
                 transformation_package.handler_key,
                 promotion_handler_registry=promotion_handler_registry,
             )
+            self._validate_existing_publication_support_for_transformation_package(
+                transformation_package.transformation_package_id,
+                handler_key=transformation_package.handler_key,
+                extension_registry=extension_registry,
+                promotion_handler_registry=promotion_handler_registry,
+            )
         with self._connect() as connection:
             connection.execute(
                 """
                 INSERT INTO transformation_packages (
-                    transformation_package_id, name, handler_key, version, description, created_at
+                    transformation_package_id, name, handler_key, version, description, archived, created_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     transformation_package.transformation_package_id,
@@ -376,8 +474,54 @@ class PostgresSourceContractCatalogMixin:
                     transformation_package.handler_key,
                     transformation_package.version,
                     transformation_package.description,
+                    transformation_package.archived,
                     transformation_package.created_at,
                 ),
+            )
+        return self.get_transformation_package(transformation_package.transformation_package_id)
+
+    def update_transformation_package(
+        self,
+        transformation_package: TransformationPackageCreate,
+        *,
+        extension_registry: ExtensionRegistry | None = None,
+        promotion_handler_registry=None,
+    ) -> TransformationPackageRecord:
+        if promotion_handler_registry is not None:
+            validate_transformation_handler_key(
+                transformation_package.handler_key,
+                promotion_handler_registry=promotion_handler_registry,
+            )
+            self._validate_existing_publication_support_for_transformation_package(
+                transformation_package.transformation_package_id,
+                handler_key=transformation_package.handler_key,
+                extension_registry=extension_registry,
+                promotion_handler_registry=promotion_handler_registry,
+            )
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE transformation_packages
+                SET name = %s,
+                    handler_key = %s,
+                    version = %s,
+                    description = %s,
+                    archived = %s
+                WHERE transformation_package_id = %s
+                """,
+                (
+                    transformation_package.name,
+                    transformation_package.handler_key,
+                    transformation_package.version,
+                    transformation_package.description,
+                    transformation_package.archived,
+                    transformation_package.transformation_package_id,
+                ),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(
+                "Unknown transformation package: "
+                f"{transformation_package.transformation_package_id}"
             )
         return self.get_transformation_package(transformation_package.transformation_package_id)
 
@@ -385,7 +529,7 @@ class PostgresSourceContractCatalogMixin:
         with self._connect(row_factory=dict_row) as connection:
             row = connection.execute(
                 """
-                SELECT transformation_package_id, name, handler_key, version, description, created_at
+                SELECT transformation_package_id, name, handler_key, version, description, archived, created_at
                 FROM transformation_packages
                 WHERE transformation_package_id = %s
                 """,
@@ -395,19 +539,63 @@ class PostgresSourceContractCatalogMixin:
             raise KeyError(f"Unknown transformation package: {transformation_package_id}")
         return _deserialize_transformation_package_row(_coerce_row_mapping(row))
 
-    def list_transformation_packages(self) -> list[TransformationPackageRecord]:
+    def list_transformation_packages(
+        self,
+        *,
+        include_archived: bool = False,
+    ) -> list[TransformationPackageRecord]:
+        sql = """
+            SELECT transformation_package_id, name, handler_key, version, description, archived, created_at
+            FROM transformation_packages
+        """
+        params: tuple[object, ...] = ()
+        if not include_archived:
+            sql += " WHERE archived = FALSE"
+        sql += " ORDER BY created_at, transformation_package_id"
         with self._connect(row_factory=dict_row) as connection:
-            rows = connection.execute(
-                """
-                SELECT transformation_package_id, name, handler_key, version, description, created_at
-                FROM transformation_packages
-                ORDER BY created_at, transformation_package_id
-                """
-            ).fetchall()
+            rows = connection.execute(sql, params).fetchall()
         return [
             _deserialize_transformation_package_row(_coerce_row_mapping(row))
             for row in rows
         ]
+
+    def set_transformation_package_archived_state(
+        self,
+        transformation_package_id: str,
+        *,
+        archived: bool,
+    ) -> TransformationPackageRecord:
+        if archived:
+            source_asset_ids = self._list_active_source_asset_ids_for_transformation_package(
+                transformation_package_id
+            )
+            if source_asset_ids:
+                raise ValueError(
+                    "Transformation package is referenced by active source assets: "
+                    + ", ".join(source_asset_ids)
+                )
+            publication_definition_ids = (
+                self._list_active_publication_definition_ids_for_transformation_package(
+                    transformation_package_id
+                )
+            )
+            if publication_definition_ids:
+                raise ValueError(
+                    "Transformation package is referenced by active publication definitions: "
+                    + ", ".join(publication_definition_ids)
+                )
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE transformation_packages
+                SET archived = %s
+                WHERE transformation_package_id = %s
+                """,
+                (archived, transformation_package_id),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown transformation package: {transformation_package_id}")
+        return self.get_transformation_package(transformation_package_id)
 
     def create_publication_definition(
         self,
@@ -416,28 +604,18 @@ class PostgresSourceContractCatalogMixin:
         extension_registry: ExtensionRegistry | None = None,
         promotion_handler_registry=None,
     ) -> PublicationDefinitionRecord:
-        validate_publication_key(
-            publication_definition.publication_key,
+        self._validate_publication_definition_dependencies(
+            publication_definition,
             extension_registry=extension_registry,
+            promotion_handler_registry=promotion_handler_registry,
         )
-        if promotion_handler_registry is not None:
-            transformation_package = self.get_transformation_package(
-                publication_definition.transformation_package_id
-            )
-            validate_publication_support(
-                publication_definition.publication_key,
-                handler_key=transformation_package.handler_key,
-                transformation_package_id=transformation_package.transformation_package_id,
-                extension_registry=extension_registry,
-                promotion_handler_registry=promotion_handler_registry,
-            )
         with self._connect() as connection:
             connection.execute(
                 """
                 INSERT INTO publication_definitions (
-                    publication_definition_id, transformation_package_id, publication_key, name, description, created_at
+                    publication_definition_id, transformation_package_id, publication_key, name, description, archived, created_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     publication_definition.publication_definition_id,
@@ -445,8 +623,48 @@ class PostgresSourceContractCatalogMixin:
                     publication_definition.publication_key,
                     publication_definition.name,
                     publication_definition.description,
+                    publication_definition.archived,
                     publication_definition.created_at,
                 ),
+            )
+        return self.get_publication_definition(publication_definition.publication_definition_id)
+
+    def update_publication_definition(
+        self,
+        publication_definition: PublicationDefinitionCreate,
+        *,
+        extension_registry: ExtensionRegistry | None = None,
+        promotion_handler_registry=None,
+    ) -> PublicationDefinitionRecord:
+        self._validate_publication_definition_dependencies(
+            publication_definition,
+            extension_registry=extension_registry,
+            promotion_handler_registry=promotion_handler_registry,
+        )
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE publication_definitions
+                SET transformation_package_id = %s,
+                    publication_key = %s,
+                    name = %s,
+                    description = %s,
+                    archived = %s
+                WHERE publication_definition_id = %s
+                """,
+                (
+                    publication_definition.transformation_package_id,
+                    publication_definition.publication_key,
+                    publication_definition.name,
+                    publication_definition.description,
+                    publication_definition.archived,
+                    publication_definition.publication_definition_id,
+                ),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(
+                "Unknown publication definition: "
+                f"{publication_definition.publication_definition_id}"
             )
         return self.get_publication_definition(publication_definition.publication_definition_id)
 
@@ -454,7 +672,7 @@ class PostgresSourceContractCatalogMixin:
         with self._connect(row_factory=dict_row) as connection:
             row = connection.execute(
                 """
-                SELECT publication_definition_id, transformation_package_id, publication_key, name, description, created_at
+                SELECT publication_definition_id, transformation_package_id, publication_key, name, description, archived, created_at
                 FROM publication_definitions
                 WHERE publication_definition_id = %s
                 """,
@@ -468,15 +686,21 @@ class PostgresSourceContractCatalogMixin:
         self,
         *,
         transformation_package_id: str | None = None,
+        include_archived: bool = False,
     ) -> list[PublicationDefinitionRecord]:
         sql = """
-            SELECT publication_definition_id, transformation_package_id, publication_key, name, description, created_at
+            SELECT publication_definition_id, transformation_package_id, publication_key, name, description, archived, created_at
             FROM publication_definitions
         """
         params: tuple[object, ...] = ()
+        conditions: list[str] = []
         if transformation_package_id is not None:
-            sql += " WHERE transformation_package_id = %s"
-            params = (transformation_package_id,)
+            conditions.append("transformation_package_id = %s")
+            params += (transformation_package_id,)
+        if not include_archived:
+            conditions.append("archived = FALSE")
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
         sql += " ORDER BY created_at, publication_definition_id"
         with self._connect(row_factory=dict_row) as connection:
             rows = connection.execute(sql, params).fetchall()
@@ -484,3 +708,34 @@ class PostgresSourceContractCatalogMixin:
             _deserialize_publication_definition_row(_coerce_row_mapping(row))
             for row in rows
         ]
+
+    def set_publication_definition_archived_state(
+        self,
+        publication_definition_id: str,
+        *,
+        archived: bool,
+    ) -> PublicationDefinitionRecord:
+        if not archived:
+            publication_definition = self.get_publication_definition(
+                publication_definition_id
+            )
+            transformation_package = self.get_transformation_package(
+                publication_definition.transformation_package_id
+            )
+            if transformation_package.archived:
+                raise ValueError(
+                    "Transformation package is archived: "
+                    f"{publication_definition.transformation_package_id}"
+                )
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE publication_definitions
+                SET archived = %s
+                WHERE publication_definition_id = %s
+                """,
+                (archived, publication_definition_id),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(f"Unknown publication definition: {publication_definition_id}")
+        return self.get_publication_definition(publication_definition_id)

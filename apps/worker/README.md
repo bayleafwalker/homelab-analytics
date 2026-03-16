@@ -10,5 +10,6 @@ Current foundation:
 - watched-folder polling commands for `process-account-transactions-inbox` and `watch-account-transactions-inbox`, now backed by a bootstrap config-driven ingestion definition for compatibility
 - successful manual and configured built-in ingests auto-promote through the shared promotion flow when the analytics store is configured
 - source-asset processing resolves transformation packages and publication definitions from persisted configuration
+- extension-registry CLI commands cover source lifecycle, discovered handler/publication/function listing, and archived-aware transformation-package/publication-definition catalog inspection
 - subscription and contract-price domains have first-class ingest and report commands
 - `promote-run` is retry-safe and refreshes marts without duplicating already promoted fact rows

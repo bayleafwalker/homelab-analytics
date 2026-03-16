@@ -232,6 +232,25 @@ The platform exposes its capabilities through three application workloads: a JSO
 
 ---
 
+### APP-13: External registry administration
+
+**Description:** Admin API and web UI manage external registry sources, synced revisions, activation state, and discovered exports for external pipelines and custom functions.
+
+**Rationale:** If external code remains environment-only, operators cannot safely onboard or rotate GitHub repositories and mounted custom folders through the product's control plane.
+
+**Phase:** 3
+**Status:** in-progress (admin API now supports external registry source CRUD, path- and Git-source sync, revision listing, explicit activation, discovered function listing, transformation-handler discovery, publication-key discovery, and update/archive flows for transformation packages plus publication definitions; worker CLI exposes the same lifecycle plus function listing and archived-aware package/publication inspection for operational use; and the admin web catalog now supports creating, editing, syncing, archiving, and activating external registry sources while surfacing loaded custom functions, handler keys, publication keys, transformation packages, and publication definitions for configuration binding and archive/restore workflows)
+
+**Acceptance criteria:**
+- Admin API supports create, update, list, archive, sync, validate, and activate operations for external registry sources.
+- Admin UI shows source status, resolved revision, validation errors, and discovered extension/function exports before activation.
+- Activation is explicit and auditable; the UI does not imply that saving a repository immediately hot-loads code into running requests.
+- Existing config flows can browse discovered handler, publication, and function keys from active registry revisions.
+
+**Dependencies:** APP-04, APP-08, PLT-19, SEC-05
+
+---
+
 ## Traceability
 
 | Requirement | Implementation module | Test file |
@@ -248,3 +267,4 @@ The platform exposes its capabilities through three application workloads: a JSO
 | APP-10 | `apps/web/frontend/app/control/execution/page.js`, `apps/web/frontend/app/control/execution/schedule-dispatches/route.js` | `tests/test_web_auth.py`, `tests/test_architecture_contract.py`, `tests/test_control_plane_api_app.py` |
 | APP-11 | `apps/worker/main.py`, `apps/worker/runtime.py`, `apps/worker/command_handlers.py`, `apps/worker/control_plane.py`, `apps/worker/serialization.py`, `packages/pipelines/config_preflight.py` | `tests/test_worker_cli.py`, `tests/test_control_plane_worker_cli.py`, `tests/test_config_preflight.py`, `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py` |
 | APP-12 | `apps/api/app.py`, `apps/api/support.py`, `apps/api/runtime_state.py`, `apps/web/frontend/app/health/route.js` | `tests/test_api_app.py`, `tests/test_web_app.py` |
+| APP-13 | `apps/api/app.py`, `apps/api/models.py`, `apps/api/routes/config_routes.py`, `apps/worker/runtime.py`, `apps/worker/command_parser.py`, `apps/worker/command_handlers.py`, `packages/shared/function_registry.py`, `packages/pipelines/configured_csv_ingestion.py`, `packages/pipelines/promotion_registry.py`, `apps/web/frontend/app/control/catalog/page.js`, `apps/web/frontend/app/control/catalog/transformation-packages/route.js`, `apps/web/frontend/app/control/catalog/publication-definitions/route.js`, `apps/web/frontend/components/external-registry-panel.js`, `apps/web/frontend/components/function-catalog-panel.js`, `apps/web/frontend/components/transformation-catalog-panel.js`, `apps/web/frontend/lib/config-spec.js`, `apps/web/frontend/lib/backend.js` | `tests/test_api_app.py`, `tests/test_api_main.py`, `tests/test_worker_cli.py`, `tests/test_configured_csv_ingestion.py`, `tests/test_control_plane_worker_cli.py`, `tests/test_web_auth.py` |

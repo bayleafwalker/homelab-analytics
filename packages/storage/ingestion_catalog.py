@@ -67,6 +67,7 @@ class ColumnMappingRule:
     target_column: str
     source_column: str | None = None
     default_value: str | None = None
+    function_key: str | None = None
 
 
 @dataclass(frozen=True)
@@ -128,6 +129,7 @@ class TransformationPackageCreate:
     handler_key: str
     version: int
     description: str | None = None
+    archived: bool = False
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -138,6 +140,7 @@ class TransformationPackageRecord:
     handler_key: str
     version: int
     description: str | None
+    archived: bool
     created_at: datetime
 
 
@@ -148,6 +151,7 @@ class PublicationDefinitionCreate:
     publication_key: str
     name: str
     description: str | None = None
+    archived: bool = False
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -158,6 +162,7 @@ class PublicationDefinitionRecord:
     publication_key: str
     name: str
     description: str | None
+    archived: bool
     created_at: datetime
 
 
@@ -248,6 +253,7 @@ def _deserialize_rules(value: str) -> tuple[ColumnMappingRule, ...]:
             target_column=rule["target_column"],
             source_column=rule.get("source_column"),
             default_value=rule.get("default_value"),
+            function_key=rule.get("function_key"),
         )
         for rule in json.loads(value)
     )
@@ -291,6 +297,10 @@ def _validate_mapping_rules(rules: tuple[ColumnMappingRule, ...]) -> None:
             raise ValueError(
                 f"Mapping rule must define source_column or default_value for target column: {rule.target_column}"
             )
+        if rule.function_key is not None and not rule.function_key.strip():
+            raise ValueError(
+                f"Mapping rule function_key must not be empty for target column: {rule.target_column}"
+            )
         seen_targets.add(rule.target_column)
 
 
@@ -331,6 +341,56 @@ def allowed_publication_keys(
             for publication in extension_registry.list_reporting_publications()
         )
     return allowed_keys
+
+
+def serialize_publication_keys(
+    *,
+    extension_registry: ExtensionRegistry | None = None,
+    promotion_handler_registry=None,
+) -> list[dict[str, object]]:
+    from packages.pipelines.promotion_registry import get_default_promotion_handler_registry
+
+    registry = promotion_handler_registry or get_default_promotion_handler_registry()
+    publication_map: dict[str, dict[str, set[str]]] = {}
+    for handler in registry.list():
+        for publication_key in handler.supported_publications:
+            entry = publication_map.setdefault(
+                publication_key,
+                {
+                    "source_kinds": set(),
+                    "supported_handlers": set(),
+                    "default_handlers": set(),
+                    "reporting_extensions": set(),
+                },
+            )
+            entry["source_kinds"].add("transformation_handler")
+            entry["supported_handlers"].add(handler.handler_key)
+            if publication_key in handler.default_publications:
+                entry["default_handlers"].add(handler.handler_key)
+    if extension_registry is not None:
+        for extension in extension_registry.list_extensions("reporting"):
+            for publication in extension.publication_relations:
+                entry = publication_map.setdefault(
+                    publication.relation_name,
+                    {
+                        "source_kinds": set(),
+                        "supported_handlers": set(),
+                        "default_handlers": set(),
+                        "reporting_extensions": set(),
+                    },
+                )
+                entry["source_kinds"].add("reporting_extension")
+                entry["reporting_extensions"].add(extension.key)
+    return [
+        {
+            "publication_key": publication_key,
+            "source_kinds": sorted(values["source_kinds"]),
+            "supported_handlers": sorted(values["supported_handlers"]),
+            "default_handlers": sorted(values["default_handlers"]),
+            "reporting_extensions": sorted(values["reporting_extensions"]),
+        }
+        for publication_key, values in sorted(publication_map.items())
+    ]
 
 
 def allowed_transformation_handler_keys(*, promotion_handler_registry=None) -> set[str]:

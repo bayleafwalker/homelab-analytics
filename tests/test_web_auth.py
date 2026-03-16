@@ -33,6 +33,16 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     control_catalog_page = (
         FRONTEND_ROOT / "app" / "control" / "catalog" / "page.js"
     ).read_text()
+    external_registry_panel = (
+        FRONTEND_ROOT / "components" / "external-registry-panel.js"
+    ).read_text()
+    function_catalog_panel = (
+        FRONTEND_ROOT / "components" / "function-catalog-panel.js"
+    ).read_text()
+    transformation_catalog_panel = (
+        FRONTEND_ROOT / "components" / "transformation-catalog-panel.js"
+    ).read_text()
+    config_spec = (FRONTEND_ROOT / "lib" / "config-spec.js").read_text()
     dataset_contract_route = (
         FRONTEND_ROOT / "app" / "control" / "catalog" / "dataset-contracts" / "route.js"
     ).read_text()
@@ -123,6 +133,107 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
         / "source-assets"
         / "[sourceAssetId]"
         / "delete"
+        / "route.js"
+    ).read_text()
+    extension_registry_source_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "extension-registry-sources"
+        / "route.js"
+    ).read_text()
+    extension_registry_source_update_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "extension-registry-sources"
+        / "[extensionRegistrySourceId]"
+        / "route.js"
+    ).read_text()
+    extension_registry_source_archive_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "extension-registry-sources"
+        / "[extensionRegistrySourceId]"
+        / "archive"
+        / "route.js"
+    ).read_text()
+    extension_registry_source_sync_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "extension-registry-sources"
+        / "[extensionRegistrySourceId]"
+        / "sync"
+        / "route.js"
+    ).read_text()
+    extension_registry_source_activate_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "extension-registry-sources"
+        / "[extensionRegistrySourceId]"
+        / "activate"
+        / "route.js"
+    ).read_text()
+    transformation_package_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "transformation-packages"
+        / "route.js"
+    ).read_text()
+    transformation_package_update_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "transformation-packages"
+        / "[transformationPackageId]"
+        / "route.js"
+    ).read_text()
+    transformation_package_archive_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "transformation-packages"
+        / "[transformationPackageId]"
+        / "archive"
+        / "route.js"
+    ).read_text()
+    publication_definition_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "publication-definitions"
+        / "route.js"
+    ).read_text()
+    publication_definition_update_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "publication-definitions"
+        / "[publicationDefinitionId]"
+        / "route.js"
+    ).read_text()
+    publication_definition_archive_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "control"
+        / "catalog"
+        / "publication-definitions"
+        / "[publicationDefinitionId]"
+        / "archive"
         / "route.js"
     ).read_text()
     ingestion_definition_route = (
@@ -271,15 +382,38 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert "getOperationalSummary" in control_catalog_page
     assert "getDatasetContractDiff" in control_catalog_page
     assert "getColumnMappingDiff" in control_catalog_page
+    assert "getExtensionRegistrySources" in control_catalog_page
+    assert "getExtensionRegistryRevisions" in control_catalog_page
+    assert "getExtensionRegistryActivations" in control_catalog_page
+    assert "getFunctions" in control_catalog_page
+    assert "getTransformationHandlers" in control_catalog_page
+    assert "getPublicationKeys" in control_catalog_page
+    assert "getPublicationDefinitions" in control_catalog_page
     assert "MappingPreviewPanel" in control_catalog_page
     assert "Create dataset contract version" in control_catalog_page
     assert "Create column mapping version" in control_catalog_page
+    assert "ExternalRegistryPanel" in control_catalog_page
+    assert "FunctionCatalogPanel" in control_catalog_page
+    assert "TransformationCatalogPanel" in control_catalog_page
     assert "parseColumnsSpec" in dataset_contract_route
     assert "/config/dataset-contracts" in dataset_contract_route
     assert "/config/dataset-contracts/${params.datasetContractId}/archive" in dataset_contract_archive_route
     assert "parseRulesSpec" in column_mapping_route
+    assert "function_key" in config_spec
     assert "/config/column-mappings" in column_mapping_route
     assert "/config/column-mappings/${params.columnMappingId}/archive" in column_mapping_archive_route
+    assert "Create external registry source" in external_registry_panel
+    assert "External registry sources" in external_registry_panel
+    assert "Sync and activate" in external_registry_panel
+    assert "Activate revision" in external_registry_panel
+    assert "Custom functions" in function_catalog_panel
+    assert "function_key" in function_catalog_panel
+    assert "Create transformation package" in transformation_catalog_panel
+    assert "Create publication definition" in transformation_catalog_panel
+    assert "Available transformation handlers" in transformation_catalog_panel
+    assert "Available publication keys" in transformation_catalog_panel
+    assert "Archive package" in transformation_catalog_panel
+    assert "Archive publication" in transformation_catalog_panel
     assert 'backendRequest("/config/column-mappings/preview"' in preview_route
     assert "getIngestionDefinitions" in control_execution_page
     assert "getExecutionSchedules" in control_execution_page
@@ -303,6 +437,17 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert 'backendRequest(`/config/source-assets/${params.sourceAssetId}`' in source_asset_update_route
     assert "/config/source-assets/${params.sourceAssetId}/archive" in source_asset_archive_route
     assert "/config/source-assets/${params.sourceAssetId}" in source_asset_delete_route
+    assert 'backendRequest("/config/extension-registry-sources"' in extension_registry_source_route
+    assert "/config/extension-registry-sources/${params.extensionRegistrySourceId}" in extension_registry_source_update_route
+    assert "/config/extension-registry-sources/${params.extensionRegistrySourceId}/archive" in extension_registry_source_archive_route
+    assert "/config/extension-registry-sources/${params.extensionRegistrySourceId}/sync" in extension_registry_source_sync_route
+    assert "/config/extension-registry-sources/${params.extensionRegistrySourceId}/activate" in extension_registry_source_activate_route
+    assert 'backendRequest("/config/transformation-packages"' in transformation_package_route
+    assert "/config/transformation-packages/${params.transformationPackageId}" in transformation_package_update_route
+    assert "/config/transformation-packages/${params.transformationPackageId}/archive" in transformation_package_archive_route
+    assert 'backendRequest("/config/publication-definitions"' in publication_definition_route
+    assert "/config/publication-definitions/${params.publicationDefinitionId}" in publication_definition_update_route
+    assert "/config/publication-definitions/${params.publicationDefinitionId}/archive" in publication_definition_archive_route
     assert 'backendRequest("/config/ingestion-definitions"' in ingestion_definition_route
     assert "/config/ingestion-definitions/${params.ingestionDefinitionId}" in ingestion_definition_update_route
     assert "/config/ingestion-definitions/${params.ingestionDefinitionId}/archive" in ingestion_definition_archive_route
@@ -358,6 +503,13 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getSourceAssets" in backend_source
     assert "getDatasetContracts" in backend_source
     assert "getColumnMappings" in backend_source
+    assert "getTransformationHandlers" in backend_source
+    assert "getPublicationKeys" in backend_source
+    assert "getExtensionRegistrySources" in backend_source
+    assert "getExtensionRegistryRevisions" in backend_source
+    assert "getExtensionRegistryActivations" in backend_source
+    assert "getFunctions" in backend_source
+    assert "getPublicationDefinitions" in backend_source
     assert "getIngestionDefinitions" in backend_source
     assert "getExecutionSchedules" in backend_source
     assert "getServiceTokens" in backend_source
@@ -376,6 +528,13 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getSourceSystems" in control_catalog_source
     assert "getDatasetContracts({ includeArchived: true })" in control_catalog_source
     assert "getColumnMappings({ includeArchived: true })" in control_catalog_source
+    assert "getTransformationHandlers()" in control_catalog_source
+    assert "getPublicationKeys()" in control_catalog_source
+    assert "getExtensionRegistrySources({ includeArchived: true })" in control_catalog_source
+    assert "getExtensionRegistryRevisions()" in control_catalog_source
+    assert "getExtensionRegistryActivations()" in control_catalog_source
+    assert "getFunctions()" in control_catalog_source
+    assert "getPublicationDefinitions()" in control_catalog_source
     assert "getOperationalSummary" in control_catalog_source
     assert "getSourceAssets({ includeArchived: true })" in upload_source
     assert "backendRequest(backendPath" in upload_route_helper

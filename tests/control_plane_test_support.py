@@ -23,6 +23,7 @@ from packages.storage.control_plane import (
     ControlPlaneStore,
     ExecutionScheduleCreate,
     ExecutionStore,
+    ExternalRegistryStore,
     IngestionCatalogStore,
     PublicationAuditCreate,
     PublicationAuditStore,
@@ -32,14 +33,20 @@ from packages.storage.control_plane import (
     SourceRegistryStore,
     WorkerHeartbeatCreate,
 )
+from packages.storage.external_registry_catalog import (
+    ExtensionRegistryRevisionCreate,
+    ExtensionRegistrySourceCreate,
+)
 from packages.storage.ingestion_config import (
     ColumnMappingCreate,
     ColumnMappingRule,
     DatasetColumnConfig,
     DatasetContractConfigCreate,
     IngestionDefinitionCreate,
+    PublicationDefinitionCreate,
     SourceAssetCreate,
     SourceSystemCreate,
+    TransformationPackageCreate,
 )
 
 FIXED_CREATED_AT = datetime(2026, 1, 1, tzinfo=UTC)
@@ -51,6 +58,7 @@ def assert_control_plane_protocol_conformance(store: object) -> None:
     assert isinstance(store, SourceRegistryStore)
     assert isinstance(store, ContractCatalogStore)
     assert isinstance(store, AssetCatalogStore)
+    assert isinstance(store, ExternalRegistryStore)
     assert isinstance(store, ExecutionStore)
     assert isinstance(store, SourceLineageStore)
     assert isinstance(store, PublicationAuditStore)
@@ -198,8 +206,50 @@ def seed_source_asset_graph(
     }
 
 
+def seed_extension_registry_graph(store: ControlPlaneStore) -> dict[str, Any]:
+    source = store.create_extension_registry_source(
+        ExtensionRegistrySourceCreate(
+            extension_registry_source_id="household_custom_modules",
+            name="Household Custom Modules",
+            source_kind="path",
+            location="/srv/homelab/custom-modules",
+            subdirectory="extensions",
+            enabled=True,
+            created_at=FIXED_CREATED_AT,
+        )
+    )
+    revision = store.create_extension_registry_revision(
+        ExtensionRegistryRevisionCreate(
+            extension_registry_revision_id="extrev-001",
+            extension_registry_source_id=source.extension_registry_source_id,
+            resolved_ref="/srv/homelab/custom-modules/extensions",
+            runtime_path="/srv/homelab/custom-modules/extensions",
+            manifest_path="/srv/homelab/custom-modules/extensions/homelab-analytics.registry.json",
+            manifest_digest="manifest-digest-001",
+            manifest_version=1,
+            content_fingerprint="fingerprint-001",
+            import_paths=(".",),
+            extension_modules=("household.extensions",),
+            function_modules=("household.functions",),
+            sync_status="validated",
+            created_at=FIXED_CREATED_AT,
+        )
+    )
+    activation = store.activate_extension_registry_revision(
+        extension_registry_source_id=source.extension_registry_source_id,
+        extension_registry_revision_id=revision.extension_registry_revision_id,
+        activated_at=FIXED_CREATED_AT,
+    )
+    return {
+        "extension_registry_source": source,
+        "extension_registry_revision": revision,
+        "extension_registry_activation": activation,
+    }
+
+
 def assert_control_plane_store_round_trip(store: ControlPlaneStore) -> None:
     seeded = seed_source_asset_graph(store)
+    registry_seeded = seed_extension_registry_graph(store)
 
     assert (
         store.get_source_system(seeded["source_system"].source_system_id)
@@ -242,6 +292,24 @@ def assert_control_plane_store_round_trip(store: ControlPlaneStore) -> None:
         store.get_execution_schedule("bank_partner_poll").target_ref
         == seeded["ingestion_definition"].ingestion_definition_id
     )
+    assert (
+        store.get_extension_registry_source(
+            registry_seeded["extension_registry_source"].extension_registry_source_id
+        )
+        == registry_seeded["extension_registry_source"]
+    )
+    assert (
+        store.get_extension_registry_revision(
+            registry_seeded["extension_registry_revision"].extension_registry_revision_id
+        )
+        == registry_seeded["extension_registry_revision"]
+    )
+    assert (
+        store.get_extension_registry_activation(
+            registry_seeded["extension_registry_source"].extension_registry_source_id
+        )
+        == registry_seeded["extension_registry_activation"]
+    )
     assert [
         record.schedule_id for record in store.list_execution_schedules(enabled_only=True)
     ] == ["bank_partner_poll"]
@@ -250,6 +318,21 @@ def assert_control_plane_store_round_trip(store: ControlPlaneStore) -> None:
     assert any(
         record.source_asset_id == seeded["source_asset"].source_asset_id
         for record in snapshot.source_assets
+    )
+    assert any(
+        record.extension_registry_source_id
+        == registry_seeded["extension_registry_source"].extension_registry_source_id
+        for record in snapshot.extension_registry_sources
+    )
+    assert any(
+        record.extension_registry_revision_id
+        == registry_seeded["extension_registry_revision"].extension_registry_revision_id
+        for record in snapshot.extension_registry_revisions
+    )
+    assert any(
+        record.extension_registry_source_id
+        == registry_seeded["extension_registry_activation"].extension_registry_source_id
+        for record in snapshot.extension_registry_activations
     )
     assert any(record.schedule_id == "bank_partner_poll" for record in snapshot.execution_schedules)
     assert any(record.lineage_id == "lineage-001" for record in snapshot.source_lineage)
@@ -523,6 +606,123 @@ def assert_control_plane_store_update_behaviour(store: ControlPlaneStore) -> Non
         archived=False,
     )
     assert restored_mapping.archived is False
+
+    custom_transformation_package = store.create_transformation_package(
+        TransformationPackageCreate(
+            transformation_package_id="custom_household_costs",
+            name="Custom household costs",
+            handler_key="custom.household_costs",
+            version=1,
+            description="Custom household cost transforms.",
+            created_at=FIXED_CREATED_AT,
+        )
+    )
+    updated_transformation_package = store.update_transformation_package(
+        TransformationPackageCreate(
+            transformation_package_id=custom_transformation_package.transformation_package_id,
+            name="Custom household costs v2",
+            handler_key="custom.household_costs.v2",
+            version=2,
+            description="Updated custom household cost transforms.",
+            archived=custom_transformation_package.archived,
+            created_at=custom_transformation_package.created_at,
+        )
+    )
+    assert updated_transformation_package.version == 2
+    assert updated_transformation_package.archived is False
+
+    custom_publication_definition = store.create_publication_definition(
+        PublicationDefinitionCreate(
+            publication_definition_id="custom_household_costs_monthly",
+            transformation_package_id=updated_transformation_package.transformation_package_id,
+            publication_key="mart_monthly_cashflow",
+            name="Custom household costs monthly",
+            description="Custom household costs publication.",
+            created_at=FIXED_CREATED_AT,
+        )
+    )
+    updated_publication_definition = store.update_publication_definition(
+        PublicationDefinitionCreate(
+            publication_definition_id=(
+                custom_publication_definition.publication_definition_id
+            ),
+            transformation_package_id=(
+                custom_publication_definition.transformation_package_id
+            ),
+            publication_key=custom_publication_definition.publication_key,
+            name="Custom household costs monthly v2",
+            description="Updated custom household costs publication.",
+            archived=custom_publication_definition.archived,
+            created_at=custom_publication_definition.created_at,
+        )
+    )
+    assert updated_publication_definition.name == "Custom household costs monthly v2"
+    assert updated_publication_definition.archived is False
+
+    try:
+        store.set_transformation_package_archived_state(
+            updated_transformation_package.transformation_package_id,
+            archived=True,
+        )
+    except ValueError as exc:
+        assert "publication definitions" in str(exc)
+    else:
+        raise AssertionError(
+            "Expected active publication definitions to block transformation package archival"
+        )
+
+    archived_publication_definition = store.set_publication_definition_archived_state(
+        updated_publication_definition.publication_definition_id,
+        archived=True,
+    )
+    assert archived_publication_definition.archived is True
+    assert (
+        store.list_publication_definitions(
+            transformation_package_id=updated_transformation_package.transformation_package_id
+        )
+        == []
+    )
+    assert {
+        record.publication_definition_id
+        for record in store.list_publication_definitions(include_archived=True)
+    } >= {archived_publication_definition.publication_definition_id}
+
+    archived_transformation_package = store.set_transformation_package_archived_state(
+        updated_transformation_package.transformation_package_id,
+        archived=True,
+    )
+    assert archived_transformation_package.archived is True
+    assert {
+        record.transformation_package_id
+        for record in store.list_transformation_packages()
+    }.isdisjoint({archived_transformation_package.transformation_package_id})
+    assert {
+        record.transformation_package_id
+        for record in store.list_transformation_packages(include_archived=True)
+    } >= {archived_transformation_package.transformation_package_id}
+
+    try:
+        store.set_publication_definition_archived_state(
+            archived_publication_definition.publication_definition_id,
+            archived=False,
+        )
+    except ValueError as exc:
+        assert "archived" in str(exc)
+    else:
+        raise AssertionError(
+            "Expected archived transformation packages to block publication restoration"
+        )
+
+    restored_transformation_package = store.set_transformation_package_archived_state(
+        archived_transformation_package.transformation_package_id,
+        archived=False,
+    )
+    assert restored_transformation_package.archived is False
+    restored_publication_definition = store.set_publication_definition_archived_state(
+        archived_publication_definition.publication_definition_id,
+        archived=False,
+    )
+    assert restored_publication_definition.archived is False
 
     updated_source_system = store.update_source_system(
         SourceSystemCreate(

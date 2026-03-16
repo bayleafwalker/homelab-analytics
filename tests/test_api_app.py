@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import unittest
 from datetime import date
 from pathlib import Path
@@ -25,6 +26,7 @@ from packages.shared.extensions import (
     LayerExtension,
     build_builtin_extension_registry,
 )
+from packages.shared.function_registry import FunctionRegistry, RegisteredFunction
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.ingestion_config import (
     ColumnMappingCreate,
@@ -36,6 +38,7 @@ from packages.storage.ingestion_config import (
     SourceSystemCreate,
 )
 from packages.storage.run_metadata import RunMetadataRepository
+from tests.external_registry_test_support import create_git_extension_repository
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
@@ -302,6 +305,175 @@ class ApiAppTests(unittest.TestCase):
                     for extension in response.json()["extensions"]["reporting"]
                 )
             )
+
+    def test_functions_endpoint_returns_loaded_registry(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            function_registry = FunctionRegistry()
+            function_registry.register(
+                RegisteredFunction(
+                    function_key="normalize_counterparty",
+                    kind="column_mapping_value",
+                    description="Normalize mapped counterparty values.",
+                    module="tests.test_api_app",
+                    source="test",
+                    handler=lambda *, value, **_: value.upper(),
+                )
+            )
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs.db"
+                        ),
+                    ),
+                    function_registry=function_registry,
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            response = client.get("/functions")
+
+            self.assertEqual(200, response.status_code)
+            self.assertEqual(
+                "normalize_counterparty",
+                response.json()["functions"]["column_mapping_value"][0]["function_key"],
+            )
+
+    def test_transformation_handler_and_publication_key_endpoints_return_loaded_options(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            registry = build_builtin_extension_registry()
+            registry.register(
+                LayerExtension(
+                    layer="reporting",
+                    key="budget_current_publication",
+                    kind="mart",
+                    description="Published current budget relation for config tests.",
+                    module="tests.budget_current_publication",
+                    source="tests",
+                    data_access="published",
+                    publication_relations=(
+                        ExtensionPublication(
+                            relation_name="mart_budget_current",
+                            columns=(("budget_month", "VARCHAR NOT NULL"),),
+                            source_query=(
+                                "SELECT booking_month AS budget_month FROM mart_monthly_cashflow"
+                            ),
+                            order_by="budget_month",
+                        ),
+                    ),
+                )
+            )
+            promotion_handler_registry = PromotionHandlerRegistry()
+            for handler in get_default_promotion_handler_registry().list():
+                promotion_handler_registry.register(handler)
+            promotion_handler_registry.register(
+                PromotionHandler(
+                    handler_key="custom_budget_transform",
+                    default_publications=("mart_budget_current",),
+                    supported_publications=("mart_budget_current",),
+                    runner=lambda runtime: PromotionResult(
+                        run_id=runtime.run_id,
+                        facts_loaded=0,
+                        marts_refreshed=["mart_budget_current"],
+                        publication_keys=["mart_budget_current"],
+                    ),
+                )
+            )
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=temp_root / "landing",
+                        metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
+                    ),
+                    extension_registry=registry,
+                    promotion_handler_registry=promotion_handler_registry,
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            handler_response = client.get("/config/transformation-handlers")
+            self.assertEqual(200, handler_response.status_code)
+            self.assertTrue(
+                any(
+                    handler["handler_key"] == "custom_budget_transform"
+                    and handler["default_publications"] == ["mart_budget_current"]
+                    and handler["supported_publications"] == ["mart_budget_current"]
+                    for handler in handler_response.json()["transformation_handlers"]
+                )
+            )
+
+            publication_response = client.get("/config/publication-keys")
+            self.assertEqual(200, publication_response.status_code)
+            self.assertTrue(
+                any(
+                    publication["publication_key"] == "mart_budget_current"
+                    and publication["supported_handlers"] == ["custom_budget_transform"]
+                    and publication["reporting_extensions"]
+                    == ["budget_current_publication"]
+                    for publication in publication_response.json()["publication_keys"]
+                )
+            )
+
+    def test_column_mapping_route_rejects_unknown_function_keys(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            repository = IngestionConfigRepository(temp_root / "config.db")
+            repository.create_source_system(
+                SourceSystemCreate(
+                    source_system_id="bank_partner_export",
+                    name="Bank Partner Export",
+                    source_type="file-drop",
+                    transport="filesystem",
+                    schedule_mode="manual",
+                )
+            )
+            repository.create_dataset_contract(
+                DatasetContractConfigCreate(
+                    dataset_contract_id="household_account_transactions_v1",
+                    dataset_name="household_account_transactions",
+                    version=1,
+                    allow_extra_columns=False,
+                    columns=[
+                        DatasetColumnConfig("booked_at", ColumnType.DATE),
+                        DatasetColumnConfig("account_id", ColumnType.STRING),
+                    ],
+                )
+            )
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=temp_root / "landing",
+                        metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
+                    ),
+                    config_repository=repository,
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            response = client.post(
+                "/config/column-mappings",
+                json={
+                    "column_mapping_id": "bank_partner_export_v1",
+                    "source_system_id": "bank_partner_export",
+                    "dataset_contract_id": "household_account_transactions_v1",
+                    "version": 1,
+                    "rules": [
+                        {"target_column": "booked_at", "source_column": "booking_date"},
+                        {
+                            "target_column": "account_id",
+                            "source_column": "account_number",
+                            "function_key": "missing_normalizer",
+                        },
+                    ],
+                },
+            )
+
+            self.assertEqual(400, response.status_code)
+            self.assertIn("Unknown function key", response.json()["error"])
 
     def test_generic_transformation_and_reporting_extension_endpoints_execute(
         self,
@@ -666,6 +838,161 @@ class ApiAppTests(unittest.TestCase):
                 ingest_response.json()["run"]["dataset_name"],
             )
 
+    def test_extension_registry_source_routes_create_sync_and_activate_path_sources(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            extension_root = temp_root / "custom-extension"
+            extension_root.mkdir(parents=True, exist_ok=True)
+            (extension_root / "custom_extension.py").write_text(
+                "\n".join(
+                    [
+                        "from packages.shared.extensions import LayerExtension",
+                        "",
+                        "def register_extensions(registry):",
+                        "    registry.register(",
+                        "        LayerExtension(",
+                        '            layer=\"reporting\",',
+                        '            key=\"custom_household_projection\",',
+                        '            kind=\"mart\",',
+                        '            description=\"Custom household projection.\",',
+                        '            module=\"custom_extension\",',
+                        '            source=\"custom-extension\",',
+                        "        )",
+                        "    )",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (extension_root / "custom_functions.py").write_text(
+                "def register_functions(registry):\n    return None\n",
+                encoding="utf-8",
+            )
+            (extension_root / "homelab-analytics.registry.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "import_paths": ["."],
+                        "extension_modules": ["custom_extension"],
+                        "function_modules": ["custom_functions"],
+                        "minimum_platform_version": "0.1.0",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=temp_root / "landing",
+                        metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
+                    ),
+                    config_repository=IngestionConfigRepository(temp_root / "config.db"),
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            create_response = client.post(
+                "/config/extension-registry-sources",
+                json={
+                    "extension_registry_source_id": "household_custom_extension",
+                    "name": "Household Custom Extension",
+                    "source_kind": "path",
+                    "location": str(extension_root),
+                    "enabled": True,
+                },
+            )
+            self.assertEqual(201, create_response.status_code)
+            self.assertEqual(
+                "household_custom_extension",
+                create_response.json()["extension_registry_source"][
+                    "extension_registry_source_id"
+                ],
+            )
+
+            sync_response = client.post(
+                "/config/extension-registry-sources/household_custom_extension/sync",
+                json={"activate": True},
+            )
+            self.assertEqual(200, sync_response.status_code)
+            self.assertEqual(
+                "validated",
+                sync_response.json()["extension_registry_revision"]["sync_status"],
+            )
+            self.assertEqual(
+                "household_custom_extension",
+                sync_response.json()["extension_registry_activation"][
+                    "extension_registry_source_id"
+                ],
+            )
+
+            revisions_response = client.get("/config/extension-registry-revisions")
+            self.assertEqual(200, revisions_response.status_code)
+            self.assertEqual(
+                ["custom_extension"],
+                revisions_response.json()["extension_registry_revisions"][0][
+                    "extension_modules"
+                ],
+            )
+
+            activations_response = client.get("/config/extension-registry-activations")
+            self.assertEqual(200, activations_response.status_code)
+            self.assertEqual(
+                "household_custom_extension",
+                activations_response.json()["extension_registry_activations"][0][
+                    "extension_registry_source_id"
+                ],
+            )
+
+    def test_extension_registry_source_routes_sync_git_sources(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            git_repository = create_git_extension_repository(
+                temp_root,
+                module_name="custom_git_extension",
+                extension_key="git_household_projection",
+            )
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=temp_root / "landing",
+                        metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
+                    ),
+                    config_repository=IngestionConfigRepository(temp_root / "config.db"),
+                    external_registry_cache_root=temp_root / "external-registry-cache",
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            create_response = client.post(
+                "/config/extension-registry-sources",
+                json={
+                    "extension_registry_source_id": "household_git_extension",
+                    "name": "Household Git Extension",
+                    "source_kind": "git",
+                    "location": str(git_repository.repo_root),
+                    "desired_ref": "main",
+                    "enabled": True,
+                },
+            )
+            self.assertEqual(201, create_response.status_code)
+
+            sync_response = client.post(
+                "/config/extension-registry-sources/household_git_extension/sync",
+                json={"activate": True},
+            )
+            self.assertEqual(200, sync_response.status_code)
+            self.assertEqual(
+                git_repository.commit_sha,
+                sync_response.json()["extension_registry_revision"]["resolved_ref"],
+            )
+            self.assertEqual(
+                "validated",
+                sync_response.json()["extension_registry_revision"]["sync_status"],
+            )
+
     def test_publication_definition_creation_rejects_unknown_publication_key(self) -> None:
         with TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
@@ -758,6 +1085,178 @@ class ApiAppTests(unittest.TestCase):
             self.assertEqual(400, response.status_code)
             self.assertIn("Unknown transformation handler key", response.json()["error"])
             self.assertIn("custom_budget_transform", response.json()["error"])
+
+    def test_transformation_package_and_publication_definition_routes_update_and_archive(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=temp_root / "landing",
+                        metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
+                    ),
+                    config_repository=IngestionConfigRepository(temp_root / "config.db"),
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            create_package_response = client.post(
+                "/config/transformation-packages",
+                json={
+                    "transformation_package_id": "custom_budget_v1",
+                    "name": "Custom Budget Transform",
+                    "handler_key": "account_transactions",
+                    "version": 1,
+                    "description": "Custom test transform",
+                },
+            )
+            self.assertEqual(201, create_package_response.status_code)
+
+            create_publication_response = client.post(
+                "/config/publication-definitions",
+                json={
+                    "publication_definition_id": "custom_budget_current",
+                    "transformation_package_id": "custom_budget_v1",
+                    "publication_key": "mart_monthly_cashflow",
+                    "name": "Current Budget Mart",
+                    "description": "Custom test publication",
+                },
+            )
+            self.assertEqual(201, create_publication_response.status_code)
+
+            update_package_response = client.patch(
+                "/config/transformation-packages/custom_budget_v1",
+                json={
+                    "transformation_package_id": "custom_budget_v1",
+                    "name": "Custom Budget Transform v2",
+                    "handler_key": "account_transactions",
+                    "version": 2,
+                    "description": "Updated custom test transform",
+                },
+            )
+            self.assertEqual(200, update_package_response.status_code)
+            self.assertEqual(
+                2,
+                update_package_response.json()["transformation_package"]["version"],
+            )
+            self.assertFalse(
+                update_package_response.json()["transformation_package"]["archived"]
+            )
+
+            update_publication_response = client.patch(
+                "/config/publication-definitions/custom_budget_current",
+                json={
+                    "publication_definition_id": "custom_budget_current",
+                    "transformation_package_id": "custom_budget_v1",
+                    "publication_key": "mart_monthly_cashflow",
+                    "name": "Current Budget Mart v2",
+                    "description": "Updated custom test publication",
+                },
+            )
+            self.assertEqual(200, update_publication_response.status_code)
+            self.assertEqual(
+                "Current Budget Mart v2",
+                update_publication_response.json()["publication_definition"]["name"],
+            )
+
+            blocked_archive_response = client.patch(
+                "/config/transformation-packages/custom_budget_v1/archive",
+                json={"archived": True},
+            )
+            self.assertEqual(400, blocked_archive_response.status_code)
+            self.assertIn("publication definitions", blocked_archive_response.json()["error"])
+
+            archive_publication_response = client.patch(
+                "/config/publication-definitions/custom_budget_current/archive",
+                json={"archived": True},
+            )
+            self.assertEqual(200, archive_publication_response.status_code)
+            self.assertTrue(
+                archive_publication_response.json()["publication_definition"]["archived"]
+            )
+
+            active_publications_response = client.get("/config/publication-definitions")
+            self.assertEqual(200, active_publications_response.status_code)
+            self.assertFalse(
+                any(
+                    definition["publication_definition_id"] == "custom_budget_current"
+                    for definition in active_publications_response.json()[
+                        "publication_definitions"
+                    ]
+                )
+            )
+            archived_publications_response = client.get(
+                "/config/publication-definitions?include_archived=true"
+            )
+            self.assertEqual(200, archived_publications_response.status_code)
+            archived_publication = next(
+                definition
+                for definition in archived_publications_response.json()[
+                    "publication_definitions"
+                ]
+                if definition["publication_definition_id"] == "custom_budget_current"
+            )
+            self.assertTrue(archived_publication["archived"])
+
+            archive_package_response = client.patch(
+                "/config/transformation-packages/custom_budget_v1/archive",
+                json={"archived": True},
+            )
+            self.assertEqual(200, archive_package_response.status_code)
+            self.assertTrue(
+                archive_package_response.json()["transformation_package"]["archived"]
+            )
+
+            active_packages_response = client.get("/config/transformation-packages")
+            self.assertEqual(200, active_packages_response.status_code)
+            self.assertFalse(
+                any(
+                    package["transformation_package_id"] == "custom_budget_v1"
+                    for package in active_packages_response.json()[
+                        "transformation_packages"
+                    ]
+                )
+            )
+            archived_packages_response = client.get(
+                "/config/transformation-packages?include_archived=true"
+            )
+            self.assertEqual(200, archived_packages_response.status_code)
+            archived_package = next(
+                package
+                for package in archived_packages_response.json()["transformation_packages"]
+                if package["transformation_package_id"] == "custom_budget_v1"
+            )
+            self.assertTrue(archived_package["archived"])
+
+            blocked_publication_restore_response = client.patch(
+                "/config/publication-definitions/custom_budget_current/archive",
+                json={"archived": False},
+            )
+            self.assertEqual(400, blocked_publication_restore_response.status_code)
+            self.assertIn(
+                "Transformation package is archived",
+                blocked_publication_restore_response.json()["error"],
+            )
+
+            restore_package_response = client.patch(
+                "/config/transformation-packages/custom_budget_v1/archive",
+                json={"archived": False},
+            )
+            self.assertEqual(200, restore_package_response.status_code)
+            self.assertFalse(
+                restore_package_response.json()["transformation_package"]["archived"]
+            )
+
+            restore_publication_response = client.patch(
+                "/config/publication-definitions/custom_budget_current/archive",
+                json={"archived": False},
+            )
+            self.assertEqual(200, restore_publication_response.status_code)
+            self.assertFalse(
+                restore_publication_response.json()["publication_definition"]["archived"]
+            )
 
     def test_source_assets_and_ingestion_definitions_are_exposed_and_executable(
         self,

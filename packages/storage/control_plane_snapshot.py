@@ -14,6 +14,10 @@ from packages.storage.control_plane import (
     PublicationAuditCreate,
     SourceLineageCreate,
 )
+from packages.storage.external_registry_catalog import (
+    ExtensionRegistryRevisionCreate,
+    ExtensionRegistrySourceCreate,
+)
 from packages.storage.ingestion_catalog import (
     ColumnMappingCreate,
     DatasetContractConfigCreate,
@@ -30,12 +34,21 @@ def export_control_plane_snapshot(store: ControlPlaneStore) -> ControlPlaneSnaps
         source_systems=tuple(store.list_source_systems()),
         dataset_contracts=tuple(store.list_dataset_contracts(include_archived=True)),
         column_mappings=tuple(store.list_column_mappings(include_archived=True)),
-        transformation_packages=tuple(store.list_transformation_packages()),
-        publication_definitions=tuple(store.list_publication_definitions()),
+        transformation_packages=tuple(
+            store.list_transformation_packages(include_archived=True)
+        ),
+        publication_definitions=tuple(
+            store.list_publication_definitions(include_archived=True)
+        ),
         source_assets=tuple(store.list_source_assets(include_archived=True)),
         ingestion_definitions=tuple(
             store.list_ingestion_definitions(include_archived=True)
         ),
+        extension_registry_sources=tuple(
+            store.list_extension_registry_sources(include_archived=True)
+        ),
+        extension_registry_revisions=tuple(store.list_extension_registry_revisions()),
+        extension_registry_activations=tuple(store.list_extension_registry_activations()),
         execution_schedules=tuple(store.list_execution_schedules(include_archived=True)),
         source_lineage=tuple(store.list_source_lineage()),
         publication_audit=tuple(store.list_publication_audit()),
@@ -103,6 +116,7 @@ def import_control_plane_snapshot(
                 handler_key=transformation_package_record.handler_key,
                 version=transformation_package_record.version,
                 description=transformation_package_record.description,
+                archived=False,
                 created_at=transformation_package_record.created_at,
             ),
             duplicate_exceptions=duplicate_exceptions,
@@ -116,6 +130,7 @@ def import_control_plane_snapshot(
                 publication_key=publication_definition_record.publication_key,
                 name=publication_definition_record.name,
                 description=publication_definition_record.description,
+                archived=False,
                 created_at=publication_definition_record.created_at,
             ),
             duplicate_exceptions=duplicate_exceptions,
@@ -164,6 +179,56 @@ def import_control_plane_snapshot(
             ),
             duplicate_exceptions=duplicate_exceptions,
         )
+    for extension_registry_source_record in snapshot.extension_registry_sources:
+        _ignore_duplicate(
+            store.create_extension_registry_source,
+            ExtensionRegistrySourceCreate(
+                extension_registry_source_id=(
+                    extension_registry_source_record.extension_registry_source_id
+                ),
+                name=extension_registry_source_record.name,
+                source_kind=extension_registry_source_record.source_kind,
+                location=extension_registry_source_record.location,
+                desired_ref=extension_registry_source_record.desired_ref,
+                subdirectory=extension_registry_source_record.subdirectory,
+                auth_secret_name=extension_registry_source_record.auth_secret_name,
+                auth_secret_key=extension_registry_source_record.auth_secret_key,
+                enabled=extension_registry_source_record.enabled,
+                archived=False,
+                created_at=extension_registry_source_record.created_at,
+            ),
+            duplicate_exceptions=duplicate_exceptions,
+        )
+    for extension_registry_revision_record in snapshot.extension_registry_revisions:
+        _ignore_duplicate(
+            store.create_extension_registry_revision,
+            ExtensionRegistryRevisionCreate(
+                extension_registry_revision_id=(
+                    extension_registry_revision_record.extension_registry_revision_id
+                ),
+                extension_registry_source_id=(
+                    extension_registry_revision_record.extension_registry_source_id
+                ),
+                resolved_ref=extension_registry_revision_record.resolved_ref,
+                runtime_path=extension_registry_revision_record.runtime_path,
+                manifest_path=extension_registry_revision_record.manifest_path,
+                manifest_digest=extension_registry_revision_record.manifest_digest,
+                manifest_version=extension_registry_revision_record.manifest_version,
+                content_fingerprint=(
+                    extension_registry_revision_record.content_fingerprint
+                ),
+                import_paths=extension_registry_revision_record.import_paths,
+                extension_modules=extension_registry_revision_record.extension_modules,
+                function_modules=extension_registry_revision_record.function_modules,
+                minimum_platform_version=(
+                    extension_registry_revision_record.minimum_platform_version
+                ),
+                sync_status=extension_registry_revision_record.sync_status,
+                validation_error=extension_registry_revision_record.validation_error,
+                created_at=extension_registry_revision_record.created_at,
+            ),
+            duplicate_exceptions=duplicate_exceptions,
+        )
     for execution_schedule_record in snapshot.execution_schedules:
         _ignore_duplicate(
             store.create_execution_schedule,
@@ -188,6 +253,18 @@ def import_control_plane_snapshot(
                 source_asset_record.source_asset_id,
                 archived=True,
             )
+    for publication_definition_record in snapshot.publication_definitions:
+        if publication_definition_record.archived:
+            store.set_publication_definition_archived_state(
+                publication_definition_record.publication_definition_id,
+                archived=True,
+            )
+    for transformation_package_record in snapshot.transformation_packages:
+        if transformation_package_record.archived:
+            store.set_transformation_package_archived_state(
+                transformation_package_record.transformation_package_id,
+                archived=True,
+            )
     for ingestion_definition_record in snapshot.ingestion_definitions:
         if ingestion_definition_record.archived:
             store.set_ingestion_definition_archived_state(
@@ -198,6 +275,22 @@ def import_control_plane_snapshot(
         if execution_schedule_record.archived:
             store.set_execution_schedule_archived_state(
                 execution_schedule_record.schedule_id,
+                archived=True,
+            )
+    for extension_registry_activation_record in snapshot.extension_registry_activations:
+        store.activate_extension_registry_revision(
+            extension_registry_source_id=(
+                extension_registry_activation_record.extension_registry_source_id
+            ),
+            extension_registry_revision_id=(
+                extension_registry_activation_record.extension_registry_revision_id
+            ),
+            activated_at=extension_registry_activation_record.activated_at,
+        )
+    for extension_registry_source_record in snapshot.extension_registry_sources:
+        if extension_registry_source_record.archived:
+            store.set_extension_registry_source_archived_state(
+                extension_registry_source_record.extension_registry_source_id,
                 archived=True,
             )
     for column_mapping_record in snapshot.column_mappings:

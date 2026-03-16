@@ -43,6 +43,7 @@ from packages.pipelines.reporting_service import (
     ReportingService,
     publish_promotion_reporting,
 )
+from packages.pipelines.promotion_registry import serialize_promotion_handler_registry
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.auth import (
     hash_password,
@@ -50,7 +51,11 @@ from packages.shared.auth import (
     serialize_service_token,
     serialize_user,
 )
+from packages.shared.external_registry import sync_extension_registry_source
+from packages.shared.secrets import EnvironmentSecretResolver
 from packages.shared.extensions import serialize_extension_registry
+from packages.shared.function_registry import serialize_function_registry
+from packages.storage.ingestion_catalog import serialize_publication_keys
 from packages.storage.auth_store import LocalUserCreate, ServiceTokenCreate, UserRole
 
 WorkerCommandHandler = Callable[[Namespace, WorkerRuntime], int]
@@ -482,6 +487,11 @@ def _handle_export_control_plane(args: Namespace, runtime: WorkerRuntime) -> int
                 "column_mappings": len(snapshot.column_mappings),
                 "source_assets": len(snapshot.source_assets),
                 "ingestion_definitions": len(snapshot.ingestion_definitions),
+                "extension_registry_sources": len(snapshot.extension_registry_sources),
+                "extension_registry_revisions": len(snapshot.extension_registry_revisions),
+                "extension_registry_activations": len(
+                    snapshot.extension_registry_activations
+                ),
                 "execution_schedules": len(snapshot.execution_schedules),
                 "source_lineage": len(snapshot.source_lineage),
                 "publication_audit": len(snapshot.publication_audit),
@@ -512,6 +522,7 @@ def _handle_verify_config(args: Namespace, runtime: WorkerRuntime) -> int:
     report = run_config_preflight(
         runtime.config_repository,
         extension_registry=runtime.extension_registry,
+        function_registry=runtime.function_registry,
         promotion_handler_registry=runtime.promotion_handler_registry,
         source_asset_id=getattr(args, "source_asset_id", None) or None,
         ingestion_definition_id=(getattr(args, "ingestion_definition_id", None) or None),
@@ -520,10 +531,147 @@ def _handle_verify_config(args: Namespace, runtime: WorkerRuntime) -> int:
     return 0 if report.passed else 1
 
 
+def _handle_list_extension_registry_sources(
+    args: Namespace,
+    runtime: WorkerRuntime,
+) -> int:
+    _write_json(
+        runtime.output,
+        {
+            "extension_registry_sources": runtime.config_repository.list_extension_registry_sources(
+                include_archived=getattr(args, "include_archived", False)
+            )
+        },
+    )
+    return 0
+
+
+def _handle_list_extension_registry_revisions(
+    args: Namespace,
+    runtime: WorkerRuntime,
+) -> int:
+    _write_json(
+        runtime.output,
+        {
+            "extension_registry_revisions": runtime.config_repository.list_extension_registry_revisions(
+                extension_registry_source_id=getattr(args, "source_id", None) or None
+            )
+        },
+    )
+    return 0
+
+
+def _handle_list_extension_registry_activations(
+    args: Namespace,
+    runtime: WorkerRuntime,
+) -> int:
+    _write_json(
+        runtime.output,
+        {
+            "extension_registry_activations": runtime.config_repository.list_extension_registry_activations()
+        },
+    )
+    return 0
+
+
+def _handle_list_transformation_packages(
+    args: Namespace,
+    runtime: WorkerRuntime,
+) -> int:
+    _write_json(
+        runtime.output,
+        {
+            "transformation_packages": runtime.config_repository.list_transformation_packages(
+                include_archived=getattr(args, "include_archived", False)
+            )
+        },
+    )
+    return 0
+
+
+def _handle_list_publication_definitions(
+    args: Namespace,
+    runtime: WorkerRuntime,
+) -> int:
+    _write_json(
+        runtime.output,
+        {
+            "publication_definitions": runtime.config_repository.list_publication_definitions(
+                transformation_package_id=(
+                    getattr(args, "transformation_package_id", None) or None
+                ),
+                include_archived=getattr(args, "include_archived", False),
+            )
+        },
+    )
+    return 0
+
+
+def _handle_list_transformation_handlers(
+    args: Namespace,
+    runtime: WorkerRuntime,
+) -> int:
+    _write_json(
+        runtime.output,
+        {
+            "transformation_handlers": serialize_promotion_handler_registry(
+                runtime.promotion_handler_registry
+            )
+        },
+    )
+    return 0
+
+
+def _handle_list_publication_keys(
+    args: Namespace,
+    runtime: WorkerRuntime,
+) -> int:
+    _write_json(
+        runtime.output,
+        {
+            "publication_keys": serialize_publication_keys(
+                extension_registry=runtime.extension_registry,
+                promotion_handler_registry=runtime.promotion_handler_registry,
+            )
+        },
+    )
+    return 0
+
+
+def _handle_sync_extension_registry_source(
+    args: Namespace,
+    runtime: WorkerRuntime,
+) -> int:
+    result = sync_extension_registry_source(
+        runtime.config_repository,
+        args.source_id,
+        activate=getattr(args, "activate", False),
+        cache_root=runtime.settings.resolved_external_registry_cache_root,
+        secret_resolver=EnvironmentSecretResolver(),
+    )
+    _write_json(
+        runtime.output,
+        {
+            "extension_registry_source": result.source,
+            "extension_registry_revision": result.revision,
+            "extension_registry_activation": result.activation,
+        },
+    )
+    return 0 if result.passed else 1
+
+
 def _handle_list_extensions(args: Namespace, runtime: WorkerRuntime) -> int:
     _write_json(
         runtime.output,
         {"extensions": serialize_extension_registry(runtime.extension_registry)},
+    )
+    return 0
+
+
+def _handle_list_functions(args: Namespace, runtime: WorkerRuntime) -> int:
+    _write_json(
+        runtime.output,
+        {"functions": serialize_function_registry(runtime.function_registry)},
     )
     return 0
 
@@ -666,13 +814,21 @@ def build_worker_command_handlers() -> dict[str, WorkerCommandHandler]:
         "ingest-configured-csv": _handle_ingest_configured_csv,
         "ingest-contract-prices": _handle_ingest_contract_prices,
         "ingest-subscriptions": _handle_ingest_subscriptions,
+        "list-extension-registry-activations": _handle_list_extension_registry_activations,
+        "list-extension-registry-revisions": _handle_list_extension_registry_revisions,
+        "list-extension-registry-sources": _handle_list_extension_registry_sources,
         "list-execution-schedules": _handle_list_execution_schedules,
         "list-extensions": _handle_list_extensions,
+        "list-functions": _handle_list_functions,
         "list-ingestion-definitions": _handle_list_ingestion_definitions,
         "list-local-users": _handle_list_local_users,
+        "list-publication-definitions": _handle_list_publication_definitions,
+        "list-publication-keys": _handle_list_publication_keys,
         "list-runs": _handle_list_runs,
         "list-schedule-dispatches": _handle_list_schedule_dispatches,
         "list-service-tokens": _handle_list_service_tokens,
+        "list-transformation-handlers": _handle_list_transformation_handlers,
+        "list-transformation-packages": _handle_list_transformation_packages,
         "list-worker-heartbeats": _handle_list_worker_heartbeats,
         "mark-schedule-dispatch": _handle_mark_schedule_dispatch,
         "process-account-transactions-inbox": _handle_process_account_transactions_inbox,
@@ -690,6 +846,7 @@ def build_worker_command_handlers() -> dict[str, WorkerCommandHandler]:
         "run-landing-extension": _handle_run_landing_extension,
         "run-reporting-extension": _handle_run_reporting_extension,
         "run-transformation-extension": _handle_run_transformation_extension,
+        "sync-extension-registry-source": _handle_sync_extension_registry_source,
         "verify-config": _handle_verify_config,
         "watch-account-transactions-inbox": _handle_watch_account_transactions_inbox,
         "watch-schedule-dispatches": _handle_watch_schedule_dispatches,

@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
+from packages.shared.function_registry import FunctionRegistry
 from packages.shared.secrets import EnvironmentSecretResolver, SecretReference, SecretResolver
 from packages.storage.blob import BlobStore, FilesystemBlobStore
 from packages.storage.control_plane import ConfigCatalogStore
@@ -29,6 +30,7 @@ class ConfiguredIngestionDefinitionService:
         config_repository: ConfigCatalogStore,
         blob_store: BlobStore | None = None,
         secret_resolver: SecretResolver | None = None,
+        function_registry: FunctionRegistry | None = None,
     ) -> None:
         self.landing_root = landing_root
         self.metadata_repository = metadata_repository
@@ -40,6 +42,7 @@ class ConfiguredIngestionDefinitionService:
             metadata_repository=metadata_repository,
             config_repository=config_repository,
             blob_store=self.blob_store,
+            function_registry=function_registry,
         )
 
     def process_ingestion_definition(

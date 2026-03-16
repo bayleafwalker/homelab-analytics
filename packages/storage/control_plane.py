@@ -10,6 +10,13 @@ if TYPE_CHECKING:
     from packages.pipelines.promotion_registry import PromotionHandlerRegistry
     from packages.shared.extensions import ExtensionRegistry
     from packages.storage.auth_store import LocalUserRecord, ServiceTokenRecord
+    from packages.storage.external_registry_catalog import (
+        ExtensionRegistryActivationRecord,
+        ExtensionRegistryRevisionCreate,
+        ExtensionRegistryRevisionRecord,
+        ExtensionRegistrySourceCreate,
+        ExtensionRegistrySourceRecord,
+    )
     from packages.storage.ingestion_catalog import (
         ColumnMappingCreate,
         ColumnMappingRecord,
@@ -187,6 +194,9 @@ class ControlPlaneSnapshot:
     publication_definitions: tuple["PublicationDefinitionRecord", ...]
     source_assets: tuple["SourceAssetRecord", ...]
     ingestion_definitions: tuple["IngestionDefinitionRecord", ...]
+    extension_registry_sources: tuple["ExtensionRegistrySourceRecord", ...] = ()
+    extension_registry_revisions: tuple["ExtensionRegistryRevisionRecord", ...] = ()
+    extension_registry_activations: tuple["ExtensionRegistryActivationRecord", ...] = ()
     execution_schedules: tuple[ExecutionScheduleRecord, ...] = ()
     source_lineage: tuple[SourceLineageRecord, ...] = ()
     publication_audit: tuple[PublicationAuditRecord, ...] = ()
@@ -262,6 +272,16 @@ class ContractCatalogStore(Protocol):
         self,
         transformation_package: "TransformationPackageCreate",
         *,
+        extension_registry: "ExtensionRegistry | None" = None,
+        promotion_handler_registry: "PromotionHandlerRegistry | None" = None,
+    ) -> "TransformationPackageRecord":
+        ...
+
+    def update_transformation_package(
+        self,
+        transformation_package: "TransformationPackageCreate",
+        *,
+        extension_registry: "ExtensionRegistry | None" = None,
         promotion_handler_registry: "PromotionHandlerRegistry | None" = None,
     ) -> "TransformationPackageRecord":
         ...
@@ -271,10 +291,31 @@ class ContractCatalogStore(Protocol):
     ) -> "TransformationPackageRecord":
         ...
 
-    def list_transformation_packages(self) -> list["TransformationPackageRecord"]:
+    def list_transformation_packages(
+        self,
+        *,
+        include_archived: bool = False,
+    ) -> list["TransformationPackageRecord"]:
+        ...
+
+    def set_transformation_package_archived_state(
+        self,
+        transformation_package_id: str,
+        *,
+        archived: bool,
+    ) -> "TransformationPackageRecord":
         ...
 
     def create_publication_definition(
+        self,
+        publication_definition: "PublicationDefinitionCreate",
+        *,
+        extension_registry: "ExtensionRegistry | None" = None,
+        promotion_handler_registry: "PromotionHandlerRegistry | None" = None,
+    ) -> "PublicationDefinitionRecord":
+        ...
+
+    def update_publication_definition(
         self,
         publication_definition: "PublicationDefinitionCreate",
         *,
@@ -292,7 +333,16 @@ class ContractCatalogStore(Protocol):
         self,
         *,
         transformation_package_id: str | None = None,
+        include_archived: bool = False,
     ) -> list["PublicationDefinitionRecord"]:
+        ...
+
+    def set_publication_definition_archived_state(
+        self,
+        publication_definition_id: str,
+        *,
+        archived: bool,
+    ) -> "PublicationDefinitionRecord":
         ...
 
 
@@ -364,6 +414,81 @@ class AssetCatalogStore(Protocol):
         ...
 
     def delete_ingestion_definition(self, ingestion_definition_id: str) -> None:
+        ...
+
+
+@runtime_checkable
+class ExternalRegistryStore(Protocol):
+    def create_extension_registry_source(
+        self,
+        source: "ExtensionRegistrySourceCreate",
+    ) -> "ExtensionRegistrySourceRecord":
+        ...
+
+    def update_extension_registry_source(
+        self,
+        source: "ExtensionRegistrySourceCreate",
+    ) -> "ExtensionRegistrySourceRecord":
+        ...
+
+    def get_extension_registry_source(
+        self,
+        extension_registry_source_id: str,
+    ) -> "ExtensionRegistrySourceRecord":
+        ...
+
+    def list_extension_registry_sources(
+        self,
+        *,
+        include_archived: bool = False,
+    ) -> list["ExtensionRegistrySourceRecord"]:
+        ...
+
+    def set_extension_registry_source_archived_state(
+        self,
+        extension_registry_source_id: str,
+        *,
+        archived: bool,
+    ) -> "ExtensionRegistrySourceRecord":
+        ...
+
+    def create_extension_registry_revision(
+        self,
+        revision: "ExtensionRegistryRevisionCreate",
+    ) -> "ExtensionRegistryRevisionRecord":
+        ...
+
+    def get_extension_registry_revision(
+        self,
+        extension_registry_revision_id: str,
+    ) -> "ExtensionRegistryRevisionRecord":
+        ...
+
+    def list_extension_registry_revisions(
+        self,
+        *,
+        extension_registry_source_id: str | None = None,
+    ) -> list["ExtensionRegistryRevisionRecord"]:
+        ...
+
+    def activate_extension_registry_revision(
+        self,
+        *,
+        extension_registry_source_id: str,
+        extension_registry_revision_id: str,
+        activated_at: datetime | None = None,
+    ) -> "ExtensionRegistryActivationRecord":
+        ...
+
+    def get_extension_registry_activation(
+        self,
+        extension_registry_source_id: str,
+    ) -> "ExtensionRegistryActivationRecord | None":
+        ...
+
+    def list_extension_registry_activations(
+        self,
+    ) -> list["ExtensionRegistryActivationRecord"]:
         ...
 
 
@@ -579,6 +704,7 @@ class ConfigCatalogStore(
     SourceRegistryStore,
     ContractCatalogStore,
     AssetCatalogStore,
+    ExternalRegistryStore,
     Protocol,
 ):
     ...

@@ -61,6 +61,7 @@ def initialize_postgres_control_plane_schema(
             handler_key TEXT NOT NULL,
             version INTEGER NOT NULL,
             description TEXT,
+            archived BOOLEAN NOT NULL DEFAULT FALSE,
             created_at TIMESTAMPTZ NOT NULL
         )
         """
@@ -73,6 +74,7 @@ def initialize_postgres_control_plane_schema(
             publication_key TEXT NOT NULL,
             name TEXT NOT NULL,
             description TEXT,
+            archived BOOLEAN NOT NULL DEFAULT FALSE,
             created_at TIMESTAMPTZ NOT NULL
         )
         """
@@ -116,6 +118,53 @@ def initialize_postgres_control_plane_schema(
             archived BOOLEAN NOT NULL DEFAULT FALSE,
             source_name TEXT,
             created_at TIMESTAMPTZ NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS extension_registry_sources (
+            extension_registry_source_id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            source_kind TEXT NOT NULL,
+            location TEXT NOT NULL,
+            desired_ref TEXT,
+            subdirectory TEXT,
+            auth_secret_name TEXT,
+            auth_secret_key TEXT,
+            enabled BOOLEAN NOT NULL DEFAULT TRUE,
+            archived BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS extension_registry_revisions (
+            extension_registry_revision_id TEXT PRIMARY KEY,
+            extension_registry_source_id TEXT NOT NULL REFERENCES extension_registry_sources (extension_registry_source_id),
+            resolved_ref TEXT,
+            runtime_path TEXT,
+            manifest_path TEXT,
+            manifest_digest TEXT,
+            manifest_version INTEGER,
+            content_fingerprint TEXT,
+            import_paths_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+            extension_modules_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+            function_modules_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+            minimum_platform_version TEXT,
+            sync_status TEXT NOT NULL,
+            validation_error TEXT,
+            created_at TIMESTAMPTZ NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS extension_registry_activations (
+            extension_registry_source_id TEXT PRIMARY KEY REFERENCES extension_registry_sources (extension_registry_source_id),
+            extension_registry_revision_id TEXT NOT NULL REFERENCES extension_registry_revisions (extension_registry_revision_id),
+            activated_at TIMESTAMPTZ NOT NULL
         )
         """
     )
@@ -259,6 +308,18 @@ def initialize_postgres_control_plane_schema(
     )
     connection.execute(
         """
+        ALTER TABLE transformation_packages
+        ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE
+        """
+    )
+    connection.execute(
+        """
+        ALTER TABLE publication_definitions
+        ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE
+        """
+    )
+    connection.execute(
+        """
         ALTER TABLE source_assets
         ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT TRUE
         """
@@ -332,9 +393,9 @@ def _seed_builtins(connection: psycopg.Connection[object]) -> None:
         cursor.executemany(
             """
             INSERT INTO transformation_packages (
-                transformation_package_id, name, handler_key, version, description, created_at
+                transformation_package_id, name, handler_key, version, description, archived, created_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (transformation_package_id) DO NOTHING
             """,
             [
@@ -344,6 +405,7 @@ def _seed_builtins(connection: psycopg.Connection[object]) -> None:
                     package.handler_key,
                     package.version,
                     package.description,
+                    package.archived,
                     now,
                 )
                 for package in _BUILTIN_TRANSFORMATION_PACKAGES
@@ -352,9 +414,9 @@ def _seed_builtins(connection: psycopg.Connection[object]) -> None:
         cursor.executemany(
             """
             INSERT INTO publication_definitions (
-                publication_definition_id, transformation_package_id, publication_key, name, description, created_at
+                publication_definition_id, transformation_package_id, publication_key, name, description, archived, created_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (publication_definition_id) DO NOTHING
             """,
             [
@@ -364,6 +426,7 @@ def _seed_builtins(connection: psycopg.Connection[object]) -> None:
                     publication.publication_key,
                     publication.name,
                     publication.description,
+                    publication.archived,
                     now,
                 )
                 for publication in _BUILTIN_PUBLICATION_DEFINITIONS

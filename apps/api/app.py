@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any, cast
 
 from fastapi import FastAPI, HTTPException
@@ -69,6 +70,7 @@ from packages.shared.extensions import (
     ExtensionRegistry,
     build_builtin_extension_registry,
 )
+from packages.shared.function_registry import FunctionRegistry
 from packages.shared.metrics import metrics_registry
 from packages.storage.auth_store import (
     AuthStore,
@@ -84,6 +86,8 @@ def create_app(
     service: AccountTransactionService,
     extension_registry: ExtensionRegistry | None = None,
     config_repository: ControlPlaneStore | None = None,
+    external_registry_cache_root: Path | None = None,
+    function_registry: FunctionRegistry | None = None,
     transformation_service: TransformationService | None = None,
     reporting_service: ReportingService | None = None,
     promotion_handler_registry: PromotionHandlerRegistry | None = None,
@@ -99,6 +103,7 @@ def create_app(
     enable_unsafe_admin: bool = False,
 ) -> FastAPI:
     registry = extension_registry or build_builtin_extension_registry()
+    resolved_function_registry = function_registry or FunctionRegistry()
     resolved_promotion_handler_registry = (
         promotion_handler_registry or get_default_promotion_handler_registry()
     )
@@ -125,12 +130,14 @@ def create_app(
         metadata_repository=service.metadata_repository,
         config_repository=resolved_config_repository,
         blob_store=service.blob_store,
+        function_registry=resolved_function_registry,
     )
     configured_definition_service = ConfiguredIngestionDefinitionService(
         landing_root=service.landing_root,
         metadata_repository=service.metadata_repository,
         config_repository=resolved_config_repository,
         blob_store=service.blob_store,
+        function_registry=resolved_function_registry,
     )
     resolved_reporting_service = reporting_service or (
         ReportingService(
@@ -392,8 +399,13 @@ def create_app(
     register_config_routes(
         app,
         registry=registry,
+        function_registry=resolved_function_registry,
         promotion_handler_registry=resolved_promotion_handler_registry,
         resolved_config_repository=resolved_config_repository,
+        external_registry_cache_root=(
+            external_registry_cache_root
+            or (service.landing_root.parent / "external-registry-cache")
+        ),
         configured_ingestion_service=configured_ingestion_service,
         require_unsafe_admin=require_unsafe_admin,
         ensure_matching_identifier=ensure_matching_identifier,

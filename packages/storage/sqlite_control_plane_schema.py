@@ -51,6 +51,7 @@ def initialize_sqlite_control_plane_schema(connection: sqlite3.Connection) -> No
             handler_key TEXT NOT NULL,
             version INTEGER NOT NULL,
             description TEXT,
+            archived INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL
         );
 
@@ -60,6 +61,7 @@ def initialize_sqlite_control_plane_schema(connection: sqlite3.Connection) -> No
             publication_key TEXT NOT NULL,
             name TEXT NOT NULL,
             description TEXT,
+            archived INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL,
             FOREIGN KEY (transformation_package_id) REFERENCES transformation_packages (transformation_package_id)
         );
@@ -103,6 +105,47 @@ def initialize_sqlite_control_plane_schema(connection: sqlite3.Connection) -> No
             source_name TEXT,
             created_at TEXT NOT NULL,
             FOREIGN KEY (source_asset_id) REFERENCES source_assets (source_asset_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS extension_registry_sources (
+            extension_registry_source_id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            source_kind TEXT NOT NULL,
+            location TEXT NOT NULL,
+            desired_ref TEXT,
+            subdirectory TEXT,
+            auth_secret_name TEXT,
+            auth_secret_key TEXT,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            archived INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS extension_registry_revisions (
+            extension_registry_revision_id TEXT PRIMARY KEY,
+            extension_registry_source_id TEXT NOT NULL,
+            resolved_ref TEXT,
+            runtime_path TEXT,
+            manifest_path TEXT,
+            manifest_digest TEXT,
+            manifest_version INTEGER,
+            content_fingerprint TEXT,
+            import_paths_json TEXT NOT NULL DEFAULT '[]',
+            extension_modules_json TEXT NOT NULL DEFAULT '[]',
+            function_modules_json TEXT NOT NULL DEFAULT '[]',
+            minimum_platform_version TEXT,
+            sync_status TEXT NOT NULL,
+            validation_error TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (extension_registry_source_id) REFERENCES extension_registry_sources (extension_registry_source_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS extension_registry_activations (
+            extension_registry_source_id TEXT PRIMARY KEY,
+            extension_registry_revision_id TEXT NOT NULL,
+            activated_at TEXT NOT NULL,
+            FOREIGN KEY (extension_registry_source_id) REFERENCES extension_registry_sources (extension_registry_source_id),
+            FOREIGN KEY (extension_registry_revision_id) REFERENCES extension_registry_revisions (extension_registry_revision_id)
         );
 
         CREATE TABLE IF NOT EXISTS execution_schedules (
@@ -206,6 +249,8 @@ def initialize_sqlite_control_plane_schema(connection: sqlite3.Connection) -> No
     _ensure_dataset_contract_columns(connection)
     _ensure_column_mapping_columns(connection)
     _ensure_source_system_columns(connection)
+    _ensure_transformation_package_columns(connection)
+    _ensure_publication_definition_columns(connection)
     _ensure_source_asset_columns(connection)
     _ensure_ingestion_definition_columns(connection)
     _ensure_execution_schedule_columns(connection)
@@ -284,6 +329,28 @@ def _ensure_source_asset_columns(connection: sqlite3.Connection) -> None:
         )
 
 
+def _ensure_transformation_package_columns(connection: sqlite3.Connection) -> None:
+    columns = {
+        row[1]
+        for row in connection.execute("PRAGMA table_info(transformation_packages)").fetchall()
+    }
+    if "archived" not in columns:
+        connection.execute(
+            "ALTER TABLE transformation_packages ADD COLUMN archived INTEGER NOT NULL DEFAULT 0"
+        )
+
+
+def _ensure_publication_definition_columns(connection: sqlite3.Connection) -> None:
+    columns = {
+        row[1]
+        for row in connection.execute("PRAGMA table_info(publication_definitions)").fetchall()
+    }
+    if "archived" not in columns:
+        connection.execute(
+            "ALTER TABLE publication_definitions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0"
+        )
+
+
 def _ensure_execution_schedule_columns(connection: sqlite3.Connection) -> None:
     columns = {
         row[1] for row in connection.execute("PRAGMA table_info(execution_schedules)").fetchall()
@@ -347,9 +414,10 @@ def _seed_builtin_transformation_packages(connection: sqlite3.Connection) -> Non
                 handler_key,
                 version,
                 description,
+                archived,
                 created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 package.transformation_package_id,
@@ -357,6 +425,7 @@ def _seed_builtin_transformation_packages(connection: sqlite3.Connection) -> Non
                 package.handler_key,
                 package.version,
                 package.description,
+                int(package.archived),
                 now,
             ),
         )
@@ -369,9 +438,10 @@ def _seed_builtin_transformation_packages(connection: sqlite3.Connection) -> Non
                 publication_key,
                 name,
                 description,
+                archived,
                 created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 publication.publication_definition_id,
@@ -379,6 +449,7 @@ def _seed_builtin_transformation_packages(connection: sqlite3.Connection) -> Non
                 publication.publication_key,
                 publication.name,
                 publication.description,
+                int(publication.archived),
                 now,
             ),
         )

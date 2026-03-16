@@ -18,6 +18,11 @@ from packages.storage.control_plane import (
     PublicationAuditRecord,
     SourceLineageRecord,
 )
+from packages.storage.external_registry_catalog import (
+    ExtensionRegistryActivationRecord,
+    ExtensionRegistryRevisionRecord,
+    ExtensionRegistrySourceRecord,
+)
 from packages.storage.ingestion_config import (
     ColumnMappingRecord,
     ColumnMappingRule,
@@ -65,6 +70,9 @@ def _control_plane_snapshot_to_dict(snapshot: ControlPlaneSnapshot) -> dict[str,
         "publication_definitions": list(snapshot.publication_definitions),
         "source_assets": list(snapshot.source_assets),
         "ingestion_definitions": list(snapshot.ingestion_definitions),
+        "extension_registry_sources": list(snapshot.extension_registry_sources),
+        "extension_registry_revisions": list(snapshot.extension_registry_revisions),
+        "extension_registry_activations": list(snapshot.extension_registry_activations),
         "execution_schedules": list(snapshot.execution_schedules),
         "source_lineage": list(snapshot.source_lineage),
         "publication_audit": list(snapshot.publication_audit),
@@ -119,6 +127,7 @@ def _control_plane_snapshot_from_dict(payload: dict[str, Any]) -> ControlPlaneSn
                         target_column=rule["target_column"],
                         source_column=rule.get("source_column"),
                         default_value=rule.get("default_value"),
+                        function_key=rule.get("function_key"),
                     )
                     for rule in item["rules"]
                 ),
@@ -134,6 +143,7 @@ def _control_plane_snapshot_from_dict(payload: dict[str, Any]) -> ControlPlaneSn
                 handler_key=item["handler_key"],
                 version=item["version"],
                 description=item.get("description"),
+                archived=item.get("archived", False),
                 created_at=datetime.fromisoformat(item["created_at"]),
             )
             for item in payload.get("transformation_packages", [])
@@ -145,6 +155,7 @@ def _control_plane_snapshot_from_dict(payload: dict[str, Any]) -> ControlPlaneSn
                 publication_key=item["publication_key"],
                 name=item["name"],
                 description=item.get("description"),
+                archived=item.get("archived", False),
                 created_at=datetime.fromisoformat(item["created_at"]),
             )
             for item in payload.get("publication_definitions", [])
@@ -195,6 +206,50 @@ def _control_plane_snapshot_from_dict(payload: dict[str, Any]) -> ControlPlaneSn
                 created_at=datetime.fromisoformat(item["created_at"]),
             )
             for item in payload.get("ingestion_definitions", [])
+        ),
+        extension_registry_sources=tuple(
+            ExtensionRegistrySourceRecord(
+                extension_registry_source_id=item["extension_registry_source_id"],
+                name=item["name"],
+                source_kind=item["source_kind"],
+                location=item["location"],
+                desired_ref=item.get("desired_ref"),
+                subdirectory=item.get("subdirectory"),
+                auth_secret_name=item.get("auth_secret_name"),
+                auth_secret_key=item.get("auth_secret_key"),
+                enabled=item.get("enabled", True),
+                archived=item.get("archived", False),
+                created_at=datetime.fromisoformat(item["created_at"]),
+            )
+            for item in payload.get("extension_registry_sources", [])
+        ),
+        extension_registry_revisions=tuple(
+            ExtensionRegistryRevisionRecord(
+                extension_registry_revision_id=item["extension_registry_revision_id"],
+                extension_registry_source_id=item["extension_registry_source_id"],
+                resolved_ref=item.get("resolved_ref"),
+                runtime_path=item.get("runtime_path"),
+                manifest_path=item.get("manifest_path"),
+                manifest_digest=item.get("manifest_digest"),
+                manifest_version=item.get("manifest_version"),
+                content_fingerprint=item.get("content_fingerprint"),
+                import_paths=tuple(item.get("import_paths", [])),
+                extension_modules=tuple(item.get("extension_modules", [])),
+                function_modules=tuple(item.get("function_modules", [])),
+                minimum_platform_version=item.get("minimum_platform_version"),
+                sync_status=item["sync_status"],
+                validation_error=item.get("validation_error"),
+                created_at=datetime.fromisoformat(item["created_at"]),
+            )
+            for item in payload.get("extension_registry_revisions", [])
+        ),
+        extension_registry_activations=tuple(
+            ExtensionRegistryActivationRecord(
+                extension_registry_source_id=item["extension_registry_source_id"],
+                extension_registry_revision_id=item["extension_registry_revision_id"],
+                activated_at=datetime.fromisoformat(item["activated_at"]),
+            )
+            for item in payload.get("extension_registry_activations", [])
         ),
         execution_schedules=tuple(
             ExecutionScheduleRecord(

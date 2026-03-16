@@ -163,9 +163,66 @@ export async function getColumnMappingDiff(leftId, rightId) {
   return payload.diff;
 }
 
-export async function getTransformationPackages() {
-  const payload = await backendJson("/config/transformation-packages");
+export async function getTransformationHandlers() {
+  const payload = await backendJson("/config/transformation-handlers");
+  return payload.transformation_handlers || [];
+}
+
+export async function getPublicationKeys() {
+  const payload = await backendJson("/config/publication-keys");
+  return payload.publication_keys || [];
+}
+
+export async function getExtensionRegistrySources({ includeArchived = false } = {}) {
+  const payload = await backendJson(
+    `/config/extension-registry-sources${buildQuery({
+      include_archived: includeArchived
+    })}`
+  );
+  return payload.extension_registry_sources || [];
+}
+
+export async function getExtensionRegistryRevisions({
+  extensionRegistrySourceId
+} = {}) {
+  const payload = await backendJson(
+    `/config/extension-registry-revisions${buildQuery({
+      extension_registry_source_id: extensionRegistrySourceId
+    })}`
+  );
+  return payload.extension_registry_revisions || [];
+}
+
+export async function getExtensionRegistryActivations() {
+  const payload = await backendJson("/config/extension-registry-activations");
+  return payload.extension_registry_activations || [];
+}
+
+export async function getFunctions() {
+  const payload = await backendJson("/functions");
+  return payload.functions || {};
+}
+
+export async function getTransformationPackages({ includeArchived = false } = {}) {
+  const payload = await backendJson(
+    `/config/transformation-packages${buildQuery({
+      include_archived: includeArchived
+    })}`
+  );
   return payload.transformation_packages || [];
+}
+
+export async function getPublicationDefinitions({
+  transformationPackageId,
+  includeArchived = false
+} = {}) {
+  const payload = await backendJson(
+    `/config/publication-definitions${buildQuery({
+      transformation_package_id: transformationPackageId,
+      include_archived: includeArchived
+    })}`
+  );
+  return payload.publication_definitions || [];
 }
 
 export async function getSourceAssets({ includeArchived = false } = {}) {

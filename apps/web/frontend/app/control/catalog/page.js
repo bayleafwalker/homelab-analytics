@@ -3,17 +3,27 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
 import { ControlNav } from "@/components/control-nav";
+import { ExternalRegistryPanel } from "@/components/external-registry-panel";
+import { FunctionCatalogPanel } from "@/components/function-catalog-panel";
 import { MappingPreviewPanel } from "@/components/mapping-preview-panel";
+import { TransformationCatalogPanel } from "@/components/transformation-catalog-panel";
 import {
   getColumnMappings,
   getColumnMappingDiff,
   getCurrentUser,
   getDatasetContractDiff,
   getDatasetContracts,
+  getExtensionRegistryActivations,
+  getExtensionRegistryRevisions,
+  getExtensionRegistrySources,
+  getFunctions,
   getIngestionDefinitions,
   getOperationalSummary,
+  getPublicationDefinitions,
+  getPublicationKeys,
   getSourceAssets,
   getSourceSystems,
+  getTransformationHandlers,
   getTransformationPackages
 } from "@/lib/backend";
 import {
@@ -44,6 +54,28 @@ function noticeCopy(notice) {
       return "Column mapping version created.";
     case "column-mapping-archived":
       return "Column mapping archive state updated.";
+    case "extension-registry-source-created":
+      return "External registry source created.";
+    case "extension-registry-source-updated":
+      return "External registry source updated.";
+    case "extension-registry-source-archived":
+      return "External registry source archive state updated.";
+    case "extension-registry-source-synced":
+      return "External registry source synced.";
+    case "extension-registry-source-activated":
+      return "External registry revision activated.";
+    case "transformation-package-created":
+      return "Transformation package created.";
+    case "transformation-package-updated":
+      return "Transformation package updated.";
+    case "transformation-package-archived":
+      return "Transformation package archive state updated.";
+    case "publication-definition-created":
+      return "Publication definition created.";
+    case "publication-definition-updated":
+      return "Publication definition updated.";
+    case "publication-definition-archived":
+      return "Publication definition archive state updated.";
     default:
       return "";
   }
@@ -71,6 +103,28 @@ function errorCopy(error) {
       return "Could not create the column mapping version.";
     case "column-mapping-archive-failed":
       return "Could not update the column mapping archive state.";
+    case "extension-registry-source-failed":
+      return "Could not create the external registry source.";
+    case "extension-registry-source-update-failed":
+      return "Could not update the external registry source.";
+    case "extension-registry-source-archive-failed":
+      return "Could not update the external registry source archive state.";
+    case "extension-registry-source-sync-failed":
+      return "Could not sync the external registry source.";
+    case "extension-registry-source-activate-failed":
+      return "Could not activate the selected external registry revision.";
+    case "transformation-package-failed":
+      return "Could not create the transformation package.";
+    case "transformation-package-update-failed":
+      return "Could not update the transformation package.";
+    case "transformation-package-archive-failed":
+      return "Could not update the transformation package archive state.";
+    case "publication-definition-failed":
+      return "Could not create the publication definition.";
+    case "publication-definition-update-failed":
+      return "Could not update the publication definition.";
+    case "publication-definition-archive-failed":
+      return "Could not update the publication definition archive state.";
     default:
       return "";
   }
@@ -175,16 +229,30 @@ export default async function ControlCatalogPage({ searchParams }) {
     sourceAssets,
     ingestionDefinitions,
     operationalSummary,
+    extensionRegistrySources,
+    extensionRegistryRevisions,
+    extensionRegistryActivations,
+    extensionRegistryFunctions,
+    transformationHandlers,
+    publicationKeys,
+    publicationDefinitions,
     contractDiff,
     mappingDiff
   ] = await Promise.all([
     getSourceSystems(),
     getDatasetContracts({ includeArchived: true }),
     getColumnMappings({ includeArchived: true }),
-    getTransformationPackages(),
+    getTransformationPackages({ includeArchived: true }),
     getSourceAssets({ includeArchived: true }),
     getIngestionDefinitions({ includeArchived: true }),
     getOperationalSummary(),
+    getExtensionRegistrySources({ includeArchived: true }),
+    getExtensionRegistryRevisions(),
+    getExtensionRegistryActivations(),
+    getFunctions(),
+    getTransformationHandlers(),
+    getPublicationKeys(),
+    getPublicationDefinitions({ includeArchived: true }),
     contractLeftId && contractRightId && contractLeftId !== contractRightId
       ? getDatasetContractDiff(contractLeftId, contractRightId)
       : Promise.resolve(null),
@@ -200,6 +268,23 @@ export default async function ControlCatalogPage({ searchParams }) {
   const archivedColumnMappings = columnMappings.filter((record) => record.archived);
   const activeSourceAssets = sourceAssets.filter((record) => !record.archived);
   const archivedSourceAssets = sourceAssets.filter((record) => record.archived);
+  const activeTransformationPackages = transformationPackages.filter(
+    (record) => !record.archived
+  );
+  const archivedTransformationPackages = transformationPackages.filter(
+    (record) => record.archived
+  );
+  const activePublicationDefinitions = publicationDefinitions.filter(
+    (record) => !record.archived
+  );
+  const archivedPublicationDefinitions = publicationDefinitions.filter(
+    (record) => record.archived
+  );
+  const activeExtensionRegistrySources = extensionRegistrySources.filter(
+    (record) => record.enabled && !record.archived
+  );
+  const columnMappingFunctions =
+    extensionRegistryFunctions?.column_mapping_value || [];
   const contractById = new Map(
     datasetContracts.map((record) => [record.dataset_contract_id, record])
   );
@@ -217,6 +302,10 @@ export default async function ControlCatalogPage({ searchParams }) {
   );
   const contractDraft = resolveContractDraft(datasetContracts, searchParams?.contract_clone);
   const mappingDraft = resolveMappingDraft(columnMappings, searchParams?.mapping_clone);
+  const columnMappingFunctionSummary = referenceSummary(
+    columnMappingFunctions,
+    "function_key"
+  );
   const notice = noticeCopy(searchParams?.notice);
   const error = errorCopy(searchParams?.error);
 
@@ -254,6 +343,38 @@ export default async function ControlCatalogPage({ searchParams }) {
             </div>
             <div className="muted">
               {archivedDatasetContracts.length} archived contracts / {archivedColumnMappings.length} archived mappings
+            </div>
+          </article>
+          <article className="panel metricCard">
+            <div className="metricLabel">Packages / publications</div>
+            <div className="metricValue">
+              {activeTransformationPackages.length} / {activePublicationDefinitions.length}
+            </div>
+            <div className="muted">
+              {archivedTransformationPackages.length} archived packages / {archivedPublicationDefinitions.length} archived publications
+            </div>
+          </article>
+          <article className="panel metricCard">
+            <div className="metricLabel">External sources</div>
+            <div className="metricValue">{activeExtensionRegistrySources.length}</div>
+            <div className="muted">
+              {extensionRegistrySources.length - activeExtensionRegistrySources.length} inactive or archived sources
+            </div>
+          </article>
+          <article className="panel metricCard">
+            <div className="metricLabel">Custom functions</div>
+            <div className="metricValue">{columnMappingFunctions.length}</div>
+            <div className="muted">
+              {extensionRegistryActivations.length} active external source revisions
+            </div>
+          </article>
+          <article className="panel metricCard">
+            <div className="metricLabel">Transform packages / pubs</div>
+            <div className="metricValue">
+              {transformationPackages.length} / {publicationDefinitions.length}
+            </div>
+            <div className="muted">
+              {transformationHandlers.length} handlers / {publicationKeys.length} publication keys
             </div>
           </article>
         </section>
@@ -451,6 +572,15 @@ export default async function ControlCatalogPage({ searchParams }) {
         </article>
 
         <section className="layout">
+          <ExternalRegistryPanel
+            sources={extensionRegistrySources}
+            revisions={extensionRegistryRevisions}
+            activations={extensionRegistryActivations}
+          />
+          <FunctionCatalogPanel functionsByKind={extensionRegistryFunctions} />
+        </section>
+
+        <section className="layout">
           <article className="panel section">
             <div className="sectionHeader">
               <div>
@@ -534,7 +664,13 @@ export default async function ControlCatalogPage({ searchParams }) {
               </div>
             </div>
             <div className="muted">
-              One line per rule: <code>target_column,source_column,default_value</code>.
+              One line per rule:{" "}
+              <code>target_column,source_column,default_value[,function_key]</code>.
+            </div>
+            <div className="muted">
+              {columnMappingFunctions.length > 0
+                ? `Available column mapping function keys: ${columnMappingFunctionSummary}.`
+                : "No active column mapping functions are loaded yet."}
             </div>
             <form className="formGrid threeCol" action="/control/catalog/column-mappings" method="post">
               <div className="field">
@@ -606,7 +742,9 @@ export default async function ControlCatalogPage({ searchParams }) {
                   name="rules_spec"
                   rows={10}
                   defaultValue={mappingDraft.rulesSpec}
-                  placeholder={"booked_at,booking_date,\namount,amount_eur,\ncurrency,,EUR"}
+                  placeholder={
+                    "booked_at,booking_date,\namount,amount_eur,\ncurrency,,EUR\ncounterparty,payee,,normalize_counterparty"
+                  }
                   required
                 />
               </div>
@@ -1418,28 +1556,12 @@ export default async function ControlCatalogPage({ searchParams }) {
               )}
             </article>
 
-            <article className="panel section">
-              <div className="sectionHeader">
-                <div>
-                  <div className="eyebrow">Dependencies</div>
-                  <h2>Transformation packages</h2>
-                </div>
-              </div>
-              {transformationPackages.length === 0 ? (
-                <div className="empty">No transformation packages.</div>
-              ) : (
-                <div className="stack compactStack">
-                  {transformationPackages.map((record) => (
-                    <div className="metaItem" key={record.transformation_package_id}>
-                      <div className="metricLabel">{record.transformation_package_id}</div>
-                      <div className="muted">
-                        {record.handler_key} / v{record.version}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </article>
+            <TransformationCatalogPanel
+              transformationPackages={transformationPackages}
+              publicationDefinitions={publicationDefinitions}
+              transformationHandlers={transformationHandlers}
+              publicationKeys={publicationKeys}
+            />
           </div>
         </section>
       </section>

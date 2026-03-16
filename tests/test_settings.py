@@ -50,6 +50,10 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual((), settings.extension_paths)
         self.assertEqual((), settings.extension_modules)
         self.assertEqual(
+            Path("/tmp/homelab-analytics/external-registry-cache"),
+            settings.resolved_external_registry_cache_root,
+        )
+        self.assertEqual(
             Path("/tmp/homelab-analytics/analytics/warehouse.duckdb"),
             settings.resolved_analytics_database_path,
         )
@@ -114,6 +118,25 @@ class AppSettingsTests(unittest.TestCase):
             settings.extension_modules,
         )
 
+    def test_external_registry_cache_root_can_be_overridden_via_env(self) -> None:
+        settings = AppSettings.from_env(
+            {
+                "HOMELAB_ANALYTICS_DATA_DIR": "/tmp/homelab-test",
+                "HOMELAB_ANALYTICS_EXTERNAL_REGISTRY_CACHE_ROOT": (
+                    "/srv/homelab/external-registry-cache"
+                ),
+            }
+        )
+
+        self.assertEqual(
+            Path("/srv/homelab/external-registry-cache"),
+            settings.external_registry_cache_root,
+        )
+        self.assertEqual(
+            Path("/srv/homelab/external-registry-cache"),
+            settings.resolved_external_registry_cache_root,
+        )
+
     def test_settings_default_to_repo_local_data_directory(self) -> None:
         settings = AppSettings.from_env({})
 
@@ -141,6 +164,10 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual(300, settings.dispatch_lease_seconds)
         self.assertEqual((), settings.extension_paths)
         self.assertEqual((), settings.extension_modules)
+        self.assertEqual(
+            settings.data_dir / "external-registry-cache",
+            settings.resolved_external_registry_cache_root,
+        )
 
     def test_resolved_config_database_path_defaults_to_data_dir(self) -> None:
         settings = AppSettings.from_env(

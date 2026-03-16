@@ -378,6 +378,26 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 
 ---
 
+### PLT-19: External registry source inclusion
+
+**Description:** The platform supports external pipeline and function registration from operator-configured custom folders or Git-backed repositories. GitHub is handled through the Git-backed source path. External sources resolve into explicit, immutable revisions that are activated into the same landing, transformation, reporting, application, promotion-handler, and custom-function registries used by built-in code.
+
+**Rationale:** Environment-only module loading is enough for bootstrap, but UI-managed onboarding of household-specific connectors, marts, and helper functions needs a persisted control-plane contract with versioned activation and auditability.
+
+**Phase:** 2–3
+**Status:** in-progress (control-plane stores now persist external registry sources, revisions, and activations; path-backed and Git-backed sources can sync a manifest into a validated revision through API or worker commands; Git-backed sync resolves commit SHAs into cache-managed worktrees with optional secret-managed https auth; API/worker startup now loads activated revisions through the existing extension, pipeline, and function registries; configured CSV column mappings can reference registered `function_key` values for mapping-time transforms; and the admin API/web catalog plus worker CLI now expose source lifecycle, revision activation, loaded function discovery, transformation-handler discovery, publication-key discovery, and archive-aware transformation-package/publication-definition configuration flows for operators; broader config binding is still pending)
+
+**Acceptance criteria:**
+- Control-plane configuration persists external registry sources with at least: source kind (`path` or `git`), location, auth secret reference, enabled state, and desired ref or path target.
+- Syncing a source produces an immutable revision record with resolved commit SHA or path fingerprint, manifest metadata, validation status, and local cache path.
+- Activated revisions load through the same extension and pipeline registry contracts used by built-in modules rather than a separate execution path.
+- External modules can optionally register custom functions through an explicit function registry with declared keys and contracts.
+- Existing config entities reference discovered handler, publication, and function keys rather than raw Python import paths.
+
+**Dependencies:** PLT-18, SEC-05
+
+---
+
 ## Traceability
 
 | Requirement | Architecture doc section | Implementation module | Test file |
@@ -400,3 +420,4 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 | PLT-16 | Input and landing | `packages/storage/run_metadata.py`, `packages/storage/landing_service.py` | `tests/test_landing_service.py`, `tests/test_run_metadata_repository.py` |
 | PLT-17 | Audit trail | `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py`, `packages/storage/control_plane.py`, `packages/storage/ingestion_config.py`, `packages/storage/postgres_ingestion_config.py`, `packages/storage/sqlite_provenance_control_plane.py`, `packages/storage/postgres_provenance_control_plane.py`, `packages/storage/sqlite_auth_control_plane.py`, `packages/storage/postgres_auth_control_plane.py`, `packages/pipelines/transaction_models.py` | `tests/test_transformation_service.py`, `tests/test_api_app.py`, `tests/test_control_plane_api_app.py`, `tests/test_control_plane_store_contract.py`, `tests/test_postgres_ingestion_config_integration.py`, `tests/test_s3_postgres_control_plane_integration.py` |
 | PLT-18 | Canonical data flow | `packages/pipelines/promotion.py`, `packages/pipelines/promotion_registry.py`, `packages/pipelines/promotion_types.py`, `packages/pipelines/pipeline_catalog.py`, `packages/pipelines/extension_registries.py`, `packages/pipelines/builtin_packages.py`, `packages/pipelines/builtin_reporting.py`, `packages/pipelines/transformation_domain_registry.py`, `packages/pipelines/transformation_refresh_registry.py`, `packages/pipelines/builtin_transformation_refresh.py`, `packages/pipelines/builtin_promotion_handlers.py`, `packages/shared/extensions.py`, `packages/pipelines/account_transaction_service.py`, `packages/pipelines/subscription_service.py`, `packages/pipelines/contract_price_service.py`, `packages/storage/landing_service.py`, `packages/storage/ingestion_config.py`, `apps/api/app.py`, `apps/api/main.py`, `apps/worker/runtime.py`, `apps/worker/main.py` | `tests/test_promotion.py`, `tests/test_extensions.py`, `tests/test_transformation_service.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py`, `tests/test_api_app.py`, `tests/test_api_main.py`, `tests/test_worker_cli.py` |
+| PLT-19 | Extensibility model, External registry source model | `packages/storage/control_plane.py`, `packages/storage/external_registry_catalog.py`, `packages/storage/sqlite_external_registry_catalog.py`, `packages/storage/postgres_external_registry_catalog.py`, `packages/storage/control_plane_snapshot.py`, `packages/shared/external_registry.py`, `packages/shared/function_registry.py`, `packages/pipelines/configured_csv_ingestion.py`, `packages/pipelines/config_preflight.py`, `packages/pipelines/promotion_registry.py`, `apps/api/app.py`, `apps/api/main.py`, `apps/api/routes/config_routes.py`, `apps/worker/runtime.py`, `apps/worker/command_handlers.py`, `apps/web/frontend/app/control/catalog/page.js`, `apps/web/frontend/app/control/catalog/transformation-packages/route.js`, `apps/web/frontend/app/control/catalog/publication-definitions/route.js`, `apps/web/frontend/components/external-registry-panel.js`, `apps/web/frontend/components/function-catalog-panel.js`, `apps/web/frontend/components/transformation-catalog-panel.js`, `apps/web/frontend/lib/backend.js`, `apps/web/frontend/lib/config-spec.js` | `tests/test_external_registry_support.py`, `tests/test_configured_csv_ingestion.py`, `tests/test_config_preflight.py`, `tests/test_api_app.py`, `tests/test_api_main.py`, `tests/test_worker_cli.py`, `tests/test_control_plane_store_contract.py`, `tests/test_web_auth.py` |

@@ -18,11 +18,17 @@ from packages.storage.ingestion_config import (
     ColumnMappingRule,
     DatasetColumnConfig,
     DatasetContractConfigCreate,
+    ExtensionRegistrySourceCreate,
     IngestionConfigRepository,
     IngestionDefinitionCreate,
     RequestHeaderSecretRef,
     SourceAssetCreate,
     SourceSystemCreate,
+)
+from tests.external_registry_test_support import (
+    create_git_extension_repository,
+    create_path_function_extension,
+    create_path_pipeline_extension,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -161,6 +167,464 @@ class WorkerCliTests(unittest.TestCase):
             )
             self.assertEqual("published", monthly_cashflow_extension["data_access"])
             self.assertEqual([], monthly_cashflow_extension["publication_relations"])
+
+    def test_cli_syncs_path_extension_registry_source_and_loads_activated_extensions(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+            extension_root = Path(temp_dir) / "custom-extension"
+            extension_root.mkdir(parents=True, exist_ok=True)
+            module_name = "custom_worker_extension"
+            (extension_root / f"{module_name}.py").write_text(
+                "\n".join(
+                    [
+                        "from packages.shared.extensions import LayerExtension",
+                        "",
+                        "def register_extensions(registry):",
+                        "    registry.register(",
+                        "        LayerExtension(",
+                        '            layer=\"reporting\",',
+                        '            key=\"worker_loaded_projection\",',
+                        '            kind=\"mart\",',
+                        '            description=\"Worker-loaded projection.\",',
+                        f'            module=\"{module_name}\",',
+                        '            source=\"custom-worker-extension\",',
+                        "        )",
+                        "    )",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (extension_root / "homelab-analytics.registry.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "import_paths": ["."],
+                        "extension_modules": [module_name],
+                        "function_modules": [],
+                        "minimum_platform_version": "0.1.0",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            repository = IngestionConfigRepository(settings.resolved_config_database_path)
+            repository.create_extension_registry_source(
+                ExtensionRegistrySourceCreate(
+                    extension_registry_source_id="worker-custom-extension",
+                    name="Worker Custom Extension",
+                    source_kind="path",
+                    location=str(extension_root),
+                )
+            )
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            exit_code = main(
+                [
+                    "sync-extension-registry-source",
+                    "worker-custom-extension",
+                    "--activate",
+                ],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            sync_payload = json.loads(stdout.getvalue())
+            self.assertEqual(
+                "validated",
+                sync_payload["extension_registry_revision"]["sync_status"],
+            )
+            self.assertEqual(
+                "worker-custom-extension",
+                sync_payload["extension_registry_activation"][
+                    "extension_registry_source_id"
+                ],
+            )
+
+            stdout = io.StringIO()
+            exit_code = main(
+                ["list-extensions"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            payload = json.loads(stdout.getvalue())
+            self.assertTrue(
+                any(
+                    extension["key"] == "worker_loaded_projection"
+                    for extension in payload["extensions"]["reporting"]
+                )
+            )
+
+    def test_cli_syncs_git_extension_registry_source_and_loads_activated_extensions(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+            git_repository = create_git_extension_repository(
+                Path(temp_dir),
+                module_name="custom_git_worker_extension",
+                extension_key="worker_git_loaded_projection",
+            )
+            repository = IngestionConfigRepository(settings.resolved_config_database_path)
+            repository.create_extension_registry_source(
+                ExtensionRegistrySourceCreate(
+                    extension_registry_source_id="worker-git-extension",
+                    name="Worker Git Extension",
+                    source_kind="git",
+                    location=str(git_repository.repo_root),
+                    desired_ref="main",
+                )
+            )
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            exit_code = main(
+                [
+                    "sync-extension-registry-source",
+                    "worker-git-extension",
+                    "--activate",
+                ],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            sync_payload = json.loads(stdout.getvalue())
+            self.assertEqual(
+                git_repository.commit_sha,
+                sync_payload["extension_registry_revision"]["resolved_ref"],
+            )
+            self.assertEqual(
+                "validated",
+                sync_payload["extension_registry_revision"]["sync_status"],
+            )
+
+            stdout = io.StringIO()
+            exit_code = main(
+                ["list-extensions"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            payload = json.loads(stdout.getvalue())
+            self.assertTrue(
+                any(
+                    extension["key"] == "worker_git_loaded_projection"
+                    for extension in payload["extensions"]["reporting"]
+                )
+            )
+
+    def test_cli_lists_loaded_functions_from_activated_external_registry(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+            function_extension = create_path_function_extension(
+                Path(temp_dir),
+                module_name="custom_worker_function_module",
+                function_key="normalize_counterparty",
+            )
+            repository = IngestionConfigRepository(settings.resolved_config_database_path)
+            repository.create_extension_registry_source(
+                ExtensionRegistrySourceCreate(
+                    extension_registry_source_id="worker-functions",
+                    name="Worker Functions",
+                    source_kind="path",
+                    location=str(function_extension.root),
+                )
+            )
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            exit_code = main(
+                [
+                    "sync-extension-registry-source",
+                    "worker-functions",
+                    "--activate",
+                ],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+
+            stdout = io.StringIO()
+            exit_code = main(
+                ["list-functions"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(
+                "normalize_counterparty",
+                payload["functions"]["column_mapping_value"][0]["function_key"],
+            )
+
+    def test_cli_lists_transformation_packages_and_publication_definitions(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            exit_code = main(
+                ["list-transformation-packages"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            package_payload = json.loads(stdout.getvalue())
+            self.assertTrue(
+                any(
+                    package["transformation_package_id"]
+                    == "builtin_account_transactions"
+                    and package["handler_key"] == "account_transactions"
+                    for package in package_payload["transformation_packages"]
+                )
+            )
+
+            stdout = io.StringIO()
+            exit_code = main(
+                [
+                    "list-publication-definitions",
+                    "--transformation-package-id",
+                    "builtin_account_transactions",
+                ],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            publication_payload = json.loads(stdout.getvalue())
+            self.assertTrue(
+                any(
+                    definition["publication_definition_id"]
+                    == "pub_account_transactions_monthly_cashflow"
+                    and definition["publication_key"] == "mart_monthly_cashflow"
+                    for definition in publication_payload["publication_definitions"]
+                )
+            )
+
+    def test_cli_lists_transformation_handlers_and_publication_keys_from_activated_external_registry(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="0.0.0.0",
+                api_port=8080,
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+            )
+            pipeline_extension = create_path_pipeline_extension(
+                Path(temp_dir),
+                module_name="custom_worker_pipeline_module",
+                handler_key="custom_worker_transform",
+                publication_key="mart_worker_projection",
+                transformation_package_id="custom_worker_package_v1",
+            )
+            repository = IngestionConfigRepository(settings.resolved_config_database_path)
+            repository.create_extension_registry_source(
+                ExtensionRegistrySourceCreate(
+                    extension_registry_source_id="worker-pipeline-extension",
+                    name="Worker Pipeline Extension",
+                    source_kind="path",
+                    location=str(pipeline_extension.root),
+                )
+            )
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            exit_code = main(
+                [
+                    "sync-extension-registry-source",
+                    "worker-pipeline-extension",
+                    "--activate",
+                ],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+
+            stdout = io.StringIO()
+            exit_code = main(
+                ["list-transformation-handlers"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            handler_payload = json.loads(stdout.getvalue())
+            self.assertTrue(
+                any(
+                    handler["handler_key"] == "custom_worker_transform"
+                    and handler["supported_publications"]
+                    == ["mart_worker_projection"]
+                    for handler in handler_payload["transformation_handlers"]
+                )
+            )
+
+            stdout = io.StringIO()
+            exit_code = main(
+                ["list-publication-keys"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            publication_key_payload = json.loads(stdout.getvalue())
+            self.assertTrue(
+                any(
+                    publication["publication_key"] == "mart_worker_projection"
+                    and "custom_worker_transform"
+                    in publication["supported_handlers"]
+                    and "custom_pipeline_publication"
+                    in publication["reporting_extensions"]
+                    for publication in publication_key_payload["publication_keys"]
+                )
+            )
+
+            stdout = io.StringIO()
+            exit_code = main(
+                ["list-transformation-packages"],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            package_payload = json.loads(stdout.getvalue())
+            self.assertTrue(
+                any(
+                    package["transformation_package_id"] == "custom_worker_package_v1"
+                    and package["handler_key"] == "custom_worker_transform"
+                    for package in package_payload["transformation_packages"]
+                )
+            )
+
+            stdout = io.StringIO()
+            exit_code = main(
+                [
+                    "list-publication-definitions",
+                    "--transformation-package-id",
+                    "custom_worker_package_v1",
+                ],
+                stdout=stdout,
+                stderr=stderr,
+                settings=settings,
+            )
+
+            self.assertEqual(0, exit_code)
+            definition_payload = json.loads(stdout.getvalue())
+            self.assertTrue(
+                any(
+                    definition["publication_definition_id"] == "pub_external_pipeline"
+                    and definition["publication_key"] == "mart_worker_projection"
+                    for definition in definition_payload["publication_definitions"]
+                )
+            )
 
     def test_cli_runs_transformation_extension(self) -> None:
         with TemporaryDirectory() as temp_dir:

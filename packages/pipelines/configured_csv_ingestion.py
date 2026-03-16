@@ -9,6 +9,7 @@ from packages.pipelines.csv_validation import ValidationIssue, validate_csv_text
 from packages.pipelines.run_context import RunControlContext, merge_run_context
 from packages.storage.blob import BlobStore, FilesystemBlobStore
 from packages.storage.control_plane import ConfiguredCsvBindingStore
+from packages.shared.function_registry import FunctionRegistry, validate_function_key
 from packages.storage.ingestion_config import (
     ColumnMappingRecord,
     DatasetContractConfigRecord,
@@ -34,11 +35,13 @@ class ConfiguredCsvIngestionService:
         metadata_repository: RunMetadataStore,
         config_repository: ConfiguredCsvBindingStore,
         blob_store: BlobStore | None = None,
+        function_registry: FunctionRegistry | None = None,
     ) -> None:
         self.landing_root = landing_root
         self.metadata_repository = metadata_repository
         self.config_repository = config_repository
         self.blob_store = blob_store or FilesystemBlobStore(landing_root)
+        self.function_registry = function_registry or FunctionRegistry()
         self.landing_service = LandingService(
             blob_store=self.blob_store,
             metadata_repository=self.metadata_repository,
@@ -90,6 +93,7 @@ class ConfiguredCsvIngestionService:
             source_bytes=source_bytes,
             dataset_contract=dataset_contract,
             column_mapping=column_mapping,
+            function_registry=self.function_registry,
         )
         landing_result = self.landing_service.ingest_csv_bytes(
             source_bytes=source_bytes,
@@ -155,6 +159,7 @@ class ConfiguredCsvIngestionService:
             dataset_contract=dataset_contract,
             column_mapping=column_mapping,
             preview_limit=preview_limit,
+            function_registry=self.function_registry,
         )
 
 
@@ -163,7 +168,9 @@ def map_csv_columns(
     source_bytes: bytes,
     dataset_contract: DatasetContractConfigRecord,
     column_mapping: ColumnMappingRecord,
+    function_registry: FunctionRegistry | None = None,
 ) -> bytes:
+    resolved_function_registry = function_registry or FunctionRegistry()
     rules_by_target = {rule.target_column: rule for rule in column_mapping.rules}
     target_columns = [column.name for column in dataset_contract.columns]
     unknown_targets = set(rules_by_target) - set(target_columns)
@@ -185,6 +192,10 @@ def map_csv_columns(
     for row in reader:
         if not any((value or "").strip() for value in row.values()):
             continue
+        normalized_row = {
+            key: (value or "").strip()
+            for key, value in row.items()
+        }
 
         mapped_row = {}
         for target_column in target_columns:
@@ -192,9 +203,24 @@ def map_csv_columns(
             value = ""
             if rule is not None:
                 if rule.source_column is not None:
-                    value = (row.get(rule.source_column) or "").strip()
+                    value = normalized_row.get(rule.source_column, "")
                 if not value and rule.default_value is not None:
                     value = rule.default_value
+                if rule.function_key is not None:
+                    validate_function_key(
+                        rule.function_key,
+                        function_registry=resolved_function_registry,
+                        kind="column_mapping_value",
+                    )
+                    transformed_value = resolved_function_registry.execute(
+                        rule.function_key,
+                        value=value,
+                        row=normalized_row,
+                        target_column=target_column,
+                        source_column=rule.source_column,
+                        default_value=rule.default_value,
+                    )
+                    value = "" if transformed_value is None else str(transformed_value)
             mapped_row[target_column] = value
         writer.writerow(mapped_row)
 
@@ -207,12 +233,14 @@ def preview_mapped_csv(
     dataset_contract: DatasetContractConfigRecord,
     column_mapping: ColumnMappingRecord,
     preview_limit: int = 5,
+    function_registry: FunctionRegistry | None = None,
 ) -> ConfiguredCsvPreview:
     source_text = source_bytes.decode("utf-8")
     mapped_bytes = map_csv_columns(
         source_bytes=source_bytes,
         dataset_contract=dataset_contract,
         column_mapping=column_mapping,
+        function_registry=function_registry,
     )
     validation = validate_csv_text(
         mapped_bytes.decode("utf-8"),

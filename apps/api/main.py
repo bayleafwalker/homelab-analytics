@@ -29,10 +29,13 @@ from packages.shared.auth import (
     maybe_bootstrap_local_admin,
     validate_auth_configuration,
 )
+from packages.shared.external_registry import resolve_active_extension_settings
 from packages.shared.extensions import ExtensionRegistry, load_extension_registry
+from packages.shared.function_registry import FunctionRegistry, load_function_registry
 from packages.shared.logging import configure_logging
 from packages.shared.settings import AppSettings
 from packages.storage.duckdb_store import DuckDBStore
+from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.runtime import (
     build_blob_store,
     build_config_store,
@@ -65,10 +68,31 @@ def build_contract_price_service(settings: AppSettings) -> ContractPriceService:
     )
 
 
-def build_pipeline_registries(settings: AppSettings) -> PipelineRegistries:
+def build_pipeline_registries(
+    settings: AppSettings,
+    *,
+    config_repository: ControlPlaneStore | None = None,
+) -> PipelineRegistries:
+    resolved_settings = (
+        resolve_active_extension_settings(
+            config_repository,
+            configured_paths=settings.extension_paths,
+            configured_modules=settings.extension_modules,
+        )
+        if config_repository is not None
+        else None
+    )
     return load_pipeline_registries(
-        extension_paths=settings.extension_paths,
-        extension_modules=settings.extension_modules,
+        extension_paths=(
+            resolved_settings.extension_paths
+            if resolved_settings is not None
+            else settings.extension_paths
+        ),
+        extension_modules=(
+            resolved_settings.extension_modules
+            if resolved_settings is not None
+            else settings.extension_modules
+        ),
     )
 
 
@@ -125,10 +149,59 @@ def build_reporting_service(
     )
 
 
-def build_extension_registry(settings: AppSettings) -> ExtensionRegistry:
+def build_extension_registry(
+    settings: AppSettings,
+    *,
+    config_repository: ControlPlaneStore | None = None,
+) -> ExtensionRegistry:
+    resolved_settings = (
+        resolve_active_extension_settings(
+            config_repository,
+            configured_paths=settings.extension_paths,
+            configured_modules=settings.extension_modules,
+        )
+        if config_repository is not None
+        else None
+    )
     return load_extension_registry(
-        extension_paths=settings.extension_paths,
-        extension_modules=settings.extension_modules,
+        extension_paths=(
+            resolved_settings.extension_paths
+            if resolved_settings is not None
+            else settings.extension_paths
+        ),
+        extension_modules=(
+            resolved_settings.extension_modules
+            if resolved_settings is not None
+            else settings.extension_modules
+        ),
+    )
+
+
+def build_function_registry(
+    settings: AppSettings,
+    *,
+    config_repository: ControlPlaneStore | None = None,
+) -> FunctionRegistry:
+    resolved_settings = (
+        resolve_active_extension_settings(
+            config_repository,
+            configured_paths=settings.extension_paths,
+            configured_modules=settings.extension_modules,
+        )
+        if config_repository is not None
+        else None
+    )
+    return load_function_registry(
+        extension_paths=(
+            resolved_settings.extension_paths
+            if resolved_settings is not None
+            else settings.extension_paths
+        ),
+        function_modules=(
+            resolved_settings.function_modules
+            if resolved_settings is not None
+            else ()
+        ),
     )
 
 
@@ -137,8 +210,18 @@ def build_app(settings: AppSettings | None = None):
     validate_auth_configuration(resolved_settings)
     config_store = build_config_store(resolved_settings)
     maybe_bootstrap_local_admin(config_store, resolved_settings)
-    extension_registry = build_extension_registry(resolved_settings)
-    pipeline_registries = build_pipeline_registries(resolved_settings)
+    extension_registry = build_extension_registry(
+        resolved_settings,
+        config_repository=config_store,
+    )
+    function_registry = build_function_registry(
+        resolved_settings,
+        config_repository=config_store,
+    )
+    pipeline_registries = build_pipeline_registries(
+        resolved_settings,
+        config_repository=config_store,
+    )
     sync_pipeline_catalog(
         config_store,
         pipeline_registries.pipeline_catalog_registry,
@@ -154,6 +237,8 @@ def build_app(settings: AppSettings | None = None):
         build_service(resolved_settings),
         extension_registry,
         config_repository=config_store,
+        external_registry_cache_root=resolved_settings.resolved_external_registry_cache_root,
+        function_registry=function_registry,
         transformation_service=transformation_service,
         promotion_handler_registry=pipeline_registries.promotion_handler_registry,
         reporting_service=build_reporting_service(

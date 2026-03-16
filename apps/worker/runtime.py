@@ -28,7 +28,9 @@ from packages.pipelines.transformation_refresh_registry import (
 )
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.auth import maybe_bootstrap_local_admin
+from packages.shared.external_registry import resolve_active_extension_settings
 from packages.shared.extensions import ExtensionRegistry, load_extension_registry
+from packages.shared.function_registry import FunctionRegistry, load_function_registry
 from packages.shared.settings import AppSettings
 from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.duckdb_store import DuckDBStore
@@ -50,6 +52,7 @@ class WorkerRuntime:
     config_repository: ControlPlaneStore
     configured_definition_service: ConfiguredIngestionDefinitionService
     extension_registry: ExtensionRegistry
+    function_registry: FunctionRegistry
     promotion_handler_registry: PromotionHandlerRegistry
     transformation_domain_registry: TransformationDomainRegistry
     publication_refresh_registry: PublicationRefreshRegistry
@@ -63,17 +66,87 @@ def build_service(settings: AppSettings) -> AccountTransactionService:
     )
 
 
-def build_extension_registry(settings: AppSettings) -> ExtensionRegistry:
+def build_extension_registry(
+    settings: AppSettings,
+    *,
+    config_repository: ControlPlaneStore | None = None,
+) -> ExtensionRegistry:
+    resolved_settings = (
+        resolve_active_extension_settings(
+            config_repository,
+            configured_paths=settings.extension_paths,
+            configured_modules=settings.extension_modules,
+        )
+        if config_repository is not None
+        else None
+    )
     return load_extension_registry(
-        extension_paths=settings.extension_paths,
-        extension_modules=settings.extension_modules,
+        extension_paths=(
+            resolved_settings.extension_paths
+            if resolved_settings is not None
+            else settings.extension_paths
+        ),
+        extension_modules=(
+            resolved_settings.extension_modules
+            if resolved_settings is not None
+            else settings.extension_modules
+        ),
     )
 
 
-def build_pipeline_registries(settings: AppSettings) -> PipelineRegistries:
+def build_pipeline_registries(
+    settings: AppSettings,
+    *,
+    config_repository: ControlPlaneStore | None = None,
+) -> PipelineRegistries:
+    resolved_settings = (
+        resolve_active_extension_settings(
+            config_repository,
+            configured_paths=settings.extension_paths,
+            configured_modules=settings.extension_modules,
+        )
+        if config_repository is not None
+        else None
+    )
     return load_pipeline_registries(
-        extension_paths=settings.extension_paths,
-        extension_modules=settings.extension_modules,
+        extension_paths=(
+            resolved_settings.extension_paths
+            if resolved_settings is not None
+            else settings.extension_paths
+        ),
+        extension_modules=(
+            resolved_settings.extension_modules
+            if resolved_settings is not None
+            else settings.extension_modules
+        ),
+    )
+
+
+def build_function_registry(
+    settings: AppSettings,
+    *,
+    config_repository: ControlPlaneStore | None = None,
+) -> FunctionRegistry:
+    resolved_settings = (
+        resolve_active_extension_settings(
+            config_repository,
+            configured_paths=settings.extension_paths,
+            configured_modules=settings.extension_modules,
+        )
+        if config_repository is not None
+        else None
+    )
+    return load_function_registry(
+        extension_paths=(
+            resolved_settings.extension_paths
+            if resolved_settings is not None
+            else settings.extension_paths
+        ),
+        function_modules=(
+            resolved_settings.function_modules
+            if resolved_settings is not None
+            else ()
+        ),
     )
 
 
@@ -136,8 +209,18 @@ def build_worker_runtime(
 ) -> WorkerRuntime:
     service = build_service(settings)
     config_repository = build_config_repository(settings)
-    extension_registry = build_extension_registry(settings)
-    pipeline_registries = build_pipeline_registries(settings)
+    extension_registry = build_extension_registry(
+        settings,
+        config_repository=config_repository,
+    )
+    function_registry = build_function_registry(
+        settings,
+        config_repository=config_repository,
+    )
+    pipeline_registries = build_pipeline_registries(
+        settings,
+        config_repository=config_repository,
+    )
     maybe_bootstrap_local_admin(config_repository, settings)
     sync_pipeline_catalog(
         config_repository,
@@ -157,8 +240,10 @@ def build_worker_runtime(
             metadata_repository=service.metadata_repository,
             config_repository=config_repository,
             blob_store=service.blob_store,
+            function_registry=function_registry,
         ),
         extension_registry=extension_registry,
+        function_registry=function_registry,
         promotion_handler_registry=pipeline_registries.promotion_handler_registry,
         transformation_domain_registry=pipeline_registries.transformation_domain_registry,
         publication_refresh_registry=pipeline_registries.publication_refresh_registry,

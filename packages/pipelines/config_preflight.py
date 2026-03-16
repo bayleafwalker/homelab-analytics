@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.shared.extensions import ExtensionRegistry
+from packages.shared.function_registry import FunctionRegistry, validate_function_key
 from packages.storage.control_plane import ConfigCatalogStore
 from packages.storage.ingestion_config import (
     ColumnMappingRecord,
@@ -55,6 +56,7 @@ def run_config_preflight(
     config_repository: ConfigCatalogStore,
     *,
     extension_registry: ExtensionRegistry | None = None,
+    function_registry: FunctionRegistry | None = None,
     promotion_handler_registry: PromotionHandlerRegistry | None = None,
     source_asset_id: str | None = None,
     ingestion_definition_id: str | None = None,
@@ -155,6 +157,7 @@ def run_config_preflight(
         column_mappings=scoped_column_mappings,
         dataset_contracts=all_dataset_contracts,
         source_systems=all_source_systems,
+        function_registry=function_registry,
     )
     _check_source_assets(
         issues=issues,
@@ -251,6 +254,7 @@ def _check_column_mappings(
     column_mappings: dict[str, ColumnMappingRecord],
     dataset_contracts: dict[str, DatasetContractConfigRecord],
     source_systems: dict[str, SourceSystemRecord],
+    function_registry: FunctionRegistry | None = None,
 ) -> None:
     for column_mapping in column_mappings.values():
         dataset_contract = dataset_contracts.get(column_mapping.dataset_contract_id)
@@ -283,6 +287,7 @@ def _check_column_mappings(
             issues=issues,
             column_mapping=column_mapping,
             dataset_contract=dataset_contract,
+            function_registry=function_registry,
         )
 
 
@@ -291,6 +296,7 @@ def _check_mapping_against_contract(
     issues: list[ConfigPreflightIssue],
     column_mapping: ColumnMappingRecord,
     dataset_contract: DatasetContractConfigRecord,
+    function_registry: FunctionRegistry | None = None,
 ) -> None:
     contract_columns = {column.name: column for column in dataset_contract.columns}
     mapped_targets = {rule.target_column for rule in column_mapping.rules}
@@ -325,6 +331,27 @@ def _check_mapping_against_contract(
                 ),
             )
         )
+    for rule in column_mapping.rules:
+        if not rule.function_key:
+            continue
+        try:
+            validate_function_key(
+                rule.function_key,
+                function_registry=function_registry,
+                kind="column_mapping_value",
+            )
+        except (KeyError, ValueError) as exc:
+            issues.append(
+                _issue(
+                    code="unknown_mapping_function",
+                    entity_type="column_mapping",
+                    entity_id=column_mapping.column_mapping_id,
+                    message=(
+                        "Column mapping references an unknown or incompatible function key "
+                        f"for target column {rule.target_column}: {exc}"
+                    ),
+                )
+            )
 
 
 def _check_source_assets(

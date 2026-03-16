@@ -24,6 +24,7 @@ class AppSettings:
     api_base_url: str | None = None
     extension_paths: tuple[Path, ...] = ()
     extension_modules: tuple[str, ...] = ()
+    external_registry_cache_root: Path | None = None
     config_database_path: Path | None = None
     analytics_database_path: Path | None = None
     config_backend: str = "sqlite"
@@ -79,6 +80,12 @@ class AppSettings:
         )
 
     @property
+    def resolved_external_registry_cache_root(self) -> Path:
+        return self.external_registry_cache_root or (
+            self.data_dir / "external-registry-cache"
+        )
+
+    @property
     def resolved_api_base_url(self) -> str:
         return self.api_base_url or f"http://127.0.0.1:{self.api_port}"
 
@@ -127,6 +134,14 @@ class AppSettings:
                 env.get("HOMELAB_ANALYTICS_EXTENSION_MODULES", ""),
                 delimiter=",",
             )
+        )
+        external_registry_cache_root_override = env.get(
+            "HOMELAB_ANALYTICS_EXTERNAL_REGISTRY_CACHE_ROOT"
+        )
+        external_registry_cache_root = (
+            Path(external_registry_cache_root_override)
+            if external_registry_cache_root_override
+            else None
         )
         config_db_override = env.get("HOMELAB_ANALYTICS_CONFIG_DATABASE_PATH")
         config_database_path = Path(config_db_override) if config_db_override else None
@@ -237,6 +252,7 @@ class AppSettings:
             dispatch_lease_seconds=dispatch_lease_seconds,
             extension_paths=extension_paths,
             extension_modules=extension_modules,
+            external_registry_cache_root=external_registry_cache_root,
             config_database_path=config_database_path,
             analytics_database_path=analytics_database_path,
             config_backend=config_backend,
