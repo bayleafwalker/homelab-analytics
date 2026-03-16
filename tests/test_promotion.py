@@ -4,6 +4,7 @@ from tempfile import TemporaryDirectory
 
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.builtin_packages import BUILTIN_TRANSFORMATION_PACKAGE_SPECS
+from packages.pipelines.builtin_reporting import PUBLICATION_RELATIONS
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
 from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.promotion import (
@@ -47,6 +48,10 @@ class PromotionTests(unittest.TestCase):
             self.assertEqual(
                 tuple(builtins_by_package[spec.transformation_package_id]),
                 handler.default_publications,
+            )
+            self.assertEqual(
+                set(spec.refresh_publication_keys),
+                set(spec.refresh_publication_keys) & set(PUBLICATION_RELATIONS),
             )
 
     def test_promote_run_is_idempotent_for_same_run(self) -> None:

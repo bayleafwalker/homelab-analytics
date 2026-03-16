@@ -322,7 +322,7 @@ def allowed_publication_keys(
     *,
     extension_registry: ExtensionRegistry | None = None,
 ) -> set[str]:
-    from packages.pipelines.reporting_service import PUBLICATION_RELATIONS
+    from packages.pipelines.builtin_reporting import PUBLICATION_RELATIONS
 
     allowed_keys = set(PUBLICATION_RELATIONS)
     if extension_registry is not None:

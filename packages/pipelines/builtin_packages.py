@@ -18,6 +18,7 @@ class BuiltinTransformationPackageSpec:
     description: str
     version: int
     publications: tuple[BuiltinPublicationSpec, ...]
+    refresh_publication_keys: tuple[str, ...] = ()
 
     @property
     def publication_keys(self) -> tuple[str, ...]:
@@ -57,6 +58,10 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 name="Current counterparty view",
             ),
         ),
+        refresh_publication_keys=(
+            "mart_monthly_cashflow",
+            "mart_monthly_cashflow_by_counterparty",
+        ),
     ),
     BuiltinTransformationPackageSpec(
         transformation_package_id="builtin_subscriptions",
@@ -76,6 +81,7 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 name="Current contract view",
             ),
         ),
+        refresh_publication_keys=("mart_subscription_summary",),
     ),
     BuiltinTransformationPackageSpec(
         transformation_package_id="builtin_contract_prices",
@@ -102,6 +108,10 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 name="Current contract view",
             ),
         ),
+        refresh_publication_keys=(
+            "mart_contract_price_current",
+            "mart_electricity_price_current",
+        ),
     ),
     BuiltinTransformationPackageSpec(
         transformation_package_id="builtin_utility_usage",
@@ -121,6 +131,7 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 name="Current meter view",
             ),
         ),
+        refresh_publication_keys=("mart_utility_cost_summary",),
     ),
     BuiltinTransformationPackageSpec(
         transformation_package_id="builtin_utility_bills",
@@ -140,6 +151,7 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 name="Current meter view",
             ),
         ),
+        refresh_publication_keys=("mart_utility_cost_summary",),
     ),
 )
 

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.builtin_packages import (
+    BuiltinTransformationPackageSpec,
     get_builtin_transformation_package_spec,
     get_builtin_transformation_package_spec_by_handler_key,
 )
+from packages.pipelines.builtin_reporting import PUBLICATION_RELATIONS
 from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.promotion_registry import (
     BuiltinPromotionHandler,
@@ -23,14 +25,10 @@ _ACCOUNT_TRANSACTION_HEADER = {
     "amount",
     "currency",
 }
-_ACCOUNT_TRANSACTION_PUBLICATIONS = list(
-    get_builtin_transformation_package_spec(
-        "builtin_account_transactions"
-    ).publication_keys
+_ACCOUNT_TRANSACTION_SPEC = get_builtin_transformation_package_spec(
+    "builtin_account_transactions"
 )
-_SUBSCRIPTION_PUBLICATIONS = list(
-    get_builtin_transformation_package_spec("builtin_subscriptions").publication_keys
-)
+_SUBSCRIPTION_SPEC = get_builtin_transformation_package_spec("builtin_subscriptions")
 _CONTRACT_PRICE_HEADER = {
     "contract_name",
     "provider",
@@ -41,10 +39,8 @@ _CONTRACT_PRICE_HEADER = {
     "currency",
     "valid_from",
 }
-_CONTRACT_PRICE_PUBLICATIONS = list(
-    get_builtin_transformation_package_spec(
-        "builtin_contract_prices"
-    ).publication_keys
+_CONTRACT_PRICE_SPEC = get_builtin_transformation_package_spec(
+    "builtin_contract_prices"
 )
 _UTILITY_USAGE_HEADER = {
     "meter_id",
@@ -64,9 +60,8 @@ _UTILITY_BILL_HEADER = {
     "billed_amount",
     "currency",
 }
-_UTILITY_PUBLICATIONS = list(
-    get_builtin_transformation_package_spec("builtin_utility_usage").publication_keys
-)
+_UTILITY_USAGE_SPEC = get_builtin_transformation_package_spec("builtin_utility_usage")
+_UTILITY_BILL_SPEC = get_builtin_transformation_package_spec("builtin_utility_bills")
 
 
 def _skipped_result(
@@ -84,6 +79,30 @@ def _skipped_result(
         skipped=True,
         skip_reason=skip_reason,
     )
+
+
+def _publication_keys(spec: BuiltinTransformationPackageSpec) -> list[str]:
+    return list(spec.publication_keys)
+
+
+def _refresh_publication_keys(spec: BuiltinTransformationPackageSpec) -> list[str]:
+    return list(spec.refresh_publication_keys)
+
+
+def _validate_refresh_publications() -> None:
+    for spec in (
+        _ACCOUNT_TRANSACTION_SPEC,
+        _SUBSCRIPTION_SPEC,
+        _CONTRACT_PRICE_SPEC,
+        _UTILITY_USAGE_SPEC,
+        _UTILITY_BILL_SPEC,
+    ):
+        unknown_keys = sorted(set(spec.refresh_publication_keys) - set(PUBLICATION_RELATIONS))
+        if unknown_keys:
+            raise ValueError(
+                "Built-in transformation package refresh publications are not declared in the reporting registry: "
+                f"{spec.transformation_package_id}: {unknown_keys}"
+            )
 
 
 def promote_run(
@@ -108,10 +127,10 @@ def promote_run(
             skip_reason="run does not match the account-transaction canonical contract",
         )
     if transformation_service.count_transactions(run_id) > 0:
-        marts_refreshed = _refresh_account_transaction_marts(transformation_service)
+        marts_refreshed = _refresh_account_transaction_outputs(transformation_service)
         return _skipped_result(
             run_id,
-            publication_keys=_ACCOUNT_TRANSACTION_PUBLICATIONS.copy(),
+            publication_keys=_publication_keys(_ACCOUNT_TRANSACTION_SPEC),
             marts_refreshed=marts_refreshed,
             skip_reason="run already promoted",
         )
@@ -134,12 +153,12 @@ def promote_run(
         run_id=run_id,
         source_system=run.source_name,
     )
-    marts_refreshed = _refresh_account_transaction_marts(transformation_service)
+    marts_refreshed = _refresh_account_transaction_outputs(transformation_service)
     return PromotionResult(
         run_id=run_id,
         facts_loaded=facts_loaded,
         marts_refreshed=marts_refreshed,
-        publication_keys=_ACCOUNT_TRANSACTION_PUBLICATIONS.copy(),
+        publication_keys=_publication_keys(_ACCOUNT_TRANSACTION_SPEC),
     )
 
 
@@ -159,11 +178,11 @@ def promote_subscription_run(
         )
 
     if transformation_service.count_subscriptions(run_id) > 0:
-        transformation_service.refresh_subscription_summary()
+        marts_refreshed = _refresh_subscription_outputs(transformation_service)
         return _skipped_result(
             run_id,
-            publication_keys=_SUBSCRIPTION_PUBLICATIONS.copy(),
-            marts_refreshed=["mart_subscription_summary"],
+            publication_keys=_publication_keys(_SUBSCRIPTION_SPEC),
+            marts_refreshed=marts_refreshed,
             skip_reason="run already promoted",
         )
 
@@ -188,13 +207,13 @@ def promote_subscription_run(
         run_id=run_id,
         source_system=run.source_name,
     )
-    transformation_service.refresh_subscription_summary()
+    marts_refreshed = _refresh_subscription_outputs(transformation_service)
 
     return PromotionResult(
         run_id=run_id,
         facts_loaded=facts_loaded,
-        marts_refreshed=["mart_subscription_summary"],
-        publication_keys=_SUBSCRIPTION_PUBLICATIONS.copy(),
+        marts_refreshed=marts_refreshed,
+        publication_keys=_publication_keys(_SUBSCRIPTION_SPEC),
     )
 
 
@@ -220,10 +239,10 @@ def promote_contract_price_run(
         )
 
     if transformation_service.count_contract_prices(run_id) > 0:
-        marts_refreshed = _refresh_contract_price_marts(transformation_service)
+        marts_refreshed = _refresh_contract_price_outputs(transformation_service)
         return _skipped_result(
             run_id,
-            publication_keys=_CONTRACT_PRICE_PUBLICATIONS.copy(),
+            publication_keys=_publication_keys(_CONTRACT_PRICE_SPEC),
             marts_refreshed=marts_refreshed,
             skip_reason="run already promoted",
         )
@@ -251,12 +270,12 @@ def promote_contract_price_run(
         run_id=run_id,
         source_system=run.source_name,
     )
-    marts_refreshed = _refresh_contract_price_marts(transformation_service)
+    marts_refreshed = _refresh_contract_price_outputs(transformation_service)
     return PromotionResult(
         run_id=run_id,
         facts_loaded=facts_loaded,
         marts_refreshed=marts_refreshed,
-        publication_keys=_CONTRACT_PRICE_PUBLICATIONS.copy(),
+        publication_keys=_publication_keys(_CONTRACT_PRICE_SPEC),
     )
 
 
@@ -282,11 +301,14 @@ def promote_utility_usage_run(
         )
 
     if transformation_service.count_utility_usage(run_id) > 0:
-        transformation_service.refresh_utility_cost_summary()
+        marts_refreshed = _refresh_utility_outputs(
+            transformation_service,
+            spec=_UTILITY_USAGE_SPEC,
+        )
         return _skipped_result(
             run_id,
-            publication_keys=_UTILITY_PUBLICATIONS.copy(),
-            marts_refreshed=["mart_utility_cost_summary"],
+            publication_keys=_publication_keys(_UTILITY_USAGE_SPEC),
+            marts_refreshed=marts_refreshed,
             skip_reason="run already promoted",
         )
 
@@ -311,13 +333,16 @@ def promote_utility_usage_run(
         run_id=run_id,
         source_system=run.source_name,
     )
-    transformation_service.refresh_utility_cost_summary()
+    marts_refreshed = _refresh_utility_outputs(
+        transformation_service,
+        spec=_UTILITY_USAGE_SPEC,
+    )
 
     return PromotionResult(
         run_id=run_id,
         facts_loaded=facts_loaded,
-        marts_refreshed=["mart_utility_cost_summary"],
-        publication_keys=_UTILITY_PUBLICATIONS.copy(),
+        marts_refreshed=marts_refreshed,
+        publication_keys=_publication_keys(_UTILITY_USAGE_SPEC),
     )
 
 
@@ -343,11 +368,14 @@ def promote_utility_bill_run(
         )
 
     if transformation_service.count_bills(run_id) > 0:
-        transformation_service.refresh_utility_cost_summary()
+        marts_refreshed = _refresh_utility_outputs(
+            transformation_service,
+            spec=_UTILITY_BILL_SPEC,
+        )
         return _skipped_result(
             run_id,
-            publication_keys=_UTILITY_PUBLICATIONS.copy(),
-            marts_refreshed=["mart_utility_cost_summary"],
+            publication_keys=_publication_keys(_UTILITY_BILL_SPEC),
+            marts_refreshed=marts_refreshed,
             skip_reason="run already promoted",
         )
 
@@ -377,13 +405,16 @@ def promote_utility_bill_run(
         run_id=run_id,
         source_system=run.source_name,
     )
-    transformation_service.refresh_utility_cost_summary()
+    marts_refreshed = _refresh_utility_outputs(
+        transformation_service,
+        spec=_UTILITY_BILL_SPEC,
+    )
 
     return PromotionResult(
         run_id=run_id,
         facts_loaded=facts_loaded,
-        marts_refreshed=["mart_utility_cost_summary"],
-        publication_keys=_UTILITY_PUBLICATIONS.copy(),
+        marts_refreshed=marts_refreshed,
+        publication_keys=_publication_keys(_UTILITY_BILL_SPEC),
     )
 
 
@@ -504,11 +535,35 @@ def _refresh_account_transaction_marts(
     return marts_refreshed
 
 
-def _refresh_contract_price_marts(
+def _refresh_account_transaction_outputs(
+    transformation_service: TransformationService,
+) -> list[str]:
+    refreshed = _refresh_account_transaction_marts(transformation_service)
+    assert refreshed == _refresh_publication_keys(_ACCOUNT_TRANSACTION_SPEC)
+    return refreshed
+
+
+def _refresh_subscription_outputs(
+    transformation_service: TransformationService,
+) -> list[str]:
+    transformation_service.refresh_subscription_summary()
+    return _refresh_publication_keys(_SUBSCRIPTION_SPEC)
+
+
+def _refresh_contract_price_outputs(
     transformation_service: TransformationService,
 ) -> list[str]:
     transformation_service.refresh_contract_price_current()
-    return [
-        "mart_contract_price_current",
-        "mart_electricity_price_current",
-    ]
+    return _refresh_publication_keys(_CONTRACT_PRICE_SPEC)
+
+
+def _refresh_utility_outputs(
+    transformation_service: TransformationService,
+    *,
+    spec: BuiltinTransformationPackageSpec,
+) -> list[str]:
+    transformation_service.refresh_utility_cost_summary()
+    return _refresh_publication_keys(spec)
+
+
+_validate_refresh_publications()

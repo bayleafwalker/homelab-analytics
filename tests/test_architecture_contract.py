@@ -122,6 +122,12 @@ def test_promotion_orchestration_imports_split_builtin_handlers() -> None:
     assert "packages.pipelines.promotion_types" in imports
 
 
+def test_reporting_service_imports_shared_builtin_reporting_registry() -> None:
+    imports = _import_names(ROOT / "packages" / "pipelines" / "reporting_service.py")
+
+    assert "packages.pipelines.builtin_reporting" in imports
+
+
 def test_postgres_ingestion_backend_imports_split_catalog_modules() -> None:
     imports = _import_names(
         ROOT / "packages" / "storage" / "postgres_ingestion_config.py"
