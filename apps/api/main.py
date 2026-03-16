@@ -13,6 +13,7 @@ from packages.pipelines.extension_registries import (
     load_pipeline_registries,
 )
 from packages.pipelines.lazy_transformation_service import LazyTransformationService
+from packages.pipelines.pipeline_catalog import sync_pipeline_catalog
 from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_domain_registry import (
@@ -138,6 +139,12 @@ def build_app(settings: AppSettings | None = None):
     maybe_bootstrap_local_admin(config_store, resolved_settings)
     extension_registry = build_extension_registry(resolved_settings)
     pipeline_registries = build_pipeline_registries(resolved_settings)
+    sync_pipeline_catalog(
+        config_store,
+        pipeline_registries.pipeline_catalog_registry,
+        extension_registry=extension_registry,
+        promotion_handler_registry=pipeline_registries.promotion_handler_registry,
+    )
     transformation_service = build_lazy_transformation_service(
         resolved_settings,
         publication_refresh_registry=pipeline_registries.publication_refresh_registry,

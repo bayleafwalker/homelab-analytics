@@ -19,7 +19,6 @@ from packages.shared.settings import AppSettings
 from packages.storage.ingestion_config import (
     IngestionConfigRepository,
     SourceAssetCreate,
-    TransformationPackageCreate,
 )
 from tests.account_test_support import (
     ACCOUNT_CONTRACT_ID,
@@ -239,8 +238,16 @@ class ApiMainTests(unittest.TestCase):
                 "\n".join(
                     [
                         "from packages.pipelines.account_transaction_service import AccountTransactionService",
+                        "from packages.pipelines.pipeline_catalog import (",
+                        "    PipelinePackageSpec,",
+                        "    PipelinePublicationSpec,",
+                        ")",
                         "from packages.pipelines.promotion_registry import (",
                         "    register_domain_canonical_promotion_handler,",
+                        ")",
+                        "from packages.shared.extensions import (",
+                        "    ExtensionPublication,",
+                        "    LayerExtension,",
                         ")",
                         "",
                         "ACCOUNT_TRANSACTION_HEADER = {",
@@ -252,9 +259,43 @@ class ApiMainTests(unittest.TestCase):
                         "}",
                         "",
                         "def register_extensions(registry):",
-                        "    return None",
+                        "    registry.register(",
+                        "        LayerExtension(",
+                        '            layer="reporting",',
+                        '            key="budget_projection_publication",',
+                        '            kind="mart",',
+                        '            description="Custom budget projection relation.",',
+                        f'            module="{module_name}",',
+                        f'            source="{module_name}",',
+                        '            data_access="published",',
+                        "            publication_relations=(",
+                        "                ExtensionPublication(",
+                        '                    relation_name="mart_budget_projection",',
+                        '                    columns=(("booking_month", "VARCHAR NOT NULL"),),',
+                        '                    source_query="SELECT booking_month FROM mart_monthly_cashflow",',
+                        '                    order_by="booking_month",',
+                        "                ),",
+                        "            ),",
+                        "        )",
+                        "    )",
                         "",
-                        "def register_pipeline_registries(*, promotion_handler_registry, transformation_domain_registry, publication_refresh_registry):",
+                        "def register_pipeline_registries(*, pipeline_catalog_registry, promotion_handler_registry, transformation_domain_registry, publication_refresh_registry):",
+                        "    pipeline_catalog_registry.register(",
+                        "        PipelinePackageSpec(",
+                        '            transformation_package_id="custom_budget_v1",',
+                        '            handler_key="custom_budget_transform",',
+                        '            name="Custom budget transform",',
+                        "            version=1,",
+                        '            description="Custom budget extension package.",',
+                        "            publications=(",
+                        "                PipelinePublicationSpec(",
+                        '                    publication_definition_id="pub_budget_projection",',
+                        '                    publication_key="mart_budget_projection",',
+                        '                    name="Budget projection",',
+                        "                ),",
+                        "            ),",
+                        "        )",
+                        "    )",
                         "    publication_refresh_registry.register(",
                         '        "mart_budget_projection",',
                         "        lambda service: 0,",
@@ -314,15 +355,24 @@ class ApiMainTests(unittest.TestCase):
             )
             config_repository = IngestionConfigRepository(settings.resolved_config_database_path)
             create_account_configuration(config_repository)
-            config_repository.create_transformation_package(
-                TransformationPackageCreate(
-                    transformation_package_id="custom_budget_v1",
-                    name="Custom budget transform",
-                    handler_key="custom_budget_transform",
-                    version=1,
-                )
+
+            client = TestClient(build_app(settings))
+            synced_repository = IngestionConfigRepository(
+                settings.resolved_config_database_path
             )
-            config_repository.create_source_asset(
+            self.assertEqual(
+                "custom_budget_transform",
+                synced_repository.get_transformation_package(
+                    "custom_budget_v1"
+                ).handler_key,
+            )
+            self.assertEqual(
+                "mart_budget_projection",
+                synced_repository.get_publication_definition(
+                    "pub_budget_projection"
+                ).publication_key,
+            )
+            synced_repository.create_source_asset(
                 SourceAssetCreate(
                     source_asset_id="custom_budget_asset",
                     source_system_id=ACCOUNT_SOURCE_SYSTEM_ID,
@@ -333,8 +383,6 @@ class ApiMainTests(unittest.TestCase):
                     transformation_package_id="custom_budget_v1",
                 )
             )
-
-            client = TestClient(build_app(settings))
 
             ingest_response = client.post(
                 "/ingest/configured-csv",

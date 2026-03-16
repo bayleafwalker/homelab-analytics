@@ -85,9 +85,11 @@ def test_runtime_builders_preserve_published_vs_warehouse_reporting_boundary() -
     assert "ReportingAccessMode.PUBLISHED" in api_main_source
     assert "build_pipeline_registries(" in api_main_source
     assert "domain_registry=pipeline_registries.transformation_domain_registry" in api_main_source
+    assert "sync_pipeline_catalog(" in api_main_source
     assert 'settings.reporting_backend.lower() == "postgres"' in api_main_source
     assert "load_pipeline_registries(" in worker_runtime_source
     assert "domain_registry=domain_registry" in worker_runtime_source
+    assert "sync_pipeline_catalog(" in worker_runtime_source
     assert "access_mode=ReportingAccessMode.WAREHOUSE" in worker_runtime_source
     assert "build_web_environment" in web_main_source
     assert "HOMELAB_ANALYTICS_API_BASE_URL" in web_app_source
@@ -131,12 +133,16 @@ def test_promotion_orchestration_imports_shared_registry_contracts() -> None:
     promotion_registry_imports = _import_names(
         ROOT / "packages" / "pipelines" / "promotion_registry.py"
     )
+    extension_registry_imports = _import_names(
+        ROOT / "packages" / "pipelines" / "extension_registries.py"
+    )
 
     assert "packages.pipelines.promotion_registry" in imports
     assert "packages.pipelines.builtin_promotion_handlers" in imports
     assert "packages.pipelines.promotion_types" in imports
     assert "packages.pipelines.promotion_registry" in builtin_handler_imports
     assert "packages.pipelines.transformation_domain_registry" in promotion_registry_imports
+    assert "packages.pipelines.pipeline_catalog" in extension_registry_imports
 
 
 def test_reporting_service_imports_shared_builtin_reporting_registry() -> None:

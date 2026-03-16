@@ -143,7 +143,7 @@ Recommended loading pattern:
 - extend the import path with operator-configured custom paths or checked-out external repositories
 - import explicitly configured extension modules
 - require each extension module to register itself into a shared layer registry
-- allow extension modules to optionally define `register_pipeline_registries(...)` so configured transformation packages can add promotion handlers, transformation domain handlers, and publication refresh handlers through the same module-loading path
+- allow extension modules to optionally define `register_pipeline_registries(...)` so configured transformation packages can add package catalog declarations, promotion handlers, transformation domain handlers, and publication refresh handlers through the same module-loading path
 - allow executable extensions to expose handlers that can be invoked by worker jobs or application APIs
 
 Layer expectations:
@@ -195,6 +195,7 @@ Binding rules:
 - worker and API promotion should dispatch from source-asset configuration, not inferred file headers or route-specific heuristics
 - control-plane transformation-package creation should validate `handler_key` values against the loaded promotion-handler registry so invalid runtime wiring is rejected before it is persisted
 - control-plane publication-definition creation and `verify-config` should validate built-in publication keys against the selected package handler, while still allowing extension-declared publication relations
+- API and worker startup may sync extension-declared transformation packages and publication definitions into the control plane so source assets can bind to registered external packages without manual catalog bootstrapping
 
 For folder-like external systems, prefer sync-to-folder first:
 

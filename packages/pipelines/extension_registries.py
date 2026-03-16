@@ -10,6 +10,10 @@ from packages.pipelines.builtin_promotion_handlers import (
 from packages.pipelines.builtin_transformation_refresh import (
     register_builtin_publication_refresh_handlers,
 )
+from packages.pipelines.pipeline_catalog import (
+    PipelineCatalogRegistry,
+    build_builtin_pipeline_catalog_registry,
+)
 from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.pipelines.transformation_domain_registry import (
     TransformationDomainRegistry,
@@ -23,18 +27,21 @@ from packages.shared.extensions import load_extension_modules
 
 @dataclass(frozen=True)
 class PipelineRegistries:
+    pipeline_catalog_registry: PipelineCatalogRegistry
     promotion_handler_registry: PromotionHandlerRegistry
     transformation_domain_registry: TransformationDomainRegistry
     publication_refresh_registry: PublicationRefreshRegistry
 
 
 def build_builtin_pipeline_registries() -> PipelineRegistries:
+    pipeline_catalog_registry = build_builtin_pipeline_catalog_registry()
     promotion_handler_registry = PromotionHandlerRegistry()
     transformation_domain_registry = build_builtin_transformation_domain_registry()
     publication_refresh_registry = PublicationRefreshRegistry()
     register_builtin_promotion_handlers(promotion_handler_registry)
     register_builtin_publication_refresh_handlers(publication_refresh_registry)
     return PipelineRegistries(
+        pipeline_catalog_registry=pipeline_catalog_registry,
         promotion_handler_registry=promotion_handler_registry,
         transformation_domain_registry=transformation_domain_registry,
         publication_refresh_registry=publication_refresh_registry,
@@ -67,6 +74,7 @@ def load_pipeline_registries(
             )
         handler_signature = inspect.signature(register_pipeline_registries)
         kwargs = {
+            "pipeline_catalog_registry": registries.pipeline_catalog_registry,
             "promotion_handler_registry": registries.promotion_handler_registry,
             "transformation_domain_registry": registries.transformation_domain_registry,
             "publication_refresh_registry": registries.publication_refresh_registry,

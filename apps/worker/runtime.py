@@ -13,6 +13,7 @@ from packages.pipelines.extension_registries import (
     PipelineRegistries,
     load_pipeline_registries,
 )
+from packages.pipelines.pipeline_catalog import sync_pipeline_catalog
 from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.pipelines.reporting_service import (
     ReportingAccessMode,
@@ -138,6 +139,12 @@ def build_worker_runtime(
     extension_registry = build_extension_registry(settings)
     pipeline_registries = build_pipeline_registries(settings)
     maybe_bootstrap_local_admin(config_repository, settings)
+    sync_pipeline_catalog(
+        config_repository,
+        pipeline_registries.pipeline_catalog_registry,
+        extension_registry=extension_registry,
+        promotion_handler_registry=pipeline_registries.promotion_handler_registry,
+    )
     return WorkerRuntime(
         settings=settings,
         output=output,

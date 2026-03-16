@@ -167,6 +167,61 @@ class ExtensionRegistryTests(unittest.TestCase):
             self.assertEqual(["mart_budget_projection"], result.publication_keys)
             sys.modules.pop(module_name, None)
 
+    def test_external_modules_can_register_pipeline_catalog_from_custom_paths(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            module_name = f"test_external_pipeline_catalog_{uuid4().hex}"
+            module_path = Path(temp_dir) / f"{module_name}.py"
+            module_path.write_text(
+                "\n".join(
+                    [
+                        "from packages.pipelines.pipeline_catalog import (",
+                        "    PipelinePackageSpec,",
+                        "    PipelinePublicationSpec,",
+                        ")",
+                        "",
+                        "def register_pipeline_registries(*, pipeline_catalog_registry):",
+                        "    pipeline_catalog_registry.register(",
+                        "        PipelinePackageSpec(",
+                        '            transformation_package_id="custom_budget_v1",',
+                        '            handler_key="custom_budget_transform",',
+                        '            name="Custom budget transform",',
+                        "            version=1,",
+                        '            description="External custom budget package.",',
+                        "            publications=(",
+                        "                PipelinePublicationSpec(",
+                        '                    publication_definition_id="pub_budget_projection",',
+                        '                    publication_key="mart_budget_projection",',
+                        '                    name="Budget projection",',
+                        "                ),",
+                        "            ),",
+                        "        )",
+                        "    )",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            registries = load_pipeline_registries(
+                extension_paths=(Path(temp_dir),),
+                extension_modules=(module_name,),
+            )
+
+            package_ids = {
+                package.transformation_package_id
+                for package in registries.pipeline_catalog_registry.list_packages()
+            }
+            publication_ids = {
+                publication.publication_definition_id
+                for _, publication in registries.pipeline_catalog_registry.iter_publications()
+            }
+
+            self.assertIn("custom_budget_v1", package_ids)
+            self.assertIn("pub_budget_projection", publication_ids)
+            sys.modules.pop(module_name, None)
+
     def test_builtin_transformation_and_reporting_extensions_execute(self) -> None:
         with TemporaryDirectory() as temp_dir:
             service = AccountTransactionService(
