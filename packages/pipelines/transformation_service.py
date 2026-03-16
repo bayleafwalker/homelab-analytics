@@ -7,9 +7,6 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from packages.pipelines.builtin_transformation_refresh import (
-    refresh_builtin_publications,
-)
 from packages.pipelines.normalization import (
     normalize_currency_code,
     normalize_timestamp_utc,
@@ -34,6 +31,10 @@ from packages.pipelines.transformation_contract_prices import (
     get_electricity_price_current,
     load_contract_prices,
     refresh_contract_price_current,
+)
+from packages.pipelines.transformation_refresh_registry import (
+    PublicationRefreshRegistry,
+    get_default_publication_refresh_registry,
 )
 from packages.pipelines.transformation_subscriptions import (
     count_subscriptions,
@@ -77,9 +78,13 @@ class TransformationService:
         store: DuckDBStore,
         *,
         control_plane_store: SourceLineageStore | None = None,
+        publication_refresh_registry: PublicationRefreshRegistry | None = None,
     ) -> None:
         self._store = store
         self._control_plane_store = control_plane_store
+        self._publication_refresh_registry = (
+            publication_refresh_registry or get_default_publication_refresh_registry()
+        )
         self._ensure_schema()
 
     def _ensure_schema(self) -> None:
@@ -176,7 +181,7 @@ class TransformationService:
         self,
         publication_keys: list[str] | tuple[str, ...],
     ) -> list[str]:
-        return refresh_builtin_publications(self, publication_keys)
+        return self._publication_refresh_registry.refresh(self, publication_keys)
 
     def get_monthly_cashflow(
         self,
@@ -245,8 +250,7 @@ class TransformationService:
 
     def get_current_counterparties(self) -> list[dict[str, Any]]:
         return self._store.fetchall_dicts(
-            f"SELECT * FROM {CURRENT_DIM_COUNTERPARTY_VIEW}"
-            " ORDER BY counterparty_name"
+            f"SELECT * FROM {CURRENT_DIM_COUNTERPARTY_VIEW} ORDER BY counterparty_name"
         )
 
     def get_current_contracts(self) -> list[dict[str, Any]]:

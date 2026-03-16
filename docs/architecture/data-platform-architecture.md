@@ -91,6 +91,7 @@ Transformation extensibility:
 
 - keep key canonical transformations inside the application as the reference implementation
 - allow external transformation packages to register additional canonical models, enrichments, and mapping logic
+- resolve package promotion handlers and publication refresh sets through shared registries rather than hard-wiring package branches into the central orchestrators
 - require every external transformation to publish its canonical target, version, and lineage metadata
 
 ### 3. Reporting

@@ -7,11 +7,11 @@ from packages.pipelines.account_transaction_service import AccountTransactionSer
 from packages.pipelines.builtin_packages import (
     BuiltinTransformationPackageSpec,
     get_builtin_transformation_package_spec,
-    get_builtin_transformation_package_spec_by_handler_key,
 )
 from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.promotion_registry import (
-    BuiltinPromotionHandler,
+    PromotionHandler,
+    PromotionHandlerRegistry,
     PromotionRuntime,
 )
 from packages.pipelines.promotion_types import PromotionResult
@@ -206,8 +206,8 @@ _SUBSCRIPTION_FLOW = BuiltinPromotionFlowSpec(
         "start_date": str(row.start_date),
         "end_date": str(row.end_date) if row.end_date else None,
     },
-    count_existing=lambda transformation_service, run_id: transformation_service.count_subscriptions(
-        run_id
+    count_existing=lambda transformation_service, run_id: (
+        transformation_service.count_subscriptions(run_id)
     ),
     load_rows=_load_subscription_rows,
 )
@@ -234,8 +234,8 @@ _CONTRACT_PRICE_FLOW = BuiltinPromotionFlowSpec(
         "valid_from": str(row.valid_from),
         "valid_to": str(row.valid_to) if row.valid_to else None,
     },
-    count_existing=lambda transformation_service, run_id: transformation_service.count_contract_prices(
-        run_id
+    count_existing=lambda transformation_service, run_id: (
+        transformation_service.count_contract_prices(run_id)
     ),
     load_rows=_load_contract_price_rows,
     required_header=_CONTRACT_PRICE_HEADER,
@@ -262,8 +262,8 @@ _UTILITY_USAGE_FLOW = BuiltinPromotionFlowSpec(
         "usage_unit": row.usage_unit,
         "reading_source": row.reading_source,
     },
-    count_existing=lambda transformation_service, run_id: transformation_service.count_utility_usage(
-        run_id
+    count_existing=lambda transformation_service, run_id: (
+        transformation_service.count_utility_usage(run_id)
     ),
     load_rows=_load_utility_usage_rows,
     required_header=_UTILITY_USAGE_HEADER,
@@ -289,9 +289,7 @@ _UTILITY_BILL_FLOW = BuiltinPromotionFlowSpec(
         "billing_period_end": str(row.billing_period_end),
         "billed_amount": str(row.billed_amount),
         "currency": row.currency,
-        "billed_quantity": (
-            str(row.billed_quantity) if row.billed_quantity is not None else None
-        ),
+        "billed_quantity": (str(row.billed_quantity) if row.billed_quantity is not None else None),
         "usage_unit": row.usage_unit,
         "invoice_date": str(row.invoice_date) if row.invoice_date else None,
     },
@@ -310,6 +308,8 @@ _BUILTIN_PROMOTION_FLOWS = (
     _UTILITY_USAGE_FLOW,
     _UTILITY_BILL_FLOW,
 )
+
+
 def _promote_with_flow(
     run_id: str,
     *,
@@ -321,9 +321,7 @@ def _promote_with_flow(
     if not run.passed:
         return _skipped_result(
             run_id,
-            skip_reason=(
-                f"run status is {run.status.value!r}; only passed runs are promoted"
-            ),
+            skip_reason=(f"run status is {run.status.value!r}; only passed runs are promoted"),
         )
     if flow.required_header and not flow.required_header.issubset(set(run.header)):
         return _skipped_result(
@@ -332,9 +330,7 @@ def _promote_with_flow(
             or "run does not match the canonical contract",
         )
     if flow.count_existing(transformation_service, run_id) > 0:
-        marts_refreshed = transformation_service.refresh_publications(
-            flow.refresh_publication_keys
-        )
+        marts_refreshed = transformation_service.refresh_publications(flow.refresh_publication_keys)
         return _skipped_result(
             run_id,
             publication_keys=flow.publication_keys,
@@ -342,18 +338,14 @@ def _promote_with_flow(
             skip_reason="run already promoted",
         )
 
-    row_dicts = [
-        flow.serialize_row(row) for row in flow.get_canonical_rows(service, run_id)
-    ]
+    row_dicts = [flow.serialize_row(row) for row in flow.get_canonical_rows(service, run_id)]
     facts_loaded = flow.load_rows(
         transformation_service,
         row_dicts,
         run_id,
         run.source_name,
     )
-    marts_refreshed = transformation_service.refresh_publications(
-        flow.refresh_publication_keys
-    )
+    marts_refreshed = transformation_service.refresh_publications(flow.refresh_publication_keys)
     return PromotionResult(
         run_id=run_id,
         facts_loaded=facts_loaded,
@@ -447,17 +439,24 @@ def _build_runtime_runner(
 
 
 _BUILTIN_PROMOTION_HANDLERS = {
-    flow.package_spec.handler_key: BuiltinPromotionHandler(
-        package_spec=get_builtin_transformation_package_spec_by_handler_key(
-            flow.package_spec.handler_key
-        ),
+    flow.package_spec.handler_key: PromotionHandler(
+        handler_key=flow.package_spec.handler_key,
+        default_publications=flow.package_spec.publication_keys,
+        supported_publications=flow.package_spec.publication_keys,
         runner=_build_runtime_runner(flow),
     )
     for flow in _BUILTIN_PROMOTION_FLOWS
 }
 
 
-def get_builtin_promotion_handler(handler_key: str) -> BuiltinPromotionHandler:
+def register_builtin_promotion_handlers(
+    registry: PromotionHandlerRegistry,
+) -> None:
+    for handler in _BUILTIN_PROMOTION_HANDLERS.values():
+        registry.register(handler)
+
+
+def get_builtin_promotion_handler(handler_key: str) -> PromotionHandler:
     try:
         return _BUILTIN_PROMOTION_HANDLERS[handler_key]
     except KeyError as exc:

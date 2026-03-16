@@ -20,14 +20,18 @@ from __future__ import annotations
 from dataclasses import replace
 
 from packages.pipelines.builtin_promotion_handlers import (
-    get_builtin_promotion_handler,
     promote_contract_price_run,
     promote_run,
     promote_subscription_run,
     promote_utility_bill_run,
     promote_utility_usage_run,
 )
-from packages.pipelines.promotion_registry import PromotionRuntime
+from packages.pipelines.promotion_registry import (
+    PromotionHandler,
+    PromotionHandlerRegistry,
+    PromotionRuntime,
+    get_default_promotion_handler_registry,
+)
 from packages.pipelines.promotion_types import PromotionResult
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.extensions import ExtensionRegistry
@@ -48,6 +52,10 @@ __all__ = [
 ]
 
 
+def get_builtin_promotion_handler(handler_key: str) -> PromotionHandler:
+    return get_default_promotion_handler_registry().get(handler_key)
+
+
 def promote_source_asset_run(
     run_id: str,
     *,
@@ -58,6 +66,7 @@ def promote_source_asset_run(
     transformation_service: TransformationService,
     blob_store: BlobStore | None = None,
     extension_registry: ExtensionRegistry | None = None,
+    promotion_handler_registry: PromotionHandlerRegistry | None = None,
 ) -> PromotionResult:
     if source_asset.transformation_package_id is None:
         return PromotionResult(
@@ -86,7 +95,10 @@ def promote_source_asset_run(
         if extension_registry is not None
         else []
     )
-    handler = get_builtin_promotion_handler(transformation_package.handler_key)
+    resolved_promotion_handler_registry = (
+        promotion_handler_registry or get_default_promotion_handler_registry()
+    )
+    handler = resolved_promotion_handler_registry.get(transformation_package.handler_key)
     result = handler.runner(
         PromotionRuntime(
             run_id=run_id,

@@ -12,6 +12,11 @@ from packages.pipelines.promotion import (
     promote_run,
     promote_source_asset_run,
 )
+from packages.pipelines.promotion_registry import (
+    PromotionHandler,
+    PromotionHandlerRegistry,
+)
+from packages.pipelines.promotion_types import PromotionResult
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.extensions import ExtensionPublication, ExtensionRegistry, LayerExtension
 from packages.storage.duckdb_store import DuckDBStore
@@ -25,6 +30,7 @@ from packages.storage.ingestion_config import (
     PublicationDefinitionCreate,
     SourceAssetCreate,
     SourceSystemCreate,
+    TransformationPackageCreate,
 )
 from packages.storage.run_metadata import RunMetadataRepository
 
@@ -163,6 +169,99 @@ class PromotionTests(unittest.TestCase):
             rows = transformation_service.get_monthly_cashflow()
             self.assertEqual(1, len(rows))
             self.assertEqual("2026-01", rows[0]["booking_month"])
+
+    def test_promote_source_asset_run_uses_injected_promotion_handler_registry(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            config_repository = IngestionConfigRepository(temp_root / "config.db")
+            metadata_repository = RunMetadataRepository(temp_root / "runs.db")
+            config_repository.create_source_system(
+                SourceSystemCreate(
+                    source_system_id="household_budget_feed",
+                    name="Household Budget Feed",
+                    source_type="file-drop",
+                    transport="filesystem",
+                    schedule_mode="manual",
+                )
+            )
+            config_repository.create_dataset_contract(
+                DatasetContractConfigCreate(
+                    dataset_contract_id="household_budget_v1",
+                    dataset_name="household_budget",
+                    version=1,
+                    allow_extra_columns=False,
+                    columns=(
+                        DatasetColumnConfig("period_start", ColumnType.DATE),
+                        DatasetColumnConfig("category_id", ColumnType.STRING),
+                        DatasetColumnConfig("planned_amount", ColumnType.DECIMAL),
+                    ),
+                )
+            )
+            config_repository.create_column_mapping(
+                ColumnMappingCreate(
+                    column_mapping_id="household_budget_feed_v1",
+                    source_system_id="household_budget_feed",
+                    dataset_contract_id="household_budget_v1",
+                    version=1,
+                    rules=(
+                        ColumnMappingRule("period_start", source_column="period_start"),
+                        ColumnMappingRule("category_id", source_column="category_id"),
+                        ColumnMappingRule(
+                            "planned_amount",
+                            source_column="planned_amount",
+                        ),
+                    ),
+                )
+            )
+            config_repository.create_transformation_package(
+                TransformationPackageCreate(
+                    transformation_package_id="custom_budget_v1",
+                    name="Custom budget transform",
+                    handler_key="custom_budget_transform",
+                    version=1,
+                )
+            )
+            source_asset = config_repository.create_source_asset(
+                SourceAssetCreate(
+                    source_asset_id="household_budget_asset",
+                    source_system_id="household_budget_feed",
+                    dataset_contract_id="household_budget_v1",
+                    column_mapping_id="household_budget_feed_v1",
+                    name="Household Budget Asset",
+                    asset_type="dataset",
+                    transformation_package_id="custom_budget_v1",
+                )
+            )
+            handler_registry = PromotionHandlerRegistry()
+            handler_registry.register(
+                PromotionHandler(
+                    handler_key="custom_budget_transform",
+                    default_publications=("mart_budget_projection",),
+                    supported_publications=("mart_budget_projection",),
+                    runner=lambda runtime: PromotionResult(
+                        run_id=runtime.run_id,
+                        facts_loaded=0,
+                        marts_refreshed=["mart_budget_projection"],
+                        publication_keys=["mart_budget_projection"],
+                    ),
+                )
+            )
+
+            result = promote_source_asset_run(
+                "run-custom-budget-001",
+                source_asset=source_asset,
+                config_repository=config_repository,
+                landing_root=temp_root / "landing",
+                metadata_repository=metadata_repository,
+                transformation_service=TransformationService(DuckDBStore.memory()),
+                promotion_handler_registry=handler_registry,
+            )
+
+            self.assertFalse(result.skipped)
+            self.assertEqual(["mart_budget_projection"], result.marts_refreshed)
+            self.assertEqual(["mart_budget_projection"], result.publication_keys)
 
     def test_promote_source_asset_run_allows_extension_publication_keys(self) -> None:
         with TemporaryDirectory() as temp_dir:

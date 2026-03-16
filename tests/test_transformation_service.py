@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import pytest
 
+from packages.pipelines.transformation_refresh_registry import (
+    PublicationRefreshRegistry,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -180,6 +183,26 @@ def test_refresh_publications_uses_builtin_refresh_registry(
     assert len(svc.get_monthly_cashflow_by_counterparty()) == 4
 
 
+def test_refresh_publications_uses_injected_refresh_registry() -> None:
+    refresh_calls: list[TransformationService] = []
+    registry = PublicationRefreshRegistry()
+
+    def refresh_marker(service: TransformationService) -> int:
+        refresh_calls.append(service)
+        return 0
+
+    registry.register("mart_custom_projection", refresh_marker)
+    svc = TransformationService(
+        DuckDBStore.memory(),
+        publication_refresh_registry=registry,
+    )
+
+    refreshed = svc.refresh_publications(["mart_custom_projection", "mart_custom_projection"])
+
+    assert refreshed == ["mart_custom_projection"]
+    assert refresh_calls == [svc]
+
+
 # ---------------------------------------------------------------------------
 # PLT-15: Atomic run processing
 # ---------------------------------------------------------------------------
@@ -307,7 +330,7 @@ def test_load_transactions_writes_audit_record(svc: TransformationService) -> No
     record = audit[0]
     assert record["input_run_id"] == "run-audit-01"
     assert record["fact_rows"] == 4
-    assert record["accounts_upserted"] == 1   # only CHK-001
+    assert record["accounts_upserted"] == 1  # only CHK-001
     assert record["counterparties_upserted"] == 2  # Employer + Electric Utility
     assert record["duration_ms"] >= 0
     assert record["started_at"] is not None

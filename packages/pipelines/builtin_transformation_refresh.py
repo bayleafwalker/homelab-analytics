@@ -1,56 +1,29 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
-
 from packages.pipelines.builtin_packages import BUILTIN_TRANSFORMATION_PACKAGE_SPECS
 from packages.pipelines.builtin_reporting import PUBLICATION_RELATIONS
-
-if TYPE_CHECKING:
-    from packages.pipelines.transformation_service import TransformationService
-
-
-PublicationRefreshHandler = Callable[["TransformationService"], int]
-
+from packages.pipelines.transformation_refresh_registry import (
+    PublicationRefreshHandler,
+    PublicationRefreshRegistry,
+)
 
 BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
     "mart_monthly_cashflow": lambda service: service.refresh_monthly_cashflow(),
     "mart_monthly_cashflow_by_counterparty": (
         lambda service: service.refresh_monthly_cashflow_by_counterparty()
     ),
-    "mart_subscription_summary": (
-        lambda service: service.refresh_subscription_summary()
-    ),
-    "mart_contract_price_current": (
-        lambda service: service.refresh_contract_price_current()
-    ),
-    "mart_electricity_price_current": (
-        lambda service: service.refresh_contract_price_current()
-    ),
-    "mart_utility_cost_summary": (
-        lambda service: service.refresh_utility_cost_summary()
-    ),
+    "mart_subscription_summary": (lambda service: service.refresh_subscription_summary()),
+    "mart_contract_price_current": (lambda service: service.refresh_contract_price_current()),
+    "mart_electricity_price_current": (lambda service: service.refresh_contract_price_current()),
+    "mart_utility_cost_summary": (lambda service: service.refresh_utility_cost_summary()),
 }
 
 
-def refresh_builtin_publications(
-    transformation_service: "TransformationService",
-    publication_keys: list[str] | tuple[str, ...],
-) -> list[str]:
-    refreshed: list[str] = []
-    seen: set[str] = set()
-    for publication_key in publication_keys:
-        if publication_key in seen:
-            continue
-        try:
-            handler = BUILTIN_PUBLICATION_REFRESH_HANDLERS[publication_key]
-        except KeyError as exc:
-            raise ValueError(
-                f"Unsupported built-in transformation publication refresh: {publication_key}"
-            ) from exc
-        handler(transformation_service)
-        refreshed.append(publication_key)
-        seen.add(publication_key)
-    return refreshed
+def register_builtin_publication_refresh_handlers(
+    registry: PublicationRefreshRegistry,
+) -> None:
+    for publication_key, handler in BUILTIN_PUBLICATION_REFRESH_HANDLERS.items():
+        registry.register(publication_key, handler)
 
 
 def validate_builtin_publication_refresh_handlers() -> None:

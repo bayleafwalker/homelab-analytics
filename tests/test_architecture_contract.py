@@ -37,7 +37,7 @@ def test_transformation_service_does_not_import_application_or_reporting_modules
 def test_transformation_service_imports_split_domain_modules() -> None:
     imports = _import_names(ROOT / "packages" / "pipelines" / "transformation_service.py")
 
-    assert "packages.pipelines.builtin_transformation_refresh" in imports
+    assert "packages.pipelines.transformation_refresh_registry" in imports
     assert "packages.pipelines.transformation_transactions" in imports
     assert "packages.pipelines.transformation_subscriptions" in imports
     assert "packages.pipelines.transformation_contract_prices" in imports
@@ -45,9 +45,7 @@ def test_transformation_service_imports_split_domain_modules() -> None:
 
 
 def test_app_reporting_paths_do_not_compute_cashflow_from_landing_service() -> None:
-    api_source = (
-        ROOT / "apps" / "api" / "routes" / "report_routes.py"
-    ).read_text()
+    api_source = (ROOT / "apps" / "api" / "routes" / "report_routes.py").read_text()
     web_dashboard_source = (ROOT / "apps" / "web" / "frontend" / "app" / "page.js").read_text()
     web_backend_source = (ROOT / "apps" / "web" / "frontend" / "lib" / "backend.js").read_text()
 
@@ -65,16 +63,10 @@ def test_app_reporting_paths_do_not_compute_cashflow_from_landing_service() -> N
 
 
 def test_app_reporting_routes_flow_through_reporting_service_contract() -> None:
-    api_source = (
-        ROOT / "apps" / "api" / "routes" / "report_routes.py"
-    ).read_text()
+    api_source = (ROOT / "apps" / "api" / "routes" / "report_routes.py").read_text()
     api_app_source = (ROOT / "apps" / "api" / "app.py").read_text()
-    worker_handler_source = (
-        ROOT / "apps" / "worker" / "command_handlers.py"
-    ).read_text()
-    worker_control_plane_source = (
-        ROOT / "apps" / "worker" / "control_plane.py"
-    ).read_text()
+    worker_handler_source = (ROOT / "apps" / "worker" / "command_handlers.py").read_text()
+    worker_control_plane_source = (ROOT / "apps" / "worker" / "control_plane.py").read_text()
 
     assert "resolved_reporting_service.get_transformation_audit(" in api_source
     assert "reporting_service=resolved_reporting_service" in api_source
@@ -90,7 +82,7 @@ def test_runtime_builders_preserve_published_vs_warehouse_reporting_boundary() -
     worker_runtime_source = (ROOT / "apps" / "worker" / "runtime.py").read_text()
 
     assert "ReportingAccessMode.PUBLISHED" in api_main_source
-    assert "settings.reporting_backend.lower() == \"postgres\"" in api_main_source
+    assert 'settings.reporting_backend.lower() == "postgres"' in api_main_source
     assert "access_mode=ReportingAccessMode.WAREHOUSE" in worker_runtime_source
     assert "build_web_environment" in web_main_source
     assert "HOMELAB_ANALYTICS_API_BASE_URL" in web_app_source
@@ -98,9 +90,7 @@ def test_runtime_builders_preserve_published_vs_warehouse_reporting_boundary() -
 
 def test_worker_main_delegates_to_runtime_and_command_handlers() -> None:
     worker_main_source = (ROOT / "apps" / "worker" / "main.py").read_text()
-    worker_handler_source = (
-        ROOT / "apps" / "worker" / "command_handlers.py"
-    ).read_text()
+    worker_handler_source = (ROOT / "apps" / "worker" / "command_handlers.py").read_text()
 
     assert "build_worker_runtime(" in worker_main_source
     assert "dispatch_worker_command(" in worker_main_source
@@ -116,9 +106,10 @@ def test_api_app_imports_shared_support_modules() -> None:
     assert "apps.api.runtime_state" in imports
 
 
-def test_promotion_orchestration_imports_split_builtin_handlers() -> None:
+def test_promotion_orchestration_imports_shared_registry_contracts() -> None:
     imports = _import_names(ROOT / "packages" / "pipelines" / "promotion.py")
 
+    assert "packages.pipelines.promotion_registry" in imports
     assert "packages.pipelines.builtin_promotion_handlers" in imports
     assert "packages.pipelines.promotion_types" in imports
 
@@ -130,9 +121,7 @@ def test_reporting_service_imports_shared_builtin_reporting_registry() -> None:
 
 
 def test_postgres_ingestion_backend_imports_split_catalog_modules() -> None:
-    imports = _import_names(
-        ROOT / "packages" / "storage" / "postgres_ingestion_config.py"
-    )
+    imports = _import_names(ROOT / "packages" / "storage" / "postgres_ingestion_config.py")
 
     assert "packages.storage.control_plane_snapshot" in imports
     assert "packages.storage.postgres_asset_definition_catalog" in imports
@@ -160,21 +149,15 @@ def test_sqlite_ingestion_backend_imports_split_catalog_modules() -> None:
 def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> None:
     api_source = (ROOT / "apps" / "api" / "app.py").read_text()
     auth_runtime_source = (ROOT / "apps" / "api" / "auth_runtime.py").read_text()
-    auth_route_source = (
-        ROOT / "apps" / "api" / "routes" / "auth_routes.py"
-    ).read_text()
-    control_route_source = (
-        ROOT / "apps" / "api" / "routes" / "control_routes.py"
-    ).read_text()
-    ingest_route_source = (
-        ROOT / "apps" / "api" / "routes" / "ingest_routes.py"
-    ).read_text()
-    run_route_source = (
-        ROOT / "apps" / "api" / "routes" / "run_routes.py"
-    ).read_text()
+    auth_route_source = (ROOT / "apps" / "api" / "routes" / "auth_routes.py").read_text()
+    control_route_source = (ROOT / "apps" / "api" / "routes" / "control_routes.py").read_text()
+    ingest_route_source = (ROOT / "apps" / "api" / "routes" / "ingest_routes.py").read_text()
+    run_route_source = (ROOT / "apps" / "api" / "routes" / "run_routes.py").read_text()
     api_main_source = (ROOT / "apps" / "api" / "main.py").read_text()
     web_backend_source = (ROOT / "apps" / "web" / "frontend" / "lib" / "backend.js").read_text()
-    web_control_page = (ROOT / "apps" / "web" / "frontend" / "app" / "control" / "page.js").read_text()
+    web_control_page = (
+        ROOT / "apps" / "web" / "frontend" / "app" / "control" / "page.js"
+    ).read_text()
     web_control_catalog_page = (
         ROOT / "apps" / "web" / "frontend" / "app" / "control" / "catalog" / "page.js"
     ).read_text()
@@ -201,15 +184,7 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
         / "route.js"
     ).read_text()
     web_preview_route = (
-        ROOT
-        / "apps"
-        / "web"
-        / "frontend"
-        / "app"
-        / "control"
-        / "catalog"
-        / "preview"
-        / "route.js"
+        ROOT / "apps" / "web" / "frontend" / "app" / "control" / "catalog" / "preview" / "route.js"
     ).read_text()
     web_control_execution_page = (
         ROOT / "apps" / "web" / "frontend" / "app" / "control" / "execution" / "page.js"
@@ -221,14 +196,7 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
         ROOT / "apps" / "web" / "frontend" / "lib" / "upload-route.js"
     ).read_text()
     web_upload_configured_route = (
-        ROOT
-        / "apps"
-        / "web"
-        / "frontend"
-        / "app"
-        / "upload"
-        / "configured-csv"
-        / "route.js"
+        ROOT / "apps" / "web" / "frontend" / "app" / "upload" / "configured-csv" / "route.js"
     ).read_text()
     web_run_detail_page = (
         ROOT / "apps" / "web" / "frontend" / "app" / "runs" / "[runId]" / "page.js"
@@ -396,12 +364,18 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
         / "route.js"
     ).read_text()
     web_login_page = (ROOT / "apps" / "web" / "frontend" / "app" / "login" / "page.js").read_text()
-    web_login_route = (ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "login" / "route.js").read_text()
+    web_login_route = (
+        ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "login" / "route.js"
+    ).read_text()
     web_callback_route = (
         ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "callback" / "route.js"
     ).read_text()
-    web_logout_route = (ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "logout" / "route.js").read_text()
-    web_ready_route = (ROOT / "apps" / "web" / "frontend" / "app" / "ready" / "route.js").read_text()
+    web_logout_route = (
+        ROOT / "apps" / "web" / "frontend" / "app" / "auth" / "logout" / "route.js"
+    ).read_text()
+    web_ready_route = (
+        ROOT / "apps" / "web" / "frontend" / "app" / "ready" / "route.js"
+    ).read_text()
     web_service_token_route = (
         ROOT / "apps" / "web" / "frontend" / "app" / "control" / "service-tokens" / "route.js"
     ).read_text()
@@ -453,7 +427,7 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert 'action="/auth/login"' in web_login_page
     assert "Sign In with OIDC" in web_login_page
     assert 'backendRequest("/auth/login"' in web_login_route
-    assert 'backendRequest(`/auth/callback${search}`' in web_callback_route
+    assert "backendRequest(`/auth/callback${search}`" in web_callback_route
     assert 'backendRequest("/auth/logout"' in web_logout_route
     assert 'status: "ready"' in web_ready_route
     assert 'outboundHeaders.set("x-csrf-token", csrfToken)' in web_backend_source
@@ -495,9 +469,18 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert "/config/source-assets/${params.sourceAssetId}" in web_source_asset_update_route
     assert "/config/source-assets/${params.sourceAssetId}/archive" in web_source_asset_archive_route
     assert "/config/source-assets/${params.sourceAssetId}" in web_source_asset_delete_route
-    assert "/config/ingestion-definitions/${params.ingestionDefinitionId}" in web_ingestion_definition_update_route
-    assert "/config/ingestion-definitions/${params.ingestionDefinitionId}/archive" in web_ingestion_definition_archive_route
-    assert "/config/ingestion-definitions/${params.ingestionDefinitionId}" in web_ingestion_definition_delete_route
+    assert (
+        "/config/ingestion-definitions/${params.ingestionDefinitionId}"
+        in web_ingestion_definition_update_route
+    )
+    assert (
+        "/config/ingestion-definitions/${params.ingestionDefinitionId}/archive"
+        in web_ingestion_definition_archive_route
+    )
+    assert (
+        "/config/ingestion-definitions/${params.ingestionDefinitionId}"
+        in web_ingestion_definition_delete_route
+    )
     assert "/config/execution-schedules/${params.scheduleId}" in web_schedule_update_route
     assert "/config/execution-schedules/${params.scheduleId}/archive" in web_schedule_archive_route
     assert "/config/execution-schedules/${params.scheduleId}" in web_schedule_delete_route
@@ -507,7 +490,7 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert "Claim expires" in web_dispatch_detail_page
     assert "Failure reason" in web_dispatch_detail_page
     assert "/control/schedule-dispatches/${params.dispatchId}/retry" in web_dispatch_retry_route
-    assert 'backendRequest(`/runs/${params.runId}/retry`' in web_run_retry_route
+    assert "backendRequest(`/runs/${params.runId}/retry`" in web_run_retry_route
     assert "build_web_environment" in web_main_source
     assert "resolved_api_base_url" in web_main_source
 
@@ -527,8 +510,7 @@ def test_executable_reporting_extensions_declare_explicit_data_access() -> None:
         for extension in executable_reporting_extensions
     )
     assert (
-        registry.get_extension("reporting", "monthly_cashflow_summary").data_access
-        == "published"
+        registry.get_extension("reporting", "monthly_cashflow_summary").data_access == "published"
     )
 
 
