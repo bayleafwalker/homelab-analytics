@@ -15,6 +15,7 @@ from packages.pipelines.promotion import (
     promote_source_asset_run,
     promote_subscription_run,
 )
+from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.run_context import merge_run_context
 from packages.pipelines.subscription_service import SubscriptionService
@@ -35,6 +36,7 @@ def register_run_routes(
     subscription_service: SubscriptionService | None,
     contract_price_service: ContractPriceService | None,
     registry: ExtensionRegistry,
+    promotion_handler_registry: PromotionHandlerRegistry | None,
     load_run_manifest_and_context: Callable[[IngestionRunRecord], tuple[Any, Any]],
     build_run_recovery: Callable[[IngestionRunRecord, Any], dict[str, Any]],
     serialize_run: Callable[..., dict[str, Any]],
@@ -114,9 +116,7 @@ def register_run_routes(
                 )
             source_asset = None
             if context.source_asset_id is not None:
-                source_asset = resolved_config_repository.get_source_asset(
-                    context.source_asset_id
-                )
+                source_asset = resolved_config_repository.get_source_asset(context.source_asset_id)
                 if source_asset.archived:
                     raise HTTPException(
                         status_code=400,
@@ -158,6 +158,7 @@ def register_run_routes(
                         transformation_service=transformation_service,
                         blob_store=service.blob_store,
                         extension_registry=registry,
+                        promotion_handler_registry=promotion_handler_registry,
                     )
                     publish_reporting(promotion)
             return build_run_response(retried_run, promotion=promotion)

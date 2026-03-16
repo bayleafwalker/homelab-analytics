@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 from apps.worker.main import (
     _watch_schedule_dispatches,
     build_extension_registry,
+    build_pipeline_registries,
     build_service,
     main,
 )
@@ -113,9 +114,7 @@ def test_worker_cli_lists_enqueues_and_marks_schedule_dispatches() -> None:
 def test_worker_cli_exports_and_imports_control_plane_snapshots() -> None:
     with TemporaryDirectory() as source_dir:
         source_settings = _build_settings(source_dir)
-        source_repository = IngestionConfigRepository(
-            source_settings.resolved_config_database_path
-        )
+        source_repository = IngestionConfigRepository(source_settings.resolved_config_database_path)
         seed_source_asset_graph(source_repository)
         export_path = Path(source_dir) / "control-plane.json"
         stdout = io.StringIO()
@@ -162,15 +161,14 @@ def test_worker_cli_exports_and_imports_control_plane_snapshots() -> None:
                 target_repository.get_source_system("bank_partner_export").name
                 == "Bank Partner Export"
             )
-            assert [record.schedule_id for record in target_repository.list_execution_schedules()] == [
-                "bank_partner_poll"
-            ]
+            assert [
+                record.schedule_id for record in target_repository.list_execution_schedules()
+            ] == ["bank_partner_poll"]
             assert [record.lineage_id for record in target_repository.list_source_lineage()] == [
                 "lineage-001"
             ]
             assert [
-                record.publication_audit_id
-                for record in target_repository.list_publication_audit()
+                record.publication_audit_id for record in target_repository.list_publication_audit()
             ] == ["publication-001"]
 
 
@@ -234,7 +232,9 @@ def test_worker_cli_processes_enqueued_schedule_dispatch() -> None:
         assert stored_dispatch.failure_reason is None
         assert stored_dispatch.worker_detail is not None
         assert stored_dispatch.claimed_by_worker_id is not None
-        assert repository.list_worker_heartbeats()[0].worker_id == stored_dispatch.claimed_by_worker_id
+        assert (
+            repository.list_worker_heartbeats()[0].worker_id == stored_dispatch.claimed_by_worker_id
+        )
         assert len(list(processed_dir.iterdir())) == 1
         assert list(failed_dir.iterdir()) == []
 
@@ -450,6 +450,7 @@ def test_watch_schedule_dispatches_records_stopped_heartbeat_on_shutdown() -> No
             blob_store=service.blob_store,
         )
         extension_registry = build_extension_registry(settings)
+        pipeline_registries = build_pipeline_registries(settings)
         shutdown_event = threading.Event()
         shutdown_event.set()
         stdout = io.StringIO()
@@ -461,6 +462,8 @@ def test_watch_schedule_dispatches_records_stopped_heartbeat_on_shutdown() -> No
             service=service,
             configured_definition_service=configured_definition_service,
             extension_registry=extension_registry,
+            promotion_handler_registry=pipeline_registries.promotion_handler_registry,
+            publication_refresh_registry=pipeline_registries.publication_refresh_registry,
             logger=logging.getLogger("test.worker.shutdown"),
             worker_id="worker-stop",
             lease_seconds=30,

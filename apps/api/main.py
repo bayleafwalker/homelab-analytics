@@ -8,9 +8,16 @@ import uvicorn
 from apps.api.app import create_app
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.contract_price_service import ContractPriceService
+from packages.pipelines.extension_registries import (
+    PipelineRegistries,
+    load_pipeline_registries,
+)
 from packages.pipelines.lazy_transformation_service import LazyTransformationService
 from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
 from packages.pipelines.subscription_service import SubscriptionService
+from packages.pipelines.transformation_refresh_registry import (
+    PublicationRefreshRegistry,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.auth import (
     build_oidc_provider,
@@ -54,19 +61,40 @@ def build_contract_price_service(settings: AppSettings) -> ContractPriceService:
     )
 
 
-def build_transformation_service(settings: AppSettings) -> TransformationService:
+def build_pipeline_registries(settings: AppSettings) -> PipelineRegistries:
+    return load_pipeline_registries(
+        extension_paths=settings.extension_paths,
+        extension_modules=settings.extension_modules,
+    )
+
+
+def build_transformation_service(
+    settings: AppSettings,
+    *,
+    publication_refresh_registry: PublicationRefreshRegistry | None = None,
+) -> TransformationService:
     analytics_path = settings.resolved_analytics_database_path
     analytics_path.parent.mkdir(parents=True, exist_ok=True)
     return TransformationService(
         DuckDBStore.open(str(analytics_path)),
         control_plane_store=build_config_store(settings),
+        publication_refresh_registry=publication_refresh_registry,
     )
 
 
-def build_lazy_transformation_service(settings: AppSettings) -> TransformationService:
+def build_lazy_transformation_service(
+    settings: AppSettings,
+    *,
+    publication_refresh_registry: PublicationRefreshRegistry | None = None,
+) -> TransformationService:
     return cast(
         TransformationService,
-        LazyTransformationService(lambda: build_transformation_service(settings)),
+        LazyTransformationService(
+            lambda: build_transformation_service(
+                settings,
+                publication_refresh_registry=publication_refresh_registry,
+            )
+        ),
     )
 
 
@@ -101,13 +129,18 @@ def build_app(settings: AppSettings | None = None):
     validate_auth_configuration(resolved_settings)
     config_store = build_config_store(resolved_settings)
     maybe_bootstrap_local_admin(config_store, resolved_settings)
-    transformation_service = build_lazy_transformation_service(resolved_settings)
     extension_registry = build_extension_registry(resolved_settings)
+    pipeline_registries = build_pipeline_registries(resolved_settings)
+    transformation_service = build_lazy_transformation_service(
+        resolved_settings,
+        publication_refresh_registry=pipeline_registries.publication_refresh_registry,
+    )
     return create_app(
         build_service(resolved_settings),
         extension_registry,
         config_repository=config_store,
         transformation_service=transformation_service,
+        promotion_handler_registry=pipeline_registries.promotion_handler_registry,
         reporting_service=build_reporting_service(
             resolved_settings,
             transformation_service,

@@ -21,6 +21,7 @@ from packages.pipelines.promotion import (
     promote_source_asset_run,
     promote_subscription_run,
 )
+from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
@@ -41,6 +42,7 @@ def register_ingest_routes(
     subscription_service: SubscriptionService | None,
     contract_price_service: ContractPriceService | None,
     require_unsafe_admin: Callable[[], None],
+    promotion_handler_registry: PromotionHandlerRegistry | None,
     publish_reporting: Callable[[PromotionResult | None], None],
     resolve_configured_ingest_binding: Callable[
         [ConfiguredCsvIngestRequest], tuple[Any, str, str, str]
@@ -134,10 +136,13 @@ def register_ingest_routes(
             )
         promotion: PromotionResult | None = None
         if transformation_service is not None and run.passed:
-            resolved_source_asset = source_asset or resolved_config_repository.find_source_asset_by_binding(
-                source_system_id=source_system_id,
-                dataset_contract_id=dataset_contract_id,
-                column_mapping_id=column_mapping_id,
+            resolved_source_asset = (
+                source_asset
+                or resolved_config_repository.find_source_asset_by_binding(
+                    source_system_id=source_system_id,
+                    dataset_contract_id=dataset_contract_id,
+                    column_mapping_id=column_mapping_id,
+                )
             )
             if resolved_source_asset is not None:
                 promotion = promote_source_asset_run(
@@ -149,6 +154,7 @@ def register_ingest_routes(
                     transformation_service=transformation_service,
                     blob_store=service.blob_store,
                     extension_registry=registry,
+                    promotion_handler_registry=promotion_handler_registry,
                 )
                 publish_reporting(promotion)
         return build_run_response(run, promotion=promotion)
@@ -186,8 +192,10 @@ def register_ingest_routes(
         body: dict[str, Any] = {"run": serialize_run(run)}
         if promotion is not None:
             body["promotion"] = serialize_promotion(promotion)
-        status_code = 409 if any(i.code == "duplicate_file" for i in run.issues) else (
-            201 if run.passed else 400
+        status_code = (
+            409
+            if any(i.code == "duplicate_file" for i in run.issues)
+            else (201 if run.passed else 400)
         )
         return JSONResponse(status_code=status_code, content=body)
 
@@ -224,8 +232,10 @@ def register_ingest_routes(
         body: dict[str, Any] = {"run": serialize_run(run)}
         if promotion is not None:
             body["promotion"] = serialize_promotion(promotion)
-        status_code = 409 if any(i.code == "duplicate_file" for i in run.issues) else (
-            201 if run.passed else 400
+        status_code = (
+            409
+            if any(i.code == "duplicate_file" for i in run.issues)
+            else (201 if run.passed else 400)
         )
         return JSONResponse(status_code=status_code, content=body)
 
@@ -234,9 +244,7 @@ def register_ingest_routes(
         ingestion_definition_id: str,
     ) -> dict[str, Any]:
         require_unsafe_admin()
-        result = configured_definition_service.process_ingestion_definition(
-            ingestion_definition_id
-        )
+        result = configured_definition_service.process_ingestion_definition(ingestion_definition_id)
         body: dict[str, Any] = {"result": to_jsonable(result)}
         if transformation_service is not None:
             ingestion_definition = resolved_config_repository.get_ingestion_definition(
@@ -255,6 +263,7 @@ def register_ingest_routes(
                     transformation_service=transformation_service,
                     blob_store=service.blob_store,
                     extension_registry=registry,
+                    promotion_handler_registry=promotion_handler_registry,
                 )
                 for run_id in result.run_ids
             ]

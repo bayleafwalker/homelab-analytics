@@ -46,6 +46,7 @@ from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.promotion import (
     PromotionResult,
 )
+from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.pipelines.reporting_service import (
     ReportingService,
     publish_promotion_reporting,
@@ -82,6 +83,7 @@ def create_app(
     config_repository: ControlPlaneStore | None = None,
     transformation_service: TransformationService | None = None,
     reporting_service: ReportingService | None = None,
+    promotion_handler_registry: PromotionHandlerRegistry | None = None,
     subscription_service: SubscriptionService | None = None,
     contract_price_service: ContractPriceService | None = None,
     auth_store: AuthStore | None = None,
@@ -124,16 +126,13 @@ def create_app(
         config_repository=resolved_config_repository,
         blob_store=service.blob_store,
     )
-    resolved_reporting_service = (
-        reporting_service
-        or (
-            ReportingService(
-                transformation_service,
-                extension_registry=registry,
-            )
-            if transformation_service is not None
-            else None
+    resolved_reporting_service = reporting_service or (
+        ReportingService(
+            transformation_service,
+            extension_registry=registry,
         )
+        if transformation_service is not None
+        else None
     )
     app = FastAPI(title="Homelab Analytics API")
     logger = logging.getLogger("homelab_analytics.api")
@@ -285,9 +284,7 @@ def create_app(
         if run.dataset_name == "contract_prices":
             return {
                 "retry_supported": contract_price_service is not None,
-                "retry_kind": "contract_prices"
-                if contract_price_service is not None
-                else None,
+                "retry_kind": "contract_prices" if contract_price_service is not None else None,
                 "reason": (
                     None
                     if contract_price_service is not None
@@ -377,6 +374,7 @@ def create_app(
         subscription_service=subscription_service,
         contract_price_service=contract_price_service,
         registry=registry,
+        promotion_handler_registry=promotion_handler_registry,
         load_run_manifest_and_context=load_run_manifest_and_context,
         build_run_recovery=build_run_recovery,
         serialize_run=serialize_run,
@@ -430,6 +428,7 @@ def create_app(
         subscription_service=subscription_service,
         contract_price_service=contract_price_service,
         require_unsafe_admin=require_unsafe_admin,
+        promotion_handler_registry=promotion_handler_registry,
         publish_reporting=publish_reporting,
         resolve_configured_ingest_binding=lambda payload: resolve_configured_ingest_binding(
             payload,

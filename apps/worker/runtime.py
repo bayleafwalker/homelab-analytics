@@ -9,11 +9,19 @@ from packages.pipelines.configured_ingestion_definition import (
     ConfiguredIngestionDefinitionService,
 )
 from packages.pipelines.contract_price_service import ContractPriceService
+from packages.pipelines.extension_registries import (
+    PipelineRegistries,
+    load_pipeline_registries,
+)
+from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.pipelines.reporting_service import (
     ReportingAccessMode,
     ReportingService,
 )
 from packages.pipelines.subscription_service import SubscriptionService
+from packages.pipelines.transformation_refresh_registry import (
+    PublicationRefreshRegistry,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.auth import maybe_bootstrap_local_admin
 from packages.shared.extensions import ExtensionRegistry, load_extension_registry
@@ -38,6 +46,8 @@ class WorkerRuntime:
     config_repository: ControlPlaneStore
     configured_definition_service: ConfiguredIngestionDefinitionService
     extension_registry: ExtensionRegistry
+    promotion_handler_registry: PromotionHandlerRegistry
+    publication_refresh_registry: PublicationRefreshRegistry
 
 
 def build_service(settings: AppSettings) -> AccountTransactionService:
@@ -55,16 +65,28 @@ def build_extension_registry(settings: AppSettings) -> ExtensionRegistry:
     )
 
 
+def build_pipeline_registries(settings: AppSettings) -> PipelineRegistries:
+    return load_pipeline_registries(
+        extension_paths=settings.extension_paths,
+        extension_modules=settings.extension_modules,
+    )
+
+
 def build_config_repository(settings: AppSettings) -> ControlPlaneStore:
     return build_config_store(settings)
 
 
-def build_transformation_service(settings: AppSettings) -> TransformationService:
+def build_transformation_service(
+    settings: AppSettings,
+    *,
+    publication_refresh_registry: PublicationRefreshRegistry | None = None,
+) -> TransformationService:
     analytics_path = settings.resolved_analytics_database_path
     analytics_path.parent.mkdir(parents=True, exist_ok=True)
     return TransformationService(
         DuckDBStore.open(str(analytics_path)),
         control_plane_store=build_config_store(settings),
+        publication_refresh_registry=publication_refresh_registry,
     )
 
 
@@ -107,6 +129,8 @@ def build_worker_runtime(
 ) -> WorkerRuntime:
     service = build_service(settings)
     config_repository = build_config_repository(settings)
+    extension_registry = build_extension_registry(settings)
+    pipeline_registries = build_pipeline_registries(settings)
     maybe_bootstrap_local_admin(config_repository, settings)
     return WorkerRuntime(
         settings=settings,
@@ -121,5 +145,7 @@ def build_worker_runtime(
             config_repository=config_repository,
             blob_store=service.blob_store,
         ),
-        extension_registry=build_extension_registry(settings),
+        extension_registry=extension_registry,
+        promotion_handler_registry=pipeline_registries.promotion_handler_registry,
+        publication_refresh_registry=pipeline_registries.publication_refresh_registry,
     )

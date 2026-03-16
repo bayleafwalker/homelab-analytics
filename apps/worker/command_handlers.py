@@ -59,7 +59,10 @@ WorkerCommandHandler = Callable[[Namespace, WorkerRuntime], int]
 def _build_reporting_runtime(
     runtime: WorkerRuntime,
 ) -> tuple[TransformationService, ReportingService]:
-    transformation_service = build_transformation_service(runtime.settings)
+    transformation_service = build_transformation_service(
+        runtime.settings,
+        publication_refresh_registry=runtime.publication_refresh_registry,
+    )
     return transformation_service, build_reporting_service(
         runtime.settings,
         transformation_service,
@@ -104,9 +107,7 @@ def _handle_ingest_configured_csv(args: Namespace, runtime: WorkerRuntime) -> in
     dataset_contract_id = (
         source_asset.dataset_contract_id if source_asset else args.dataset_contract_id
     )
-    column_mapping_id = (
-        source_asset.column_mapping_id if source_asset else args.column_mapping_id
-    )
+    column_mapping_id = source_asset.column_mapping_id if source_asset else args.column_mapping_id
     run = csv_service.ingest_file(
         source_path=Path(args.source_path),
         source_system_id=source_system_id,
@@ -135,6 +136,7 @@ def _handle_ingest_configured_csv(args: Namespace, runtime: WorkerRuntime) -> in
                 transformation_service=transformation_service,
                 blob_store=runtime.service.blob_store,
                 extension_registry=runtime.extension_registry,
+                promotion_handler_registry=runtime.promotion_handler_registry,
             )
             _publish_reporting(reporting_service, promotion)
             payload["promotion"] = promotion
@@ -261,9 +263,7 @@ def _handle_list_runs(args: Namespace, runtime: WorkerRuntime) -> int:
 def _handle_list_ingestion_definitions(args: Namespace, runtime: WorkerRuntime) -> int:
     _write_json(
         runtime.output,
-        {
-            "ingestion_definitions": runtime.config_repository.list_ingestion_definitions()
-        },
+        {"ingestion_definitions": runtime.config_repository.list_ingestion_definitions()},
     )
     return 0
 
@@ -271,9 +271,7 @@ def _handle_list_ingestion_definitions(args: Namespace, runtime: WorkerRuntime) 
 def _handle_list_execution_schedules(args: Namespace, runtime: WorkerRuntime) -> int:
     _write_json(
         runtime.output,
-        {
-            "execution_schedules": runtime.config_repository.list_execution_schedules()
-        },
+        {"execution_schedules": runtime.config_repository.list_execution_schedules()},
     )
     return 0
 
@@ -281,12 +279,7 @@ def _handle_list_execution_schedules(args: Namespace, runtime: WorkerRuntime) ->
 def _handle_list_local_users(args: Namespace, runtime: WorkerRuntime) -> int:
     _write_json(
         runtime.output,
-        {
-            "users": [
-                serialize_user(user)
-                for user in runtime.config_repository.list_local_users()
-            ]
-        },
+        {"users": [serialize_user(user) for user in runtime.config_repository.list_local_users()]},
     )
     return 0
 
@@ -321,9 +314,7 @@ def _handle_create_local_admin_user(args: Namespace, runtime: WorkerRuntime) -> 
 
 def _handle_create_service_token(args: Namespace, runtime: WorkerRuntime) -> int:
     expires_at = (
-        datetime.fromisoformat(args.expires_at)
-        if getattr(args, "expires_at", "")
-        else None
+        datetime.fromisoformat(args.expires_at) if getattr(args, "expires_at", "") else None
     )
     issued_token = issue_service_token(f"token-{uuid.uuid4().hex}")
     token = runtime.config_repository.create_service_token(
@@ -381,11 +372,7 @@ def _handle_list_worker_heartbeats(args: Namespace, runtime: WorkerRuntime) -> i
 
 
 def _handle_enqueue_due_schedules(args: Namespace, runtime: WorkerRuntime) -> int:
-    as_of = (
-        datetime.fromisoformat(args.as_of)
-        if getattr(args, "as_of", "")
-        else None
-    )
+    as_of = datetime.fromisoformat(args.as_of) if getattr(args, "as_of", "") else None
     dispatches = runtime.config_repository.enqueue_due_execution_schedules(
         as_of=as_of,
         limit=getattr(args, "limit", None),
@@ -399,11 +386,7 @@ def _handle_recover_stale_schedule_dispatches(
     args: Namespace,
     runtime: WorkerRuntime,
 ) -> int:
-    as_of = (
-        datetime.fromisoformat(args.as_of)
-        if getattr(args, "as_of", "")
-        else None
-    )
+    as_of = datetime.fromisoformat(args.as_of) if getattr(args, "as_of", "") else None
     worker_id = _resolved_worker_id(
         runtime.settings,
         getattr(args, "worker_id", "") or None,
@@ -441,6 +424,8 @@ def _handle_process_schedule_dispatch(args: Namespace, runtime: WorkerRuntime) -
         config_repository=runtime.config_repository,
         configured_definition_service=runtime.configured_definition_service,
         extension_registry=runtime.extension_registry,
+        promotion_handler_registry=runtime.promotion_handler_registry,
+        publication_refresh_registry=runtime.publication_refresh_registry,
         logger=runtime.logger,
         worker_id=worker_id,
         lease_seconds=getattr(args, "lease_seconds", None)
@@ -462,6 +447,8 @@ def _handle_watch_schedule_dispatches(args: Namespace, runtime: WorkerRuntime) -
         service=runtime.service,
         configured_definition_service=runtime.configured_definition_service,
         extension_registry=runtime.extension_registry,
+        promotion_handler_registry=runtime.promotion_handler_registry,
+        publication_refresh_registry=runtime.publication_refresh_registry,
         logger=runtime.logger,
         worker_id=worker_id,
         lease_seconds=getattr(args, "lease_seconds", None)
@@ -523,9 +510,7 @@ def _handle_verify_config(args: Namespace, runtime: WorkerRuntime) -> int:
         runtime.config_repository,
         extension_registry=runtime.extension_registry,
         source_asset_id=getattr(args, "source_asset_id", None) or None,
-        ingestion_definition_id=(
-            getattr(args, "ingestion_definition_id", None) or None
-        ),
+        ingestion_definition_id=(getattr(args, "ingestion_definition_id", None) or None),
     )
     _write_json(runtime.output, {"report": report})
     return 0 if report.passed else 1
@@ -592,6 +577,8 @@ def _handle_process_ingestion_definition(args: Namespace, runtime: WorkerRuntime
         config_repository=runtime.config_repository,
         configured_definition_service=runtime.configured_definition_service,
         extension_registry=runtime.extension_registry,
+        promotion_handler_registry=runtime.promotion_handler_registry,
+        publication_refresh_registry=runtime.publication_refresh_registry,
     )
     _write_json(runtime.output, payload)
     return 0

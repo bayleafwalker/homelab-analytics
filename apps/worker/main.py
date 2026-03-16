@@ -9,6 +9,7 @@ from apps.worker.command_parser import build_parser as _build_parser
 from apps.worker.control_plane import _watch_schedule_dispatches
 from apps.worker.runtime import (
     build_extension_registry,
+    build_pipeline_registries,
     build_service,
     build_worker_runtime,
 )
@@ -18,6 +19,7 @@ from packages.shared.settings import AppSettings
 __all__ = [
     "_watch_schedule_dispatches",
     "build_extension_registry",
+    "build_pipeline_registries",
     "build_service",
     "main",
 ]

@@ -20,7 +20,11 @@ from packages.pipelines.configured_ingestion_definition import (
     ConfiguredIngestionProcessResult,
 )
 from packages.pipelines.promotion import PromotionResult
+from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.pipelines.reporting_service import publish_promotion_reporting
+from packages.pipelines.transformation_refresh_registry import (
+    PublicationRefreshRegistry,
+)
 from packages.shared.extensions import ExtensionRegistry
 from packages.shared.metrics import metrics_registry
 from packages.shared.settings import AppSettings
@@ -141,9 +145,7 @@ class _ScheduleDispatchLeaseRenewer:
 
     def raise_if_failed(self) -> None:
         if self._error is not None:
-            raise RuntimeError(
-                "Schedule dispatch lease renewal failed."
-            ) from self._error
+            raise RuntimeError("Schedule dispatch lease renewal failed.") from self._error
 
     def _run(self) -> None:
         interval_seconds = max(0.5, self._lease_seconds / 3)
@@ -194,12 +196,17 @@ def _promote_configured_ingestion_runs(
     service: AccountTransactionService,
     config_repository,
     extension_registry: ExtensionRegistry,
+    promotion_handler_registry: PromotionHandlerRegistry,
+    publication_refresh_registry: PublicationRefreshRegistry,
 ) -> list[PromotionResult]:
     from packages.pipelines.promotion import promote_source_asset_run
 
     if not process_result.run_ids:
         return []
-    transformation_service = build_transformation_service(settings)
+    transformation_service = build_transformation_service(
+        settings,
+        publication_refresh_registry=publication_refresh_registry,
+    )
     reporting_service = build_reporting_service(
         settings,
         transformation_service,
@@ -208,9 +215,7 @@ def _promote_configured_ingestion_runs(
     ingestion_definition = config_repository.get_ingestion_definition(
         process_result.ingestion_definition_id
     )
-    source_asset = config_repository.get_source_asset(
-        ingestion_definition.source_asset_id
-    )
+    source_asset = config_repository.get_source_asset(ingestion_definition.source_asset_id)
     promotions: list[PromotionResult] = [
         promote_source_asset_run(
             run_id,
@@ -221,6 +226,7 @@ def _promote_configured_ingestion_runs(
             transformation_service=transformation_service,
             blob_store=service.blob_store,
             extension_registry=extension_registry,
+            promotion_handler_registry=promotion_handler_registry,
         )
         for run_id in process_result.run_ids
     ]
@@ -237,6 +243,8 @@ def _process_configured_ingestion_definition(
     config_repository,
     configured_definition_service: ConfiguredIngestionDefinitionService,
     extension_registry: ExtensionRegistry,
+    promotion_handler_registry: PromotionHandlerRegistry,
+    publication_refresh_registry: PublicationRefreshRegistry,
 ) -> dict[str, object]:
     process_result = configured_definition_service.process_ingestion_definition(
         ingestion_definition_id
@@ -249,6 +257,8 @@ def _process_configured_ingestion_definition(
             service=service,
             config_repository=config_repository,
             extension_registry=extension_registry,
+            promotion_handler_registry=promotion_handler_registry,
+            publication_refresh_registry=publication_refresh_registry,
         ),
     }
 
@@ -268,9 +278,7 @@ def _process_account_transaction_watch_folder(
         poll_interval_seconds=settings.worker_poll_interval_seconds,
         source_name=source_name,
     )
-    return configured_definition_service.process_ingestion_definition(
-        ingestion_definition_id
-    )
+    return configured_definition_service.process_ingestion_definition(ingestion_definition_id)
 
 
 def _build_schedule_dispatch_worker_detail(
@@ -323,6 +331,8 @@ def _process_schedule_dispatch(
     config_repository,
     configured_definition_service: ConfiguredIngestionDefinitionService,
     extension_registry: ExtensionRegistry,
+    promotion_handler_registry: PromotionHandlerRegistry,
+    publication_refresh_registry: PublicationRefreshRegistry,
     logger: logging.Logger,
     worker_id: str,
     lease_seconds: int,
@@ -331,9 +341,7 @@ def _process_schedule_dispatch(
     dispatch = claimed_dispatch or config_repository.get_schedule_dispatch(dispatch_id)
     if claimed_dispatch is None:
         if dispatch.status != "enqueued":
-            raise ValueError(
-                f"Schedule dispatch must be enqueued before processing: {dispatch_id}"
-            )
+            raise ValueError(f"Schedule dispatch must be enqueued before processing: {dispatch_id}")
         dispatch = config_repository.claim_schedule_dispatch(
             dispatch_id,
             worker_id=worker_id,
@@ -343,14 +351,11 @@ def _process_schedule_dispatch(
                 state="running",
                 worker_id=worker_id,
                 claimed_at=datetime.now(UTC),
-                claim_expires_at=datetime.now(UTC)
-                + timedelta(seconds=lease_seconds),
+                claim_expires_at=datetime.now(UTC) + timedelta(seconds=lease_seconds),
             ),
         )
     elif dispatch.status != "running" or dispatch.claimed_by_worker_id != worker_id:
-        raise ValueError(
-            f"Schedule dispatch must be claimed by worker {worker_id}: {dispatch_id}"
-        )
+        raise ValueError(f"Schedule dispatch must be claimed by worker {worker_id}: {dispatch_id}")
     _set_worker_queue_depth(config_repository)
     _record_worker_heartbeat(
         config_repository,
@@ -385,6 +390,8 @@ def _process_schedule_dispatch(
             service=service,
             config_repository=config_repository,
             extension_registry=extension_registry,
+            promotion_handler_registry=promotion_handler_registry,
+            publication_refresh_registry=publication_refresh_registry,
         )
     except Exception as exc:
         processing_error = exc
@@ -493,6 +500,8 @@ def _watch_schedule_dispatches(
     service: AccountTransactionService,
     configured_definition_service: ConfiguredIngestionDefinitionService,
     extension_registry: ExtensionRegistry,
+    promotion_handler_registry: PromotionHandlerRegistry,
+    publication_refresh_registry: PublicationRefreshRegistry,
     logger: logging.Logger,
     worker_id: str,
     lease_seconds: int,
@@ -575,6 +584,8 @@ def _watch_schedule_dispatches(
                 config_repository=config_repository,
                 configured_definition_service=configured_definition_service,
                 extension_registry=extension_registry,
+                promotion_handler_registry=promotion_handler_registry,
+                publication_refresh_registry=publication_refresh_registry,
                 logger=logger,
                 worker_id=worker_id,
                 lease_seconds=lease_seconds,

@@ -5,6 +5,7 @@ import inspect
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import ModuleType
 from typing import Any, Callable
 
 VALID_EXTENSION_LAYERS = (
@@ -69,8 +70,8 @@ BUILTIN_EXTENSIONS = (
         description="Built-in manual file ingestion flow for account transaction CSV files.",
         module="packages.pipelines.account_transaction_service",
         source="builtin",
-        handler=lambda *, service, source_path, source_name="manual-upload": (
-            service.ingest_file(Path(source_path), source_name=source_name)
+        handler=lambda *, service, source_path, source_name="manual-upload": service.ingest_file(
+            Path(source_path), source_name=source_name
         ),
     ),
     LayerExtension(
@@ -80,17 +81,14 @@ BUILTIN_EXTENSIONS = (
         description="Built-in watched-folder ingestion flow for account transaction CSV files.",
         module="packages.pipelines.account_transaction_inbox",
         source="builtin",
-        handler=lambda *,
-        service,
-        inbox_dir,
-        processed_dir,
-        failed_dir,
-        source_name="folder-watch": _run_account_transaction_folder_watch(
-            service=service,
-            inbox_dir=Path(inbox_dir),
-            processed_dir=Path(processed_dir),
-            failed_dir=Path(failed_dir),
-            source_name=source_name,
+        handler=lambda *, service, inbox_dir, processed_dir, failed_dir, source_name="folder-watch": (
+            _run_account_transaction_folder_watch(
+                service=service,
+                inbox_dir=Path(inbox_dir),
+                processed_dir=Path(processed_dir),
+                failed_dir=Path(failed_dir),
+                source_name=source_name,
+            )
         ),
     ),
     LayerExtension(
@@ -193,9 +191,7 @@ class ExtensionRegistry:
     def execute(self, layer: str, key: str, **kwargs: Any) -> object:
         extension = self.get_extension(layer, key)
         if extension.handler is None:
-            raise ValueError(
-                f"Extension is not executable for layer={layer} key={key}"
-            )
+            raise ValueError(f"Extension is not executable for layer={layer} key={key}")
         _validate_execution_contract(extension, **kwargs)
         handler_signature = inspect.signature(extension.handler)
         if any(
@@ -205,16 +201,12 @@ class ExtensionRegistry:
             return extension.handler(**kwargs)
 
         accepted_kwargs = {
-            name: value
-            for name, value in kwargs.items()
-            if name in handler_signature.parameters
+            name: value for name, value in kwargs.items() if name in handler_signature.parameters
         }
         return extension.handler(**accepted_kwargs)
 
     def to_mapping(self) -> dict[str, list[LayerExtension]]:
-        return {
-            layer: self.list_extensions(layer) for layer in VALID_EXTENSION_LAYERS
-        }
+        return {layer: self.list_extensions(layer) for layer in VALID_EXTENSION_LAYERS}
 
 
 def build_builtin_extension_registry() -> ExtensionRegistry:
@@ -230,11 +222,12 @@ def load_extension_registry(
     extension_modules: tuple[str, ...] = (),
 ) -> ExtensionRegistry:
     registry = build_builtin_extension_registry()
-    _install_extension_paths(extension_paths)
-    importlib.invalidate_caches()
+    loaded_modules = load_extension_modules(
+        extension_paths=extension_paths,
+        extension_modules=extension_modules,
+    )
 
-    for module_name in extension_modules:
-        module = importlib.import_module(module_name)
+    for module_name, module in zip(extension_modules, loaded_modules, strict=True):
         register_extensions = getattr(module, "register_extensions", None)
         if not callable(register_extensions):
             raise ValueError(
@@ -243,6 +236,16 @@ def load_extension_registry(
         register_extensions(registry)
 
     return registry
+
+
+def load_extension_modules(
+    *,
+    extension_paths: tuple[Path, ...] = (),
+    extension_modules: tuple[str, ...] = (),
+) -> tuple[ModuleType, ...]:
+    _install_extension_paths(extension_paths)
+    importlib.invalidate_caches()
+    return tuple(importlib.import_module(module_name) for module_name in extension_modules)
 
 
 def serialize_extension(extension: LayerExtension) -> dict[str, Any]:
@@ -265,10 +268,7 @@ def serialize_extension_registry(
     registry: ExtensionRegistry,
 ) -> dict[str, list[dict[str, Any]]]:
     return {
-        layer: [
-            serialize_extension(extension)
-            for extension in registry.list_extensions(layer)
-        ]
+        layer: [serialize_extension(extension) for extension in registry.list_extensions(layer)]
         for layer in VALID_EXTENSION_LAYERS
     }
 
@@ -296,9 +296,7 @@ def _validate_extension_contract(extension: LayerExtension) -> None:
                 "Reporting extensions must use data_access='none', 'published', or 'warehouse'."
             )
         if extension.publication_relations and extension.data_access != "published":
-            raise ValueError(
-                "Reporting publication_relations require data_access='published'."
-            )
+            raise ValueError("Reporting publication_relations require data_access='published'.")
         return
 
     if extension.data_access not in VALID_REPORTING_DATA_ACCESS:
@@ -306,27 +304,19 @@ def _validate_extension_contract(extension: LayerExtension) -> None:
             "Executable reporting extensions must declare data_access='published' or 'warehouse'."
         )
     if extension.publication_relations and extension.data_access != "published":
-        raise ValueError(
-            "Reporting publication_relations require data_access='published'."
-        )
+        raise ValueError("Reporting publication_relations require data_access='published'.")
 
 
 def _validate_execution_contract(extension: LayerExtension, **kwargs: Any) -> None:
     if extension.layer != "reporting" or extension.handler is None:
         return
 
-    if (
-        extension.data_access == "published"
-        and kwargs.get("reporting_service") is None
-    ):
+    if extension.data_access == "published" and kwargs.get("reporting_service") is None:
         raise ValueError(
             f"Reporting extension {extension.key!r} requires reporting_service because data_access='published'."
         )
 
-    if (
-        extension.data_access == "warehouse"
-        and kwargs.get("transformation_service") is None
-    ):
+    if extension.data_access == "warehouse" and kwargs.get("transformation_service") is None:
         raise ValueError(
             f"Reporting extension {extension.key!r} requires transformation_service because data_access='warehouse'."
         )
@@ -336,9 +326,7 @@ def _validate_publication_relation_uniqueness(
     existing_publications: list[ExtensionPublication],
     extension: LayerExtension,
 ) -> None:
-    existing_relation_names = {
-        publication.relation_name for publication in existing_publications
-    }
+    existing_relation_names = {publication.relation_name for publication in existing_publications}
     extension_relation_names = [
         publication.relation_name for publication in extension.publication_relations
     ]
@@ -349,9 +337,7 @@ def _validate_publication_relation_uniqueness(
     duplicates = existing_relation_names & set(extension_relation_names)
     if duplicates:
         duplicate_names = ", ".join(sorted(duplicates))
-        raise ValueError(
-            f"Reporting publication relations already registered: {duplicate_names}"
-        )
+        raise ValueError(f"Reporting publication relations already registered: {duplicate_names}")
 
 
 def _run_account_transaction_folder_watch(

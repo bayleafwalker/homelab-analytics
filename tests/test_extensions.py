@@ -5,6 +5,8 @@ from tempfile import TemporaryDirectory
 from uuid import uuid4
 
 from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.pipelines.extension_registries import load_pipeline_registries
+from packages.pipelines.promotion_registry import PromotionRuntime
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.extensions import (
@@ -81,6 +83,66 @@ class ExtensionRegistryTests(unittest.TestCase):
                 )
             )
             self.assertIn(str(Path(temp_dir)), sys.path)
+            sys.modules.pop(module_name, None)
+
+    def test_external_modules_can_register_pipeline_registries_from_custom_paths(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            module_name = f"test_external_pipeline_{uuid4().hex}"
+            module_path = Path(temp_dir) / f"{module_name}.py"
+            module_path.write_text(
+                "\n".join(
+                    [
+                        "from packages.pipelines.promotion_registry import PromotionHandler",
+                        "from packages.pipelines.promotion_types import PromotionResult",
+                        "",
+                        "def register_pipeline_registries(*, promotion_handler_registry, publication_refresh_registry):",
+                        "    publication_refresh_registry.register(",
+                        '        "mart_budget_projection",',
+                        "        lambda service: 0,",
+                        "    )",
+                        "    promotion_handler_registry.register(",
+                        "        PromotionHandler(",
+                        '            handler_key="custom_budget_transform",',
+                        '            default_publications=("mart_budget_projection",),',
+                        '            supported_publications=("mart_budget_projection",),',
+                        "            runner=lambda runtime: PromotionResult(",
+                        "                run_id=runtime.run_id,",
+                        "                facts_loaded=0,",
+                        "                marts_refreshed=runtime.transformation_service.refresh_publications([",
+                        '                    "mart_budget_projection",',
+                        "                ]),",
+                        '                publication_keys=["mart_budget_projection"],',
+                        "            ),",
+                        "        )",
+                        "    )",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            registries = load_pipeline_registries(
+                extension_paths=(Path(temp_dir),),
+                extension_modules=(module_name,),
+            )
+            transformation_service = TransformationService(
+                DuckDBStore.memory(),
+                publication_refresh_registry=registries.publication_refresh_registry,
+            )
+            result = registries.promotion_handler_registry.get("custom_budget_transform").runner(
+                PromotionRuntime(
+                    run_id="run-123",
+                    landing_root=Path(temp_dir),
+                    metadata_repository=object(),  # type: ignore[arg-type]
+                    config_repository=object(),  # type: ignore[arg-type]
+                    transformation_service=transformation_service,
+                )
+            )
+
+            self.assertEqual(["mart_budget_projection"], result.marts_refreshed)
+            self.assertEqual(["mart_budget_projection"], result.publication_keys)
             sys.modules.pop(module_name, None)
 
     def test_builtin_transformation_and_reporting_extensions_execute(self) -> None:

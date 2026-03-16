@@ -2,6 +2,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
+from uuid import uuid4
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -15,7 +16,20 @@ from apps.api.main import (
 )
 from packages.pipelines.reporting_service import ReportingAccessMode
 from packages.shared.settings import AppSettings
-from tests.account_test_support import FIXTURES as ACCOUNT_FIXTURES
+from packages.storage.ingestion_config import (
+    IngestionConfigRepository,
+    SourceAssetCreate,
+    TransformationPackageCreate,
+)
+from tests.account_test_support import (
+    ACCOUNT_CONTRACT_ID,
+    ACCOUNT_MAPPING_ID,
+    ACCOUNT_SOURCE_SYSTEM_ID,
+    create_account_configuration,
+)
+from tests.account_test_support import (
+    FIXTURES as ACCOUNT_FIXTURES,
+)
 from tests.contract_price_test_support import FIXTURES as CONTRACT_PRICE_FIXTURES
 from tests.subscription_test_support import FIXTURES as SUBSCRIPTION_FIXTURES
 
@@ -27,15 +41,9 @@ class ApiMainTests(unittest.TestCase):
                 data_dir=Path(temp_dir),
                 landing_root=Path(temp_dir) / "landing",
                 metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
-                account_transactions_inbox_dir=(
-                    Path(temp_dir) / "inbox" / "account-transactions"
-                ),
-                processed_files_dir=(
-                    Path(temp_dir) / "processed" / "account-transactions"
-                ),
-                failed_files_dir=(
-                    Path(temp_dir) / "failed" / "account-transactions"
-                ),
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
                 api_host="127.0.0.1",
                 api_port=8090,
                 web_host="127.0.0.1",
@@ -57,15 +65,9 @@ class ApiMainTests(unittest.TestCase):
                 data_dir=Path(temp_dir),
                 landing_root=Path(temp_dir) / "landing",
                 metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
-                account_transactions_inbox_dir=(
-                    Path(temp_dir) / "inbox" / "account-transactions"
-                ),
-                processed_files_dir=(
-                    Path(temp_dir) / "processed" / "account-transactions"
-                ),
-                failed_files_dir=(
-                    Path(temp_dir) / "failed" / "account-transactions"
-                ),
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
                 api_host="127.0.0.1",
                 api_port=8090,
                 web_host="127.0.0.1",
@@ -75,9 +77,7 @@ class ApiMainTests(unittest.TestCase):
 
             transformation_service = build_transformation_service(settings)
 
-            self.assertTrue(
-                settings.resolved_analytics_database_path.exists()
-            )
+            self.assertTrue(settings.resolved_analytics_database_path.exists())
             transformation_service.store.close()
 
     def test_build_app_returns_fastapi_app(self) -> None:
@@ -86,15 +86,9 @@ class ApiMainTests(unittest.TestCase):
                 data_dir=Path(temp_dir),
                 landing_root=Path(temp_dir) / "landing",
                 metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
-                account_transactions_inbox_dir=(
-                    Path(temp_dir) / "inbox" / "account-transactions"
-                ),
-                processed_files_dir=(
-                    Path(temp_dir) / "processed" / "account-transactions"
-                ),
-                failed_files_dir=(
-                    Path(temp_dir) / "failed" / "account-transactions"
-                ),
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
                 api_host="127.0.0.1",
                 api_port=8090,
                 web_host="127.0.0.1",
@@ -112,15 +106,9 @@ class ApiMainTests(unittest.TestCase):
                 data_dir=Path(temp_dir),
                 landing_root=Path(temp_dir) / "landing",
                 metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
-                account_transactions_inbox_dir=(
-                    Path(temp_dir) / "inbox" / "account-transactions"
-                ),
-                processed_files_dir=(
-                    Path(temp_dir) / "processed" / "account-transactions"
-                ),
-                failed_files_dir=(
-                    Path(temp_dir) / "failed" / "account-transactions"
-                ),
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
                 api_host="127.0.0.1",
                 api_port=8090,
                 web_host="127.0.0.1",
@@ -141,15 +129,9 @@ class ApiMainTests(unittest.TestCase):
                 data_dir=Path(temp_dir),
                 landing_root=Path(temp_dir) / "landing",
                 metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
-                account_transactions_inbox_dir=(
-                    Path(temp_dir) / "inbox" / "account-transactions"
-                ),
-                processed_files_dir=(
-                    Path(temp_dir) / "processed" / "account-transactions"
-                ),
-                failed_files_dir=(
-                    Path(temp_dir) / "failed" / "account-transactions"
-                ),
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
                 api_host="127.0.0.1",
                 api_port=8090,
                 web_host="127.0.0.1",
@@ -173,15 +155,9 @@ class ApiMainTests(unittest.TestCase):
                 data_dir=Path(temp_dir),
                 landing_root=Path(temp_dir) / "landing",
                 metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
-                account_transactions_inbox_dir=(
-                    Path(temp_dir) / "inbox" / "account-transactions"
-                ),
-                processed_files_dir=(
-                    Path(temp_dir) / "processed" / "account-transactions"
-                ),
-                failed_files_dir=(
-                    Path(temp_dir) / "failed" / "account-transactions"
-                ),
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
                 postgres_dsn="postgresql://homelab:homelab@localhost:5432/homelab",
                 reporting_backend="postgres",
                 api_host="127.0.0.1",
@@ -201,15 +177,9 @@ class ApiMainTests(unittest.TestCase):
                 data_dir=Path(temp_dir),
                 landing_root=Path(temp_dir) / "landing",
                 metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
-                account_transactions_inbox_dir=(
-                    Path(temp_dir) / "inbox" / "account-transactions"
-                ),
-                processed_files_dir=(
-                    Path(temp_dir) / "processed" / "account-transactions"
-                ),
-                failed_files_dir=(
-                    Path(temp_dir) / "failed" / "account-transactions"
-                ),
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
                 postgres_dsn="postgresql://homelab:homelab@localhost:5432/homelab",
                 reporting_backend="postgres",
                 api_host="127.0.0.1",
@@ -235,15 +205,9 @@ class ApiMainTests(unittest.TestCase):
                 data_dir=Path(temp_dir),
                 landing_root=Path(temp_dir) / "landing",
                 metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
-                account_transactions_inbox_dir=(
-                    Path(temp_dir) / "inbox" / "account-transactions"
-                ),
-                processed_files_dir=(
-                    Path(temp_dir) / "processed" / "account-transactions"
-                ),
-                failed_files_dir=(
-                    Path(temp_dir) / "failed" / "account-transactions"
-                ),
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
                 api_host="127.0.0.1",
                 api_port=8090,
                 web_host="127.0.0.1",
@@ -265,21 +229,116 @@ class ApiMainTests(unittest.TestCase):
             self.assertEqual(200, report_response.status_code)
             self.assertEqual("2365.8500", report_response.json()["rows"][0]["net"])
 
+    def test_built_app_loads_custom_pipeline_registries_for_configured_promotion(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            module_name = f"test_custom_pipeline_runtime_{uuid4().hex}"
+            module_path = Path(temp_dir) / f"{module_name}.py"
+            module_path.write_text(
+                "\n".join(
+                    [
+                        "from packages.pipelines.promotion_registry import PromotionHandler",
+                        "from packages.pipelines.promotion_types import PromotionResult",
+                        "",
+                        "def register_extensions(registry):",
+                        "    return None",
+                        "",
+                        "def register_pipeline_registries(*, promotion_handler_registry, publication_refresh_registry):",
+                        "    publication_refresh_registry.register(",
+                        '        "mart_budget_projection",',
+                        "        lambda service: 0,",
+                        "    )",
+                        "    promotion_handler_registry.register(",
+                        "        PromotionHandler(",
+                        '            handler_key="custom_budget_transform",',
+                        '            default_publications=("mart_budget_projection",),',
+                        '            supported_publications=("mart_budget_projection",),',
+                        "            runner=lambda runtime: PromotionResult(",
+                        "                run_id=runtime.run_id,",
+                        "                facts_loaded=0,",
+                        "                marts_refreshed=runtime.transformation_service.refresh_publications([",
+                        '                    "mart_budget_projection",',
+                        "                ]),",
+                        '                publication_keys=["mart_budget_projection"],',
+                        "            ),",
+                        "        )",
+                        "    )",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+                extension_paths=(Path(temp_dir),),
+                extension_modules=(module_name,),
+                enable_unsafe_admin=True,
+            )
+            config_repository = IngestionConfigRepository(settings.resolved_config_database_path)
+            create_account_configuration(config_repository)
+            config_repository.create_transformation_package(
+                TransformationPackageCreate(
+                    transformation_package_id="custom_budget_v1",
+                    name="Custom budget transform",
+                    handler_key="custom_budget_transform",
+                    version=1,
+                )
+            )
+            config_repository.create_source_asset(
+                SourceAssetCreate(
+                    source_asset_id="custom_budget_asset",
+                    source_system_id=ACCOUNT_SOURCE_SYSTEM_ID,
+                    dataset_contract_id=ACCOUNT_CONTRACT_ID,
+                    column_mapping_id=ACCOUNT_MAPPING_ID,
+                    name="Custom Budget Asset",
+                    asset_type="dataset",
+                    transformation_package_id="custom_budget_v1",
+                )
+            )
+
+            client = TestClient(build_app(settings))
+
+            ingest_response = client.post(
+                "/ingest/configured-csv",
+                json={
+                    "source_path": str(
+                        ACCOUNT_FIXTURES / "configured_account_transactions_source.csv"
+                    ),
+                    "source_asset_id": "custom_budget_asset",
+                    "source_name": "manual-upload",
+                },
+            )
+
+            self.assertEqual(201, ingest_response.status_code)
+            self.assertEqual(
+                ["mart_budget_projection"],
+                ingest_response.json()["promotion"]["marts_refreshed"],
+            )
+            self.assertEqual(
+                ["mart_budget_projection"],
+                ingest_response.json()["promotion"]["publication_keys"],
+            )
+
     def test_built_app_supports_subscription_ingest_and_summary_reporting(self) -> None:
         with TemporaryDirectory() as temp_dir:
             settings = AppSettings(
                 data_dir=Path(temp_dir),
                 landing_root=Path(temp_dir) / "landing",
                 metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
-                account_transactions_inbox_dir=(
-                    Path(temp_dir) / "inbox" / "account-transactions"
-                ),
-                processed_files_dir=(
-                    Path(temp_dir) / "processed" / "account-transactions"
-                ),
-                failed_files_dir=(
-                    Path(temp_dir) / "failed" / "account-transactions"
-                ),
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
                 api_host="127.0.0.1",
                 api_port=8090,
                 web_host="127.0.0.1",
@@ -307,15 +366,9 @@ class ApiMainTests(unittest.TestCase):
                 data_dir=Path(temp_dir),
                 landing_root=Path(temp_dir) / "landing",
                 metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
-                account_transactions_inbox_dir=(
-                    Path(temp_dir) / "inbox" / "account-transactions"
-                ),
-                processed_files_dir=(
-                    Path(temp_dir) / "processed" / "account-transactions"
-                ),
-                failed_files_dir=(
-                    Path(temp_dir) / "failed" / "account-transactions"
-                ),
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
                 api_host="127.0.0.1",
                 api_port=8090,
                 web_host="127.0.0.1",
@@ -327,9 +380,7 @@ class ApiMainTests(unittest.TestCase):
             ingest_response = client.post(
                 "/ingest/contract-prices",
                 json={
-                    "source_path": str(
-                        CONTRACT_PRICE_FIXTURES / "contract_prices_valid.csv"
-                    ),
+                    "source_path": str(CONTRACT_PRICE_FIXTURES / "contract_prices_valid.csv"),
                     "source_name": "manual-upload",
                 },
             )

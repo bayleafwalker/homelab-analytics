@@ -82,7 +82,9 @@ def test_runtime_builders_preserve_published_vs_warehouse_reporting_boundary() -
     worker_runtime_source = (ROOT / "apps" / "worker" / "runtime.py").read_text()
 
     assert "ReportingAccessMode.PUBLISHED" in api_main_source
+    assert "build_pipeline_registries(" in api_main_source
     assert 'settings.reporting_backend.lower() == "postgres"' in api_main_source
+    assert "load_pipeline_registries(" in worker_runtime_source
     assert "access_mode=ReportingAccessMode.WAREHOUSE" in worker_runtime_source
     assert "build_web_environment" in web_main_source
     assert "HOMELAB_ANALYTICS_API_BASE_URL" in web_app_source
