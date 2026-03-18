@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 
 from packages.domains.finance.manifest import FINANCE_PACK
-from packages.domains.utilities.manifest import UTILITIES_PACK
+from packages.domains.utilities.manifest import PRODUCING_WORKFLOW_REF, UTILITIES_PACK
 from packages.platform.capability_types import (
     CapabilityPack,
     PublicationDefinition,
@@ -222,10 +222,34 @@ def test_utilities_pack_has_expected_publications() -> None:
     assert "utility_cost_summary" in pub_keys
 
 
-def test_utilities_pack_has_no_workflows() -> None:
-    # Utility publications are produced by finance's ingest-contract-prices workflow.
-    # UTILITIES_PACK intentionally declares no workflows of its own.
-    assert len(UTILITIES_PACK.workflows) == 0
+def test_utilities_pack_is_a_derived_pack() -> None:
+    # UTILITIES_PACK is a derived pack: it owns publications but no sources or workflows.
+    # Data is produced by a workflow in another pack (declared in PRODUCING_WORKFLOW_REF).
+    assert len(UTILITIES_PACK.sources) == 0, "Derived pack must declare no sources"
+    assert len(UTILITIES_PACK.workflows) == 0, "Derived pack must declare no workflows"
+
+
+def test_utilities_pack_producing_workflow_exists_in_finance_pack() -> None:
+    """The cross-domain production dependency is explicit and verifiable.
+
+    UTILITIES_PACK.PRODUCING_WORKFLOW_REF names the workflow that produces the
+    utility publications as a transformation side-effect. This test ensures the
+    reference remains valid if the finance workflow is renamed or removed.
+    """
+    assert PRODUCING_WORKFLOW_REF["pack"] == "finance"
+    producing_workflow = next(
+        (
+            w
+            for w in FINANCE_PACK.workflows
+            if w.workflow_id == PRODUCING_WORKFLOW_REF["workflow_id"]
+        ),
+        None,
+    )
+    assert producing_workflow is not None, (
+        f"UTILITIES_PACK declares production dependency on "
+        f"{PRODUCING_WORKFLOW_REF['pack']}.{PRODUCING_WORKFLOW_REF['workflow_id']}, "
+        f"but that workflow does not exist in FINANCE_PACK"
+    )
 
 
 def test_utilities_pack_all_publications_have_lineage_required() -> None:
