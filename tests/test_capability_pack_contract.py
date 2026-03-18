@@ -4,10 +4,11 @@ from __future__ import annotations
 import pytest
 
 from packages.domains.finance.manifest import FINANCE_PACK
-from packages.domains.utilities.manifest import PRODUCING_WORKFLOW_REF, UTILITIES_PACK
+from packages.domains.utilities.manifest import UTILITIES_PACK
 from packages.platform.capability_types import (
     CapabilityPack,
     PublicationDefinition,
+    UiDescriptor,
     WorkflowDefinition,
 )
 
@@ -64,6 +65,19 @@ def _minimal_publication(**overrides) -> PublicationDefinition:
     )
     defaults.update(overrides)
     return PublicationDefinition(**defaults)
+
+
+def _minimal_ui_descriptor(**overrides) -> UiDescriptor:
+    defaults = dict(
+        key="test-ui",
+        nav_label="Test",
+        nav_path="/test",
+        kind="dashboard",
+        publication_keys=("test_pub",),
+        icon=None,
+    )
+    defaults.update(overrides)
+    return UiDescriptor(**defaults)
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +169,61 @@ def test_publication_missing_retention_policy_fails_validation() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Pack-local referential integrity
+# ---------------------------------------------------------------------------
+
+
+def test_duplicate_workflow_ids_fails_validation() -> None:
+    wf_a = _minimal_workflow(workflow_id="dup-wf", publication_keys=("test_pub",))
+    wf_b = _minimal_workflow(workflow_id="dup-wf", publication_keys=("test_pub",))
+    pack = _minimal_pack(workflows=(wf_a, wf_b))
+    with pytest.raises(ValueError, match="duplicate workflow_id: 'dup-wf'"):
+        pack.validate()
+
+
+def test_duplicate_publication_keys_fails_validation() -> None:
+    pub_a = _minimal_publication(key="dup_pub")
+    pub_b = _minimal_publication(key="dup_pub")
+    pack = _minimal_pack(publications=(pub_a, pub_b))
+    with pytest.raises(ValueError, match="duplicate publication key: 'dup_pub'"):
+        pack.validate()
+
+
+def test_duplicate_ui_descriptor_keys_fails_validation() -> None:
+    ui_a = _minimal_ui_descriptor(key="dup-ui")
+    ui_b = _minimal_ui_descriptor(key="dup-ui")
+    pack = _minimal_pack(ui_descriptors=(ui_a, ui_b))
+    with pytest.raises(ValueError, match="duplicate UI descriptor key: 'dup-ui'"):
+        pack.validate()
+
+
+def test_workflow_referencing_unknown_publication_key_fails_validation() -> None:
+    wf = _minimal_workflow(publication_keys=("nonexistent_pub",))
+    pack = _minimal_pack(workflows=(wf,))
+    with pytest.raises(ValueError, match="references publication key 'nonexistent_pub'"):
+        pack.validate()
+
+
+def test_ui_descriptor_referencing_unknown_publication_key_fails_validation() -> None:
+    ui = _minimal_ui_descriptor(publication_keys=("nonexistent_pub",))
+    pack = _minimal_pack(ui_descriptors=(ui,))
+    with pytest.raises(ValueError, match="references publication key 'nonexistent_pub'"):
+        pack.validate()
+
+
+def test_workflow_referencing_valid_publication_key_passes_validation() -> None:
+    wf = _minimal_workflow(publication_keys=("test_pub",))
+    pack = _minimal_pack(workflows=(wf,))
+    pack.validate()  # must not raise
+
+
+def test_ui_descriptor_referencing_valid_publication_key_passes_validation() -> None:
+    ui = _minimal_ui_descriptor(publication_keys=("test_pub",))
+    pack = _minimal_pack(ui_descriptors=(ui,))
+    pack.validate()  # must not raise
+
+
+# ---------------------------------------------------------------------------
 # FINANCE_PACK integrity
 # ---------------------------------------------------------------------------
 
@@ -222,34 +291,20 @@ def test_utilities_pack_has_expected_publications() -> None:
     assert "utility_cost_summary" in pub_keys
 
 
-def test_utilities_pack_is_a_derived_pack() -> None:
-    # UTILITIES_PACK is a derived pack: it owns publications but no sources or workflows.
-    # Data is produced by a workflow in another pack (declared in PRODUCING_WORKFLOW_REF).
-    assert len(UTILITIES_PACK.sources) == 0, "Derived pack must declare no sources"
-    assert len(UTILITIES_PACK.workflows) == 0, "Derived pack must declare no workflows"
+def test_utilities_pack_is_executable() -> None:
+    """Utilities must own at least one source and one workflow."""
+    assert len(UTILITIES_PACK.sources) > 0, "Utilities pack must declare at least one source"
+    assert len(UTILITIES_PACK.workflows) > 0, "Utilities pack must declare at least one workflow"
 
 
-def test_utilities_pack_producing_workflow_exists_in_finance_pack() -> None:
-    """The cross-domain production dependency is explicit and verifiable.
+def test_utilities_pack_has_expected_sources() -> None:
+    dataset_names = {s.dataset_name for s in UTILITIES_PACK.sources}
+    assert "utility_rates" in dataset_names
 
-    UTILITIES_PACK.PRODUCING_WORKFLOW_REF names the workflow that produces the
-    utility publications as a transformation side-effect. This test ensures the
-    reference remains valid if the finance workflow is renamed or removed.
-    """
-    assert PRODUCING_WORKFLOW_REF["pack"] == "finance"
-    producing_workflow = next(
-        (
-            w
-            for w in FINANCE_PACK.workflows
-            if w.workflow_id == PRODUCING_WORKFLOW_REF["workflow_id"]
-        ),
-        None,
-    )
-    assert producing_workflow is not None, (
-        f"UTILITIES_PACK declares production dependency on "
-        f"{PRODUCING_WORKFLOW_REF['pack']}.{PRODUCING_WORKFLOW_REF['workflow_id']}, "
-        f"but that workflow does not exist in FINANCE_PACK"
-    )
+
+def test_utilities_pack_workflow_ids_are_unique() -> None:
+    ids = [w.workflow_id for w in UTILITIES_PACK.workflows]
+    assert len(ids) == len(set(ids)), f"UTILITIES_PACK workflow_ids must be unique, got: {ids}"
 
 
 def test_utilities_pack_all_publications_have_lineage_required() -> None:

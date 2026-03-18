@@ -1,28 +1,39 @@
-"""Table-driven contract tests asserting FINANCE_PACK workflow declarations are complete.
+"""Table-driven contract tests asserting workflow declarations are complete.
 
 Each parametrized test runs once per workflow, giving clear per-workflow failure messages
-rather than a single aggregate assertion.
+rather than a single aggregate assertion. Tests cover both FINANCE_PACK and UTILITIES_PACK.
 """
 from __future__ import annotations
 
 import pytest
 
 from packages.domains.finance.manifest import FINANCE_PACK
+from packages.domains.utilities.manifest import UTILITIES_PACK
 
 pytestmark = [pytest.mark.architecture]
 
+ALL_WORKFLOWS = list(FINANCE_PACK.workflows) + list(UTILITIES_PACK.workflows)
+ALL_PACKS = [FINANCE_PACK, UTILITIES_PACK]
 
-@pytest.mark.parametrize("workflow", FINANCE_PACK.workflows, ids=lambda w: w.workflow_id)
+
+def _pack_for_workflow(workflow):
+    for pack in ALL_PACKS:
+        if workflow in pack.workflows:
+            return pack
+    return None
+
+
+@pytest.mark.parametrize("workflow", ALL_WORKFLOWS, ids=lambda w: w.workflow_id)
 def test_workflow_has_workflow_id(workflow) -> None:
     assert workflow.workflow_id, "Workflow must have a non-empty workflow_id"
 
 
-@pytest.mark.parametrize("workflow", FINANCE_PACK.workflows, ids=lambda w: w.workflow_id)
+@pytest.mark.parametrize("workflow", ALL_WORKFLOWS, ids=lambda w: w.workflow_id)
 def test_workflow_has_display_name(workflow) -> None:
     assert workflow.display_name, f"Workflow '{workflow.workflow_id}' must have a display_name"
 
 
-@pytest.mark.parametrize("workflow", FINANCE_PACK.workflows, ids=lambda w: w.workflow_id)
+@pytest.mark.parametrize("workflow", ALL_WORKFLOWS, ids=lambda w: w.workflow_id)
 def test_workflow_has_retry_policy(workflow) -> None:
     valid_policies = {"always", "on_failure", "never"}
     assert workflow.retry_policy in valid_policies, (
@@ -31,7 +42,7 @@ def test_workflow_has_retry_policy(workflow) -> None:
     )
 
 
-@pytest.mark.parametrize("workflow", FINANCE_PACK.workflows, ids=lambda w: w.workflow_id)
+@pytest.mark.parametrize("workflow", ALL_WORKFLOWS, ids=lambda w: w.workflow_id)
 def test_workflow_has_idempotency_mode(workflow) -> None:
     valid_modes = {"run_id", "content_hash", "none"}
     assert workflow.idempotency_mode in valid_modes, (
@@ -40,7 +51,7 @@ def test_workflow_has_idempotency_mode(workflow) -> None:
     )
 
 
-@pytest.mark.parametrize("workflow", FINANCE_PACK.workflows, ids=lambda w: w.workflow_id)
+@pytest.mark.parametrize("workflow", ALL_WORKFLOWS, ids=lambda w: w.workflow_id)
 def test_workflow_has_required_permissions(workflow) -> None:
     assert workflow.required_permissions is not None, (
         f"Workflow '{workflow.workflow_id}' must declare required_permissions"
@@ -50,9 +61,10 @@ def test_workflow_has_required_permissions(workflow) -> None:
     )
 
 
-@pytest.mark.parametrize("workflow", FINANCE_PACK.workflows, ids=lambda w: w.workflow_id)
+@pytest.mark.parametrize("workflow", ALL_WORKFLOWS, ids=lambda w: w.workflow_id)
 def test_workflow_source_dataset_name_references_known_source(workflow) -> None:
-    known_sources = {s.dataset_name for s in FINANCE_PACK.sources}
+    pack = _pack_for_workflow(workflow)
+    known_sources = {s.dataset_name for s in pack.sources}
     # configured_csv is a synthetic source not in the sources list — allow it
     synthetic_sources = {"configured_csv"}
     if workflow.source_dataset_name not in synthetic_sources:
@@ -72,6 +84,15 @@ def test_finance_pack_workflow_ids_are_unique() -> None:
     assert len(ids) == len(set(ids)), f"FINANCE_PACK workflow_ids must be unique, got: {ids}"
 
 
+def test_utilities_pack_has_at_least_one_workflow() -> None:
+    assert len(UTILITIES_PACK.workflows) > 0, "UTILITIES_PACK must declare at least one workflow"
+
+
+def test_utilities_pack_workflow_ids_are_unique() -> None:
+    ids = [w.workflow_id for w in UTILITIES_PACK.workflows]
+    assert len(ids) == len(set(ids)), f"UTILITIES_PACK workflow_ids must be unique, got: {ids}"
+
+
 def test_ingest_contract_prices_produces_only_finance_publications() -> None:
     workflow = next(
         (w for w in FINANCE_PACK.workflows if w.workflow_id == "ingest-contract-prices"),
@@ -82,4 +103,17 @@ def test_ingest_contract_prices_produces_only_finance_publications() -> None:
     unknown_keys = set(workflow.publication_keys) - finance_pub_keys
     assert not unknown_keys, (
         f"ingest-contract-prices declares publication_keys not owned by FINANCE_PACK: {unknown_keys}"
+    )
+
+
+def test_derive_utility_publications_produces_only_utilities_publications() -> None:
+    workflow = next(
+        (w for w in UTILITIES_PACK.workflows if w.workflow_id == "derive-utility-publications"),
+        None,
+    )
+    assert workflow is not None, "UTILITIES_PACK must declare derive-utility-publications workflow"
+    utilities_pub_keys = {p.key for p in UTILITIES_PACK.publications}
+    unknown_keys = set(workflow.publication_keys) - utilities_pub_keys
+    assert not unknown_keys, (
+        f"derive-utility-publications declares publication_keys not owned by UTILITIES_PACK: {unknown_keys}"
     )

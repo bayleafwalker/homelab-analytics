@@ -1,36 +1,34 @@
-"""Utilities domain capability pack manifest — declares publications and UI descriptors.
+"""Utilities domain capability pack manifest — sources, workflows, publications, and UI.
 
-Sources and workflows are intentionally empty: utility publication data
-(electricity prices, utility cost summaries) is produced by the finance domain's
-ingest-contract-prices workflow, which owns the contract_prices source. The utilities
-pack declares ownership of the resulting publications and their UI surfaces.
-
-This is a *derived pack*: it owns publications whose data is produced by a workflow
-in another pack. The producing workflow is named in PRODUCING_WORKFLOW_REF so that
-contract tests can validate the cross-pack dependency remains intact.
+The utilities pack owns the utility_rates source and a derive-utility-publications
+workflow that produces electricity_price_current and utility_cost_summary.
 """
 from __future__ import annotations
 
+from packages.domains.utilities.sources.utility_rates import UTILITY_RATES_SOURCE
 from packages.platform.capability_types import (
     CapabilityPack,
     PublicationDefinition,
     UiDescriptor,
+    WorkflowDefinition,
 )
-
-# Explicit cross-pack production dependency declaration.
-# The transformation pipeline produces electricity_price_current and utility_cost_summary
-# as part of the finance domain's ingest-contract-prices run. This reference allows
-# contract tests to verify the producing workflow still exists and is correctly scoped.
-PRODUCING_WORKFLOW_REF = {
-    "pack": "finance",
-    "workflow_id": "ingest-contract-prices",
-}
 
 UTILITIES_PACK = CapabilityPack(
     name="utilities",
     version="1.0.0",
-    sources=(),
-    workflows=(),
+    sources=(UTILITY_RATES_SOURCE,),
+    workflows=(
+        WorkflowDefinition(
+            workflow_id="derive-utility-publications",
+            display_name="Derive Utility Publications",
+            source_dataset_name="utility_rates",
+            retry_policy="always",
+            idempotency_mode="run_id",
+            required_permissions=("operator",),
+            command_name="derive-utility-publications",
+            publication_keys=("electricity_price_current", "utility_cost_summary"),
+        ),
+    ),
     publications=(
         PublicationDefinition(
             key="electricity_price_current",
