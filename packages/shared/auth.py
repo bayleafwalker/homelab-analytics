@@ -12,9 +12,9 @@ from packages.platform.auth.configuration import (
 from packages.platform.auth.crypto import (
     SERVICE_TOKEN_VALUE_PREFIX,
     IssuedServiceToken,
+    has_required_service_token_scope,
     hash_password,
     hash_service_token_secret,
-    has_required_service_token_scope,
     issue_service_token,
     parse_service_token,
     verify_password,

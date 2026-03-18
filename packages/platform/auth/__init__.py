@@ -1,10 +1,13 @@
 """Platform auth package — policy, session, OIDC, and crypto for the shared runtime."""
-from packages.platform.auth.configuration import maybe_bootstrap_local_admin, validate_auth_configuration
+from packages.platform.auth.configuration import (
+    maybe_bootstrap_local_admin,
+    validate_auth_configuration,
+)
 from packages.platform.auth.crypto import (
     SERVICE_TOKEN_VALUE_PREFIX,
     IssuedServiceToken,
-    hash_password,
     has_required_service_token_scope,
+    hash_password,
     issue_service_token,
     parse_service_token,
     verify_password,

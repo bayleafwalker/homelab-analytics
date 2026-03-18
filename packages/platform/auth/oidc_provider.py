@@ -1,12 +1,12 @@
 """OIDC provider: login redirect, token exchange, and callback authentication."""
 from __future__ import annotations
 
+import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from http.cookies import SimpleCookie
 from typing import Any, Literal
 from urllib.parse import urlencode
-import secrets
 
 import httpx
 import jwt
