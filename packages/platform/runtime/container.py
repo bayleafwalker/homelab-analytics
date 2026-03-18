@@ -48,5 +48,7 @@ class AppContainer:
     subscription_service: SubscriptionService | None
     contract_price_service: ContractPriceService | None
     configured_definition_service: ConfiguredIngestionDefinitionService
-    # finance domain capability pack (validated at build time; None if no packs registered)
-    finance_pack: CapabilityPack | None
+    # all registered capability packs (validated at build time)
+    capability_packs: tuple[CapabilityPack, ...] = ()
+    # finance domain capability pack — backward-compatible accessor; use capability_packs for new code
+    finance_pack: CapabilityPack | None = None

@@ -534,7 +534,7 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getExtensionRegistryRevisions()" in control_catalog_source
     assert "getExtensionRegistryActivations()" in control_catalog_source
     assert "getFunctions()" in control_catalog_source
-    assert "getPublicationDefinitions()" in control_catalog_source
+    assert "getPublicationDefinitions({ includeArchived: true })" in control_catalog_source
     assert "getOperationalSummary" in control_catalog_source
     assert "getSourceAssets({ includeArchived: true })" in upload_source
     assert "backendRequest(backendPath" in upload_route_helper

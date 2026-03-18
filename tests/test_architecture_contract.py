@@ -733,3 +733,87 @@ def test_auth_policy_service_token_scope_requirement(
     assert result == expected_scope, (
         f"Path '{path}' expected scope '{expected_scope}', got '{result}'"
     )
+
+
+# ---------------------------------------------------------------------------
+# Multi-pack builder contracts
+# ---------------------------------------------------------------------------
+
+
+def test_build_container_stores_all_registered_packs() -> None:
+    """Container must expose a capability_packs tuple holding all registered packs."""
+    container_source = (ROOT / "packages" / "platform" / "runtime" / "container.py").read_text()
+    assert "capability_packs" in container_source
+    assert "tuple[CapabilityPack" in container_source
+
+
+def test_build_container_validates_cross_pack_publication_uniqueness() -> None:
+    """Builder must reject duplicate publication keys across packs."""
+    builder_source = (ROOT / "packages" / "platform" / "runtime" / "builder.py").read_text()
+    # Cross-pack uniqueness check uses Counter or duplicate detection
+    assert "duplicates" in builder_source
+    assert "Publication keys owned by multiple" in builder_source
+
+
+def test_both_entrypoints_register_finance_and_utilities_packs() -> None:
+    """Both API and worker entrypoints must register FINANCE_PACK and UTILITIES_PACK."""
+    api_main = (ROOT / "apps" / "api" / "main.py").read_text()
+    worker_runtime = (ROOT / "apps" / "worker" / "runtime.py").read_text()
+    for source, label in ((api_main, "apps/api/main.py"), (worker_runtime, "apps/worker/runtime.py")):
+        assert "FINANCE_PACK" in source, f"{label} must register FINANCE_PACK"
+        assert "UTILITIES_PACK" in source, f"{label} must register UTILITIES_PACK"
+
+
+# ---------------------------------------------------------------------------
+# Structural seam guards
+# ---------------------------------------------------------------------------
+
+
+def test_source_routes_is_coordinator_not_handler() -> None:
+    source_routes_path = Path("apps/api/routes/source_routes.py")
+    source = source_routes_path.read_text(encoding="utf-8")
+    assert "@app.get" not in source, (
+        "source_routes.py must be a coordinator — found @app.get, indicating direct route handlers"
+    )
+    assert "@app.post" not in source, (
+        "source_routes.py must be a coordinator — found @app.post, indicating direct route handlers"
+    )
+    assert "@app.patch" not in source, (
+        "source_routes.py must be a coordinator — found @app.patch, indicating direct route handlers"
+    )
+    assert "@app.delete" not in source, (
+        "source_routes.py must be a coordinator — found @app.delete, indicating direct route handlers"
+    )
+
+
+def test_source_route_sub_modules_exist() -> None:
+    expected = [
+        Path("apps/api/routes/source_system_routes.py"),
+        Path("apps/api/routes/source_contract_routes.py"),
+        Path("apps/api/routes/source_mapping_routes.py"),
+        Path("apps/api/routes/source_asset_routes.py"),
+        Path("apps/api/routes/source_ingestion_routes.py"),
+    ]
+    for path in expected:
+        assert path.exists(), f"Expected source route sub-module not found: {path}"
+
+
+def test_shared_auth_is_compatibility_shim() -> None:
+    shared_auth_path = Path("packages/shared/auth.py")
+    lines = shared_auth_path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) < 100, (
+        f"packages/shared/auth.py should be a ~50-line compatibility shim, got {len(lines)} lines"
+    )
+
+
+def test_platform_auth_modules_exist() -> None:
+    expected = [
+        Path("packages/platform/auth/session_manager.py"),
+        Path("packages/platform/auth/oidc_provider.py"),
+        Path("packages/platform/auth/crypto.py"),
+        Path("packages/platform/auth/role_hierarchy.py"),
+        Path("packages/platform/auth/serialization.py"),
+        Path("packages/platform/auth/configuration.py"),
+    ]
+    for path in expected:
+        assert path.exists(), f"Expected platform auth module not found: {path}"

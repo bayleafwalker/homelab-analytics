@@ -48,7 +48,7 @@ FINANCE_PACK = CapabilityPack(
             idempotency_mode="run_id",
             required_permissions=("operator",),
             command_name="ingest-contract-prices",
-            publication_keys=("contract_price_current", "electricity_price_current", "utility_cost_summary"),
+            publication_keys=("contract_price_current",),
         ),
         WorkflowDefinition(
             workflow_id="ingest-configured-csv",
@@ -89,24 +89,6 @@ FINANCE_PACK = CapabilityPack(
             lineage_required=True,
             retention_policy="rolling_12_months",
         ),
-        PublicationDefinition(
-            key="electricity_price_current",
-            schema_name="electricity_price_current",
-            display_name="Current Electricity Prices",
-            description="Latest electricity tariff rates derived from contract price data.",
-            visibility="public",
-            lineage_required=True,
-            retention_policy="rolling_12_months",
-        ),
-        PublicationDefinition(
-            key="utility_cost_summary",
-            schema_name="utility_cost_summary",
-            display_name="Utility Cost Summary",
-            description="Monthly utility cost breakdown combining contract prices and usage.",
-            visibility="public",
-            lineage_required=True,
-            retention_policy="rolling_12_months",
-        ),
     ),
     ui_descriptors=(
         UiDescriptor(
@@ -132,14 +114,6 @@ FINANCE_PACK = CapabilityPack(
             kind="table",
             publication_keys=("contract_price_current",),
             icon="file-text",
-        ),
-        UiDescriptor(
-            key="utility-costs",
-            nav_label="Utility Costs",
-            nav_path="/reports/utility-costs",
-            kind="dashboard",
-            publication_keys=("electricity_price_current", "utility_cost_summary"),
-            icon="zap",
         ),
     ),
 )

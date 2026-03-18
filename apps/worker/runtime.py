@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import TextIO
 
 from packages.domains.finance.manifest import FINANCE_PACK
+from packages.domains.utilities.manifest import UTILITIES_PACK
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.extension_registries import PipelineRegistries
@@ -95,7 +96,7 @@ def build_worker_runtime(
     logger: logging.Logger,
 ) -> WorkerRuntime:
     """Build the worker runtime via the shared platform container."""
-    container = build_container(settings, capability_packs=[FINANCE_PACK])
+    container = build_container(settings, capability_packs=[FINANCE_PACK, UTILITIES_PACK])
     return WorkerRuntime(
         container=container,
         output=output,

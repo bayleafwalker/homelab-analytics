@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Sequence
 
 from packages.pipelines.account_transaction_service import AccountTransactionService
@@ -114,6 +115,13 @@ def build_container(
     for pack in capability_packs:
         pack.validate()
 
+    all_pub_keys = [pub.key for pack in capability_packs for pub in pack.publications]
+    duplicates = [key for key, count in Counter(all_pub_keys).items() if count > 1]
+    if duplicates:
+        raise ValueError(
+            f"Publication keys owned by multiple capability packs: {duplicates}"
+        )
+
     blob_store = build_blob_store(settings)
     run_metadata_store = build_run_metadata_store(settings)
     control_plane_store = build_config_store(settings)
@@ -136,7 +144,7 @@ def build_container(
         promotion_handler_registry=pipeline_registries.promotion_handler_registry,
     )
 
-    finance_pack = capability_packs[0] if capability_packs else None
+    finance_pack = next((p for p in capability_packs if p.name == "finance"), None)
 
     service = AccountTransactionService(
         landing_root=settings.landing_root,
@@ -173,5 +181,6 @@ def build_container(
             blob_store=blob_store,
             function_registry=function_registry,
         ),
+        capability_packs=tuple(capability_packs),
         finance_pack=finance_pack,
     )

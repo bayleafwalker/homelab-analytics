@@ -4,6 +4,7 @@ from __future__ import annotations
 import pytest
 
 from packages.domains.finance.manifest import FINANCE_PACK
+from packages.domains.utilities.manifest import UTILITIES_PACK
 from packages.platform.capability_types import (
     CapabilityPack,
     PublicationDefinition,
@@ -174,8 +175,9 @@ def test_finance_pack_has_expected_publications() -> None:
     assert "monthly_cashflow" in pub_keys
     assert "subscription_summary" in pub_keys
     assert "contract_price_current" in pub_keys
-    assert "electricity_price_current" in pub_keys
-    assert "utility_cost_summary" in pub_keys
+    # utility publications moved to UTILITIES_PACK
+    assert "electricity_price_current" not in pub_keys
+    assert "utility_cost_summary" not in pub_keys
 
 
 def test_finance_pack_all_publications_have_lineage_required() -> None:
@@ -203,3 +205,60 @@ def test_finance_pack_all_publications_have_retention_policy() -> None:
 def test_finance_pack_all_publications_have_description() -> None:
     for pub in FINANCE_PACK.publications:
         assert pub.description, f"Publication '{pub.key}' must have a description"
+
+
+# ---------------------------------------------------------------------------
+# UTILITIES_PACK integrity
+# ---------------------------------------------------------------------------
+
+
+def test_utilities_pack_validates_cleanly() -> None:
+    UTILITIES_PACK.validate()
+
+
+def test_utilities_pack_has_expected_publications() -> None:
+    pub_keys = {p.key for p in UTILITIES_PACK.publications}
+    assert "electricity_price_current" in pub_keys
+    assert "utility_cost_summary" in pub_keys
+
+
+def test_utilities_pack_has_no_workflows() -> None:
+    # Utility publications are produced by finance's ingest-contract-prices workflow.
+    # UTILITIES_PACK intentionally declares no workflows of its own.
+    assert len(UTILITIES_PACK.workflows) == 0
+
+
+def test_utilities_pack_all_publications_have_lineage_required() -> None:
+    for pub in UTILITIES_PACK.publications:
+        assert pub.lineage_required, f"Publication '{pub.key}' must require lineage"
+
+
+def test_utilities_pack_all_publications_have_retention_policy() -> None:
+    for pub in UTILITIES_PACK.publications:
+        assert pub.retention_policy, f"Publication '{pub.key}' must declare retention_policy"
+
+
+def test_utilities_pack_all_publications_have_description() -> None:
+    for pub in UTILITIES_PACK.publications:
+        assert pub.description, f"Publication '{pub.key}' must have a description"
+
+
+# ---------------------------------------------------------------------------
+# Cross-pack ownership
+# ---------------------------------------------------------------------------
+
+
+def test_no_publication_key_owned_by_multiple_packs() -> None:
+    all_keys: list[str] = []
+    for pack in (FINANCE_PACK, UTILITIES_PACK):
+        all_keys.extend(p.key for p in pack.publications)
+    seen: set[str] = set()
+    duplicates = {k for k in all_keys if k in seen or seen.add(k)}  # type: ignore[func-returns-value]
+    assert not duplicates, f"Publication keys owned by multiple packs: {duplicates}"
+
+
+def test_utility_publication_keys_not_in_finance_pack() -> None:
+    finance_pub_keys = {p.key for p in FINANCE_PACK.publications}
+    utilities_pub_keys = {p.key for p in UTILITIES_PACK.publications}
+    overlap = finance_pub_keys & utilities_pub_keys
+    assert not overlap, f"Keys owned by both finance and utilities: {overlap}"

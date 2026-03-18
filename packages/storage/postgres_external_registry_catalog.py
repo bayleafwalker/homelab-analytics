@@ -78,16 +78,16 @@ def _deserialize_extension_registry_revision_row(
             str(row["manifest_digest"]) if row["manifest_digest"] is not None else None
         ),
         manifest_version=(
-            int(row["manifest_version"]) if row["manifest_version"] is not None else None
+            int(str(row["manifest_version"])) if row["manifest_version"] is not None else None
         ),
         content_fingerprint=(
             str(row["content_fingerprint"])
             if row["content_fingerprint"] is not None
             else None
         ),
-        import_paths=deserialize_string_tuple(row["import_paths_json"]),
-        extension_modules=deserialize_string_tuple(row["extension_modules_json"]),
-        function_modules=deserialize_string_tuple(row["function_modules_json"]),
+        import_paths=deserialize_string_tuple(str(row["import_paths_json"]) if row["import_paths_json"] is not None else None),
+        extension_modules=deserialize_string_tuple(str(row["extension_modules_json"]) if row["extension_modules_json"] is not None else None),
+        function_modules=deserialize_string_tuple(str(row["function_modules_json"]) if row["function_modules_json"] is not None else None),
         minimum_platform_version=(
             str(row["minimum_platform_version"])
             if row["minimum_platform_version"] is not None

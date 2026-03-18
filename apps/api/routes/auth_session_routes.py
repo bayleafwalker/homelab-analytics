@@ -1,6 +1,12 @@
 """Session and OIDC authentication route handlers.
 
 Covers: POST/GET /auth/login, GET /auth/callback, POST /auth/logout, GET /auth/me
+
+ADR LOC exception: this file exceeds the 250-line review threshold (~354 lines) and is
+accepted as a justified single-concern exception. It handles one logical flow — session
+lifecycle — with local and OIDC variants that share session issuance and cookie management.
+Splitting by auth mechanism would scatter related setup/teardown across files with no
+readability gain. Revisit if a third auth variant is added.
 """
 from __future__ import annotations
 

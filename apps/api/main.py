@@ -7,6 +7,7 @@ import uvicorn
 
 from apps.api.app import create_app
 from packages.domains.finance.manifest import FINANCE_PACK
+from packages.domains.utilities.manifest import UTILITIES_PACK
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.lazy_transformation_service import LazyTransformationService
 from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
@@ -96,7 +97,7 @@ def build_app(settings: AppSettings | None = None):
     resolved_settings = settings or AppSettings.from_env()
     validate_auth_configuration(resolved_settings)
 
-    container = build_container(resolved_settings, capability_packs=[FINANCE_PACK])
+    container = build_container(resolved_settings, capability_packs=[FINANCE_PACK, UTILITIES_PACK])
 
     transformation_service = build_lazy_transformation_service(
         resolved_settings, container=container
