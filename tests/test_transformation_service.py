@@ -381,3 +381,124 @@ def test_failed_load_does_not_write_audit_record(
     # The key assertion is that no facts or dims were committed (tested in PLT-15 test).
     # Here we verify the function raises before the audit path is reached.
     # (The above pytest.raises assertion is sufficient.)
+
+
+# ---------------------------------------------------------------------------
+# PROD-01: Spend by category monthly
+# ---------------------------------------------------------------------------
+
+
+def test_refresh_spend_by_category_monthly(svc: TransformationService) -> None:
+    svc.load_transactions(LANDING_ROWS)
+    count = svc.refresh_spend_by_category_monthly()
+    # Electric Utility appears in 2 months → 2 rows (only expenses)
+    assert count == 2
+
+    rows = svc.get_spend_by_category_monthly()
+    assert len(rows) == 2
+    assert all(r["counterparty_name"] == "Electric Utility" for r in rows)
+    # Employer is income, should not appear
+    assert not any(r["counterparty_name"] == "Employer" for r in rows)
+
+
+def test_spend_by_category_monthly_amounts(svc: TransformationService) -> None:
+    svc.load_transactions(LANDING_ROWS)
+    svc.refresh_spend_by_category_monthly()
+
+    rows = svc.get_spend_by_category_monthly()
+    by_month = {r["booking_month"]: r for r in rows}
+
+    assert float(by_month["2026-01"]["total_expense"]) == pytest.approx(84.15)
+    assert by_month["2026-01"]["transaction_count"] == 1
+    assert float(by_month["2026-02"]["total_expense"]) == pytest.approx(86.50)
+    assert by_month["2026-02"]["transaction_count"] == 1
+
+
+def test_spend_by_category_monthly_category_is_nullable(svc: TransformationService) -> None:
+    """Category is NULL until counterparty dimension is enriched."""
+    svc.load_transactions(LANDING_ROWS)
+    svc.refresh_spend_by_category_monthly()
+
+    rows = svc.get_spend_by_category_monthly()
+    assert all(r["category"] is None for r in rows)
+
+
+def test_spend_by_category_monthly_filters(svc: TransformationService) -> None:
+    svc.load_transactions(LANDING_ROWS)
+    svc.refresh_spend_by_category_monthly()
+
+    jan_only = svc.get_spend_by_category_monthly(from_month="2026-01", to_month="2026-01")
+    assert len(jan_only) == 1
+    assert jan_only[0]["booking_month"] == "2026-01"
+
+    by_name = svc.get_spend_by_category_monthly(counterparty_name="Electric Utility")
+    assert len(by_name) == 2
+
+    empty = svc.get_spend_by_category_monthly(counterparty_name="Unknown")
+    assert empty == []
+
+
+def test_spend_by_category_monthly_is_idempotent(svc: TransformationService) -> None:
+    svc.load_transactions(LANDING_ROWS)
+    svc.refresh_spend_by_category_monthly()
+    svc.refresh_spend_by_category_monthly()
+    assert len(svc.get_spend_by_category_monthly()) == 2
+
+
+# ---------------------------------------------------------------------------
+# PROD-02: Recent large transactions
+# ---------------------------------------------------------------------------
+
+
+def test_refresh_recent_large_transactions(svc: TransformationService) -> None:
+    svc.load_transactions(LANDING_ROWS)
+    count = svc.refresh_recent_large_transactions()
+    # Electric Utility amounts (84.15, 86.50) are below default threshold of 100
+    # Employer amounts (2450.00) are above → 2 rows
+    assert count == 2
+
+    rows = svc.get_recent_large_transactions()
+    assert len(rows) == 2
+    assert all(r["counterparty_name"] == "Employer" for r in rows)
+    # Ordered by ABS(amount) DESC — both are 2450 so order is stable
+    assert all(float(r["amount"]) == pytest.approx(2450.00) for r in rows)
+
+
+def test_recent_large_transactions_is_idempotent(svc: TransformationService) -> None:
+    svc.load_transactions(LANDING_ROWS)
+    svc.refresh_recent_large_transactions()
+    svc.refresh_recent_large_transactions()
+    assert len(svc.get_recent_large_transactions()) == 2
+
+
+def test_recent_large_transactions_empty_when_below_threshold(
+    svc: TransformationService,
+) -> None:
+    """All transactions below a high threshold → empty mart."""
+    svc.load_transactions(LANDING_ROWS)
+    from decimal import Decimal
+
+    from packages.pipelines.transformation_transactions import (
+        refresh_recent_large_transactions,
+    )
+
+    count = refresh_recent_large_transactions(
+        svc.store, threshold=Decimal("10000"), lookback_months=12
+    )
+    assert count == 0
+
+
+def test_refresh_publications_includes_new_marts(svc: TransformationService) -> None:
+    """The builtin refresh registry covers the two new publication keys."""
+    svc.load_transactions(LANDING_ROWS)
+
+    refreshed = svc.refresh_publications(
+        ["mart_spend_by_category_monthly", "mart_recent_large_transactions"]
+    )
+
+    assert refreshed == [
+        "mart_spend_by_category_monthly",
+        "mart_recent_large_transactions",
+    ]
+    assert len(svc.get_spend_by_category_monthly()) == 2
+    assert len(svc.get_recent_large_transactions()) == 2

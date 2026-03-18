@@ -57,10 +57,26 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 publication_key="rpt_current_dim_counterparty",
                 name="Current counterparty view",
             ),
+            BuiltinPublicationSpec(
+                publication_definition_id=(
+                    "pub_account_transactions_spend_by_category"
+                ),
+                publication_key="mart_spend_by_category_monthly",
+                name="Spend by category monthly mart",
+            ),
+            BuiltinPublicationSpec(
+                publication_definition_id=(
+                    "pub_account_transactions_recent_large"
+                ),
+                publication_key="mart_recent_large_transactions",
+                name="Recent large transactions mart",
+            ),
         ),
         refresh_publication_keys=(
             "mart_monthly_cashflow",
             "mart_monthly_cashflow_by_counterparty",
+            "mart_spend_by_category_monthly",
+            "mart_recent_large_transactions",
         ),
     ),
     BuiltinTransformationPackageSpec(

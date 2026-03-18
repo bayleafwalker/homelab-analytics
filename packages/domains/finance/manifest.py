@@ -28,7 +28,11 @@ FINANCE_PACK = CapabilityPack(
             idempotency_mode="run_id",
             required_permissions=("operator",),
             command_name="ingest-account-transactions",
-            publication_keys=("monthly_cashflow",),
+            publication_keys=(
+                "monthly_cashflow",
+                "spend_by_category_monthly",
+                "recent_large_transactions",
+            ),
         ),
         WorkflowDefinition(
             workflow_id="ingest-subscriptions",
@@ -89,6 +93,24 @@ FINANCE_PACK = CapabilityPack(
             lineage_required=True,
             retention_policy="rolling_12_months",
         ),
+        PublicationDefinition(
+            key="spend_by_category_monthly",
+            schema_name="spend_by_category_monthly",
+            display_name="Spend by Category Monthly",
+            description="Monthly expense totals grouped by counterparty and category.",
+            visibility="public",
+            lineage_required=True,
+            retention_policy="indefinite",
+        ),
+        PublicationDefinition(
+            key="recent_large_transactions",
+            schema_name="recent_large_transactions",
+            display_name="Recent Large Transactions",
+            description="Notable transactions above a threshold in recent months.",
+            visibility="public",
+            lineage_required=True,
+            retention_policy="rolling_12_months",
+        ),
     ),
     ui_descriptors=(
         UiDescriptor(
@@ -114,6 +136,22 @@ FINANCE_PACK = CapabilityPack(
             kind="table",
             publication_keys=("contract_price_current",),
             icon="file-text",
+        ),
+        UiDescriptor(
+            key="spending-by-category",
+            nav_label="Spending by Category",
+            nav_path="/reports/spending-by-category",
+            kind="report",
+            publication_keys=("spend_by_category_monthly",),
+            icon="pie-chart",
+        ),
+        UiDescriptor(
+            key="large-transactions",
+            nav_label="Large Transactions",
+            nav_path="/reports/large-transactions",
+            kind="table",
+            publication_keys=("recent_large_transactions",),
+            icon="alert-circle",
         ),
     ),
 )

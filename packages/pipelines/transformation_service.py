@@ -52,10 +52,14 @@ from packages.pipelines.transformation_transactions import (
     ensure_transaction_storage,
     get_monthly_cashflow,
     get_monthly_cashflow_by_counterparty,
+    get_recent_large_transactions,
+    get_spend_by_category_monthly,
     get_transactions,
     load_transactions,
     refresh_monthly_cashflow,
     refresh_monthly_cashflow_by_counterparty,
+    refresh_recent_large_transactions,
+    refresh_spend_by_category_monthly,
 )
 from packages.pipelines.transformation_utilities import (
     count_bills,
@@ -254,6 +258,30 @@ class TransformationService:
             to_month=to_month,
             counterparty_name=counterparty_name,
         )
+
+    def refresh_spend_by_category_monthly(self) -> int:
+        return refresh_spend_by_category_monthly(self._store)
+
+    def get_spend_by_category_monthly(
+        self,
+        from_month: str | None = None,
+        to_month: str | None = None,
+        counterparty_name: str | None = None,
+        category: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_spend_by_category_monthly(
+            self._store,
+            from_month=from_month,
+            to_month=to_month,
+            counterparty_name=counterparty_name,
+            category=category,
+        )
+
+    def refresh_recent_large_transactions(self) -> int:
+        return refresh_recent_large_transactions(self._store)
+
+    def get_recent_large_transactions(self) -> list[dict[str, Any]]:
+        return get_recent_large_transactions(self._store)
 
     def get_transformation_audit(
         self,

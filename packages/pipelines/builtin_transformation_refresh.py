@@ -12,6 +12,12 @@ BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
     "mart_monthly_cashflow_by_counterparty": (
         lambda service: service.refresh_monthly_cashflow_by_counterparty()
     ),
+    "mart_spend_by_category_monthly": (
+        lambda service: service.refresh_spend_by_category_monthly()
+    ),
+    "mart_recent_large_transactions": (
+        lambda service: service.refresh_recent_large_transactions()
+    ),
     "mart_subscription_summary": (lambda service: service.refresh_subscription_summary()),
     "mart_contract_price_current": (lambda service: service.refresh_contract_price_current()),
     "mart_electricity_price_current": (lambda service: service.refresh_contract_price_current()),

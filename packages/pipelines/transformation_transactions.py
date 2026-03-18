@@ -8,12 +8,17 @@ from decimal import Decimal
 from typing import Any
 
 from packages.pipelines.transaction_models import (
+    CURRENT_DIM_COUNTERPARTY_VIEW,
     FACT_TRANSACTION_COLUMNS,
     FACT_TRANSACTION_TABLE,
     MART_CASHFLOW_BY_COUNTERPARTY_COLUMNS,
     MART_CASHFLOW_BY_COUNTERPARTY_TABLE,
     MART_MONTHLY_CASHFLOW_COLUMNS,
     MART_MONTHLY_CASHFLOW_TABLE,
+    MART_RECENT_LARGE_TRANSACTIONS_COLUMNS,
+    MART_RECENT_LARGE_TRANSACTIONS_TABLE,
+    MART_SPEND_BY_CATEGORY_MONTHLY_COLUMNS,
+    MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
     TRANSFORMATION_AUDIT_COLUMNS,
     TRANSFORMATION_AUDIT_TABLE,
     extract_accounts,
@@ -31,6 +36,14 @@ def ensure_transaction_storage(store: DuckDBStore) -> None:
     store.ensure_table(
         MART_CASHFLOW_BY_COUNTERPARTY_TABLE,
         MART_CASHFLOW_BY_COUNTERPARTY_COLUMNS,
+    )
+    store.ensure_table(
+        MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
+        MART_SPEND_BY_CATEGORY_MONTHLY_COLUMNS,
+    )
+    store.ensure_table(
+        MART_RECENT_LARGE_TRANSACTIONS_TABLE,
+        MART_RECENT_LARGE_TRANSACTIONS_COLUMNS,
     )
     store.ensure_table(TRANSFORMATION_AUDIT_TABLE, TRANSFORMATION_AUDIT_COLUMNS)
 
@@ -243,6 +256,97 @@ def get_monthly_cashflow_by_counterparty(
         f"SELECT * FROM {MART_CASHFLOW_BY_COUNTERPARTY_TABLE}"
         f" {where_sql} ORDER BY booking_month, counterparty_name",
         params,
+    )
+
+
+def refresh_spend_by_category_monthly(store: DuckDBStore) -> int:
+    store.execute(f"DELETE FROM {MART_SPEND_BY_CATEGORY_MONTHLY_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_SPEND_BY_CATEGORY_MONTHLY_TABLE}
+            (booking_month, counterparty_name, category, total_expense, transaction_count)
+        SELECT
+            ft.booking_month,
+            ft.counterparty_name,
+            dc.category,
+            COALESCE(SUM(ABS(ft.amount)), 0) AS total_expense,
+            COUNT(*) AS transaction_count
+        FROM {FACT_TRANSACTION_TABLE} ft
+        LEFT JOIN {CURRENT_DIM_COUNTERPARTY_VIEW} dc
+            ON ft.counterparty_name = dc.counterparty_name
+        WHERE ft.direction = 'expense'
+        GROUP BY ft.booking_month, ft.counterparty_name, dc.category
+        ORDER BY ft.booking_month, total_expense DESC
+        """
+    )
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_SPEND_BY_CATEGORY_MONTHLY_TABLE}"
+    )[0][0]
+
+
+def get_spend_by_category_monthly(
+    store: DuckDBStore,
+    *,
+    from_month: str | None = None,
+    to_month: str | None = None,
+    counterparty_name: str | None = None,
+    category: str | None = None,
+) -> list[dict[str, Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if from_month is not None:
+        clauses.append("booking_month >= ?")
+        params.append(from_month)
+    if to_month is not None:
+        clauses.append("booking_month <= ?")
+        params.append(to_month)
+    if counterparty_name is not None:
+        clauses.append("counterparty_name = ?")
+        params.append(counterparty_name)
+    if category is not None:
+        clauses.append("category = ?")
+        params.append(category)
+    where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_SPEND_BY_CATEGORY_MONTHLY_TABLE}"
+        f" {where_sql} ORDER BY booking_month, total_expense DESC",
+        params,
+    )
+
+
+def refresh_recent_large_transactions(
+    store: DuckDBStore,
+    *,
+    threshold: Decimal = Decimal("100"),
+    lookback_months: int = 3,
+) -> int:
+    store.execute(f"DELETE FROM {MART_RECENT_LARGE_TRANSACTIONS_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_RECENT_LARGE_TRANSACTIONS_TABLE}
+            (transaction_id, booked_at, booking_month, account_id,
+             counterparty_name, amount, currency, description, direction)
+        SELECT
+            transaction_id, booked_at, booking_month, account_id,
+            counterparty_name, amount, currency, description, direction
+        FROM {FACT_TRANSACTION_TABLE}
+        WHERE ABS(amount) >= ?
+          AND booked_at >= CURRENT_DATE - INTERVAL '{lookback_months}' MONTH
+        ORDER BY ABS(amount) DESC
+        """,
+        [threshold],
+    )
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_RECENT_LARGE_TRANSACTIONS_TABLE}"
+    )[0][0]
+
+
+def get_recent_large_transactions(
+    store: DuckDBStore,
+) -> list[dict[str, Any]]:
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_RECENT_LARGE_TRANSACTIONS_TABLE}"
+        " ORDER BY ABS(amount) DESC, booked_at DESC"
     )
 
 

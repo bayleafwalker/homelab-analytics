@@ -25,6 +25,10 @@ from packages.pipelines.transaction_models import (
     MART_CASHFLOW_BY_COUNTERPARTY_TABLE,
     MART_MONTHLY_CASHFLOW_COLUMNS,
     MART_MONTHLY_CASHFLOW_TABLE,
+    MART_RECENT_LARGE_TRANSACTIONS_COLUMNS,
+    MART_RECENT_LARGE_TRANSACTIONS_TABLE,
+    MART_SPEND_BY_CATEGORY_MONTHLY_COLUMNS,
+    MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
     TRANSFORMATION_AUDIT_COLUMNS,
     TRANSFORMATION_AUDIT_TABLE,
 )
@@ -63,6 +67,16 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         relation_name=MART_CASHFLOW_BY_COUNTERPARTY_TABLE,
         columns=MART_CASHFLOW_BY_COUNTERPARTY_COLUMNS,
         order_by="booking_month, counterparty_name",
+    ),
+    MART_SPEND_BY_CATEGORY_MONTHLY_TABLE: PublicationRelation(
+        relation_name=MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
+        columns=MART_SPEND_BY_CATEGORY_MONTHLY_COLUMNS,
+        order_by="booking_month, total_expense DESC",
+    ),
+    MART_RECENT_LARGE_TRANSACTIONS_TABLE: PublicationRelation(
+        relation_name=MART_RECENT_LARGE_TRANSACTIONS_TABLE,
+        columns=MART_RECENT_LARGE_TRANSACTIONS_COLUMNS,
+        order_by="ABS(amount) DESC, booked_at DESC",
     ),
     MART_SUBSCRIPTION_SUMMARY_TABLE: PublicationRelation(
         relation_name=MART_SUBSCRIPTION_SUMMARY_TABLE,

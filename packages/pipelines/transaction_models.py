@@ -82,6 +82,30 @@ MART_CASHFLOW_BY_COUNTERPARTY_COLUMNS: list[tuple[str, str]] = [
     ("transaction_count", "INTEGER NOT NULL"),
 ]
 
+MART_SPEND_BY_CATEGORY_MONTHLY_TABLE = "mart_spend_by_category_monthly"
+
+MART_SPEND_BY_CATEGORY_MONTHLY_COLUMNS: list[tuple[str, str]] = [
+    ("booking_month", "VARCHAR NOT NULL"),
+    ("counterparty_name", "VARCHAR NOT NULL"),
+    ("category", "VARCHAR"),
+    ("total_expense", "DECIMAL(18,4) NOT NULL"),
+    ("transaction_count", "INTEGER NOT NULL"),
+]
+
+MART_RECENT_LARGE_TRANSACTIONS_TABLE = "mart_recent_large_transactions"
+
+MART_RECENT_LARGE_TRANSACTIONS_COLUMNS: list[tuple[str, str]] = [
+    ("transaction_id", "VARCHAR NOT NULL"),
+    ("booked_at", "DATE NOT NULL"),
+    ("booking_month", "VARCHAR NOT NULL"),
+    ("account_id", "VARCHAR NOT NULL"),
+    ("counterparty_name", "VARCHAR NOT NULL"),
+    ("amount", "DECIMAL(18,4) NOT NULL"),
+    ("currency", "VARCHAR NOT NULL"),
+    ("description", "VARCHAR"),
+    ("direction", "VARCHAR NOT NULL"),
+]
+
 TRANSFORMATION_AUDIT_TABLE = "transformation_audit"
 
 TRANSFORMATION_AUDIT_COLUMNS: list[tuple[str, str]] = [
