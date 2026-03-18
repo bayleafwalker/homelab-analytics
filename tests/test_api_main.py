@@ -26,8 +26,8 @@ from packages.storage.ingestion_config import (
     DatasetContractConfigCreate,
     ExtensionRegistrySourceCreate,
     IngestionConfigRepository,
-    SourceSystemCreate,
     SourceAssetCreate,
+    SourceSystemCreate,
 )
 from tests.account_test_support import (
     ACCOUNT_CONTRACT_ID,

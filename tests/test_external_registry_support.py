@@ -14,8 +14,8 @@ from packages.shared.external_registry import (
 )
 from packages.shared.secrets import EnvironmentSecretResolver
 from packages.storage.ingestion_config import (
-    ExtensionRegistrySourceRecord,
     ExtensionRegistrySourceCreate,
+    ExtensionRegistrySourceRecord,
     IngestionConfigRepository,
 )
 from tests.external_registry_test_support import create_git_extension_repository

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Union
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -38,11 +38,10 @@ from apps.api.support import (
     serialize_run,
     to_jsonable,
 )
+from packages.application.use_cases.run_recovery import build_run_recovery
+from packages.domains.finance.manifest import FINANCE_PACK
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
-from packages.pipelines.configured_ingestion_definition import (
-    ConfiguredIngestionDefinitionService,
-)
 from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.promotion import (
     PromotionResult,
@@ -61,7 +60,7 @@ from packages.pipelines.run_context import (
     run_context_from_manifest,
 )
 from packages.pipelines.subscription_service import SubscriptionService
-from packages.pipelines.transformation_service import TransformationService
+from packages.platform.runtime.container import AppContainer
 from packages.shared.auth import (
     OidcProvider,
     SessionManager,
@@ -72,23 +71,95 @@ from packages.shared.extensions import (
 )
 from packages.shared.function_registry import FunctionRegistry
 from packages.shared.metrics import metrics_registry
-from packages.storage.auth_store import (
-    AuthStore,
-)
+from packages.shared.settings import AppSettings
+from packages.storage.auth_store import AuthStore
 from packages.storage.control_plane import ControlPlaneStore
-from packages.storage.ingestion_config import (
-    IngestionConfigRepository,
-)
+from packages.storage.ingestion_config import IngestionConfigRepository
 from packages.storage.run_metadata import IngestionRunRecord
 
 
-def create_app(
+def _build_container_from_legacy_args(
     service: AccountTransactionService,
+    *,
+    extension_registry: ExtensionRegistry | None,
+    config_repository: ControlPlaneStore | None,
+    function_registry: FunctionRegistry | None,
+    promotion_handler_registry: PromotionHandlerRegistry | None,
+    subscription_service: SubscriptionService | None,
+    contract_price_service: ContractPriceService | None,
+) -> AppContainer:
+    """Build a minimal AppContainer from the old-style create_app() positional/keyword args.
+
+    Used for test compatibility — tests that call create_app() with the legacy
+    AccountTransactionService + keyword args signature will continue to work
+    without changes.
+    """
+    from packages.pipelines.configured_ingestion_definition import (
+        ConfiguredIngestionDefinitionService,
+    )
+    from packages.pipelines.extension_registries import load_pipeline_registries
+
+    resolved_config_repository = config_repository or IngestionConfigRepository(
+        service.landing_root.parent / "config.db"
+    )
+    resolved_extension_registry = extension_registry or build_builtin_extension_registry()
+    resolved_function_registry = function_registry or FunctionRegistry()
+    resolved_promotion_handler_registry = (
+        promotion_handler_registry or get_default_promotion_handler_registry()
+    )
+    # Preserve None to keep the old behaviour of returning 404 when these
+    # services were not explicitly configured.
+    resolved_subscription_service = subscription_service
+    resolved_contract_price_service = contract_price_service
+    resolved_configured_definition_service = ConfiguredIngestionDefinitionService(
+        landing_root=service.landing_root,
+        metadata_repository=service.metadata_repository,
+        config_repository=resolved_config_repository,
+        blob_store=service.blob_store,
+        function_registry=resolved_function_registry,
+    )
+    # Minimal registries for legacy call paths (no extension loading from paths)
+    pipeline_registries = load_pipeline_registries()
+    data_dir = service.landing_root.parent
+    settings = AppSettings(
+        data_dir=data_dir,
+        landing_root=service.landing_root,
+        metadata_database_path=data_dir / "metadata" / "runs.db",
+        account_transactions_inbox_dir=data_dir / "inbox",
+        processed_files_dir=data_dir / "processed",
+        failed_files_dir=data_dir / "failed",
+        api_host="localhost",
+        api_port=8080,
+        web_host="localhost",
+        web_port=8081,
+        worker_poll_interval_seconds=60,
+    )
+    return AppContainer(
+        settings=settings,
+        blob_store=service.blob_store,
+        control_plane_store=resolved_config_repository,
+        run_metadata_store=service.metadata_repository,
+        extension_registry=resolved_extension_registry,
+        function_registry=resolved_function_registry,
+        promotion_handler_registry=resolved_promotion_handler_registry,
+        transformation_domain_registry=pipeline_registries.transformation_domain_registry,
+        publication_refresh_registry=pipeline_registries.publication_refresh_registry,
+        pipeline_catalog_registry=pipeline_registries.pipeline_catalog_registry,
+        service=service,
+        subscription_service=resolved_subscription_service,
+        contract_price_service=resolved_contract_price_service,
+        configured_definition_service=resolved_configured_definition_service,
+        finance_pack=FINANCE_PACK,
+    )
+
+
+def create_app(
+    service_or_container: Union[AppContainer, AccountTransactionService],
     extension_registry: ExtensionRegistry | None = None,
     config_repository: ControlPlaneStore | None = None,
     external_registry_cache_root: Path | None = None,
     function_registry: FunctionRegistry | None = None,
-    transformation_service: TransformationService | None = None,
+    transformation_service=None,
     reporting_service: ReportingService | None = None,
     promotion_handler_registry: PromotionHandlerRegistry | None = None,
     subscription_service: SubscriptionService | None = None,
@@ -102,51 +173,61 @@ def create_app(
     auth_lockout_seconds: int = 900,
     enable_unsafe_admin: bool = False,
 ) -> FastAPI:
-    registry = extension_registry or build_builtin_extension_registry()
-    resolved_function_registry = function_registry or FunctionRegistry()
-    resolved_promotion_handler_registry = (
-        promotion_handler_registry or get_default_promotion_handler_registry()
+    # Support both the new AppContainer-first call and the legacy
+    # AccountTransactionService-first call from existing tests.
+    if isinstance(service_or_container, AppContainer):
+        container = service_or_container
+        resolved_auth_mode = container.settings.auth_mode.lower()
+    else:
+        service = service_or_container
+        container = _build_container_from_legacy_args(
+            service,
+            extension_registry=extension_registry,
+            config_repository=config_repository,
+            function_registry=function_registry,
+            promotion_handler_registry=promotion_handler_registry,
+            subscription_service=subscription_service,
+            contract_price_service=contract_price_service,
+        )
+        resolved_auth_mode = auth_mode.lower()
+
+    # Auto-build a reporting service from transformation_service when reporting_service
+    # was not explicitly provided — preserves the behaviour of the original create_app().
+    if reporting_service is None and transformation_service is not None:
+        reporting_service = ReportingService(
+            transformation_service,
+            extension_registry=container.extension_registry,
+        )
+
+    resolved_config_repository = container.control_plane_store
+    resolved_external_registry_cache_root = external_registry_cache_root or (
+        container.settings.landing_root.parent / "external-registry-cache"
     )
-    resolved_config_repository = config_repository or IngestionConfigRepository(
-        service.landing_root.parent / "config.db"
-    )
-    resolved_auth_store_candidate = auth_store or resolved_config_repository
-    resolved_auth_mode = auth_mode.lower()
+
     if resolved_auth_mode not in {"disabled", "local", "oidc"}:
-        raise ValueError(f"Unsupported auth mode: {auth_mode!r}")
+        raise ValueError(f"Unsupported auth mode: {resolved_auth_mode!r}")
     if resolved_auth_mode in {"local", "oidc"} and session_manager is None:
         raise ValueError("Cookie-backed auth requires a configured session manager.")
     if resolved_auth_mode == "oidc" and oidc_provider is None:
         raise ValueError("OIDC auth requires a configured OIDC provider.")
+
+    from typing import cast
+
+    resolved_auth_store_candidate = auth_store or resolved_config_repository
     if resolved_auth_mode in {"local", "oidc"} and not isinstance(
         resolved_auth_store_candidate, AuthStore
     ):
         raise ValueError("Configured auth requires an auth-capable control-plane store.")
     resolved_auth_store = cast(AuthStore, resolved_auth_store_candidate)
-    resolved_session_manager = session_manager
-    resolved_oidc_provider = oidc_provider
+
     configured_ingestion_service = ConfiguredCsvIngestionService(
-        landing_root=service.landing_root,
-        metadata_repository=service.metadata_repository,
+        landing_root=container.settings.landing_root,
+        metadata_repository=container.run_metadata_store,
         config_repository=resolved_config_repository,
-        blob_store=service.blob_store,
-        function_registry=resolved_function_registry,
+        blob_store=container.blob_store,
+        function_registry=container.function_registry,
     )
-    configured_definition_service = ConfiguredIngestionDefinitionService(
-        landing_root=service.landing_root,
-        metadata_repository=service.metadata_repository,
-        config_repository=resolved_config_repository,
-        blob_store=service.blob_store,
-        function_registry=resolved_function_registry,
-    )
-    resolved_reporting_service = reporting_service or (
-        ReportingService(
-            transformation_service,
-            extension_registry=registry,
-        )
-        if transformation_service is not None
-        else None
-    )
+
     app = FastAPI(title="Homelab Analytics API")
     logger = logging.getLogger("homelab_analytics.api")
     record_auth_event = build_auth_event_recorder(resolved_config_repository)
@@ -244,13 +325,13 @@ def create_app(
             )
 
     def publish_reporting(promotion: PromotionResult | None) -> None:
-        publish_promotion_reporting(resolved_reporting_service, promotion)
+        publish_promotion_reporting(reporting_service, promotion)
 
     def load_run_manifest_and_context(
         run: IngestionRunRecord,
     ) -> tuple[dict[str, Any] | None, RunControlContext | None]:
         try:
-            manifest = read_run_manifest(service.blob_store, run.manifest_path)
+            manifest = read_run_manifest(container.blob_store, run.manifest_path)
         except (KeyError, OSError, ValueError) as exc:
             logger.warning(
                 "run manifest unavailable",
@@ -263,62 +344,23 @@ def create_app(
             return None, None
         return manifest, run_context_from_manifest(manifest)
 
-    def build_run_recovery(
+    def _build_run_recovery(
         run: IngestionRunRecord,
         context: RunControlContext | None,
     ) -> dict[str, Any]:
-        if (
-            context is not None
-            and context.source_system_id
-            and context.dataset_contract_id
-            and context.column_mapping_id
-        ):
-            return {
-                "retry_supported": True,
-                "retry_kind": "configured_csv",
-                "reason": None,
-            }
-        if run.dataset_name == "account_transactions":
-            return {
-                "retry_supported": True,
-                "retry_kind": "account_transactions",
-                "reason": None,
-            }
-        if run.dataset_name == "subscriptions":
-            return {
-                "retry_supported": subscription_service is not None,
-                "retry_kind": "subscriptions" if subscription_service is not None else None,
-                "reason": (
-                    None
-                    if subscription_service is not None
-                    else "Subscription retry is not configured in this API runtime."
-                ),
-            }
-        if run.dataset_name == "contract_prices":
-            return {
-                "retry_supported": contract_price_service is not None,
-                "retry_kind": "contract_prices" if contract_price_service is not None else None,
-                "reason": (
-                    None
-                    if contract_price_service is not None
-                    else "Contract-price retry is not configured in this API runtime."
-                ),
-            }
-        return {
-            "retry_supported": False,
-            "retry_kind": None,
-            "reason": (
-                "Retry requires either a built-in dataset handler or saved configured-ingest"
-                " binding context in the landing manifest."
-            ),
-        }
+        return build_run_recovery(
+            run,
+            context,
+            has_subscription_service=True,
+            has_contract_price_service=True,
+        )
 
     def serialize_run_detail(run: IngestionRunRecord) -> dict[str, Any]:
         _, context = load_run_manifest_and_context(run)
         return serialize_run(
             run,
             context=context,
-            recovery=build_run_recovery(run, context),
+            recovery=_build_run_recovery(run, context),
         )
 
     register_auth_middleware(
@@ -326,8 +368,8 @@ def create_app(
         logger=logger,
         resolved_auth_mode=resolved_auth_mode,
         resolved_auth_store=resolved_auth_store,
-        resolved_session_manager=resolved_session_manager,
-        resolved_oidc_provider=resolved_oidc_provider,
+        resolved_session_manager=session_manager,
+        resolved_oidc_provider=oidc_provider,
         enable_unsafe_admin=enable_unsafe_admin,
         record_auth_event=record_auth_event,
     )
@@ -367,8 +409,8 @@ def create_app(
         resolved_auth_mode=resolved_auth_mode,
         resolved_auth_store=resolved_auth_store,
         resolved_config_repository=resolved_config_repository,
-        resolved_session_manager=resolved_session_manager,
-        resolved_oidc_provider=resolved_oidc_provider,
+        resolved_session_manager=session_manager,
+        resolved_oidc_provider=oidc_provider,
         require_unsafe_admin=require_unsafe_admin,
         cookie_secure_for_request=cookie_secure_for_request,
         record_auth_event=record_auth_event,
@@ -379,17 +421,17 @@ def create_app(
 
     register_run_routes(
         app,
-        service=service,
+        service=container.service,
         configured_ingestion_service=configured_ingestion_service,
         resolved_config_repository=resolved_config_repository,
         transformation_service=transformation_service,
-        resolved_reporting_service=resolved_reporting_service,
-        subscription_service=subscription_service,
-        contract_price_service=contract_price_service,
-        registry=registry,
-        promotion_handler_registry=resolved_promotion_handler_registry,
+        resolved_reporting_service=reporting_service,
+        subscription_service=container.subscription_service,
+        contract_price_service=container.contract_price_service,
+        registry=container.extension_registry,
+        promotion_handler_registry=container.promotion_handler_registry,
         load_run_manifest_and_context=load_run_manifest_and_context,
-        build_run_recovery=build_run_recovery,
+        build_run_recovery=_build_run_recovery,
         serialize_run=serialize_run,
         serialize_run_detail=serialize_run_detail,
         build_run_response=build_run_response,
@@ -398,14 +440,11 @@ def create_app(
     )
     register_config_routes(
         app,
-        registry=registry,
-        function_registry=resolved_function_registry,
-        promotion_handler_registry=resolved_promotion_handler_registry,
+        registry=container.extension_registry,
+        function_registry=container.function_registry,
+        promotion_handler_registry=container.promotion_handler_registry,
         resolved_config_repository=resolved_config_repository,
-        external_registry_cache_root=(
-            external_registry_cache_root
-            or (service.landing_root.parent / "external-registry-cache")
-        ),
+        external_registry_cache_root=resolved_external_registry_cache_root,
         configured_ingestion_service=configured_ingestion_service,
         require_unsafe_admin=require_unsafe_admin,
         ensure_matching_identifier=ensure_matching_identifier,
@@ -415,39 +454,39 @@ def create_app(
     )
     register_control_routes(
         app,
-        service=service,
+        service=container.service,
         resolved_config_repository=resolved_config_repository,
         require_unsafe_admin=require_unsafe_admin,
         serialize_run_detail=serialize_run_detail,
         build_operational_summary=lambda: build_runtime_operational_summary(
-            service=service,
+            service=container.service,
             config_repository=resolved_config_repository,
             load_run_manifest_and_context=load_run_manifest_and_context,
-            build_run_recovery=build_run_recovery,
+            build_run_recovery=_build_run_recovery,
         ),
         to_jsonable=to_jsonable,
     )
     register_report_routes(
         app,
-        service=service,
-        registry=registry,
+        service=container.service,
+        registry=container.extension_registry,
         transformation_service=transformation_service,
-        resolved_reporting_service=resolved_reporting_service,
+        resolved_reporting_service=reporting_service,
         to_jsonable=to_jsonable,
     )
     register_ingest_routes(
         app,
-        service=service,
-        registry=registry,
+        service=container.service,
+        registry=container.extension_registry,
         configured_ingestion_service=configured_ingestion_service,
-        configured_definition_service=configured_definition_service,
+        configured_definition_service=container.configured_definition_service,
         resolved_config_repository=resolved_config_repository,
         transformation_service=transformation_service,
-        resolved_reporting_service=resolved_reporting_service,
-        subscription_service=subscription_service,
-        contract_price_service=contract_price_service,
+        resolved_reporting_service=reporting_service,
+        subscription_service=container.subscription_service,
+        contract_price_service=container.contract_price_service,
         require_unsafe_admin=require_unsafe_admin,
-        promotion_handler_registry=resolved_promotion_handler_registry,
+        promotion_handler_registry=container.promotion_handler_registry,
         publish_reporting=publish_reporting,
         resolve_configured_ingest_binding=lambda payload: resolve_configured_ingest_binding(
             payload,

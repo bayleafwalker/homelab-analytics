@@ -6,42 +6,33 @@ from typing import cast
 import uvicorn
 
 from apps.api.app import create_app
+from packages.domains.finance.manifest import FINANCE_PACK
 from packages.pipelines.account_transaction_service import AccountTransactionService
-from packages.pipelines.contract_price_service import ContractPriceService
-from packages.pipelines.extension_registries import (
-    PipelineRegistries,
-    load_pipeline_registries,
-)
 from packages.pipelines.lazy_transformation_service import LazyTransformationService
-from packages.pipelines.pipeline_catalog import sync_pipeline_catalog
 from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
-from packages.pipelines.subscription_service import SubscriptionService
-from packages.pipelines.transformation_domain_registry import (
-    TransformationDomainRegistry,
-)
-from packages.pipelines.transformation_refresh_registry import (
-    PublicationRefreshRegistry,
-)
 from packages.pipelines.transformation_service import TransformationService
+from packages.platform.runtime.builder import build_container
+from packages.platform.runtime.builder import (
+    build_function_registry as _platform_build_function_registry,
+)
 from packages.shared.auth import (
     build_oidc_provider,
     build_session_manager,
-    maybe_bootstrap_local_admin,
     validate_auth_configuration,
 )
-from packages.shared.external_registry import resolve_active_extension_settings
-from packages.shared.extensions import ExtensionRegistry, load_extension_registry
-from packages.shared.function_registry import FunctionRegistry, load_function_registry
 from packages.shared.logging import configure_logging
 from packages.shared.settings import AppSettings
 from packages.storage.duckdb_store import DuckDBStore
-from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.runtime import (
     build_blob_store,
     build_config_store,
     build_reporting_store,
     build_run_metadata_store,
 )
+
+
+def build_function_registry(settings: AppSettings, *, config_repository=None):
+    return _platform_build_function_registry(settings, config_repository=config_repository)
 
 
 def build_service(settings: AppSettings) -> AccountTransactionService:
@@ -52,80 +43,32 @@ def build_service(settings: AppSettings) -> AccountTransactionService:
     )
 
 
-def build_subscription_service(settings: AppSettings) -> SubscriptionService:
-    return SubscriptionService(
-        landing_root=settings.landing_root,
-        metadata_repository=build_run_metadata_store(settings),
-        blob_store=build_blob_store(settings),
-    )
-
-
-def build_contract_price_service(settings: AppSettings) -> ContractPriceService:
-    return ContractPriceService(
-        landing_root=settings.landing_root,
-        metadata_repository=build_run_metadata_store(settings),
-        blob_store=build_blob_store(settings),
-    )
-
-
-def build_pipeline_registries(
-    settings: AppSettings,
-    *,
-    config_repository: ControlPlaneStore | None = None,
-) -> PipelineRegistries:
-    resolved_settings = (
-        resolve_active_extension_settings(
-            config_repository,
-            configured_paths=settings.extension_paths,
-            configured_modules=settings.extension_modules,
-        )
-        if config_repository is not None
-        else None
-    )
-    return load_pipeline_registries(
-        extension_paths=(
-            resolved_settings.extension_paths
-            if resolved_settings is not None
-            else settings.extension_paths
-        ),
-        extension_modules=(
-            resolved_settings.extension_modules
-            if resolved_settings is not None
-            else settings.extension_modules
-        ),
-    )
-
-
 def build_transformation_service(
     settings: AppSettings,
     *,
-    publication_refresh_registry: PublicationRefreshRegistry | None = None,
-    domain_registry: TransformationDomainRegistry | None = None,
+    container=None,
 ) -> TransformationService:
     analytics_path = settings.resolved_analytics_database_path
     analytics_path.parent.mkdir(parents=True, exist_ok=True)
+    resolved_container = container or build_container(settings)
     return TransformationService(
         DuckDBStore.open(str(analytics_path)),
-        control_plane_store=build_config_store(settings),
-        publication_refresh_registry=publication_refresh_registry,
-        domain_registry=domain_registry,
+        control_plane_store=resolved_container.control_plane_store,
+        publication_refresh_registry=resolved_container.publication_refresh_registry,
+        domain_registry=resolved_container.transformation_domain_registry,
     )
 
 
 def build_lazy_transformation_service(
     settings: AppSettings,
     *,
-    publication_refresh_registry: PublicationRefreshRegistry | None = None,
-    domain_registry: TransformationDomainRegistry | None = None,
+    container=None,
 ) -> TransformationService:
+    resolved_container = container or build_container(settings)
     return cast(
         TransformationService,
         LazyTransformationService(
-            lambda: build_transformation_service(
-                settings,
-                publication_refresh_registry=publication_refresh_registry,
-                domain_registry=domain_registry,
-            )
+            lambda: build_transformation_service(settings, container=resolved_container)
         ),
     )
 
@@ -133,7 +76,7 @@ def build_lazy_transformation_service(
 def build_reporting_service(
     settings: AppSettings,
     transformation_service: TransformationService,
-    extension_registry: ExtensionRegistry | None = None,
+    extension_registry=None,
     control_plane_store=None,
 ) -> ReportingService:
     return ReportingService(
@@ -145,118 +88,37 @@ def build_reporting_service(
             if settings.reporting_backend.lower() == "postgres"
             else ReportingAccessMode.WAREHOUSE
         ),
-        control_plane_store=control_plane_store,
-    )
-
-
-def build_extension_registry(
-    settings: AppSettings,
-    *,
-    config_repository: ControlPlaneStore | None = None,
-) -> ExtensionRegistry:
-    resolved_settings = (
-        resolve_active_extension_settings(
-            config_repository,
-            configured_paths=settings.extension_paths,
-            configured_modules=settings.extension_modules,
-        )
-        if config_repository is not None
-        else None
-    )
-    return load_extension_registry(
-        extension_paths=(
-            resolved_settings.extension_paths
-            if resolved_settings is not None
-            else settings.extension_paths
-        ),
-        extension_modules=(
-            resolved_settings.extension_modules
-            if resolved_settings is not None
-            else settings.extension_modules
-        ),
-    )
-
-
-def build_function_registry(
-    settings: AppSettings,
-    *,
-    config_repository: ControlPlaneStore | None = None,
-) -> FunctionRegistry:
-    resolved_settings = (
-        resolve_active_extension_settings(
-            config_repository,
-            configured_paths=settings.extension_paths,
-            configured_modules=settings.extension_modules,
-        )
-        if config_repository is not None
-        else None
-    )
-    return load_function_registry(
-        extension_paths=(
-            resolved_settings.extension_paths
-            if resolved_settings is not None
-            else settings.extension_paths
-        ),
-        function_modules=(
-            resolved_settings.function_modules
-            if resolved_settings is not None
-            else ()
-        ),
+        control_plane_store=control_plane_store or build_config_store(settings),
     )
 
 
 def build_app(settings: AppSettings | None = None):
     resolved_settings = settings or AppSettings.from_env()
     validate_auth_configuration(resolved_settings)
-    config_store = build_config_store(resolved_settings)
-    maybe_bootstrap_local_admin(config_store, resolved_settings)
-    extension_registry = build_extension_registry(
-        resolved_settings,
-        config_repository=config_store,
-    )
-    function_registry = build_function_registry(
-        resolved_settings,
-        config_repository=config_store,
-    )
-    pipeline_registries = build_pipeline_registries(
-        resolved_settings,
-        config_repository=config_store,
-    )
-    sync_pipeline_catalog(
-        config_store,
-        pipeline_registries.pipeline_catalog_registry,
-        extension_registry=extension_registry,
-        promotion_handler_registry=pipeline_registries.promotion_handler_registry,
-    )
+
+    container = build_container(resolved_settings, capability_packs=[FINANCE_PACK])
+
     transformation_service = build_lazy_transformation_service(
-        resolved_settings,
-        publication_refresh_registry=pipeline_registries.publication_refresh_registry,
-        domain_registry=pipeline_registries.transformation_domain_registry,
+        resolved_settings, container=container
     )
+    reporting_service = build_reporting_service(
+        resolved_settings,
+        transformation_service,
+        container.extension_registry,
+        container.control_plane_store,
+    )
+
     return create_app(
-        build_service(resolved_settings),
-        extension_registry,
-        config_repository=config_store,
-        external_registry_cache_root=resolved_settings.resolved_external_registry_cache_root,
-        function_registry=function_registry,
+        container,
         transformation_service=transformation_service,
-        promotion_handler_registry=pipeline_registries.promotion_handler_registry,
-        reporting_service=build_reporting_service(
-            resolved_settings,
-            transformation_service,
-            extension_registry,
-            config_store,
-        ),
-        subscription_service=build_subscription_service(resolved_settings),
-        contract_price_service=build_contract_price_service(resolved_settings),
-        auth_store=config_store,
-        auth_mode=resolved_settings.auth_mode,
+        reporting_service=reporting_service,
         session_manager=build_session_manager(resolved_settings),
         oidc_provider=build_oidc_provider(resolved_settings),
         auth_failure_window_seconds=resolved_settings.auth_failure_window_seconds,
         auth_failure_threshold=resolved_settings.auth_failure_threshold,
         auth_lockout_seconds=resolved_settings.auth_lockout_seconds,
         enable_unsafe_admin=resolved_settings.enable_unsafe_admin,
+        external_registry_cache_root=resolved_settings.resolved_external_registry_cache_root,
     )
 
 

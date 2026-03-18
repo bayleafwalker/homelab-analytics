@@ -1,6 +1,6 @@
 # ADR: Headless Platform Core, Domain Capability Packs, and Replaceable Presentation Adapters
 
-**Status:** Proposed
+**Status:** Accepted
 **Owner:** Juha
 **Decision type:** Architecture / codebase restructuring
 **Applies to:** API, worker, control-plane, workflows, publications, frontend/admin surfaces

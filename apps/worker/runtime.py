@@ -4,35 +4,27 @@ import logging
 from dataclasses import dataclass
 from typing import TextIO
 
+from packages.domains.finance.manifest import FINANCE_PACK
 from packages.pipelines.account_transaction_service import AccountTransactionService
-from packages.pipelines.configured_ingestion_definition import (
-    ConfiguredIngestionDefinitionService,
-)
 from packages.pipelines.contract_price_service import ContractPriceService
-from packages.pipelines.extension_registries import (
-    PipelineRegistries,
-    load_pipeline_registries,
-)
-from packages.pipelines.pipeline_catalog import sync_pipeline_catalog
-from packages.pipelines.promotion_registry import PromotionHandlerRegistry
-from packages.pipelines.reporting_service import (
-    ReportingAccessMode,
-    ReportingService,
-)
+from packages.pipelines.extension_registries import PipelineRegistries
+from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
 from packages.pipelines.subscription_service import SubscriptionService
-from packages.pipelines.transformation_domain_registry import (
-    TransformationDomainRegistry,
-)
-from packages.pipelines.transformation_refresh_registry import (
-    PublicationRefreshRegistry,
-)
+from packages.pipelines.transformation_domain_registry import TransformationDomainRegistry
+from packages.pipelines.transformation_refresh_registry import PublicationRefreshRegistry
 from packages.pipelines.transformation_service import TransformationService
-from packages.shared.auth import maybe_bootstrap_local_admin
-from packages.shared.external_registry import resolve_active_extension_settings
-from packages.shared.extensions import ExtensionRegistry, load_extension_registry
-from packages.shared.function_registry import FunctionRegistry, load_function_registry
+from packages.platform.runtime.builder import (
+    build_container,
+)
+from packages.platform.runtime.builder import (
+    build_extension_registry as _platform_build_extension_registry,
+)
+from packages.platform.runtime.builder import (
+    build_pipeline_registries as _platform_build_pipeline_registries,
+)
+from packages.platform.runtime.container import AppContainer
+from packages.shared.extensions import ExtensionRegistry
 from packages.shared.settings import AppSettings
-from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.runtime import (
     build_blob_store,
@@ -44,18 +36,79 @@ from packages.storage.runtime import (
 
 @dataclass(frozen=True)
 class WorkerRuntime:
-    settings: AppSettings
+    """Thin wrapper around AppContainer for the worker CLI dispatch loop.
+
+    Carries the I/O streams the CLI needs alongside the shared container.
+    Behaviour is otherwise identical to the previous stand-alone builder —
+    both now call the same build_container() composition root.
+    """
+
+    container: AppContainer
     output: TextIO
     error_output: TextIO
     logger: logging.Logger
-    service: AccountTransactionService
-    config_repository: ControlPlaneStore
-    configured_definition_service: ConfiguredIngestionDefinitionService
-    extension_registry: ExtensionRegistry
-    function_registry: FunctionRegistry
-    promotion_handler_registry: PromotionHandlerRegistry
-    transformation_domain_registry: TransformationDomainRegistry
-    publication_refresh_registry: PublicationRefreshRegistry
+
+    # Convenience pass-throughs so existing command_handlers code keeps working
+    # without touching every call-site in this PR.
+    @property
+    def settings(self) -> AppSettings:
+        return self.container.settings
+
+    @property
+    def service(self) -> AccountTransactionService:
+        return self.container.service
+
+    @property
+    def config_repository(self):  # type: ignore[return]
+        return self.container.control_plane_store
+
+    @property
+    def configured_definition_service(self):  # type: ignore[return]
+        return self.container.configured_definition_service
+
+    @property
+    def extension_registry(self) -> ExtensionRegistry:
+        return self.container.extension_registry
+
+    @property
+    def function_registry(self):  # type: ignore[return]
+        return self.container.function_registry
+
+    @property
+    def promotion_handler_registry(self):  # type: ignore[return]
+        return self.container.promotion_handler_registry
+
+    @property
+    def transformation_domain_registry(self) -> TransformationDomainRegistry:
+        return self.container.transformation_domain_registry
+
+    @property
+    def publication_refresh_registry(self) -> PublicationRefreshRegistry:
+        return self.container.publication_refresh_registry
+
+
+def build_worker_runtime(
+    *,
+    settings: AppSettings,
+    output: TextIO,
+    error_output: TextIO,
+    logger: logging.Logger,
+) -> WorkerRuntime:
+    """Build the worker runtime via the shared platform container."""
+    container = build_container(settings, capability_packs=[FINANCE_PACK])
+    return WorkerRuntime(
+        container=container,
+        output=output,
+        error_output=error_output,
+        logger=logger,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Builder helpers — used by command_handlers.py, control_plane.py, main.py.
+# These build on-demand services for specific worker commands.  They are
+# wrappers around platform builder functions or direct storage factories.
+# ---------------------------------------------------------------------------
 
 
 def build_service(settings: AppSettings) -> AccountTransactionService:
@@ -66,92 +119,36 @@ def build_service(settings: AppSettings) -> AccountTransactionService:
     )
 
 
+def build_subscription_service(settings: AppSettings) -> SubscriptionService:
+    return SubscriptionService(
+        landing_root=settings.landing_root,
+        metadata_repository=build_run_metadata_store(settings),
+        blob_store=build_blob_store(settings),
+    )
+
+
+def build_contract_price_service(settings: AppSettings) -> ContractPriceService:
+    return ContractPriceService(
+        landing_root=settings.landing_root,
+        metadata_repository=build_run_metadata_store(settings),
+        blob_store=build_blob_store(settings),
+    )
+
+
 def build_extension_registry(
     settings: AppSettings,
     *,
-    config_repository: ControlPlaneStore | None = None,
+    config_repository=None,
 ) -> ExtensionRegistry:
-    resolved_settings = (
-        resolve_active_extension_settings(
-            config_repository,
-            configured_paths=settings.extension_paths,
-            configured_modules=settings.extension_modules,
-        )
-        if config_repository is not None
-        else None
-    )
-    return load_extension_registry(
-        extension_paths=(
-            resolved_settings.extension_paths
-            if resolved_settings is not None
-            else settings.extension_paths
-        ),
-        extension_modules=(
-            resolved_settings.extension_modules
-            if resolved_settings is not None
-            else settings.extension_modules
-        ),
-    )
+    return _platform_build_extension_registry(settings, config_repository=config_repository)
 
 
 def build_pipeline_registries(
     settings: AppSettings,
     *,
-    config_repository: ControlPlaneStore | None = None,
+    config_repository=None,
 ) -> PipelineRegistries:
-    resolved_settings = (
-        resolve_active_extension_settings(
-            config_repository,
-            configured_paths=settings.extension_paths,
-            configured_modules=settings.extension_modules,
-        )
-        if config_repository is not None
-        else None
-    )
-    return load_pipeline_registries(
-        extension_paths=(
-            resolved_settings.extension_paths
-            if resolved_settings is not None
-            else settings.extension_paths
-        ),
-        extension_modules=(
-            resolved_settings.extension_modules
-            if resolved_settings is not None
-            else settings.extension_modules
-        ),
-    )
-
-
-def build_function_registry(
-    settings: AppSettings,
-    *,
-    config_repository: ControlPlaneStore | None = None,
-) -> FunctionRegistry:
-    resolved_settings = (
-        resolve_active_extension_settings(
-            config_repository,
-            configured_paths=settings.extension_paths,
-            configured_modules=settings.extension_modules,
-        )
-        if config_repository is not None
-        else None
-    )
-    return load_function_registry(
-        extension_paths=(
-            resolved_settings.extension_paths
-            if resolved_settings is not None
-            else settings.extension_paths
-        ),
-        function_modules=(
-            resolved_settings.function_modules
-            if resolved_settings is not None
-            else ()
-        ),
-    )
-
-
-def build_config_repository(settings: AppSettings) -> ControlPlaneStore:
-    return build_config_store(settings)
+    return _platform_build_pipeline_registries(settings, config_repository=config_repository)
 
 
 def build_transformation_service(
@@ -181,70 +178,4 @@ def build_reporting_service(
         extension_registry=extension_registry,
         access_mode=ReportingAccessMode.WAREHOUSE,
         control_plane_store=build_config_store(settings),
-    )
-
-
-def build_subscription_service(settings: AppSettings) -> SubscriptionService:
-    return SubscriptionService(
-        landing_root=settings.landing_root,
-        metadata_repository=build_run_metadata_store(settings),
-        blob_store=build_blob_store(settings),
-    )
-
-
-def build_contract_price_service(settings: AppSettings) -> ContractPriceService:
-    return ContractPriceService(
-        landing_root=settings.landing_root,
-        metadata_repository=build_run_metadata_store(settings),
-        blob_store=build_blob_store(settings),
-    )
-
-
-def build_worker_runtime(
-    *,
-    settings: AppSettings,
-    output: TextIO,
-    error_output: TextIO,
-    logger: logging.Logger,
-) -> WorkerRuntime:
-    service = build_service(settings)
-    config_repository = build_config_repository(settings)
-    extension_registry = build_extension_registry(
-        settings,
-        config_repository=config_repository,
-    )
-    function_registry = build_function_registry(
-        settings,
-        config_repository=config_repository,
-    )
-    pipeline_registries = build_pipeline_registries(
-        settings,
-        config_repository=config_repository,
-    )
-    maybe_bootstrap_local_admin(config_repository, settings)
-    sync_pipeline_catalog(
-        config_repository,
-        pipeline_registries.pipeline_catalog_registry,
-        extension_registry=extension_registry,
-        promotion_handler_registry=pipeline_registries.promotion_handler_registry,
-    )
-    return WorkerRuntime(
-        settings=settings,
-        output=output,
-        error_output=error_output,
-        logger=logger,
-        service=service,
-        config_repository=config_repository,
-        configured_definition_service=ConfiguredIngestionDefinitionService(
-            landing_root=settings.landing_root,
-            metadata_repository=service.metadata_repository,
-            config_repository=config_repository,
-            blob_store=service.blob_store,
-            function_registry=function_registry,
-        ),
-        extension_registry=extension_registry,
-        function_registry=function_registry,
-        promotion_handler_registry=pipeline_registries.promotion_handler_registry,
-        transformation_domain_registry=pipeline_registries.transformation_domain_registry,
-        publication_refresh_registry=pipeline_registries.publication_refresh_registry,
     )

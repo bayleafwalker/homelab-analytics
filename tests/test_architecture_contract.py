@@ -66,30 +66,35 @@ def test_app_reporting_paths_do_not_compute_cashflow_from_landing_service() -> N
 def test_app_reporting_routes_flow_through_reporting_service_contract() -> None:
     api_source = (ROOT / "apps" / "api" / "routes" / "report_routes.py").read_text()
     api_app_source = (ROOT / "apps" / "api" / "app.py").read_text()
-    worker_handler_source = (ROOT / "apps" / "worker" / "command_handlers.py").read_text()
+    worker_ingest_source = (
+        ROOT / "apps" / "worker" / "command_handlers" / "ingest_commands.py"
+    ).read_text()
     worker_control_plane_source = (ROOT / "apps" / "worker" / "control_plane.py").read_text()
 
     assert "resolved_reporting_service.get_transformation_audit(" in api_source
     assert "reporting_service=resolved_reporting_service" in api_source
     assert "publish_promotion_reporting(" in api_app_source
-    assert "publish_promotion_reporting(" in worker_handler_source
+    assert "publish_promotion_reporting(" in worker_ingest_source
     assert "publish_promotion_reporting(" in worker_control_plane_source
 
 
 def test_runtime_builders_preserve_published_vs_warehouse_reporting_boundary() -> None:
     api_main_source = (ROOT / "apps" / "api" / "main.py").read_text()
+    platform_builder_source = (
+        ROOT / "packages" / "platform" / "runtime" / "builder.py"
+    ).read_text()
     web_main_source = (ROOT / "apps" / "web" / "main.py").read_text()
     web_app_source = (ROOT / "apps" / "web" / "app.py").read_text()
     worker_runtime_source = (ROOT / "apps" / "worker" / "runtime.py").read_text()
 
+    # API uses PUBLISHED mode for postgres, WAREHOUSE otherwise — checked in api/main.py
     assert "ReportingAccessMode.PUBLISHED" in api_main_source
-    assert "build_pipeline_registries(" in api_main_source
-    assert "domain_registry=pipeline_registries.transformation_domain_registry" in api_main_source
-    assert "sync_pipeline_catalog(" in api_main_source
     assert 'settings.reporting_backend.lower() == "postgres"' in api_main_source
-    assert "load_pipeline_registries(" in worker_runtime_source
-    assert "domain_registry=domain_registry" in worker_runtime_source
-    assert "sync_pipeline_catalog(" in worker_runtime_source
+    # Pipeline registry loading and catalog sync live in the shared platform builder
+    assert "build_pipeline_registries(" in platform_builder_source
+    assert "sync_pipeline_catalog(" in platform_builder_source
+    assert "domain_registry=pipeline_registries.transformation_domain_registry" in platform_builder_source
+    # Worker always uses WAREHOUSE mode
     assert "access_mode=ReportingAccessMode.WAREHOUSE" in worker_runtime_source
     assert "build_web_environment" in web_main_source
     assert "HOMELAB_ANALYTICS_API_BASE_URL" in web_app_source
@@ -97,12 +102,14 @@ def test_runtime_builders_preserve_published_vs_warehouse_reporting_boundary() -
 
 def test_worker_main_delegates_to_runtime_and_command_handlers() -> None:
     worker_main_source = (ROOT / "apps" / "worker" / "main.py").read_text()
-    worker_handler_source = (ROOT / "apps" / "worker" / "command_handlers.py").read_text()
+    worker_handler_init_source = (
+        ROOT / "apps" / "worker" / "command_handlers" / "__init__.py"
+    ).read_text()
 
     assert "build_worker_runtime(" in worker_main_source
     assert "dispatch_worker_command(" in worker_main_source
-    assert "build_worker_command_handlers()" in worker_handler_source
-    assert '"watch-schedule-dispatches"' in worker_handler_source
+    assert "build_worker_command_handlers()" in worker_handler_init_source
+    assert '"watch-schedule-dispatches"' in worker_handler_init_source
 
 
 def test_api_app_imports_shared_support_modules() -> None:
@@ -116,13 +123,15 @@ def test_api_app_imports_shared_support_modules() -> None:
 def test_config_routes_validate_transformation_packages_against_loaded_handlers() -> None:
     api_app_source = (ROOT / "apps" / "api" / "app.py").read_text()
     config_route_source = (ROOT / "apps" / "api" / "routes" / "config_routes.py").read_text()
-    worker_handler_source = (ROOT / "apps" / "worker" / "command_handlers.py").read_text()
+    worker_ingest_source = (
+        ROOT / "apps" / "worker" / "command_handlers" / "ingest_commands.py"
+    ).read_text()
 
     assert "get_default_promotion_handler_registry()" in api_app_source
     assert "promotion_handler_registry=resolved_promotion_handler_registry" in api_app_source
     assert "promotion_handler_registry: PromotionHandlerRegistry" in config_route_source
     assert "promotion_handler_registry=promotion_handler_registry" in config_route_source
-    assert "promotion_handler_registry=runtime.promotion_handler_registry" in worker_handler_source
+    assert "promotion_handler_registry=runtime.promotion_handler_registry" in worker_ingest_source
 
 
 def test_promotion_orchestration_imports_shared_registry_contracts() -> None:
@@ -180,7 +189,9 @@ def test_sqlite_ingestion_backend_imports_split_catalog_modules() -> None:
 def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> None:
     api_source = (ROOT / "apps" / "api" / "app.py").read_text()
     auth_runtime_source = (ROOT / "apps" / "api" / "auth_runtime.py").read_text()
-    auth_route_source = (ROOT / "apps" / "api" / "routes" / "auth_routes.py").read_text()
+    auth_route_source = (
+        ROOT / "apps" / "api" / "routes" / "auth_management_routes.py"
+    ).read_text()
     control_route_source = (ROOT / "apps" / "api" / "routes" / "control_routes.py").read_text()
     ingest_route_source = (ROOT / "apps" / "api" / "routes" / "ingest_routes.py").read_text()
     run_route_source = (ROOT / "apps" / "api" / "routes" / "run_routes.py").read_text()
@@ -430,14 +441,17 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     ).read_text()
     web_main_source = (ROOT / "apps" / "web" / "main.py").read_text()
 
+    scope_authorization_source = (
+        ROOT / "packages" / "platform" / "auth" / "scope_authorization.py"
+    ).read_text()
     assert "register_auth_middleware(" in api_source
     assert "build_auth_event_recorder(" in api_source
     assert "required_role_for_path" in auth_runtime_source
     assert "Authentication required." in auth_runtime_source
     assert "CSRF validation failed." in auth_runtime_source
-    assert '"/auth/users"' in auth_runtime_source
-    assert '"/auth/service-tokens"' in auth_runtime_source
-    assert '"/control/auth-audit"' in auth_runtime_source
+    assert '"/auth/users"' in scope_authorization_source
+    assert '"/auth/service-tokens"' in scope_authorization_source
+    assert '"/control/auth-audit"' in scope_authorization_source
     assert '"/auth/users"' in auth_route_source
     assert '"/auth/service-tokens"' in auth_route_source
     assert '"/control/auth-audit"' in auth_route_source
@@ -451,10 +465,15 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert '"/runs/{run_id}/retry"' in run_route_source
     assert "register_auth_routes(" in api_source
     assert "register_ingest_routes(" in api_source
-    assert "auth_mode=resolved_settings.auth_mode" in api_main_source
+    # auth_mode is resolved from container.settings inside app.py
+    assert "resolved_auth_mode" in api_source
     assert "session_manager=build_session_manager(resolved_settings)" in api_main_source
     assert "oidc_provider=build_oidc_provider(resolved_settings)" in api_main_source
-    assert "maybe_bootstrap_local_admin" in api_main_source
+    # admin bootstrap happens in the shared platform builder (called from api/main.py via build_container)
+    platform_builder_source = (
+        ROOT / "packages" / "platform" / "runtime" / "builder.py"
+    ).read_text()
+    assert "maybe_bootstrap_local_admin" in platform_builder_source
     assert 'action="/auth/login"' in web_login_page
     assert "Sign In with OIDC" in web_login_page
     assert 'backendRequest("/auth/login"' in web_login_route
@@ -551,3 +570,166 @@ def test_source_asset_promotion_resolves_transformation_package_from_configurati
     assert "source_asset.transformation_package_id" in source
     assert "config_repository.get_transformation_package" in source
     assert "run.header" not in source
+
+
+# ---------------------------------------------------------------------------
+# New boundary rules (Phase 4): platform/domains/adapters layer enforcement
+# ---------------------------------------------------------------------------
+
+
+def _collect_imports_in_dir(directory: Path) -> list[str]:
+    """Return all import module names found in Python files under `directory`."""
+    all_imports: list[str] = []
+    for py_file in directory.rglob("*.py"):
+        if "__pycache__" in py_file.parts:
+            continue
+        all_imports.extend(_import_names(py_file))
+    return all_imports
+
+
+def test_domains_do_not_import_from_apps() -> None:
+    domains_dir = ROOT / "packages" / "domains"
+    imports = _collect_imports_in_dir(domains_dir)
+    app_imports = [imp for imp in imports if imp.startswith("apps.")]
+    assert not app_imports, (
+        f"packages/domains must not import from apps.* — found: {app_imports}"
+    )
+
+
+def test_domains_do_not_import_from_adapters() -> None:
+    domains_dir = ROOT / "packages" / "domains"
+    imports = _collect_imports_in_dir(domains_dir)
+    adapter_imports = [imp for imp in imports if imp.startswith("packages.adapters.")]
+    assert not adapter_imports, (
+        f"packages/domains must not import from packages.adapters.* — found: {adapter_imports}"
+    )
+
+
+def test_platform_auth_does_not_import_from_apps() -> None:
+    auth_dir = ROOT / "packages" / "platform" / "auth"
+    imports = _collect_imports_in_dir(auth_dir)
+    app_imports = [imp for imp in imports if imp.startswith("apps.")]
+    assert not app_imports, (
+        f"packages/platform/auth must not import from apps.* — found: {app_imports}"
+    )
+
+
+def test_platform_does_not_import_from_domains() -> None:
+    """Platform layer must have zero imports from packages.domains (ADR §8.1)."""
+    platform_dir = ROOT / "packages" / "platform"
+    imports = _collect_imports_in_dir(platform_dir)
+    domain_imports = [imp for imp in imports if imp.startswith("packages.domains.")]
+    assert not domain_imports, (
+        f"packages/platform must not import from packages.domains.* — found: {domain_imports}"
+    )
+
+
+def test_platform_runtime_builder_accepts_packs_via_parameter() -> None:
+    """Builder must accept capability packs as a parameter, not import domain packs directly."""
+    builder_source = (ROOT / "packages" / "platform" / "runtime" / "builder.py").read_text()
+    # Builder must accept packs via parameter and validate them
+    assert "capability_packs" in builder_source
+    assert "pack.validate()" in builder_source
+    # Builder must NOT import any specific domain pack
+    assert "packages.domains" not in builder_source
+
+
+def test_finance_pack_is_stored_in_app_container() -> None:
+    container_source = (ROOT / "packages" / "platform" / "runtime" / "container.py").read_text()
+    assert "finance_pack" in container_source
+    assert "CapabilityPack" in container_source
+
+
+# ---------------------------------------------------------------------------
+# Auth policy matrix tests (ADR §14)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "path,expected_role",
+    [
+        # Public / unauthenticated paths
+        ("/health", None),
+        ("/ready", None),
+        ("/metrics", None),
+        ("/auth/login", None),
+        ("/auth/logout", None),
+        ("/auth/callback", None),
+        # Reader paths
+        ("/auth/me", "reader"),
+        ("/runs", "reader"),
+        ("/runs/abc-123", "reader"),
+        ("/reports/cashflow", "reader"),
+        ("/control/source-lineage", "reader"),
+        ("/control/publication-audit", "reader"),
+        ("/transformation-audit", "reader"),
+        # Operator paths
+        ("/ingest/account-transactions", "operator"),
+        ("/runs/abc-123/retry", "operator"),
+        # Admin paths
+        ("/auth/users", "admin"),
+        ("/auth/service-tokens", "admin"),
+        ("/control/auth-audit", "admin"),
+        ("/config/sources", "admin"),
+        ("/control/schedule-dispatches", "admin"),
+        ("/extensions", "admin"),
+        ("/sources", "admin"),
+        ("/transformations/run", "admin"),
+    ],
+)
+def test_auth_policy_role_requirement(path: str, expected_role: str | None) -> None:
+    from packages.platform.auth.scope_authorization import required_role_for_path
+    from packages.storage.auth_store import UserRole
+
+    result = required_role_for_path(path)
+    if expected_role is None:
+        assert result is None, (
+            f"Path '{path}' should require no role, but got {result}"
+        )
+    else:
+        assert result is not None, (
+            f"Path '{path}' should require role '{expected_role}', but got None"
+        )
+        assert result == UserRole(expected_role), (
+            f"Path '{path}' expected role '{expected_role}', got '{result}'"
+        )
+
+
+@pytest.mark.parametrize(
+    "path,expected_scope",
+    [
+        # Public / unauthenticated paths
+        ("/health", None),
+        ("/ready", None),
+        ("/metrics", None),
+        ("/auth/login", None),
+        ("/auth/logout", None),
+        ("/auth/callback", None),
+        # Ingest paths → ingest:write scope
+        ("/ingest/account-transactions", "ingest:write"),
+        ("/runs/abc-123/retry", "ingest:write"),
+        # Run / audit paths → runs:read scope
+        ("/runs", "runs:read"),
+        ("/runs/abc-123", "runs:read"),
+        ("/control/source-lineage", "runs:read"),
+        ("/control/publication-audit", "runs:read"),
+        ("/transformation-audit", "runs:read"),
+        # Reports → reports:read scope
+        ("/reports/cashflow", "reports:read"),
+        # Admin paths → admin:write scope
+        ("/auth/users", "admin:write"),
+        ("/auth/service-tokens", "admin:write"),
+        ("/control/auth-audit", "admin:write"),
+        ("/config/sources", "admin:write"),
+        ("/extensions", "admin:write"),
+    ],
+)
+def test_auth_policy_service_token_scope_requirement(
+    path: str, expected_scope: str | None
+) -> None:
+    from packages.platform.auth.scope_authorization import required_service_token_scope_for_path
+
+    result = required_service_token_scope_for_path(path)
+    assert result == expected_scope, (
+        f"Path '{path}' expected scope '{expected_scope}', got '{result}'"
+    )

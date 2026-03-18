@@ -1,16 +1,24 @@
+"""Auth middleware composer — wires platform/auth modules into a FastAPI middleware."""
 from __future__ import annotations
 
 import time
-import uuid
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timedelta
 from logging import Logger
-from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 
 from apps.api.support import log_request
+from packages.platform.auth.audit_hooks import build_auth_event_recorder, build_lockout_checker
+from packages.platform.auth.credential_resolution import (
+    bearer_token_from_request,
+    cookie_secure_for_request,
+    request_remote_addr,
+)
+from packages.platform.auth.scope_authorization import (
+    required_role_for_path,
+    required_service_token_scope_for_path,
+)
 from packages.shared.auth import (
     OidcAuthenticationError,
     OidcAuthorizationError,
@@ -23,192 +31,22 @@ from packages.shared.auth import (
 )
 from packages.shared.metrics import metrics_registry
 from packages.storage.auth_store import (
-    SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
-    SERVICE_TOKEN_SCOPE_INGEST_WRITE,
-    SERVICE_TOKEN_SCOPE_REPORTS_READ,
-    SERVICE_TOKEN_SCOPE_RUNS_READ,
     AuthStore,
     UserRole,
 )
-from packages.storage.control_plane import AuthAuditEventCreate, ControlPlaneStore
 
-
-def request_remote_addr(request: Request) -> str | None:
-    forwarded_for = request.headers.get("x-forwarded-for", "").strip()
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip() or None
-    if request.client is None:
-        return None
-    return request.client.host
-
-
-def cookie_secure_for_request(request: Request) -> bool:
-    forwarded_proto = request.headers.get("x-forwarded-proto", "")
-    if forwarded_proto:
-        return forwarded_proto.split(",")[0].strip().lower() == "https"
-    return request.url.scheme.lower() == "https"
-
-
-def build_auth_event_recorder(
-    config_repository: ControlPlaneStore,
-) -> Callable[..., None]:
-    def record_auth_event(
-        request: Request,
-        *,
-        event_type: str,
-        success: bool,
-        actor: Any = None,
-        subject_user_id: str | None = None,
-        subject_username: str | None = None,
-        detail: str | None = None,
-    ) -> None:
-        config_repository.record_auth_audit_events(
-            (
-                AuthAuditEventCreate(
-                    event_id=uuid.uuid4().hex,
-                    event_type=event_type,
-                    success=success,
-                    actor_user_id=actor.user_id if actor else None,
-                    actor_username=actor.username if actor else None,
-                    subject_user_id=subject_user_id,
-                    subject_username=subject_username,
-                    remote_addr=request_remote_addr(request),
-                    user_agent=request.headers.get("user-agent"),
-                    detail=detail,
-                ),
-            )
-        )
-
-    return record_auth_event
-
-
-def build_lockout_checker(
-    config_repository: ControlPlaneStore,
-    *,
-    auth_failure_window_seconds: int,
-    auth_failure_threshold: int,
-    auth_lockout_seconds: int,
-) -> Callable[[str, datetime], datetime | None]:
-    def locked_out_until(username: str, now: datetime) -> datetime | None:
-        recent_events = config_repository.list_auth_audit_events(
-            subject_username=username,
-            since=now - timedelta(seconds=auth_failure_window_seconds),
-            limit=max(auth_failure_threshold * 4, 20),
-        )
-        consecutive_failures = 0
-        latest_failure_at: datetime | None = None
-        for event in recent_events:
-            if event.event_type == "login_succeeded" and event.success:
-                break
-            if event.event_type not in {"login_failed", "login_blocked"}:
-                continue
-            if event.success:
-                continue
-            consecutive_failures += 1
-            if latest_failure_at is None:
-                latest_failure_at = event.occurred_at
-        if latest_failure_at is None or consecutive_failures < auth_failure_threshold:
-            return None
-        candidate = latest_failure_at + timedelta(seconds=auth_lockout_seconds)
-        if candidate <= now:
-            return None
-        return candidate
-
-    return locked_out_until
-
-
-def required_role_for_path(path: str) -> UserRole | None:
-    if path in {
-        "/health",
-        "/ready",
-        "/metrics",
-        "/auth/login",
-        "/auth/logout",
-        "/auth/callback",
-    }:
-        return None
-    if path.startswith("/runs/") and path.endswith("/retry"):
-        return UserRole.OPERATOR
-    if path in {
-        "/control/source-lineage",
-        "/control/publication-audit",
-        "/transformation-audit",
-    }:
-        return UserRole.READER
-    if (
-        path.startswith("/auth/users")
-        or path.startswith("/auth/service-tokens")
-        or path == "/control/auth-audit"
-        or path == "/control/schedule-dispatches"
-        or path.startswith("/config/")
-        or path.startswith("/control/")
-        or path in {"/extensions", "/sources"}
-        or path.startswith("/landing/")
-        or path.startswith("/transformations/")
-        or path.startswith("/ingest/ingestion-definitions/")
-    ):
-        return UserRole.ADMIN
-    if path.startswith("/ingest"):
-        return UserRole.OPERATOR
-    if (
-        path.startswith("/runs")
-        or path.startswith("/reports")
-        or path == "/auth/me"
-        or path.startswith("/docs")
-        or path.startswith("/redoc")
-        or path == "/openapi.json"
-    ):
-        return UserRole.READER
-    return None
-
-
-def required_service_token_scope_for_path(path: str) -> str | None:
-    if path in {
-        "/health",
-        "/ready",
-        "/metrics",
-        "/auth/login",
-        "/auth/logout",
-        "/auth/callback",
-    }:
-        return None
-    if path.startswith("/ingest") or (
-        path.startswith("/runs/") and path.endswith("/retry")
-    ):
-        return SERVICE_TOKEN_SCOPE_INGEST_WRITE
-    if (
-        path.startswith("/runs")
-        or path == "/control/source-lineage"
-        or path == "/control/publication-audit"
-        or path == "/transformation-audit"
-    ):
-        return SERVICE_TOKEN_SCOPE_RUNS_READ
-    if path.startswith("/reports"):
-        return SERVICE_TOKEN_SCOPE_REPORTS_READ
-    if (
-        path.startswith("/auth/users")
-        or path.startswith("/auth/service-tokens")
-        or path == "/control/auth-audit"
-        or path == "/control/schedule-dispatches"
-        or path.startswith("/config/")
-        or path.startswith("/control/")
-        or path in {"/extensions", "/sources"}
-        or path.startswith("/landing/")
-        or path.startswith("/transformations/")
-        or path.startswith("/ingest/ingestion-definitions/")
-    ):
-        return SERVICE_TOKEN_SCOPE_ADMIN_WRITE
-    return None
-
-
-def bearer_token_from_request(request: Request) -> str | None:
-    header_value = request.headers.get("authorization", "").strip()
-    if not header_value:
-        return None
-    scheme, _, token = header_value.partition(" ")
-    if scheme.lower() != "bearer" or not token.strip():
-        return None
-    return token.strip()
+# Re-export platform helpers so existing callers in auth_routes.py, app.py, etc.
+# don't need to update their imports in this PR.
+__all__ = [
+    "bearer_token_from_request",
+    "build_auth_event_recorder",
+    "build_lockout_checker",
+    "cookie_secure_for_request",
+    "register_auth_middleware",
+    "request_remote_addr",
+    "required_role_for_path",
+    "required_service_token_scope_for_path",
+]
 
 
 def register_auth_middleware(
