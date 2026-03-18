@@ -12,14 +12,12 @@ from packages.pipelines.account_transaction_service import AccountTransactionSer
 from packages.pipelines.lazy_transformation_service import LazyTransformationService
 from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
 from packages.pipelines.transformation_service import TransformationService
+from packages.platform.auth.configuration import validate_auth_configuration
+from packages.platform.auth.oidc_provider import build_oidc_provider
+from packages.platform.auth.session_manager import build_session_manager
 from packages.platform.runtime.builder import build_container
 from packages.platform.runtime.builder import (
     build_function_registry as _platform_build_function_registry,
-)
-from packages.shared.auth import (
-    build_oidc_provider,
-    build_session_manager,
-    validate_auth_configuration,
 )
 from packages.shared.logging import configure_logging
 from packages.shared.settings import AppSettings

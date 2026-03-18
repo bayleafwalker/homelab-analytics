@@ -60,11 +60,9 @@ from packages.pipelines.run_context import (
     run_context_from_manifest,
 )
 from packages.pipelines.subscription_service import SubscriptionService
+from packages.platform.auth.oidc_provider import OidcProvider
+from packages.platform.auth.session_manager import SessionManager
 from packages.platform.runtime.container import AppContainer
-from packages.shared.auth import (
-    OidcProvider,
-    SessionManager,
-)
 from packages.shared.extensions import (
     ExtensionRegistry,
     build_builtin_extension_registry,

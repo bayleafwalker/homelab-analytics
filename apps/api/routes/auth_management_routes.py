@@ -16,13 +16,9 @@ from apps.api.models import (
     LocalUserUpdateRequest,
     ServiceTokenCreateRequest,
 )
-from packages.shared.auth import (
-    AuthenticatedPrincipal,
-    hash_password,
-    issue_service_token,
-    serialize_service_token,
-    serialize_user,
-)
+from packages.platform.auth.crypto import hash_password, issue_service_token
+from packages.platform.auth.role_hierarchy import AuthenticatedPrincipal
+from packages.platform.auth.serialization import serialize_service_token, serialize_user
 from packages.storage.auth_store import (
     AuthStore,
     LocalUserCreate,

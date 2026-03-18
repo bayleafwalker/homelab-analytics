@@ -22,7 +22,7 @@ from packages.pipelines.reporting_service import (
 )
 from packages.pipelines.run_context import RunControlContext
 from packages.pipelines.transformation_service import TransformationService
-from packages.shared.auth import AuthenticatedPrincipal
+from packages.platform.auth.role_hierarchy import AuthenticatedPrincipal
 from packages.shared.metrics import metrics_registry
 from packages.storage.control_plane import IngestionCatalogStore
 from packages.storage.ingestion_config import (

@@ -13,7 +13,9 @@ from fastapi import FastAPI, Request
 
 from apps.api.routes.auth_management_routes import register_auth_management_routes
 from apps.api.routes.auth_session_routes import register_auth_session_routes
-from packages.shared.auth import AuthenticatedPrincipal, OidcProvider, SessionManager
+from packages.platform.auth.oidc_provider import OidcProvider
+from packages.platform.auth.role_hierarchy import AuthenticatedPrincipal
+from packages.platform.auth.session_manager import SessionManager
 from packages.storage.auth_store import AuthStore
 from packages.storage.control_plane import AuthAuditStore
 

@@ -15,20 +15,21 @@ from packages.platform.auth.credential_resolution import (
     cookie_secure_for_request,
     request_remote_addr,
 )
+from packages.platform.auth.crypto import has_required_service_token_scope, parse_service_token
+from packages.platform.auth.oidc_provider import (
+    OidcAuthenticationError,
+    OidcAuthorizationError,
+    OidcProvider,
+)
+from packages.platform.auth.role_hierarchy import (
+    authenticate_service_token,
+    has_required_role,
+)
 from packages.platform.auth.scope_authorization import (
     required_role_for_path,
     required_service_token_scope_for_path,
 )
-from packages.shared.auth import (
-    OidcAuthenticationError,
-    OidcAuthorizationError,
-    OidcProvider,
-    SessionManager,
-    authenticate_service_token,
-    has_required_role,
-    has_required_service_token_scope,
-    parse_service_token,
-)
+from packages.platform.auth.session_manager import SessionManager
 from packages.shared.metrics import metrics_registry
 from packages.storage.auth_store import (
     AuthStore,

@@ -16,12 +16,8 @@ from apps.worker.serialization import (
     _write_json,
 )
 from packages.pipelines.config_preflight import run_config_preflight
-from packages.shared.auth import (
-    hash_password,
-    issue_service_token,
-    serialize_service_token,
-    serialize_user,
-)
+from packages.platform.auth.crypto import hash_password, issue_service_token
+from packages.platform.auth.serialization import serialize_service_token, serialize_user
 from packages.storage.auth_store import LocalUserCreate, ServiceTokenCreate, UserRole
 
 

@@ -18,18 +18,20 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from apps.api.models import LoginRequest
-from packages.shared.auth import (
-    AuthenticatedPrincipal,
+from packages.platform.auth.crypto import verify_password
+from packages.platform.auth.oidc_provider import (
     OidcAuthenticationError,
     OidcAuthorizationError,
     OidcProvider,
-    SessionManager,
     normalize_return_to,
+)
+from packages.platform.auth.role_hierarchy import AuthenticatedPrincipal
+from packages.platform.auth.serialization import (
     serialize_authenticated_user,
     serialize_principal,
     serialize_user,
-    verify_password,
 )
+from packages.platform.auth.session_manager import SessionManager
 from packages.shared.metrics import metrics_registry
 from packages.storage.auth_store import AuthStore, normalize_username
 

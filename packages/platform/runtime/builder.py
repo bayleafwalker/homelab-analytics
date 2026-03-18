@@ -11,9 +11,9 @@ from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.extension_registries import PipelineRegistries, load_pipeline_registries
 from packages.pipelines.pipeline_catalog import sync_pipeline_catalog
 from packages.pipelines.subscription_service import SubscriptionService
+from packages.platform.auth.configuration import maybe_bootstrap_local_admin
 from packages.platform.capability_types import CapabilityPack
 from packages.platform.runtime.container import AppContainer
-from packages.shared.auth import maybe_bootstrap_local_admin
 from packages.shared.extensions import ExtensionRegistry, load_extension_registry
 from packages.shared.external_registry import (
     ResolvedExtensionSettings,

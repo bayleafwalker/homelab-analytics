@@ -4,7 +4,7 @@ import logging
 import subprocess
 
 from apps.web.app import build_web_command, build_web_environment, frontend_root
-from packages.shared.auth import validate_auth_configuration
+from packages.platform.auth.configuration import validate_auth_configuration
 from packages.shared.logging import configure_logging
 from packages.shared.settings import AppSettings
 
