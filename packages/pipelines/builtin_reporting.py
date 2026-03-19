@@ -2,6 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from packages.pipelines.contract_price_models import (
+    MART_CONTRACT_PRICE_CURRENT_COLUMNS,
+    MART_CONTRACT_PRICE_CURRENT_TABLE,
+    MART_ELECTRICITY_PRICE_CURRENT_COLUMNS,
+    MART_ELECTRICITY_PRICE_CURRENT_TABLE,
+)
 from packages.pipelines.overview_models import (
     MART_CURRENT_OPERATING_BASELINE_COLUMNS,
     MART_CURRENT_OPERATING_BASELINE_TABLE,
@@ -11,12 +17,6 @@ from packages.pipelines.overview_models import (
     MART_OPEN_ATTENTION_ITEMS_TABLE,
     MART_RECENT_SIGNIFICANT_CHANGES_COLUMNS,
     MART_RECENT_SIGNIFICANT_CHANGES_TABLE,
-)
-from packages.pipelines.contract_price_models import (
-    MART_CONTRACT_PRICE_CURRENT_COLUMNS,
-    MART_CONTRACT_PRICE_CURRENT_TABLE,
-    MART_ELECTRICITY_PRICE_CURRENT_COLUMNS,
-    MART_ELECTRICITY_PRICE_CURRENT_TABLE,
 )
 from packages.pipelines.subscription_models import (
     CURRENT_DIM_CATEGORY_VIEW,

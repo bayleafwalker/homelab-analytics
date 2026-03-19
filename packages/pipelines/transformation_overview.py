@@ -13,8 +13,10 @@ from packages.pipelines.overview_models import (
     MART_RECENT_SIGNIFICANT_CHANGES_COLUMNS,
     MART_RECENT_SIGNIFICANT_CHANGES_TABLE,
 )
-from packages.pipelines.subscription_models import MART_SUBSCRIPTION_SUMMARY_TABLE
-from packages.pipelines.subscription_models import MART_UPCOMING_FIXED_COSTS_30D_TABLE
+from packages.pipelines.subscription_models import (
+    MART_SUBSCRIPTION_SUMMARY_TABLE,
+    MART_UPCOMING_FIXED_COSTS_30D_TABLE,
+)
 from packages.pipelines.transaction_models import (
     MART_ACCOUNT_BALANCE_TREND_TABLE,
     MART_MONTHLY_CASHFLOW_TABLE,
