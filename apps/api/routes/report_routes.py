@@ -173,6 +173,130 @@ def register_report_routes(
         )
         return {"audit": to_jsonable(records)}
 
+    # ------------------------------------------------------------------
+    # Finance: new dedicated endpoints
+    # ------------------------------------------------------------------
+
+    @app.get("/reports/spend-by-category-monthly")
+    async def get_spend_by_category_monthly(
+        from_month: str | None = None,
+        to_month: str | None = None,
+        counterparty: str | None = None,
+        category: str | None = None,
+    ) -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        rows = transformation_service.get_spend_by_category_monthly(
+            from_month=from_month,
+            to_month=to_month,
+            counterparty_name=counterparty,
+            category=category,
+        )
+        return {"rows": to_jsonable(rows)}
+
+    @app.get("/reports/recent-large-transactions")
+    async def get_recent_large_transactions() -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"rows": to_jsonable(transformation_service.get_recent_large_transactions())}
+
+    @app.get("/reports/account-balance-trend")
+    async def get_account_balance_trend(
+        account_id: str | None = None,
+        from_month: str | None = None,
+        to_month: str | None = None,
+    ) -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        rows = transformation_service.get_account_balance_trend(
+            account_id=account_id,
+            from_month=from_month,
+            to_month=to_month,
+        )
+        return {"rows": to_jsonable(rows)}
+
+    @app.get("/reports/transaction-anomalies")
+    async def get_transaction_anomalies() -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"rows": to_jsonable(transformation_service.get_transaction_anomalies_current())}
+
+    @app.get("/reports/upcoming-fixed-costs")
+    async def get_upcoming_fixed_costs() -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"rows": to_jsonable(transformation_service.get_upcoming_fixed_costs_30d())}
+
+    # ------------------------------------------------------------------
+    # Utilities: new dedicated endpoints
+    # ------------------------------------------------------------------
+
+    @app.get("/reports/utility-cost-trend")
+    async def get_utility_cost_trend(
+        utility_type: str | None = None,
+    ) -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        rows = transformation_service.get_utility_cost_trend_monthly(
+            utility_type=utility_type,
+        )
+        return {"rows": to_jsonable(rows)}
+
+    @app.get("/reports/usage-vs-price")
+    async def get_usage_vs_price(
+        utility_type: str | None = None,
+    ) -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        rows = transformation_service.get_usage_vs_price_summary(
+            utility_type=utility_type,
+        )
+        return {"rows": to_jsonable(rows)}
+
+    @app.get("/reports/contract-review-candidates")
+    async def get_contract_review_candidates() -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"rows": to_jsonable(transformation_service.get_contract_review_candidates())}
+
+    @app.get("/reports/contract-renewal-watchlist")
+    async def get_contract_renewal_watchlist() -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"rows": to_jsonable(transformation_service.get_contract_renewal_watchlist())}
+
+    # ------------------------------------------------------------------
+    # Overview: new dedicated endpoints
+    # ------------------------------------------------------------------
+
+    @app.get("/reports/household-overview")
+    async def get_household_overview() -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"rows": to_jsonable(transformation_service.get_household_overview())}
+
+    @app.get("/reports/attention-items")
+    async def get_attention_items() -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"rows": to_jsonable(transformation_service.get_open_attention_items())}
+
+    @app.get("/reports/recent-changes")
+    async def get_recent_changes() -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"rows": to_jsonable(transformation_service.get_recent_significant_changes())}
+
+    @app.get("/reports/operating-baseline")
+    async def get_operating_baseline() -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"rows": to_jsonable(transformation_service.get_current_operating_baseline())}
+
+    # ------------------------------------------------------------------
+    # Extension-based reporting (catch-all, must be last)
+    # ------------------------------------------------------------------
+
     @app.get("/reports/{extension_key}")
     async def run_reporting_extension(
         extension_key: str,
