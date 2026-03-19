@@ -9,6 +9,7 @@ function navItemsForUser(user) {
   const items = [
     { href: "/", label: "Dashboard" },
     { href: "/runs", label: "Runs" },
+    { href: "/review", label: "Review" },
     { href: "/reports", label: "Reports" }
   ];
   if (hasRequiredRole(user, "operator")) {
