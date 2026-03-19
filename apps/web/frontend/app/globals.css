@@ -558,6 +558,13 @@ th {
   text-transform: lowercase;
 }
 
+.chartWrap { width: 100%; overflow: hidden; margin-top: 12px; }
+.sparkline  { display: block; width: 100%; height: auto; }
+.chartLegend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; }
+.chartLegendItem { display: flex; align-items: center; gap: 5px;
+                   font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+.chartLegendDot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
 @media (max-width: 920px) {
   .hero,
   .cards,

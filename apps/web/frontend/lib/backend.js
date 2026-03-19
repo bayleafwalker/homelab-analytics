@@ -125,6 +125,51 @@ export async function getRun(runId) {
   return payload.run;
 }
 
+export async function getHouseholdOverview() {
+  const payload = await backendJson("/reports/household-overview");
+  return payload.rows?.[0] || null;
+}
+export async function getAttentionItems() {
+  const payload = await backendJson("/reports/attention-items");
+  return payload.rows || [];
+}
+export async function getRecentChanges() {
+  const payload = await backendJson("/reports/recent-changes");
+  return payload.rows || [];
+}
+export async function getSpendByCategoryMonthly() {
+  const payload = await backendJson("/reports/spend-by-category-monthly");
+  return payload.rows || [];
+}
+export async function getRecentLargeTransactions() {
+  const payload = await backendJson("/reports/recent-large-transactions");
+  return payload.rows || [];
+}
+export async function getAccountBalanceTrend() {
+  const payload = await backendJson("/reports/account-balance-trend");
+  return payload.rows || [];
+}
+export async function getTransactionAnomalies() {
+  const payload = await backendJson("/reports/transaction-anomalies");
+  return payload.rows || [];
+}
+export async function getUpcomingFixedCosts() {
+  const payload = await backendJson("/reports/upcoming-fixed-costs");
+  return payload.rows || [];
+}
+export async function getUtilityCostTrend() {
+  const payload = await backendJson("/reports/utility-cost-trend");
+  return payload.rows || [];
+}
+export async function getSubscriptionSummary() {
+  const payload = await backendJson("/reports/subscription-summary");
+  return payload.rows || [];
+}
+export async function getCategoryDimension() {
+  const payload = await backendJson("/reports/current-dimensions/dim_category");
+  return payload.rows || [];
+}
+
 export async function getMonthlyCashflow() {
   const payload = await backendJson("/reports/monthly-cashflow");
   return payload.rows || [];
@@ -301,6 +346,11 @@ export async function getScheduleDispatch(dispatchId) {
 
 export async function getOperationalSummary() {
   return backendJson("/control/operational-summary");
+}
+
+export async function getSourceFreshness() {
+  const payload = await backendJson("/control/source-freshness");
+  return payload.datasets || [];
 }
 
 export async function getTransformationAudit(runId) {

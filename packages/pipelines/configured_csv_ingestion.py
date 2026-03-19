@@ -6,6 +6,7 @@ from io import StringIO
 from pathlib import Path
 
 from packages.pipelines.csv_validation import ValidationIssue, validate_csv_text
+from packages.pipelines.file_format import normalize_to_csv_bytes
 from packages.pipelines.run_context import RunControlContext, merge_run_context
 from packages.shared.function_registry import FunctionRegistry, validate_function_key
 from packages.storage.blob import BlobStore, FilesystemBlobStore
@@ -89,8 +90,9 @@ class ConfiguredCsvIngestionService:
             column_mapping_id=column_mapping_id,
         )
 
+        csv_bytes = normalize_to_csv_bytes(source_bytes, file_name)
         mapped_bytes = map_csv_columns(
-            source_bytes=source_bytes,
+            source_bytes=csv_bytes,
             dataset_contract=dataset_contract,
             column_mapping=column_mapping,
             function_registry=self.function_registry,
