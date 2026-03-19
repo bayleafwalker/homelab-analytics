@@ -72,6 +72,11 @@ def _json_to_csv_bytes(source_bytes: bytes) -> bytes:
     buf = io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=header, extrasaction="ignore")
     writer.writeheader()
-    for record in data:
+    for i, record in enumerate(data):
+        if not isinstance(record, dict):
+            raise ValueError(
+                f"JSON ingestion expects each array element to be an object; "
+                f"element {i} is {type(record).__name__}."
+            )
         writer.writerow({k: ("" if record.get(k) is None else str(record.get(k))) for k in header})
     return buf.getvalue().encode("utf-8")

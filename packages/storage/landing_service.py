@@ -69,9 +69,12 @@ class LandingService:
         canonical_source_bytes: bytes | None = None,
         run_context: RunControlContext | None = None,
     ) -> LandingRunResult:
-        source_bytes = normalize_to_csv_bytes(source_bytes, file_name)
+        # Normalize for validation/parsing but keep originals for archiving.
+        # raw_path and sha256 always reflect the original upload so that
+        # retrying a run re-reads the same bytes and re-normalises correctly.
+        normalized_bytes = normalize_to_csv_bytes(source_bytes, file_name)
         validated_bytes = (
-            source_bytes if validation_source_bytes is None else validation_source_bytes
+            normalized_bytes if validation_source_bytes is None else validation_source_bytes
         )
         source_text = validated_bytes.decode("utf-8")
         validation = validate_csv_text(source_text, contract)

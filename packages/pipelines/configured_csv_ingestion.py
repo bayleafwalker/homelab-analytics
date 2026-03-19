@@ -90,9 +90,9 @@ class ConfiguredCsvIngestionService:
             column_mapping_id=column_mapping_id,
         )
 
-        source_bytes = normalize_to_csv_bytes(source_bytes, file_name)
+        csv_bytes = normalize_to_csv_bytes(source_bytes, file_name)
         mapped_bytes = map_csv_columns(
-            source_bytes=source_bytes,
+            source_bytes=csv_bytes,
             dataset_contract=dataset_contract,
             column_mapping=column_mapping,
             function_registry=self.function_registry,

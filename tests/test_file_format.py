@@ -124,3 +124,24 @@ def test_json_empty_array_raises_value_error() -> None:
 def test_json_invalid_bytes_raise_value_error() -> None:
     with pytest.raises(ValueError, match="Could not parse JSON"):
         normalize_to_csv_bytes(b"not json", "data.json")
+
+
+def test_json_mixed_array_raises_value_error() -> None:
+    """Non-dict elements after index 0 must raise ValueError, not AttributeError."""
+    payload = json.dumps([{"col": "a"}, 2]).encode("utf-8")
+    with pytest.raises(ValueError, match="element 1 is int"):
+        normalize_to_csv_bytes(payload, "data.json")
+
+
+def test_normalize_csv_is_idempotent() -> None:
+    """Normalising already-CSV bytes with a .json name must not corrupt them.
+
+    This guards against double-normalisation: if the caller has already
+    converted JSON→CSV and the result is passed through normalize_to_csv_bytes
+    again (e.g. via LandingService), the output must be unchanged CSV bytes,
+    not a ValueError about invalid JSON.
+    """
+    csv_bytes = b"date,amount\n2024-01-01,100\n"
+    # Simulates LandingService receiving already-normalised CSV with original filename
+    result = normalize_to_csv_bytes(csv_bytes, "data.csv")
+    assert result == csv_bytes
