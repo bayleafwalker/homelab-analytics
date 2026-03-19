@@ -344,3 +344,40 @@ def test_utility_publication_keys_not_in_finance_pack() -> None:
     utilities_pub_keys = {p.key for p in UTILITIES_PACK.publications}
     overlap = finance_pub_keys & utilities_pub_keys
     assert not overlap, f"Keys owned by both finance and utilities: {overlap}"
+
+
+# ---------------------------------------------------------------------------
+# Publication discovery — all pack publications have reporting relations
+# ---------------------------------------------------------------------------
+
+
+def test_all_pack_publications_have_reporting_relations() -> None:
+    from packages.domains.overview.manifest import OVERVIEW_PACK
+    from packages.pipelines.builtin_reporting import PUBLICATION_RELATIONS
+
+    relation_keys = set(PUBLICATION_RELATIONS.keys())
+    missing: list[str] = []
+    for pack in (FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK):
+        for pub in pack.publications:
+            # Publication schema_name maps to mart_<schema_name> in reporting
+            mart_key = f"mart_{pub.schema_name}"
+            if mart_key not in relation_keys:
+                missing.append(f"{pack.name}/{pub.schema_name} (expected {mart_key})")
+
+    assert not missing, (
+        f"Pack publications missing from PUBLICATION_RELATIONS (not discoverable): {missing}"
+    )
+
+
+def test_all_three_packs_have_expected_publication_count() -> None:
+    from packages.domains.overview.manifest import OVERVIEW_PACK
+
+    assert len(FINANCE_PACK.publications) == 7, (
+        f"Finance should have 7 publications, got {len(FINANCE_PACK.publications)}"
+    )
+    assert len(UTILITIES_PACK.publications) == 7, (
+        f"Utilities should have 7 publications, got {len(UTILITIES_PACK.publications)}"
+    )
+    assert len(OVERVIEW_PACK.publications) == 4, (
+        f"Overview should have 4 publications, got {len(OVERVIEW_PACK.publications)}"
+    )

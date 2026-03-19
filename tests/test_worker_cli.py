@@ -1585,10 +1585,8 @@ class WorkerCliTests(unittest.TestCase):
             promo = ingest_payload["promotion"]
             self.assertFalse(promo["skipped"])
             self.assertEqual(5, promo["facts_loaded"])
-            self.assertEqual(
-                ["mart_subscription_summary", "mart_upcoming_fixed_costs_30d"],
-                promo["marts_refreshed"],
-            )
+            self.assertIn("mart_subscription_summary", promo["marts_refreshed"])
+            self.assertIn("mart_upcoming_fixed_costs_30d", promo["marts_refreshed"])
 
             # Report subscription summary
             stdout = io.StringIO()
@@ -1658,15 +1656,15 @@ class WorkerCliTests(unittest.TestCase):
             self.assertEqual("landed", ingest_payload["run"]["status"])
             self.assertIn("promotion", ingest_payload)
             self.assertFalse(ingest_payload["promotion"]["skipped"])
-            self.assertEqual(
-                [
-                    "mart_contract_price_current",
-                    "mart_electricity_price_current",
-                    "mart_contract_review_candidates",
-                    "mart_contract_renewal_watchlist",
-                ],
-                ingest_payload["promotion"]["marts_refreshed"],
-            )
+            for expected_mart in (
+                "mart_contract_price_current",
+                "mart_electricity_price_current",
+                "mart_contract_review_candidates",
+                "mart_contract_renewal_watchlist",
+            ):
+                self.assertIn(
+                    expected_mart, ingest_payload["promotion"]["marts_refreshed"]
+                )
 
             stdout = io.StringIO()
             exit_code = main(

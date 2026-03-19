@@ -14,18 +14,33 @@ from packages.pipelines.contract_price_models import (
     MART_CONTRACT_PRICE_CURRENT_TABLE,
     MART_ELECTRICITY_PRICE_CURRENT_TABLE,
 )
+from packages.pipelines.overview_models import (
+    MART_CURRENT_OPERATING_BASELINE_TABLE,
+    MART_HOUSEHOLD_OVERVIEW_TABLE,
+    MART_OPEN_ATTENTION_ITEMS_TABLE,
+    MART_RECENT_SIGNIFICANT_CHANGES_TABLE,
+)
 from packages.pipelines.promotion import PromotionResult
 from packages.pipelines.subscription_models import (
     MART_SUBSCRIPTION_SUMMARY_TABLE,
+    MART_UPCOMING_FIXED_COSTS_30D_TABLE,
 )
 from packages.pipelines.transaction_models import (
+    MART_ACCOUNT_BALANCE_TREND_TABLE,
     MART_CASHFLOW_BY_COUNTERPARTY_TABLE,
     MART_MONTHLY_CASHFLOW_TABLE,
+    MART_RECENT_LARGE_TRANSACTIONS_TABLE,
+    MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
+    MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
     TRANSFORMATION_AUDIT_TABLE,
 )
 from packages.pipelines.transformation_service import TransformationService
 from packages.pipelines.utility_models import (
+    MART_CONTRACT_RENEWAL_WATCHLIST_TABLE,
+    MART_CONTRACT_REVIEW_CANDIDATES_TABLE,
+    MART_USAGE_VS_PRICE_SUMMARY_TABLE,
     MART_UTILITY_COST_SUMMARY_TABLE,
+    MART_UTILITY_COST_TREND_MONTHLY_TABLE,
 )
 from packages.shared.extensions import ExtensionRegistry
 from packages.storage.control_plane import (
@@ -351,6 +366,169 @@ class ReportingService:
             ),
             _build_where_clause(("input_run_id = %s", input_run_id)),
             "ORDER BY started_at DESC",
+        )
+
+    # ------------------------------------------------------------------
+    # Finance: new dedicated report methods
+    # ------------------------------------------------------------------
+
+    def get_spend_by_category_monthly(
+        self,
+        *,
+        from_month: str | None = None,
+        to_month: str | None = None,
+        counterparty_name: str | None = None,
+        category: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
+            lambda: self._transformation_service.get_spend_by_category_monthly(
+                from_month=from_month,
+                to_month=to_month,
+                counterparty_name=counterparty_name,
+                category=category,
+            ),
+            _build_where_clause(
+                ("booking_month >= %s", from_month),
+                ("booking_month <= %s", to_month),
+                ("counterparty_name = %s", counterparty_name),
+                ("category = %s", category),
+            ),
+            "ORDER BY booking_month, category, counterparty_name",
+        )
+
+    def get_recent_large_transactions(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_RECENT_LARGE_TRANSACTIONS_TABLE,
+            self._transformation_service.get_recent_large_transactions,
+            ("", []),
+            "ORDER BY booked_at DESC",
+        )
+
+    def get_account_balance_trend(
+        self,
+        *,
+        account_id: str | None = None,
+        from_month: str | None = None,
+        to_month: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_ACCOUNT_BALANCE_TREND_TABLE,
+            lambda: self._transformation_service.get_account_balance_trend(
+                account_id=account_id,
+                from_month=from_month,
+                to_month=to_month,
+            ),
+            _build_where_clause(
+                ("account_id = %s", account_id),
+                ("booking_month >= %s", from_month),
+                ("booking_month <= %s", to_month),
+            ),
+            "ORDER BY booking_month, account_id",
+        )
+
+    def get_transaction_anomalies_current(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
+            self._transformation_service.get_transaction_anomalies_current,
+            ("", []),
+            "ORDER BY booked_at DESC",
+        )
+
+    # ------------------------------------------------------------------
+    # Subscriptions / fixed costs
+    # ------------------------------------------------------------------
+
+    def get_upcoming_fixed_costs_30d(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_UPCOMING_FIXED_COSTS_30D_TABLE,
+            self._transformation_service.get_upcoming_fixed_costs_30d,
+            ("", []),
+            "ORDER BY expected_date, contract_name",
+        )
+
+    # ------------------------------------------------------------------
+    # Utilities: new dedicated report methods
+    # ------------------------------------------------------------------
+
+    def get_utility_cost_trend_monthly(
+        self,
+        *,
+        utility_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_UTILITY_COST_TREND_MONTHLY_TABLE,
+            lambda: self._transformation_service.get_utility_cost_trend_monthly(
+                utility_type=utility_type,
+            ),
+            _build_where_clause(("utility_type = %s", utility_type)),
+            "ORDER BY billing_month, utility_type",
+        )
+
+    def get_usage_vs_price_summary(
+        self,
+        *,
+        utility_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_USAGE_VS_PRICE_SUMMARY_TABLE,
+            lambda: self._transformation_service.get_usage_vs_price_summary(
+                utility_type=utility_type,
+            ),
+            _build_where_clause(("utility_type = %s", utility_type)),
+            "ORDER BY period, utility_type",
+        )
+
+    def get_contract_review_candidates(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_CONTRACT_REVIEW_CANDIDATES_TABLE,
+            self._transformation_service.get_contract_review_candidates,
+            ("", []),
+            "ORDER BY score DESC, contract_id",
+        )
+
+    def get_contract_renewal_watchlist(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_CONTRACT_RENEWAL_WATCHLIST_TABLE,
+            self._transformation_service.get_contract_renewal_watchlist,
+            ("", []),
+            "ORDER BY renewal_date, contract_name",
+        )
+
+    # ------------------------------------------------------------------
+    # Overview / household KPIs
+    # ------------------------------------------------------------------
+
+    def get_household_overview(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_HOUSEHOLD_OVERVIEW_TABLE,
+            self._transformation_service.get_household_overview,
+            ("", []),
+            "ORDER BY current_month DESC",
+        )
+
+    def get_open_attention_items(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_OPEN_ATTENTION_ITEMS_TABLE,
+            self._transformation_service.get_open_attention_items,
+            ("", []),
+            "ORDER BY severity, item_type",
+        )
+
+    def get_recent_significant_changes(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_RECENT_SIGNIFICANT_CHANGES_TABLE,
+            self._transformation_service.get_recent_significant_changes,
+            ("", []),
+            "ORDER BY period DESC, change_type",
+        )
+
+    def get_current_operating_baseline(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_CURRENT_OPERATING_BASELINE_TABLE,
+            self._transformation_service.get_current_operating_baseline,
+            ("", []),
+            "ORDER BY baseline_type",
         )
 
     def get_relation_rows(self, relation_name: str) -> list[dict[str, Any]]:

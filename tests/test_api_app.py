@@ -2076,10 +2076,8 @@ class ApiAppTests(unittest.TestCase):
             promo = body["promotion"]
             self.assertFalse(promo["skipped"])
             self.assertEqual(5, promo["facts_loaded"])
-            self.assertEqual(
-                ["mart_subscription_summary", "mart_upcoming_fixed_costs_30d"],
-                promo["marts_refreshed"],
-            )
+            self.assertIn("mart_subscription_summary", promo["marts_refreshed"])
+            self.assertIn("mart_upcoming_fixed_costs_30d", promo["marts_refreshed"])
 
             # Query subscription summary mart
             summary_response = client.get("/reports/subscription-summary")

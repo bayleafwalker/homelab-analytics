@@ -7,6 +7,17 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from packages.pipelines.category_rules import (
+    add_category_rule,
+    backfill_counterparty_categories,
+    ensure_category_storage,
+    list_category_overrides,
+    list_category_rules,
+    remove_category_override,
+    remove_category_rule,
+    resolve_categories_bulk,
+    set_category_override,
+)
 from packages.pipelines.normalization import (
     normalize_currency_code,
     normalize_timestamp_utc,
@@ -35,6 +46,17 @@ from packages.pipelines.transformation_contract_prices import (
 from packages.pipelines.transformation_domain_registry import (
     TransformationDomainRegistry,
     get_default_transformation_domain_registry,
+)
+from packages.pipelines.transformation_overview import (
+    ensure_overview_storage,
+    get_current_operating_baseline,
+    get_household_overview,
+    get_open_attention_items,
+    get_recent_significant_changes,
+    refresh_current_operating_baseline,
+    refresh_household_overview,
+    refresh_open_attention_items,
+    refresh_recent_significant_changes,
 )
 from packages.pipelines.transformation_refresh_registry import (
     PublicationRefreshRegistry,
@@ -66,17 +88,6 @@ from packages.pipelines.transformation_transactions import (
     refresh_recent_large_transactions,
     refresh_spend_by_category_monthly,
     refresh_transaction_anomalies_current,
-)
-from packages.pipelines.transformation_overview import (
-    ensure_overview_storage,
-    get_current_operating_baseline,
-    get_household_overview,
-    get_open_attention_items,
-    get_recent_significant_changes,
-    refresh_current_operating_baseline,
-    refresh_household_overview,
-    refresh_open_attention_items,
-    refresh_recent_significant_changes,
 )
 from packages.pipelines.transformation_utilities import (
     count_bills,
@@ -144,6 +155,7 @@ class TransformationService:
         ensure_utility_storage(self._store)
 
         ensure_overview_storage(self._store)
+        ensure_category_storage(self._store)
 
     @staticmethod
     def _normalize_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -199,6 +211,10 @@ class TransformationService:
         effective_date: date | None = None,
         source_system: str | None = None,
     ) -> int:
+        # Resolve categories for counterparties in this batch
+        counterparty_names = list({row["counterparty_name"] for row in rows})
+        category_resolver = resolve_categories_bulk(self._store, counterparty_names)
+
         return load_transactions(
             self._store,
             rows=rows,
@@ -206,6 +222,7 @@ class TransformationService:
             record_lineage=self._record_lineage,
             dim_account=DIM_ACCOUNT,
             dim_counterparty=DIM_COUNTERPARTY,
+            category_resolver=category_resolver,
             run_id=run_id,
             effective_date=effective_date,
             source_system=source_system,
@@ -366,6 +383,46 @@ class TransformationService:
         return self._store.fetchall_dicts(
             f"SELECT * FROM {CURRENT_DIM_CATEGORY_VIEW} ORDER BY category_id"
         )
+
+    # ------------------------------------------------------------------
+    # Category rules and overrides
+    # ------------------------------------------------------------------
+
+    def add_category_rule(
+        self,
+        *,
+        rule_id: str,
+        pattern: str,
+        category: str,
+        priority: int = 0,
+    ) -> None:
+        add_category_rule(
+            self._store, rule_id=rule_id, pattern=pattern,
+            category=category, priority=priority,
+        )
+        backfill_counterparty_categories(self._store)
+
+    def remove_category_rule(self, *, rule_id: str) -> None:
+        remove_category_rule(self._store, rule_id=rule_id)
+        backfill_counterparty_categories(self._store)
+
+    def list_category_rules(self) -> list[dict[str, Any]]:
+        return list_category_rules(self._store)
+
+    def set_category_override(
+        self, *, counterparty_name: str, category: str,
+    ) -> None:
+        set_category_override(
+            self._store, counterparty_name=counterparty_name, category=category,
+        )
+        backfill_counterparty_categories(self._store)
+
+    def remove_category_override(self, *, counterparty_name: str) -> None:
+        remove_category_override(self._store, counterparty_name=counterparty_name)
+        backfill_counterparty_categories(self._store)
+
+    def list_category_overrides(self) -> list[dict[str, Any]]:
+        return list_category_overrides(self._store)
 
     def get_current_meters(self) -> list[dict[str, Any]]:
         return self._store.fetchall_dicts(

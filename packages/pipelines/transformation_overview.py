@@ -13,8 +13,10 @@ from packages.pipelines.overview_models import (
     MART_RECENT_SIGNIFICANT_CHANGES_COLUMNS,
     MART_RECENT_SIGNIFICANT_CHANGES_TABLE,
 )
-from packages.pipelines.subscription_models import MART_SUBSCRIPTION_SUMMARY_TABLE
-from packages.pipelines.subscription_models import MART_UPCOMING_FIXED_COSTS_30D_TABLE
+from packages.pipelines.subscription_models import (
+    MART_SUBSCRIPTION_SUMMARY_TABLE,
+    MART_UPCOMING_FIXED_COSTS_30D_TABLE,
+)
 from packages.pipelines.transaction_models import (
     MART_ACCOUNT_BALANCE_TREND_TABLE,
     MART_MONTHLY_CASHFLOW_TABLE,
@@ -303,8 +305,12 @@ def refresh_current_operating_baseline(store: DuckDBStore) -> int:
             WHERE status = 'active'
         ),
         recent_utility AS (
-            SELECT total_cost, billing_month, currency
+            SELECT
+                SUM(total_cost) AS total_cost,
+                billing_month,
+                ANY_VALUE(currency) AS currency
             FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}
+            GROUP BY billing_month
             ORDER BY billing_month DESC
             LIMIT 3
         ),

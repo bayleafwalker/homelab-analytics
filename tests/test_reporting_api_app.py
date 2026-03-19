@@ -54,6 +54,230 @@ class _StubReportingService:
         return relation_names
 
 
+class NewReportingEndpointTests(unittest.TestCase):
+    """Tests for the dedicated reporting endpoints added for all 18 publications."""
+
+    def _make_app_with_data(self, temp_dir: str) -> TestClient:
+        service = AccountTransactionService(
+            landing_root=Path(temp_dir) / "landing",
+            metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+        )
+        ts = TransformationService(DuckDBStore.memory())
+
+        # Load transaction data
+        ts.load_transactions(
+            [
+                {
+                    "booked_at": "2026-01-05",
+                    "account_id": "CHK-001",
+                    "counterparty_name": "Shop",
+                    "amount": "-50.00",
+                    "currency": "EUR",
+                    "description": "Groceries",
+                },
+                {
+                    "booked_at": "2026-01-10",
+                    "account_id": "CHK-001",
+                    "counterparty_name": "Employer",
+                    "amount": "2500.00",
+                    "currency": "EUR",
+                    "description": "Salary",
+                },
+            ],
+            run_id="run-001",
+        )
+        ts.refresh_monthly_cashflow()
+        ts.refresh_spend_by_category_monthly()
+        ts.refresh_recent_large_transactions()
+        ts.refresh_account_balance_trend()
+        ts.refresh_transaction_anomalies_current()
+
+        # Load subscription data
+        ts.load_subscriptions(
+            [
+                {
+                    "contract_id": "sub-netflix",
+                    "service_name": "Netflix",
+                    "provider": "Netflix Inc.",
+                    "contract_type": "subscription",
+                    "billing_cycle": "monthly",
+                    "amount": "15.99",
+                    "currency": "EUR",
+                    "start_date": "2025-01-15",
+                    "end_date": None,
+                }
+            ],
+            run_id="run-002",
+        )
+        ts.refresh_subscription_summary()
+        ts.refresh_upcoming_fixed_costs_30d()
+
+        # Refresh overview
+        ts.refresh_household_overview()
+        ts.refresh_open_attention_items()
+        ts.refresh_recent_significant_changes()
+        ts.refresh_current_operating_baseline()
+
+        app = create_app(service, transformation_service=ts)
+        return TestClient(app)
+
+    def test_spend_by_category_monthly_endpoint(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app_with_data(temp_dir)
+            response = client.get("/reports/spend-by-category-monthly")
+        self.assertEqual(200, response.status_code)
+        self.assertIn("rows", response.json())
+
+    def test_recent_large_transactions_endpoint(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app_with_data(temp_dir)
+            response = client.get("/reports/recent-large-transactions")
+        self.assertEqual(200, response.status_code)
+        self.assertIn("rows", response.json())
+
+    def test_account_balance_trend_endpoint(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app_with_data(temp_dir)
+            response = client.get("/reports/account-balance-trend")
+        self.assertEqual(200, response.status_code)
+        self.assertIn("rows", response.json())
+
+    def test_transaction_anomalies_endpoint(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app_with_data(temp_dir)
+            response = client.get("/reports/transaction-anomalies")
+        self.assertEqual(200, response.status_code)
+        self.assertIn("rows", response.json())
+
+    def test_upcoming_fixed_costs_endpoint(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app_with_data(temp_dir)
+            response = client.get("/reports/upcoming-fixed-costs")
+        self.assertEqual(200, response.status_code)
+        self.assertIn("rows", response.json())
+
+    def test_household_overview_endpoint(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app_with_data(temp_dir)
+            response = client.get("/reports/household-overview")
+        self.assertEqual(200, response.status_code)
+        rows = response.json()["rows"]
+        self.assertEqual(1, len(rows))
+
+    def test_attention_items_endpoint(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app_with_data(temp_dir)
+            response = client.get("/reports/attention-items")
+        self.assertEqual(200, response.status_code)
+        self.assertIn("rows", response.json())
+
+    def test_recent_changes_endpoint(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app_with_data(temp_dir)
+            response = client.get("/reports/recent-changes")
+        self.assertEqual(200, response.status_code)
+        self.assertIn("rows", response.json())
+
+    def test_operating_baseline_endpoint(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app_with_data(temp_dir)
+            response = client.get("/reports/operating-baseline")
+        self.assertEqual(200, response.status_code)
+        rows = response.json()["rows"]
+        self.assertEqual(4, len(rows))
+
+    def test_endpoint_returns_404_without_transformation_service(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            service = AccountTransactionService(
+                landing_root=Path(temp_dir) / "landing",
+                metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+            )
+            client = TestClient(create_app(service))
+            for path in (
+                "/reports/spend-by-category-monthly",
+                "/reports/recent-large-transactions",
+                "/reports/account-balance-trend",
+                "/reports/transaction-anomalies",
+                "/reports/upcoming-fixed-costs",
+                "/reports/household-overview",
+                "/reports/attention-items",
+                "/reports/recent-changes",
+                "/reports/operating-baseline",
+            ):
+                response = client.get(path)
+                self.assertEqual(
+                    404,
+                    response.status_code,
+                    f"{path} should return 404 without transformation service",
+                )
+
+
+class CategoryApiTests(unittest.TestCase):
+    """Tests for the category rules and overrides API endpoints."""
+
+    def _make_app(self, temp_dir: str) -> TestClient:
+        service = AccountTransactionService(
+            landing_root=Path(temp_dir) / "landing",
+            metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+        )
+        ts = TransformationService(DuckDBStore.memory())
+        app = create_app(service, transformation_service=ts)
+        return TestClient(app)
+
+    def test_create_and_list_category_rules(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app(temp_dir)
+            response = client.post(
+                "/categories/rules",
+                params={"rule_id": "r1", "pattern": "supermarket", "category": "groceries"},
+            )
+            self.assertEqual(201, response.status_code)
+
+            list_response = client.get("/categories/rules")
+            self.assertEqual(200, list_response.status_code)
+            rules = list_response.json()["rules"]
+            self.assertEqual(1, len(rules))
+            self.assertEqual("supermarket", rules[0]["pattern"])
+
+    def test_delete_category_rule(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app(temp_dir)
+            client.post(
+                "/categories/rules",
+                params={"rule_id": "r1", "pattern": "x", "category": "y"},
+            )
+            delete_response = client.delete("/categories/rules/r1")
+            self.assertEqual(200, delete_response.status_code)
+
+            rules = client.get("/categories/rules").json()["rules"]
+            self.assertEqual(0, len(rules))
+
+    def test_set_and_list_category_overrides(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app(temp_dir)
+            response = client.put(
+                "/categories/overrides/Employer",
+                params={"category": "income"},
+            )
+            self.assertEqual(200, response.status_code)
+
+            list_response = client.get("/categories/overrides")
+            self.assertEqual(200, list_response.status_code)
+            overrides = list_response.json()["overrides"]
+            self.assertEqual(1, len(overrides))
+            self.assertEqual("income", overrides[0]["category"])
+
+    def test_delete_category_override(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app(temp_dir)
+            client.put("/categories/overrides/X", params={"category": "y"})
+            delete_response = client.delete("/categories/overrides/X")
+            self.assertEqual(200, delete_response.status_code)
+
+            overrides = client.get("/categories/overrides").json()["overrides"]
+            self.assertEqual(0, len(overrides))
+
+
 class ReportingApiAppTests(unittest.TestCase):
     def test_monthly_cashflow_endpoint_can_use_reporting_service_without_transformation_service(
         self,

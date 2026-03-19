@@ -160,14 +160,20 @@ def extract_accounts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(seen.values())
 
 
-def extract_counterparties(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def extract_counterparties(
+    rows: list[dict[str, Any]],
+    *,
+    category_resolver: dict[str, str | None] | None = None,
+) -> list[dict[str, Any]]:
     """Derive distinct dim_counterparty rows from transaction dicts.
 
-    ``category`` is left empty (to be enriched later).
+    If *category_resolver* is provided (a mapping of counterparty_name → category),
+    the resolved category is assigned. Otherwise ``category`` is left as None.
     """
     seen: dict[str, dict[str, Any]] = {}
     for row in rows:
         name = row["counterparty_name"]
         if name not in seen:
-            seen[name] = {"counterparty_name": name, "category": None}
+            category = (category_resolver or {}).get(name)
+            seen[name] = {"counterparty_name": name, "category": category}
     return list(seen.values())

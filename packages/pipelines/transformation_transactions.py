@@ -68,6 +68,7 @@ def load_transactions(
     record_lineage: RecordLineage,
     dim_account,
     dim_counterparty,
+    category_resolver: dict[str, str | None] | None = None,
     run_id: str | None = None,
     effective_date: date | None = None,
     source_system: str | None = None,
@@ -89,7 +90,10 @@ def load_transactions(
             source_run_id=run_id,
         )
 
-        counterparties = extract_counterparties(normalized_rows)
+        counterparties = extract_counterparties(
+            normalized_rows,
+            category_resolver=category_resolver,
+        )
         counterparties_upserted = store.upsert_dimension_rows(
             dim_counterparty,
             counterparties,
