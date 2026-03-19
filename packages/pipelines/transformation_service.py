@@ -44,31 +44,56 @@ from packages.pipelines.transformation_subscriptions import (
     count_subscriptions,
     ensure_subscription_storage,
     get_subscription_summary,
+    get_upcoming_fixed_costs_30d,
     load_subscriptions,
     refresh_subscription_summary,
+    refresh_upcoming_fixed_costs_30d,
 )
 from packages.pipelines.transformation_transactions import (
     count_transactions,
     ensure_transaction_storage,
+    get_account_balance_trend,
     get_monthly_cashflow,
     get_monthly_cashflow_by_counterparty,
     get_recent_large_transactions,
     get_spend_by_category_monthly,
+    get_transaction_anomalies_current,
     get_transactions,
     load_transactions,
+    refresh_account_balance_trend,
     refresh_monthly_cashflow,
     refresh_monthly_cashflow_by_counterparty,
     refresh_recent_large_transactions,
     refresh_spend_by_category_monthly,
+    refresh_transaction_anomalies_current,
+)
+from packages.pipelines.transformation_overview import (
+    ensure_overview_storage,
+    get_current_operating_baseline,
+    get_household_overview,
+    get_open_attention_items,
+    get_recent_significant_changes,
+    refresh_current_operating_baseline,
+    refresh_household_overview,
+    refresh_open_attention_items,
+    refresh_recent_significant_changes,
 )
 from packages.pipelines.transformation_utilities import (
     count_bills,
     count_utility_usage,
     ensure_utility_storage,
+    get_contract_renewal_watchlist,
+    get_contract_review_candidates,
+    get_usage_vs_price_summary,
     get_utility_cost_summary,
+    get_utility_cost_trend_monthly,
     load_bills,
     load_utility_usage,
+    refresh_contract_renewal_watchlist,
+    refresh_contract_review_candidates,
+    refresh_usage_vs_price_summary,
     refresh_utility_cost_summary,
+    refresh_utility_cost_trend_monthly,
 )
 from packages.pipelines.utility_models import (
     CURRENT_DIM_METER_VIEW,
@@ -117,6 +142,8 @@ class TransformationService:
         self._store.ensure_dimension(DIM_METER)
         self._store.ensure_current_dimension_view(DIM_METER, CURRENT_DIM_METER_VIEW)
         ensure_utility_storage(self._store)
+
+        ensure_overview_storage(self._store)
 
     @staticmethod
     def _normalize_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -283,6 +310,28 @@ class TransformationService:
     def get_recent_large_transactions(self) -> list[dict[str, Any]]:
         return get_recent_large_transactions(self._store)
 
+    def refresh_account_balance_trend(self) -> int:
+        return refresh_account_balance_trend(self._store)
+
+    def get_account_balance_trend(
+        self,
+        account_id: str | None = None,
+        from_month: str | None = None,
+        to_month: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_account_balance_trend(
+            self._store,
+            account_id=account_id,
+            from_month=from_month,
+            to_month=to_month,
+        )
+
+    def refresh_transaction_anomalies_current(self) -> int:
+        return refresh_transaction_anomalies_current(self._store)
+
+    def get_transaction_anomalies_current(self) -> list[dict[str, Any]]:
+        return get_transaction_anomalies_current(self._store)
+
     def get_transformation_audit(
         self,
         input_run_id: str | None = None,
@@ -360,6 +409,12 @@ class TransformationService:
 
     def refresh_subscription_summary(self) -> int:
         return refresh_subscription_summary(self._store)
+
+    def refresh_upcoming_fixed_costs_30d(self) -> int:
+        return refresh_upcoming_fixed_costs_30d(self._store)
+
+    def get_upcoming_fixed_costs_30d(self) -> list[dict[str, Any]]:
+        return get_upcoming_fixed_costs_30d(self._store)
 
     def get_subscription_summary(
         self,
@@ -447,6 +502,36 @@ class TransformationService:
     def refresh_utility_cost_summary(self) -> int:
         return refresh_utility_cost_summary(self._store)
 
+    def refresh_utility_cost_trend_monthly(self) -> int:
+        return refresh_utility_cost_trend_monthly(self._store)
+
+    def get_utility_cost_trend_monthly(
+        self,
+        utility_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_utility_cost_trend_monthly(self._store, utility_type=utility_type)
+
+    def refresh_usage_vs_price_summary(self) -> int:
+        return refresh_usage_vs_price_summary(self._store)
+
+    def get_usage_vs_price_summary(
+        self,
+        utility_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_usage_vs_price_summary(self._store, utility_type=utility_type)
+
+    def refresh_contract_review_candidates(self) -> int:
+        return refresh_contract_review_candidates(self._store)
+
+    def get_contract_review_candidates(self) -> list[dict[str, Any]]:
+        return get_contract_review_candidates(self._store)
+
+    def refresh_contract_renewal_watchlist(self) -> int:
+        return refresh_contract_renewal_watchlist(self._store)
+
+    def get_contract_renewal_watchlist(self) -> list[dict[str, Any]]:
+        return get_contract_renewal_watchlist(self._store)
+
     def get_utility_cost_summary(
         self,
         *,
@@ -464,3 +549,27 @@ class TransformationService:
             to_period=to_period,
             granularity=granularity,
         )
+
+    def refresh_household_overview(self) -> int:
+        return refresh_household_overview(self._store)
+
+    def get_household_overview(self) -> list[dict[str, Any]]:
+        return get_household_overview(self._store)
+
+    def refresh_open_attention_items(self) -> int:
+        return refresh_open_attention_items(self._store)
+
+    def get_open_attention_items(self) -> list[dict[str, Any]]:
+        return get_open_attention_items(self._store)
+
+    def refresh_recent_significant_changes(self) -> int:
+        return refresh_recent_significant_changes(self._store)
+
+    def get_recent_significant_changes(self) -> list[dict[str, Any]]:
+        return get_recent_significant_changes(self._store)
+
+    def refresh_current_operating_baseline(self) -> int:
+        return refresh_current_operating_baseline(self._store)
+
+    def get_current_operating_baseline(self) -> list[dict[str, Any]]:
+        return get_current_operating_baseline(self._store)

@@ -94,6 +94,18 @@ MART_SUBSCRIPTION_SUMMARY_COLUMNS: list[tuple[str, str]] = [
     ("status", "VARCHAR NOT NULL"),   # active | inactive
 ]
 
+MART_UPCOMING_FIXED_COSTS_30D_TABLE = "mart_upcoming_fixed_costs_30d"
+
+MART_UPCOMING_FIXED_COSTS_30D_COLUMNS: list[tuple[str, str]] = [
+    ("contract_name", "VARCHAR NOT NULL"),
+    ("provider", "VARCHAR NOT NULL"),
+    ("frequency", "VARCHAR NOT NULL"),       # billing_cycle of source subscription
+    ("expected_amount", "DECIMAL(18,4) NOT NULL"),
+    ("currency", "VARCHAR NOT NULL"),
+    ("expected_date", "DATE NOT NULL"),
+    ("confidence", "VARCHAR NOT NULL"),      # high | estimated
+]
+
 # ---------------------------------------------------------------------------
 # Extraction helpers
 # ---------------------------------------------------------------------------

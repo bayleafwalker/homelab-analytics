@@ -236,15 +236,16 @@ def test_finance_pack_has_expected_sources() -> None:
     dataset_names = {s.dataset_name for s in FINANCE_PACK.sources}
     assert "account_transactions" in dataset_names
     assert "subscriptions" in dataset_names
-    assert "contract_prices" in dataset_names
+    # contract_prices source moved to UTILITIES_PACK
+    assert "contract_prices" not in dataset_names
 
 
 def test_finance_pack_has_expected_publications() -> None:
     pub_keys = {p.key for p in FINANCE_PACK.publications}
     assert "monthly_cashflow" in pub_keys
     assert "subscription_summary" in pub_keys
-    assert "contract_price_current" in pub_keys
-    # utility publications moved to UTILITIES_PACK
+    # contract_price_current and utility publications moved to UTILITIES_PACK
+    assert "contract_price_current" not in pub_keys
     assert "electricity_price_current" not in pub_keys
     assert "utility_cost_summary" not in pub_keys
 
@@ -289,6 +290,7 @@ def test_utilities_pack_has_expected_publications() -> None:
     pub_keys = {p.key for p in UTILITIES_PACK.publications}
     assert "electricity_price_current" in pub_keys
     assert "utility_cost_summary" in pub_keys
+    assert "contract_price_current" in pub_keys
 
 
 def test_utilities_pack_is_executable() -> None:
@@ -300,6 +302,7 @@ def test_utilities_pack_is_executable() -> None:
 def test_utilities_pack_has_expected_sources() -> None:
     dataset_names = {s.dataset_name for s in UTILITIES_PACK.sources}
     assert "utility_rates" in dataset_names
+    assert "contract_prices" in dataset_names
 
 
 def test_utilities_pack_workflow_ids_are_unique() -> None:

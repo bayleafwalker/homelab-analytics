@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from packages.domains.finance.sources.account_transactions import ACCOUNT_TRANSACTIONS_SOURCE
-from packages.domains.finance.sources.contract_prices import CONTRACT_PRICES_SOURCE
 from packages.domains.finance.sources.subscriptions import SUBSCRIPTIONS_SOURCE
 from packages.platform.capability_types import (
     CapabilityPack,
@@ -17,7 +16,6 @@ FINANCE_PACK = CapabilityPack(
     sources=(
         ACCOUNT_TRANSACTIONS_SOURCE,
         SUBSCRIPTIONS_SOURCE,
-        CONTRACT_PRICES_SOURCE,
     ),
     workflows=(
         WorkflowDefinition(
@@ -32,6 +30,8 @@ FINANCE_PACK = CapabilityPack(
                 "monthly_cashflow",
                 "spend_by_category_monthly",
                 "recent_large_transactions",
+                "account_balance_trend",
+                "transaction_anomalies_current",
             ),
         ),
         WorkflowDefinition(
@@ -42,17 +42,7 @@ FINANCE_PACK = CapabilityPack(
             idempotency_mode="run_id",
             required_permissions=("operator",),
             command_name="ingest-subscriptions",
-            publication_keys=("subscription_summary",),
-        ),
-        WorkflowDefinition(
-            workflow_id="ingest-contract-prices",
-            display_name="Ingest Contract Prices",
-            source_dataset_name="contract_prices",
-            retry_policy="always",
-            idempotency_mode="run_id",
-            required_permissions=("operator",),
-            command_name="ingest-contract-prices",
-            publication_keys=("contract_price_current",),
+            publication_keys=("subscription_summary", "upcoming_fixed_costs_30d"),
         ),
         WorkflowDefinition(
             workflow_id="ingest-configured-csv",
@@ -85,15 +75,6 @@ FINANCE_PACK = CapabilityPack(
             retention_policy="indefinite",
         ),
         PublicationDefinition(
-            key="contract_price_current",
-            schema_name="contract_price_current",
-            display_name="Current Contract Prices",
-            description="Latest contracted unit prices for utilities and services.",
-            visibility="public",
-            lineage_required=True,
-            retention_policy="rolling_12_months",
-        ),
-        PublicationDefinition(
             key="spend_by_category_monthly",
             schema_name="spend_by_category_monthly",
             display_name="Spend by Category Monthly",
@@ -107,6 +88,33 @@ FINANCE_PACK = CapabilityPack(
             schema_name="recent_large_transactions",
             display_name="Recent Large Transactions",
             description="Notable transactions above a threshold in recent months.",
+            visibility="public",
+            lineage_required=True,
+            retention_policy="rolling_12_months",
+        ),
+        PublicationDefinition(
+            key="account_balance_trend",
+            schema_name="account_balance_trend",
+            display_name="Account Balance Trend",
+            description="Cumulative balance trend per account derived from transaction history.",
+            visibility="public",
+            lineage_required=True,
+            retention_policy="indefinite",
+        ),
+        PublicationDefinition(
+            key="transaction_anomalies_current",
+            schema_name="transaction_anomalies_current",
+            display_name="Transaction Anomalies",
+            description="Recent transactions flagged as anomalous — first-time counterparties or unusual amounts.",
+            visibility="public",
+            lineage_required=True,
+            retention_policy="rolling_12_months",
+        ),
+        PublicationDefinition(
+            key="upcoming_fixed_costs_30d",
+            schema_name="upcoming_fixed_costs_30d",
+            display_name="Upcoming Fixed Costs (30 days)",
+            description="Active recurring subscriptions projected as upcoming charges in the next 30 days.",
             visibility="public",
             lineage_required=True,
             retention_policy="rolling_12_months",
@@ -130,14 +138,6 @@ FINANCE_PACK = CapabilityPack(
             icon="repeat",
         ),
         UiDescriptor(
-            key="contract-prices",
-            nav_label="Contract Prices",
-            nav_path="/reports/contract-prices",
-            kind="table",
-            publication_keys=("contract_price_current",),
-            icon="file-text",
-        ),
-        UiDescriptor(
             key="spending-by-category",
             nav_label="Spending by Category",
             nav_path="/reports/spending-by-category",
@@ -152,6 +152,30 @@ FINANCE_PACK = CapabilityPack(
             kind="table",
             publication_keys=("recent_large_transactions",),
             icon="alert-circle",
+        ),
+        UiDescriptor(
+            key="balance-trend",
+            nav_label="Balance Trend",
+            nav_path="/reports/balance-trend",
+            kind="dashboard",
+            publication_keys=("account_balance_trend",),
+            icon="trending-up",
+        ),
+        UiDescriptor(
+            key="anomalies",
+            nav_label="Anomalies",
+            nav_path="/reports/anomalies",
+            kind="table",
+            publication_keys=("transaction_anomalies_current",),
+            icon="alert-triangle",
+        ),
+        UiDescriptor(
+            key="upcoming-costs",
+            nav_label="Upcoming Costs",
+            nav_path="/reports/upcoming-costs",
+            kind="table",
+            publication_keys=("upcoming_fixed_costs_30d",),
+            icon="calendar",
         ),
     ),
 )

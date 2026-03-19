@@ -71,6 +71,56 @@ MART_UTILITY_COST_SUMMARY_COLUMNS: list[tuple[str, str]] = [
     ("coverage_status", "VARCHAR NOT NULL"),
 ]
 
+MART_UTILITY_COST_TREND_MONTHLY_TABLE = "mart_utility_cost_trend_monthly"
+
+MART_UTILITY_COST_TREND_MONTHLY_COLUMNS: list[tuple[str, str]] = [
+    ("billing_month", "VARCHAR NOT NULL"),
+    ("utility_type", "VARCHAR NOT NULL"),
+    ("total_cost", "DECIMAL(18,4) NOT NULL"),
+    ("usage_amount", "DECIMAL(18,4) NOT NULL"),
+    ("unit_price_effective", "DECIMAL(18,4)"),
+    ("currency", "VARCHAR"),
+    ("meter_count", "INTEGER NOT NULL"),
+]
+
+MART_USAGE_VS_PRICE_SUMMARY_TABLE = "mart_usage_vs_price_summary"
+
+MART_USAGE_VS_PRICE_SUMMARY_COLUMNS: list[tuple[str, str]] = [
+    ("utility_type", "VARCHAR NOT NULL"),
+    ("period", "VARCHAR NOT NULL"),
+    ("usage_change_pct", "DECIMAL(18,4)"),
+    ("price_change_pct", "DECIMAL(18,4)"),
+    ("cost_change_pct", "DECIMAL(18,4)"),
+    ("dominant_driver", "VARCHAR"),   # price | usage | unknown
+]
+
+MART_CONTRACT_REVIEW_CANDIDATES_TABLE = "mart_contract_review_candidates"
+
+MART_CONTRACT_REVIEW_CANDIDATES_COLUMNS: list[tuple[str, str]] = [
+    ("contract_id", "VARCHAR NOT NULL"),
+    ("provider", "VARCHAR NOT NULL"),
+    ("utility_type", "VARCHAR NOT NULL"),
+    ("reason", "VARCHAR NOT NULL"),
+    ("score", "INTEGER NOT NULL"),
+    ("current_price", "DECIMAL(18,4) NOT NULL"),
+    ("market_reference", "DECIMAL(18,4)"),
+    ("currency", "VARCHAR NOT NULL"),
+]
+
+MART_CONTRACT_RENEWAL_WATCHLIST_TABLE = "mart_contract_renewal_watchlist"
+
+MART_CONTRACT_RENEWAL_WATCHLIST_COLUMNS: list[tuple[str, str]] = [
+    ("contract_id", "VARCHAR NOT NULL"),
+    ("contract_name", "VARCHAR NOT NULL"),
+    ("provider", "VARCHAR NOT NULL"),
+    ("utility_type", "VARCHAR NOT NULL"),
+    ("renewal_date", "DATE NOT NULL"),
+    ("days_until_renewal", "INTEGER NOT NULL"),
+    ("current_price", "DECIMAL(18,4) NOT NULL"),
+    ("currency", "VARCHAR NOT NULL"),
+    ("contract_duration_days", "INTEGER"),
+]
+
 
 def extract_meters_from_usage(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     seen: dict[str, dict[str, Any]] = {}
