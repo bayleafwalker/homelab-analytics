@@ -55,6 +55,26 @@ def register_control_routes(
         require_unsafe_admin()
         return build_operational_summary()
 
+    @app.get("/control/source-freshness")
+    async def get_source_freshness() -> dict[str, Any]:
+        require_unsafe_admin()
+        recent_runs = service.metadata_repository.list_runs(limit=500)
+        seen: set[str] = set()
+        datasets = []
+        for run in recent_runs:
+            if run.dataset_name in seen:
+                continue
+            seen.add(run.dataset_name)
+            datasets.append(
+                {
+                    "dataset_name": run.dataset_name,
+                    "latest_run_id": run.run_id,
+                    "status": run.status,
+                    "landed_at": run.created_at.isoformat(),
+                }
+            )
+        return {"datasets": datasets}
+
     @app.get("/control/schedule-dispatches")
     async def list_schedule_dispatches(
         schedule_id: str | None = None,

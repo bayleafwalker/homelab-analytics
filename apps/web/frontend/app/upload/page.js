@@ -65,8 +65,8 @@ function UploadCard({ eyebrow, title, action, description, children }) {
           />
         </div>
         <div className="field">
-          <label htmlFor={`${action}-file`}>CSV file</label>
-          <input id={`${action}-file`} name="file" type="file" accept=".csv,text/csv" required />
+          <label htmlFor={`${action}-file`}>File (CSV, XLSX or JSON)</label>
+          <input id={`${action}-file`} name="file" type="file" accept=".csv,.xlsx,.json,text/csv,application/json" required />
         </div>
         {children}
         <button className="primaryButton inlineButton" type="submit">

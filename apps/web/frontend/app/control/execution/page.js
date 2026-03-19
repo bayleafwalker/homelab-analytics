@@ -11,6 +11,7 @@ import {
   getPublicationAudit,
   getScheduleDispatches,
   getSourceAssets,
+  getSourceFreshness,
   getSourceLineage
 } from "@/lib/backend";
 
@@ -123,7 +124,8 @@ export default async function ControlExecutionPage({ searchParams }) {
     sourceLineage,
     publicationAudit,
     scheduleDispatches,
-    operationalSummary
+    operationalSummary,
+    sourceFreshness
   ] = await Promise.all([
     getSourceAssets({ includeArchived: true }),
     getIngestionDefinitions({ includeArchived: true }),
@@ -131,7 +133,8 @@ export default async function ControlExecutionPage({ searchParams }) {
     getSourceLineage(),
     getPublicationAudit(),
     getScheduleDispatches(),
-    getOperationalSummary()
+    getOperationalSummary(),
+    getSourceFreshness()
   ]);
   const activeSourceAssets = sourceAssets.filter(
     (record) => record.enabled && !record.archived
@@ -224,6 +227,51 @@ export default async function ControlExecutionPage({ searchParams }) {
             <div className="muted">Alert if this keeps climbing while work is expected.</div>
           </article>
         </section>
+
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Operator View</div>
+              <h2>Source freshness</h2>
+            </div>
+          </div>
+          {sourceFreshness.length === 0 ? (
+            <div className="empty">No ingestion runs recorded yet.</div>
+          ) : (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Dataset</th>
+                    <th>Status</th>
+                    <th>Last landed</th>
+                    <th>Age</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sourceFreshness.map((row) => {
+                    const landedAt = new Date(row.landed_at);
+                    const ageHours = Math.round((Date.now() - landedAt.getTime()) / 3_600_000);
+                    return (
+                      <tr key={row.dataset_name}>
+                        <td>{row.dataset_name}</td>
+                        <td>
+                          <span className={`statusPill status-${row.status}`}>{row.status}</span>
+                        </td>
+                        <td>
+                          <Link className="inlineLink" href={`/runs/${row.latest_run_id}`}>
+                            {landedAt.toLocaleString()}
+                          </Link>
+                        </td>
+                        <td>{ageHours}h ago</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
 
         <section className="layout">
           <article className="panel section">

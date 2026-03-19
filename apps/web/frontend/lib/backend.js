@@ -303,6 +303,11 @@ export async function getOperationalSummary() {
   return backendJson("/control/operational-summary");
 }
 
+export async function getSourceFreshness() {
+  const payload = await backendJson("/control/source-freshness");
+  return payload.datasets || [];
+}
+
 export async function getTransformationAudit(runId) {
   const payload = await backendJson(
     `/transformation-audit${buildQuery({ run_id: runId })}`
