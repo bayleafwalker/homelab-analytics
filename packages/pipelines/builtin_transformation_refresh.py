@@ -18,10 +18,39 @@ BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
     "mart_recent_large_transactions": (
         lambda service: service.refresh_recent_large_transactions()
     ),
+    "mart_account_balance_trend": (
+        lambda service: service.refresh_account_balance_trend()
+    ),
+    "mart_transaction_anomalies_current": (
+        lambda service: service.refresh_transaction_anomalies_current()
+    ),
     "mart_subscription_summary": (lambda service: service.refresh_subscription_summary()),
+    "mart_upcoming_fixed_costs_30d": (
+        lambda service: service.refresh_upcoming_fixed_costs_30d()
+    ),
     "mart_contract_price_current": (lambda service: service.refresh_contract_price_current()),
     "mart_electricity_price_current": (lambda service: service.refresh_contract_price_current()),
     "mart_utility_cost_summary": (lambda service: service.refresh_utility_cost_summary()),
+    "mart_utility_cost_trend_monthly": (
+        lambda service: service.refresh_utility_cost_trend_monthly()
+    ),
+    "mart_usage_vs_price_summary": (
+        lambda service: service.refresh_usage_vs_price_summary()
+    ),
+    "mart_contract_review_candidates": (
+        lambda service: service.refresh_contract_review_candidates()
+    ),
+    "mart_contract_renewal_watchlist": (
+        lambda service: service.refresh_contract_renewal_watchlist()
+    ),
+    "mart_household_overview": (lambda service: service.refresh_household_overview()),
+    "mart_open_attention_items": (lambda service: service.refresh_open_attention_items()),
+    "mart_recent_significant_changes": (
+        lambda service: service.refresh_recent_significant_changes()
+    ),
+    "mart_current_operating_baseline": (
+        lambda service: service.refresh_current_operating_baseline()
+    ),
 }
 
 

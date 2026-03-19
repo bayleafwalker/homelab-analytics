@@ -9,6 +9,8 @@ from packages.pipelines.subscription_models import (
     FACT_SUBSCRIPTION_CHARGE_TABLE,
     MART_SUBSCRIPTION_SUMMARY_COLUMNS,
     MART_SUBSCRIPTION_SUMMARY_TABLE,
+    MART_UPCOMING_FIXED_COSTS_30D_COLUMNS,
+    MART_UPCOMING_FIXED_COSTS_30D_TABLE,
     extract_contracts,
     subscription_charge_id,
 )
@@ -20,6 +22,9 @@ RecordLineage = Callable[..., None]
 def ensure_subscription_storage(store: DuckDBStore) -> None:
     store.ensure_table(FACT_SUBSCRIPTION_CHARGE_TABLE, FACT_SUBSCRIPTION_CHARGE_COLUMNS)
     store.ensure_table(MART_SUBSCRIPTION_SUMMARY_TABLE, MART_SUBSCRIPTION_SUMMARY_COLUMNS)
+    store.ensure_table(
+        MART_UPCOMING_FIXED_COSTS_30D_TABLE, MART_UPCOMING_FIXED_COSTS_30D_COLUMNS
+    )
 
 
 def load_subscriptions(
@@ -152,3 +157,81 @@ def count_subscriptions(
         f"SELECT COUNT(*) FROM {FACT_SUBSCRIPTION_CHARGE_TABLE} WHERE run_id = ?",
         [run_id],
     )[0][0]
+
+
+def refresh_upcoming_fixed_costs_30d(store: DuckDBStore) -> int:
+    store.execute(f"DELETE FROM {MART_UPCOMING_FIXED_COSTS_30D_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_UPCOMING_FIXED_COSTS_30D_TABLE}
+            (contract_name, provider, frequency, expected_amount, currency,
+             expected_date, confidence)
+        WITH next_charges AS (
+            SELECT
+                contract_name,
+                provider,
+                billing_cycle,
+                amount,
+                currency,
+                CASE billing_cycle
+                    WHEN 'monthly' THEN
+                        CASE
+                            WHEN DATE_TRUNC('month', CURRENT_DATE)::DATE
+                                 + (CAST(date_part('day', start_date) AS INTEGER) - 1)
+                                 >= CURRENT_DATE
+                            THEN DATE_TRUNC('month', CURRENT_DATE)::DATE
+                                 + (CAST(date_part('day', start_date) AS INTEGER) - 1)
+                            ELSE (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month')::DATE
+                                 + (CAST(date_part('day', start_date) AS INTEGER) - 1)
+                        END
+                    WHEN 'annual' THEN
+                        CASE
+                            WHEN MAKE_DATE(
+                                    CAST(date_part('year', CURRENT_DATE) AS INTEGER),
+                                    CAST(date_part('month', start_date) AS INTEGER),
+                                    CAST(date_part('day', start_date) AS INTEGER)
+                                 ) >= CURRENT_DATE
+                            THEN MAKE_DATE(
+                                    CAST(date_part('year', CURRENT_DATE) AS INTEGER),
+                                    CAST(date_part('month', start_date) AS INTEGER),
+                                    CAST(date_part('day', start_date) AS INTEGER)
+                                 )
+                            ELSE MAKE_DATE(
+                                    CAST(date_part('year', CURRENT_DATE) AS INTEGER) + 1,
+                                    CAST(date_part('month', start_date) AS INTEGER),
+                                    CAST(date_part('day', start_date) AS INTEGER)
+                                 )
+                        END
+                    ELSE CURRENT_DATE + INTERVAL '7 days'
+                END AS expected_date,
+                CASE billing_cycle
+                    WHEN 'annual' THEN 'estimated'
+                    ELSE 'high'
+                END AS confidence
+            FROM {MART_SUBSCRIPTION_SUMMARY_TABLE}
+            WHERE status = 'active'
+        )
+        SELECT
+            contract_name,
+            provider,
+            billing_cycle AS frequency,
+            amount        AS expected_amount,
+            currency,
+            expected_date,
+            confidence
+        FROM next_charges
+        WHERE billing_cycle IN ('monthly', 'weekly')
+           OR expected_date <= CURRENT_DATE + INTERVAL '30 days'
+        ORDER BY expected_date, contract_name
+        """
+    )
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_UPCOMING_FIXED_COSTS_30D_TABLE}"
+    )[0][0]
+
+
+def get_upcoming_fixed_costs_30d(store: DuckDBStore) -> list[dict[str, Any]]:
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_UPCOMING_FIXED_COSTS_30D_TABLE}"
+        " ORDER BY expected_date, contract_name"
+    )

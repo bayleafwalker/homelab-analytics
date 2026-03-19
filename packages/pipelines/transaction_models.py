@@ -106,6 +106,28 @@ MART_RECENT_LARGE_TRANSACTIONS_COLUMNS: list[tuple[str, str]] = [
     ("direction", "VARCHAR NOT NULL"),
 ]
 
+MART_ACCOUNT_BALANCE_TREND_TABLE = "mart_account_balance_trend"
+
+MART_ACCOUNT_BALANCE_TREND_COLUMNS: list[tuple[str, str]] = [
+    ("booking_month", "VARCHAR NOT NULL"),
+    ("account_id", "VARCHAR NOT NULL"),
+    ("net_change", "DECIMAL(18,4) NOT NULL"),
+    ("cumulative_balance", "DECIMAL(18,4) NOT NULL"),
+    ("transaction_count", "INTEGER NOT NULL"),
+]
+
+MART_TRANSACTION_ANOMALIES_CURRENT_TABLE = "mart_transaction_anomalies_current"
+
+MART_TRANSACTION_ANOMALIES_CURRENT_COLUMNS: list[tuple[str, str]] = [
+    ("transaction_id", "VARCHAR NOT NULL"),
+    ("booking_date", "DATE NOT NULL"),
+    ("counterparty_name", "VARCHAR NOT NULL"),
+    ("amount", "DECIMAL(18,4) NOT NULL"),
+    ("direction", "VARCHAR NOT NULL"),
+    ("anomaly_type", "VARCHAR NOT NULL"),
+    ("anomaly_reason", "VARCHAR NOT NULL"),
+]
+
 TRANSFORMATION_AUDIT_TABLE = "transformation_audit"
 
 TRANSFORMATION_AUDIT_COLUMNS: list[tuple[str, str]] = [

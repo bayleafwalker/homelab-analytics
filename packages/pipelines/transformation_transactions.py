@@ -11,6 +11,8 @@ from packages.pipelines.transaction_models import (
     CURRENT_DIM_COUNTERPARTY_VIEW,
     FACT_TRANSACTION_COLUMNS,
     FACT_TRANSACTION_TABLE,
+    MART_ACCOUNT_BALANCE_TREND_COLUMNS,
+    MART_ACCOUNT_BALANCE_TREND_TABLE,
     MART_CASHFLOW_BY_COUNTERPARTY_COLUMNS,
     MART_CASHFLOW_BY_COUNTERPARTY_TABLE,
     MART_MONTHLY_CASHFLOW_COLUMNS,
@@ -19,6 +21,8 @@ from packages.pipelines.transaction_models import (
     MART_RECENT_LARGE_TRANSACTIONS_TABLE,
     MART_SPEND_BY_CATEGORY_MONTHLY_COLUMNS,
     MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
+    MART_TRANSACTION_ANOMALIES_CURRENT_COLUMNS,
+    MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
     TRANSFORMATION_AUDIT_COLUMNS,
     TRANSFORMATION_AUDIT_TABLE,
     extract_accounts,
@@ -44,6 +48,14 @@ def ensure_transaction_storage(store: DuckDBStore) -> None:
     store.ensure_table(
         MART_RECENT_LARGE_TRANSACTIONS_TABLE,
         MART_RECENT_LARGE_TRANSACTIONS_COLUMNS,
+    )
+    store.ensure_table(
+        MART_ACCOUNT_BALANCE_TREND_TABLE,
+        MART_ACCOUNT_BALANCE_TREND_COLUMNS,
+    )
+    store.ensure_table(
+        MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
+        MART_TRANSACTION_ANOMALIES_CURRENT_COLUMNS,
     )
     store.ensure_table(TRANSFORMATION_AUDIT_TABLE, TRANSFORMATION_AUDIT_COLUMNS)
 
@@ -347,6 +359,132 @@ def get_recent_large_transactions(
     return store.fetchall_dicts(
         f"SELECT * FROM {MART_RECENT_LARGE_TRANSACTIONS_TABLE}"
         " ORDER BY ABS(amount) DESC, booked_at DESC"
+    )
+
+
+def refresh_account_balance_trend(store: DuckDBStore) -> int:
+    store.execute(f"DELETE FROM {MART_ACCOUNT_BALANCE_TREND_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_ACCOUNT_BALANCE_TREND_TABLE}
+            (booking_month, account_id, net_change, cumulative_balance, transaction_count)
+        SELECT
+            booking_month,
+            account_id,
+            SUM(amount) AS net_change,
+            SUM(SUM(amount)) OVER (
+                PARTITION BY account_id ORDER BY booking_month
+            ) AS cumulative_balance,
+            COUNT(*) AS transaction_count
+        FROM {FACT_TRANSACTION_TABLE}
+        GROUP BY booking_month, account_id
+        ORDER BY booking_month, account_id
+        """
+    )
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_ACCOUNT_BALANCE_TREND_TABLE}"
+    )[0][0]
+
+
+def get_account_balance_trend(
+    store: DuckDBStore,
+    *,
+    account_id: str | None = None,
+    from_month: str | None = None,
+    to_month: str | None = None,
+) -> list[dict[str, Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if account_id is not None:
+        clauses.append("account_id = ?")
+        params.append(account_id)
+    if from_month is not None:
+        clauses.append("booking_month >= ?")
+        params.append(from_month)
+    if to_month is not None:
+        clauses.append("booking_month <= ?")
+        params.append(to_month)
+    where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_ACCOUNT_BALANCE_TREND_TABLE}"
+        f" {where_sql} ORDER BY booking_month, account_id",
+        params,
+    )
+
+
+def refresh_transaction_anomalies_current(
+    store: DuckDBStore,
+    *,
+    lookback_days: int = 90,
+    first_occurrence_threshold: Decimal = Decimal("50"),
+    spike_stddev_multiplier: float = 2.0,
+) -> int:
+    store.execute(f"DELETE FROM {MART_TRANSACTION_ANOMALIES_CURRENT_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_TRANSACTION_ANOMALIES_CURRENT_TABLE}
+            (transaction_id, booking_date, counterparty_name, amount, direction,
+             anomaly_type, anomaly_reason)
+        WITH counterparty_stats AS (
+            SELECT
+                counterparty_name,
+                AVG(ABS(amount))    AS avg_amount,
+                STDDEV(ABS(amount)) AS stddev_amount,
+                COUNT(*)            AS tx_count
+            FROM {FACT_TRANSACTION_TABLE}
+            GROUP BY counterparty_name
+        ),
+        flagged AS (
+            SELECT
+                t.transaction_id,
+                t.booked_at          AS booking_date,
+                t.counterparty_name,
+                t.amount,
+                t.direction,
+                cs.avg_amount,
+                cs.stddev_amount,
+                cs.tx_count,
+                CASE
+                    WHEN cs.tx_count = 1
+                         AND ABS(t.amount) >= {float(first_occurrence_threshold)}
+                        THEN 'first_occurrence'
+                    WHEN cs.stddev_amount > 0
+                         AND ABS(t.amount) > cs.avg_amount + {spike_stddev_multiplier} * cs.stddev_amount
+                        THEN 'amount_spike'
+                    ELSE NULL
+                END AS anomaly_type
+            FROM {FACT_TRANSACTION_TABLE} t
+            JOIN counterparty_stats cs ON t.counterparty_name = cs.counterparty_name
+            WHERE t.booked_at >= CURRENT_DATE - INTERVAL '{lookback_days}' DAY
+        )
+        SELECT
+            transaction_id,
+            booking_date,
+            counterparty_name,
+            amount,
+            direction,
+            anomaly_type,
+            CASE anomaly_type
+                WHEN 'first_occurrence'
+                    THEN 'First transaction with this counterparty'
+                WHEN 'amount_spike'
+                    THEN 'Amount above typical average of ' || ROUND(avg_amount, 2)
+                ELSE ''
+            END AS anomaly_reason
+        FROM flagged
+        WHERE anomaly_type IS NOT NULL
+        ORDER BY booking_date DESC, ABS(amount) DESC
+        """
+    )
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_TRANSACTION_ANOMALIES_CURRENT_TABLE}"
+    )[0][0]
+
+
+def get_transaction_anomalies_current(store: DuckDBStore) -> list[dict[str, Any]]:
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_TRANSACTION_ANOMALIES_CURRENT_TABLE}"
+        " ORDER BY booking_date DESC, ABS(amount) DESC"
     )
 
 

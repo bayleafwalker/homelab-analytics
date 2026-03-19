@@ -71,12 +71,28 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 publication_key="mart_recent_large_transactions",
                 name="Recent large transactions mart",
             ),
+            BuiltinPublicationSpec(
+                publication_definition_id=(
+                    "pub_account_transactions_balance_trend"
+                ),
+                publication_key="mart_account_balance_trend",
+                name="Account balance trend mart",
+            ),
+            BuiltinPublicationSpec(
+                publication_definition_id=(
+                    "pub_account_transactions_anomalies_current"
+                ),
+                publication_key="mart_transaction_anomalies_current",
+                name="Transaction anomalies current mart",
+            ),
         ),
         refresh_publication_keys=(
             "mart_monthly_cashflow",
             "mart_monthly_cashflow_by_counterparty",
             "mart_spend_by_category_monthly",
             "mart_recent_large_transactions",
+            "mart_account_balance_trend",
+            "mart_transaction_anomalies_current",
         ),
     ),
     BuiltinTransformationPackageSpec(
@@ -92,12 +108,20 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 name="Subscription summary mart",
             ),
             BuiltinPublicationSpec(
+                publication_definition_id="pub_subscriptions_upcoming_fixed_costs",
+                publication_key="mart_upcoming_fixed_costs_30d",
+                name="Upcoming fixed costs (30-day) mart",
+            ),
+            BuiltinPublicationSpec(
                 publication_definition_id="pub_subscriptions_current_contracts",
                 publication_key="rpt_current_dim_contract",
                 name="Current contract view",
             ),
         ),
-        refresh_publication_keys=("mart_subscription_summary",),
+        refresh_publication_keys=(
+            "mart_subscription_summary",
+            "mart_upcoming_fixed_costs_30d",
+        ),
     ),
     BuiltinTransformationPackageSpec(
         transformation_package_id="builtin_contract_prices",
@@ -123,10 +147,22 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 publication_key="rpt_current_dim_contract",
                 name="Current contract view",
             ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_contract_prices_review_candidates",
+                publication_key="mart_contract_review_candidates",
+                name="Contract review candidates mart",
+            ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_contract_prices_renewal_watchlist",
+                publication_key="mart_contract_renewal_watchlist",
+                name="Contract renewal watchlist mart",
+            ),
         ),
         refresh_publication_keys=(
             "mart_contract_price_current",
             "mart_electricity_price_current",
+            "mart_contract_review_candidates",
+            "mart_contract_renewal_watchlist",
         ),
     ),
     BuiltinTransformationPackageSpec(
@@ -142,12 +178,26 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 name="Utility cost summary mart",
             ),
             BuiltinPublicationSpec(
+                publication_definition_id="pub_utility_usage_cost_trend",
+                publication_key="mart_utility_cost_trend_monthly",
+                name="Utility cost trend monthly mart",
+            ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_utility_usage_vs_price",
+                publication_key="mart_usage_vs_price_summary",
+                name="Usage vs price summary mart",
+            ),
+            BuiltinPublicationSpec(
                 publication_definition_id="pub_utility_usage_current_meters",
                 publication_key="rpt_current_dim_meter",
                 name="Current meter view",
             ),
         ),
-        refresh_publication_keys=("mart_utility_cost_summary",),
+        refresh_publication_keys=(
+            "mart_utility_cost_summary",
+            "mart_utility_cost_trend_monthly",
+            "mart_usage_vs_price_summary",
+        ),
     ),
     BuiltinTransformationPackageSpec(
         transformation_package_id="builtin_utility_bills",
@@ -162,12 +212,26 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 name="Utility cost summary mart",
             ),
             BuiltinPublicationSpec(
+                publication_definition_id="pub_utility_bills_cost_trend",
+                publication_key="mart_utility_cost_trend_monthly",
+                name="Utility cost trend monthly mart",
+            ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_utility_bills_vs_price",
+                publication_key="mart_usage_vs_price_summary",
+                name="Usage vs price summary mart",
+            ),
+            BuiltinPublicationSpec(
                 publication_definition_id="pub_utility_bills_current_meters",
                 publication_key="rpt_current_dim_meter",
                 name="Current meter view",
             ),
         ),
-        refresh_publication_keys=("mart_utility_cost_summary",),
+        refresh_publication_keys=(
+            "mart_utility_cost_summary",
+            "mart_utility_cost_trend_monthly",
+            "mart_usage_vs_price_summary",
+        ),
     ),
 )
 

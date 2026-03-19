@@ -184,6 +184,8 @@ class ReportingApiAppTests(unittest.TestCase):
                     "rpt_current_dim_counterparty",
                     "mart_spend_by_category_monthly",
                     "mart_recent_large_transactions",
+                    "mart_account_balance_trend",
+                    "mart_transaction_anomalies_current",
                 ]
             ],
             reporting_service.publications,

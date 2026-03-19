@@ -6,13 +6,22 @@ from decimal import Decimal
 from typing import Any
 
 from packages.pipelines.normalization import normalize_currency_code, normalize_unit
+from packages.pipelines.contract_price_models import MART_CONTRACT_PRICE_CURRENT_TABLE
 from packages.pipelines.utility_models import (
     FACT_BILL_COLUMNS,
     FACT_BILL_TABLE,
     FACT_UTILITY_USAGE_COLUMNS,
     FACT_UTILITY_USAGE_TABLE,
+    MART_CONTRACT_RENEWAL_WATCHLIST_COLUMNS,
+    MART_CONTRACT_RENEWAL_WATCHLIST_TABLE,
+    MART_CONTRACT_REVIEW_CANDIDATES_COLUMNS,
+    MART_CONTRACT_REVIEW_CANDIDATES_TABLE,
+    MART_USAGE_VS_PRICE_SUMMARY_COLUMNS,
+    MART_USAGE_VS_PRICE_SUMMARY_TABLE,
     MART_UTILITY_COST_SUMMARY_COLUMNS,
     MART_UTILITY_COST_SUMMARY_TABLE,
+    MART_UTILITY_COST_TREND_MONTHLY_COLUMNS,
+    MART_UTILITY_COST_TREND_MONTHLY_TABLE,
     extract_meters_from_bills,
     extract_meters_from_usage,
     utility_bill_id,
@@ -26,9 +35,18 @@ RecordLineage = Callable[..., None]
 def ensure_utility_storage(store: DuckDBStore) -> None:
     store.ensure_table(FACT_UTILITY_USAGE_TABLE, FACT_UTILITY_USAGE_COLUMNS)
     store.ensure_table(FACT_BILL_TABLE, FACT_BILL_COLUMNS)
+    store.ensure_table(MART_UTILITY_COST_SUMMARY_TABLE, MART_UTILITY_COST_SUMMARY_COLUMNS)
     store.ensure_table(
-        MART_UTILITY_COST_SUMMARY_TABLE,
-        MART_UTILITY_COST_SUMMARY_COLUMNS,
+        MART_UTILITY_COST_TREND_MONTHLY_TABLE, MART_UTILITY_COST_TREND_MONTHLY_COLUMNS
+    )
+    store.ensure_table(
+        MART_USAGE_VS_PRICE_SUMMARY_TABLE, MART_USAGE_VS_PRICE_SUMMARY_COLUMNS
+    )
+    store.ensure_table(
+        MART_CONTRACT_REVIEW_CANDIDATES_TABLE, MART_CONTRACT_REVIEW_CANDIDATES_COLUMNS
+    )
+    store.ensure_table(
+        MART_CONTRACT_RENEWAL_WATCHLIST_TABLE, MART_CONTRACT_RENEWAL_WATCHLIST_COLUMNS
     )
 
 
@@ -370,6 +388,264 @@ def get_utility_cost_summary(
         ORDER BY period_month, meter_id
         """,
         params,
+    )
+
+
+def refresh_utility_cost_trend_monthly(store: DuckDBStore) -> int:
+    store.execute(f"DELETE FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_UTILITY_COST_TREND_MONTHLY_TABLE}
+            (billing_month, utility_type, total_cost, usage_amount,
+             unit_price_effective, currency, meter_count)
+        SELECT
+            period_month                                AS billing_month,
+            utility_type,
+            SUM(billed_amount)                          AS total_cost,
+            SUM(usage_quantity)                         AS usage_amount,
+            CASE
+                WHEN SUM(usage_quantity) > 0
+                THEN ROUND(SUM(billed_amount) / SUM(usage_quantity), 4)
+                ELSE NULL
+            END                                         AS unit_price_effective,
+            ANY_VALUE(currency)                         AS currency,
+            COUNT(DISTINCT meter_id)                    AS meter_count
+        FROM {MART_UTILITY_COST_SUMMARY_TABLE}
+        GROUP BY period_month, utility_type
+        ORDER BY period_month, utility_type
+        """
+    )
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}"
+    )[0][0]
+
+
+def get_utility_cost_trend_monthly(
+    store: DuckDBStore,
+    *,
+    utility_type: str | None = None,
+) -> list[dict[str, Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if utility_type is not None:
+        clauses.append("utility_type = ?")
+        params.append(utility_type)
+    where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}"
+        f" {where_sql} ORDER BY billing_month, utility_type",
+        params,
+    )
+
+
+def refresh_usage_vs_price_summary(store: DuckDBStore) -> int:
+    store.execute(f"DELETE FROM {MART_USAGE_VS_PRICE_SUMMARY_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_USAGE_VS_PRICE_SUMMARY_TABLE}
+            (utility_type, period, usage_change_pct, price_change_pct,
+             cost_change_pct, dominant_driver)
+        WITH monthly_agg AS (
+            SELECT
+                period_month,
+                utility_type,
+                SUM(usage_quantity)  AS usage_amount,
+                SUM(billed_amount)   AS total_cost,
+                CASE
+                    WHEN SUM(usage_quantity) > 0
+                    THEN SUM(billed_amount) / SUM(usage_quantity)
+                    ELSE NULL
+                END AS unit_price
+            FROM {MART_UTILITY_COST_SUMMARY_TABLE}
+            GROUP BY period_month, utility_type
+        ),
+        with_prev AS (
+            SELECT
+                period_month,
+                utility_type,
+                usage_amount,
+                total_cost,
+                unit_price,
+                LAG(usage_amount) OVER (
+                    PARTITION BY utility_type ORDER BY period_month
+                ) AS prev_usage,
+                LAG(total_cost) OVER (
+                    PARTITION BY utility_type ORDER BY period_month
+                ) AS prev_cost,
+                LAG(unit_price) OVER (
+                    PARTITION BY utility_type ORDER BY period_month
+                ) AS prev_unit_price
+            FROM monthly_agg
+        )
+        SELECT
+            utility_type,
+            period_month AS period,
+            CASE WHEN prev_usage > 0
+                 THEN ROUND((usage_amount - prev_usage) / prev_usage * 100, 2)
+                 ELSE NULL
+            END AS usage_change_pct,
+            CASE WHEN prev_unit_price > 0
+                 THEN ROUND((unit_price - prev_unit_price) / prev_unit_price * 100, 2)
+                 ELSE NULL
+            END AS price_change_pct,
+            CASE WHEN prev_cost > 0
+                 THEN ROUND((total_cost - prev_cost) / prev_cost * 100, 2)
+                 ELSE NULL
+            END AS cost_change_pct,
+            CASE
+                WHEN prev_unit_price > 0 AND prev_usage > 0 THEN
+                    CASE
+                        WHEN ABS(unit_price - prev_unit_price) / prev_unit_price
+                           > ABS(usage_amount - prev_usage) / prev_usage
+                        THEN 'price'
+                        ELSE 'usage'
+                    END
+                WHEN prev_unit_price IS NOT NULL AND prev_unit_price > 0 THEN 'price'
+                WHEN prev_usage IS NOT NULL AND prev_usage > 0 THEN 'usage'
+                ELSE 'unknown'
+            END AS dominant_driver
+        FROM with_prev
+        WHERE prev_usage IS NOT NULL
+        ORDER BY utility_type, period
+        """
+    )
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_USAGE_VS_PRICE_SUMMARY_TABLE}"
+    )[0][0]
+
+
+def get_usage_vs_price_summary(
+    store: DuckDBStore,
+    *,
+    utility_type: str | None = None,
+) -> list[dict[str, Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if utility_type is not None:
+        clauses.append("utility_type = ?")
+        params.append(utility_type)
+    where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_USAGE_VS_PRICE_SUMMARY_TABLE}"
+        f" {where_sql} ORDER BY utility_type, period",
+        params,
+    )
+
+
+def refresh_contract_review_candidates(store: DuckDBStore) -> int:
+    store.execute(f"DELETE FROM {MART_CONTRACT_REVIEW_CANDIDATES_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_CONTRACT_REVIEW_CANDIDATES_TABLE}
+            (contract_id, provider, utility_type, reason, score,
+             current_price, market_reference, currency)
+        WITH contract_stats AS (
+            SELECT
+                contract_type,
+                AVG(unit_price)            AS avg_price,
+                COUNT(DISTINCT contract_id) AS contract_count
+            FROM {MART_CONTRACT_PRICE_CURRENT_TABLE}
+            WHERE status = 'active'
+            GROUP BY contract_type
+        ),
+        flagged AS (
+            SELECT
+                c.contract_id,
+                c.provider,
+                c.contract_type                              AS utility_type,
+                c.unit_price                                 AS current_price,
+                cs.avg_price                                 AS market_reference,
+                c.currency,
+                CASE
+                    WHEN c.valid_to IS NOT NULL
+                         AND c.valid_to <= CURRENT_DATE
+                        THEN 'expired_contract'
+                    WHEN c.unit_price > cs.avg_price * 1.1
+                        THEN 'above_market_average'
+                    WHEN c.valid_from <= CURRENT_DATE - INTERVAL '365 days'
+                         AND c.valid_to IS NULL
+                        THEN 'long_tenure_no_expiry'
+                    WHEN cs.contract_count > 1
+                        THEN 'multiple_contracts_same_type'
+                    ELSE NULL
+                END AS reason,
+                CASE
+                    WHEN c.valid_to IS NOT NULL
+                         AND c.valid_to <= CURRENT_DATE           THEN 3
+                    WHEN c.unit_price > cs.avg_price * 1.1        THEN 2
+                    WHEN c.valid_from <= CURRENT_DATE - INTERVAL '365 days'
+                         AND c.valid_to IS NULL                   THEN 1
+                    WHEN cs.contract_count > 1                    THEN 1
+                    ELSE 0
+                END AS score
+            FROM {MART_CONTRACT_PRICE_CURRENT_TABLE} c
+            JOIN contract_stats cs ON c.contract_type = cs.contract_type
+            WHERE c.status = 'active'
+        )
+        SELECT
+            contract_id,
+            provider,
+            utility_type,
+            reason,
+            score,
+            current_price,
+            market_reference,
+            currency
+        FROM flagged
+        WHERE reason IS NOT NULL
+        ORDER BY score DESC, contract_id
+        """
+    )
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_CONTRACT_REVIEW_CANDIDATES_TABLE}"
+    )[0][0]
+
+
+def get_contract_review_candidates(store: DuckDBStore) -> list[dict[str, Any]]:
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_CONTRACT_REVIEW_CANDIDATES_TABLE}"
+        " ORDER BY score DESC, contract_id"
+    )
+
+
+def refresh_contract_renewal_watchlist(
+    store: DuckDBStore,
+    *,
+    lookahead_days: int = 90,
+) -> int:
+    store.execute(f"DELETE FROM {MART_CONTRACT_RENEWAL_WATCHLIST_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_CONTRACT_RENEWAL_WATCHLIST_TABLE}
+            (contract_id, contract_name, provider, utility_type, renewal_date,
+             days_until_renewal, current_price, currency, contract_duration_days)
+        SELECT
+            contract_id,
+            contract_name,
+            provider,
+            contract_type                                                AS utility_type,
+            valid_to                                                     AS renewal_date,
+            CAST(valid_to - CURRENT_DATE AS INTEGER)                     AS days_until_renewal,
+            unit_price                                                   AS current_price,
+            currency,
+            CAST(COALESCE(valid_to, CURRENT_DATE) - valid_from AS INTEGER)
+                                                                         AS contract_duration_days
+        FROM {MART_CONTRACT_PRICE_CURRENT_TABLE}
+        WHERE status = 'active'
+          AND valid_to IS NOT NULL
+          AND valid_to <= CURRENT_DATE + INTERVAL '{lookahead_days}' DAY
+        ORDER BY valid_to, contract_id
+        """
+    )
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_CONTRACT_RENEWAL_WATCHLIST_TABLE}"
+    )[0][0]
+
+
+def get_contract_renewal_watchlist(store: DuckDBStore) -> list[dict[str, Any]]:
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_CONTRACT_RENEWAL_WATCHLIST_TABLE}"
+        " ORDER BY renewal_date, contract_id"
     )
 
 

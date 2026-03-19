@@ -240,7 +240,10 @@ class PromoteSubscriptionRunTests(unittest.TestCase):
 
             self.assertFalse(result.skipped)
             self.assertEqual(5, result.facts_loaded)
-            self.assertEqual(["mart_subscription_summary"], result.marts_refreshed)
+            self.assertEqual(
+                ["mart_subscription_summary", "mart_upcoming_fixed_costs_30d"],
+                result.marts_refreshed,
+            )
             self.assertEqual(5, ts.count_subscriptions())
 
     def test_promote_rejected_run_returns_skipped(self) -> None:

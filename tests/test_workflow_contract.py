@@ -93,16 +93,16 @@ def test_utilities_pack_workflow_ids_are_unique() -> None:
     assert len(ids) == len(set(ids)), f"UTILITIES_PACK workflow_ids must be unique, got: {ids}"
 
 
-def test_ingest_contract_prices_produces_only_finance_publications() -> None:
+def test_ingest_contract_prices_produces_only_utilities_publications() -> None:
     workflow = next(
-        (w for w in FINANCE_PACK.workflows if w.workflow_id == "ingest-contract-prices"),
+        (w for w in UTILITIES_PACK.workflows if w.workflow_id == "ingest-contract-prices"),
         None,
     )
-    assert workflow is not None, "FINANCE_PACK must declare ingest-contract-prices workflow"
-    finance_pub_keys = {p.key for p in FINANCE_PACK.publications}
-    unknown_keys = set(workflow.publication_keys) - finance_pub_keys
+    assert workflow is not None, "UTILITIES_PACK must declare ingest-contract-prices workflow"
+    utilities_pub_keys = {p.key for p in UTILITIES_PACK.publications}
+    unknown_keys = set(workflow.publication_keys) - utilities_pub_keys
     assert not unknown_keys, (
-        f"ingest-contract-prices declares publication_keys not owned by FINANCE_PACK: {unknown_keys}"
+        f"ingest-contract-prices declares publication_keys not owned by UTILITIES_PACK: {unknown_keys}"
     )
 
 

@@ -101,6 +101,8 @@ def test_s3_landing_postgres_control_plane_and_postgres_publication_work_end_to_
             "rpt_current_dim_counterparty",
             "mart_spend_by_category_monthly",
             "mart_recent_large_transactions",
+            "mart_account_balance_trend",
+            "mart_transaction_anomalies_current",
             "transformation_audit",
         }
 
