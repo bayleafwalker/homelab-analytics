@@ -62,11 +62,11 @@ export default async function ReviewPage({ searchParams }) {
                 </thead>
                 <tbody>
                   {attentionItems
-                    .sort((a, b) => (a.severity ?? 9) - (b.severity ?? 9))
+                    .sort((a, b) => (b.severity ?? 0) - (a.severity ?? 0))
                     .map((item, i) => (
                       <tr key={i}>
                         <td>
-                          <span className={`statusPill ${item.severity === 1 ? "status-failed" : "status-enqueued"}`}>
+                          <span className={`statusPill ${item.severity === 3 ? "status-failed" : "status-enqueued"}`}>
                             {item.item_type || "item"}
                           </span>
                         </td>

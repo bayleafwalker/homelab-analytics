@@ -30,7 +30,7 @@ export default async function ReportsPage() {
       color: colors[idx % colors.length],
       values: balanceMonths.map((month) => {
         const row = balanceTrend.find((r) => r.account_id === account && r.booking_month === month);
-        return row ? Number(row.balance) : null;
+        return row ? Number(row.cumulative_balance) : null;
       }),
     };
   });

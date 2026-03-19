@@ -58,7 +58,7 @@ def register_control_routes(
     @app.get("/control/source-freshness")
     async def get_source_freshness() -> dict[str, Any]:
         require_unsafe_admin()
-        recent_runs = service.metadata_repository.list_runs(limit=500)
+        recent_runs = service.metadata_repository.list_runs()
         seen: set[str] = set()
         datasets = []
         for run in recent_runs:

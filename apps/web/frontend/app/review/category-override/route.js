@@ -5,6 +5,9 @@ export async function POST(request) {
   const form = await request.formData();
   const counterparty_name = form.get("counterparty_name");
   const category = form.get("category");
+  if (!category) {
+    redirect(`/review?error=Please+select+a+category`);
+  }
   const res = await backendRequest(
     `/categories/overrides/${encodeURIComponent(counterparty_name)}?category=${encodeURIComponent(category)}`,
     { method: "PUT" }

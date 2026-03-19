@@ -68,7 +68,7 @@ def _json_to_csv_bytes(source_bytes: bytes) -> bytes:
     if not isinstance(data[0], dict):
         raise ValueError("JSON ingestion expects each array element to be an object.")
 
-    header = list(data[0].keys())
+    header = list(dict.fromkeys(k for record in data if isinstance(record, dict) for k in record))
     buf = io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=header, extrasaction="ignore")
     writer.writeheader()
