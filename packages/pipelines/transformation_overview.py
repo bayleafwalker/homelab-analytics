@@ -305,8 +305,12 @@ def refresh_current_operating_baseline(store: DuckDBStore) -> int:
             WHERE status = 'active'
         ),
         recent_utility AS (
-            SELECT total_cost, billing_month, currency
+            SELECT
+                SUM(total_cost) AS total_cost,
+                billing_month,
+                ANY_VALUE(currency) AS currency
             FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}
+            GROUP BY billing_month
             ORDER BY billing_month DESC
             LIMIT 3
         ),

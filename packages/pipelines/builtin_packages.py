@@ -93,6 +93,11 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
             "mart_recent_large_transactions",
             "mart_account_balance_trend",
             "mart_transaction_anomalies_current",
+            # Overview compositions depend on finance marts
+            "mart_household_overview",
+            "mart_open_attention_items",
+            "mart_recent_significant_changes",
+            "mart_current_operating_baseline",
         ),
     ),
     BuiltinTransformationPackageSpec(
@@ -121,6 +126,11 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
         refresh_publication_keys=(
             "mart_subscription_summary",
             "mart_upcoming_fixed_costs_30d",
+            # Overview compositions depend on subscription marts
+            "mart_household_overview",
+            "mart_open_attention_items",
+            "mart_recent_significant_changes",
+            "mart_current_operating_baseline",
         ),
     ),
     BuiltinTransformationPackageSpec(
@@ -163,6 +173,11 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
             "mart_electricity_price_current",
             "mart_contract_review_candidates",
             "mart_contract_renewal_watchlist",
+            # Overview compositions depend on contract/utility marts
+            "mart_household_overview",
+            "mart_open_attention_items",
+            "mart_recent_significant_changes",
+            "mart_current_operating_baseline",
         ),
     ),
     BuiltinTransformationPackageSpec(
@@ -197,6 +212,11 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
             "mart_utility_cost_summary",
             "mart_utility_cost_trend_monthly",
             "mart_usage_vs_price_summary",
+            # Overview compositions depend on utility marts
+            "mart_household_overview",
+            "mart_open_attention_items",
+            "mart_recent_significant_changes",
+            "mart_current_operating_baseline",
         ),
     ),
     BuiltinTransformationPackageSpec(
@@ -231,6 +251,11 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
             "mart_utility_cost_summary",
             "mart_utility_cost_trend_monthly",
             "mart_usage_vs_price_summary",
+            # Overview compositions depend on utility marts
+            "mart_household_overview",
+            "mart_open_attention_items",
+            "mart_recent_significant_changes",
+            "mart_current_operating_baseline",
         ),
     ),
 )
