@@ -141,6 +141,28 @@ def resolve_category(
     return None
 
 
+def backfill_counterparty_categories(store: DuckDBStore) -> int:
+    """Re-evaluate and update category for all current dim_counterparty rows.
+
+    Called after any rule or override change so that historical spend data
+    reflects the new categorisation without requiring a re-ingestion.
+    Returns the number of counterparty rows updated.
+    """
+    rows = store.fetchall_dicts(
+        "SELECT DISTINCT counterparty_name FROM dim_counterparty WHERE valid_to IS NULL"
+    )
+    if not rows:
+        return 0
+    names = [r["counterparty_name"] for r in rows]
+    resolved = resolve_categories_bulk(store, names)
+    for name, category in resolved.items():
+        store.execute(
+            "UPDATE dim_counterparty SET category = ? WHERE counterparty_name = ? AND valid_to IS NULL",
+            [category, name],
+        )
+    return len(resolved)
+
+
 def resolve_categories_bulk(
     store: DuckDBStore,
     counterparty_names: list[str],

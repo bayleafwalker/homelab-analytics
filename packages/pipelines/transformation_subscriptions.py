@@ -203,9 +203,12 @@ def refresh_upcoming_fixed_costs_30d(store: DuckDBStore) -> int:
                                  )
                         END
                     WHEN 'weekly' THEN
-                        start_date + INTERVAL '7 days' * CAST(CEIL(
-                            (CURRENT_DATE - start_date)::DOUBLE / 7.0
-                        ) AS INTEGER)
+                        CASE
+                            WHEN start_date > CURRENT_DATE THEN start_date
+                            ELSE start_date + INTERVAL '7 days' * CAST(CEIL(
+                                (CURRENT_DATE - start_date)::DOUBLE / 7.0
+                            ) AS INTEGER)
+                        END
                 END AS expected_date,
                 CASE billing_cycle
                     WHEN 'annual' THEN 'estimated'

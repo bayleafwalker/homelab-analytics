@@ -9,6 +9,7 @@ from typing import Any
 
 from packages.pipelines.category_rules import (
     add_category_rule,
+    backfill_counterparty_categories,
     ensure_category_storage,
     list_category_overrides,
     list_category_rules,
@@ -399,9 +400,11 @@ class TransformationService:
             self._store, rule_id=rule_id, pattern=pattern,
             category=category, priority=priority,
         )
+        backfill_counterparty_categories(self._store)
 
     def remove_category_rule(self, *, rule_id: str) -> None:
         remove_category_rule(self._store, rule_id=rule_id)
+        backfill_counterparty_categories(self._store)
 
     def list_category_rules(self) -> list[dict[str, Any]]:
         return list_category_rules(self._store)
@@ -412,9 +415,11 @@ class TransformationService:
         set_category_override(
             self._store, counterparty_name=counterparty_name, category=category,
         )
+        backfill_counterparty_categories(self._store)
 
     def remove_category_override(self, *, counterparty_name: str) -> None:
         remove_category_override(self._store, counterparty_name=counterparty_name)
+        backfill_counterparty_categories(self._store)
 
     def list_category_overrides(self) -> list[dict[str, Any]]:
         return list_category_overrides(self._store)

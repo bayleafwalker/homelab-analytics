@@ -184,9 +184,9 @@ def register_report_routes(
         counterparty: str | None = None,
         category: str | None = None,
     ) -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        rows = transformation_service.get_spend_by_category_monthly(
+        rows = resolved_reporting_service.get_spend_by_category_monthly(
             from_month=from_month,
             to_month=to_month,
             counterparty_name=counterparty,
@@ -196,9 +196,9 @@ def register_report_routes(
 
     @app.get("/reports/recent-large-transactions")
     async def get_recent_large_transactions() -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(transformation_service.get_recent_large_transactions())}
+        return {"rows": to_jsonable(resolved_reporting_service.get_recent_large_transactions())}
 
     @app.get("/reports/account-balance-trend")
     async def get_account_balance_trend(
@@ -206,9 +206,9 @@ def register_report_routes(
         from_month: str | None = None,
         to_month: str | None = None,
     ) -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        rows = transformation_service.get_account_balance_trend(
+        rows = resolved_reporting_service.get_account_balance_trend(
             account_id=account_id,
             from_month=from_month,
             to_month=to_month,
@@ -217,15 +217,15 @@ def register_report_routes(
 
     @app.get("/reports/transaction-anomalies")
     async def get_transaction_anomalies() -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(transformation_service.get_transaction_anomalies_current())}
+        return {"rows": to_jsonable(resolved_reporting_service.get_transaction_anomalies_current())}
 
     @app.get("/reports/upcoming-fixed-costs")
     async def get_upcoming_fixed_costs() -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(transformation_service.get_upcoming_fixed_costs_30d())}
+        return {"rows": to_jsonable(resolved_reporting_service.get_upcoming_fixed_costs_30d())}
 
     # ------------------------------------------------------------------
     # Utilities: new dedicated endpoints
@@ -235,9 +235,9 @@ def register_report_routes(
     async def get_utility_cost_trend(
         utility_type: str | None = None,
     ) -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        rows = transformation_service.get_utility_cost_trend_monthly(
+        rows = resolved_reporting_service.get_utility_cost_trend_monthly(
             utility_type=utility_type,
         )
         return {"rows": to_jsonable(rows)}
@@ -246,24 +246,24 @@ def register_report_routes(
     async def get_usage_vs_price(
         utility_type: str | None = None,
     ) -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        rows = transformation_service.get_usage_vs_price_summary(
+        rows = resolved_reporting_service.get_usage_vs_price_summary(
             utility_type=utility_type,
         )
         return {"rows": to_jsonable(rows)}
 
     @app.get("/reports/contract-review-candidates")
     async def get_contract_review_candidates() -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(transformation_service.get_contract_review_candidates())}
+        return {"rows": to_jsonable(resolved_reporting_service.get_contract_review_candidates())}
 
     @app.get("/reports/contract-renewal-watchlist")
     async def get_contract_renewal_watchlist() -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(transformation_service.get_contract_renewal_watchlist())}
+        return {"rows": to_jsonable(resolved_reporting_service.get_contract_renewal_watchlist())}
 
     # ------------------------------------------------------------------
     # Overview: new dedicated endpoints
@@ -271,27 +271,27 @@ def register_report_routes(
 
     @app.get("/reports/household-overview")
     async def get_household_overview() -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(transformation_service.get_household_overview())}
+        return {"rows": to_jsonable(resolved_reporting_service.get_household_overview())}
 
     @app.get("/reports/attention-items")
     async def get_attention_items() -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(transformation_service.get_open_attention_items())}
+        return {"rows": to_jsonable(resolved_reporting_service.get_open_attention_items())}
 
     @app.get("/reports/recent-changes")
     async def get_recent_changes() -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(transformation_service.get_recent_significant_changes())}
+        return {"rows": to_jsonable(resolved_reporting_service.get_recent_significant_changes())}
 
     @app.get("/reports/operating-baseline")
     async def get_operating_baseline() -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(transformation_service.get_current_operating_baseline())}
+        return {"rows": to_jsonable(resolved_reporting_service.get_current_operating_baseline())}
 
     # ------------------------------------------------------------------
     # Category rules and overrides
