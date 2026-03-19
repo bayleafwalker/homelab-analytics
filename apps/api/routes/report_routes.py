@@ -294,6 +294,62 @@ def register_report_routes(
         return {"rows": to_jsonable(transformation_service.get_current_operating_baseline())}
 
     # ------------------------------------------------------------------
+    # Category rules and overrides
+    # ------------------------------------------------------------------
+
+    @app.get("/categories/rules")
+    async def get_category_rules() -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"rules": to_jsonable(transformation_service.list_category_rules())}
+
+    @app.post("/categories/rules", status_code=201)
+    async def create_category_rule(
+        rule_id: str,
+        pattern: str,
+        category: str,
+        priority: int = 0,
+    ) -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        transformation_service.add_category_rule(
+            rule_id=rule_id, pattern=pattern, category=category, priority=priority,
+        )
+        return {"rule_id": rule_id, "pattern": pattern, "category": category, "priority": priority}
+
+    @app.delete("/categories/rules/{rule_id}")
+    async def delete_category_rule(rule_id: str) -> dict[str, str]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        transformation_service.remove_category_rule(rule_id=rule_id)
+        return {"status": "deleted", "rule_id": rule_id}
+
+    @app.get("/categories/overrides")
+    async def get_category_overrides() -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"overrides": to_jsonable(transformation_service.list_category_overrides())}
+
+    @app.put("/categories/overrides/{counterparty_name}")
+    async def set_category_override_endpoint(
+        counterparty_name: str,
+        category: str,
+    ) -> dict[str, str]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        transformation_service.set_category_override(
+            counterparty_name=counterparty_name, category=category,
+        )
+        return {"counterparty_name": counterparty_name, "category": category}
+
+    @app.delete("/categories/overrides/{counterparty_name}")
+    async def delete_category_override(counterparty_name: str) -> dict[str, str]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        transformation_service.remove_category_override(counterparty_name=counterparty_name)
+        return {"status": "deleted", "counterparty_name": counterparty_name}
+
+    # ------------------------------------------------------------------
     # Extension-based reporting (catch-all, must be last)
     # ------------------------------------------------------------------
 

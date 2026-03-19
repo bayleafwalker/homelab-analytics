@@ -212,6 +212,72 @@ class NewReportingEndpointTests(unittest.TestCase):
                 )
 
 
+class CategoryApiTests(unittest.TestCase):
+    """Tests for the category rules and overrides API endpoints."""
+
+    def _make_app(self, temp_dir: str) -> TestClient:
+        service = AccountTransactionService(
+            landing_root=Path(temp_dir) / "landing",
+            metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+        )
+        ts = TransformationService(DuckDBStore.memory())
+        app = create_app(service, transformation_service=ts)
+        return TestClient(app)
+
+    def test_create_and_list_category_rules(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app(temp_dir)
+            response = client.post(
+                "/categories/rules",
+                params={"rule_id": "r1", "pattern": "supermarket", "category": "groceries"},
+            )
+            self.assertEqual(201, response.status_code)
+
+            list_response = client.get("/categories/rules")
+            self.assertEqual(200, list_response.status_code)
+            rules = list_response.json()["rules"]
+            self.assertEqual(1, len(rules))
+            self.assertEqual("supermarket", rules[0]["pattern"])
+
+    def test_delete_category_rule(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app(temp_dir)
+            client.post(
+                "/categories/rules",
+                params={"rule_id": "r1", "pattern": "x", "category": "y"},
+            )
+            delete_response = client.delete("/categories/rules/r1")
+            self.assertEqual(200, delete_response.status_code)
+
+            rules = client.get("/categories/rules").json()["rules"]
+            self.assertEqual(0, len(rules))
+
+    def test_set_and_list_category_overrides(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app(temp_dir)
+            response = client.put(
+                "/categories/overrides/Employer",
+                params={"category": "income"},
+            )
+            self.assertEqual(200, response.status_code)
+
+            list_response = client.get("/categories/overrides")
+            self.assertEqual(200, list_response.status_code)
+            overrides = list_response.json()["overrides"]
+            self.assertEqual(1, len(overrides))
+            self.assertEqual("income", overrides[0]["category"])
+
+    def test_delete_category_override(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app(temp_dir)
+            client.put("/categories/overrides/X", params={"category": "y"})
+            delete_response = client.delete("/categories/overrides/X")
+            self.assertEqual(200, delete_response.status_code)
+
+            overrides = client.get("/categories/overrides").json()["overrides"]
+            self.assertEqual(0, len(overrides))
+
+
 class ReportingApiAppTests(unittest.TestCase):
     def test_monthly_cashflow_endpoint_can_use_reporting_service_without_transformation_service(
         self,
