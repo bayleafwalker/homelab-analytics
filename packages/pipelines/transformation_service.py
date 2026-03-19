@@ -7,6 +7,16 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from packages.pipelines.category_rules import (
+    add_category_rule,
+    ensure_category_storage,
+    list_category_overrides,
+    list_category_rules,
+    remove_category_override,
+    remove_category_rule,
+    resolve_categories_bulk,
+    set_category_override,
+)
 from packages.pipelines.normalization import (
     normalize_currency_code,
     normalize_timestamp_utc,
@@ -144,6 +154,7 @@ class TransformationService:
         ensure_utility_storage(self._store)
 
         ensure_overview_storage(self._store)
+        ensure_category_storage(self._store)
 
     @staticmethod
     def _normalize_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -199,6 +210,10 @@ class TransformationService:
         effective_date: date | None = None,
         source_system: str | None = None,
     ) -> int:
+        # Resolve categories for counterparties in this batch
+        counterparty_names = list({row["counterparty_name"] for row in rows})
+        category_resolver = resolve_categories_bulk(self._store, counterparty_names)
+
         return load_transactions(
             self._store,
             rows=rows,
@@ -206,6 +221,7 @@ class TransformationService:
             record_lineage=self._record_lineage,
             dim_account=DIM_ACCOUNT,
             dim_counterparty=DIM_COUNTERPARTY,
+            category_resolver=category_resolver,
             run_id=run_id,
             effective_date=effective_date,
             source_system=source_system,
@@ -366,6 +382,42 @@ class TransformationService:
         return self._store.fetchall_dicts(
             f"SELECT * FROM {CURRENT_DIM_CATEGORY_VIEW} ORDER BY category_id"
         )
+
+    # ------------------------------------------------------------------
+    # Category rules and overrides
+    # ------------------------------------------------------------------
+
+    def add_category_rule(
+        self,
+        *,
+        rule_id: str,
+        pattern: str,
+        category: str,
+        priority: int = 0,
+    ) -> None:
+        add_category_rule(
+            self._store, rule_id=rule_id, pattern=pattern,
+            category=category, priority=priority,
+        )
+
+    def remove_category_rule(self, *, rule_id: str) -> None:
+        remove_category_rule(self._store, rule_id=rule_id)
+
+    def list_category_rules(self) -> list[dict[str, Any]]:
+        return list_category_rules(self._store)
+
+    def set_category_override(
+        self, *, counterparty_name: str, category: str,
+    ) -> None:
+        set_category_override(
+            self._store, counterparty_name=counterparty_name, category=category,
+        )
+
+    def remove_category_override(self, *, counterparty_name: str) -> None:
+        remove_category_override(self._store, counterparty_name=counterparty_name)
+
+    def list_category_overrides(self) -> list[dict[str, Any]]:
+        return list_category_overrides(self._store)
 
     def get_current_meters(self) -> list[dict[str, Any]]:
         return self._store.fetchall_dicts(
