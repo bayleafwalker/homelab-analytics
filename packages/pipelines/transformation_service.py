@@ -22,6 +22,12 @@ from packages.pipelines.category_rules import (
     resolve_categories_bulk,
     set_category_override,
 )
+from packages.pipelines.homelab_models import (
+    CURRENT_DIM_SERVICE_VIEW,
+    CURRENT_DIM_WORKLOAD_VIEW,
+    DIM_SERVICE,
+    DIM_WORKLOAD,
+)
 from packages.pipelines.loan_models import (
     CURRENT_DIM_LOAN_VIEW,
     DIM_LOAN,
@@ -63,6 +69,25 @@ from packages.pipelines.transformation_contract_prices import (
 from packages.pipelines.transformation_domain_registry import (
     TransformationDomainRegistry,
     get_default_transformation_domain_registry,
+)
+from packages.pipelines.transformation_homelab import (
+    count_backup_run_rows,
+    count_service_health_rows,
+    count_storage_sensor_rows,
+    count_workload_sensor_rows,
+    ensure_homelab_storage,
+    get_backup_freshness,
+    get_service_health_current,
+    get_storage_risk,
+    get_workload_cost_7d,
+    load_backup_run_rows,
+    load_service_health_rows,
+    load_storage_sensor_rows,
+    load_workload_sensor_rows,
+    refresh_backup_freshness,
+    refresh_service_health_current,
+    refresh_storage_risk,
+    refresh_workload_cost_7d,
 )
 from packages.pipelines.transformation_loans import (
     count_loan_repayments,
@@ -124,31 +149,6 @@ from packages.pipelines.transformation_transactions import (
     refresh_recent_large_transactions,
     refresh_spend_by_category_monthly,
     refresh_transaction_anomalies_current,
-)
-from packages.pipelines.homelab_models import (
-    CURRENT_DIM_SERVICE_VIEW,
-    CURRENT_DIM_WORKLOAD_VIEW,
-    DIM_SERVICE,
-    DIM_WORKLOAD,
-)
-from packages.pipelines.transformation_homelab import (
-    count_backup_run_rows,
-    count_service_health_rows,
-    count_storage_sensor_rows,
-    count_workload_sensor_rows,
-    ensure_homelab_storage,
-    get_backup_freshness,
-    get_service_health_current,
-    get_storage_risk,
-    get_workload_cost_7d,
-    load_backup_run_rows,
-    load_service_health_rows,
-    load_storage_sensor_rows,
-    load_workload_sensor_rows,
-    refresh_backup_freshness,
-    refresh_service_health_current,
-    refresh_storage_risk,
-    refresh_workload_cost_7d,
 )
 from packages.pipelines.transformation_utilities import (
     count_bills,

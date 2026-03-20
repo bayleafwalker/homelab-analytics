@@ -8,8 +8,6 @@ Minimum acceptance (from sprint docs):
 """
 from __future__ import annotations
 
-import csv
-import io
 import unittest
 
 from packages.domains.homelab.manifest import HOMELAB_PACK
