@@ -1,0 +1,5 @@
+workload_id,entity_id,display_name,host,workload_type,recorded_at,cpu_pct,mem_bytes
+wl_homeassistant,sensor.ha_cpu,Home Assistant,homeserver,addon,2026-03-20T08:00:00,12.5,536870912
+wl_homeassistant,sensor.ha_cpu,Home Assistant,homeserver,addon,2026-03-20T07:00:00,15.2,524288000
+wl_postgres,sensor.pg_cpu,PostgreSQL,homeserver,container,2026-03-20T08:00:00,5.1,268435456
+wl_postgres,sensor.pg_cpu,PostgreSQL,homeserver,container,2026-03-20T07:00:00,4.8,265289728

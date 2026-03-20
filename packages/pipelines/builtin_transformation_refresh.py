@@ -74,6 +74,12 @@ BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
     "mart_recurring_cost_baseline": (
         lambda service: service.refresh_recurring_cost_baseline()
     ),
+    "mart_service_health_current": (
+        lambda service: service.refresh_service_health_current()
+    ),
+    "mart_backup_freshness": (lambda service: service.refresh_backup_freshness()),
+    "mart_storage_risk": (lambda service: service.refresh_storage_risk()),
+    "mart_workload_cost_7d": (lambda service: service.refresh_workload_cost_7d()),
 }
 
 

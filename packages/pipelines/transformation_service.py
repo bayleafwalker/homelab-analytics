@@ -125,6 +125,31 @@ from packages.pipelines.transformation_transactions import (
     refresh_spend_by_category_monthly,
     refresh_transaction_anomalies_current,
 )
+from packages.pipelines.homelab_models import (
+    CURRENT_DIM_SERVICE_VIEW,
+    CURRENT_DIM_WORKLOAD_VIEW,
+    DIM_SERVICE,
+    DIM_WORKLOAD,
+)
+from packages.pipelines.transformation_homelab import (
+    count_backup_run_rows,
+    count_service_health_rows,
+    count_storage_sensor_rows,
+    count_workload_sensor_rows,
+    ensure_homelab_storage,
+    get_backup_freshness,
+    get_service_health_current,
+    get_storage_risk,
+    get_workload_cost_7d,
+    load_backup_run_rows,
+    load_service_health_rows,
+    load_storage_sensor_rows,
+    load_workload_sensor_rows,
+    refresh_backup_freshness,
+    refresh_service_health_current,
+    refresh_storage_risk,
+    refresh_workload_cost_7d,
+)
 from packages.pipelines.transformation_utilities import (
     count_bills,
     count_utility_usage,
@@ -200,6 +225,12 @@ class TransformationService:
 
         ensure_overview_storage(self._store)
         ensure_category_storage(self._store)
+
+        self._store.ensure_dimension(DIM_SERVICE)
+        self._store.ensure_current_dimension_view(DIM_SERVICE, CURRENT_DIM_SERVICE_VIEW)
+        self._store.ensure_dimension(DIM_WORKLOAD)
+        self._store.ensure_current_dimension_view(DIM_WORKLOAD, CURRENT_DIM_WORKLOAD_VIEW)
+        ensure_homelab_storage(self._store)
 
     @staticmethod
     def _normalize_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -814,3 +845,103 @@ class TransformationService:
 
     def get_recurring_cost_baseline(self) -> list[dict[str, Any]]:
         return get_recurring_cost_baseline(self._store)
+
+    # ------------------------------------------------------------------
+    # Homelab
+    # ------------------------------------------------------------------
+
+    def load_service_health(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        run_id: str | None = None,
+        source_system: str | None = None,
+    ) -> int:
+        return load_service_health_rows(
+            self._store,
+            rows=rows,
+            record_lineage=self._record_lineage,
+            run_id=run_id,
+            source_system=source_system,
+        )
+
+    def load_backup_runs(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        run_id: str | None = None,
+        source_system: str | None = None,
+    ) -> int:
+        return load_backup_run_rows(
+            self._store,
+            rows=rows,
+            record_lineage=self._record_lineage,
+            run_id=run_id,
+            source_system=source_system,
+        )
+
+    def load_storage_sensors(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        run_id: str | None = None,
+        source_system: str | None = None,
+    ) -> int:
+        return load_storage_sensor_rows(
+            self._store,
+            rows=rows,
+            record_lineage=self._record_lineage,
+            run_id=run_id,
+            source_system=source_system,
+        )
+
+    def load_workload_sensors(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        run_id: str | None = None,
+        source_system: str | None = None,
+    ) -> int:
+        return load_workload_sensor_rows(
+            self._store,
+            rows=rows,
+            record_lineage=self._record_lineage,
+            run_id=run_id,
+            source_system=source_system,
+        )
+
+    def refresh_service_health_current(self) -> int:
+        return refresh_service_health_current(self._store)
+
+    def refresh_backup_freshness(self) -> int:
+        return refresh_backup_freshness(self._store)
+
+    def refresh_storage_risk(self) -> int:
+        return refresh_storage_risk(self._store)
+
+    def refresh_workload_cost_7d(self) -> int:
+        return refresh_workload_cost_7d(self._store)
+
+    def get_service_health_current(self) -> list[dict[str, Any]]:
+        return get_service_health_current(self._store)
+
+    def get_backup_freshness(self) -> list[dict[str, Any]]:
+        return get_backup_freshness(self._store)
+
+    def get_storage_risk(self) -> list[dict[str, Any]]:
+        return get_storage_risk(self._store)
+
+    def get_workload_cost_7d(self) -> list[dict[str, Any]]:
+        return get_workload_cost_7d(self._store)
+
+    def count_service_health_rows(self, run_id: str | None = None) -> int:
+        return count_service_health_rows(self._store, run_id=run_id)
+
+    def count_backup_run_rows(self, run_id: str | None = None) -> int:
+        return count_backup_run_rows(self._store, run_id=run_id)
+
+    def count_storage_sensor_rows(self, run_id: str | None = None) -> int:
+        return count_storage_sensor_rows(self._store, run_id=run_id)
+
+    def count_workload_sensor_rows(self, run_id: str | None = None) -> int:
+        return count_workload_sensor_rows(self._store, run_id=run_id)
