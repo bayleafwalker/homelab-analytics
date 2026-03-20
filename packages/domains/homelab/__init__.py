@@ -1,0 +1,1 @@
+"""Homelab domain capability pack."""
