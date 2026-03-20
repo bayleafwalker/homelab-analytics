@@ -332,5 +332,66 @@ class RecurringCostBaselineTests(unittest.TestCase):
             self.assertGreater(float(row["monthly_amount"]), 0)
 
 
+class BudgetCategoryOverlapTests(unittest.TestCase):
+    """Category rules correctly bridge budget targets and transaction spend.
+
+    Verifies test_budget_categories_overlap_with_spend_categories:
+    when pattern rules match demo merchants to budget category names,
+    mart_budget_variance shows actual spend for every budget category.
+    """
+
+    _temp: TemporaryDirectory[str]
+    ts: TransformationService
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls._temp = TemporaryDirectory()
+        ts = _setup_complete_household(cls._temp.name)
+        # Add rules matching demo merchant names → budget category names.
+        # add_category_rule auto-backfills dim_counterparty so existing
+        # counterparties are re-categorised without re-ingestion.
+        ts.add_category_rule(rule_id="r-groceries", pattern="supermarket", category="groceries")
+        ts.add_category_rule(rule_id="r-utilities", pattern="city power", category="utilities")
+        ts.add_category_rule(rule_id="r-transport", pattern="metro transport", category="transport")
+        ts.add_category_rule(rule_id="r-entertainment", pattern="netflix", category="entertainment")
+        ts.add_category_rule(rule_id="r-dining", pattern="restaurant", category="dining")
+        # Spend mart was built before rules existed — rebuild with proper categories.
+        ts.refresh_spend_by_category_monthly()
+        # Budget variance reads from the spend mart — rebuild to pick up alignment.
+        ts.refresh_budget_variance()
+        cls.ts = ts
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls._temp.cleanup()
+
+    def test_budget_categories_overlap_with_spend_categories(self) -> None:
+        budget_rows = self.ts.get_budget_variance()
+        spend_rows = self.ts.get_spend_by_category_monthly()
+
+        spend_categories = {r["category"] for r in spend_rows if r.get("category") is not None}
+        budget_categories_with_spend = {
+            r["category"]
+            for r in budget_rows
+            if r.get("actual_amount") is not None and float(r["actual_amount"]) > 0
+        }
+
+        expected = {"groceries", "entertainment", "transport", "utilities", "dining"}
+        self.assertTrue(
+            expected.issubset(budget_categories_with_spend),
+            f"Expected all budget categories to have actual spend after rule application.\n"
+            f"Missing: {expected - budget_categories_with_spend}\n"
+            f"Spend categories: {spend_categories}",
+        )
+
+    def test_spend_categories_are_non_null_after_rules_applied(self) -> None:
+        rows = self.ts.get_spend_by_category_monthly()
+        categorised = [r for r in rows if r.get("category") is not None]
+        self.assertGreater(
+            len(categorised), 0,
+            "Expected at least some spend rows to have a non-NULL category after rules applied.",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

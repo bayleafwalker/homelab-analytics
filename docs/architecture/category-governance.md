@@ -1,8 +1,28 @@
 # Category Governance — Architecture
 
-**Status:** Design only — not started
+**Status:** Phase 1 done (Sprint B, 2026-03-20) — Phase 2 pending
 **Stage:** 2 cross-cutting concern (blocks full budget-vs-spend alignment)
-**Tracker:** `test_budget_categories_overlap_with_spend_categories` is currently skipped in `tests/test_household_complete_integration.py` pending this work
+**Tracker:** `test_budget_categories_overlap_with_spend_categories` passes in `BudgetCategoryOverlapTests` (PR #8)
+
+---
+
+## What is done (Sprint B)
+
+- Category rule CRUD (`category_rule` table) with priority ordering and substring matching — `packages/pipelines/category_rules.py`
+- Category override CRUD (`category_override` table) — exact counterparty-name overrides, always wins over rules
+- `backfill_counterparty_categories` correctly re-categorises existing `dim_counterparty` rows after rule/override changes (bug fixed: was using `valid_to IS NULL`; SCD2 uses `is_current = TRUE`)
+- `mart_spend_by_category_monthly` joins `fact_transaction` → `dim_counterparty.category` — categories flow through automatically
+- `mart_budget_variance` joins spend by `LOWER(COALESCE(category, counterparty_name))` — text-match alignment with budget category names
+- `BudgetCategoryOverlapTests::test_budget_categories_overlap_with_spend_categories` passes — full end-to-end validation that rules → backfill → spend mart → budget variance works
+- Category rule/override API routes: `POST/GET/DELETE /categories/rules`, `PUT/GET/DELETE /categories/overrides/{name}`
+
+## What is pending (future sprint)
+
+- Full `dim_category` ADR schema (`domain`, `is_budget_eligible`, `is_system`, `created_at`, `updated_at`) — current schema has `category_id`, `name`, `type`, `parent_category_id`
+- System category seeding (`packages/pipelines/category_seed.py`) — top-level slugs seeded at init, immutable
+- `dim_budget.category_id` FK replacing free-text `category` field — requires budget upload resolver + migration
+- `mart_budget_variance` join on `category_id` instead of string match — eliminates case/spelling divergence
+- Category governance API: `GET /api/categories`, `POST /api/categories` (sub-categories)
 
 ---
 
@@ -11,7 +31,7 @@
 `dim_category` currently exists as a per-transaction override table seeded by category enrichment in `category_rules.py`. Budgets reference category names as free-text strings. Spend categories come from transaction enrichment. The two sides can diverge silently:
 - A budget for "Groceries" and a transaction tagged "groceries" count as different categories
 - There is no canonical category registry that both sides reference by ID
-- The cross-domain integration test that checks budget/spend overlap is skipped because categories are NULL without explicit rules
+- Without explicit rules, `dim_counterparty.category` is NULL and the budget variance join produces zero actual spend
 
 ---
 
@@ -105,15 +125,21 @@ No UI for rule management in the first version — API only. Rules can be author
 
 ## Implementation sequence
 
-1. `packages/pipelines/category_seed.py` — system category definitions + upsert function
-2. Migrate `dim_category` schema in DuckDB init path
-3. `dim_category_rule` table + schema
-4. Update `transformation_transactions.py` promotion step to apply rules against `dim_category_rule`
-5. Migrate `dim_budget.category_name → category_id` + update `budget_service.py` resolver
-6. Update `mart_budget_variance` and `mart_budget_progress_current` to join on `category_id`
-7. `apps/api/routes/category_routes.py` — list + rule CRUD
-8. Un-skip `test_budget_categories_overlap_with_spend_categories`
-9. Add integration assertions: all budget category_ids exist in `dim_category`
+### Phase 1 — done (Sprint B)
+1. ~~`category_rule` + `category_override` tables with CRUD functions~~ ✓ `packages/pipelines/category_rules.py`
+2. ~~Fix `backfill_counterparty_categories` to use `is_current = TRUE`~~ ✓ PR #8
+3. ~~`mart_spend_by_category_monthly` picks up category from `dim_counterparty`~~ ✓ `transformation_transactions.py`
+4. ~~`mart_budget_variance` joins spend by category text match~~ ✓ `transformation_budgets.py`
+5. ~~Category rule/override API routes~~ ✓ `apps/api/routes/report_routes.py`
+6. ~~`test_budget_categories_overlap_with_spend_categories` passing~~ ✓ `BudgetCategoryOverlapTests`
+
+### Phase 2 — pending
+7. `packages/pipelines/category_seed.py` — system category definitions + upsert function
+8. Migrate `dim_category` schema to full ADR shape (`domain`, `is_budget_eligible`, `is_system`, timestamps)
+9. Migrate `dim_budget.category_name → category_id` + update `budget_service.py` resolver
+10. Update `mart_budget_variance` and `mart_budget_progress_current` to join on `category_id`
+11. `apps/api/routes/category_routes.py` — `GET/POST /api/categories` list + sub-category creation
+12. Add integration assertions: all budget `category_id`s exist in `dim_category`
 
 ---
 

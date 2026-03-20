@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from packages.pipelines.transaction_models import DIM_COUNTERPARTY
 from packages.storage.duckdb_store import DuckDBStore
 
 # ---------------------------------------------------------------------------
@@ -149,18 +150,20 @@ def backfill_counterparty_categories(store: DuckDBStore) -> int:
     Returns the number of counterparty rows updated.
     """
     rows = store.fetchall_dicts(
-        "SELECT DISTINCT counterparty_name FROM dim_counterparty WHERE valid_to IS NULL"
+        "SELECT DISTINCT counterparty_name FROM dim_counterparty WHERE is_current = TRUE"
     )
     if not rows:
         return 0
     names = [r["counterparty_name"] for r in rows]
     resolved = resolve_categories_bulk(store, names)
-    for name, category in resolved.items():
-        store.execute(
-            "UPDATE dim_counterparty SET category = ? WHERE counterparty_name = ? AND valid_to IS NULL",
-            [category, name],
-        )
-    return len(resolved)
+    # Use SCD2 upsert so that category changes create a new version row
+    # rather than rewriting the existing row's history in place.
+    upsert_rows = [
+        {"counterparty_name": name, "category": category}
+        for name, category in resolved.items()
+    ]
+    store.upsert_dimension_rows(DIM_COUNTERPARTY, upsert_rows)
+    return len(upsert_rows)
 
 
 def resolve_categories_bulk(

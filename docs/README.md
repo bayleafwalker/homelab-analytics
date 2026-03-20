@@ -29,6 +29,8 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 - `sprints/utilities-capability-pack-proof.md` — utilities capability pack proof sprint.
 - `sprints/architecture-sprint-scope.md` — architecture sprint scope.
 - `sprints/ingestion-operator-ergonomics.md` — ingestion operator ergonomics sprint.
+- `sprints/homelab-capability-pack.md` — Sprint A: homelab capability pack (4 sources, 4 marts, homelab API routes). Done — PR #7.
+- `sprints/category-governance.md` — Sprint B: category governance Phase 1 (backfill bug fix, budget-spend overlap test). Done — PR #8.
 
 ## Agents
 
