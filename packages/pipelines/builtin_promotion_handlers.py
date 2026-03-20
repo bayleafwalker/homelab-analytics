@@ -399,7 +399,7 @@ _homelab_pkg = get_builtin_transformation_package_spec("builtin_homelab")
 
 
 def _homelab_runner(runtime: Any) -> Any:  # type: ignore[return]
-    raise NotImplementedError(
+    raise ValueError(
         "Homelab file-based promotion is not yet implemented. "
         "Load homelab data via TransformationService.load_service_health(), "
         "load_backup_runs(), load_storage_sensors(), or load_workload_sensors()."

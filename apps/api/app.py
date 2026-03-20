@@ -476,6 +476,7 @@ def create_app(
     register_homelab_routes(
         app,
         transformation_service=transformation_service,
+        resolved_reporting_service=reporting_service,
         to_jsonable=to_jsonable,
     )
     register_ingest_routes(

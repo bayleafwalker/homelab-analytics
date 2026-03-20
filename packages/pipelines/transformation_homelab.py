@@ -304,7 +304,12 @@ def refresh_service_health_current(store: DuckDBStore) -> int:
 
 
 def refresh_backup_freshness(store: DuckDBStore) -> int:
-    """Most recent successful backup per target with staleness flag (>24h = stale)."""
+    """Most recent *successful* backup per target with staleness flag (>24h = stale).
+
+    Staleness is based on the last successful run only — failed retries do not
+    mask a genuinely stale target.  status and size_bytes are taken from the
+    same row as the MAX(started_at) so they are always correlated.
+    """
     store.execute(f"DELETE FROM {MART_BACKUP_FRESHNESS_TABLE}")
     store.execute(
         f"""
@@ -312,14 +317,21 @@ def refresh_backup_freshness(store: DuckDBStore) -> int:
             target, last_backup_at, last_status, last_size_bytes,
             hours_since_backup, is_stale, backup_count_7d
         )
-        WITH last_per_target AS (
+        WITH last_success_per_target AS (
             SELECT
                 target,
-                MAX(started_at)   AS last_backup_at,
-                ANY_VALUE(status) AS last_status,
-                ANY_VALUE(size_bytes) AS last_size_bytes
+                MAX(started_at) AS last_backup_at
             FROM {FACT_BACKUP_RUN_TABLE}
+            WHERE status = 'success'
             GROUP BY target
+        ),
+        last_row AS (
+            SELECT f.target, f.started_at AS last_backup_at, f.status AS last_status, f.size_bytes AS last_size_bytes
+            FROM {FACT_BACKUP_RUN_TABLE} f
+            JOIN last_success_per_target l
+                ON f.target = l.target
+               AND f.started_at = l.last_backup_at
+               AND f.status = 'success'
         ),
         count_7d AS (
             SELECT
@@ -344,7 +356,7 @@ def refresh_backup_freshness(store: DuckDBStore) -> int:
                 ELSE FALSE
             END                                                 AS is_stale,
             COALESCE(c.backup_count_7d, 0)                      AS backup_count_7d
-        FROM last_per_target l
+        FROM last_row l
         LEFT JOIN count_7d c ON c.target = l.target
         ORDER BY l.target
         """
