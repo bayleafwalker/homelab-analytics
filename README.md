@@ -1,170 +1,126 @@
 # homelab-analytics
 
-Homelab and household analytics platform for ingesting heterogeneous personal datasets, normalizing them into reusable models, and publishing dashboards and APIs from the same core data products.
+Self-hosted household operating platform for ingesting heterogeneous personal datasets, normalizing them into reusable canonical models, and publishing household operating views through dashboards, APIs, and automation surfaces.
 
-## Intended scope
+The platform answers recurring household questions about money, utilities, and infrastructure operations through a composable Household Operating Picture built on explicit bronze/silver/gold data boundaries, canonical facts and dimensions, and stable publication contracts.
 
-The initial target is a single-household, self-hosted platform that can grow from manual imports to scheduled pipelines without rebuilding the architecture. Source classes include:
+This is not a Home Assistant add-on. Home Assistant is a first-class integration partner: it is the edge runtime, device hub, family-facing operational UI, and primary actuation surface. This platform provides what a HA add-on cannot — canonical cross-domain household semantics spanning finance, utilities, assets, contracts, loans, and homelab telemetry; long-horizon history; planning, simulation, and policy evaluation logic; trust and lineage; and multi-surface publishing. Platform outputs flow back to HA as synthetic entities for visualization, voice responses, and automation triggers. See `docs/product/homeassistant-and-smart-home-hub.md` for the product boundary and `docs/architecture/homeassistant-integration-hub.md` for the integration architecture.
 
-- file-based imports such as CSV, XLSX, and batch extracts
-- watched input folders on NFS or synced folders from OneDrive, Nextcloud, or Google Drive
-- direct API ingestion such as utility providers and other authenticated REST endpoints
-- financial datasets such as account transactions, card transactions, daily balances, loans, and planned repayments
-- internal homelab telemetry such as Prometheus-derived metrics and Home Assistant exports or APIs
+## Product direction
 
-Derived outputs include:
+The project follows a 10-stage roadmap from analytics platform to household operating platform:
 
-- household budget and cost models
-- electricity and utility summaries
-- loan repayment plans and estimates
-- profitability and affordability views
-- reusable marts for dashboards, automations, and API consumers
+0. Documentation reset and direction lock
+1. Canonical household model
+2. Operating views
+3. Planning and control surfaces
+4. Simulation and scenario engine
+5. Policy, automation, and action engine
+6. Multi-renderer and semantic delivery layer
+7. Extension and pack ecosystem
+8. Trust, governance, and operator confidence
+9. Agentic and assistant layer
+
+The project is currently delivering Stage 2 (Operating Views) through the 4-sprint product loop. See `docs/plans/household-operating-platform-roadmap.md` for stage details and `docs/decisions/household-operating-platform-direction.md` for the direction ADR.
+
+## Current capabilities (v0.1.0 — Household Operating Picture)
+
+- Three domain capability packs: finance (transactions, subscriptions, budgets, loans), utilities (usage, bills, contracts), and cross-domain overview
+- Thirty-six publications: monthly cashflow, budget variance and progress, loan schedule and overview, utility cost trends, affordability ratios, recurring cost baseline, household cost model, and more
+- Full data pipeline: landing (bronze) → transformation (silver) → reporting (gold)
+- Budget vs Reality: per-category budget targets against actual spend with variance and utilisation tracking
+- Debt and Cost Truth: amortization engine, loan schedule projection, repayment variance, and balance estimates
+- Household Cost Model: unified cost picture aggregated from all domains with 12-month trend
+- Affordability Ratios: housing-to-income, total-cost-to-income, and debt-service ratio with threshold assessments
+- Recurring Cost Baseline: active subscriptions, loan payments, and detected utility fixed charges
+- Config-driven source onboarding for CSV, XLSX, JSON, and HTTP sources
+- SCD Type 2 dimensions with current-dimension reporting views
+- Authentication: local bootstrap, OIDC, and scoped service tokens with role separation
+- FastAPI-based REST API with Prometheus metrics and structured JSON logging
+- Next.js web shell with dashboard, budgets, loans, costs, upload, and control-plane admin
+- Source freshness operator view: staleness indicators and quick-action upload links
+- Worker CLI with schedule dispatch, lease renewal, and stale-dispatch recovery
+- Docker Compose and Helm/Kubernetes deployment paths
+- Extension model for external connectors, transformations, and marts
+- 727 tests passing (702 unit + 25 household integration)
 
 ## Repository layout
 
 ```text
 homelab-analytics/
 ├── apps/
-│   ├── api/
-│   ├── worker/
-│   └── web/
+│   ├── api/                    # FastAPI application
+│   ├── worker/                 # Worker CLI and dispatch
+│   └── web/                    # Next.js web shell
 ├── packages/
-│   ├── analytics/
-│   ├── connectors/
-│   ├── pipelines/
-│   ├── shared/
-│   └── storage/
+│   ├── adapters/               # API and worker adapter layer
+│   ├── analytics/              # Reporting logic
+│   ├── application/            # Use-case orchestration
+│   ├── connectors/             # External connectors
+│   ├── domains/                # Domain capability packs
+│   │   ├── finance/            # Cash flow, subscriptions, transactions
+│   │   ├── utilities/          # Utility costs, contracts, metering
+│   │   └── overview/           # Cross-domain composition
+│   ├── pipelines/              # Transformation and mart logic
+│   ├── platform/               # Runtime, auth, capability types
+│   ├── shared/                 # Extension registry, auth shim, contracts
+│   └── storage/                # DuckDB, Postgres, SQLite, S3 adapters
 ├── charts/
-│   └── homelab-analytics/
+│   └── homelab-analytics/      # Helm chart
 ├── infra/
-│   ├── docker/
-│   └── examples/
+│   ├── docker/                 # Dockerfiles
+│   └── examples/               # Compose, secrets examples
 ├── docs/
-│   ├── architecture/
-│   ├── decisions/
-│   ├── notes/
-│   └── plans/
-└── tests/
+│   ├── architecture/           # Data platform architecture
+│   ├── agents/                 # Agent mode guidance
+│   ├── decisions/              # ADRs
+│   ├── plans/                  # Strategic plans and roadmap
+│   ├── product/                # Product scope and design
+│   ├── sprints/                # Sprint plans and scope
+│   ├── runbooks/               # Operational guides
+│   └── notes/                  # Integration notes
+├── requirements/               # Requirements baseline
+└── tests/                      # Pytest suite and architecture tests
 ```
 
 ## Documentation
 
-- `requirements/` contains the baseline requirements across five domains: data ingestion, data platform, analytics and reporting, application services, and security and operations. Each requirement is phased, status-tracked, and linked to acceptance criteria.
-- `docs/README.md` contains the document index for architecture, decisions, plans, and notes.
-- `docs/architecture/data-platform-architecture.md` defines the source-to-reporting data architecture.
-- `docs/decisions/compute-and-orchestration-options.md` compares Spark and other execution/orchestration options and records the recommended initial path.
-- `docs/notes/appservice-cluster-integration-notes.md` captures cluster deployment assumptions.
-
-## Current status
-
-This repository now has a working end-to-end bootstrap aligned to the target architecture:
-
-- the initial runtime/package/chart directory structure exists
-- repository-contract tests protect the agreed starting shape
-- architecture and decision docs define the first implementation path
-- the first landing-layer CSV contract validation module exists with project-specific fixture tests
-- a local landing-store flow now copies raw CSV files and writes per-run manifests with validation results
-- ingestion run metadata can now be persisted in a small SQL-backed repository for worker/control-plane use
-- the first transformation and reporting slice exists for account transactions and monthly cash-flow summaries
-- a FastAPI-based API and worker-facing service now expose ingestion runs, config surfaces, and monthly cash-flow reporting
-- shared settings and executable `apps/api` and `apps/worker` entrypoints now make the current slice runnable locally
-- project metadata, console scripts, and Docker/Compose bootstrap files now make the slice installable and containerizable
-- a schedule-dispatch worker loop and a minimal Helm chart now cover the first Kubernetes deployment path
-- a Next.js web shell now exposes dashboard, filterable run-monitoring, run-detail drill-down, and control-plane admin views as a separate workload
-- the Next.js web shell now also exposes operator-facing browser uploads for built-in datasets plus config-driven source-asset uploads that redirect into run detail on success and render inline validation/run feedback on failure
-- the control-plane and run-detail surfaces now add version diffs, operational freshness summaries, dispatch drill-down, retry actions for runs with supported retry context, worker-heartbeat visibility, stale-dispatch detection, recovered-dispatch history, and heartbeat-age/runtime queue signals for queue operations
-- landing now uses explicit blob-store and metadata-store boundaries, with the current local filesystem and SQLite path kept as the default backend
-- the transaction transform and reporting path now consume landed bytes directly, so reporting no longer depends on staging artifacts back to the local filesystem
-- built-in landing, transformation, reporting, and application capabilities are now exposed through a shared extension registry that can also load external modules from configured custom paths
-- executable extension handlers can now be invoked through the worker CLI and API for landing, transformation, and reporting layers
-- source systems, dataset contracts, column mappings, source assets, ingestion definitions, transformation packages, and publication definitions now exist as persisted ingestion configuration entities
-- dataset contracts and column mappings now support saved-version preview plus archived-version lifecycle in the control plane, and source assets, ingestion definitions, and execution schedules now also support archive/delete lifecycle with dependency-aware control-plane visibility
-- config-driven CSV onboarding can land a new mapped dataset without new Python modules, and source-asset promotion now dispatches through the configured transformation package instead of account-specific heuristics
-- filesystem and HTTP ingestion definitions can now execute through the same runtime config path, and HTTP request headers are stored as secret references resolved only at runtime
-- the transaction transformation layer now persists UTC-normalized timestamps and normalized currency codes in DuckDB, and the reporting layer publishes current-dimension snapshots for the implemented SCD dimensions
-- config-driven sources now preserve original bronze payload bytes while storing a canonical projection artifact for validation and promotion
-- manual and config-driven account-transaction ingests now share the same retry-safe promotion path into DuckDB-backed marts and current-dimension views
-- explicit subscription and temporal contract-pricing domains now exist alongside transactions, including `mart_subscription_summary`, `mart_contract_price_current`, and `mart_electricity_price_current`
-
-The main remaining gaps are production rollout polish beyond the auth baseline that now exists. S3-compatible landing plus Postgres-backed control-plane/reporting backends are in place, local username/password auth remains available only as an explicit bootstrap or break-glass path, OIDC is the intended shared-deployment interactive mode, scoped service tokens exist for automation consumers, the worker claims and processes queued dispatches continuously with lease renewal plus stale-dispatch recovery, and the web surface has a real Next.js shell that consumes the API only.
+- `docs/README.md` — full documentation index
+- `requirements/README.md` — requirements baseline across five domains
+- `docs/architecture/data-platform-architecture.md` — source-to-reporting data architecture and forward-looking layer definitions
+- `docs/decisions/household-operating-platform-direction.md` — operating platform direction and 10-stage model
+- `docs/decisions/household-platform-adr-and-refactor-blueprint.md` — modular monolith architecture and capability pack model
+- `docs/product/core-household-operating-picture.md` — core product definition and acceptance criteria
+- `docs/plans/household-operating-platform-roadmap.md` — 10-stage roadmap with deliverables and dependencies
+- `docs/product/homeassistant-and-smart-home-hub.md` — Home Assistant as edge runtime and actuation layer, platform vs HA boundary, and build ordering
+- `docs/architecture/homeassistant-integration-hub.md` — six-layer HA integration hub architecture
 
 ## Run locally
 
-Current API entrypoints use FastAPI; the worker remains a lightweight Python entrypoint; and the web workload is now a Next.js frontend with a thin Python launcher for the built standalone server.
+The API uses FastAPI, the worker is a lightweight Python entrypoint, and the web workload is a Next.js frontend with a thin Python launcher.
 
-When a DuckDB transformation service is configured, built-in datasets auto-promote successful runs into the current silver/gold path through source-asset transformation bindings and publication definitions. Re-running promotion for the same run is idempotent and refreshes marts without duplicating facts, and config-driven publication definitions can now include registered extension publication relations. Publication-definition creation rejects unknown `publication_key` values unless they match a built-in mart or a registered published extension relation.
+Key environment variables (see `docs/runbooks/configuration.md` for the full reference):
 
-Environment variables:
-
-- `HOMELAB_ANALYTICS_DATA_DIR` defaults to `.local/homelab-analytics` under the current working directory
-- `HOMELAB_ANALYTICS_CONFIG_DATABASE_PATH` overrides the SQLite ingestion-config database path (default: `<data_dir>/config.db`)
-- `HOMELAB_ANALYTICS_CONFIG_BACKEND` selects `sqlite` or `postgres` for control-plane configuration, schedules, lineage, and publication audit (default: `sqlite`)
-- `HOMELAB_ANALYTICS_METADATA_BACKEND` selects `sqlite` or `postgres` for ingestion run metadata (default: `sqlite`)
-- `HOMELAB_ANALYTICS_POSTGRES_DSN` configures the shared Postgres backend used by control-plane, metadata, and published-reporting adapters when enabled
-- `HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN`, `HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN`, and `HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN` override the shared DSN per concern so API and worker workloads can run with different database roles while still falling back to `HOMELAB_ANALYTICS_POSTGRES_DSN` in local/bootstrap environments
-- `HOMELAB_ANALYTICS_CONTROL_SCHEMA` sets the Postgres schema for control-plane and metadata state (default: `control`)
-- `HOMELAB_ANALYTICS_REPORTING_BACKEND` selects `duckdb` or `postgres` for published reporting reads (default: `duckdb`)
-- `HOMELAB_ANALYTICS_REPORTING_SCHEMA` sets the Postgres schema for published reporting relations (default: `reporting`)
-- `HOMELAB_ANALYTICS_API_HOST` defaults to `0.0.0.0`
-- `HOMELAB_ANALYTICS_API_PORT` defaults to `8080`
-- `HOMELAB_ANALYTICS_API_BASE_URL` overrides the backend API origin used by the Next.js web workload (default: `http://127.0.0.1:<api_port>`)
-- `HOMELAB_ANALYTICS_WORKER_ID` optionally sets a stable worker identifier for queue claims and heartbeat records (default: `<hostname>-<pid>`)
-- `HOMELAB_ANALYTICS_DISPATCH_LEASE_SECONDS` sets the running-dispatch claim window used for stale-dispatch detection (default: `300`)
-- `HOMELAB_ANALYTICS_ANALYTICS_DATABASE_PATH` overrides the DuckDB warehouse path (default: `<data_dir>/analytics/warehouse.duckdb`)
-- `HOMELAB_ANALYTICS_BLOB_BACKEND` selects `filesystem` or `s3` for landed payload storage (default: `filesystem`)
-- `HOMELAB_ANALYTICS_S3_ENDPOINT_URL`, `HOMELAB_ANALYTICS_S3_BUCKET`, `HOMELAB_ANALYTICS_S3_REGION`, `HOMELAB_ANALYTICS_S3_ACCESS_KEY_ID`, `HOMELAB_ANALYTICS_S3_SECRET_ACCESS_KEY`, and `HOMELAB_ANALYTICS_S3_PREFIX` configure the S3/MinIO landing adapter when enabled
-- `HOMELAB_ANALYTICS_AUTH_MODE` selects `disabled`, `local`, or `oidc` authentication (default: `disabled`; the Compose example stays `local` for explicit break-glass/local development, while Helm defaults now use `oidc`)
-- `HOMELAB_ANALYTICS_SESSION_SECRET` configures the signed app-session and OIDC state-cookie secret for cookie-backed auth modes and is required for API/web startup when `auth_mode` is `local` or `oidc`
-- `HOMELAB_ANALYTICS_OIDC_ISSUER_URL`, `HOMELAB_ANALYTICS_OIDC_CLIENT_ID`, `HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET`, and `HOMELAB_ANALYTICS_OIDC_REDIRECT_URI` configure OIDC discovery, token exchange, and callback handling when `HOMELAB_ANALYTICS_AUTH_MODE=oidc`
-- `HOMELAB_ANALYTICS_OIDC_SCOPES` configures the authorization-request scopes (default: `openid,profile,email`)
-- `HOMELAB_ANALYTICS_OIDC_API_AUDIENCE` sets the accepted bearer-token audience for direct API clients (default: OIDC client ID)
-- `HOMELAB_ANALYTICS_OIDC_USERNAME_CLAIM` and `HOMELAB_ANALYTICS_OIDC_GROUPS_CLAIM` select the username and group claims used for app principals and role mapping
-- `HOMELAB_ANALYTICS_OIDC_READER_GROUPS`, `HOMELAB_ANALYTICS_OIDC_OPERATOR_GROUPS`, and `HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS` map OIDC groups into application roles; if none are configured, authenticated OIDC users default to `reader`
-- `HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN` must be set to `true` before local bootstrap credentials are honored
-- `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME` and `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD` create the first local admin user only when `auth_mode=local` and `HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN=true`
-- `HOMELAB_ANALYTICS_AUTH_FAILURE_WINDOW_SECONDS`, `HOMELAB_ANALYTICS_AUTH_FAILURE_THRESHOLD`, and `HOMELAB_ANALYTICS_AUTH_LOCKOUT_SECONDS` tune bootstrap local-auth login lockout behavior
-- `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` keeps a temporary dev-only bypass for unauthenticated admin/control routes when needed (default: `false`)
-- `HOMELAB_ANALYTICS_EXTENSION_PATHS` adds custom import roots for external extension repositories or mounted code paths
-- `HOMELAB_ANALYTICS_EXTENSION_MODULES` lists Python modules to import and register into the layer extension registry
-- `HOMELAB_ANALYTICS_SECRET__<SECRET_NAME>__<SECRET_KEY>` provides runtime values for secret references used by HTTP ingestion definitions
+- `HOMELAB_ANALYTICS_DATA_DIR` — local data directory (default: `.local/homelab-analytics`)
+- `HOMELAB_ANALYTICS_POSTGRES_DSN` — shared Postgres backend DSN
+- `HOMELAB_ANALYTICS_AUTH_MODE` — `disabled`, `local`, or `oidc` (default: `disabled`)
+- `HOMELAB_ANALYTICS_BLOB_BACKEND` — `filesystem` or `s3` (default: `filesystem`)
+- `HOMELAB_ANALYTICS_EXTENSION_PATHS` — custom import roots for external extensions
 
 Examples:
 
 ```bash
 python -m apps.worker.main ingest-account-transactions tests/fixtures/account_transactions_valid.csv
-python -m apps.worker.main ingest-subscriptions tests/fixtures/subscriptions_valid.csv
-python -m apps.worker.main ingest-contract-prices tests/fixtures/contract_prices_valid.csv
 python -m apps.worker.main list-runs
-python -m apps.worker.main list-ingestion-definitions
-python -m apps.worker.main list-execution-schedules
-python -m apps.worker.main list-local-users
-python -m apps.worker.main create-local-admin-user admin replace-me-password
-python -m apps.worker.main reset-local-user-password admin replace-me-new-password
-python -m apps.worker.main enqueue-due-schedules --as-of 2026-01-01T00:00:00+00:00
-python -m apps.worker.main list-schedule-dispatches
-python -m apps.worker.main list-worker-heartbeats
-python -m apps.worker.main recover-stale-schedule-dispatches
-python -m apps.worker.main mark-schedule-dispatch <dispatch_id> --status completed
-python -m apps.worker.main process-schedule-dispatch <dispatch_id>
-python -m apps.worker.main watch-schedule-dispatches
-python -m apps.worker.main export-control-plane /tmp/control-plane.json
-python -m apps.worker.main import-control-plane /tmp/control-plane.json
-python -m apps.worker.main verify-config
-python -m apps.worker.main list-extensions
 python -m apps.worker.main report-monthly-cashflow
-python -m apps.worker.main report-subscription-summary
-python -m apps.worker.main report-contract-prices
-python -m apps.worker.main report-electricity-prices
-python -m apps.worker.main report-utility-cost-summary
-python -m apps.worker.main run-transformation-extension account_transactions_canonical <run_id>
-python -m apps.worker.main run-reporting-extension monthly_cashflow_summary <run_id>
-python -m apps.worker.main process-ingestion-definition <ingestion_definition_id>
-python -m apps.worker.main process-account-transactions-inbox
+python -m apps.worker.main watch-schedule-dispatches
 python -m apps.api.main
 python -m apps.web.main
 ```
 
-Verification:
+When a DuckDB transformation service is configured, built-in datasets auto-promote successful runs into the current silver/gold path through source-asset transformation bindings and publication definitions. Re-running promotion for the same run is idempotent and refreshes marts without duplicating facts.
+
+## Verification
 
 ```bash
 make verify-fast
@@ -182,53 +138,18 @@ Use `make verify-config VERIFY_CONFIG_ARGS="--source-asset-id <source_asset_id>"
 
 ## Extension model
 
-The application keeps core ingestion, transformation, and reporting logic in-repo, but it now also supports external extension modules.
+The application keeps core ingestion, transformation, and reporting logic in-repo, but also supports external extension modules.
 
-- built-in features remain the default and are registered in a shared layer registry
-- external repositories or mounted custom paths can be added with `HOMELAB_ANALYTICS_EXTENSION_PATHS`
-- extension modules are imported from `HOMELAB_ANALYTICS_EXTENSION_MODULES`
-- each extension module must define `register_extensions(registry)` and register one or more entries for `landing`, `transformation`, `reporting`, or `application`
-- executable landing, transformation, and reporting extensions can be run through the worker CLI and selected API endpoints once they register a handler
-- executable reporting extensions must declare `data_access="published"` or `data_access="warehouse"` so application-facing execution does not silently fall back to landing reads
-- published reporting extensions can also declare `publication_relations` so their named relations can be mirrored into the Postgres reporting store by publication key
+- Built-in features are registered in a shared layer registry
+- External repositories or mounted custom paths can be added with `HOMELAB_ANALYTICS_EXTENSION_PATHS`
+- Extension modules are imported from `HOMELAB_ANALYTICS_EXTENSION_MODULES`
+- Each extension module must define `register_extensions(registry)` and register entries for `landing`, `transformation`, `reporting`, or `application`
+- Executable extensions can be invoked through the worker CLI and API
+- Published reporting extensions can declare `publication_relations` for Postgres mirroring
 
-That pattern keeps key product logic inside this repository while allowing custom source connectors, transformations, marts, and UI/API additions to live outside the main codebase.
-
-Current execution surfaces:
-
-`/health`, `/ready`, and `/metrics` stay public. In both local-auth and OIDC modes, `/runs*`, `/reports*`, `/transformation-audit`, `GET /control/source-lineage`, `GET /control/publication-audit`, and the Next.js dashboard/run-detail views require at least a `reader`; `/ingest*` requires `operator`; `/config/*`, `/control/auth-audit`, `/control/schedule-dispatches`, `/extensions`, `/sources`, `/landing/*`, `/transformations/*`, persisted-ingestion processing, `/auth/users*`, `/auth/service-tokens*`, and the `/control`, `/control/catalog`, and `/control/execution` admin pages require `admin`. Cookie-authenticated `POST` routes require a CSRF token, local login failures are rate-limited via control-plane auth audit history, API/web startup now fail fast on incomplete auth config, OIDC browser login flows mint the same signed app session cookie through `/auth/login` and `/auth/callback`, and direct API clients can present either validated OIDC bearer JWTs or opaque `hst_...` service tokens on protected endpoints. Service tokens are scope-bound (`reports:read`, `runs:read`, `ingest:write`, `admin:write`) so automation can be limited without minting full browser identities, and `/metrics` now exports service-token state gauges alongside queue/runtime metrics. `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN=true` remains a temporary local/dev-only escape hatch that is not used by the Compose or Helm defaults.
-
-- `POST /landing/{extension_key}` for executable landing extensions
-- `GET /ready` for readiness checks once startup configuration validation has passed
-- `GET /metrics` for Prometheus-compatible operational metrics, including queue depth, running/failed/stale dispatch gauges, recovered dispatch count, worker count, oldest heartbeat age, failed-dispatch ratio, and service-token state gauges
-- `GET /runs/{run_id}` for run-detail inspection in the API and Next.js web shell
-- `POST /runs/{run_id}/retry` for operator retry of built-in and saved-binding configured runs
-- `GET /auth/me`, `GET|POST /auth/login`, `GET /auth/callback`, and `POST /auth/logout` for local or OIDC-backed session management
-- `GET /auth/users`, `POST /auth/users`, `PATCH /auth/users/{user_id}`, and `POST /auth/users/{user_id}/password` for bootstrap local-user management
-- `GET /auth/service-tokens`, `POST /auth/service-tokens`, and `POST /auth/service-tokens/{token_id}/revoke` for automation-token lifecycle management
-- `GET /sources` for the current source-system and source-asset catalog
-- `GET`, `POST`, and `PATCH /config/source-systems/{id}` for source-system configuration
-- `GET` and `POST /config/dataset-contracts`, `GET /config/dataset-contracts/{id}/diff`, and `PATCH /config/dataset-contracts/{id}/archive` for dataset-contract configuration, diffing, and archived-version lifecycle
-- `GET` and `POST /config/column-mappings`, `GET /config/column-mappings/{id}/diff`, `PATCH /config/column-mappings/{id}/archive`, and `POST /config/column-mappings/preview` for column-mapping configuration, preview, diffing, and archived-version lifecycle
-- `GET` and `POST /config/transformation-packages` for binding source assets to canonical transforms
-- `GET` and `POST /config/publication-definitions` for declaring published reporting outputs
-- `GET`, `POST`, `PATCH /config/source-assets/{id}`, `PATCH /config/source-assets/{id}/archive`, and `DELETE /config/source-assets/{id}` for source-asset configuration and lifecycle control
-- `GET`, `POST`, `PATCH /config/ingestion-definitions/{id}`, `PATCH /config/ingestion-definitions/{id}/archive`, and `DELETE /config/ingestion-definitions/{id}` for transport, watch-folder, direct-API, and batch-extract configuration
-- `GET`, `POST`, `PATCH /config/execution-schedules/{id}`, `PATCH /config/execution-schedules/{id}/archive`, and `DELETE /config/execution-schedules/{id}` for enqueue-only schedule definitions
-- `GET /control/source-lineage`, `GET /control/publication-audit`, `GET /control/operational-summary`, `GET /control/schedule-dispatches`, `GET /control/schedule-dispatches/{id}`, and `POST /control/schedule-dispatches` for control-plane visibility and queueing
-- `GET /control/auth-audit` for login, logout, local-user admin, and service-token audit events
-- `POST /ingest` for JSON path-based ingestion and multipart file uploads
-- `POST /ingest/configured-csv` for config-driven CSV ingestion from server-side paths or multipart browser uploads bound by `source_asset_id`
-- `POST /ingest/subscriptions` and `POST /ingest/contract-prices` for built-in non-transaction domains
-- `POST /ingest/ingestion-definitions/{id}/process` for config-driven watch-folder, direct-API, and batch-extract execution
-- `GET /reports/current-dimensions/{dimension_name}` for current SCD-dimension snapshots from the reporting layer
-- `GET /reports/subscription-summary`, `GET /reports/contract-prices`, `GET /reports/electricity-prices`, and `GET /reports/utility-cost-summary` for built-in domain marts
-- `GET /transformations/{extension_key}?run_id=...` for executable transformation extensions
-- `GET /reports/{extension_key}?run_id=...` for executable reporting extensions
+See `docs/architecture/data-platform-architecture.md` for the full extensibility model, pack ecosystem model, and registry source expectations.
 
 ## Install locally
-
-The repository now includes `pyproject.toml` with console scripts.
 
 ```bash
 python -m pip install -e .
@@ -240,8 +161,6 @@ homelab-analytics-web
 
 ## Run with Docker
 
-Bootstrap artifacts now exist for image and Compose-based execution.
-
 ```bash
 docker build -f infra/docker/Dockerfile -t homelab-analytics .
 docker build -f infra/docker/web.Dockerfile -t homelab-analytics-web .
@@ -249,20 +168,11 @@ docker run --rm -p 8080:8080 -v "$(pwd)/.local/homelab-analytics:/data" homelab-
 
 make compose-smoke
 docker compose -f infra/examples/compose.yaml up --build
-docker compose -f infra/examples/compose.yaml run --rm worker ingest-account-transactions /data/input.csv
 ```
 
-The example Compose stack now includes Postgres and MinIO and configures the workloads to use them for control-plane state, published reporting reads, landed payload storage, explicit local break-glass auth, readiness checks, and the dedicated Next.js web image. API and worker now consume the purpose-specific Postgres DSN environment variables even though the local example still points them at the same bootstrap Postgres role. DuckDB remains local to the shared `/data` volume as the transformation-layer store.
-`make compose-smoke` is the operator-facing startup check for that stack: it reuses the shared `homelab-analytics:latest` image when present, waits for API and web health, runs the worker CLI once, and then tears the stack down.
-The Compose services also now define container healthchecks for API and web, so runtime tooling can observe the same readiness contract the smoke target uses.
-The example stack pins third-party images as well, so release-ops verification is not silently tracking upstream `latest` tags.
-The repo also now ships a `.dockerignore` that strips local virtualenvs, caches, tests, and docs from the build context so routine container verification stays cheap.
-
-For Kubernetes-facing secret handling, the repository now includes example Secret manifests under `infra/examples/secrets/` for the current credential classes: bootstrap single-DSN database access, workload-scoped API and worker database access, bootstrap local auth, blob storage, OIDC, and provider API access. It also includes an External Secrets Operator example for the bootstrap Postgres DSN and a SOPS-style encrypted Secret example for provider credentials. These are placeholders only and meant to show the intended cluster-managed patterns, not to be applied unchanged.
+The example Compose stack includes Postgres and MinIO and configures workloads for control-plane state, published reporting, landed payload storage, and local break-glass auth. `make compose-smoke` is the operator-facing startup check.
 
 ## Run with Helm
-
-The repository now includes a chart for the current API, Next.js web, and continuous worker slice.
 
 ```bash
 helm lint charts/homelab-analytics
@@ -270,6 +180,4 @@ helm template homelab-analytics charts/homelab-analytics
 helm install homelab-analytics charts/homelab-analytics
 ```
 
-The Helm verification gate now parses rendered manifests and asserts workload image/command wiring, ingress and alert-rule rendering, and per-workload `secretEnvFrom` references, while also checking that chart output does not render inline credentials or Secret objects for the runtime stack.
-The chart also now includes `charts/homelab-analytics/values.runtime-secrets-example.yaml`, which demonstrates the intended Secret isolation split between API database/blob/OIDC access, web OIDC-only access, and worker database/blob/landing/transformation access. `charts/homelab-analytics/values.oidc-ingress-example.yaml` shows the shared-deployment path with OIDC, TLS-enabled ingress, and `PrometheusRule` alerts.
-The default chart values now enable `HOMELAB_ANALYTICS_AUTH_MODE=oidc`; API and web expect Secret-backed OIDC/session settings via `secretEnvFrom`, while local bootstrap admin credentials are no longer part of the shared-deployment default. The example values and runbooks under `docs/runbooks/` cover the expected ingress callback shape, runtime Secret split, and backup/restore flow. Local auth remains available as an explicit break-glass override.
+The default chart values enable OIDC auth. See `docs/runbooks/operations.md` for ingress, readiness, and alert-response guidance. See `charts/homelab-analytics/values.runtime-secrets-example.yaml` for the intended Secret isolation split.

@@ -175,13 +175,13 @@ export default async function ReportsPage() {
         {utilityTrend.length > 0 &&
           utilityTypes.map((utilityType) => {
             const typeRows = utilityTrend.filter((r) => r.utility_type === utilityType);
-            const months = [...new Set(typeRows.map((r) => r.booking_month))].sort();
+            const months = [...new Set(typeRows.map((r) => r.billing_month))].sort();
             const series = [
               {
                 label: utilityType,
                 color: "var(--accent-warm)",
                 values: months.map((month) => {
-                  const row = typeRows.find((r) => r.booking_month === month);
+                  const row = typeRows.find((r) => r.billing_month === month);
                   return row ? Number(row.total_cost) : null;
                 }),
               },

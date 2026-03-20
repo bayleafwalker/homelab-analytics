@@ -2,21 +2,47 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from packages.pipelines.budget_models import (
+    CURRENT_DIM_BUDGET_VIEW,
+    DIM_BUDGET,
+    MART_BUDGET_PROGRESS_CURRENT_COLUMNS,
+    MART_BUDGET_PROGRESS_CURRENT_TABLE,
+    MART_BUDGET_VARIANCE_COLUMNS,
+    MART_BUDGET_VARIANCE_TABLE,
+)
 from packages.pipelines.contract_price_models import (
     MART_CONTRACT_PRICE_CURRENT_COLUMNS,
     MART_CONTRACT_PRICE_CURRENT_TABLE,
     MART_ELECTRICITY_PRICE_CURRENT_COLUMNS,
     MART_ELECTRICITY_PRICE_CURRENT_TABLE,
 )
+from packages.pipelines.loan_models import (
+    CURRENT_DIM_LOAN_VIEW,
+    DIM_LOAN,
+    MART_LOAN_OVERVIEW_COLUMNS,
+    MART_LOAN_OVERVIEW_TABLE,
+    MART_LOAN_REPAYMENT_VARIANCE_COLUMNS,
+    MART_LOAN_REPAYMENT_VARIANCE_TABLE,
+    MART_LOAN_SCHEDULE_PROJECTED_COLUMNS,
+    MART_LOAN_SCHEDULE_PROJECTED_TABLE,
+)
 from packages.pipelines.overview_models import (
+    MART_AFFORDABILITY_RATIOS_COLUMNS,
+    MART_AFFORDABILITY_RATIOS_TABLE,
+    MART_COST_TREND_12M_COLUMNS,
+    MART_COST_TREND_12M_TABLE,
     MART_CURRENT_OPERATING_BASELINE_COLUMNS,
     MART_CURRENT_OPERATING_BASELINE_TABLE,
+    MART_HOUSEHOLD_COST_MODEL_COLUMNS,
+    MART_HOUSEHOLD_COST_MODEL_TABLE,
     MART_HOUSEHOLD_OVERVIEW_COLUMNS,
     MART_HOUSEHOLD_OVERVIEW_TABLE,
     MART_OPEN_ATTENTION_ITEMS_COLUMNS,
     MART_OPEN_ATTENTION_ITEMS_TABLE,
     MART_RECENT_SIGNIFICANT_CHANGES_COLUMNS,
     MART_RECENT_SIGNIFICANT_CHANGES_TABLE,
+    MART_RECURRING_COST_BASELINE_COLUMNS,
+    MART_RECURRING_COST_BASELINE_TABLE,
 )
 from packages.pipelines.subscription_models import (
     CURRENT_DIM_CATEGORY_VIEW,
@@ -182,6 +208,41 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         columns=_current_dimension_columns(DIM_METER),
         order_by="meter_id",
     ),
+    MART_LOAN_SCHEDULE_PROJECTED_TABLE: PublicationRelation(
+        relation_name=MART_LOAN_SCHEDULE_PROJECTED_TABLE,
+        columns=MART_LOAN_SCHEDULE_PROJECTED_COLUMNS,
+        order_by="loan_id, period",
+    ),
+    MART_LOAN_REPAYMENT_VARIANCE_TABLE: PublicationRelation(
+        relation_name=MART_LOAN_REPAYMENT_VARIANCE_TABLE,
+        columns=MART_LOAN_REPAYMENT_VARIANCE_COLUMNS,
+        order_by="loan_id, repayment_month",
+    ),
+    MART_LOAN_OVERVIEW_TABLE: PublicationRelation(
+        relation_name=MART_LOAN_OVERVIEW_TABLE,
+        columns=MART_LOAN_OVERVIEW_COLUMNS,
+        order_by="loan_name",
+    ),
+    CURRENT_DIM_LOAN_VIEW: PublicationRelation(
+        relation_name=CURRENT_DIM_LOAN_VIEW,
+        columns=_current_dimension_columns(DIM_LOAN),
+        order_by="loan_id",
+    ),
+    MART_BUDGET_VARIANCE_TABLE: PublicationRelation(
+        relation_name=MART_BUDGET_VARIANCE_TABLE,
+        columns=MART_BUDGET_VARIANCE_COLUMNS,
+        order_by="budget_name, period_label",
+    ),
+    MART_BUDGET_PROGRESS_CURRENT_TABLE: PublicationRelation(
+        relation_name=MART_BUDGET_PROGRESS_CURRENT_TABLE,
+        columns=MART_BUDGET_PROGRESS_CURRENT_COLUMNS,
+        order_by="budget_name, category",
+    ),
+    CURRENT_DIM_BUDGET_VIEW: PublicationRelation(
+        relation_name=CURRENT_DIM_BUDGET_VIEW,
+        columns=_current_dimension_columns(DIM_BUDGET),
+        order_by="budget_id",
+    ),
     TRANSFORMATION_AUDIT_TABLE: PublicationRelation(
         relation_name=TRANSFORMATION_AUDIT_TABLE,
         columns=TRANSFORMATION_AUDIT_COLUMNS,
@@ -207,6 +268,26 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         columns=MART_CURRENT_OPERATING_BASELINE_COLUMNS,
         order_by="baseline_type",
     ),
+    MART_HOUSEHOLD_COST_MODEL_TABLE: PublicationRelation(
+        relation_name=MART_HOUSEHOLD_COST_MODEL_TABLE,
+        columns=MART_HOUSEHOLD_COST_MODEL_COLUMNS,
+        order_by="period_label, cost_type",
+    ),
+    MART_COST_TREND_12M_TABLE: PublicationRelation(
+        relation_name=MART_COST_TREND_12M_TABLE,
+        columns=MART_COST_TREND_12M_COLUMNS,
+        order_by="period_label, cost_type",
+    ),
+    MART_AFFORDABILITY_RATIOS_TABLE: PublicationRelation(
+        relation_name=MART_AFFORDABILITY_RATIOS_TABLE,
+        columns=MART_AFFORDABILITY_RATIOS_COLUMNS,
+        order_by="ratio_name",
+    ),
+    MART_RECURRING_COST_BASELINE_TABLE: PublicationRelation(
+        relation_name=MART_RECURRING_COST_BASELINE_TABLE,
+        columns=MART_RECURRING_COST_BASELINE_COLUMNS,
+        order_by="cost_source, counterparty_or_contract",
+    ),
 }
 
 
@@ -216,4 +297,6 @@ CURRENT_DIMENSION_RELATIONS = {
     "dim_contract": CURRENT_DIM_CONTRACT_VIEW,
     "dim_category": CURRENT_DIM_CATEGORY_VIEW,
     "dim_meter": CURRENT_DIM_METER_VIEW,
+    "dim_budget": CURRENT_DIM_BUDGET_VIEW,
+    "dim_loan": CURRENT_DIM_LOAN_VIEW,
 }

@@ -20,6 +20,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from packages.pipelines.builtin_promotion_handlers import (
+    promote_budget_run,
     promote_contract_price_run,
     promote_run,
     promote_subscription_run,
@@ -43,6 +44,7 @@ from packages.storage.run_metadata import RunMetadataStore
 __all__ = [
     "PromotionResult",
     "get_builtin_promotion_handler",
+    "promote_budget_run",
     "promote_contract_price_run",
     "promote_run",
     "promote_source_asset_run",

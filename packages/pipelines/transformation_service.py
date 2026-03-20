@@ -7,6 +7,10 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from packages.pipelines.budget_models import (
+    CURRENT_DIM_BUDGET_VIEW,
+    DIM_BUDGET,
+)
 from packages.pipelines.category_rules import (
     add_category_rule,
     backfill_counterparty_categories,
@@ -17,6 +21,10 @@ from packages.pipelines.category_rules import (
     remove_category_rule,
     resolve_categories_bulk,
     set_category_override,
+)
+from packages.pipelines.loan_models import (
+    CURRENT_DIM_LOAN_VIEW,
+    DIM_LOAN,
 )
 from packages.pipelines.normalization import (
     normalize_currency_code,
@@ -35,6 +43,15 @@ from packages.pipelines.transaction_models import (
     DIM_COUNTERPARTY,
     TRANSFORMATION_AUDIT_TABLE,
 )
+from packages.pipelines.transformation_budgets import (
+    count_budget_targets,
+    ensure_budget_storage,
+    get_budget_progress_current,
+    get_budget_variance,
+    load_budget_targets,
+    refresh_budget_progress_current,
+    refresh_budget_variance,
+)
 from packages.pipelines.transformation_contract_prices import (
     count_contract_prices,
     ensure_contract_price_storage,
@@ -47,16 +64,35 @@ from packages.pipelines.transformation_domain_registry import (
     TransformationDomainRegistry,
     get_default_transformation_domain_registry,
 )
+from packages.pipelines.transformation_loans import (
+    count_loan_repayments,
+    ensure_loan_storage,
+    get_loan_overview,
+    get_loan_repayment_variance,
+    get_loan_schedule_projected,
+    load_loan_repayments,
+    refresh_loan_overview,
+    refresh_loan_repayment_variance,
+    refresh_loan_schedule_projected,
+)
 from packages.pipelines.transformation_overview import (
     ensure_overview_storage,
+    get_affordability_ratios,
+    get_cost_trend_12m,
     get_current_operating_baseline,
+    get_household_cost_model,
     get_household_overview,
     get_open_attention_items,
     get_recent_significant_changes,
+    get_recurring_cost_baseline,
+    refresh_affordability_ratios,
+    refresh_cost_trend_12m,
     refresh_current_operating_baseline,
+    refresh_household_cost_model,
     refresh_household_overview,
     refresh_open_attention_items,
     refresh_recent_significant_changes,
+    refresh_recurring_cost_baseline,
 )
 from packages.pipelines.transformation_refresh_registry import (
     PublicationRefreshRegistry,
@@ -153,6 +189,14 @@ class TransformationService:
         self._store.ensure_dimension(DIM_METER)
         self._store.ensure_current_dimension_view(DIM_METER, CURRENT_DIM_METER_VIEW)
         ensure_utility_storage(self._store)
+
+        self._store.ensure_dimension(DIM_BUDGET)
+        self._store.ensure_current_dimension_view(DIM_BUDGET, CURRENT_DIM_BUDGET_VIEW)
+        ensure_budget_storage(self._store)
+
+        self._store.ensure_dimension(DIM_LOAN)
+        self._store.ensure_current_dimension_view(DIM_LOAN, CURRENT_DIM_LOAN_VIEW)
+        ensure_loan_storage(self._store)
 
         ensure_overview_storage(self._store)
         ensure_category_storage(self._store)
@@ -429,6 +473,16 @@ class TransformationService:
             f"SELECT * FROM {CURRENT_DIM_METER_VIEW} ORDER BY meter_id"
         )
 
+    def get_current_budgets(self) -> list[dict[str, Any]]:
+        return self._store.fetchall_dicts(
+            f"SELECT * FROM {CURRENT_DIM_BUDGET_VIEW} ORDER BY budget_id"
+        )
+
+    def get_current_loans(self) -> list[dict[str, Any]]:
+        return self._store.fetchall_dicts(
+            f"SELECT * FROM {CURRENT_DIM_LOAN_VIEW} ORDER BY loan_id"
+        )
+
     def get_current_dimension_rows(self, dimension_name: str) -> list[dict[str, Any]]:
         if dimension_name == "dim_account":
             return self.get_current_accounts()
@@ -440,6 +494,10 @@ class TransformationService:
             return self.get_current_categories()
         if dimension_name == "dim_meter":
             return self.get_current_meters()
+        if dimension_name == "dim_budget":
+            return self.get_current_budgets()
+        if dimension_name == "dim_loan":
+            return self.get_current_loans()
         raise KeyError(f"Unknown current dimension: {dimension_name}")
 
     @property
@@ -483,6 +541,101 @@ class TransformationService:
             status=status,
             currency=currency,
         )
+
+    # ------------------------------------------------------------------
+    # Budget targets
+    # ------------------------------------------------------------------
+
+    def load_budget_targets(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        run_id: str | None = None,
+        effective_date: date | None = None,
+        source_system: str | None = None,
+    ) -> int:
+        return load_budget_targets(
+            self._store,
+            rows=rows,
+            record_lineage=self._record_lineage,
+            dim_budget=DIM_BUDGET,
+            run_id=run_id,
+            effective_date=effective_date,
+            source_system=source_system,
+        )
+
+    def count_budget_targets(self, run_id: str | None = None) -> int:
+        return count_budget_targets(self._store, run_id=run_id)
+
+    def refresh_budget_variance(self) -> int:
+        return refresh_budget_variance(self._store)
+
+    def get_budget_variance(
+        self,
+        *,
+        budget_name: str | None = None,
+        category: str | None = None,
+        period_label: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_budget_variance(
+            self._store,
+            budget_name=budget_name,
+            category=category,
+            period_label=period_label,
+        )
+
+    def refresh_budget_progress_current(self) -> int:
+        return refresh_budget_progress_current(self._store)
+
+    def get_budget_progress_current(self) -> list[dict[str, Any]]:
+        return get_budget_progress_current(self._store)
+
+    # ------------------------------------------------------------------
+    # Loan repayments
+    # ------------------------------------------------------------------
+
+    def load_loan_repayments(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        run_id: str | None = None,
+        effective_date: date | None = None,
+        source_system: str | None = None,
+    ) -> int:
+        return load_loan_repayments(
+            self._store,
+            rows=rows,
+            record_lineage=self._record_lineage,
+            dim_loan=DIM_LOAN,
+            run_id=run_id,
+            effective_date=effective_date,
+            source_system=source_system,
+        )
+
+    def count_loan_repayments(self, run_id: str | None = None) -> int:
+        return count_loan_repayments(self._store, run_id=run_id)
+
+    def refresh_loan_schedule_projected(self) -> int:
+        return refresh_loan_schedule_projected(self._store)
+
+    def refresh_loan_repayment_variance(self) -> int:
+        return refresh_loan_repayment_variance(self._store)
+
+    def refresh_loan_overview(self) -> int:
+        return refresh_loan_overview(self._store)
+
+    def get_loan_schedule_projected(
+        self, loan_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_loan_schedule_projected(self._store, loan_id=loan_id)
+
+    def get_loan_repayment_variance(
+        self, loan_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_loan_repayment_variance(self._store, loan_id=loan_id)
+
+    def get_loan_overview(self) -> list[dict[str, Any]]:
+        return get_loan_overview(self._store)
 
     def load_contract_prices(
         self,
@@ -630,3 +783,34 @@ class TransformationService:
 
     def get_current_operating_baseline(self) -> list[dict[str, Any]]:
         return get_current_operating_baseline(self._store)
+
+    def refresh_household_cost_model(self) -> int:
+        return refresh_household_cost_model(self._store)
+
+    def get_household_cost_model(
+        self,
+        *,
+        period_label: str | None = None,
+        cost_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_household_cost_model(
+            self._store, period_label=period_label, cost_type=cost_type
+        )
+
+    def refresh_cost_trend_12m(self) -> int:
+        return refresh_cost_trend_12m(self._store)
+
+    def get_cost_trend_12m(self) -> list[dict[str, Any]]:
+        return get_cost_trend_12m(self._store)
+
+    def refresh_affordability_ratios(self) -> int:
+        return refresh_affordability_ratios(self._store)
+
+    def get_affordability_ratios(self) -> list[dict[str, Any]]:
+        return get_affordability_ratios(self._store)
+
+    def refresh_recurring_cost_baseline(self) -> int:
+        return refresh_recurring_cost_baseline(self._store)
+
+    def get_recurring_cost_baseline(self) -> list[dict[str, Any]]:
+        return get_recurring_cost_baseline(self._store)

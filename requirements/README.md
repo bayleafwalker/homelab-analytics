@@ -1,8 +1,8 @@
 # Requirements Baseline
 
-This folder is the authoritative source for product and technical requirements.
+This folder is the authoritative source for product and technical requirements for the household operating platform.
 
-Each document follows a common template (see below) and covers one requirement domain. Requirements are uniquely identified, phased, and linked to acceptance criteria so that implementation and test coverage can be traced back to stated goals.
+Each document follows a common template (see below) and covers one requirement domain. Requirements are uniquely identified, phased, and linked to acceptance criteria so that implementation and test coverage can be traced back to stated goals. The phase model aligns with the 10-stage operating platform roadmap defined in `docs/plans/household-operating-platform-roadmap.md`.
 
 ## Documents
 
@@ -42,18 +42,19 @@ Links to architecture docs, implementation modules, and tests.
 
 ## Phases
 
-| Phase | Name | Focus |
-|---|---|---|
-| 0 | Bootstrap | Repo structure, planning docs, first scaffold vertical slice |
-| 1 | Foundation | Production stack, first complete dataset through all three layers |
-| 2 | Generalization | Multiple datasets, generic connectors, frontend |
-| 3 | Household packs | Utility, loan, budget, cluster analytics |
-| 4 | Productization | Auth, CI/CD, public release, admin UI |
+| Phase | Name | Focus | Stage alignment |
+|---|---|---|---|
+| 0 | Bootstrap | Repo structure, planning docs, first scaffold vertical slice | Stage 0 |
+| 1 | Foundation | Production stack, first complete dataset through all three layers | Stages 0–1 |
+| 2 | Generalization | Multiple datasets, generic connectors, operating views | Stages 1–2 |
+| 3 | Household operating model | Budget, loans, cost model, planning surfaces, homelab operations | Stages 2–3 |
+| 4 | Platform maturity | Auth, CI/CD, multi-renderer, policy, ecosystem foundations | Stages 3–5 |
 
 ## Conventions
 
 - Requirement IDs are stable — never reuse a retired ID.
 - Phase assignments are targets, not guarantees; adjust as scope clarifies.
+- The phase model was expanded in the Stage 0 documentation reset to align with the operating-platform roadmap. Requirement IDs and statuses remain stable across all phases.
 - Status tracks implementation, not importance.
 - Acceptance criteria must be testable — prefer "pytest passes X" or "API returns Y" over vague quality statements.
 
