@@ -335,3 +335,148 @@ The first implementation should bias toward simple, auditable batch pipelines:
 - no custom DSL before the core source and mapping model works
 
 That path keeps the architecture open for future scale without paying the full complexity cost on day one.
+
+## Semantic domain layer
+
+The transformation layer produces domain-specific facts and dimensions. The semantic domain layer governs how those domain models compose into a coherent cross-domain household model.
+
+Responsibilities:
+
+- define shared dimensions (`dim_category`, `dim_counterparty`, `dim_household_member`) once and ensure all consuming facts reference them by surrogate key
+- govern how domain packs register their canonical models without creating duplicate or conflicting dimension definitions
+- define composition rules for cross-domain surfaces such as the overview pack, which reads from finance, utilities, and homelab publications without re-deriving domain logic
+- attach semantic metadata to publications — data type, aggregation semantics, time grain, display hints — so downstream consumers can interpret outputs without inspecting implementation
+
+Domain packs own their internal models. The semantic layer owns the contracts between them.
+
+Roadmap reference: Stage 1 in `docs/plans/household-operating-platform-roadmap.md`.
+
+## Planning and scenario layer
+
+The reporting layer publishes what happened. The planning and scenario layer supports what should happen and what might happen.
+
+Planning responsibilities:
+
+- persist budget targets, goal definitions, and obligation records as first-class entities separate from operational reporting state
+- compute variance between planned and actual outcomes across configurable time windows
+- track recurring commitments, renewal dates, and expiry conditions
+- produce structured state indicators (on track, warning, needs action) for budgets, debt, and cost envelopes
+
+Scenario responsibilities:
+
+- store scenario definitions with explicit input assumptions, parameters, and version identity
+- compute projected outcomes from current canonical state plus scenario overrides
+- ensure simulated outputs are clearly distinguishable from observed state in publications and APIs
+- support scenario comparison across saved scenario sets
+- attach explainability metadata linking every projection to the assumptions that produced it
+
+Planning models should not write to reporting marts. They should publish through their own planning-specific publication contracts so that observed state and projected state are never silently conflated.
+
+Relationship to existing requirements: ANA-02 (loan projections), ANA-03 (budget variance), ANA-04 (cost modeling), ANA-06 (affordability).
+
+Roadmap reference: Stages 3–4 in `docs/plans/household-operating-platform-roadmap.md`.
+
+## Policy and automation layer
+
+The platform should be able to act on observed state, not just report it. The policy and automation layer defines how.
+
+Policy model:
+
+- a policy is a named rule with a condition, a threshold or comparison, and one or more actions
+- conditions evaluate against publication state, planning state, or freshness metadata
+- actions include notification, report generation, integration trigger, and action recommendation
+- policies must not bypass publication or lineage contracts — they consume published outputs, not warehouse internals
+
+Action dispatch:
+
+- notifications: email, webhook, push, or in-platform attention items
+- integration triggers: Home Assistant entity updates, webhook payloads, scheduled job dispatch
+- report generation: on-demand or triggered publication refresh and export
+
+Safety boundary:
+
+- **recommendation** actions surface suggestions without side effects
+- **alerting** actions notify the operator without changing system state
+- **automation** actions trigger external effects and require explicit operator approval or policy-level authorization
+
+The policy layer should treat the existing execution substrate (APIs, service tokens, schedules, worker dispatch) as its delivery mechanism rather than building a parallel execution model.
+
+Roadmap reference: Stage 5 in `docs/plans/household-operating-platform-roadmap.md`.
+
+## Multi-renderer delivery layer
+
+The platform should not assume one privileged frontend. Publications are semantic outputs that multiple renderers can consume independently.
+
+Delivery model:
+
+- each publication carries semantic metadata sufficient for a renderer to display it without understanding its implementation: schema, data type, aggregation semantics, time grain, and optional display hints
+- UI descriptors (as defined in the platform ADR) provide renderer-facing presentation metadata: chart type, layout hints, card titles, filter bindings
+- renderers discover available publications and their descriptors through a stable registry contract rather than hard-coded endpoint lists
+
+Renderer expectations:
+
+- the current Next.js web shell remains one renderer among potential others
+- Home Assistant entities and cards can be derived from the same publication contracts
+- API clients negotiate content type and export format against published schemas
+- agent-facing tool surfaces consume the same semantic layer as human-facing dashboards
+
+The delivery layer does not own business logic. It translates semantic publication metadata into renderer-specific output.
+
+Roadmap reference: Stage 6 in `docs/plans/household-operating-platform-roadmap.md`.
+
+## Pack ecosystem model
+
+The extension model should evolve from a loading mechanism into a governed ecosystem.
+
+Pack model:
+
+- a pack is a versioned bundle that declares its capabilities, dependencies, and platform compatibility through a structured manifest
+- pack types include source packs (connectors), domain packs (facts, dimensions, marts, insights), reporting packs (visualizations, exports), and automation packs (policies, integration adapters)
+- packs register through the same capability model used by built-in domain packs
+
+Lifecycle:
+
+- discovery: packs are found through configured sources (local paths, Git repositories, or future index services)
+- validation: manifest compatibility, declared dependencies, and contract conformance are verified before activation
+- installation: resolved and cached locally with an immutable revision identity
+- activation: loaded into the extension and pipeline registries alongside built-in capabilities
+- upgrade: new revisions go through validation before replacing active revisions
+- deactivation: packs can be disabled without removal
+
+Trust boundaries:
+
+- packs execute within the same process as the platform core
+- pack-originated publications must carry provenance metadata identifying the owning pack
+- pack code does not receive elevated privileges beyond what the extension registry contracts expose
+
+Relationship to existing work: `docs/plans/external-registry-inclusion.md` defines the control-plane design for external sources. The platform ADR defines the capability pack model and registration contracts.
+
+Roadmap reference: Stage 7 in `docs/plans/household-operating-platform-roadmap.md`.
+
+## Trust and governance layer
+
+The platform should be explainable, auditable, and safe to rely on for household decisions that have real financial or operational consequences.
+
+Lineage:
+
+- every published output should be traceable to the source runs, transformations, and assumptions that produced it
+- lineage should cover observed data (landing → transformation → publication), planning outputs (targets → variance), simulation outputs (assumptions → projections), and automation outputs (policy → action → result)
+- lineage is queryable, not just logged — the operator should be able to ask "why is this number here?"
+
+Quality and confidence:
+
+- publications should carry freshness indicators: when last updated, which source runs contributed, whether any source is stale relative to its expected schedule
+- completeness indicators should flag missing source coverage (e.g., a monthly cost model missing utility data for the current period)
+- confidence scoring should reflect data quality, source coverage, and assumption sensitivity without pretending to statistical precision
+
+Audit:
+
+- state-changing operations (ingestion, transformation, publication, policy execution, pack activation, user management) should produce audit records
+- audit records should be queryable through the control plane, not only through log inspection
+
+Operator confidence:
+
+- a confidence surface should let the operator assess platform health without reading logs: source freshness, publication staleness, validation failure rate, automation action history, and pack execution status
+- the platform should default to safe: stale data should be visibly stale, incomplete models should be visibly incomplete, and automation should fail open (recommend rather than act) when confidence is low
+
+Roadmap reference: Stage 8 in `docs/plans/household-operating-platform-roadmap.md`.
