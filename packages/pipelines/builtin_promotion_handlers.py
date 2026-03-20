@@ -5,13 +5,12 @@ from typing import Any
 
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.budget_service import BudgetService
-from packages.pipelines.budgets import CanonicalBudget
-from packages.pipelines.loan_service import LoanService
 from packages.pipelines.builtin_packages import (
     BuiltinTransformationPackageSpec,
     get_builtin_transformation_package_spec,
 )
 from packages.pipelines.contract_price_service import ContractPriceService
+from packages.pipelines.loan_service import LoanService
 from packages.pipelines.promotion_registry import (
     CanonicalPromotionProcessor,
     PromotionHandler,

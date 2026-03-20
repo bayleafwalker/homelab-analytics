@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from packages.pipelines.loan_models import MART_LOAN_OVERVIEW_TABLE
 from packages.pipelines.overview_models import (
     MART_AFFORDABILITY_RATIOS_COLUMNS,
     MART_AFFORDABILITY_RATIOS_TABLE,
@@ -32,8 +33,6 @@ from packages.pipelines.transaction_models import (
     MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
     MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
 )
-from packages.pipelines.budget_models import MART_BUDGET_PROGRESS_CURRENT_TABLE
-from packages.pipelines.loan_models import MART_LOAN_OVERVIEW_TABLE
 from packages.pipelines.utility_models import (
     MART_CONTRACT_RENEWAL_WATCHLIST_TABLE,
     MART_CONTRACT_REVIEW_CANDIDATES_TABLE,

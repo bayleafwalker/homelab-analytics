@@ -2,16 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from packages.pipelines.loan_models import (
-    CURRENT_DIM_LOAN_VIEW,
-    DIM_LOAN,
-    MART_LOAN_OVERVIEW_COLUMNS,
-    MART_LOAN_OVERVIEW_TABLE,
-    MART_LOAN_REPAYMENT_VARIANCE_COLUMNS,
-    MART_LOAN_REPAYMENT_VARIANCE_TABLE,
-    MART_LOAN_SCHEDULE_PROJECTED_COLUMNS,
-    MART_LOAN_SCHEDULE_PROJECTED_TABLE,
-)
 from packages.pipelines.budget_models import (
     CURRENT_DIM_BUDGET_VIEW,
     DIM_BUDGET,
@@ -25,6 +15,16 @@ from packages.pipelines.contract_price_models import (
     MART_CONTRACT_PRICE_CURRENT_TABLE,
     MART_ELECTRICITY_PRICE_CURRENT_COLUMNS,
     MART_ELECTRICITY_PRICE_CURRENT_TABLE,
+)
+from packages.pipelines.loan_models import (
+    CURRENT_DIM_LOAN_VIEW,
+    DIM_LOAN,
+    MART_LOAN_OVERVIEW_COLUMNS,
+    MART_LOAN_OVERVIEW_TABLE,
+    MART_LOAN_REPAYMENT_VARIANCE_COLUMNS,
+    MART_LOAN_REPAYMENT_VARIANCE_TABLE,
+    MART_LOAN_SCHEDULE_PROJECTED_COLUMNS,
+    MART_LOAN_SCHEDULE_PROJECTED_TABLE,
 )
 from packages.pipelines.overview_models import (
     MART_AFFORDABILITY_RATIOS_COLUMNS,

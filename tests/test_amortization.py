@@ -138,7 +138,7 @@ class AmortizationScheduleTests(unittest.TestCase):
             start_date=date(2024, 1, 1),
             payment_frequency="fortnightly",
         )
-        monthly_schedule = compute_amortization_schedule(monthly_params)
+        _monthly_schedule = compute_amortization_schedule(monthly_params)
         fortnightly_schedule = compute_amortization_schedule(fortnightly_params)
         # Fortnightly payments are smaller per period but more frequent;
         # schedule length should be ≥ term months (in fortnightly periods)

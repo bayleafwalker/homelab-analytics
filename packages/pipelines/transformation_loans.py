@@ -8,7 +8,6 @@ from typing import Any
 from packages.pipelines.amortization import LoanParameters, compute_amortization_schedule
 from packages.pipelines.loan_models import (
     CURRENT_DIM_LOAN_VIEW,
-    DIM_LOAN,
     FACT_LOAN_REPAYMENT_COLUMNS,
     FACT_LOAN_REPAYMENT_TABLE,
     MART_LOAN_OVERVIEW_COLUMNS,
