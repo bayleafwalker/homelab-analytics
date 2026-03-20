@@ -157,8 +157,29 @@ export async function getUpcomingFixedCosts() {
   const payload = await backendJson("/reports/upcoming-fixed-costs");
   return payload.rows || [];
 }
-export async function getUtilityCostTrend() {
-  const payload = await backendJson("/reports/utility-cost-trend");
+export async function getUtilityCostTrend(utilityType) {
+  const payload = await backendJson(
+    `/reports/utility-cost-trend${buildQuery({ utility_type: utilityType })}`
+  );
+  return payload.rows || [];
+}
+
+export async function getUtilityCostSummary(utilityType, meterId, fromPeriod, toPeriod) {
+  const payload = await backendJson(
+    `/reports/utility-cost-summary${buildQuery({
+      utility_type: utilityType,
+      meter_id: meterId,
+      from_period: fromPeriod,
+      to_period: toPeriod,
+    })}`
+  );
+  return payload.rows || [];
+}
+
+export async function getUsageVsPrice(utilityType) {
+  const payload = await backendJson(
+    `/reports/usage-vs-price${buildQuery({ utility_type: utilityType })}`
+  );
   return payload.rows || [];
 }
 export async function getSubscriptionSummary() {

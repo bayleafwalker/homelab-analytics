@@ -9,19 +9,56 @@ import {
   getMonthlyCashflow,
   getRecentChanges,
   getRuns,
+  getSpendByCategoryMonthly,
+  getSubscriptionSummary,
+  getUtilityCostTrend,
 } from "@/lib/backend";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
-  const [cashflowRows, runs, overview, attentionItems, recentChanges] =
+  const [cashflowRows, runs, overview, attentionItems, recentChanges, spendByCategory, subscriptions, utilityTrend] =
     await Promise.all([
       getMonthlyCashflow(),
       getRuns(8),
       getHouseholdOverview(),
       getAttentionItems(),
       getRecentChanges(),
+      getSpendByCategoryMonthly(),
+      getSubscriptionSummary(),
+      getUtilityCostTrend(),
     ]);
   const latest = cashflowRows.at(-1);
+
+  // Top-5 categories for current month
+  const latestMonth = latest?.booking_month;
+  const currentMonthSpend = spendByCategory.filter((r) => r.booking_month === latestMonth);
+  const categoryTotals = Object.values(
+    currentMonthSpend.reduce((acc, r) => {
+      const cat = r.category || "Uncategorised";
+      acc[cat] = acc[cat] || { category: cat, total: 0 };
+      acc[cat].total += Number(r.total_expense || 0);
+      return acc;
+    }, {})
+  )
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5);
+
+  // Utility snapshot: latest month total and previous month for delta
+  const utilityMonths = [...new Set(utilityTrend.map((r) => r.billing_month))].sort();
+  const latestUtilityMonth = utilityMonths.at(-1);
+  const prevUtilityMonth = utilityMonths.at(-2);
+  const utilityLatestTotal = utilityTrend
+    .filter((r) => r.billing_month === latestUtilityMonth)
+    .reduce((sum, r) => sum + Number(r.total_cost || 0), 0);
+  const utilityPrevTotal = utilityTrend
+    .filter((r) => r.billing_month === prevUtilityMonth)
+    .reduce((sum, r) => sum + Number(r.total_cost || 0), 0);
+  const utilityDelta = utilityPrevTotal > 0 ? ((utilityLatestTotal - utilityPrevTotal) / utilityPrevTotal) * 100 : null;
+
+  // Recurring cost: sum of active subscription monthly equivalents
+  const recurringTotal = subscriptions
+    .filter((r) => r.status === "active")
+    .reduce((sum, r) => sum + Number(r.monthly_equivalent_cost || 0), 0);
 
   const trendLabels = cashflowRows.slice(-12).map((r) => r.booking_month);
   const trendSeries = [
@@ -116,6 +153,47 @@ export default async function DashboardPage() {
           <SparklineChart series={trendSeries} labels={trendLabels} height={120} width={600} />
         </article>
       )}
+
+      <section className="cards" style={{ marginBottom: "24px" }}>
+        <article className="panel section">
+          <div className="eyebrow">Top Categories</div>
+          <h3 style={{ margin: "4px 0 12px" }}>{latestMonth || "—"}</h3>
+          {categoryTotals.length === 0 ? (
+            <div className="empty">No category data yet.</div>
+          ) : (
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "8px" }}>
+              {categoryTotals.map((c) => (
+                <li key={c.category} style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>{c.category}</span>
+                  <span className="muted">{c.total.toFixed(2)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </article>
+
+        <article className="panel section">
+          <div className="eyebrow">Utilities</div>
+          <h3 style={{ margin: "4px 0 4px" }}>
+            {latestUtilityMonth ? `${latestUtilityMonth}: ${utilityLatestTotal.toFixed(2)}` : "No data"}
+          </h3>
+          {utilityDelta !== null && (
+            <div className="muted" style={{ fontSize: "0.85rem" }}>
+              {utilityDelta >= 0 ? "▲" : "▼"} {Math.abs(utilityDelta).toFixed(1)}% vs {prevUtilityMonth}
+            </div>
+          )}
+        </article>
+
+        <article className="panel section">
+          <div className="eyebrow">Recurring Costs</div>
+          <h3 style={{ margin: "4px 0 4px" }}>
+            {subscriptions.length > 0 ? `${recurringTotal.toFixed(2)} / mo` : "No data"}
+          </h3>
+          <div className="muted" style={{ fontSize: "0.85rem" }}>
+            {subscriptions.filter((r) => r.status === "active").length} active subscriptions
+          </div>
+        </article>
+      </section>
 
       <section className="layout">
         <article className="panel section">

@@ -10,7 +10,8 @@ function navItemsForUser(user) {
     { href: "/", label: "Dashboard" },
     { href: "/runs", label: "Runs" },
     { href: "/review", label: "Review" },
-    { href: "/reports", label: "Reports" }
+    { href: "/reports", label: "Reports" },
+    { href: "/utilities", label: "Utilities" },
   ];
   if (hasRequiredRole(user, "operator")) {
     items.push({ href: "/upload", label: "Upload" });
