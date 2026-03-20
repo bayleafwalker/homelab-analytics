@@ -358,6 +358,41 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
             "mart_recurring_cost_baseline",
         ),
     ),
+    BuiltinTransformationPackageSpec(
+        transformation_package_id="builtin_homelab",
+        handler_key="homelab",
+        name="Built-in homelab",
+        description="Homelab service health, backup freshness, storage risk, and workload cost publications.",
+        version=1,
+        publications=(
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_homelab_service_health_current",
+                publication_key="mart_service_health_current",
+                name="Service health current mart",
+            ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_homelab_backup_freshness",
+                publication_key="mart_backup_freshness",
+                name="Backup freshness mart",
+            ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_homelab_storage_risk",
+                publication_key="mart_storage_risk",
+                name="Storage risk mart",
+            ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_homelab_workload_cost_7d",
+                publication_key="mart_workload_cost_7d",
+                name="Workload cost 7-day rolling mart",
+            ),
+        ),
+        refresh_publication_keys=(
+            "mart_service_health_current",
+            "mart_backup_freshness",
+            "mart_storage_risk",
+            "mart_workload_cost_7d",
+        ),
+    ),
 )
 
 BUILTIN_TRANSFORMATION_PACKAGE_SPECS_BY_ID = {

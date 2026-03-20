@@ -14,6 +14,12 @@ from packages.pipelines.contract_price_models import (
     MART_CONTRACT_PRICE_CURRENT_TABLE,
     MART_ELECTRICITY_PRICE_CURRENT_TABLE,
 )
+from packages.pipelines.homelab_models import (
+    MART_BACKUP_FRESHNESS_TABLE,
+    MART_SERVICE_HEALTH_CURRENT_TABLE,
+    MART_STORAGE_RISK_TABLE,
+    MART_WORKLOAD_COST_7D_TABLE,
+)
 from packages.pipelines.overview_models import (
     MART_CURRENT_OPERATING_BASELINE_TABLE,
     MART_HOUSEHOLD_OVERVIEW_TABLE,
@@ -529,6 +535,42 @@ class ReportingService:
             self._transformation_service.get_current_operating_baseline,
             ("", []),
             "ORDER BY baseline_type",
+        )
+
+    # ------------------------------------------------------------------
+    # Homelab: service health, backups, storage, workloads
+    # ------------------------------------------------------------------
+
+    def get_service_health_current(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_SERVICE_HEALTH_CURRENT_TABLE,
+            self._transformation_service.get_service_health_current,
+            ("", []),
+            "ORDER BY service_id",
+        )
+
+    def get_backup_freshness(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_BACKUP_FRESHNESS_TABLE,
+            self._transformation_service.get_backup_freshness,
+            ("", []),
+            "ORDER BY target",
+        )
+
+    def get_storage_risk(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_STORAGE_RISK_TABLE,
+            self._transformation_service.get_storage_risk,
+            ("", []),
+            "ORDER BY pct_used DESC",
+        )
+
+    def get_workload_cost_7d(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_WORKLOAD_COST_7D_TABLE,
+            self._transformation_service.get_workload_cost_7d,
+            ("", []),
+            "ORDER BY est_monthly_cost DESC NULLS LAST",
         )
 
     def get_relation_rows(self, relation_name: str) -> list[dict[str, Any]]:

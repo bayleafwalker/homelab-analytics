@@ -16,6 +16,16 @@ from packages.pipelines.contract_price_models import (
     MART_ELECTRICITY_PRICE_CURRENT_COLUMNS,
     MART_ELECTRICITY_PRICE_CURRENT_TABLE,
 )
+from packages.pipelines.homelab_models import (
+    MART_BACKUP_FRESHNESS_COLUMNS,
+    MART_BACKUP_FRESHNESS_TABLE,
+    MART_SERVICE_HEALTH_CURRENT_COLUMNS,
+    MART_SERVICE_HEALTH_CURRENT_TABLE,
+    MART_STORAGE_RISK_COLUMNS,
+    MART_STORAGE_RISK_TABLE,
+    MART_WORKLOAD_COST_7D_COLUMNS,
+    MART_WORKLOAD_COST_7D_TABLE,
+)
 from packages.pipelines.loan_models import (
     CURRENT_DIM_LOAN_VIEW,
     DIM_LOAN,
@@ -287,6 +297,26 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         relation_name=MART_RECURRING_COST_BASELINE_TABLE,
         columns=MART_RECURRING_COST_BASELINE_COLUMNS,
         order_by="cost_source, counterparty_or_contract",
+    ),
+    MART_SERVICE_HEALTH_CURRENT_TABLE: PublicationRelation(
+        relation_name=MART_SERVICE_HEALTH_CURRENT_TABLE,
+        columns=MART_SERVICE_HEALTH_CURRENT_COLUMNS,
+        order_by="service_id",
+    ),
+    MART_BACKUP_FRESHNESS_TABLE: PublicationRelation(
+        relation_name=MART_BACKUP_FRESHNESS_TABLE,
+        columns=MART_BACKUP_FRESHNESS_COLUMNS,
+        order_by="target",
+    ),
+    MART_STORAGE_RISK_TABLE: PublicationRelation(
+        relation_name=MART_STORAGE_RISK_TABLE,
+        columns=MART_STORAGE_RISK_COLUMNS,
+        order_by="pct_used DESC",
+    ),
+    MART_WORKLOAD_COST_7D_TABLE: PublicationRelation(
+        relation_name=MART_WORKLOAD_COST_7D_TABLE,
+        columns=MART_WORKLOAD_COST_7D_COLUMNS,
+        order_by="est_monthly_cost DESC NULLS LAST",
     ),
 }
 

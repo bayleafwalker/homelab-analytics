@@ -16,6 +16,7 @@ from apps.api.auth_runtime import (
 from apps.api.routes.auth_routes import register_auth_routes
 from apps.api.routes.config_routes import register_config_routes
 from apps.api.routes.control_routes import register_control_routes
+from apps.api.routes.homelab_routes import register_homelab_routes
 from apps.api.routes.ingest_routes import register_ingest_routes
 from apps.api.routes.report_routes import register_report_routes
 from apps.api.routes.run_routes import register_run_routes
@@ -468,6 +469,12 @@ def create_app(
         app,
         service=container.service,
         registry=container.extension_registry,
+        transformation_service=transformation_service,
+        resolved_reporting_service=reporting_service,
+        to_jsonable=to_jsonable,
+    )
+    register_homelab_routes(
+        app,
         transformation_service=transformation_service,
         resolved_reporting_service=reporting_service,
         to_jsonable=to_jsonable,

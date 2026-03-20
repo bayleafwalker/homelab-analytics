@@ -1,0 +1,6 @@
+service_id,service_name,service_type,host,criticality,managed_by,recorded_at,state,uptime_seconds,last_state_change
+svc_homeassistant,Home Assistant,addon,homeserver,critical,homeassistant,2026-03-20T08:00:00,running,864000,2026-03-10T08:00:00
+svc_postgres,PostgreSQL,container,homeserver,critical,portainer,2026-03-20T08:00:00,running,432000,2026-03-15T08:00:00
+svc_nginx,Nginx,container,homeserver,standard,portainer,2026-03-20T08:00:00,running,172800,2026-03-18T08:00:00
+svc_mosquitto,Mosquitto MQTT,addon,homeserver,standard,homeassistant,2026-03-20T08:00:00,degraded,3600,2026-03-20T07:00:00
+svc_backups,Backup Agent,container,homeserver,background,portainer,2026-03-20T08:00:00,stopped,0,2026-03-20T06:00:00

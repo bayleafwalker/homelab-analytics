@@ -393,6 +393,26 @@ _BUILTIN_PROMOTION_HANDLERS = {
     for spec in _BUILTIN_PROMOTION_SPECS
 }
 
+# Homelab handler: Sprint A loads data directly via TransformationService.load_service_health()
+# etc. File-based promotion is deferred to a later sprint with a HomelabIngestionService.
+_homelab_pkg = get_builtin_transformation_package_spec("builtin_homelab")
+
+
+def _homelab_runner(runtime: Any) -> Any:  # type: ignore[return]
+    raise ValueError(
+        "Homelab file-based promotion is not yet implemented. "
+        "Load homelab data via TransformationService.load_service_health(), "
+        "load_backup_runs(), load_storage_sensors(), or load_workload_sensors()."
+    )
+
+
+_BUILTIN_PROMOTION_HANDLERS["homelab"] = PromotionHandler(
+    handler_key="homelab",
+    default_publications=_homelab_pkg.publication_keys,
+    supported_publications=_homelab_pkg.publication_keys,
+    runner=_homelab_runner,
+)
+
 
 def register_builtin_promotion_handlers(
     registry: PromotionHandlerRegistry,
