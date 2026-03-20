@@ -12,6 +12,10 @@ function errorCopy(error) {
       return "Subscription upload failed.";
     case "contract-price-upload-failed":
       return "Contract-price upload failed.";
+    case "budget-upload-failed":
+      return "Budget upload failed.";
+    case "loan-upload-failed":
+      return "Loan repayment upload failed.";
     case "configured-upload-failed":
       return "Configured upload failed.";
     default:
@@ -188,6 +192,18 @@ export default async function UploadPage({ searchParams }) {
             title="Contract prices"
             action="/upload/contract-prices"
             description="Upload current contract-price snapshots through the built-in price contract."
+          />
+          <UploadCard
+            eyebrow="Built-In Domain"
+            title="Budgets"
+            action="/upload/budgets"
+            description="Upload budget targets (name, category, period type, target amount, currency)."
+          />
+          <UploadCard
+            eyebrow="Built-In Domain"
+            title="Loan repayments"
+            action="/upload/loan-repayments"
+            description="Upload loan repayment records with optional loan definition columns."
           />
         </section>
 

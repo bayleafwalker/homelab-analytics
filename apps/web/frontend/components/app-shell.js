@@ -12,6 +12,9 @@ function navItemsForUser(user) {
     { href: "/review", label: "Review" },
     { href: "/reports", label: "Reports" },
     { href: "/utilities", label: "Utilities" },
+    { href: "/budgets", label: "Budgets" },
+    { href: "/loans", label: "Loans" },
+    { href: "/costs", label: "Costs" },
   ];
   if (hasRequiredRole(user, "operator")) {
     items.push({ href: "/upload", label: "Upload" });

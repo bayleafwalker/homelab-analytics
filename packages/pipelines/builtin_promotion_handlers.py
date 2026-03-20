@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.pipelines.budget_service import BudgetService
+from packages.pipelines.budgets import CanonicalBudget
+from packages.pipelines.loan_service import LoanService
 from packages.pipelines.builtin_packages import (
     BuiltinTransformationPackageSpec,
     get_builtin_transformation_package_spec,
@@ -210,12 +213,87 @@ _UTILITY_BILL_SPEC = BuiltinPromotionSpec(
     ),
 )
 
+_BUDGET_HEADER = {
+    "budget_name",
+    "category",
+    "period_type",
+    "target_amount",
+    "currency",
+    "effective_from",
+}
+_BUDGET_SPEC = BuiltinPromotionSpec(
+    package_spec=get_builtin_transformation_package_spec("builtin_budgets"),
+    processor=build_domain_canonical_promotion_processor(
+        domain_key="budgets",
+        build_runtime_service=lambda runtime: BudgetService(
+            landing_root=runtime.landing_root,
+            metadata_repository=runtime.metadata_repository,
+            blob_store=runtime.blob_store,
+        ),
+        get_run=lambda service, run_id: service.get_run(run_id),
+        get_canonical_rows=lambda service, run_id: service.get_canonical_budgets(run_id),
+        serialize_row=lambda row: {
+            "budget_id": row.budget_id,
+            "budget_name": row.budget_name,
+            "category": row.category,
+            "period_type": row.period_type,
+            "target_amount": str(row.target_amount),
+            "currency": row.currency,
+            "period_label": row.effective_from,
+        },
+        required_header=_BUDGET_HEADER,
+        contract_mismatch_reason="run does not match the budget canonical contract",
+    ),
+)
+
+_LOAN_REPAYMENT_HEADER = {
+    "loan_id",
+    "repayment_date",
+    "payment_amount",
+    "currency",
+}
+_LOAN_REPAYMENT_SPEC = BuiltinPromotionSpec(
+    package_spec=get_builtin_transformation_package_spec("builtin_loan_repayments"),
+    processor=build_domain_canonical_promotion_processor(
+        domain_key="loan_repayments",
+        build_runtime_service=lambda runtime: LoanService(
+            landing_root=runtime.landing_root,
+            metadata_repository=runtime.metadata_repository,
+            blob_store=runtime.blob_store,
+        ),
+        get_run=lambda service, run_id: service.get_run(run_id),
+        get_canonical_rows=lambda service, run_id: service.get_canonical_loan_repayments(run_id),
+        serialize_row=lambda row: {
+            "loan_id": row.loan_id,
+            "repayment_date": str(row.repayment_date),
+            "repayment_month": row.repayment_month,
+            "payment_amount": str(row.payment_amount),
+            "principal_portion": str(row.principal_portion) if row.principal_portion is not None else None,
+            "interest_portion": str(row.interest_portion) if row.interest_portion is not None else None,
+            "extra_amount": str(row.extra_amount) if row.extra_amount is not None else None,
+            "currency": row.currency,
+            "loan_name": row.loan_name,
+            "lender": row.lender,
+            "loan_type": row.loan_type,
+            "principal": str(row.principal) if row.principal is not None else None,
+            "annual_rate": str(row.annual_rate) if row.annual_rate is not None else None,
+            "term_months": row.term_months,
+            "start_date": str(row.start_date) if row.start_date is not None else None,
+            "payment_frequency": row.payment_frequency,
+        },
+        required_header=_LOAN_REPAYMENT_HEADER,
+        contract_mismatch_reason="run does not match the loan-repayment canonical contract",
+    ),
+)
+
 _BUILTIN_PROMOTION_SPECS = (
     _ACCOUNT_TRANSACTION_SPEC,
     _SUBSCRIPTION_SPEC,
     _CONTRACT_PRICE_SPEC,
     _UTILITY_USAGE_SPEC,
     _UTILITY_BILL_SPEC,
+    _BUDGET_SPEC,
+    _LOAN_REPAYMENT_SPEC,
 )
 
 
@@ -322,6 +400,34 @@ def register_builtin_promotion_handlers(
 ) -> None:
     for handler in _BUILTIN_PROMOTION_HANDLERS.values():
         registry.register(handler)
+
+
+def promote_budget_run(
+    run_id: str,
+    *,
+    budget_service: BudgetService,
+    transformation_service: TransformationService,
+) -> PromotionResult:
+    return _promote_with_spec(
+        run_id,
+        service=budget_service,
+        transformation_service=transformation_service,
+        spec=_BUDGET_SPEC,
+    )
+
+
+def promote_loan_repayment_run(
+    run_id: str,
+    *,
+    loan_service: LoanService,
+    transformation_service: TransformationService,
+) -> PromotionResult:
+    return _promote_with_spec(
+        run_id,
+        service=loan_service,
+        transformation_service=transformation_service,
+        spec=_LOAN_REPAYMENT_SPEC,
+    )
 
 
 def get_builtin_promotion_handler(handler_key: str) -> PromotionHandler:

@@ -47,3 +47,47 @@ MART_CURRENT_OPERATING_BASELINE_COLUMNS: list[tuple[str, str]] = [
     ("period_label", "VARCHAR NOT NULL"),
     ("currency", "VARCHAR NOT NULL"),
 ]
+
+MART_HOUSEHOLD_COST_MODEL_TABLE = "mart_household_cost_model"
+
+MART_HOUSEHOLD_COST_MODEL_COLUMNS: list[tuple[str, str]] = [
+    ("period_label", "VARCHAR NOT NULL"),     # YYYY-MM
+    ("cost_type", "VARCHAR NOT NULL"),         # housing | utilities | transport | food | subscriptions | loans | discretionary | other
+    ("amount", "DECIMAL(18,4) NOT NULL"),
+    ("source_domain", "VARCHAR NOT NULL"),     # finance | utilities | subscriptions | loans
+    ("currency", "VARCHAR NOT NULL"),
+]
+
+MART_COST_TREND_12M_TABLE = "mart_cost_trend_12m"
+
+MART_COST_TREND_12M_COLUMNS: list[tuple[str, str]] = [
+    ("period_label", "VARCHAR NOT NULL"),
+    ("cost_type", "VARCHAR NOT NULL"),
+    ("amount", "DECIMAL(18,4) NOT NULL"),
+    ("prev_amount", "DECIMAL(18,4)"),
+    ("change_pct", "DECIMAL(18,4)"),
+    ("currency", "VARCHAR NOT NULL"),
+]
+
+MART_AFFORDABILITY_RATIOS_TABLE = "mart_affordability_ratios"
+
+MART_AFFORDABILITY_RATIOS_COLUMNS: list[tuple[str, str]] = [
+    ("ratio_name", "VARCHAR NOT NULL"),    # housing_to_income | total_cost_to_income | debt_service_ratio
+    ("numerator", "DECIMAL(18,4) NOT NULL"),
+    ("denominator", "DECIMAL(18,4) NOT NULL"),
+    ("ratio", "DECIMAL(18,6) NOT NULL"),
+    ("period_label", "VARCHAR NOT NULL"),
+    ("assessment", "VARCHAR NOT NULL"),    # healthy | caution | critical
+    ("currency", "VARCHAR NOT NULL"),
+]
+
+MART_RECURRING_COST_BASELINE_TABLE = "mart_recurring_cost_baseline"
+
+MART_RECURRING_COST_BASELINE_COLUMNS: list[tuple[str, str]] = [
+    ("cost_source", "VARCHAR NOT NULL"),       # subscription | utility_fixed | loan_payment
+    ("counterparty_or_contract", "VARCHAR NOT NULL"),
+    ("monthly_amount", "DECIMAL(18,4) NOT NULL"),
+    ("confidence", "VARCHAR NOT NULL"),        # confirmed | estimated
+    ("last_occurrence", "VARCHAR"),
+    ("currency", "VARCHAR NOT NULL"),
+]

@@ -3,11 +3,13 @@ import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { SparklineChart } from "@/components/sparkline-chart";
 import {
+  getAffordabilityRatios,
   getAttentionItems,
   getCurrentUser,
   getHouseholdOverview,
   getMonthlyCashflow,
   getRecentChanges,
+  getRecurringCostBaseline,
   getRuns,
   getSpendByCategoryMonthly,
   getSubscriptionSummary,
@@ -16,7 +18,7 @@ import {
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
-  const [cashflowRows, runs, overview, attentionItems, recentChanges, spendByCategory, subscriptions, utilityTrend] =
+  const [cashflowRows, runs, overview, attentionItems, recentChanges, spendByCategory, subscriptions, utilityTrend, affordabilityRatios, recurringBaseline] =
     await Promise.all([
       getMonthlyCashflow(),
       getRuns(8),
@@ -26,6 +28,8 @@ export default async function DashboardPage() {
       getSpendByCategoryMonthly(),
       getSubscriptionSummary(),
       getUtilityCostTrend(),
+      getAffordabilityRatios(),
+      getRecurringCostBaseline(),
     ]);
   const latest = cashflowRows.at(-1);
 
@@ -141,6 +145,67 @@ export default async function DashboardPage() {
           <div className="metricValue">{latest ? latest.net : "No data"}</div>
         </article>
       </section>
+
+      {affordabilityRatios.length > 0 && (
+        <section className="cards">
+          {affordabilityRatios.map((r) => {
+            const color =
+              r.assessment === "healthy"
+                ? "var(--ok)"
+                : r.assessment === "caution"
+                ? "var(--warning)"
+                : "var(--error)";
+            const label = {
+              housing_to_income: "Housing / income",
+              total_cost_to_income: "Total cost / income",
+              debt_service_ratio: "Debt service ratio",
+            }[r.ratio_name] || r.ratio_name;
+            return (
+              <article key={r.ratio_name} className="panel metricCard">
+                <div className="metricLabel">{label}</div>
+                <div className="metricValue" style={{ color }}>
+                  {(Number(r.ratio) * 100).toFixed(1)}%
+                </div>
+                <div className="muted" style={{ color }}>{r.assessment}</div>
+              </article>
+            );
+          })}
+        </section>
+      )}
+
+      {recurringBaseline.length > 0 && (
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Recurring baseline</div>
+              <h2>Fixed monthly commitments</h2>
+            </div>
+            <Link className="inlineLink" href="/costs">View cost model</Link>
+          </div>
+          <div className="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Source</th>
+                  <th>Description</th>
+                  <th>Monthly</th>
+                  <th>Confidence</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recurringBaseline.map((row, i) => (
+                  <tr key={i}>
+                    <td>{row.cost_source}</td>
+                    <td>{row.counterparty_or_contract}</td>
+                    <td>{Number(row.monthly_amount).toFixed(2)} {row.currency}</td>
+                    <td><span className="muted">{row.confidence}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      )}
 
       {cashflowRows.length > 0 && (
         <article className="panel section" style={{ marginBottom: "24px" }}>

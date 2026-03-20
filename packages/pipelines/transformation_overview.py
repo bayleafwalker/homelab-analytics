@@ -4,14 +4,22 @@ from __future__ import annotations
 from typing import Any
 
 from packages.pipelines.overview_models import (
+    MART_AFFORDABILITY_RATIOS_COLUMNS,
+    MART_AFFORDABILITY_RATIOS_TABLE,
+    MART_COST_TREND_12M_COLUMNS,
+    MART_COST_TREND_12M_TABLE,
     MART_CURRENT_OPERATING_BASELINE_COLUMNS,
     MART_CURRENT_OPERATING_BASELINE_TABLE,
+    MART_HOUSEHOLD_COST_MODEL_COLUMNS,
+    MART_HOUSEHOLD_COST_MODEL_TABLE,
     MART_HOUSEHOLD_OVERVIEW_COLUMNS,
     MART_HOUSEHOLD_OVERVIEW_TABLE,
     MART_OPEN_ATTENTION_ITEMS_COLUMNS,
     MART_OPEN_ATTENTION_ITEMS_TABLE,
     MART_RECENT_SIGNIFICANT_CHANGES_COLUMNS,
     MART_RECENT_SIGNIFICANT_CHANGES_TABLE,
+    MART_RECURRING_COST_BASELINE_COLUMNS,
+    MART_RECURRING_COST_BASELINE_TABLE,
 )
 from packages.pipelines.subscription_models import (
     MART_SUBSCRIPTION_SUMMARY_TABLE,
@@ -24,6 +32,8 @@ from packages.pipelines.transaction_models import (
     MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
     MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
 )
+from packages.pipelines.budget_models import MART_BUDGET_PROGRESS_CURRENT_TABLE
+from packages.pipelines.loan_models import MART_LOAN_OVERVIEW_TABLE
 from packages.pipelines.utility_models import (
     MART_CONTRACT_RENEWAL_WATCHLIST_TABLE,
     MART_CONTRACT_REVIEW_CANDIDATES_TABLE,
@@ -44,6 +54,12 @@ def ensure_overview_storage(store: DuckDBStore) -> None:
     )
     store.ensure_table(
         MART_CURRENT_OPERATING_BASELINE_TABLE, MART_CURRENT_OPERATING_BASELINE_COLUMNS
+    )
+    store.ensure_table(MART_HOUSEHOLD_COST_MODEL_TABLE, MART_HOUSEHOLD_COST_MODEL_COLUMNS)
+    store.ensure_table(MART_COST_TREND_12M_TABLE, MART_COST_TREND_12M_COLUMNS)
+    store.ensure_table(MART_AFFORDABILITY_RATIOS_TABLE, MART_AFFORDABILITY_RATIOS_COLUMNS)
+    store.ensure_table(
+        MART_RECURRING_COST_BASELINE_TABLE, MART_RECURRING_COST_BASELINE_COLUMNS
     )
 
 
@@ -361,4 +377,326 @@ def get_current_operating_baseline(store: DuckDBStore) -> list[dict[str, Any]]:
     return store.fetchall_dicts(
         f"SELECT * FROM {MART_CURRENT_OPERATING_BASELINE_TABLE}"
         " ORDER BY baseline_type"
+    )
+
+
+def refresh_household_cost_model(store: DuckDBStore) -> int:
+    """Aggregate cross-domain monthly costs into a unified cost model mart."""
+    store.execute(f"DELETE FROM {MART_HOUSEHOLD_COST_MODEL_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_HOUSEHOLD_COST_MODEL_TABLE}
+            (period_label, cost_type, amount, source_domain, currency)
+        WITH
+        -- Finance: spend by category mapped to cost types
+        category_costs AS (
+            SELECT
+                booking_month                                      AS period_label,
+                CASE LOWER(COALESCE(category, counterparty_name))
+                    WHEN 'groceries'     THEN 'food'
+                    WHEN 'food'          THEN 'food'
+                    WHEN 'transport'     THEN 'transport'
+                    WHEN 'utilities'     THEN 'utilities'
+                    WHEN 'housing'       THEN 'housing'
+                    ELSE 'discretionary'
+                END                                                AS cost_type,
+                SUM(total_expense)                                 AS amount,
+                'finance'                                          AS source_domain,
+                ''                                                 AS currency
+            FROM {MART_SPEND_BY_CATEGORY_MONTHLY_TABLE}
+            WHERE total_expense > 0
+            GROUP BY booking_month,
+                CASE LOWER(COALESCE(category, counterparty_name))
+                    WHEN 'groceries'     THEN 'food'
+                    WHEN 'food'          THEN 'food'
+                    WHEN 'transport'     THEN 'transport'
+                    WHEN 'utilities'     THEN 'utilities'
+                    WHEN 'housing'       THEN 'housing'
+                    ELSE 'discretionary'
+                END
+        ),
+        -- Subscriptions: recurring fixed costs
+        subscription_costs AS (
+            SELECT
+                STRFTIME(CURRENT_DATE, '%Y-%m')                    AS period_label,
+                'subscriptions'                                    AS cost_type,
+                SUM(monthly_equivalent)                            AS amount,
+                'subscriptions'                                    AS source_domain,
+                ANY_VALUE(currency)                                AS currency
+            FROM {MART_SUBSCRIPTION_SUMMARY_TABLE}
+            WHERE status = 'active' AND monthly_equivalent > 0
+        ),
+        -- Utilities: monthly cost by type
+        utility_costs AS (
+            SELECT
+                billing_month                                      AS period_label,
+                'utilities'                                        AS cost_type,
+                SUM(total_cost)                                    AS amount,
+                'utilities'                                        AS source_domain,
+                ANY_VALUE(currency)                                AS currency
+            FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}
+            WHERE total_cost > 0
+            GROUP BY billing_month
+        ),
+        -- Loans: monthly payment (most recent)
+        loan_costs AS (
+            SELECT
+                STRFTIME(CURRENT_DATE, '%Y-%m')                    AS period_label,
+                'loans'                                            AS cost_type,
+                SUM(monthly_payment)                               AS amount,
+                'loans'                                            AS source_domain,
+                ANY_VALUE(currency)                                AS currency
+            FROM {MART_LOAN_OVERVIEW_TABLE}
+            WHERE monthly_payment > 0
+        )
+        SELECT * FROM category_costs   WHERE amount > 0
+        UNION ALL
+        SELECT * FROM subscription_costs WHERE amount > 0
+        UNION ALL
+        SELECT * FROM utility_costs    WHERE amount > 0
+        UNION ALL
+        SELECT * FROM loan_costs       WHERE amount > 0
+        """
+    )
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_HOUSEHOLD_COST_MODEL_TABLE}"
+    )[0][0]
+
+
+def get_household_cost_model(
+    store: DuckDBStore,
+    *,
+    period_label: str | None = None,
+    cost_type: str | None = None,
+) -> list[dict[str, Any]]:
+    conditions = []
+    params: list[Any] = []
+    if period_label is not None:
+        conditions.append("period_label = ?")
+        params.append(period_label)
+    if cost_type is not None:
+        conditions.append("cost_type = ?")
+        params.append(cost_type)
+    where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_HOUSEHOLD_COST_MODEL_TABLE}{where}"
+        " ORDER BY period_label, cost_type",
+        params,
+    )
+
+
+def refresh_cost_trend_12m(store: DuckDBStore) -> int:
+    """12-month rolling cost trend with MoM change per cost type."""
+    store.execute(f"DELETE FROM {MART_COST_TREND_12M_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_COST_TREND_12M_TABLE}
+            (period_label, cost_type, amount, prev_amount, change_pct, currency)
+        WITH
+        recent AS (
+            SELECT
+                period_label,
+                cost_type,
+                SUM(amount)             AS amount,
+                ANY_VALUE(currency)     AS currency
+            FROM {MART_HOUSEHOLD_COST_MODEL_TABLE}
+            WHERE period_label >= STRFTIME(CURRENT_DATE - INTERVAL '12 months', '%Y-%m')
+            GROUP BY period_label, cost_type
+        ),
+        with_lag AS (
+            SELECT
+                period_label,
+                cost_type,
+                amount,
+                LAG(amount) OVER (PARTITION BY cost_type ORDER BY period_label) AS prev_amount,
+                currency
+            FROM recent
+        )
+        SELECT
+            period_label,
+            cost_type,
+            amount,
+            prev_amount,
+            CASE
+                WHEN prev_amount IS NOT NULL AND prev_amount <> 0
+                THEN ROUND((amount - prev_amount) / ABS(prev_amount) * 100, 2)
+                ELSE NULL
+            END AS change_pct,
+            currency
+        FROM with_lag
+        ORDER BY period_label, cost_type
+        """
+    )
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_COST_TREND_12M_TABLE}"
+    )[0][0]
+
+
+def get_cost_trend_12m(store: DuckDBStore) -> list[dict[str, Any]]:
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_COST_TREND_12M_TABLE}"
+        " ORDER BY period_label, cost_type"
+    )
+
+
+def refresh_affordability_ratios(store: DuckDBStore) -> int:
+    """Compute housing, total-cost, and debt-service affordability ratios."""
+    store.execute(f"DELETE FROM {MART_AFFORDABILITY_RATIOS_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_AFFORDABILITY_RATIOS_TABLE}
+            (ratio_name, numerator, denominator, ratio, period_label, assessment, currency)
+        WITH
+        latest_cashflow AS (
+            SELECT income, booking_month, 'EUR' AS currency
+            FROM {MART_MONTHLY_CASHFLOW_TABLE}
+            ORDER BY booking_month DESC
+            LIMIT 1
+        ),
+        housing_cost AS (
+            SELECT
+                COALESCE(SUM(amount), 0) AS amount
+            FROM {MART_HOUSEHOLD_COST_MODEL_TABLE}
+            WHERE cost_type IN ('housing', 'loans')
+              AND period_label = (
+                SELECT booking_month FROM {MART_MONTHLY_CASHFLOW_TABLE}
+                ORDER BY booking_month DESC LIMIT 1
+              )
+        ),
+        total_cost AS (
+            SELECT COALESCE(SUM(amount), 0) AS amount
+            FROM {MART_HOUSEHOLD_COST_MODEL_TABLE}
+            WHERE period_label = (
+                SELECT booking_month FROM {MART_MONTHLY_CASHFLOW_TABLE}
+                ORDER BY booking_month DESC LIMIT 1
+              )
+        ),
+        debt_cost AS (
+            SELECT COALESCE(SUM(monthly_payment), 0) AS amount
+            FROM {MART_LOAN_OVERVIEW_TABLE}
+        )
+        SELECT
+            'housing_to_income'                                        AS ratio_name,
+            COALESCE((SELECT amount FROM housing_cost), 0)             AS numerator,
+            COALESCE((SELECT income FROM latest_cashflow), 0)          AS denominator,
+            CASE
+                WHEN COALESCE((SELECT income FROM latest_cashflow), 0) = 0 THEN 0
+                ELSE ROUND(
+                    COALESCE((SELECT amount FROM housing_cost), 0) /
+                    (SELECT income FROM latest_cashflow), 4
+                )
+            END                                                        AS ratio,
+            COALESCE((SELECT booking_month FROM latest_cashflow), '')  AS period_label,
+            CASE
+                WHEN COALESCE((SELECT income FROM latest_cashflow), 0) = 0 THEN 'caution'
+                WHEN COALESCE((SELECT amount FROM housing_cost), 0) /
+                     NULLIF((SELECT income FROM latest_cashflow), 0) <= 0.30 THEN 'healthy'
+                WHEN COALESCE((SELECT amount FROM housing_cost), 0) /
+                     NULLIF((SELECT income FROM latest_cashflow), 0) <= 0.40 THEN 'caution'
+                ELSE 'critical'
+            END                                                        AS assessment,
+            COALESCE((SELECT currency FROM latest_cashflow), '')       AS currency
+        UNION ALL
+        SELECT
+            'total_cost_to_income',
+            COALESCE((SELECT amount FROM total_cost), 0),
+            COALESCE((SELECT income FROM latest_cashflow), 0),
+            CASE
+                WHEN COALESCE((SELECT income FROM latest_cashflow), 0) = 0 THEN 0
+                ELSE ROUND(
+                    COALESCE((SELECT amount FROM total_cost), 0) /
+                    (SELECT income FROM latest_cashflow), 4
+                )
+            END,
+            COALESCE((SELECT booking_month FROM latest_cashflow), ''),
+            CASE
+                WHEN COALESCE((SELECT income FROM latest_cashflow), 0) = 0 THEN 'caution'
+                WHEN COALESCE((SELECT amount FROM total_cost), 0) /
+                     NULLIF((SELECT income FROM latest_cashflow), 0) <= 0.60 THEN 'healthy'
+                WHEN COALESCE((SELECT amount FROM total_cost), 0) /
+                     NULLIF((SELECT income FROM latest_cashflow), 0) <= 0.80 THEN 'caution'
+                ELSE 'critical'
+            END,
+            COALESCE((SELECT currency FROM latest_cashflow), '')
+        UNION ALL
+        SELECT
+            'debt_service_ratio',
+            COALESCE((SELECT amount FROM debt_cost), 0),
+            COALESCE((SELECT income FROM latest_cashflow), 0),
+            CASE
+                WHEN COALESCE((SELECT income FROM latest_cashflow), 0) = 0 THEN 0
+                ELSE ROUND(
+                    COALESCE((SELECT amount FROM debt_cost), 0) /
+                    (SELECT income FROM latest_cashflow), 4
+                )
+            END,
+            COALESCE((SELECT booking_month FROM latest_cashflow), ''),
+            CASE
+                WHEN COALESCE((SELECT income FROM latest_cashflow), 0) = 0 THEN 'caution'
+                WHEN COALESCE((SELECT amount FROM debt_cost), 0) /
+                     NULLIF((SELECT income FROM latest_cashflow), 0) <= 0.36 THEN 'healthy'
+                WHEN COALESCE((SELECT amount FROM debt_cost), 0) /
+                     NULLIF((SELECT income FROM latest_cashflow), 0) <= 0.50 THEN 'caution'
+                ELSE 'critical'
+            END,
+            COALESCE((SELECT currency FROM latest_cashflow), '')
+        """
+    )
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_AFFORDABILITY_RATIOS_TABLE}"
+    )[0][0]
+
+
+def get_affordability_ratios(store: DuckDBStore) -> list[dict[str, Any]]:
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_AFFORDABILITY_RATIOS_TABLE} ORDER BY ratio_name"
+    )
+
+
+def refresh_recurring_cost_baseline(store: DuckDBStore) -> int:
+    """Union all confirmed recurring costs: subscriptions, utility fixed charges, loan payments."""
+    store.execute(f"DELETE FROM {MART_RECURRING_COST_BASELINE_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_RECURRING_COST_BASELINE_TABLE}
+            (cost_source, counterparty_or_contract, monthly_amount, confidence,
+             last_occurrence, currency)
+        WITH
+        subs AS (
+            SELECT
+                'subscription'              AS cost_source,
+                contract_name               AS counterparty_or_contract,
+                monthly_equivalent          AS monthly_amount,
+                'confirmed'                 AS confidence,
+                CAST(start_date AS VARCHAR) AS last_occurrence,
+                currency
+            FROM {MART_SUBSCRIPTION_SUMMARY_TABLE}
+            WHERE status = 'active' AND monthly_equivalent > 0
+        ),
+        loans AS (
+            SELECT
+                'loan_payment'              AS cost_source,
+                loan_name                   AS counterparty_or_contract,
+                monthly_payment             AS monthly_amount,
+                'confirmed'                 AS confidence,
+                NULL                        AS last_occurrence,
+                currency
+            FROM {MART_LOAN_OVERVIEW_TABLE}
+            WHERE monthly_payment > 0
+        )
+        SELECT * FROM subs
+        UNION ALL
+        SELECT * FROM loans
+        ORDER BY cost_source, counterparty_or_contract
+        """
+    )
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_RECURRING_COST_BASELINE_TABLE}"
+    )[0][0]
+
+
+def get_recurring_cost_baseline(store: DuckDBStore) -> list[dict[str, Any]]:
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_RECURRING_COST_BASELINE_TABLE}"
+        " ORDER BY cost_source, counterparty_or_contract"
     )

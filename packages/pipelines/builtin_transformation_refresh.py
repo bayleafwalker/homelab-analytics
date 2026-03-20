@@ -43,6 +43,17 @@ BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
     "mart_contract_renewal_watchlist": (
         lambda service: service.refresh_contract_renewal_watchlist()
     ),
+    "mart_budget_variance": (lambda service: service.refresh_budget_variance()),
+    "mart_budget_progress_current": (
+        lambda service: service.refresh_budget_progress_current()
+    ),
+    "mart_loan_schedule_projected": (
+        lambda service: service.refresh_loan_schedule_projected()
+    ),
+    "mart_loan_repayment_variance": (
+        lambda service: service.refresh_loan_repayment_variance()
+    ),
+    "mart_loan_overview": (lambda service: service.refresh_loan_overview()),
     "mart_household_overview": (lambda service: service.refresh_household_overview()),
     "mart_open_attention_items": (lambda service: service.refresh_open_attention_items()),
     "mart_recent_significant_changes": (
@@ -50,6 +61,18 @@ BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
     ),
     "mart_current_operating_baseline": (
         lambda service: service.refresh_current_operating_baseline()
+    ),
+    "mart_household_cost_model": (
+        lambda service: service.refresh_household_cost_model()
+    ),
+    "mart_cost_trend_12m": (
+        lambda service: service.refresh_cost_trend_12m()
+    ),
+    "mart_affordability_ratios": (
+        lambda service: service.refresh_affordability_ratios()
+    ),
+    "mart_recurring_cost_baseline": (
+        lambda service: service.refresh_recurring_cost_baseline()
     ),
 }
 

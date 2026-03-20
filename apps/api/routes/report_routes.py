@@ -266,6 +266,78 @@ def register_report_routes(
         return {"rows": to_jsonable(transformation_service.get_contract_renewal_watchlist())}
 
     # ------------------------------------------------------------------
+    # Budget: dedicated endpoints
+    # ------------------------------------------------------------------
+
+    @app.get("/reports/budget-variance")
+    async def get_budget_variance(
+        budget_name: str | None = None,
+        category: str | None = None,
+        period_label: str | None = None,
+    ) -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        rows = transformation_service.get_budget_variance(
+            budget_name=budget_name,
+            category=category,
+            period_label=period_label,
+        )
+        return {"rows": to_jsonable(rows)}
+
+    @app.get("/reports/budget-progress")
+    async def get_budget_progress() -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"rows": to_jsonable(transformation_service.get_budget_progress_current())}
+
+    # ------------------------------------------------------------------
+    # Loans: dedicated endpoints
+    # ------------------------------------------------------------------
+
+    @app.get("/reports/loan-overview")
+    async def get_loan_overview() -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"rows": to_jsonable(transformation_service.get_loan_overview())}
+
+    @app.get("/reports/loan-schedule/{loan_id}")
+    async def get_loan_schedule(loan_id: str) -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        rows = transformation_service.get_loan_schedule_projected(loan_id=loan_id)
+        return {"loan_id": loan_id, "rows": to_jsonable(rows)}
+
+    @app.get("/reports/loan-variance")
+    async def get_loan_variance(loan_id: str | None = None) -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        rows = transformation_service.get_loan_repayment_variance(loan_id=loan_id)
+        return {"rows": to_jsonable(rows)}
+
+    # ------------------------------------------------------------------
+    # Household cost model: dedicated endpoints
+    # ------------------------------------------------------------------
+
+    @app.get("/reports/household-cost-model")
+    async def get_household_cost_model(
+        period_label: str | None = None,
+        cost_type: str | None = None,
+    ) -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        rows = transformation_service.get_household_cost_model(
+            period_label=period_label,
+            cost_type=cost_type,
+        )
+        return {"rows": to_jsonable(rows)}
+
+    @app.get("/reports/cost-trend")
+    async def get_cost_trend() -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"rows": to_jsonable(transformation_service.get_cost_trend_12m())}
+
+    # ------------------------------------------------------------------
     # Overview: new dedicated endpoints
     # ------------------------------------------------------------------
 
@@ -292,6 +364,18 @@ def register_report_routes(
         if transformation_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
         return {"rows": to_jsonable(transformation_service.get_current_operating_baseline())}
+
+    @app.get("/reports/affordability-ratios")
+    async def get_affordability_ratios() -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"rows": to_jsonable(transformation_service.get_affordability_ratios())}
+
+    @app.get("/reports/recurring-cost-baseline")
+    async def get_recurring_cost_baseline() -> dict[str, Any]:
+        if transformation_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"rows": to_jsonable(transformation_service.get_recurring_cost_baseline())}
 
     # ------------------------------------------------------------------
     # Category rules and overrides

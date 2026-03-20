@@ -1,0 +1,7 @@
+loan_id,loan_name,lender,loan_type,principal,annual_rate,term_months,start_date,payment_frequency,repayment_date,payment_amount,principal_portion,interest_portion,extra_amount,currency
+mortgage-001,Home Mortgage,First National Bank,mortgage,350000.00,0.045,300,2022-01-01,monthly,2026-01-01,1773.00,620.75,1152.25,,EUR
+mortgage-001,Home Mortgage,First National Bank,mortgage,350000.00,0.045,300,2022-01-01,monthly,2026-02-01,1773.00,623.08,1149.92,,EUR
+mortgage-001,Home Mortgage,First National Bank,mortgage,350000.00,0.045,300,2022-01-01,monthly,2026-03-01,1773.00,625.42,1147.58,,EUR
+personal-001,Personal Loan,Credit Union,personal,12000.00,0.065,48,2024-06-01,monthly,2026-01-01,284.57,218.07,66.50,,EUR
+personal-001,Personal Loan,Credit Union,personal,12000.00,0.065,48,2024-06-01,monthly,2026-02-01,284.57,219.25,65.32,,EUR
+personal-001,Personal Loan,Credit Union,personal,12000.00,0.065,48,2024-06-01,monthly,2026-03-01,284.57,220.44,64.13,,EUR

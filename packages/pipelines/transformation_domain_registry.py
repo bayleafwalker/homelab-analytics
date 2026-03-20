@@ -141,6 +141,34 @@ def build_builtin_transformation_domain_registry() -> TransformationDomainRegist
             count_rows=lambda service, run_id: service.count_bills(run_id=run_id),
         )
     )
+    registry.register(
+        TransformationDomainHandler(
+            domain_key="loan_repayments",
+            load_rows=lambda service, rows, run_id, effective_date, source_system: (
+                service.load_loan_repayments(
+                    rows,
+                    run_id=run_id,
+                    effective_date=effective_date,
+                    source_system=source_system,
+                )
+            ),
+            count_rows=lambda service, run_id: service.count_loan_repayments(run_id=run_id),
+        )
+    )
+    registry.register(
+        TransformationDomainHandler(
+            domain_key="budgets",
+            load_rows=lambda service, rows, run_id, effective_date, source_system: (
+                service.load_budget_targets(
+                    rows,
+                    run_id=run_id,
+                    effective_date=effective_date,
+                    source_system=source_system,
+                )
+            ),
+            count_rows=lambda service, run_id: service.count_budget_targets(run_id=run_id),
+        )
+    )
     return registry
 
 

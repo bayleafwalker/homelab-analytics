@@ -380,3 +380,61 @@ export async function getTransformationAudit(runId) {
   );
   return payload.audit || [];
 }
+
+export async function getBudgetVariance(budgetName, category, periodLabel) {
+  const payload = await backendJson(
+    `/reports/budget-variance${buildQuery({
+      budget_name: budgetName,
+      category,
+      period_label: periodLabel,
+    })}`
+  );
+  return payload.rows || [];
+}
+
+export async function getBudgetProgress() {
+  const payload = await backendJson("/reports/budget-progress");
+  return payload.rows || [];
+}
+
+export async function getLoanOverview() {
+  const payload = await backendJson("/reports/loan-overview");
+  return payload.rows || [];
+}
+
+export async function getLoanSchedule(loanId) {
+  const payload = await backendJson(`/reports/loan-schedule/${encodeURIComponent(loanId)}`);
+  return payload.rows || [];
+}
+
+export async function getLoanVariance(loanId) {
+  const payload = await backendJson(
+    `/reports/loan-variance${buildQuery({ loan_id: loanId })}`
+  );
+  return payload.rows || [];
+}
+
+export async function getHouseholdCostModel(periodLabel, costType) {
+  const payload = await backendJson(
+    `/reports/household-cost-model${buildQuery({
+      period_label: periodLabel,
+      cost_type: costType,
+    })}`
+  );
+  return payload.rows || [];
+}
+
+export async function getCostTrend() {
+  const payload = await backendJson("/reports/cost-trend");
+  return payload.rows || [];
+}
+
+export async function getAffordabilityRatios() {
+  const payload = await backendJson("/reports/affordability-ratios");
+  return payload.rows || [];
+}
+
+export async function getRecurringCostBaseline() {
+  const payload = await backendJson("/reports/recurring-cost-baseline");
+  return payload.rows || [];
+}
