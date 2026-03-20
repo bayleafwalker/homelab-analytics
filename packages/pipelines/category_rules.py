@@ -149,7 +149,7 @@ def backfill_counterparty_categories(store: DuckDBStore) -> int:
     Returns the number of counterparty rows updated.
     """
     rows = store.fetchall_dicts(
-        "SELECT DISTINCT counterparty_name FROM dim_counterparty WHERE valid_to IS NULL"
+        "SELECT DISTINCT counterparty_name FROM dim_counterparty WHERE is_current = TRUE"
     )
     if not rows:
         return 0
@@ -157,7 +157,7 @@ def backfill_counterparty_categories(store: DuckDBStore) -> int:
     resolved = resolve_categories_bulk(store, names)
     for name, category in resolved.items():
         store.execute(
-            "UPDATE dim_counterparty SET category = ? WHERE counterparty_name = ? AND valid_to IS NULL",
+            "UPDATE dim_counterparty SET category = ? WHERE counterparty_name = ? AND is_current = TRUE",
             [category, name],
         )
     return len(resolved)
