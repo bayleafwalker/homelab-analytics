@@ -26,6 +26,7 @@ class WorkflowDefinition:
     required_permissions: tuple[str, ...]
     command_name: str  # maps workflow to the worker CLI command
     publication_keys: tuple[str, ...]  # output publication keys produced by this workflow
+    identity_strategy_id: str | None = None  # declared per-source entity key strategy
 
 
 @dataclass(frozen=True)

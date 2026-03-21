@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from packages.pipelines.identity_strategy import IdentityStrategy, IdentityTier
 from packages.storage.duckdb_store import DimensionColumn, DimensionDefinition
 
 # ---------------------------------------------------------------------------
@@ -35,6 +36,28 @@ DIM_COUNTERPARTY = DimensionDefinition(
 
 CURRENT_DIM_ACCOUNT_VIEW = "rpt_current_dim_account"
 CURRENT_DIM_COUNTERPARTY_VIEW = "rpt_current_dim_counterparty"
+
+# ---------------------------------------------------------------------------
+# Identity strategy
+# ---------------------------------------------------------------------------
+
+BANK_TRANSACTION_IDENTITY_STRATEGY = IdentityStrategy(
+    strategy_id="bank_transaction_v1",
+    tiers=(
+        # Tier 1: provider-assigned reference (not yet in schema — reserved for
+        # sources that supply a booking reference or archive ID).
+        IdentityTier(
+            tier=1,
+            fields=("account_id", "provider_transaction_ref"),
+        ),
+        # Tier 2: composite business key available in all current bank CSVs.
+        IdentityTier(
+            tier=2,
+            fields=("booked_at", "account_id", "amount", "currency", "counterparty_name"),
+        ),
+    ),
+    fallback_mode="reject",
+)
 
 # ---------------------------------------------------------------------------
 # Fact table schema

@@ -33,6 +33,7 @@ FINANCE_PACK = CapabilityPack(
                 "account_balance_trend",
                 "transaction_anomalies_current",
             ),
+            identity_strategy_id="bank_transaction_v1",
         ),
         WorkflowDefinition(
             workflow_id="ingest-subscriptions",
