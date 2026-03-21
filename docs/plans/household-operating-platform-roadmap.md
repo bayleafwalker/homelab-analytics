@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document defines the 10-stage roadmap that takes homelab-analytics from a household analytics platform to a household operating platform. Each stage describes what it delivers, what architectural capability it introduces, and what it makes possible for subsequent stages.
+This document defines the 11-stage roadmap that takes homelab-analytics from a household analytics platform to a household operating platform. Each stage describes what it delivers, what architectural capability it introduces, and what it makes possible for subsequent stages.
 
 References:
 
@@ -25,10 +25,11 @@ References:
 | 3 | Planning and control surfaces | Budget targets, debt planning, affordability ratios | Planning models, reporting |
 | 4 | Simulation and scenario engine | Hypothetical future-state reasoning | Scenario storage, compute |
 | 5 | Policy, automation, and action engine | Rule-based alerts, integration triggers | Policy model, action dispatch |
-| 6 | Multi-renderer and semantic delivery layer | Publication semantics decoupled from frontends | Delivery adapters, content negotiation |
-| 7 | Extension and pack ecosystem | Governed pack discovery, validation, lifecycle | Pack manifest, registry |
-| 8 | Trust, governance, and operator confidence | Explainability, lineage, audit completeness | Lineage model, quality scoring |
-| 9 | Agentic and assistant layer | Agent-accessible household reasoning | Tool definitions, retrieval layer |
+| 6 | Integration adapter layer | Generic adapter contracts for external system integration | Adapter manifests, lifecycle model |
+| 7 | Multi-renderer and semantic delivery layer | Publication semantics decoupled from frontends | Delivery adapters, content negotiation |
+| 8 | Extension and pack ecosystem | Governed pack discovery, validation, lifecycle | Pack manifest, registry |
+| 9 | Trust, governance, and operator confidence | Explainability, lineage, audit completeness | Lineage model, quality scoring |
+| 10 | Agentic and assistant layer | Agent-accessible household reasoning | Tool definitions, retrieval layer |
 
 ---
 
@@ -40,7 +41,7 @@ Create one coherent statement of purpose so the repo stops telling two stories a
 
 ### Key deliverables
 
-- Direction ADR establishing the 10-stage vocabulary
+- Direction ADR establishing the 11-stage vocabulary
 - This roadmap document
 - Architecture doc expanded with forward-looking layer definitions
 - Requirements phase table reframed around operating-platform maturity
@@ -52,7 +53,7 @@ Create one coherent statement of purpose so the repo stops telling two stories a
 
 ### Status
 
-In progress. This is Stage 0.
+Substantially complete. This sprint addresses the remaining documentation gaps.
 
 ---
 
@@ -108,6 +109,10 @@ The 4-sprint product loop (`docs/sprints/household-operator-product-loop.md`) is
 - Overview composition from all four domain packs once homelab is available
 - Full insight type coverage across finance, utilities, and homelab
 
+### Status
+
+Complete. Delivered as v0.1.0 (2026-03-20) through the 4-sprint product loop. All four sprints merged as a single delivery on `feat/combined-dashboard`.
+
 ---
 
 ## Stage 3 — Planning and control surfaces
@@ -138,6 +143,10 @@ Requirements ANA-02, ANA-03, ANA-04, and ANA-06 are already defined in `requirem
 ### Planned documentation
 
 - `docs/product/planning-and-control.md` — concepts of budget, obligation, target, threshold, variance, and intervention
+
+### Status
+
+Partially complete. Budget definitions and variance tracking, affordability ratios, household cost model, and recurring cost baseline are shipped. Category-based cost envelopes with drift visibility and structured state indicators remain.
 
 ---
 
@@ -171,6 +180,10 @@ Stage 3 planning models provide the baseline targets and obligation structures t
 
 - `docs/architecture/simulation-engine.md` — scenario inputs, compute model, assumption tracking, explainability
 - `docs/product/scenarios-and-what-if.md` — user-facing scenario types and comparison workflows
+
+### Status
+
+Partially complete. Three scenario types shipped (loan what-if, income change, expense shock) with scenario storage, assumption tracking, staleness detection, and scenarios list page. Utility tariff shock, homelab cost/benefit, and scenario comparison remain.
 
 ---
 
@@ -222,9 +235,85 @@ Stage 2 operating views provide the observed state that policies evaluate. Stage
 - `docs/product/actions-and-alerts.md` — what the platform recommends vs. alerts vs. automates
 - `docs/plans/ha-addon-and-integration-design.md` — high-level design plan for the HA add-on (outbound bridge) and HA integration (inbound semantic surface); inputs for later implementation decomposition
 
+### Status
+
+Substantially underway. HA Phases 1–5 complete: batch entity ingest, WebSocket live subscription, MQTT synthetic entity publication, policy/automation evaluation engine, and outbound action dispatcher. Phase 6 (approval-gated device control) and synthetic entity expansion remain.
+
 ---
 
-## Stage 6 — Multi-renderer and semantic delivery layer
+## Stage 6 — Integration adapter layer
+
+### Capability goal
+
+Extract the integration contracts proven in Stage 5 (HA-first) into a generic adapter model so that new external systems can integrate without reimplementing the full stack. HA remains the reference implementation and primary integration surface.
+
+### Key capabilities
+
+- Three adapter contracts: ingest (state stream or poll), publish (entity or metric publication), action (command dispatch)
+- Adapter registration and lifecycle model: discovery, connection, health, teardown
+- Entity normalization contract per adapter: source entities mapped to canonical platform entities
+- Connection and credential management abstraction
+- HA implementation positioned as the reference adapter
+- Extension points documented for future adapters
+
+### Integration surfaces this stage enables
+
+The adapter model should account for these integration categories without necessarily implementing them in this stage:
+
+**Cluster monitoring** — Prometheus federation or remote-read for infrastructure metrics, service health, and resource utilization. Ingest adapter.
+
+**Cluster infrastructure** — Kubernetes API for ingress state, certificate expiry, workload status, and scaling actions. Ingest and action adapter.
+
+**Network and access** — WireGuard and Tailscale peer status, connection health, handshake freshness as ingest adapter. Peer management and ACL updates as action adapter.
+
+**Generic MQTT** — Arbitrary topic subscription without HA discovery envelope as ingest adapter. Arbitrary topic publication without HA discovery format as publish adapter.
+
+**Notification services** — ntfy, Pushover, email, and messaging platforms as action adapter for alert dispatch, decoupled from HA persistent_notification.
+
+**Direct device protocols** — Devices or services not managed by HA that expose MQTT, REST, or other standard APIs.
+
+### Architectural additions
+
+- `AdapterManifest`: declares adapter identity, supported directions (ingest, publish, action), credential requirements, entity class vocabulary, and health-check contract
+- `IngestAdapter` contract: connect, stream or poll, normalize to canonical entity model, disconnect
+- `PublishAdapter` contract: connect, format platform state to target entity model, publish, disconnect
+- `ActionAdapter` contract: validate action against target capabilities, dispatch, report result
+- Adapter health and status reporting generalizing the existing `/api/ha/*/status` pattern
+- Multi-adapter entity correlation strategy for deduplicating or correlating entities that appear through multiple adapters
+
+### Relationship to existing work
+
+The HA integration hub (Phases 1–5) is the first complete implementation of a bidirectional integration adapter. Its six-layer architecture maps to the adapter contracts:
+
+| HA hub layer | Adapter contract |
+|---|---|
+| Layer 1 — Device ingress | Handled by HA internally, not a platform adapter concern |
+| Layer 2 — Entity normalization | `IngestAdapter.normalize()` |
+| Layer 3 — Event and history bus | `IngestAdapter.connect()` and `IngestAdapter.stream()` |
+| Layer 5 — Action and approval | `ActionAdapter.dispatch()` |
+| Layer 6 — Federation publish | `PublishAdapter.publish()` |
+
+### Home Assistant boundary
+
+HA remains the primary integration surface. The adapter abstraction does not diminish HA's role. It ensures that HA-specific protocol logic (WebSocket subscription format, MQTT discovery envelope, REST service call schema) is separable from the generic integration lifecycle (connect, normalize, ingest, publish, act, health-check).
+
+New adapters do not replace HA. They serve integration surfaces that HA does not cover (Prometheus, Kubernetes API, direct VPN management) or that benefit from bypassing HA (high-volume MQTT sensor streams where HA entity overhead is unnecessary).
+
+### What this stage does NOT build
+
+This stage defines the adapter contracts, documents the extension points, and positions the HA integration as the reference implementation. It does not build adapters for all listed integration surfaces. Each new adapter is a discrete implementation task — either a standalone sprint or a pack contribution in Stage 8.
+
+### Prerequisites
+
+Stage 5 HA integration (at least Phases 1–5) provides the concrete implementation from which this stage abstracts.
+
+### Planned documentation
+
+- `docs/architecture/integration-adapters.md` — adapter contracts, registration model, lifecycle, extension points, and HA-as-reference-implementation walkthrough
+
+---
+
+## Stage 7 — Multi-renderer and semantic delivery layer
 
 ### Capability goal
 
@@ -262,7 +351,7 @@ The platform ADR sections 12–13 already define UI descriptors and publication 
 
 ---
 
-## Stage 7 — Extension and pack ecosystem
+## Stage 8 — Extension and pack ecosystem
 
 ### Capability goal
 
@@ -301,7 +390,7 @@ Automation packs that produce HA automations, scripts, or dashboard cards withou
 
 ---
 
-## Stage 8 — Trust, governance, and operator confidence
+## Stage 9 — Trust, governance, and operator confidence
 
 ### Capability goal
 
@@ -335,7 +424,7 @@ The platform already has strong foundations: OIDC, service tokens, role separati
 
 ---
 
-## Stage 9 — Agentic and assistant layer
+## Stage 10 — Agentic and assistant layer
 
 ### Capability goal
 
@@ -353,7 +442,7 @@ Make the platform explorable and operable through agent interfaces without makin
 ### Prerequisites
 
 - Stage 5 (policy engine provides the action surface that agents can propose against)
-- Stage 8 (trust model provides the safety guarantees that make agent actions auditable)
+- Stage 9 (trust model provides the safety guarantees that make agent actions auditable)
 
 This stage is deliberately late in the roadmap. The platform should become operationally trustworthy before assistants get authority. Otherwise you build an eloquent intern with root access.
 
@@ -396,9 +485,9 @@ Home Assistant is a first-class integration target and a primary delivery surfac
 - Multi-surface publishing so the same semantic outputs reach HA, the web UI, API clients, and agent surfaces
 - Pack and ecosystem capabilities that extend the semantic and product layer
 
-### Evaluation gate for Stages 5–9
+### Evaluation gate for Stages 5–10
 
-Before adding any capability to the platform in Stages 5 through 9, apply this check:
+Before adding any capability to the platform in Stages 5 through 10, apply this check:
 
 1. Could this be delivered as a Home Assistant add-on, custom integration, or automation with no cross-domain semantic dependency?
 2. If yes, it belongs in Home Assistant.
@@ -420,7 +509,7 @@ The full integration hub architecture is defined in `docs/architecture/homeassis
 
 ## Phase-to-stage mapping
 
-The existing requirements use a 5-phase model (Phases 0–4) with stable requirement IDs. That model remains the authoritative frame for existing requirements. The 10-stage model describes the broader trajectory.
+The existing requirements use a 5-phase model (Phases 0–4) with stable requirement IDs. That model remains the authoritative frame for existing requirements. The 11-stage model describes the broader trajectory.
 
 | Phase | Name | Focus | Stage alignment |
 |---|---|---|---|
@@ -430,13 +519,13 @@ The existing requirements use a 5-phase model (Phases 0–4) with stable require
 | 3 | Household operating model | Budget, loans, cost model, planning surfaces, homelab operations | Stages 2–3 |
 | 4 | Platform maturity | Auth, CI/CD, multi-renderer, policy, ecosystem foundations | Stages 3–5 |
 
-Stages 5–9 extend beyond the original 5-phase model. New requirements for those stages will be added to the requirements baseline as the stages begin active work.
+Stages 5–10 extend beyond the original 5-phase model. New requirements for those stages will be added to the requirements baseline as the stages begin active work.
 
 ---
 
 ## Staging principles
 
-1. **Each stage should be independently valuable.** The platform should be useful at the end of every stage, not only when all 10 are complete.
+1. **Each stage should be independently valuable.** The platform should be useful at the end of every stage, not only when all 11 are complete.
 
 2. **No stage requires all previous stages to be 100% complete.** Stage boundaries mark maturity thresholds, not hard gates. Some work from adjacent stages will naturally overlap.
 
@@ -446,4 +535,4 @@ Stages 5–9 extend beyond the original 5-phase model. New requirements for thos
 
 5. **Later stages receive dedicated ADRs when they begin active work.** This roadmap provides enough context for planning and prioritization. Technology choices, detailed designs, and acceptance criteria belong in stage-specific ADRs and requirement additions.
 
-6. **Apply the platform vs Home Assistant boundary before adding any capability in Stages 5–9.** If a proposed capability could be a HA add-on with no cross-domain semantic, planning, policy, or multi-surface publishing dependency, it belongs in Home Assistant. The evaluation gate in the "Platform vs Home Assistant boundary" section above is the intake check for those stages.
+6. **Apply the platform vs Home Assistant boundary before adding any capability in Stages 5–10.** If a proposed capability could be a HA add-on with no cross-domain semantic, planning, policy, or multi-surface publishing dependency, it belongs in Home Assistant. The evaluation gate in the "Platform vs Home Assistant boundary" section above is the intake check for those stages.

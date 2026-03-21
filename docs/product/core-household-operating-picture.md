@@ -1,6 +1,6 @@
 # Core product: Household Operating Picture
 
-**Status:** Proposed  
+**Status:** Accepted — delivered as v0.1.0 (2026-03-20)
 **Owner:** Juha  
 **Decision type:** Product direction / scope framing  
 **Applies to:** Finance, utilities, homelab, publications, dashboard and admin priorities

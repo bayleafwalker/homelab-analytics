@@ -1,6 +1,6 @@
 # Simulation Engine — Architecture
 
-**Status:** Design only — not started
+**Status:** Active — scenario storage and three compute types shipped
 **Stage:** 3 (see platform roadmap)
 **First scenario type:** Loan what-if (reuses `packages/pipelines/amortization.py`)
 

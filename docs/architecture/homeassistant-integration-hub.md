@@ -128,5 +128,13 @@ The bridge should fail gracefully in all directions.
 | Data platform architecture — source ingestion | Layer 1 (ingress) and Layer 3 (event bus) are the HA source connector |
 | Data platform architecture — transformation | Layer 2 (normalization bridge) feeds into canonical transformation |
 | Policy and automation layer (Stage 5) | Layer 5 (action and approval) is the dispatch path for policy actions |
-| Multi-renderer delivery layer (Stage 6) | Layer 5 synthetic entities are the HA renderer adapter |
-| Trust and governance layer (Stage 8) | Bridge events carry source, timestamp, and quality metadata into the lineage model |
+| Multi-renderer delivery layer (Stage 7) | Layer 5 synthetic entities are the HA renderer adapter |
+| Trust and governance layer (Stage 9) | Bridge events carry source, timestamp, and quality metadata into the lineage model |
+
+## Relationship to integration adapter layer
+
+The HA integration hub is the reference implementation for the generic integration adapter model defined in Stage 6 of the platform roadmap. The six-layer hub architecture maps to three adapter contracts (ingest, publish, action) that future integration surfaces will implement independently.
+
+This means HA-specific protocol choices — WebSocket subscription format, MQTT discovery envelope, REST service call schema — are implementation details of the HA adapter, not platform-wide assumptions. New adapters (Prometheus scrape, generic MQTT, Kubernetes API) implement the same adapter contracts with their own protocol logic.
+
+See `docs/plans/household-operating-platform-roadmap.md` Stage 6 for the adapter contract definitions and extension point documentation plan.

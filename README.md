@@ -8,7 +8,7 @@ This is not a Home Assistant add-on. Home Assistant is a first-class integration
 
 ## Product direction
 
-The project follows a 10-stage roadmap from analytics platform to household operating platform:
+The project follows an 11-stage roadmap from analytics platform to household operating platform:
 
 0. Documentation reset and direction lock
 1. Canonical household model
@@ -16,12 +16,13 @@ The project follows a 10-stage roadmap from analytics platform to household oper
 3. Planning and control surfaces
 4. Simulation and scenario engine
 5. Policy, automation, and action engine
-6. Multi-renderer and semantic delivery layer
-7. Extension and pack ecosystem
-8. Trust, governance, and operator confidence
-9. Agentic and assistant layer
+6. Integration adapter layer
+7. Multi-renderer and semantic delivery layer
+8. Extension and pack ecosystem
+9. Trust, governance, and operator confidence
+10. Agentic and assistant layer
 
-The project is currently delivering Stage 2 (Operating Views) through the 4-sprint product loop. See `docs/plans/household-operating-platform-roadmap.md` for stage details and `docs/decisions/household-operating-platform-direction.md` for the direction ADR.
+Stages 2–3 are complete. Stage 4 is partially shipped (three scenario types). Stage 5 is substantially underway through HA Phases 1–5. See `docs/plans/household-operating-platform-roadmap.md` for stage details and `docs/decisions/household-operating-platform-direction.md` for the direction ADR.
 
 ## Current capabilities (v0.1.0 — Household Operating Picture)
 
@@ -42,7 +43,10 @@ The project is currently delivering Stage 2 (Operating Views) through the 4-spri
 - Worker CLI with schedule dispatch, lease renewal, and stale-dispatch recovery
 - Docker Compose and Helm/Kubernetes deployment paths
 - Extension model for external connectors, transformations, and marts
-- 727 tests passing (702 unit + 25 household integration)
+- Home Assistant integration: WebSocket live state bridge, MQTT synthetic entity publication, policy/automation evaluation engine, outbound action dispatcher (HA Phases 1–5)
+- Simulation engine: loan what-if, income change, and expense shock scenarios with assumption tracking and staleness detection
+- Immutable evidence model: content-addressed batch ingest, append-only transaction observations, reconciled entity projections
+- 1074 tests passing (1056 default + 18 slow)
 
 ## Repository layout
 
@@ -60,7 +64,8 @@ homelab-analytics/
 │   ├── domains/                # Domain capability packs
 │   │   ├── finance/            # Cash flow, subscriptions, transactions
 │   │   ├── utilities/          # Utility costs, contracts, metering
-│   │   └── overview/           # Cross-domain composition
+│   │   ├── overview/           # Cross-domain composition
+│   │   └── homelab/            # HA integration, homelab telemetry
 │   ├── pipelines/              # Transformation and mart logic
 │   ├── platform/               # Runtime, auth, capability types
 │   ├── shared/                 # Extension registry, auth shim, contracts
@@ -88,10 +93,10 @@ homelab-analytics/
 - `docs/README.md` — full documentation index
 - `requirements/README.md` — requirements baseline across five domains
 - `docs/architecture/data-platform-architecture.md` — source-to-reporting data architecture and forward-looking layer definitions
-- `docs/decisions/household-operating-platform-direction.md` — operating platform direction and 10-stage model
+- `docs/decisions/household-operating-platform-direction.md` — operating platform direction and 11-stage model
 - `docs/decisions/household-platform-adr-and-refactor-blueprint.md` — modular monolith architecture and capability pack model
 - `docs/product/core-household-operating-picture.md` — core product definition and acceptance criteria
-- `docs/plans/household-operating-platform-roadmap.md` — 10-stage roadmap with deliverables and dependencies
+- `docs/plans/household-operating-platform-roadmap.md` — 11-stage roadmap with deliverables and dependencies
 - `docs/product/homeassistant-and-smart-home-hub.md` — Home Assistant as edge runtime and actuation layer, platform vs HA boundary, and build ordering
 - `docs/architecture/homeassistant-integration-hub.md` — six-layer HA integration hub architecture
 

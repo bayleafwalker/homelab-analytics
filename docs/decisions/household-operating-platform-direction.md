@@ -84,11 +84,11 @@ This project is not a Home Assistant add-on or custom integration. The distincti
 
 A HA add-on works within the HA data model, executes in the HA runtime, and operates on HA entities. This platform works across domains that HA does not model — financial transactions, loan amortization, contract prices, infrastructure cost, cross-domain cost attribution — and publishes outputs back to HA as synthetic entities for family-facing visualization and actuation.
 
-The evaluation gate in `docs/plans/household-operating-platform-roadmap.md` codifies this boundary for Stages 5–9. The product and architecture documents in `docs/product/homeassistant-and-smart-home-hub.md` and `docs/architecture/homeassistant-integration-hub.md` define how HA integrates as a first-class surface.
+The evaluation gate in `docs/plans/household-operating-platform-roadmap.md` codifies this boundary for Stages 5–10. The product and architecture documents in `docs/product/homeassistant-and-smart-home-hub.md` and `docs/architecture/homeassistant-integration-hub.md` define how HA integrates as a first-class surface.
 
 ---
 
-## 5. The 10-stage model
+## 5. The 11-stage model
 
 | Stage | Name | Key outcome |
 |---|---|---|
@@ -98,10 +98,11 @@ The evaluation gate in `docs/plans/household-operating-platform-roadmap.md` codi
 | 3 | Planning and control surfaces | Budget targets, variance tracking, debt planning, affordability |
 | 4 | Simulation and scenario engine | Hypothetical future-state reasoning as a first-class capability |
 | 5 | Policy, automation, and action engine | Rule-based alerts, integration triggers, recommended actions |
-| 6 | Multi-renderer and semantic delivery layer | Publication semantics decoupled from any single frontend |
-| 7 | Extension and pack ecosystem | Disciplined discovery, validation, and lifecycle for external packs |
-| 8 | Trust, governance, and operator confidence | Explainability, lineage, audit, and confidence indicators |
-| 9 | Agentic and assistant layer | Agent-accessible household reasoning with auditable action proposals |
+| 6 | Integration adapter layer | Generic adapter contracts so new external systems integrate without reimplementing the full stack |
+| 7 | Multi-renderer and semantic delivery layer | Publication semantics decoupled from any single frontend |
+| 8 | Extension and pack ecosystem | Disciplined discovery, validation, and lifecycle for external packs |
+| 9 | Trust, governance, and operator confidence | Explainability, lineage, audit, and confidence indicators |
+| 10 | Agentic and assistant layer | Agent-accessible household reasoning with auditable action proposals |
 
 ---
 
@@ -110,7 +111,7 @@ The evaluation gate in `docs/plans/household-operating-platform-roadmap.md` codi
 ### Stage 0 — Documentation reset
 
 - Coherent project identity across README, architecture doc, requirements, and docs index
-- 10-stage vocabulary usable by all future planning and sprint documents
+- 11-stage vocabulary usable by all future planning and sprint documents
 
 ### Stage 1 — Canonical household model
 
@@ -146,20 +147,28 @@ The evaluation gate in `docs/plans/household-operating-platform-roadmap.md` codi
 - Boundary between recommendation, alerting, and automated execution
 - Evaluation gate: HA-native capabilities stay in HA; platform owns policy evaluation and cross-domain semantic action dispatch
 
-### Stage 6 — Multi-renderer delivery
+### Stage 6 — Integration adapter layer
+
+- Generic adapter contracts: ingest, publish, action
+- Adapter registration, lifecycle, and health model
+- Entity normalization contract per adapter
+- HA integration hub positioned as the reference adapter
+- Extension points for future adapters (Prometheus, Kubernetes API, generic MQTT, notification services)
+
+### Stage 7 — Multi-renderer delivery
 
 - Semantic publication metadata beyond table names
 - Renderer adapter registry and content negotiation
 - Multiple equivalent consumers over shared contracts (admin UI, dashboards, Home Assistant, API clients, agents)
 
-### Stage 7 — Extension and pack ecosystem
+### Stage 8 — Extension and pack ecosystem
 
 - Pack manifest standard with compatibility and trust metadata
 - Pack discovery, installation, activation, and lifecycle management
 - Pack contract testing and capability declaration
 - Curated ecosystem layered on top of the core platform
 
-### Stage 8 — Trust, governance, and operator confidence
+### Stage 9 — Trust, governance, and operator confidence
 
 - End-to-end data lineage visualization
 - Publication freshness and quality scoring
@@ -167,7 +176,7 @@ The evaluation gate in `docs/plans/household-operating-platform-roadmap.md` codi
 - Confidence, staleness, and completeness indicators
 - Recovery-first operational model
 
-### Stage 9 — Agentic and assistant layer
+### Stage 10 — Agentic and assistant layer
 
 - Retrieval over semantic models for natural-language exploration
 - Safe, auditable action proposals
@@ -182,9 +191,9 @@ Stages 0 through 2 are linear prerequisites. Each builds directly on the previou
 
 Stages 3 through 5 are mostly linear: planning models (3) inform simulation inputs (4), and both inform policy definitions (5). However, Stage 5 can begin basic alerting once Stage 2 operating views exist.
 
-Stages 6 through 8 can partially overlap. Multi-renderer delivery (6) and pack ecosystem (7) are structurally independent. Trust and governance (8) benefits from both but does not strictly require their completion.
+Stages 7 through 9 can partially overlap. Integration adapter layer (6) precedes multi-renderer delivery (7) and pack ecosystem (8) since adapters are the reference surface for both. Multi-renderer delivery (7) and pack ecosystem (8) are structurally independent. Trust and governance (9) benefits from both but does not strictly require their completion.
 
-Stage 9 depends on Stage 5 (policy engine provides the action surface) and Stage 8 (trust model provides the safety guarantees). It is deliberately late in the roadmap. The platform should become operationally trustworthy before assistants get authority.
+Stage 10 depends on Stage 5 (policy engine provides the action surface) and Stage 9 (trust model provides the safety guarantees). It is deliberately late in the roadmap. The platform should become operationally trustworthy before assistants get authority.
 
 ---
 
@@ -195,7 +204,7 @@ Stage 9 depends on Stage 5 (policy engine provides the action surface) and Stage
 - Whether later stages warrant separate repositories or remain in the monolith
 - Pack ecosystem governance model or marketplace design
 - Specific rendering frameworks for multi-renderer delivery
-- Priority ordering between parallel-eligible stages (6, 7, 8)
+- Priority ordering between parallel-eligible stages (7, 8, 9)
 
 These decisions belong in future ADRs when the relevant stages begin active work.
 
@@ -211,19 +220,24 @@ These decisions belong in future ADRs when the relevant stages begin active work
 | `core-household-operating-picture.md` | Stage 2 specification |
 | `initial-capability-packs-and-publications.md` | Stage 2 specification |
 | 4-sprint product loop | Stage 2–3 execution plan |
-| Platform ADR (modular monolith, capability packs) | Stage 7 foundation |
-| Extension model (paths, modules, registry) | Stage 7 foundation |
-| `external-registry-inclusion.md` | Stage 7 plan |
-| Auth, service tokens, role separation | Stage 8 foundation |
-| Run metadata, validation outcomes, audit hooks | Stage 8 foundation |
+| Platform ADR (modular monolith, capability packs) | Stage 8 foundation |
+| Extension model (paths, modules, registry) | Stage 8 foundation |
+| `external-registry-inclusion.md` | Stage 8 plan |
+| Auth, service tokens, role separation | Stage 9 foundation |
+| Run metadata, validation outcomes, audit hooks | Stage 9 foundation |
 | `additional-data-domains.md` | Stage 1 plan |
 | `homeassistant-and-smart-home-hub.md` | Stage 0 / Stage 5 product boundary |
 | `homeassistant-integration-hub.md` | Stage 0 / Stage 5 architecture |
+| Scenario storage, 3 scenario types, assumption tracking, staleness detection | Stage 4 foundation |
+| Scenarios list page and history | Stage 4 product surface |
+| HA WebSocket bridge, entity ingest, MQTT publisher | Stage 5 foundation (ingest + publish) |
+| HA policy evaluation engine, action dispatcher | Stage 5 foundation (policy + action) |
+| Immutable evidence model, transaction identity strategy | Stage 1 / Stage 9 foundation |
 
 ---
 
 ## 10. Decision
 
-Accept the household operating platform direction. Use the 10-stage vocabulary in all forward-looking documentation, sprint planning, and ADR references.
+Accept the household operating platform direction. Use the 11-stage vocabulary in all forward-looking documentation, sprint planning, and ADR references.
 
 This direction lock does not grant permission to pursue all 10 stages simultaneously. The active execution plan remains the 4-sprint product loop for Stages 1–3. Later stages receive planning attention when earlier stages reach their acceptance criteria.

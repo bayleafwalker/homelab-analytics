@@ -8,6 +8,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 
 - `architecture/data-platform-architecture.md` — source ingestion pattern, landing/bronze, transformation/silver, reporting/gold, SCD handling, extensibility model, and API/UI publishing model. Also covers forward-looking architectural layers: semantic domain, planning/scenario, policy/automation, multi-renderer delivery, pack ecosystem, and trust/governance.
 - `architecture/homeassistant-integration-hub.md` — six-layer integration hub architecture: entity normalization bridge, bidirectional event/command fabric, synthetic entity publication model, and resilience model.
+- `architecture/simulation-engine.md` — scenario storage schema, compute model, assumption tracking, and planned scenario types.
 
 ## Product
 
@@ -31,6 +32,11 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 - `sprints/ingestion-operator-ergonomics.md` — ingestion operator ergonomics sprint.
 - `sprints/homelab-capability-pack.md` — Sprint A: homelab capability pack (4 sources, 4 marts, homelab API routes). Done — PR #7.
 - `sprints/category-governance.md` — Sprint B: category governance Phase 1 (backfill bug fix, budget-spend overlap test). Done — PR #8.
+- `sprints/simulation-engine-sprint.md` — Sprint B: simulation engine (loan what-if first). Done.
+- `sprints/scenarios-page-sprint.md` — Sprint F: scenarios history page and list API. Done.
+- `sprints/expense-shock-sprint.md` — Sprint E+2: expense shock / tariff / cost-of-living scenario. Done.
+- `sprints/ha-integration-hub-phase1.md` — Sprint G: HA integration hub Phase 1 (entity normalization bridge). Done.
+- `sprints/documentation-reconciliation-and-adapter-stage.md` — documentation reconciliation, integration adapter stage, and roadmap update.
 
 ## Agents
 
@@ -41,13 +47,13 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 
 ## Decisions
 
-- `decisions/household-operating-platform-direction.md` — operating platform identity evolution, 10-stage roadmap direction, relationship to Home Assistant, and relationship to existing ADRs.
+- `decisions/household-operating-platform-direction.md` — operating platform identity evolution, 11-stage roadmap direction, relationship to Home Assistant, and relationship to existing ADRs.
 - `decisions/household-platform-adr-and-refactor-blueprint.md` — modular monolith architecture, 5-layer model, capability pack registration, boundary enforcement, and migration plan.
 - `decisions/compute-and-orchestration-options.md` — comparison of Spark and alternative engines/orchestrators, with the recommended initial stack and upgrade path.
 
 ## Plans
 
-- `plans/household-operating-platform-roadmap.md` — 10-stage roadmap from analytics platform to household operating platform, with stage descriptions, dependencies, and phase-to-stage mapping.
+- `plans/household-operating-platform-roadmap.md` — 11-stage roadmap from analytics platform to household operating platform, with stage descriptions, dependencies, and phase-to-stage mapping.
 - `plans/ha-addon-and-integration-design.md` — design plan for the HA add-on (outbound bridge) and HA integration (inbound semantic surface): architecture, entity model, update model, API contracts, security model, and documentation outputs.
 - `plans/homelab-analytics-platform-plan.md` — strategic decisions and rationale from the bootstrap phase. Detailed requirements now live in `requirements/` at the repository root.
 - `plans/additional-data-domains.md` — planned data domains beyond account transactions, with source systems, canonical models, and marts for each.

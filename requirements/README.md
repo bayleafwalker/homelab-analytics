@@ -2,7 +2,7 @@
 
 This folder is the authoritative source for product and technical requirements for the household operating platform.
 
-Each document follows a common template (see below) and covers one requirement domain. Requirements are uniquely identified, phased, and linked to acceptance criteria so that implementation and test coverage can be traced back to stated goals. The phase model aligns with the 10-stage operating platform roadmap defined in `docs/plans/household-operating-platform-roadmap.md`.
+Each document follows a common template (see below) and covers one requirement domain. Requirements are uniquely identified, phased, and linked to acceptance criteria so that implementation and test coverage can be traced back to stated goals. The phase model aligns with the 11-stage operating platform roadmap defined in `docs/plans/household-operating-platform-roadmap.md`.
 
 ## Documents
 

@@ -1,6 +1,6 @@
 # Scenarios and What-If Analysis — Product Design
 
-**Status:** Planned (Stage 3)
+**Status:** Active — three scenario types shipped (loan what-if, income change, expense shock)
 **Architecture:** See [docs/architecture/simulation-engine.md](../architecture/simulation-engine.md)
 **Sprint plan:** See [docs/sprints/simulation-engine-sprint.md](../sprints/simulation-engine-sprint.md)
 
