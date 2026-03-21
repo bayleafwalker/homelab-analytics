@@ -182,6 +182,14 @@ export async function getUsageVsPrice(utilityType) {
   );
   return payload.rows || [];
 }
+export async function getContractReviewCandidates() {
+  const payload = await backendJson("/reports/contract-review-candidates");
+  return payload.rows || [];
+}
+export async function getContractRenewalWatchlist() {
+  const payload = await backendJson("/reports/contract-renewal-watchlist");
+  return payload.rows || [];
+}
 export async function getSubscriptionSummary() {
   const payload = await backendJson("/reports/subscription-summary");
   return payload.rows || [];

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { SparklineChart } from "@/components/sparkline-chart";
 import {
+  getContractRenewalWatchlist,
+  getContractReviewCandidates,
   getCurrentUser,
   getUsageVsPrice,
   getUtilityCostSummary,
@@ -14,10 +16,12 @@ export default async function UtilitiesPage({ searchParams }) {
   const utilityType = searchParams?.utility_type || "";
   const meterId = searchParams?.meter_id || "";
 
-  const [trend, usageVsPrice, summary] = await Promise.all([
+  const [trend, usageVsPrice, summary, reviewCandidates, renewalWatchlist] = await Promise.all([
     getUtilityCostTrend(utilityType || undefined),
     getUsageVsPrice(utilityType || undefined),
     getUtilityCostSummary(utilityType || undefined, meterId || undefined),
+    getContractReviewCandidates(),
+    getContractRenewalWatchlist(),
   ]);
 
   // Build per-type SparklineChart series
@@ -148,6 +152,92 @@ export default async function UtilitiesPage({ searchParams }) {
             </div>
           </article>
         )}
+
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Contracts</div>
+              <h2>Review candidates</h2>
+            </div>
+          </div>
+          {reviewCandidates.length === 0 ? (
+            <div className="empty">No contracts flagged for review.</div>
+          ) : (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Provider</th>
+                    <th>Type</th>
+                    <th>Reason</th>
+                    <th>Score</th>
+                    <th>Current price</th>
+                    <th>Market ref</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reviewCandidates.map((row, i) => (
+                    <tr key={i}>
+                      <td>{row.provider}</td>
+                      <td>{row.utility_type}</td>
+                      <td>{row.reason}</td>
+                      <td>
+                        <span className={`statusPill ${row.score >= 3 ? "status-failed" : "status-enqueued"}`}>
+                          {row.score}
+                        </span>
+                      </td>
+                      <td>{row.current_price != null ? Number(row.current_price).toFixed(4) : "—"}</td>
+                      <td>{row.market_reference != null ? Number(row.market_reference).toFixed(4) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
+
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Contracts</div>
+              <h2>Renewal watchlist</h2>
+            </div>
+          </div>
+          {renewalWatchlist.length === 0 ? (
+            <div className="empty">No contracts approaching renewal.</div>
+          ) : (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Provider</th>
+                    <th>Type</th>
+                    <th>Renewal date</th>
+                    <th>Days away</th>
+                    <th>Current price</th>
+                    <th>Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {renewalWatchlist.map((row, i) => (
+                    <tr key={i}>
+                      <td>{row.provider}</td>
+                      <td>{row.utility_type}</td>
+                      <td>{row.renewal_date}</td>
+                      <td>
+                        <span className={`statusPill ${row.days_until_renewal <= 14 ? "status-failed" : row.days_until_renewal <= 30 ? "status-enqueued" : "status-completed"}`}>
+                          {row.days_until_renewal}d
+                        </span>
+                      </td>
+                      <td>{row.current_price != null ? Number(row.current_price).toFixed(4) : "—"}</td>
+                      <td>{row.contract_duration || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
 
         <article className="panel section">
           <div className="sectionHeader">

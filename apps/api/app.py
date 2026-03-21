@@ -21,6 +21,7 @@ from apps.api.routes.homelab_routes import register_homelab_routes
 from apps.api.routes.ingest_routes import register_ingest_routes
 from apps.api.routes.report_routes import register_report_routes
 from apps.api.routes.run_routes import register_run_routes
+from apps.api.routes.scenario_routes import register_scenario_routes
 from apps.api.runtime_state import (
     build_operational_summary as build_runtime_operational_summary,
 )
@@ -508,6 +509,11 @@ def create_app(
         require_upload=require_upload,
         serialize_run=serialize_run,
         serialize_promotion=serialize_promotion,
+        to_jsonable=to_jsonable,
+    )
+    register_scenario_routes(
+        app,
+        transformation_service=transformation_service,
         to_jsonable=to_jsonable,
     )
 

@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell";
+import { LoanWhatIfPanel } from "@/components/loan-whatif-panel";
 import { getCurrentUser, getLoanOverview, getLoanVariance } from "@/lib/backend";
 
 function formatAmount(val, currency) {
@@ -108,6 +109,11 @@ export default async function LoansPage({ searchParams }) {
                     </div>
                     {progressBar(paidPct)}
                   </div>
+                  <LoanWhatIfPanel
+                    loanId={loan.loan_id}
+                    loanName={loan.loan_name}
+                    currency={loan.currency}
+                  />
                 </article>
               );
             })}

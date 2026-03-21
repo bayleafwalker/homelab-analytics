@@ -37,6 +37,16 @@ from packages.pipelines.normalization import (
     normalize_currency_code,
     normalize_timestamp_utc,
 )
+from packages.pipelines.scenario_service import (
+    ComparisonResult,
+    ScenarioResult,
+    archive_scenario,
+    create_loan_what_if_scenario,
+    ensure_scenario_storage,
+    get_scenario,
+    get_scenario_assumptions,
+    get_scenario_comparison,
+)
 from packages.pipelines.subscription_models import (
     CURRENT_DIM_CATEGORY_VIEW,
     CURRENT_DIM_CONTRACT_VIEW,
@@ -947,3 +957,40 @@ class TransformationService:
 
     def count_workload_sensor_rows(self, run_id: str | None = None) -> int:
         return count_workload_sensor_rows(self._store, run_id=run_id)
+
+    # ------------------------------------------------------------------
+    # Scenario service
+    # ------------------------------------------------------------------
+
+    def create_loan_what_if_scenario(
+        self,
+        loan_id: str,
+        *,
+        label: str | None = None,
+        extra_repayment: Decimal | None = None,
+        annual_rate: Decimal | None = None,
+        term_months: int | None = None,
+    ) -> ScenarioResult:
+        return create_loan_what_if_scenario(
+            self._store,
+            loan_id=loan_id,
+            label=label,
+            extra_repayment=extra_repayment,
+            annual_rate=annual_rate,
+            term_months=term_months,
+        )
+
+    def get_scenario(self, scenario_id: str) -> dict[str, Any] | None:
+        return get_scenario(self._store, scenario_id)
+
+    def get_scenario_comparison(self, scenario_id: str) -> ComparisonResult | None:
+        return get_scenario_comparison(self._store, scenario_id)
+
+    def get_scenario_assumptions(self, scenario_id: str) -> list[dict[str, Any]]:
+        return get_scenario_assumptions(self._store, scenario_id)
+
+    def archive_scenario(self, scenario_id: str) -> bool:
+        return archive_scenario(self._store, scenario_id)
+
+    def ensure_scenario_storage(self) -> None:
+        ensure_scenario_storage(self._store)
