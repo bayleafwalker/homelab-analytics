@@ -1,8 +1,10 @@
-"""Scenario API routes — loan what-if scenarios.
+"""Scenario API routes — loan what-if and income change scenarios.
 
-  POST /api/scenarios/loan-what-if      → create scenario, return scenario_id + headline deltas
+  POST /api/scenarios/loan-what-if      → create loan scenario, return scenario_id + headline deltas
+  POST /api/scenarios/income-change     → create income scenario, return scenario_id + headline deltas
   GET  /api/scenarios/{id}              → scenario metadata + status
   GET  /api/scenarios/{id}/comparison   → baseline vs projected rows + variance + staleness
+  GET  /api/scenarios/{id}/cashflow     → projected cashflow rows for income_change scenario
   GET  /api/scenarios/{id}/assumptions  → assumption list
   DELETE /api/scenarios/{id}            → archive (soft delete, preserves projection rows)
 """
@@ -23,6 +25,12 @@ class LoanWhatIfRequest(BaseModel):
     extra_repayment: str | None = None   # decimal string, e.g. "500.00"
     annual_rate: str | None = None       # decimal string, e.g. "0.035"
     term_months: int | None = None
+
+
+class IncomeChangeRequest(BaseModel):
+    monthly_income_delta: str            # decimal string, may be negative e.g. "-500.00"
+    label: str | None = None
+    projection_months: int | None = None  # default 12
 
 
 def register_scenario_routes(
@@ -84,6 +92,42 @@ def register_scenario_routes(
             "baseline_rows": to_jsonable(comparison.baseline_rows),
             "scenario_rows": to_jsonable(comparison.scenario_rows),
             "variance_rows": to_jsonable(comparison.variance_rows),
+        }
+
+    @app.post("/api/scenarios/income-change")
+    async def create_income_change(body: IncomeChangeRequest) -> dict[str, Any]:
+        svc = _svc()
+        try:
+            result = svc.create_income_change_scenario(
+                monthly_income_delta=Decimal(body.monthly_income_delta),
+                label=body.label,
+                projection_months=body.projection_months or 12,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "scenario_id": result.scenario_id,
+            "label": result.label,
+            "monthly_income_delta": str(result.monthly_income_delta),
+            "new_monthly_income": str(result.new_monthly_income),
+            "baseline_monthly_income": str(result.baseline_monthly_income),
+            "annual_net_change": str(result.annual_net_change),
+            "months_until_deficit": result.months_until_deficit,
+            "is_stale": result.is_stale,
+        }
+
+    @app.get("/api/scenarios/{scenario_id}/cashflow")
+    async def get_income_scenario_cashflow(scenario_id: str) -> dict[str, Any]:
+        svc = _svc()
+        comparison = svc.get_income_scenario_comparison(scenario_id)
+        if comparison is None:
+            raise HTTPException(status_code=404, detail="Scenario not found.")
+        return {
+            "scenario_id": comparison.scenario_id,
+            "label": comparison.label,
+            "is_stale": comparison.is_stale,
+            "assumptions": to_jsonable(comparison.assumptions),
+            "cashflow_rows": to_jsonable(comparison.cashflow_rows),
         }
 
     @app.get("/api/scenarios/{scenario_id}/assumptions")
