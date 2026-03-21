@@ -422,7 +422,7 @@ Renderer expectations:
 
 The delivery layer does not own business logic. It translates semantic publication metadata into renderer-specific output.
 
-Roadmap reference: Stage 6 in `docs/plans/household-operating-platform-roadmap.md`.
+Roadmap reference: Stage 7 in `docs/plans/household-operating-platform-roadmap.md`.
 
 ## Pack ecosystem model
 
@@ -451,7 +451,7 @@ Trust boundaries:
 
 Relationship to existing work: `docs/plans/external-registry-inclusion.md` defines the control-plane design for external sources. The platform ADR defines the capability pack model and registration contracts.
 
-Roadmap reference: Stage 7 in `docs/plans/household-operating-platform-roadmap.md`.
+Roadmap reference: Stage 8 in `docs/plans/household-operating-platform-roadmap.md`.
 
 ## Trust and governance layer
 
@@ -479,4 +479,4 @@ Operator confidence:
 - a confidence surface should let the operator assess platform health without reading logs: source freshness, publication staleness, validation failure rate, automation action history, and pack execution status
 - the platform should default to safe: stale data should be visibly stale, incomplete models should be visibly incomplete, and automation should fail open (recommend rather than act) when confidence is low
 
-Roadmap reference: Stage 8 in `docs/plans/household-operating-platform-roadmap.md`.
+Roadmap reference: Stage 9 in `docs/plans/household-operating-platform-roadmap.md`.
