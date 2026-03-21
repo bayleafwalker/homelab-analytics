@@ -7,16 +7,12 @@ from decimal import Decimal
 
 import pytest
 
-from packages.pipelines.reconciliation import (
-    ReconciliationResult,
-    ensure_entity_storage,
-    reconcile_batch,
-)
-from packages.pipelines.transformation_service import TransformationService
+from packages.pipelines.reconciliation import ReconciliationResult, reconcile_batch
 from packages.pipelines.transaction_models import (
     FACT_TRANSACTION_CURRENT_TABLE,
     TRANSACTION_ENTITY_TABLE,
 )
+from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
 # ---------------------------------------------------------------------------
@@ -284,18 +280,18 @@ def test_unresolved_observations_are_skipped(svc: TransformationService) -> None
     bid = _batch_id("asset-1", "sha-null", "run-null")
     # Manually write a batch + observation with NULL entity_key
     svc._store.execute(
-        f"INSERT INTO ingest_batch (batch_id, run_id, source_asset_id, file_sha256,"
-        f" row_count, landed_at) VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)",
+        "INSERT INTO ingest_batch (batch_id, run_id, source_asset_id, file_sha256,"
+        " row_count, landed_at) VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)",
         [bid, "run-null", "asset-1", "sha-null"],
     )
     svc._store.execute(
         f"INSERT INTO {TRANSACTION_OBSERVATION_TABLE}"
-        f" (observation_id, batch_id, row_ordinal, entity_key, match_tier, confidence,"
-        f"  booked_at, account_id, counterparty_name, amount, currency, description,"
-        f"  normalized_row_json, observed_at)"
-        f" VALUES ('obs-null', ?, 0, NULL, NULL, NULL,"
-        f"  '2025-01-01', 'CHK-X', 'Unknown', 10.00, 'EUR', '',"
-        f"  '{{}}', CURRENT_TIMESTAMP)",
+        " (observation_id, batch_id, row_ordinal, entity_key, match_tier, confidence,"
+        "  booked_at, account_id, counterparty_name, amount, currency, description,"
+        "  normalized_row_json, observed_at)"
+        " VALUES ('obs-null', ?, 0, NULL, NULL, NULL,"
+        "  '2025-01-01', 'CHK-X', 'Unknown', 10.00, 'EUR', '',"
+        "  '{}', CURRENT_TIMESTAMP)",
         [bid],
     )
     result = reconcile_batch(svc._store, bid)
