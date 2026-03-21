@@ -43,6 +43,7 @@ from packages.pipelines.normalization import (
     normalize_currency_code,
     normalize_timestamp_utc,
 )
+from packages.pipelines.reconciliation import reconcile_batch
 from packages.pipelines.scenario_service import (
     ComparisonResult,
     ExpenseShockResult,
@@ -156,7 +157,6 @@ from packages.pipelines.transformation_subscriptions import (
     refresh_subscription_summary,
     refresh_upcoming_fixed_costs_30d,
 )
-from packages.pipelines.reconciliation import reconcile_batch
 from packages.pipelines.transformation_transactions import (
     count_transactions,
     ensure_transaction_storage,

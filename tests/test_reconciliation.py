@@ -19,6 +19,8 @@ from packages.pipelines.transformation_service import TransformationService
 from packages.pipelines.transformation_transactions import (
     TRANSACTION_OBSERVATION_TABLE,
     _batch_id,
+)
+from packages.pipelines.transformation_transactions import (
     load_transactions as _low_load,
 )
 from packages.storage.duckdb_store import DuckDBStore
