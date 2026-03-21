@@ -23,6 +23,12 @@ from packages.pipelines.category_rules import (
     set_category_override,
 )
 from packages.pipelines.category_seed import seed_system_categories
+from packages.pipelines.ha_service import (
+    ensure_ha_storage,
+    get_ha_entities,
+    get_ha_entity_history,
+    ingest_ha_states,
+)
 from packages.pipelines.homelab_models import (
     CURRENT_DIM_SERVICE_VIEW,
     CURRENT_DIM_WORKLOAD_VIEW,
@@ -36,12 +42,6 @@ from packages.pipelines.loan_models import (
 from packages.pipelines.normalization import (
     normalize_currency_code,
     normalize_timestamp_utc,
-)
-from packages.pipelines.ha_service import (
-    ensure_ha_storage,
-    get_ha_entities,
-    get_ha_entity_history,
-    ingest_ha_states,
 )
 from packages.pipelines.scenario_service import (
     ComparisonResult,

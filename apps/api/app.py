@@ -17,11 +17,11 @@ from apps.api.routes.auth_routes import register_auth_routes
 from apps.api.routes.category_routes import register_category_routes
 from apps.api.routes.config_routes import register_config_routes
 from apps.api.routes.control_routes import register_control_routes
+from apps.api.routes.ha_routes import register_ha_routes
 from apps.api.routes.homelab_routes import register_homelab_routes
 from apps.api.routes.ingest_routes import register_ingest_routes
 from apps.api.routes.report_routes import register_report_routes
 from apps.api.routes.run_routes import register_run_routes
-from apps.api.routes.ha_routes import register_ha_routes
 from apps.api.routes.scenario_routes import register_scenario_routes
 from apps.api.runtime_state import (
     build_operational_summary as build_runtime_operational_summary,
