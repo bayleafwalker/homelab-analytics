@@ -798,6 +798,45 @@ def test_source_route_sub_modules_exist() -> None:
         assert path.exists(), f"Expected source route sub-module not found: {path}"
 
 
+# ---------------------------------------------------------------------------
+# Migration file contracts
+# ---------------------------------------------------------------------------
+
+
+def test_migration_files_follow_naming_convention() -> None:
+    """Migration files must be named NNNN_description.sql (4-digit zero-padded prefix)."""
+    import re
+
+    pattern = re.compile(r"^\d{4}_[a-z0-9_]+\.sql$")
+    for backend in ("sqlite", "postgres"):
+        migrations_dir = ROOT / "migrations" / backend
+        assert migrations_dir.exists(), (
+            f"migrations/{backend}/ directory not found — run the migration system setup"
+        )
+        for f in migrations_dir.iterdir():
+            if f.name.startswith("."):
+                continue
+            assert pattern.match(f.name), (
+                f"Migration file {f} does not follow naming convention NNNN_description.sql"
+            )
+
+
+def test_migration_versions_match_across_backends() -> None:
+    """SQLite and Postgres migration directories must have the same version numbers."""
+    sqlite_versions = {
+        f.stem.split("_")[0]
+        for f in (ROOT / "migrations" / "sqlite").glob("*.sql")
+    }
+    postgres_versions = {
+        f.stem.split("_")[0]
+        for f in (ROOT / "migrations" / "postgres").glob("*.sql")
+    }
+    assert sqlite_versions == postgres_versions, (
+        f"Migration version mismatch: sqlite={sqlite_versions}, postgres={postgres_versions}. "
+        "Both backends must have the same set of version numbers."
+    )
+
+
 def test_shared_auth_is_compatibility_shim() -> None:
     shared_auth_path = Path("packages/shared/auth.py")
     lines = shared_auth_path.read_text(encoding="utf-8").splitlines()

@@ -16,7 +16,7 @@ VERIFY_CONFIG_ARGS ?=
 .PHONY: lint typecheck test test-fast test-target test-integration test-e2e-local \
 	test-storage-adapters test-sqlite-adapters test-coverage verify-config verify-docs \
 	verify-agent verify-arch verify-fast verify-all verify-domain helm-lint \
-	docker-build compose-smoke audit-deps
+	docker-build compose-smoke audit-deps db-migrate-sqlite db-migrate-postgres
 
 lint:
 	$(RUFF) check .
@@ -40,7 +40,15 @@ test-e2e-local:
 	$(PYTEST) -q -m e2e
 
 test-sqlite-adapters:
-	$(PYTEST) -q tests/test_blob_store.py tests/test_run_metadata_repository.py tests/test_storage_runtime.py tests/test_control_plane_store_contract.py tests/test_sqlite_auth_store_contract.py
+	$(PYTEST) -q tests/test_blob_store.py tests/test_run_metadata_repository.py tests/test_storage_runtime.py tests/test_control_plane_store_contract.py tests/test_sqlite_auth_store_contract.py tests/test_migration_runner.py
+
+db-migrate-sqlite:
+	@if [ -z "$(DB_PATH)" ]; then echo "DB_PATH is required, e.g. make db-migrate-sqlite DB_PATH=data/config.db"; exit 1; fi
+	$(PYTHON) -c "import sqlite3; from pathlib import Path; from packages.storage.migration_runner import apply_pending_sqlite_migrations; conn = sqlite3.connect('$(DB_PATH)'); applied = apply_pending_sqlite_migrations(conn, Path('migrations/sqlite')); conn.close(); print('Applied:', applied or 'none (already up to date)')"
+
+db-migrate-postgres:
+	@if [ -z "$(POSTGRES_DSN)" ]; then echo "POSTGRES_DSN is required, e.g. make db-migrate-postgres POSTGRES_DSN=postgresql://..."; exit 1; fi
+	$(PYTHON) -c "import psycopg; from pathlib import Path; from packages.storage.migration_runner import apply_pending_postgres_migrations; conn = psycopg.connect('$(POSTGRES_DSN)'); applied = apply_pending_postgres_migrations(conn, Path('migrations/postgres')); conn.close(); print('Applied:', applied or 'none (already up to date)')"
 
 test-storage-adapters:
 	$(PYTEST) -q tests/test_blob_store.py tests/test_run_metadata_repository.py tests/test_storage_runtime.py tests/test_control_plane_store_contract.py tests/test_sqlite_auth_store_contract.py tests/test_postgres_run_metadata_integration.py tests/test_postgres_ingestion_config_integration.py tests/test_postgres_auth_store_integration.py tests/test_postgres_reporting_integration.py tests/test_s3_postgres_control_plane_integration.py
