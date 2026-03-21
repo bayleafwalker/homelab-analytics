@@ -275,6 +275,7 @@ def create_app(
     auth_lockout_seconds: int = 900,
     enable_unsafe_admin: bool = False,
     ha_bridge: Any = None,
+    ha_mqtt_publisher: Any = None,
 ) -> FastAPI:
     # Support both the new AppContainer-first call and the legacy
     # AccountTransactionService-first call from existing tests.
@@ -333,9 +334,13 @@ def create_app(
     async def _lifespan(_app: FastAPI):
         if ha_bridge is not None:
             ha_bridge.start()
+        if ha_mqtt_publisher is not None:
+            ha_mqtt_publisher.start()
         yield
         if ha_bridge is not None:
             await ha_bridge.stop()
+        if ha_mqtt_publisher is not None:
+            await ha_mqtt_publisher.stop()
 
     app = FastAPI(title="Homelab Analytics API", lifespan=_lifespan)
     logger = logging.getLogger("homelab_analytics.api")
@@ -498,6 +503,7 @@ def create_app(
         app,
         transformation_service=transformation_service,
         ha_bridge=ha_bridge,
+        ha_mqtt_publisher=ha_mqtt_publisher,
         to_jsonable=to_jsonable,
     )
 

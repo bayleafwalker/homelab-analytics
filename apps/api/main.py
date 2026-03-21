@@ -118,6 +118,27 @@ def build_app(settings: AppSettings | None = None):
             ha_token=resolved_settings.ha_token,
         )
 
+    ha_mqtt_publisher = None
+    if resolved_settings.ha_mqtt_broker_url:
+        from packages.pipelines.ha_mqtt_publisher import HaMqttPublisher
+
+        def _mqtt_fetch_fn() -> dict:
+            if ha_bridge is None:
+                return {"bridge_connected": False, "bridge_last_sync_at": None, "bridge_reconnect_count": 0}
+            status = ha_bridge.get_status()
+            return {
+                "bridge_connected": status["connected"],
+                "bridge_last_sync_at": status["last_sync_at"],
+                "bridge_reconnect_count": status["reconnect_count"],
+            }
+
+        ha_mqtt_publisher = HaMqttPublisher(
+            _mqtt_fetch_fn,
+            broker_url=resolved_settings.ha_mqtt_broker_url,
+            username=resolved_settings.ha_mqtt_username,
+            password=resolved_settings.ha_mqtt_password,
+        )
+
     return create_app(
         container,
         transformation_service=transformation_service,
@@ -130,6 +151,7 @@ def build_app(settings: AppSettings | None = None):
         enable_unsafe_admin=resolved_settings.enable_unsafe_admin,
         external_registry_cache_root=resolved_settings.resolved_external_registry_cache_root,
         ha_bridge=ha_bridge,
+        ha_mqtt_publisher=ha_mqtt_publisher,
     )
 
 

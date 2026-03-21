@@ -291,6 +291,10 @@ export async function getHaBridgeStatus() {
   return backendJson("/api/ha/bridge/status");
 }
 
+export async function getHaMqttStatus() {
+  return backendJson("/api/ha/mqtt/status");
+}
+
 export async function getTransformationPackages({ includeArchived = false } = {}) {
   const payload = await backendJson(
     `/config/transformation-packages${buildQuery({

@@ -34,6 +34,7 @@ def register_ha_routes(
     *,
     transformation_service: TransformationService | None,
     ha_bridge: Any | None = None,
+    ha_mqtt_publisher: Any | None = None,
     to_jsonable: Callable[[Any], Any],
 ) -> None:
     def _svc() -> TransformationService:
@@ -79,3 +80,15 @@ def register_ha_routes(
         if ha_bridge is None:
             return {"enabled": False, "connected": False, "last_sync_at": None, "reconnect_count": 0}
         return {"enabled": True, **ha_bridge.get_status()}
+
+    @app.get("/api/ha/mqtt/status")
+    async def get_mqtt_status() -> dict[str, Any]:
+        if ha_mqtt_publisher is None:
+            return {
+                "enabled": False,
+                "connected": False,
+                "last_publish_at": None,
+                "publish_count": 0,
+                "entity_count": 0,
+            }
+        return {"enabled": True, **ha_mqtt_publisher.get_status()}

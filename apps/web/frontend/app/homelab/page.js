@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/app-shell";
-import { getCurrentUser, getHaEntities, getHaBridgeStatus } from "@/lib/backend";
+import { getCurrentUser, getHaEntities, getHaBridgeStatus, getHaMqttStatus } from "@/lib/backend";
 
 function formatTimestamp(ts) {
   if (!ts) return "—";
@@ -21,10 +21,11 @@ const CLASS_LABELS = {
 };
 
 export default async function HomelabPage() {
-  const [user, entities, bridge] = await Promise.all([
+  const [user, entities, bridge, mqtt] = await Promise.all([
     getCurrentUser(),
     getHaEntities(),
     getHaBridgeStatus(),
+    getHaMqttStatus(),
   ]);
 
   return (
@@ -65,6 +66,42 @@ export default async function HomelabPage() {
               <>
                 <dt>Reconnects</dt>
                 <dd>{bridge.reconnect_count}</dd>
+              </>
+            )}
+          </dl>
+        </article>
+
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">MQTT Publisher</div>
+              <h2>Synthetic Entities</h2>
+            </div>
+            {mqtt.enabled ? (
+              <span className={`statusPill ${mqtt.connected ? "positive" : "negative"}`}>
+                {mqtt.connected ? "Publishing" : "Disconnected"}
+              </span>
+            ) : (
+              <span className="statusPill">Not configured</span>
+            )}
+          </div>
+          <dl className="kvGrid">
+            <dt>Status</dt>
+            <dd>
+              {mqtt.enabled
+                ? mqtt.connected
+                  ? `Publishing ${mqtt.entity_count} synthetic ${mqtt.entity_count === 1 ? "entity" : "entities"} to HA`
+                  : "Connecting to MQTT broker…"
+                : "Set HOMELAB_ANALYTICS_HA_MQTT_BROKER_URL to enable"}
+            </dd>
+            <dt>Last publish</dt>
+            <dd>{formatTimestamp(mqtt.last_publish_at)}</dd>
+            {mqtt.enabled && (
+              <>
+                <dt>Publish count</dt>
+                <dd>{mqtt.publish_count}</dd>
+                <dt>Entities</dt>
+                <dd>{mqtt.entity_count}</dd>
               </>
             )}
           </dl>
