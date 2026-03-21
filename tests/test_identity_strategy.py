@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 
 from packages.pipelines.identity_strategy import (
-    EntityKeyResult,
     IdentityStrategy,
     IdentityTier,
     resolve_entity_key,
