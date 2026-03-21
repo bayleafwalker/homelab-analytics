@@ -301,6 +301,26 @@ class DuckDBStore:
             self._con.execute(stmt, [row[c] for c in cols])
         return len(rows)
 
+    def insert_rows_or_ignore(self, table_name: str, rows: list[dict[str, Any]]) -> int:
+        """Bulk-insert rows, silently skipping rows that violate a PK or unique constraint.
+
+        Used for idempotent fact loads where the same row may arrive from
+        overlapping source statements.  Returns the number of rows attempted
+        (not the number actually written — callers should not rely on the
+        count for correctness decisions).
+        """
+        if not rows:
+            return 0
+        cols = list(rows[0].keys())
+        placeholders = ", ".join("?" for _ in cols)
+        stmt = (
+            f"INSERT INTO {table_name} ({', '.join(cols)}) VALUES ({placeholders})"
+            f" ON CONFLICT DO NOTHING"
+        )
+        for row in rows:
+            self._con.execute(stmt, [row[c] for c in cols])
+        return len(rows)
+
     def execute(self, sql: str, params: list[Any] | None = None) -> Any:
         """Execute arbitrary SQL (for mart materialisation, etc.)."""
         return self._con.execute(sql, params or [])

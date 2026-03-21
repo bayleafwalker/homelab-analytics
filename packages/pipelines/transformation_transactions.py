@@ -1,16 +1,24 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import uuid
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
+from packages.pipelines.identity_strategy import (
+    IdentityStrategy,
+    resolve_entity_key,
+)
 from packages.pipelines.transaction_models import (
+    BANK_TRANSACTION_IDENTITY_STRATEGY,
     CURRENT_DIM_COUNTERPARTY_VIEW,
     FACT_TRANSACTION_COLUMNS,
     FACT_TRANSACTION_TABLE,
+    INGEST_BATCH_COLUMNS,
+    INGEST_BATCH_TABLE,
     MART_ACCOUNT_BALANCE_TREND_COLUMNS,
     MART_ACCOUNT_BALANCE_TREND_TABLE,
     MART_CASHFLOW_BY_COUNTERPARTY_COLUMNS,
@@ -23,6 +31,8 @@ from packages.pipelines.transaction_models import (
     MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
     MART_TRANSACTION_ANOMALIES_CURRENT_COLUMNS,
     MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
+    TRANSACTION_OBSERVATION_COLUMNS,
+    TRANSACTION_OBSERVATION_TABLE,
     TRANSFORMATION_AUDIT_COLUMNS,
     TRANSFORMATION_AUDIT_TABLE,
     extract_accounts,
@@ -35,6 +45,8 @@ RecordLineage = Callable[..., None]
 
 
 def ensure_transaction_storage(store: DuckDBStore) -> None:
+    store.ensure_table(INGEST_BATCH_TABLE, INGEST_BATCH_COLUMNS)
+    store.ensure_table(TRANSACTION_OBSERVATION_TABLE, TRANSACTION_OBSERVATION_COLUMNS)
     store.ensure_table(FACT_TRANSACTION_TABLE, FACT_TRANSACTION_COLUMNS)
     store.ensure_table(MART_MONTHLY_CASHFLOW_TABLE, MART_MONTHLY_CASHFLOW_COLUMNS)
     store.ensure_table(
@@ -72,6 +84,9 @@ def load_transactions(
     run_id: str | None = None,
     effective_date: date | None = None,
     source_system: str | None = None,
+    batch_sha256: str | None = None,
+    source_asset_id: str | None = None,
+    identity_strategy: IdentityStrategy | None = None,
 ) -> int:
     if not rows:
         return 0
@@ -79,8 +94,21 @@ def load_transactions(
     normalized_rows = [normalize_row(row) for row in rows]
     eff = effective_date or date.today()
     started_at = datetime.now(UTC)
+    strategy = identity_strategy or BANK_TRANSACTION_IDENTITY_STRATEGY
+    bid = _batch_id(source_asset_id, batch_sha256, run_id)
 
     with store.atomic():
+        # -- Immutable batch record (idempotent) -----------------------------
+        store.execute(
+            f"""
+            INSERT INTO {INGEST_BATCH_TABLE}
+                (batch_id, run_id, source_asset_id, file_sha256, row_count, landed_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT DO NOTHING
+            """,
+            [bid, run_id, source_asset_id, batch_sha256, len(normalized_rows), started_at],
+        )
+
         accounts = extract_accounts(normalized_rows)
         accounts_upserted = store.upsert_dimension_rows(
             dim_account,
@@ -103,7 +131,7 @@ def load_transactions(
         )
 
         fact_rows = []
-        for row in normalized_rows:
+        for ordinal, row in enumerate(normalized_rows):
             booked_at_utc = row["booked_at_utc"]
             booked_at = booked_at_utc.date()
             amount = row["amount"]
@@ -111,6 +139,42 @@ def load_transactions(
                 amount = Decimal(amount)
             elif isinstance(amount, float):
                 amount = Decimal(str(amount))
+
+            norm_json = _normalized_observation_json({**row, "booked_at": booked_at, "amount": amount})
+            obs_id = _observation_id(bid, ordinal, norm_json)
+
+            # Resolve entity key via identity strategy; surface failures as
+            # NULL rather than aborting the batch.
+            entity_key: str | None = None
+            match_tier: int | None = None
+            confidence: float | None = None
+            try:
+                result = resolve_entity_key(
+                    {**row, "booked_at": booked_at.isoformat(), "amount": str(amount)},
+                    strategy,
+                )
+                entity_key = result.entity_key
+                match_tier = result.match_tier
+                confidence = float(result.confidence)
+            except ValueError:
+                pass
+
+            # -- Immutable observation row (idempotent) ----------------------
+            store.execute(
+                f"""
+                INSERT INTO {TRANSACTION_OBSERVATION_TABLE}
+                    (observation_id, batch_id, row_ordinal, entity_key, match_tier,
+                     confidence, booked_at, account_id, counterparty_name, amount,
+                     currency, description, normalized_row_json, observed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT DO NOTHING
+                """,
+                [
+                    obs_id, bid, ordinal, entity_key, match_tier,
+                    confidence, booked_at, row["account_id"], row["counterparty_name"], amount,
+                    row["currency"], row.get("description", ""), norm_json, started_at,
+                ],
+            )
 
             fact_rows.append(
                 {
@@ -134,7 +198,11 @@ def load_transactions(
                 }
             )
 
-        inserted = store.insert_rows(FACT_TRANSACTION_TABLE, fact_rows)
+        # Insert facts, skipping rows whose transaction_id already exists.
+        # Duplicate IDs arise when overlapping bank statements are re-loaded;
+        # the observation layer already captured the evidence — the fact table
+        # should reflect the current best-known state and not error out.
+        inserted = store.insert_rows_or_ignore(FACT_TRANSACTION_TABLE, fact_rows)
 
     completed_at = datetime.now(UTC)
     duration_ms = int((completed_at - started_at).total_seconds() * 1000)
@@ -500,3 +568,42 @@ def _transaction_id(
 ) -> str:
     raw = f"{booked_at.isoformat()}|{account_id}|{counterparty_name}|{amount}"
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+# ---------------------------------------------------------------------------
+# Observation layer helpers
+# ---------------------------------------------------------------------------
+
+
+def _batch_id(source_asset_id: str | None, file_sha256: str | None, run_id: str | None) -> str:
+    """Derive a stable batch identifier.
+
+    Content-addressed when *source_asset_id* and *file_sha256* are both
+    provided (same bytes = same batch, regardless of run_id).  Falls back
+    to a truncated *run_id* so callers that do not have file metadata still
+    get a unique identifier.
+    """
+    if source_asset_id and file_sha256:
+        raw = f"{source_asset_id}|{file_sha256}"
+        return hashlib.sha256(raw.encode()).hexdigest()[:16]
+    return (run_id or uuid.uuid4().hex)[:16]
+
+
+def _observation_id(batch_id: str, row_ordinal: int, normalized_row_json: str) -> str:
+    raw = f"{batch_id}|{row_ordinal}|{normalized_row_json}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def _normalized_observation_json(row: dict[str, Any]) -> str:
+    """Stable, canonical JSON encoding of the business fields of a row."""
+    return json.dumps(
+        {
+            "booked_at": str(row.get("booked_at", "")),
+            "account_id": str(row.get("account_id", "")),
+            "counterparty_name": str(row.get("counterparty_name", "")),
+            "amount": str(row.get("amount", "")),
+            "currency": str(row.get("currency", "")),
+            "description": str(row.get("description") or ""),
+        },
+        sort_keys=True,
+    )

@@ -311,6 +311,8 @@ class TransformationService:
         run_id: str | None = None,
         effective_date: date | None = None,
         source_system: str | None = None,
+        batch_sha256: str | None = None,
+        source_asset_id: str | None = None,
     ) -> int:
         # Resolve categories for counterparties in this batch
         counterparty_names = list({row["counterparty_name"] for row in rows})
@@ -327,6 +329,8 @@ class TransformationService:
             run_id=run_id,
             effective_date=effective_date,
             source_system=source_system,
+            batch_sha256=batch_sha256,
+            source_asset_id=source_asset_id,
         )
 
     def load_domain_rows(

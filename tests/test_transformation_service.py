@@ -234,7 +234,7 @@ def test_load_transactions_atomic_rollback_on_failure(
     def failing_insert(table_name: str, rows: list[dict]) -> int:  # noqa: ARG001
         raise RuntimeError("Injected failure during fact insert")
 
-    monkeypatch.setattr(svc.store, "insert_rows", failing_insert)
+    monkeypatch.setattr(svc.store, "insert_rows_or_ignore", failing_insert)
 
     with pytest.raises(RuntimeError, match="Injected failure"):
         svc.load_transactions(LANDING_ROWS, run_id="fail-run")

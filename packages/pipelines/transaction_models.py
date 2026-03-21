@@ -165,6 +165,43 @@ TRANSFORMATION_AUDIT_COLUMNS: list[tuple[str, str]] = [
 ]
 
 # ---------------------------------------------------------------------------
+# Immutable evidence layer (PR 2)
+# ---------------------------------------------------------------------------
+
+INGEST_BATCH_TABLE = "ingest_batch"
+
+INGEST_BATCH_COLUMNS: list[tuple[str, str]] = [
+    ("batch_id", "VARCHAR PRIMARY KEY"),
+    ("run_id", "VARCHAR"),          # links to control-plane ingestion_runs
+    ("source_asset_id", "VARCHAR"),
+    ("file_sha256", "VARCHAR"),
+    ("row_count", "INTEGER NOT NULL"),
+    ("landed_at", "TIMESTAMPTZ NOT NULL"),
+]
+
+TRANSACTION_OBSERVATION_TABLE = "transaction_observation"
+
+TRANSACTION_OBSERVATION_COLUMNS: list[tuple[str, str]] = [
+    ("observation_id", "VARCHAR PRIMARY KEY"),
+    ("batch_id", "VARCHAR NOT NULL"),
+    ("row_ordinal", "INTEGER NOT NULL"),
+    # Identity resolution results (nullable until strategy resolves)
+    ("entity_key", "VARCHAR"),
+    ("match_tier", "INTEGER"),
+    ("confidence", "DECIMAL(5,4)"),
+    # Canonical parsed fields (denormalised for direct query)
+    ("booked_at", "DATE NOT NULL"),
+    ("account_id", "VARCHAR NOT NULL"),
+    ("counterparty_name", "VARCHAR NOT NULL"),
+    ("amount", "DECIMAL(18,4) NOT NULL"),
+    ("currency", "VARCHAR NOT NULL"),
+    ("description", "VARCHAR"),
+    # Stable JSON encoding of the row for audit / dedup
+    ("normalized_row_json", "VARCHAR NOT NULL"),
+    ("observed_at", "TIMESTAMPTZ NOT NULL"),
+]
+
+# ---------------------------------------------------------------------------
 # Extraction helpers
 # ---------------------------------------------------------------------------
 
