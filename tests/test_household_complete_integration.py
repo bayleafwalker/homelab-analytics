@@ -474,11 +474,8 @@ class CategoryGovernancePhase2Tests(unittest.TestCase):
 
     def test_operator_category_creation_blocked_for_system_slug(self) -> None:
         from packages.pipelines.category_seed import SYSTEM_CATEGORY_IDS
-        from packages.pipelines.subscription_models import DIM_CATEGORY
 
-        # Attempting to write a row with is_system=True via the public
-        # upsert_dimension_rows path is allowed (it's just a dimension row);
-        # the 409 guard lives in the API route. Here we verify SYSTEM_CATEGORY_IDS
+        # The 409 guard lives in the API route. Here we verify SYSTEM_CATEGORY_IDS
         # covers all slugs that a POST /api/categories must reject.
         self.assertIn("groceries", SYSTEM_CATEGORY_IDS)
         self.assertIn("utilities", SYSTEM_CATEGORY_IDS)
