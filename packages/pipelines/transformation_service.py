@@ -39,13 +39,16 @@ from packages.pipelines.normalization import (
 )
 from packages.pipelines.scenario_service import (
     ComparisonResult,
+    ExpenseShockResult,
     IncomeCashflowComparison,
     IncomeScenarioResult,
     ScenarioResult,
     archive_scenario,
+    create_expense_shock_scenario,
     create_income_change_scenario,
     create_loan_what_if_scenario,
     ensure_scenario_storage,
+    get_expense_shock_comparison,
     get_income_scenario_comparison,
     get_scenario,
     get_scenario_assumptions,
@@ -1017,3 +1020,22 @@ class TransformationService:
         self, scenario_id: str
     ) -> IncomeCashflowComparison | None:
         return get_income_scenario_comparison(self._store, scenario_id)
+
+    def create_expense_shock_scenario(
+        self,
+        *,
+        expense_pct_delta: Decimal,
+        label: str | None = None,
+        projection_months: int = 12,
+    ) -> ExpenseShockResult:
+        return create_expense_shock_scenario(
+            self._store,
+            expense_pct_delta=expense_pct_delta,
+            label=label,
+            projection_months=projection_months,
+        )
+
+    def get_expense_shock_comparison(
+        self, scenario_id: str
+    ) -> IncomeCashflowComparison | None:
+        return get_expense_shock_comparison(self._store, scenario_id)

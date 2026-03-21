@@ -33,6 +33,12 @@ class IncomeChangeRequest(BaseModel):
     projection_months: int | None = None  # default 12
 
 
+class ExpenseShockRequest(BaseModel):
+    expense_pct_delta: str               # decimal fraction, e.g. "0.10" = 10% increase
+    label: str | None = None
+    projection_months: int | None = None  # default 12
+
+
 def register_scenario_routes(
     app: FastAPI,
     *,
@@ -119,6 +125,35 @@ def register_scenario_routes(
             "new_monthly_income": str(result.new_monthly_income),
             "baseline_monthly_income": str(result.baseline_monthly_income),
             "annual_net_change": str(result.annual_net_change),
+            "months_until_deficit": result.months_until_deficit,
+            "is_stale": result.is_stale,
+        }
+
+    @app.post("/api/scenarios/expense-shock")
+    async def create_expense_shock(body: ExpenseShockRequest) -> dict[str, Any]:
+        svc = _svc()
+        try:
+            pct = Decimal(body.expense_pct_delta)
+        except InvalidOperation as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid expense_pct_delta: {body.expense_pct_delta!r}",
+            ) from exc
+        try:
+            result = svc.create_expense_shock_scenario(
+                expense_pct_delta=pct,
+                label=body.label,
+                projection_months=body.projection_months or 12,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "scenario_id": result.scenario_id,
+            "label": result.label,
+            "expense_pct_delta": str(result.expense_pct_delta),
+            "new_monthly_expense": str(result.new_monthly_expense),
+            "baseline_monthly_expense": str(result.baseline_monthly_expense),
+            "annual_additional_cost": str(result.annual_additional_cost),
             "months_until_deficit": result.months_until_deficit,
             "is_stale": result.is_stale,
         }
