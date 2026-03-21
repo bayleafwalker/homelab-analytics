@@ -59,12 +59,12 @@ def load_budget_targets(
                 {
                     "target_id": budget_target_id(
                         row["budget_name"],
-                        row["category"],
+                        row["category_id"],
                         row["period_label"],
                     ),
                     "budget_id": row["budget_id"],
                     "budget_name": row["budget_name"],
-                    "category": row["category"],
+                    "category_id": row["category_id"],
                     "period_type": row.get("period_type", "monthly"),
                     "period_label": row["period_label"],
                     "target_amount": row["target_amount"],
@@ -106,12 +106,12 @@ def refresh_budget_variance(store: DuckDBStore) -> int:
     store.execute(
         f"""
         INSERT INTO {MART_BUDGET_VARIANCE_TABLE} (
-            budget_name, category, period_label, target_amount,
+            budget_name, category_id, period_label, target_amount,
             actual_amount, variance, variance_pct, status, currency
         )
         SELECT
             b.budget_name,
-            b.category,
+            b.category_id,
             b.period_label,
             b.target_amount,
             COALESCE(s.total_expense, 0) AS actual_amount,
@@ -135,12 +135,12 @@ def refresh_budget_variance(store: DuckDBStore) -> int:
         FROM {FACT_BUDGET_TARGET_TABLE} b
         LEFT JOIN (
             SELECT
-                LOWER(COALESCE(category, counterparty_name)) AS category,
+                LOWER(COALESCE(category, counterparty_name)) AS category_id,
                 booking_month,
                 ABS(total_expense) AS total_expense
             FROM {MART_SPEND_BY_CATEGORY_MONTHLY_TABLE}
         ) s
-            ON LOWER(b.category) = s.category
+            ON b.category_id = s.category_id
             AND b.period_label = s.booking_month
         ORDER BY b.budget_name, b.period_label
         """
@@ -154,7 +154,7 @@ def get_budget_variance(
     store: DuckDBStore,
     *,
     budget_name: str | None = None,
-    category: str | None = None,
+    category_id: str | None = None,
     period_label: str | None = None,
 ) -> list[dict[str, Any]]:
     clauses: list[str] = []
@@ -162,9 +162,9 @@ def get_budget_variance(
     if budget_name is not None:
         clauses.append("budget_name = ?")
         params.append(budget_name)
-    if category is not None:
-        clauses.append("category = ?")
-        params.append(category)
+    if category_id is not None:
+        clauses.append("category_id = ?")
+        params.append(category_id)
     if period_label is not None:
         clauses.append("period_label = ?")
         params.append(period_label)
@@ -181,12 +181,12 @@ def refresh_budget_progress_current(store: DuckDBStore) -> int:
     store.execute(
         f"""
         INSERT INTO {MART_BUDGET_PROGRESS_CURRENT_TABLE} (
-            budget_name, category, target_amount, spent_amount,
+            budget_name, category_id, target_amount, spent_amount,
             remaining, utilization_pct, currency
         )
         SELECT
             budget_name,
-            category,
+            category_id,
             target_amount,
             actual_amount AS spent_amount,
             variance AS remaining,
@@ -197,7 +197,7 @@ def refresh_budget_progress_current(store: DuckDBStore) -> int:
             currency
         FROM {MART_BUDGET_VARIANCE_TABLE}
         WHERE period_label = STRFTIME(CURRENT_DATE, '%Y-%m')
-        ORDER BY budget_name, category
+        ORDER BY budget_name, category_id
         """
     )
     return store.fetchall(
@@ -210,5 +210,5 @@ def get_budget_progress_current(
 ) -> list[dict[str, Any]]:
     return store.fetchall_dicts(
         f"SELECT * FROM {MART_BUDGET_PROGRESS_CURRENT_TABLE}"
-        " ORDER BY budget_name, category"
+        " ORDER BY budget_name, category_id"
     )

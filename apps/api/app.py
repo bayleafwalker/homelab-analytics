@@ -14,6 +14,7 @@ from apps.api.auth_runtime import (
     register_auth_middleware,
 )
 from apps.api.routes.auth_routes import register_auth_routes
+from apps.api.routes.category_routes import register_category_routes
 from apps.api.routes.config_routes import register_config_routes
 from apps.api.routes.control_routes import register_control_routes
 from apps.api.routes.homelab_routes import register_homelab_routes
@@ -477,6 +478,11 @@ def create_app(
         app,
         transformation_service=transformation_service,
         resolved_reporting_service=reporting_service,
+        to_jsonable=to_jsonable,
+    )
+    register_category_routes(
+        app,
+        transformation_service=transformation_service,
         to_jsonable=to_jsonable,
     )
     register_ingest_routes(

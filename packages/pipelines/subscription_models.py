@@ -26,9 +26,11 @@ DIM_CATEGORY = DimensionDefinition(
     table_name="dim_category",
     natural_key_columns=("category_id",),
     attribute_columns=(
-        DimensionColumn("name", "VARCHAR"),
-        DimensionColumn("type", "VARCHAR"),           # income | expense | transfer | subscription
-        DimensionColumn("parent_category_id", "VARCHAR"),
+        DimensionColumn("display_name", "VARCHAR"),
+        DimensionColumn("parent_id", "VARCHAR"),
+        DimensionColumn("domain", "VARCHAR"),           # finance | utilities | homelab | shared
+        DimensionColumn("is_budget_eligible", "BOOLEAN"),
+        DimensionColumn("is_system", "BOOLEAN"),
     ),
 )
 

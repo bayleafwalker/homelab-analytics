@@ -212,7 +212,7 @@ class BudgetVarianceAlignmentTests(unittest.TestCase):
 
     def test_budget_variance_has_target_amounts(self) -> None:
         rows = self.ts.get_budget_variance()
-        target_amounts = {r["category"]: r["target_amount"] for r in rows if r.get("target_amount") is not None}
+        target_amounts = {r["category_id"]: r["target_amount"] for r in rows if r.get("target_amount") is not None}
         self.assertGreater(len(target_amounts), 0)
 
     def test_spend_by_category_has_monthly_rows(self) -> None:
@@ -371,7 +371,7 @@ class BudgetCategoryOverlapTests(unittest.TestCase):
 
         spend_categories = {r["category"] for r in spend_rows if r.get("category") is not None}
         budget_categories_with_spend = {
-            r["category"]
+            r["category_id"]
             for r in budget_rows
             if r.get("actual_amount") is not None and float(r["actual_amount"]) > 0
         }
@@ -391,6 +391,102 @@ class BudgetCategoryOverlapTests(unittest.TestCase):
             len(categorised), 0,
             "Expected at least some spend rows to have a non-NULL category after rules applied.",
         )
+
+
+class CategoryGovernancePhase2Tests(unittest.TestCase):
+    """dim_category full ADR — seeding, budget FK alignment, category API.
+
+    Verifies Sprint C deliverables:
+    - System categories are present in dim_category after TransformationService init
+    - Budget category_ids loaded from CSV resolve against dim_category
+    - mart_budget_variance joins on category_id (slug join, not text match)
+    - Operator sub-category creation is rejected for system slugs
+    """
+
+    _temp: TemporaryDirectory[str]
+    ts: TransformationService
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls._temp = TemporaryDirectory()
+        ts = _setup_complete_household(cls._temp.name)
+        # Apply rules so spend categories align with budget category_ids
+        ts.add_category_rule(rule_id="r-groceries", pattern="supermarket", category="groceries")
+        ts.add_category_rule(rule_id="r-utilities", pattern="city power", category="utilities")
+        ts.add_category_rule(rule_id="r-transport", pattern="metro transport", category="transport")
+        ts.add_category_rule(rule_id="r-entertainment", pattern="netflix", category="entertainment")
+        ts.add_category_rule(rule_id="r-dining", pattern="restaurant", category="dining")
+        ts.refresh_spend_by_category_monthly()
+        ts.refresh_budget_variance()
+        cls.ts = ts
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls._temp.cleanup()
+
+    def test_system_categories_seeded_at_init(self) -> None:
+        from packages.pipelines.category_seed import SYSTEM_CATEGORY_IDS
+
+        rows = self.ts.get_current_categories()
+        present = {r["category_id"] for r in rows}
+        missing = SYSTEM_CATEGORY_IDS - present
+        self.assertEqual(
+            set(),
+            missing,
+            f"System categories missing from dim_category after init: {missing}",
+        )
+
+    def test_system_categories_are_flagged_as_system(self) -> None:
+        rows = self.ts.get_current_categories()
+        system_rows = {r["category_id"]: r for r in rows if r.get("is_system")}
+        # All expected system slugs should be present and marked is_system=True
+        for slug in ("groceries", "transport", "utilities", "entertainment", "dining", "income"):
+            self.assertIn(slug, system_rows, f"Expected '{slug}' to be a system category")
+            self.assertTrue(system_rows[slug]["is_system"])
+
+    def test_budget_category_ids_exist_in_dim_category(self) -> None:
+        # Every category_id stored in fact_budget_target must resolve in dim_category
+        fact_rows = self.ts._store.fetchall_dicts(
+            "SELECT DISTINCT category_id FROM fact_budget_target"
+        )
+        dim_rows = self.ts.get_current_categories()
+        dim_ids = {r["category_id"] for r in dim_rows}
+
+        missing = {r["category_id"] for r in fact_rows} - dim_ids
+        self.assertEqual(
+            set(),
+            missing,
+            f"Budget category_ids not found in dim_category: {missing}",
+        )
+
+    def test_budget_variance_joins_on_category_id(self) -> None:
+        budget_rows = self.ts.get_budget_variance()
+        categories_with_spend = {
+            r["category_id"]
+            for r in budget_rows
+            if r.get("actual_amount") is not None and float(r["actual_amount"]) > 0
+        }
+        expected = {"groceries", "entertainment", "transport", "utilities", "dining"}
+        self.assertTrue(
+            expected.issubset(categories_with_spend),
+            f"Budget variance slug join missing spend for: {expected - categories_with_spend}",
+        )
+
+    def test_operator_category_creation_blocked_for_system_slug(self) -> None:
+        from packages.pipelines.category_seed import SYSTEM_CATEGORY_IDS
+
+        # The 409 guard lives in the API route. Here we verify SYSTEM_CATEGORY_IDS
+        # covers all slugs that a POST /api/categories must reject.
+        self.assertIn("groceries", SYSTEM_CATEGORY_IDS)
+        self.assertIn("utilities", SYSTEM_CATEGORY_IDS)
+        self.assertNotIn("groceries_organic", SYSTEM_CATEGORY_IDS)
+
+    def test_dim_category_has_expected_adl_columns(self) -> None:
+        rows = self.ts.get_current_categories()
+        self.assertGreater(len(rows), 0)
+        sample = rows[0]
+        for col in ("category_id", "display_name", "domain", "is_budget_eligible", "is_system"):
+            self.assertIn(col, sample, f"Expected column '{col}' in dim_category row")
 
 
 if __name__ == "__main__":

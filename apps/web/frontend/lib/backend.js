@@ -385,7 +385,7 @@ export async function getBudgetVariance(budgetName, category, periodLabel) {
   const payload = await backendJson(
     `/reports/budget-variance${buildQuery({
       budget_name: budgetName,
-      category,
+      category_id: category,
       period_label: periodLabel,
     })}`
   );

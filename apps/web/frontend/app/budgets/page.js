@@ -63,7 +63,7 @@ export default async function BudgetsPage({ searchParams }) {
                     return (
                       <tr key={i}>
                         <td>{row.budget_name}</td>
-                        <td>{row.category}</td>
+                        <td>{row.category_id}</td>
                         <td>{Number(row.target_amount).toFixed(2)} {row.currency}</td>
                         <td>{Number(row.spent_amount).toFixed(2)} {row.currency}</td>
                         <td>{Number(row.remaining).toFixed(2)} {row.currency}</td>
@@ -181,7 +181,7 @@ export default async function BudgetsPage({ searchParams }) {
                     return (
                       <tr key={i}>
                         <td>{row.budget_name}</td>
-                        <td>{row.category}</td>
+                        <td>{row.category_id}</td>
                         <td>{row.period_label}</td>
                         <td>{Number(row.target_amount).toFixed(2)} {row.currency}</td>
                         <td>{Number(row.actual_amount).toFixed(2)} {row.currency}</td>

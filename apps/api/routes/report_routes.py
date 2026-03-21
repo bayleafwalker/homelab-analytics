@@ -272,14 +272,14 @@ def register_report_routes(
     @app.get("/reports/budget-variance")
     async def get_budget_variance(
         budget_name: str | None = None,
-        category: str | None = None,
+        category_id: str | None = None,
         period_label: str | None = None,
     ) -> dict[str, Any]:
         if transformation_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
         rows = transformation_service.get_budget_variance(
             budget_name=budget_name,
-            category=category,
+            category_id=category_id,
             period_label=period_label,
         )
         return {"rows": to_jsonable(rows)}
