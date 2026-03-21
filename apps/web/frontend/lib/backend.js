@@ -295,6 +295,11 @@ export async function getHaMqttStatus() {
   return backendJson("/api/ha/mqtt/status");
 }
 
+export async function getHaPolicies() {
+  const payload = await backendJson("/api/ha/policies");
+  return payload.policies || [];
+}
+
 export async function getTransformationPackages({ includeArchived = false } = {}) {
   const payload = await backendJson(
     `/config/transformation-packages${buildQuery({

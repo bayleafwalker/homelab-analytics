@@ -4,6 +4,9 @@
   GET  /api/ha/entities                      → current state per entity (all or filtered)
   GET  /api/ha/entities/{entity_id}/history  → historian log for one entity
   GET  /api/ha/bridge/status                 → WebSocket bridge health (Phase 2)
+  GET  /api/ha/mqtt/status                   → MQTT publisher health (Phase 3)
+  GET  /api/ha/policies                      → evaluate and return policy verdicts (Phase 4)
+  POST /api/ha/policies/evaluate             → force re-evaluate policies (Phase 4)
 """
 from __future__ import annotations
 
@@ -35,6 +38,7 @@ def register_ha_routes(
     transformation_service: TransformationService | None,
     ha_bridge: Any | None = None,
     ha_mqtt_publisher: Any | None = None,
+    ha_policy_evaluator: Any | None = None,
     to_jsonable: Callable[[Any], Any],
 ) -> None:
     def _svc() -> TransformationService:
@@ -92,3 +96,17 @@ def register_ha_routes(
                 "entity_count": 0,
             }
         return {"enabled": True, **ha_mqtt_publisher.get_status()}
+
+    @app.get("/api/ha/policies")
+    async def get_policies() -> dict[str, Any]:
+        if ha_policy_evaluator is None:
+            return {"policies": []}
+        results = ha_policy_evaluator.evaluate()
+        return {"policies": [r.to_dict() for r in results]}
+
+    @app.post("/api/ha/policies/evaluate")
+    async def evaluate_policies() -> dict[str, Any]:
+        if ha_policy_evaluator is None:
+            return {"policies": []}
+        results = ha_policy_evaluator.evaluate()
+        return {"policies": [r.to_dict() for r in results]}

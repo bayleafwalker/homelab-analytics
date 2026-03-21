@@ -1,11 +1,14 @@
-"""Home Assistant MQTT publisher — Phase 3 synthetic entity publication.
+"""Home Assistant MQTT publisher — Phase 3/4 synthetic entity publication.
 
 The publisher connects to an MQTT broker and periodically publishes computed
 platform entities back into HA via MQTT discovery.  It runs as a long-lived
 asyncio task alongside uvicorn (started/stopped via FastAPI lifespan).
 
 Entities published:
-    sensor.homelab_analytics_freshness — WebSocket bridge health timestamp
+    sensor.homelab_analytics_freshness         — WebSocket bridge health timestamp
+    sensor.homelab_analytics_budget_status     — budget utilization verdict
+    sensor.homelab_analytics_monthly_spend_rate — spending pace verdict
+    sensor.homelab_analytics_bridge_health     — bridge freshness verdict
 
 Discovery protocol:
     homeassistant/sensor/<object_id>/config       → JSON config (retain=True)
@@ -49,6 +52,24 @@ _SYNTHETIC_ENTITIES: list[dict[str, Any]] = [
         "name": "Homelab Analytics Freshness",
         "icon": "mdi:sync-circle",
         "value_key": "bridge_last_sync_at",
+    },
+    {
+        "object_id": "homelab_analytics_budget_status",
+        "name": "Homelab Analytics Budget Status",
+        "icon": "mdi:currency-usd",
+        "value_key": "policy_budget_status",
+    },
+    {
+        "object_id": "homelab_analytics_monthly_spend_rate",
+        "name": "Homelab Analytics Monthly Spend Rate",
+        "icon": "mdi:chart-line",
+        "value_key": "policy_monthly_spend_rate",
+    },
+    {
+        "object_id": "homelab_analytics_bridge_health",
+        "name": "Homelab Analytics Bridge Health",
+        "icon": "mdi:lan-connect",
+        "value_key": "policy_bridge_health",
     },
 ]
 

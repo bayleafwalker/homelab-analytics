@@ -118,19 +118,45 @@ def build_app(settings: AppSettings | None = None):
             ha_token=resolved_settings.ha_token,
         )
 
+    from packages.pipelines.ha_policy import HaPolicyEvaluator
+
+    def _policy_fetch_fn() -> dict:
+        if ha_bridge is not None:
+            bridge_status = ha_bridge.get_status()
+            bridge_last_sync_at = bridge_status.get("last_sync_at")
+            bridge_connected = bridge_status.get("connected", False)
+        else:
+            bridge_last_sync_at = None
+            bridge_connected = False
+        try:
+            budget_rows = transformation_service.get_budget_progress_current()
+        except Exception:
+            budget_rows = []
+        return {
+            "bridge_connected": bridge_connected,
+            "bridge_last_sync_at": bridge_last_sync_at,
+            "budget_rows": budget_rows,
+        }
+
+    ha_policy_evaluator = HaPolicyEvaluator(_policy_fetch_fn)
+
     ha_mqtt_publisher = None
     if resolved_settings.ha_mqtt_broker_url:
         from packages.pipelines.ha_mqtt_publisher import HaMqttPublisher
 
         def _mqtt_fetch_fn() -> dict:
             if ha_bridge is None:
-                return {"bridge_connected": False, "bridge_last_sync_at": None, "bridge_reconnect_count": 0}
-            status = ha_bridge.get_status()
-            return {
-                "bridge_connected": status["connected"],
-                "bridge_last_sync_at": status["last_sync_at"],
-                "bridge_reconnect_count": status["reconnect_count"],
+                bridge_status = {"connected": False, "last_sync_at": None, "reconnect_count": 0}
+            else:
+                bridge_status = ha_bridge.get_status()
+            platform_state: dict = {
+                "bridge_connected": bridge_status["connected"],
+                "bridge_last_sync_at": bridge_status["last_sync_at"],
+                "bridge_reconnect_count": bridge_status["reconnect_count"],
             }
+            for result in ha_policy_evaluator.evaluate():
+                platform_state[f"policy_{result.id}"] = result.verdict
+            return platform_state
 
         ha_mqtt_publisher = HaMqttPublisher(
             _mqtt_fetch_fn,
@@ -152,6 +178,7 @@ def build_app(settings: AppSettings | None = None):
         external_registry_cache_root=resolved_settings.resolved_external_registry_cache_root,
         ha_bridge=ha_bridge,
         ha_mqtt_publisher=ha_mqtt_publisher,
+        ha_policy_evaluator=ha_policy_evaluator,
     )
 
 

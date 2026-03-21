@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/app-shell";
-import { getCurrentUser, getHaEntities, getHaBridgeStatus, getHaMqttStatus } from "@/lib/backend";
+import { getCurrentUser, getHaEntities, getHaBridgeStatus, getHaMqttStatus, getHaPolicies } from "@/lib/backend";
 
 function formatTimestamp(ts) {
   if (!ts) return "—";
@@ -21,11 +21,12 @@ const CLASS_LABELS = {
 };
 
 export default async function HomelabPage() {
-  const [user, entities, bridge, mqtt] = await Promise.all([
+  const [user, entities, bridge, mqtt, policies] = await Promise.all([
     getCurrentUser(),
     getHaEntities(),
     getHaBridgeStatus(),
     getHaMqttStatus(),
+    getHaPolicies(),
   ]);
 
   return (
@@ -105,6 +106,53 @@ export default async function HomelabPage() {
               </>
             )}
           </dl>
+        </article>
+
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Policy Evaluation</div>
+              <h2>Platform Policies</h2>
+            </div>
+            <span className="statusPill">{policies.length} policies</span>
+          </div>
+          {policies.length === 0 ? (
+            <div className="empty">No policies evaluated.</div>
+          ) : (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Policy</th>
+                    <th>Description</th>
+                    <th>Verdict</th>
+                    <th>Value</th>
+                    <th>Evaluated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {policies.map((policy) => (
+                    <tr key={policy.id}>
+                      <td>{policy.name}</td>
+                      <td>{policy.description}</td>
+                      <td>
+                        <span className={`statusPill ${
+                          policy.verdict === "ok" ? "positive"
+                          : policy.verdict === "breach" ? "negative"
+                          : policy.verdict === "warning" ? "warning"
+                          : ""
+                        }`}>
+                          {policy.verdict}
+                        </span>
+                      </td>
+                      <td>{policy.value ?? "—"}</td>
+                      <td>{formatTimestamp(policy.evaluated_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </article>
 
         <article className="panel section">
