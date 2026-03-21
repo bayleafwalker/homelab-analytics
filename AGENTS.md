@@ -42,6 +42,16 @@ Detailed mode guides live under `docs/agents/`:
 
 Choose the mode that matches the task. If a task spans modes, complete planning first, then implementation, then review or release work.
 
+## Pre-PR verification gate
+
+Before opening a pull request or pushing to a branch that will trigger CI, always run:
+
+```
+make verify-fast
+```
+
+This runs ruff lint, mypy typecheck, the fast test suite, documentation contracts, agent guidance contracts, architecture contracts, and helm lint — the same checks the `verify-fast` CI job runs. A PR that fails `verify-fast` locally will fail CI. Do not open a PR with a known `verify-fast` failure.
+
 ## Mandatory repo rules
 
 - When adding a source connector, define its landing contract, validation checks, and canonical mapping target.

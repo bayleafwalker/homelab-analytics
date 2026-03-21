@@ -43,7 +43,7 @@ def load_canonical_budgets_bytes(source_bytes: bytes) -> list[CanonicalBudget]:
 
     for row in reader:
         budget_name = row["budget_name"].strip()
-        category_id = row["category"].strip()  # CSV column stays "category"; stored as slug
+        category_id = row["category"].strip().lower()  # normalise to slug; CSV column stays "category"
         effective_to_raw = row.get("effective_to", "").strip()
 
         result.append(

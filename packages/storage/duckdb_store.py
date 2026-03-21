@@ -139,6 +139,14 @@ class DuckDBStore:
         existing_columns = {
             row[1] for row in self._con.execute(f"PRAGMA table_info('{defn.table_name}')").fetchall()
         }
+        # Add any attribute columns that exist in the definition but not in the table.
+        # This handles schema migrations when a definition gains new columns after
+        # a database was first created (e.g. dim_category gaining domain/is_system).
+        for ac in defn.attribute_columns:
+            if ac.name not in existing_columns:
+                self._con.execute(
+                    f"ALTER TABLE {defn.table_name} ADD COLUMN {ac.name} {ac.dtype}"
+                )
         if _SCD_SOURCE_SYSTEM not in existing_columns:
             self._con.execute(
                 f"ALTER TABLE {defn.table_name} ADD COLUMN {_SCD_SOURCE_SYSTEM} VARCHAR"
