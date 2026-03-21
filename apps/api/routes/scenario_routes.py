@@ -10,7 +10,7 @@
 """
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException
@@ -98,8 +98,15 @@ def register_scenario_routes(
     async def create_income_change(body: IncomeChangeRequest) -> dict[str, Any]:
         svc = _svc()
         try:
+            delta = Decimal(body.monthly_income_delta)
+        except InvalidOperation as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid monthly_income_delta: {body.monthly_income_delta!r}",
+            ) from exc
+        try:
             result = svc.create_income_change_scenario(
-                monthly_income_delta=Decimal(body.monthly_income_delta),
+                monthly_income_delta=delta,
                 label=body.label,
                 projection_months=body.projection_months or 12,
             )

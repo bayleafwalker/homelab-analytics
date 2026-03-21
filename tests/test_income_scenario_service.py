@@ -155,12 +155,21 @@ class IncomeProjRowsTests(unittest.TestCase):
             self.assertEqual(Decimal(str(row["net_delta"])), delta)
 
     def test_assumption_recorded(self) -> None:
-        result = create_income_change_scenario(
-            self.store, monthly_income_delta=Decimal("500")
-        )
+        delta = Decimal("500")
+        result = create_income_change_scenario(self.store, monthly_income_delta=delta)
         comparison = get_income_scenario_comparison(self.store, result.scenario_id)
-        keys = [a["assumption_key"] for a in comparison.assumptions]
-        self.assertIn("monthly_income_delta", keys)
+        assumption = next(a for a in comparison.assumptions if a["assumption_key"] == "monthly_income_delta")
+        self.assertEqual(assumption["baseline_value"], "0")
+        self.assertEqual(Decimal(str(assumption["override_value"])), delta)
+
+    def test_assumption_records_delta_not_absolute_income(self) -> None:
+        # Reviewer P2: assumption should store the delta (0→500), not absolute income (3000→3500)
+        delta = Decimal("500")
+        result = create_income_change_scenario(self.store, monthly_income_delta=delta)
+        comparison = get_income_scenario_comparison(self.store, result.scenario_id)
+        assumption = next(a for a in comparison.assumptions if a["assumption_key"] == "monthly_income_delta")
+        # baseline_value must be "0", not the baseline income amount
+        self.assertEqual(assumption["baseline_value"], "0")
 
 
 class IncomeScenarioArchiveTests(unittest.TestCase):
@@ -187,6 +196,40 @@ class IncomeScenarioArchiveTests(unittest.TestCase):
     def test_archive_unknown_scenario_returns_false(self) -> None:
         archived = archive_scenario(self.store, "nonexistent-id")
         self.assertFalse(archived)
+
+
+class IncomeScenarioStalenessTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.store = DuckDBStore.memory()
+        self.svc = TransformationService(self.store)
+        _load_fixture_cashflow(self.svc)
+
+    def test_scenario_is_not_stale_on_same_run(self) -> None:
+        result = create_income_change_scenario(
+            self.store, monthly_income_delta=Decimal("500")
+        )
+        comparison = get_income_scenario_comparison(self.store, result.scenario_id)
+        self.assertFalse(comparison.is_stale)
+
+    def test_scenario_is_stale_after_new_transaction_run(self) -> None:
+        result = create_income_change_scenario(
+            self.store, monthly_income_delta=Decimal("500")
+        )
+        # Ingest a new run after scenario was created
+        self.svc.load_transactions(
+            [{
+                "booked_at": "2026-04-03T08:00:00+00:00",
+                "account_id": "checking",
+                "counterparty_name": "Employer",
+                "amount": "3000.00",
+                "currency": "EUR",
+                "description": "salary",
+            }],
+            run_id="run-income-002",
+        )
+        self.svc.refresh_monthly_cashflow()
+        comparison = get_income_scenario_comparison(self.store, result.scenario_id)
+        self.assertTrue(comparison.is_stale)
 
 
 class IncomeScenarioNoCashflowTests(unittest.TestCase):

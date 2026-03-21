@@ -30,6 +30,7 @@ from packages.pipelines.scenario_models import (
     PROJ_LOAN_SCHEDULE_TABLE,
 )
 from packages.pipelines.transaction_models import (
+    FACT_TRANSACTION_TABLE,
     MART_MONTHLY_CASHFLOW_COLUMNS,
     MART_MONTHLY_CASHFLOW_TABLE,
 )
@@ -385,6 +386,30 @@ _LOOKUP_MONTHS = 3
 _DEFAULT_PROJECTION_MONTHS = 12
 
 
+def _get_latest_transaction_run_id(store: DuckDBStore) -> str | None:
+    """Return the most recent run_id from fact_transaction, or None if no rows."""
+    rows = store.fetchall_dicts(
+        f"SELECT run_id FROM {FACT_TRANSACTION_TABLE}"
+        " WHERE run_id IS NOT NULL ORDER BY run_id DESC LIMIT 1"
+    )
+    return str(rows[0]["run_id"]) if rows else None
+
+
+def _is_income_scenario_stale(store: DuckDBStore, scenario_id: str) -> bool:
+    """True if the latest transaction run_id has advanced since the scenario was computed."""
+    scenario_rows = store.fetchall_dicts(
+        f"SELECT baseline_run_id FROM {DIM_SCENARIO_TABLE} WHERE scenario_id = ?",
+        [scenario_id],
+    )
+    if not scenario_rows:
+        return False
+    baseline_run_id = scenario_rows[0]["baseline_run_id"]
+    current_run_id = _get_latest_transaction_run_id(store)
+    if baseline_run_id is None or current_run_id is None:
+        return False
+    return str(baseline_run_id) != current_run_id
+
+
 def _get_baseline_cashflow(store: DuckDBStore) -> tuple[Decimal, Decimal]:
     """Return (avg_income, avg_expense) from the last _LOOKUP_MONTHS months of cashflow."""
     store.ensure_table(MART_MONTHLY_CASHFLOW_TABLE, MART_MONTHLY_CASHFLOW_COLUMNS)
@@ -427,6 +452,7 @@ def create_income_change_scenario(
 
     baseline_income, baseline_expense = _get_baseline_cashflow(store)
     new_monthly_income = baseline_income + monthly_income_delta
+    baseline_run_id = _get_latest_transaction_run_id(store)
 
     scenario_id = str(uuid.uuid4())
     sign = "+" if monthly_income_delta >= 0 else ""
@@ -438,20 +464,20 @@ def create_income_change_scenario(
         "subject_id": "household",
         "label": auto_label,
         "status": "active",
-        "baseline_run_id": None,
+        "baseline_run_id": baseline_run_id,
         "created_at": datetime.now(UTC).isoformat(),
     }])
 
+    q = Decimal("0.01")
     store.insert_rows(FACT_SCENARIO_ASSUMPTION_TABLE, [{
         "scenario_id": scenario_id,
         "assumption_key": "monthly_income_delta",
-        "baseline_value": str(baseline_income.quantize(Decimal("0.01"))),
-        "override_value": str(new_monthly_income.quantize(Decimal("0.01"))),
+        "baseline_value": "0",
+        "override_value": str(monthly_income_delta.quantize(q)),
         "unit": "currency",
     }])
 
     today = date.today()
-    q = Decimal("0.01")
     proj_rows: list[dict[str, Any]] = []
     months_until_deficit: int | None = None
 
@@ -516,5 +542,5 @@ def get_income_scenario_comparison(
         label=scenario["label"],
         assumptions=assumptions,
         cashflow_rows=cashflow_rows,
-        is_stale=False,
+        is_stale=_is_income_scenario_stale(store, scenario_id),
     )

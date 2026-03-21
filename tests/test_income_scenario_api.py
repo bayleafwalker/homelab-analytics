@@ -91,6 +91,15 @@ class IncomeScenarioCreateAPITests(unittest.TestCase):
             data = resp.json()
             self.assertEqual(data["months_until_deficit"], 1)
 
+    def test_post_invalid_decimal_returns_422(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _ = _build_client(tmp)
+            resp = client.post(
+                "/api/scenarios/income-change",
+                json={"monthly_income_delta": "abc"},
+            )
+            self.assertEqual(422, resp.status_code)
+
     def test_post_no_cashflow_data_returns_422(self) -> None:
         with TemporaryDirectory() as tmp:
             client, _ = _build_client(tmp, load_cashflow=False)
