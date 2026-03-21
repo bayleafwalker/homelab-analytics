@@ -300,6 +300,15 @@ export async function getHaPolicies() {
   return payload.policies || [];
 }
 
+export async function getHaActions(limit = 50) {
+  const payload = await backendJson(`/api/ha/actions${buildQuery({ limit })}`);
+  return payload.actions || [];
+}
+
+export async function getHaActionsStatus() {
+  return backendJson("/api/ha/actions/status");
+}
+
 export async function getTransformationPackages({ includeArchived = false } = {}) {
   const payload = await backendJson(
     `/config/transformation-packages${buildQuery({

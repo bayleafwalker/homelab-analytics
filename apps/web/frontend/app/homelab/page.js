@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/app-shell";
-import { getCurrentUser, getHaEntities, getHaBridgeStatus, getHaMqttStatus, getHaPolicies } from "@/lib/backend";
+import { getCurrentUser, getHaEntities, getHaBridgeStatus, getHaMqttStatus, getHaPolicies, getHaActions, getHaActionsStatus } from "@/lib/backend";
 
 function formatTimestamp(ts) {
   if (!ts) return "—";
@@ -21,12 +21,14 @@ const CLASS_LABELS = {
 };
 
 export default async function HomelabPage() {
-  const [user, entities, bridge, mqtt, policies] = await Promise.all([
+  const [user, entities, bridge, mqtt, policies, actions, actionsStatus] = await Promise.all([
     getCurrentUser(),
     getHaEntities(),
     getHaBridgeStatus(),
     getHaMqttStatus(),
     getHaPolicies(),
+    getHaActions(),
+    getHaActionsStatus(),
   ]);
 
   return (
@@ -147,6 +149,83 @@ export default async function HomelabPage() {
                       </td>
                       <td>{policy.value ?? "—"}</td>
                       <td>{formatTimestamp(policy.evaluated_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
+
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Action Dispatch</div>
+              <h2>Outbound Actions</h2>
+            </div>
+            {actionsStatus.enabled ? (
+              <span className={`statusPill ${actionsStatus.error_count > 0 ? "warning" : "positive"}`}>
+                {actionsStatus.dispatch_count} dispatches
+              </span>
+            ) : (
+              <span className="statusPill">Not configured</span>
+            )}
+          </div>
+          <dl className="kvGrid">
+            <dt>Status</dt>
+            <dd>
+              {actionsStatus.enabled
+                ? `Tracking ${actionsStatus.tracked_policies} policies`
+                : "Set HOMELAB_ANALYTICS_HA_URL and HOMELAB_ANALYTICS_HA_TOKEN to enable"}
+            </dd>
+            <dt>Last dispatch</dt>
+            <dd>{formatTimestamp(actionsStatus.last_dispatch_at)}</dd>
+            {actionsStatus.enabled && (
+              <>
+                <dt>Errors</dt>
+                <dd>{actionsStatus.error_count}</dd>
+              </>
+            )}
+          </dl>
+          {actions.length > 0 && (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Policy</th>
+                    <th>Class</th>
+                    <th>Type</th>
+                    <th>Verdict</th>
+                    <th>Result</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {actions.map((action, idx) => (
+                    <tr key={`${action.timestamp}-${idx}`}>
+                      <td>{formatTimestamp(action.timestamp)}</td>
+                      <td>{action.policy_name}</td>
+                      <td><span className="statusPill">{action.action_class}</span></td>
+                      <td><code className="mono">{action.action_type}</code></td>
+                      <td>
+                        <span className={`statusPill ${
+                          action.verdict === "ok" ? "positive"
+                          : action.verdict === "breach" ? "negative"
+                          : action.verdict === "warning" ? "warning"
+                          : ""
+                        }`}>
+                          {action.previous_verdict ?? "—"} → {action.verdict}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`statusPill ${
+                          action.result === "success" || action.result === "dismissed" ? "positive"
+                          : action.result === "failure" ? "negative"
+                          : ""
+                        }`}>
+                          {action.result}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

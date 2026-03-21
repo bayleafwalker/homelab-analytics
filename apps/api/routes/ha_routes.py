@@ -7,6 +7,8 @@
   GET  /api/ha/mqtt/status                   → MQTT publisher health (Phase 3)
   GET  /api/ha/policies                      → evaluate and return policy verdicts (Phase 4)
   POST /api/ha/policies/evaluate             → force re-evaluate policies (Phase 4)
+  GET  /api/ha/actions                       → recent outbound action dispatch log (Phase 5)
+  GET  /api/ha/actions/status                → action dispatcher health (Phase 5)
 """
 from __future__ import annotations
 
@@ -39,6 +41,7 @@ def register_ha_routes(
     ha_bridge: Any | None = None,
     ha_mqtt_publisher: Any | None = None,
     ha_policy_evaluator: Any | None = None,
+    ha_action_dispatcher: Any | None = None,
     to_jsonable: Callable[[Any], Any],
 ) -> None:
     def _svc() -> TransformationService:
@@ -110,3 +113,24 @@ def register_ha_routes(
             return {"policies": []}
         results = ha_policy_evaluator.evaluate()
         return {"policies": [r.to_dict() for r in results]}
+
+    @app.get("/api/ha/actions")
+    async def get_actions(
+        limit: int = Query(default=50, ge=1, le=100),
+    ) -> dict[str, Any]:
+        if ha_action_dispatcher is None:
+            return {"actions": []}
+        return {"actions": ha_action_dispatcher.get_actions(limit=limit)}
+
+    @app.get("/api/ha/actions/status")
+    async def get_actions_status() -> dict[str, Any]:
+        if ha_action_dispatcher is None:
+            return {
+                "enabled": False,
+                "last_dispatch_at": None,
+                "dispatch_count": 0,
+                "error_count": 0,
+                "action_log_size": 0,
+                "tracked_policies": 0,
+            }
+        return ha_action_dispatcher.get_status()

@@ -1,4 +1,4 @@
-"""Home Assistant MQTT publisher — Phase 3/4 synthetic entity publication.
+"""Home Assistant MQTT publisher — Phase 3/4/5 synthetic entity publication.
 
 The publisher connects to an MQTT broker and periodically publishes computed
 platform entities back into HA via MQTT discovery.  It runs as a long-lived
@@ -151,8 +151,10 @@ class HaMqttPublisher:
         broker_url: str,
         username: str | None = None,
         password: str | None = None,
+        action_dispatcher: Any | None = None,
     ) -> None:
         self._fetch_fn = fetch_fn
+        self._action_dispatcher = action_dispatcher
         self._broker_host, self._broker_port = _parse_broker_url(broker_url)
         self._username = username
         self._password = password
@@ -290,6 +292,13 @@ class HaMqttPublisher:
 
         self.last_publish_at = datetime.now(UTC).isoformat()
         self.publish_count += 1
+
+        # Phase 5: dispatch outbound actions after state publish.
+        if self._action_dispatcher is not None:
+            try:
+                await self._action_dispatcher.dispatch_from_cache()
+            except Exception as exc:
+                logger.warning("Action dispatch error", extra={"error": str(exc)})
 
     async def _publish_availability(self, client: Any, payload: str) -> None:
         """Publish availability payload ("online" or "offline") for the device."""

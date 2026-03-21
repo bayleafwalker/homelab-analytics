@@ -277,6 +277,7 @@ def create_app(
     ha_bridge: Any = None,
     ha_mqtt_publisher: Any = None,
     ha_policy_evaluator: Any = None,
+    ha_action_dispatcher: Any = None,
 ) -> FastAPI:
     # Support both the new AppContainer-first call and the legacy
     # AccountTransactionService-first call from existing tests.
@@ -506,6 +507,7 @@ def create_app(
         ha_bridge=ha_bridge,
         ha_mqtt_publisher=ha_mqtt_publisher,
         ha_policy_evaluator=ha_policy_evaluator,
+        ha_action_dispatcher=ha_action_dispatcher,
         to_jsonable=to_jsonable,
     )
 

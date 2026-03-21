@@ -140,6 +140,15 @@ def build_app(settings: AppSettings | None = None):
 
     ha_policy_evaluator = HaPolicyEvaluator(_policy_fetch_fn)
 
+    ha_action_dispatcher = None
+    if resolved_settings.ha_url and resolved_settings.ha_token:
+        from packages.pipelines.ha_action_dispatcher import HaActionDispatcher
+        ha_action_dispatcher = HaActionDispatcher(
+            ha_url=resolved_settings.ha_url,
+            ha_token=resolved_settings.ha_token,
+            evaluator=ha_policy_evaluator,
+        )
+
     ha_mqtt_publisher = None
     if resolved_settings.ha_mqtt_broker_url:
         from packages.pipelines.ha_mqtt_publisher import HaMqttPublisher
@@ -163,6 +172,7 @@ def build_app(settings: AppSettings | None = None):
             broker_url=resolved_settings.ha_mqtt_broker_url,
             username=resolved_settings.ha_mqtt_username,
             password=resolved_settings.ha_mqtt_password,
+            action_dispatcher=ha_action_dispatcher,
         )
 
     return create_app(
@@ -179,6 +189,7 @@ def build_app(settings: AppSettings | None = None):
         ha_bridge=ha_bridge,
         ha_mqtt_publisher=ha_mqtt_publisher,
         ha_policy_evaluator=ha_policy_evaluator,
+        ha_action_dispatcher=ha_action_dispatcher,
     )
 
 
