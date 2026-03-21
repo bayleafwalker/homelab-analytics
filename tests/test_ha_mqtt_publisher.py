@@ -10,9 +10,9 @@ import json
 import unittest
 
 from packages.pipelines.ha_mqtt_publisher import (
-    HaMqttPublisher,
     _DEVICE_AVAILABILITY_TOPIC,
     _SYNTHETIC_ENTITIES,
+    HaMqttPublisher,
     _build_discovery_payload,
     _build_state_value,
     _discovery_topic,
