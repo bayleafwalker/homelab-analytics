@@ -10,9 +10,8 @@ import unittest
 from datetime import UTC, datetime, timedelta
 
 from packages.pipelines.ha_policy import (
-    HaPolicyEvaluator,
-    PolicyResult,
     _POLICIES,
+    HaPolicyEvaluator,
     _evaluate_bridge_health,
     _evaluate_budget_status,
     _evaluate_monthly_spend_rate,
