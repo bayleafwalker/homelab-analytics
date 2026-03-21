@@ -58,9 +58,9 @@ from packages.pipelines.scenario_service import (
     get_expense_shock_comparison,
     get_income_scenario_comparison,
     get_scenario,
-    list_scenarios,
     get_scenario_assumptions,
     get_scenario_comparison,
+    list_scenarios,
 )
 from packages.pipelines.subscription_models import (
     CURRENT_DIM_CATEGORY_VIEW,
