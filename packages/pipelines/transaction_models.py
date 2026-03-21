@@ -202,6 +202,44 @@ TRANSACTION_OBSERVATION_COLUMNS: list[tuple[str, str]] = [
 ]
 
 # ---------------------------------------------------------------------------
+# Entity + current-projection layer (PR 3)
+# ---------------------------------------------------------------------------
+
+TRANSACTION_ENTITY_TABLE = "transaction_entity"
+
+TRANSACTION_ENTITY_COLUMNS: list[tuple[str, str]] = [
+    ("entity_key", "VARCHAR PRIMARY KEY"),
+    # Lifecycle status: active | superseded | reversed | ambiguous
+    ("status", "VARCHAR NOT NULL DEFAULT 'active'"),
+    ("first_seen_batch_id", "VARCHAR NOT NULL"),
+    ("first_seen_at", "TIMESTAMPTZ NOT NULL"),
+    ("last_seen_batch_id", "VARCHAR NOT NULL"),
+    ("last_seen_at", "TIMESTAMPTZ NOT NULL"),
+    ("observation_count", "INTEGER NOT NULL DEFAULT 1"),
+    # Points to the "best" (richest / most recent) observation
+    ("current_observation_id", "VARCHAR NOT NULL"),
+]
+
+FACT_TRANSACTION_CURRENT_TABLE = "fact_transaction_current"
+
+FACT_TRANSACTION_CURRENT_COLUMNS: list[tuple[str, str]] = [
+    ("entity_key", "VARCHAR PRIMARY KEY"),
+    ("current_observation_id", "VARCHAR NOT NULL"),
+    ("booked_at", "DATE NOT NULL"),
+    ("booked_at_utc", "TIMESTAMPTZ NOT NULL"),
+    ("booking_month", "VARCHAR NOT NULL"),
+    ("account_id", "VARCHAR NOT NULL"),
+    ("counterparty_name", "VARCHAR NOT NULL"),
+    ("amount", "DECIMAL(18,4) NOT NULL"),
+    ("currency", "VARCHAR NOT NULL"),
+    ("normalized_currency", "VARCHAR NOT NULL"),
+    ("description", "VARCHAR"),
+    ("direction", "VARCHAR NOT NULL"),
+    ("run_id", "VARCHAR"),
+    ("reconciled_at", "TIMESTAMPTZ NOT NULL"),
+]
+
+# ---------------------------------------------------------------------------
 # Extraction helpers
 # ---------------------------------------------------------------------------
 

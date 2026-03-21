@@ -12,6 +12,11 @@ from packages.pipelines.identity_strategy import (
     IdentityStrategy,
     resolve_entity_key,
 )
+from packages.pipelines.reconciliation import (
+    ReconciliationResult,
+    ensure_entity_storage,
+    reconcile_batch,
+)
 from packages.pipelines.transaction_models import (
     BANK_TRANSACTION_IDENTITY_STRATEGY,
     CURRENT_DIM_COUNTERPARTY_VIEW,
@@ -38,6 +43,15 @@ from packages.pipelines.transaction_models import (
     extract_accounts,
     extract_counterparties,
 )
+
+# Re-export so callers can import these from transformation_transactions
+__all__ = [
+    "ensure_transaction_storage",
+    "load_transactions",
+    "ensure_entity_storage",
+    "reconcile_batch",
+    "ReconciliationResult",
+]
 from packages.storage.duckdb_store import DuckDBStore
 
 NormalizeRow = Callable[[dict[str, Any]], dict[str, Any]]
@@ -47,6 +61,7 @@ RecordLineage = Callable[..., None]
 def ensure_transaction_storage(store: DuckDBStore) -> None:
     store.ensure_table(INGEST_BATCH_TABLE, INGEST_BATCH_COLUMNS)
     store.ensure_table(TRANSACTION_OBSERVATION_TABLE, TRANSACTION_OBSERVATION_COLUMNS)
+    ensure_entity_storage(store)
     store.ensure_table(FACT_TRANSACTION_TABLE, FACT_TRANSACTION_COLUMNS)
     store.ensure_table(MART_MONTHLY_CASHFLOW_TABLE, MART_MONTHLY_CASHFLOW_COLUMNS)
     store.ensure_table(
