@@ -5,7 +5,8 @@ applied in lexicographic order.  Applied versions are tracked in the
 ``schema_migrations`` table so each migration runs exactly once.
 
 The runner is intentionally dependency-free: it uses only the raw dbapi2
-connections (sqlite3 / psycopg) that the rest of the storage layer already holds.
+connections (sqlite3 / psycopg) and the DuckDB connection that the rest of
+the storage layer already holds.
 
 Usage (SQLite)::
 
@@ -25,11 +26,25 @@ Usage (Postgres)::
     with psycopg.connect(dsn) as conn:
         applied = apply_pending_postgres_migrations(conn, Path("migrations/postgres"))
 
-Future migrations (ALTER TABLE, new tables for Sprint G, etc.) belong in new
-numbered .sql files.  The Python schema-init functions
-(``initialize_sqlite_control_plane_schema`` et al.) remain as a backward-compat
-bridge for existing deployments but are considered deprecated — they will be
-removed once all environments are managed via migration files.
+Usage (DuckDB)::
+
+    import duckdb
+    from pathlib import Path
+    from packages.storage.migration_runner import apply_pending_duckdb_migrations
+
+    con = duckdb.connect("warehouse.duckdb")
+    applied = apply_pending_duckdb_migrations(con, Path("migrations/duckdb"))
+
+    # Or pass a DuckDBStore directly:
+    from packages.storage.duckdb_store import DuckDBStore
+    store = DuckDBStore.open("warehouse.duckdb")
+    applied = apply_pending_duckdb_migrations(store.connection, Path("migrations/duckdb"))
+
+Future migrations (ALTER TABLE, new tables, etc.) belong in new numbered .sql
+files.  The Python schema-init functions (``ensure_table`` / ``ensure_dimension``
+et al.) remain as a backward-compat bridge for existing deployments but are
+considered deprecated for production use — prefer migration files so that schema
+evolution is tracked and auditable.
 """
 
 from __future__ import annotations
@@ -42,6 +57,7 @@ from typing import Any
 __all__ = [
     "apply_pending_sqlite_migrations",
     "apply_pending_postgres_migrations",
+    "apply_pending_duckdb_migrations",
 ]
 
 _TRACKING_DDL = """
@@ -79,6 +95,26 @@ def apply_pending_postgres_migrations(
     connection.commit()
     applied = _fetch_applied(connection)
     return _apply_pending(connection, migrations_dir, applied, placeholder="%s")
+
+
+_DUCKDB_TRACKING_DDL = (
+    "CREATE TABLE IF NOT EXISTS schema_migrations"
+    " (version VARCHAR PRIMARY KEY, applied_at VARCHAR NOT NULL)"
+)
+
+
+def apply_pending_duckdb_migrations(
+    connection: Any,  # duckdb.DuckDBPyConnection
+    migrations_dir: Path,
+) -> list[str]:
+    """Apply all pending DuckDB warehouse migrations and return newly applied versions.
+
+    Accepts a raw ``duckdb.DuckDBPyConnection``.  To use with a
+    ``DuckDBStore``, pass ``store.connection``.
+    """
+    connection.execute(_DUCKDB_TRACKING_DDL)
+    applied = _fetch_applied(connection)
+    return _apply_pending(connection, migrations_dir, applied, placeholder="?")
 
 
 # ---------------------------------------------------------------------------
