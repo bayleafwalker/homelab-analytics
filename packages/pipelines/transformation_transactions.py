@@ -21,6 +21,7 @@ from packages.pipelines.transaction_models import (
     BANK_TRANSACTION_IDENTITY_STRATEGY,
     CURRENT_DIM_COUNTERPARTY_VIEW,
     FACT_TRANSACTION_COLUMNS,
+    FACT_TRANSACTION_CURRENT_TABLE,
     FACT_TRANSACTION_TABLE,
     INGEST_BATCH_COLUMNS,
     INGEST_BATCH_TABLE,
@@ -102,9 +103,9 @@ def load_transactions(
     batch_sha256: str | None = None,
     source_asset_id: str | None = None,
     identity_strategy: IdentityStrategy | None = None,
-) -> int:
+) -> tuple[int, str]:
     if not rows:
-        return 0
+        return 0, ""
 
     normalized_rows = [normalize_row(row) for row in rows]
     eff = effective_date or date.today()
@@ -245,7 +246,7 @@ def load_transactions(
             ("fact_transaction", "fact", inserted),
         ],
     )
-    return inserted
+    return inserted, bid
 
 
 def refresh_monthly_cashflow(store: DuckDBStore) -> int:
@@ -261,7 +262,7 @@ def refresh_monthly_cashflow(store: DuckDBStore) -> int:
             COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) AS expense,
             COALESCE(SUM(amount), 0) AS net,
             COUNT(*) AS transaction_count
-        FROM {FACT_TRANSACTION_TABLE}
+        FROM {FACT_TRANSACTION_CURRENT_TABLE}
         GROUP BY booking_month
         ORDER BY booking_month
         """
@@ -322,7 +323,7 @@ def refresh_monthly_cashflow_by_counterparty(store: DuckDBStore) -> int:
             COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) AS expense,
             COALESCE(SUM(amount), 0) AS net,
             COUNT(*) AS transaction_count
-        FROM {FACT_TRANSACTION_TABLE}
+        FROM {FACT_TRANSACTION_CURRENT_TABLE}
         GROUP BY booking_month, counterparty_name
         ORDER BY booking_month, counterparty_name
         """
@@ -370,7 +371,7 @@ def refresh_spend_by_category_monthly(store: DuckDBStore) -> int:
             dc.category,
             COALESCE(SUM(ABS(ft.amount)), 0) AS total_expense,
             COUNT(*) AS transaction_count
-        FROM {FACT_TRANSACTION_TABLE} ft
+        FROM {FACT_TRANSACTION_CURRENT_TABLE} ft
         LEFT JOIN {CURRENT_DIM_COUNTERPARTY_VIEW} dc
             ON ft.counterparty_name = dc.counterparty_name
         WHERE ft.direction = 'expense'
@@ -426,9 +427,9 @@ def refresh_recent_large_transactions(
             (transaction_id, booked_at, booking_month, account_id,
              counterparty_name, amount, currency, description, direction)
         SELECT
-            transaction_id, booked_at, booking_month, account_id,
+            entity_key AS transaction_id, booked_at, booking_month, account_id,
             counterparty_name, amount, currency, description, direction
-        FROM {FACT_TRANSACTION_TABLE}
+        FROM {FACT_TRANSACTION_CURRENT_TABLE}
         WHERE ABS(amount) >= ?
           AND booked_at >= CURRENT_DATE - INTERVAL '{lookback_months}' MONTH
         ORDER BY ABS(amount) DESC
@@ -463,7 +464,7 @@ def refresh_account_balance_trend(store: DuckDBStore) -> int:
                 PARTITION BY account_id ORDER BY booking_month
             ) AS cumulative_balance,
             COUNT(*) AS transaction_count
-        FROM {FACT_TRANSACTION_TABLE}
+        FROM {FACT_TRANSACTION_CURRENT_TABLE}
         GROUP BY booking_month, account_id
         ORDER BY booking_month, account_id
         """
@@ -518,12 +519,12 @@ def refresh_transaction_anomalies_current(
                 AVG(ABS(amount))    AS avg_amount,
                 STDDEV(ABS(amount)) AS stddev_amount,
                 COUNT(*)            AS tx_count
-            FROM {FACT_TRANSACTION_TABLE}
+            FROM {FACT_TRANSACTION_CURRENT_TABLE}
             GROUP BY counterparty_name
         ),
         flagged AS (
             SELECT
-                t.transaction_id,
+                t.entity_key         AS transaction_id,
                 t.booked_at          AS booking_date,
                 t.counterparty_name,
                 t.amount,
@@ -540,7 +541,7 @@ def refresh_transaction_anomalies_current(
                         THEN 'amount_spike'
                     ELSE NULL
                 END AS anomaly_type
-            FROM {FACT_TRANSACTION_TABLE} t
+            FROM {FACT_TRANSACTION_CURRENT_TABLE} t
             JOIN counterparty_stats cs ON t.counterparty_name = cs.counterparty_name
             WHERE t.booked_at >= CURRENT_DATE - INTERVAL '{lookback_days}' DAY
         )

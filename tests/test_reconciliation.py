@@ -7,12 +7,20 @@ from decimal import Decimal
 
 import pytest
 
+from packages.pipelines.normalization import normalize_currency_code, normalize_timestamp_utc
 from packages.pipelines.reconciliation import ReconciliationResult, reconcile_batch
 from packages.pipelines.transaction_models import (
+    DIM_ACCOUNT,
+    DIM_COUNTERPARTY,
     FACT_TRANSACTION_CURRENT_TABLE,
     TRANSACTION_ENTITY_TABLE,
 )
 from packages.pipelines.transformation_service import TransformationService
+from packages.pipelines.transformation_transactions import (
+    TRANSACTION_OBSERVATION_TABLE,
+    _batch_id,
+    load_transactions as _low_load,
+)
 from packages.storage.duckdb_store import DuckDBStore
 
 # ---------------------------------------------------------------------------
@@ -44,6 +52,42 @@ def svc() -> TransformationService:
     return TransformationService(DuckDBStore.memory())
 
 
+def _normalize(row: dict) -> dict:
+    """Minimal normalizer for reconciliation tests."""
+    amount = Decimal(str(row["amount"]))
+    booked_at_utc = normalize_timestamp_utc(row["booked_at"])
+    return {
+        **row,
+        "amount": amount,
+        "booked_at_utc": booked_at_utc,
+        "normalized_currency": normalize_currency_code(str(row.get("currency", ""))),
+        "direction": "income" if amount >= 0 else "expense",
+    }
+
+
+def _load_only(
+    svc: TransformationService,
+    rows: list[dict],
+    *,
+    run_id: str,
+    batch_sha256: str,
+    source_asset_id: str,
+) -> str:
+    """Write observations to DB without reconciling. Returns batch_id."""
+    _, bid = _low_load(
+        svc._store,
+        rows=rows,
+        normalize_row=_normalize,
+        record_lineage=lambda **kwargs: None,
+        dim_account=DIM_ACCOUNT,
+        dim_counterparty=DIM_COUNTERPARTY,
+        run_id=run_id,
+        batch_sha256=batch_sha256,
+        source_asset_id=source_asset_id,
+    )
+    return bid
+
+
 def _load_and_reconcile(
     svc: TransformationService,
     rows: list[dict],
@@ -52,16 +96,13 @@ def _load_and_reconcile(
     batch_sha256: str = "sha-base",
     source_asset_id: str = "asset-1",
 ) -> ReconciliationResult:
-    svc.load_transactions(
+    bid = _load_only(
+        svc,
         rows,
         run_id=run_id,
         batch_sha256=batch_sha256,
         source_asset_id=source_asset_id,
     )
-    # Derive batch_id the same way load_transactions does
-    from packages.pipelines.transformation_transactions import _batch_id
-
-    bid = _batch_id(source_asset_id, batch_sha256, run_id)
     return reconcile_batch(svc._store, bid, run_id=run_id)
 
 
@@ -114,31 +155,21 @@ def test_current_projection_has_correct_amounts(svc: TransformationService) -> N
 
 def test_replay_same_batch_is_noop(svc: TransformationService) -> None:
     _load_and_reconcile(svc, BASE_ROWS, batch_sha256="sha-a")
-    # Re-load same rows as a "second statement" with different batch
-    svc.load_transactions(
-        BASE_ROWS, run_id="run-002", batch_sha256="sha-b", source_asset_id="asset-1"
-    )
-    from packages.pipelines.transformation_transactions import _batch_id
-
-    bid2 = _batch_id("asset-1", "sha-b", "run-002")
+    bid2 = _load_only(svc, BASE_ROWS, run_id="run-002", batch_sha256="sha-b", source_asset_id="asset-1")
     result2 = reconcile_batch(svc._store, bid2, run_id="run-002")
 
     assert result2.noop_updates == 2
     assert result2.new_entities == 0
 
-    # Entity count unchanged
     count = svc._store.fetchall(f"SELECT COUNT(*) FROM {TRANSACTION_ENTITY_TABLE}")[0][0]
     assert count == 2
 
 
 def test_noop_increments_observation_count(svc: TransformationService) -> None:
     _load_and_reconcile(svc, BASE_ROWS[:1], batch_sha256="sha-a")
-    svc.load_transactions(
-        BASE_ROWS[:1], run_id="run-002", batch_sha256="sha-b", source_asset_id="asset-1"
+    bid2 = _load_only(
+        svc, BASE_ROWS[:1], run_id="run-002", batch_sha256="sha-b", source_asset_id="asset-1"
     )
-    from packages.pipelines.transformation_transactions import _batch_id
-
-    bid2 = _batch_id("asset-1", "sha-b", "run-002")
     reconcile_batch(svc._store, bid2)
 
     obs_count = svc._store.fetchall(
@@ -158,12 +189,9 @@ def test_richer_description_updates_current(svc: TransformationService) -> None:
 
     # Second load: same amount/currency but now has description
     enriched = [{**BASE_ROWS[0], "description": "Monthly electricity bill"}]
-    svc.load_transactions(
-        enriched, run_id="run-002", batch_sha256="sha-b", source_asset_id="asset-1"
+    bid2 = _load_only(
+        svc, enriched, run_id="run-002", batch_sha256="sha-b", source_asset_id="asset-1"
     )
-    from packages.pipelines.transformation_transactions import _batch_id
-
-    bid2 = _batch_id("asset-1", "sha-b", "run-002")
     result2 = reconcile_batch(svc._store, bid2, run_id="run-002")
 
     assert result2.richer_updates == 1
@@ -204,15 +232,13 @@ def test_conflicting_amount_flags_entity_ambiguous(svc: TransformationService) -
     """Same provider_transaction_ref + different amount = conflict."""
     _load_and_reconcile(svc, [_tier1_row("-84.15")], batch_sha256="sha-a")
 
-    svc.load_transactions(
+    bid2 = _load_only(
+        svc,
         [_tier1_row("-84.16")],  # same ref, 1 cent different
         run_id="run-002",
         batch_sha256="sha-b",
         source_asset_id="asset-1",
     )
-    from packages.pipelines.transformation_transactions import _batch_id
-
-    bid2 = _batch_id("asset-1", "sha-b", "run-002")
     result2 = reconcile_batch(svc._store, bid2, run_id="run-002")
 
     assert result2.conflicts == 1
@@ -228,15 +254,13 @@ def test_conflict_does_not_update_current_projection(svc: TransformationService)
         f"SELECT amount FROM {FACT_TRANSACTION_CURRENT_TABLE}"
     )[0][0]
 
-    svc.load_transactions(
+    bid2 = _load_only(
+        svc,
         [_tier1_row("-99.00")],
         run_id="run-002",
         batch_sha256="sha-b",
         source_asset_id="asset-1",
     )
-    from packages.pipelines.transformation_transactions import _batch_id
-
-    bid2 = _batch_id("asset-1", "sha-b", "run-002")
     reconcile_batch(svc._store, bid2, run_id="run-002")
 
     after_amount = svc._store.fetchall(
@@ -254,8 +278,6 @@ def test_conflict_does_not_update_current_projection(svc: TransformationService)
 
 def test_reconcile_same_batch_twice_is_idempotent(svc: TransformationService) -> None:
     result1 = _load_and_reconcile(svc, BASE_ROWS, batch_sha256="sha-a")
-    from packages.pipelines.transformation_transactions import _batch_id
-
     bid = _batch_id("asset-1", "sha-a", "run-001")
     result2 = reconcile_batch(svc._store, bid)
 
@@ -272,11 +294,6 @@ def test_reconcile_same_batch_twice_is_idempotent(svc: TransformationService) ->
 
 def test_unresolved_observations_are_skipped(svc: TransformationService) -> None:
     """Observations with no entity_key (identity resolution failed) are skipped."""
-    from packages.pipelines.transformation_transactions import (
-        TRANSACTION_OBSERVATION_TABLE,
-        _batch_id,
-    )
-
     bid = _batch_id("asset-1", "sha-null", "run-null")
     # Manually write a batch + observation with NULL entity_key
     svc._store.execute(

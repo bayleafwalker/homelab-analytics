@@ -156,6 +156,7 @@ from packages.pipelines.transformation_subscriptions import (
     refresh_subscription_summary,
     refresh_upcoming_fixed_costs_30d,
 )
+from packages.pipelines.reconciliation import reconcile_batch
 from packages.pipelines.transformation_transactions import (
     count_transactions,
     ensure_transaction_storage,
@@ -318,7 +319,7 @@ class TransformationService:
         counterparty_names = list({row["counterparty_name"] for row in rows})
         category_resolver = resolve_categories_bulk(self._store, counterparty_names)
 
-        return load_transactions(
+        inserted, batch_id = load_transactions(
             self._store,
             rows=rows,
             normalize_row=self._normalize_row,
@@ -332,6 +333,8 @@ class TransformationService:
             batch_sha256=batch_sha256,
             source_asset_id=source_asset_id,
         )
+        reconcile_batch(self._store, batch_id, run_id=run_id)
+        return inserted
 
     def load_domain_rows(
         self,
