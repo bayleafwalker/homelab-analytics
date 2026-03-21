@@ -234,7 +234,7 @@ _BUDGET_SPEC = BuiltinPromotionSpec(
         serialize_row=lambda row: {
             "budget_id": row.budget_id,
             "budget_name": row.budget_name,
-            "category": row.category,
+            "category_id": row.category_id,
             "period_type": row.period_type,
             "target_amount": str(row.target_amount),
             "currency": row.currency,

@@ -34,7 +34,7 @@ class CanonicalBudgetTests(unittest.TestCase):
             (FIXTURES / "budgets_valid.csv").read_bytes()
         )
         self.assertEqual(4, len(budgets))
-        categories = [b.category for b in budgets]
+        categories = [b.category_id for b in budgets]
         self.assertIn("groceries", categories)
         self.assertIn("entertainment", categories)
         self.assertIn("transport", categories)
@@ -58,7 +58,7 @@ class CanonicalBudgetTests(unittest.TestCase):
         budgets = load_canonical_budgets_bytes(
             (FIXTURES / "budgets_valid.csv").read_bytes()
         )
-        groceries = next(b for b in budgets if b.category == "groceries")
+        groceries = next(b for b in budgets if b.category_id == "groceries")
         self.assertEqual(Decimal("400.00"), groceries.target_amount)
 
     def test_budget_id_is_deterministic(self) -> None:
@@ -124,7 +124,7 @@ class BudgetTransformationTests(unittest.TestCase):
             {
                 "budget_id": "bgt-001",
                 "budget_name": "Monthly Budget",
-                "category": "groceries",
+                "category_id": "groceries",
                 "period_type": "monthly",
                 "period_label": "2026-01",
                 "target_amount": "400.00",
@@ -133,7 +133,7 @@ class BudgetTransformationTests(unittest.TestCase):
             {
                 "budget_id": "bgt-002",
                 "budget_name": "Monthly Budget",
-                "category": "entertainment",
+                "category_id": "entertainment",
                 "period_type": "monthly",
                 "period_label": "2026-01",
                 "target_amount": "150.00",
@@ -142,7 +142,7 @@ class BudgetTransformationTests(unittest.TestCase):
             {
                 "budget_id": "bgt-003",
                 "budget_name": "Monthly Budget",
-                "category": "transport",
+                "category_id": "transport",
                 "period_type": "monthly",
                 "period_label": "2026-01",
                 "target_amount": "200.00",
@@ -170,7 +170,7 @@ class BudgetTransformationTests(unittest.TestCase):
         svc = TransformationService(DuckDBStore.memory())
         svc.load_budget_targets(self._make_rows(), run_id="run-001")
         budgets = svc.get_current_budgets()
-        categories = {row["category"] for row in budgets}
+        categories = {row["category_id"] for row in budgets}
         self.assertIn("groceries", categories)
         self.assertIn("entertainment", categories)
         self.assertIn("transport", categories)
@@ -193,9 +193,9 @@ class BudgetTransformationTests(unittest.TestCase):
         svc.load_budget_targets(self._make_rows(), run_id="run-001")
         svc.refresh_budget_variance()
 
-        rows = svc.get_budget_variance(category="groceries")
+        rows = svc.get_budget_variance(category_id="groceries")
         self.assertEqual(1, len(rows))
-        self.assertEqual("groceries", rows[0]["category"])
+        self.assertEqual("groceries", rows[0]["category_id"])
 
     def test_get_budget_variance_filter_by_period(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
@@ -222,7 +222,7 @@ class BudgetTransformationTests(unittest.TestCase):
         svc.load_budget_targets(self._make_rows(), run_id="run-001")
         svc.refresh_budget_variance()
 
-        rows = svc.get_budget_variance(category="groceries", period_label="2026-01")
+        rows = svc.get_budget_variance(category_id="groceries", period_label="2026-01")
         self.assertEqual(1, len(rows))
         row = rows[0]
         # With no spend data: variance = target - 0 = target

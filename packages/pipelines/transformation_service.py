@@ -22,6 +22,7 @@ from packages.pipelines.category_rules import (
     resolve_categories_bulk,
     set_category_override,
 )
+from packages.pipelines.category_seed import seed_system_categories
 from packages.pipelines.homelab_models import (
     CURRENT_DIM_SERVICE_VIEW,
     CURRENT_DIM_WORKLOAD_VIEW,
@@ -208,6 +209,7 @@ class TransformationService:
         self._store.ensure_dimension(DIM_CONTRACT)
         self._store.ensure_current_dimension_view(DIM_CATEGORY, CURRENT_DIM_CATEGORY_VIEW)
         self._store.ensure_current_dimension_view(DIM_CONTRACT, CURRENT_DIM_CONTRACT_VIEW)
+        seed_system_categories(self._store)
         ensure_subscription_storage(self._store)
         ensure_contract_price_storage(self._store)
 
@@ -605,13 +607,13 @@ class TransformationService:
         self,
         *,
         budget_name: str | None = None,
-        category: str | None = None,
+        category_id: str | None = None,
         period_label: str | None = None,
     ) -> list[dict[str, Any]]:
         return get_budget_variance(
             self._store,
             budget_name=budget_name,
-            category=category,
+            category_id=category_id,
             period_label=period_label,
         )
 

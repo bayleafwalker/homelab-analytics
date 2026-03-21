@@ -246,7 +246,7 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
     MART_BUDGET_PROGRESS_CURRENT_TABLE: PublicationRelation(
         relation_name=MART_BUDGET_PROGRESS_CURRENT_TABLE,
         columns=MART_BUDGET_PROGRESS_CURRENT_COLUMNS,
-        order_by="budget_name, category",
+        order_by="budget_name, category_id",
     ),
     CURRENT_DIM_BUDGET_VIEW: PublicationRelation(
         relation_name=CURRENT_DIM_BUDGET_VIEW,

@@ -15,8 +15,8 @@ from io import StringIO
 from pathlib import Path
 
 
-def build_budget_id(budget_name: str, category: str) -> str:
-    raw = f"budget|{budget_name.strip().lower()}|{category.strip().lower()}"
+def build_budget_id(budget_name: str, category_id: str) -> str:
+    raw = f"budget|{budget_name.strip().lower()}|{category_id.strip().lower()}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
@@ -24,7 +24,7 @@ def build_budget_id(budget_name: str, category: str) -> str:
 class CanonicalBudget:
     budget_id: str
     budget_name: str
-    category: str
+    category_id: str  # stable slug matching dim_category.category_id
     period_type: str  # monthly | quarterly | annual
     target_amount: Decimal
     currency: str
@@ -43,14 +43,14 @@ def load_canonical_budgets_bytes(source_bytes: bytes) -> list[CanonicalBudget]:
 
     for row in reader:
         budget_name = row["budget_name"].strip()
-        category = row["category"].strip()
+        category_id = row["category"].strip()  # CSV column stays "category"; stored as slug
         effective_to_raw = row.get("effective_to", "").strip()
 
         result.append(
             CanonicalBudget(
-                budget_id=build_budget_id(budget_name, category),
+                budget_id=build_budget_id(budget_name, category_id),
                 budget_name=budget_name,
-                category=category,
+                category_id=category_id,
                 period_type=row.get("period_type", "monthly").strip() or "monthly",
                 target_amount=Decimal(row["target_amount"].strip()),
                 currency=row["currency"].strip(),
