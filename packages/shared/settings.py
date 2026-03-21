@@ -63,6 +63,8 @@ class AppSettings:
     auth_failure_threshold: int = 5
     auth_lockout_seconds: int = 900
     enable_unsafe_admin: bool = False
+    ha_url: str | None = None    # e.g. "http://homeassistant.local:8123"
+    ha_token: str | None = None  # HA long-lived access token
 
     @property
     def resolved_config_database_path(self) -> Path:
@@ -233,6 +235,8 @@ class AppSettings:
         enable_unsafe_admin = env.get(
             "HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN", ""
         ).lower() in {"1", "true", "yes", "on"}
+        ha_url = env.get("HOMELAB_ANALYTICS_HA_URL") or None
+        ha_token = env.get("HOMELAB_ANALYTICS_HA_TOKEN") or None
         return cls(
             data_dir=data_dir,
             landing_root=data_dir / "landing",
@@ -291,6 +295,8 @@ class AppSettings:
             auth_failure_threshold=auth_failure_threshold,
             auth_lockout_seconds=auth_lockout_seconds,
             enable_unsafe_admin=enable_unsafe_admin,
+            ha_url=ha_url,
+            ha_token=ha_token,
         )
 
 

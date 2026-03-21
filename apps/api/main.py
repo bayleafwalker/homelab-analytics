@@ -109,6 +109,15 @@ def build_app(settings: AppSettings | None = None):
         container.control_plane_store,
     )
 
+    ha_bridge = None
+    if resolved_settings.ha_url and resolved_settings.ha_token:
+        from packages.pipelines.ha_bridge import HaBridgeWorker
+        ha_bridge = HaBridgeWorker(
+            transformation_service.ingest_ha_states,
+            ha_url=resolved_settings.ha_url,
+            ha_token=resolved_settings.ha_token,
+        )
+
     return create_app(
         container,
         transformation_service=transformation_service,
@@ -120,6 +129,7 @@ def build_app(settings: AppSettings | None = None):
         auth_lockout_seconds=resolved_settings.auth_lockout_seconds,
         enable_unsafe_admin=resolved_settings.enable_unsafe_admin,
         external_registry_cache_root=resolved_settings.resolved_external_registry_cache_root,
+        ha_bridge=ha_bridge,
     )
 
 

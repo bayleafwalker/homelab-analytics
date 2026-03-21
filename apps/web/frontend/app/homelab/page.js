@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/app-shell";
-import { getCurrentUser, getHaEntities } from "@/lib/backend";
+import { getCurrentUser, getHaEntities, getHaBridgeStatus } from "@/lib/backend";
 
 function formatTimestamp(ts) {
   if (!ts) return "—";
@@ -21,7 +21,11 @@ const CLASS_LABELS = {
 };
 
 export default async function HomelabPage() {
-  const [user, entities] = await Promise.all([getCurrentUser(), getHaEntities()]);
+  const [user, entities, bridge] = await Promise.all([
+    getCurrentUser(),
+    getHaEntities(),
+    getHaBridgeStatus(),
+  ]);
 
   return (
     <AppShell
@@ -29,9 +33,43 @@ export default async function HomelabPage() {
       user={user}
       title="Homelab"
       eyebrow="Home Assistant Integration"
-      lede="Entity state ingested from Home Assistant — Phase 1 read-only bridge."
+      lede="Live entity state from Home Assistant via WebSocket subscription."
     >
       <section className="stack">
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">WebSocket Bridge</div>
+              <h2>Live Subscription</h2>
+            </div>
+            {bridge.enabled ? (
+              <span className={`statusPill ${bridge.connected ? "positive" : "negative"}`}>
+                {bridge.connected ? "Connected" : "Disconnected"}
+              </span>
+            ) : (
+              <span className="statusPill">Not configured</span>
+            )}
+          </div>
+          <dl className="kvGrid">
+            <dt>Status</dt>
+            <dd>
+              {bridge.enabled
+                ? bridge.connected
+                  ? "Live — receiving state_changed events"
+                  : `Reconnecting (attempt ${bridge.reconnect_count})`
+                : "Set HOMELAB_ANALYTICS_HA_URL and HOMELAB_ANALYTICS_HA_TOKEN to enable"}
+            </dd>
+            <dt>Last sync</dt>
+            <dd>{formatTimestamp(bridge.last_sync_at)}</dd>
+            {bridge.enabled && (
+              <>
+                <dt>Reconnects</dt>
+                <dd>{bridge.reconnect_count}</dd>
+              </>
+            )}
+          </dl>
+        </article>
+
         <article className="panel section">
           <div className="sectionHeader">
             <div>
@@ -88,3 +126,4 @@ export default async function HomelabPage() {
     </AppShell>
   );
 }
+

@@ -1,8 +1,9 @@
-"""HA integration API routes — entity state ingest and query.
+"""HA integration API routes — entity state ingest, query, and bridge status.
 
   POST /api/ha/ingest                        → batch ingest HA state objects
   GET  /api/ha/entities                      → current state per entity (all or filtered)
   GET  /api/ha/entities/{entity_id}/history  → historian log for one entity
+  GET  /api/ha/bridge/status                 → WebSocket bridge health (Phase 2)
 """
 from __future__ import annotations
 
@@ -32,6 +33,7 @@ def register_ha_routes(
     app: FastAPI,
     *,
     transformation_service: TransformationService | None,
+    ha_bridge: Any | None = None,
     to_jsonable: Callable[[Any], Any],
 ) -> None:
     def _svc() -> TransformationService:
@@ -71,3 +73,9 @@ def register_ha_routes(
         svc = _svc()
         rows = svc.get_ha_entity_history(entity_id, limit=limit)
         return {"rows": to_jsonable(rows), "limit": limit}
+
+    @app.get("/api/ha/bridge/status")
+    async def get_bridge_status() -> dict[str, Any]:
+        if ha_bridge is None:
+            return {"enabled": False, "connected": False, "last_sync_at": None, "reconnect_count": 0}
+        return {"enabled": True, **ha_bridge.get_status()}

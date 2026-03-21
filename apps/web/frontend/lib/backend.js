@@ -287,6 +287,10 @@ export async function getHaEntityHistory(entityId, limit = 50) {
   return payload.rows || [];
 }
 
+export async function getHaBridgeStatus() {
+  return backendJson("/api/ha/bridge/status");
+}
+
 export async function getTransformationPackages({ includeArchived = false } = {}) {
   const payload = await backendJson(
     `/config/transformation-packages${buildQuery({

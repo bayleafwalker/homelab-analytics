@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Union, cast
 
@@ -273,6 +274,7 @@ def create_app(
     auth_failure_threshold: int = 5,
     auth_lockout_seconds: int = 900,
     enable_unsafe_admin: bool = False,
+    ha_bridge: Any = None,
 ) -> FastAPI:
     # Support both the new AppContainer-first call and the legacy
     # AccountTransactionService-first call from existing tests.
@@ -327,7 +329,15 @@ def create_app(
         function_registry=container.function_registry,
     )
 
-    app = FastAPI(title="Homelab Analytics API")
+    @asynccontextmanager
+    async def _lifespan(_app: FastAPI):
+        if ha_bridge is not None:
+            ha_bridge.start()
+        yield
+        if ha_bridge is not None:
+            await ha_bridge.stop()
+
+    app = FastAPI(title="Homelab Analytics API", lifespan=_lifespan)
     logger = logging.getLogger("homelab_analytics.api")
     record_auth_event = build_auth_event_recorder(resolved_config_repository)
     locked_out_until = build_lockout_checker(
@@ -487,6 +497,7 @@ def create_app(
     register_ha_routes(
         app,
         transformation_service=transformation_service,
+        ha_bridge=ha_bridge,
         to_jsonable=to_jsonable,
     )
 
