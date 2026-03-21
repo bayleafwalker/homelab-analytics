@@ -316,6 +316,22 @@ def _write_variance_rows(
         store.insert_rows(PROJ_LOAN_REPAYMENT_VARIANCE_TABLE, variance_rows)
 
 
+def list_scenarios(
+    store: DuckDBStore,
+    *,
+    include_archived: bool = False,
+) -> list[dict[str, Any]]:
+    ensure_scenario_storage(store)
+    if include_archived:
+        return store.fetchall_dicts(
+            f"SELECT * FROM {DIM_SCENARIO_TABLE} ORDER BY created_at DESC"
+        )
+    return store.fetchall_dicts(
+        f"SELECT * FROM {DIM_SCENARIO_TABLE} WHERE status = 'active'"
+        " ORDER BY created_at DESC"
+    )
+
+
 def get_scenario(store: DuckDBStore, scenario_id: str) -> dict[str, Any] | None:
     ensure_scenario_storage(store)
     rows = store.fetchall_dicts(

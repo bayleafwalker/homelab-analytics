@@ -76,6 +76,12 @@ def register_scenario_routes(
             "is_stale": result.is_stale,
         }
 
+    @app.get("/api/scenarios")
+    async def list_scenarios_route(include_archived: bool = False) -> dict[str, Any]:
+        svc = _svc()
+        rows = svc.list_scenarios(include_archived=include_archived)
+        return {"rows": to_jsonable(rows)}
+
     @app.get("/api/scenarios/{scenario_id}")
     async def get_scenario_metadata(scenario_id: str) -> dict[str, Any]:
         svc = _svc()

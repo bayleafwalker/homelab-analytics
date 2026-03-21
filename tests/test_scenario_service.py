@@ -18,6 +18,7 @@ from packages.pipelines.scenario_service import (
     get_scenario,
     get_scenario_assumptions,
     get_scenario_comparison,
+    list_scenarios,
 )
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
@@ -234,6 +235,47 @@ class ScenarioArchiveTests(unittest.TestCase):
     def test_archive_unknown_scenario_returns_false(self) -> None:
         ensure_scenario_storage(self.store)
         self.assertFalse(archive_scenario(self.store, "nonexistent-id"))
+
+
+class ScenarioListTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.store = DuckDBStore.memory()
+        self.svc = TransformationService(self.store)
+        _load_fixture_loan(self.svc)
+
+    def test_list_returns_active_scenarios(self) -> None:
+        create_loan_what_if_scenario(self.store, loan_id="loan-001", extra_repayment=Decimal("500"))
+        create_loan_what_if_scenario(self.store, loan_id="loan-001", annual_rate=Decimal("0.035"))
+        rows = list_scenarios(self.store)
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(all(r["status"] == "active" for r in rows))
+
+    def test_list_excludes_archived_by_default(self) -> None:
+        result = create_loan_what_if_scenario(self.store, loan_id="loan-001", extra_repayment=Decimal("500"))
+        archive_scenario(self.store, result.scenario_id)
+        rows = list_scenarios(self.store)
+        self.assertEqual(len(rows), 0)
+
+    def test_list_includes_archived_when_requested(self) -> None:
+        result = create_loan_what_if_scenario(self.store, loan_id="loan-001", extra_repayment=Decimal("500"))
+        archive_scenario(self.store, result.scenario_id)
+        rows = list_scenarios(self.store, include_archived=True)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["status"], "archived")
+
+    def test_list_ordered_newest_first(self) -> None:
+        r1 = create_loan_what_if_scenario(self.store, loan_id="loan-001", extra_repayment=Decimal("100"))
+        r2 = create_loan_what_if_scenario(self.store, loan_id="loan-001", extra_repayment=Decimal("200"))
+        rows = list_scenarios(self.store)
+        scenario_ids = [r["scenario_id"] for r in rows]
+        # r2 was created after r1 — it should appear first
+        self.assertEqual(scenario_ids[0], r2.scenario_id)
+        self.assertEqual(scenario_ids[1], r1.scenario_id)
+
+    def test_list_empty_when_no_scenarios(self) -> None:
+        ensure_scenario_storage(self.store)
+        rows = list_scenarios(self.store)
+        self.assertEqual(rows, [])
 
 
 if __name__ == "__main__":

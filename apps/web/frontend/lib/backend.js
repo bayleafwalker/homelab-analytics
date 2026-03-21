@@ -456,3 +456,22 @@ export async function getRecurringCostBaseline() {
   const payload = await backendJson("/reports/recurring-cost-baseline");
   return payload.rows || [];
 }
+
+export async function getScenarios({ includeArchived = false } = {}) {
+  const payload = await backendJson(
+    `/api/scenarios${buildQuery({ include_archived: includeArchived })}`
+  );
+  return payload.rows || [];
+}
+
+export async function getScenarioMetadata(scenarioId) {
+  return backendJson(`/api/scenarios/${encodeURIComponent(scenarioId)}`);
+}
+
+export async function getScenarioComparison(scenarioId) {
+  return backendJson(`/api/scenarios/${encodeURIComponent(scenarioId)}/comparison`);
+}
+
+export async function getScenarioCashflow(scenarioId) {
+  return backendJson(`/api/scenarios/${encodeURIComponent(scenarioId)}/cashflow`);
+}

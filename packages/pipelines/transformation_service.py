@@ -58,6 +58,7 @@ from packages.pipelines.scenario_service import (
     get_expense_shock_comparison,
     get_income_scenario_comparison,
     get_scenario,
+    list_scenarios,
     get_scenario_assumptions,
     get_scenario_comparison,
 )
@@ -1000,6 +1001,9 @@ class TransformationService:
             annual_rate=annual_rate,
             term_months=term_months,
         )
+
+    def list_scenarios(self, *, include_archived: bool = False) -> list[dict[str, Any]]:
+        return list_scenarios(self._store, include_archived=include_archived)
 
     def get_scenario(self, scenario_id: str) -> dict[str, Any] | None:
         return get_scenario(self._store, scenario_id)

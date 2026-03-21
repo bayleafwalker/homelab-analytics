@@ -14,6 +14,7 @@ function navItemsForUser(user) {
     { href: "/utilities", label: "Utilities" },
     { href: "/budgets", label: "Budgets" },
     { href: "/loans", label: "Loans" },
+    { href: "/scenarios", label: "Scenarios" },
     { href: "/costs", label: "Costs" },
     { href: "/homelab", label: "Homelab" },
   ];
