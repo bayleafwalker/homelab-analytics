@@ -85,9 +85,9 @@ def _deserialize_extension_registry_revision_row(
             if row["content_fingerprint"] is not None
             else None
         ),
-        import_paths=deserialize_string_tuple(str(row["import_paths_json"]) if row["import_paths_json"] is not None else None),
-        extension_modules=deserialize_string_tuple(str(row["extension_modules_json"]) if row["extension_modules_json"] is not None else None),
-        function_modules=deserialize_string_tuple(str(row["function_modules_json"]) if row["function_modules_json"] is not None else None),
+        import_paths=deserialize_string_tuple(cast("list[object] | None", row["import_paths_json"])),
+        extension_modules=deserialize_string_tuple(cast("list[object] | None", row["extension_modules_json"])),
+        function_modules=deserialize_string_tuple(cast("list[object] | None", row["function_modules_json"])),
         minimum_platform_version=(
             str(row["minimum_platform_version"])
             if row["minimum_platform_version"] is not None
