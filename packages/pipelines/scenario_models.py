@@ -1,4 +1,9 @@
-"""Scenario storage table schemas — dim_scenario, fact_scenario_assumption, proj tables."""
+"""Scenario storage table schemas — dim_scenario, fact_scenario_assumption, proj tables.
+
+Covers:
+  - loan_what_if scenarios: proj_loan_schedule, proj_loan_repayment_variance
+  - income_change scenarios: proj_income_cashflow
+"""
 from __future__ import annotations
 
 # ---------------------------------------------------------------------------
@@ -70,4 +75,23 @@ PROJ_LOAN_REPAYMENT_VARIANCE_COLUMNS: list[tuple[str, str]] = [
     ("payment_delta", "DECIMAL(18,4)"),
     ("balance_delta", "DECIMAL(18,4)"),
     ("currency", "VARCHAR NOT NULL"),
+]
+
+# ---------------------------------------------------------------------------
+# Projection: proj_income_cashflow (income_change scenario)
+# ---------------------------------------------------------------------------
+
+PROJ_INCOME_CASHFLOW_TABLE = "proj_income_cashflow"
+
+PROJ_INCOME_CASHFLOW_COLUMNS: list[tuple[str, str]] = [
+    ("scenario_id", "VARCHAR NOT NULL"),
+    ("period", "INTEGER NOT NULL"),
+    ("projected_month", "VARCHAR NOT NULL"),    # YYYY-MM
+    ("baseline_income", "DECIMAL(18,4) NOT NULL"),
+    ("scenario_income", "DECIMAL(18,4) NOT NULL"),
+    ("baseline_expense", "DECIMAL(18,4) NOT NULL"),
+    ("scenario_expense", "DECIMAL(18,4) NOT NULL"),
+    ("baseline_net", "DECIMAL(18,4) NOT NULL"),
+    ("scenario_net", "DECIMAL(18,4) NOT NULL"),
+    ("net_delta", "DECIMAL(18,4) NOT NULL"),
 ]

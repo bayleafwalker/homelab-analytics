@@ -39,10 +39,14 @@ from packages.pipelines.normalization import (
 )
 from packages.pipelines.scenario_service import (
     ComparisonResult,
+    IncomeCashflowComparison,
+    IncomeScenarioResult,
     ScenarioResult,
     archive_scenario,
+    create_income_change_scenario,
     create_loan_what_if_scenario,
     ensure_scenario_storage,
+    get_income_scenario_comparison,
     get_scenario,
     get_scenario_assumptions,
     get_scenario_comparison,
@@ -994,3 +998,22 @@ class TransformationService:
 
     def ensure_scenario_storage(self) -> None:
         ensure_scenario_storage(self._store)
+
+    def create_income_change_scenario(
+        self,
+        *,
+        monthly_income_delta: Decimal,
+        label: str | None = None,
+        projection_months: int = 12,
+    ) -> IncomeScenarioResult:
+        return create_income_change_scenario(
+            self._store,
+            monthly_income_delta=monthly_income_delta,
+            label=label,
+            projection_months=projection_months,
+        )
+
+    def get_income_scenario_comparison(
+        self, scenario_id: str
+    ) -> IncomeCashflowComparison | None:
+        return get_income_scenario_comparison(self._store, scenario_id)

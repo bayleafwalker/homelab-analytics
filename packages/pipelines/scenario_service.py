@@ -22,10 +22,17 @@ from packages.pipelines.scenario_models import (
     DIM_SCENARIO_TABLE,
     FACT_SCENARIO_ASSUMPTION_COLUMNS,
     FACT_SCENARIO_ASSUMPTION_TABLE,
+    PROJ_INCOME_CASHFLOW_COLUMNS,
+    PROJ_INCOME_CASHFLOW_TABLE,
     PROJ_LOAN_REPAYMENT_VARIANCE_COLUMNS,
     PROJ_LOAN_REPAYMENT_VARIANCE_TABLE,
     PROJ_LOAN_SCHEDULE_COLUMNS,
     PROJ_LOAN_SCHEDULE_TABLE,
+)
+from packages.pipelines.transaction_models import (
+    FACT_TRANSACTION_TABLE,
+    MART_MONTHLY_CASHFLOW_COLUMNS,
+    MART_MONTHLY_CASHFLOW_TABLE,
 )
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -38,6 +45,27 @@ class ScenarioResult:
     interest_saved: Decimal
     new_payoff_date: date | None
     baseline_payoff_date: date | None
+    is_stale: bool
+
+
+@dataclass
+class IncomeScenarioResult:
+    scenario_id: str
+    label: str
+    monthly_income_delta: Decimal
+    new_monthly_income: Decimal
+    baseline_monthly_income: Decimal
+    annual_net_change: Decimal
+    months_until_deficit: int | None
+    is_stale: bool
+
+
+@dataclass
+class IncomeCashflowComparison:
+    scenario_id: str
+    label: str
+    assumptions: list[dict[str, Any]]
+    cashflow_rows: list[dict[str, Any]]
     is_stale: bool
 
 
@@ -57,6 +85,7 @@ def ensure_scenario_storage(store: DuckDBStore) -> None:
     store.ensure_table(FACT_SCENARIO_ASSUMPTION_TABLE, FACT_SCENARIO_ASSUMPTION_COLUMNS)
     store.ensure_table(PROJ_LOAN_SCHEDULE_TABLE, PROJ_LOAN_SCHEDULE_COLUMNS)
     store.ensure_table(PROJ_LOAN_REPAYMENT_VARIANCE_TABLE, PROJ_LOAN_REPAYMENT_VARIANCE_COLUMNS)
+    store.ensure_table(PROJ_INCOME_CASHFLOW_TABLE, PROJ_INCOME_CASHFLOW_COLUMNS)
 
 
 def _get_loan(store: DuckDBStore, loan_id: str) -> dict[str, Any] | None:
@@ -347,3 +376,171 @@ def archive_scenario(store: DuckDBStore, scenario_id: str) -> bool:
         [scenario_id],
     )
     return True
+
+
+# ---------------------------------------------------------------------------
+# Income change scenarios
+# ---------------------------------------------------------------------------
+
+_LOOKUP_MONTHS = 3
+_DEFAULT_PROJECTION_MONTHS = 12
+
+
+def _get_latest_transaction_run_id(store: DuckDBStore) -> str | None:
+    """Return the most recent run_id from fact_transaction, or None if no rows."""
+    rows = store.fetchall_dicts(
+        f"SELECT run_id FROM {FACT_TRANSACTION_TABLE}"
+        " WHERE run_id IS NOT NULL ORDER BY run_id DESC LIMIT 1"
+    )
+    return str(rows[0]["run_id"]) if rows else None
+
+
+def _is_income_scenario_stale(store: DuckDBStore, scenario_id: str) -> bool:
+    """True if the latest transaction run_id has advanced since the scenario was computed."""
+    scenario_rows = store.fetchall_dicts(
+        f"SELECT baseline_run_id FROM {DIM_SCENARIO_TABLE} WHERE scenario_id = ?",
+        [scenario_id],
+    )
+    if not scenario_rows:
+        return False
+    baseline_run_id = scenario_rows[0]["baseline_run_id"]
+    current_run_id = _get_latest_transaction_run_id(store)
+    if baseline_run_id is None or current_run_id is None:
+        return False
+    return str(baseline_run_id) != current_run_id
+
+
+def _get_baseline_cashflow(store: DuckDBStore) -> tuple[Decimal, Decimal]:
+    """Return (avg_income, avg_expense) from the last _LOOKUP_MONTHS months of cashflow."""
+    store.ensure_table(MART_MONTHLY_CASHFLOW_TABLE, MART_MONTHLY_CASHFLOW_COLUMNS)
+    rows = store.fetchall_dicts(
+        f"SELECT income, expense FROM {MART_MONTHLY_CASHFLOW_TABLE}"
+        " ORDER BY booking_month DESC"
+        f" LIMIT {_LOOKUP_MONTHS}"
+    )
+    if not rows:
+        raise ValueError("No cashflow data available. Load transactions before creating income scenarios.")
+    count = Decimal(len(rows))
+    avg_income = sum((Decimal(str(r["income"])) for r in rows), Decimal("0")) / count
+    avg_expense = sum((Decimal(str(r["expense"])) for r in rows), Decimal("0")) / count
+    return avg_income, avg_expense
+
+
+def _add_months(d: date, n: int) -> date:
+    """Return date shifted forward by n calendar months."""
+    month = d.month - 1 + n
+    year = d.year + month // 12
+    month = month % 12 + 1
+    return d.replace(year=year, month=month, day=1)
+
+
+def create_income_change_scenario(
+    store: DuckDBStore,
+    *,
+    monthly_income_delta: Decimal,
+    label: str | None = None,
+    projection_months: int = _DEFAULT_PROJECTION_MONTHS,
+) -> IncomeScenarioResult:
+    """Create an income-change what-if scenario.
+
+    Projects household cashflow over *projection_months* months assuming income
+    shifts by *monthly_income_delta* each month (negative = income loss).
+
+    Writes dim_scenario, fact_scenario_assumption, and proj_income_cashflow rows.
+    """
+    ensure_scenario_storage(store)
+
+    baseline_income, baseline_expense = _get_baseline_cashflow(store)
+    new_monthly_income = baseline_income + monthly_income_delta
+    baseline_run_id = _get_latest_transaction_run_id(store)
+
+    scenario_id = str(uuid.uuid4())
+    sign = "+" if monthly_income_delta >= 0 else ""
+    auto_label = label or f"Income change: {sign}{monthly_income_delta}"
+
+    store.insert_rows(DIM_SCENARIO_TABLE, [{
+        "scenario_id": scenario_id,
+        "scenario_type": "income_change",
+        "subject_id": "household",
+        "label": auto_label,
+        "status": "active",
+        "baseline_run_id": baseline_run_id,
+        "created_at": datetime.now(UTC).isoformat(),
+    }])
+
+    q = Decimal("0.01")
+    store.insert_rows(FACT_SCENARIO_ASSUMPTION_TABLE, [{
+        "scenario_id": scenario_id,
+        "assumption_key": "monthly_income_delta",
+        "baseline_value": "0",
+        "override_value": str(monthly_income_delta.quantize(q)),
+        "unit": "currency",
+    }])
+
+    today = date.today()
+    proj_rows: list[dict[str, Any]] = []
+    months_until_deficit: int | None = None
+
+    for i in range(1, projection_months + 1):
+        projected_month = _add_months(today, i).strftime("%Y-%m")
+        baseline_net = baseline_income - baseline_expense
+        scenario_net = new_monthly_income - baseline_expense
+        net_delta = scenario_net - baseline_net
+
+        if scenario_net < Decimal("0") and months_until_deficit is None:
+            months_until_deficit = i
+
+        proj_rows.append({
+            "scenario_id": scenario_id,
+            "period": i,
+            "projected_month": projected_month,
+            "baseline_income": str(baseline_income.quantize(q)),
+            "scenario_income": str(new_monthly_income.quantize(q)),
+            "baseline_expense": str(baseline_expense.quantize(q)),
+            "scenario_expense": str(baseline_expense.quantize(q)),
+            "baseline_net": str(baseline_net.quantize(q)),
+            "scenario_net": str(scenario_net.quantize(q)),
+            "net_delta": str(net_delta.quantize(q)),
+        })
+
+    store.insert_rows(PROJ_INCOME_CASHFLOW_TABLE, proj_rows)
+
+    return IncomeScenarioResult(
+        scenario_id=scenario_id,
+        label=auto_label,
+        monthly_income_delta=monthly_income_delta,
+        new_monthly_income=new_monthly_income,
+        baseline_monthly_income=baseline_income,
+        annual_net_change=(monthly_income_delta * 12).quantize(q),
+        months_until_deficit=months_until_deficit,
+        is_stale=False,
+    )
+
+
+def get_income_scenario_comparison(
+    store: DuckDBStore, scenario_id: str
+) -> IncomeCashflowComparison | None:
+    """Return projected cashflow rows + assumptions for an income_change scenario."""
+    ensure_scenario_storage(store)
+
+    scenario = get_scenario(store, scenario_id)
+    if scenario is None:
+        return None
+
+    assumptions = store.fetchall_dicts(
+        f"SELECT * FROM {FACT_SCENARIO_ASSUMPTION_TABLE} WHERE scenario_id = ?",
+        [scenario_id],
+    )
+    cashflow_rows = store.fetchall_dicts(
+        f"SELECT * FROM {PROJ_INCOME_CASHFLOW_TABLE} WHERE scenario_id = ?"
+        " ORDER BY period",
+        [scenario_id],
+    )
+
+    return IncomeCashflowComparison(
+        scenario_id=scenario_id,
+        label=scenario["label"],
+        assumptions=assumptions,
+        cashflow_rows=cashflow_rows,
+        is_stale=_is_income_scenario_stale(store, scenario_id),
+    )
