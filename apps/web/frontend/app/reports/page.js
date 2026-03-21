@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/app-shell";
 import { SparklineChart } from "@/components/sparkline-chart";
 import { IncomeScenarioPanel } from "@/components/income-scenario-panel";
+import { ExpenseShockPanel } from "@/components/expense-shock-panel";
 import {
   getAccountBalanceTrend,
   getCurrentUser,
@@ -200,6 +201,7 @@ export default async function ReportsPage() {
             );
           })}
         <IncomeScenarioPanel />
+        <ExpenseShockPanel />
       </section>
     </AppShell>
   );

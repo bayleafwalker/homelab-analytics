@@ -61,6 +61,18 @@ class IncomeScenarioResult:
 
 
 @dataclass
+class ExpenseShockResult:
+    scenario_id: str
+    label: str
+    expense_pct_delta: Decimal
+    new_monthly_expense: Decimal
+    baseline_monthly_expense: Decimal
+    annual_additional_cost: Decimal
+    months_until_deficit: int | None
+    is_stale: bool
+
+
+@dataclass
 class IncomeCashflowComparison:
     scenario_id: str
     label: str
@@ -515,6 +527,103 @@ def create_income_change_scenario(
         months_until_deficit=months_until_deficit,
         is_stale=False,
     )
+
+
+def create_expense_shock_scenario(
+    store: DuckDBStore,
+    *,
+    expense_pct_delta: Decimal,
+    label: str | None = None,
+    projection_months: int = _DEFAULT_PROJECTION_MONTHS,
+) -> ExpenseShockResult:
+    """Create an expense-shock what-if scenario.
+
+    Projects household cashflow over *projection_months* months assuming expenses
+    shift by *expense_pct_delta* as a fraction (e.g. Decimal("0.10") = 10% increase).
+    Income is held flat at the baseline average.
+
+    Reuses proj_income_cashflow storage (scenario_expense varies; scenario_income = baseline).
+    """
+    ensure_scenario_storage(store)
+
+    baseline_income, baseline_expense = _get_baseline_cashflow(store)
+    new_monthly_expense = baseline_expense * (1 + expense_pct_delta)
+    baseline_run_id = _get_latest_transaction_run_id(store)
+
+    scenario_id = str(uuid.uuid4())
+    pct_display = expense_pct_delta * 100
+    sign = "+" if expense_pct_delta >= 0 else ""
+    auto_label = label or f"Expense shock: {sign}{pct_display:.1f}%"
+
+    store.insert_rows(DIM_SCENARIO_TABLE, [{
+        "scenario_id": scenario_id,
+        "scenario_type": "expense_shock",
+        "subject_id": "household",
+        "label": auto_label,
+        "status": "active",
+        "baseline_run_id": baseline_run_id,
+        "created_at": datetime.now(UTC).isoformat(),
+    }])
+
+    q = Decimal("0.0001")
+    store.insert_rows(FACT_SCENARIO_ASSUMPTION_TABLE, [{
+        "scenario_id": scenario_id,
+        "assumption_key": "expense_pct_delta",
+        "baseline_value": "0",
+        "override_value": str(expense_pct_delta.quantize(q)),
+        "unit": "%",
+    }])
+
+    today = date.today()
+    q2 = Decimal("0.01")
+    proj_rows: list[dict[str, Any]] = []
+    months_until_deficit: int | None = None
+
+    for i in range(1, projection_months + 1):
+        projected_month = _add_months(today, i).strftime("%Y-%m")
+        baseline_net = baseline_income - baseline_expense
+        scenario_net = baseline_income - new_monthly_expense
+        net_delta = scenario_net - baseline_net
+
+        if scenario_net < Decimal("0") and months_until_deficit is None:
+            months_until_deficit = i
+
+        proj_rows.append({
+            "scenario_id": scenario_id,
+            "period": i,
+            "projected_month": projected_month,
+            "baseline_income": str(baseline_income.quantize(q2)),
+            "scenario_income": str(baseline_income.quantize(q2)),  # income unchanged
+            "baseline_expense": str(baseline_expense.quantize(q2)),
+            "scenario_expense": str(new_monthly_expense.quantize(q2)),
+            "baseline_net": str(baseline_net.quantize(q2)),
+            "scenario_net": str(scenario_net.quantize(q2)),
+            "net_delta": str(net_delta.quantize(q2)),
+        })
+
+    store.insert_rows(PROJ_INCOME_CASHFLOW_TABLE, proj_rows)
+
+    return ExpenseShockResult(
+        scenario_id=scenario_id,
+        label=auto_label,
+        expense_pct_delta=expense_pct_delta,
+        new_monthly_expense=new_monthly_expense,
+        baseline_monthly_expense=baseline_expense,
+        annual_additional_cost=((new_monthly_expense - baseline_expense) * 12).quantize(q2),
+        months_until_deficit=months_until_deficit,
+        is_stale=False,
+    )
+
+
+def get_expense_shock_comparison(
+    store: DuckDBStore, scenario_id: str
+) -> IncomeCashflowComparison | None:
+    """Return projected cashflow rows for an expense_shock scenario.
+
+    Delegates to the same storage queries as get_income_scenario_comparison
+    since both types use proj_income_cashflow.
+    """
+    return get_income_scenario_comparison(store, scenario_id)
 
 
 def get_income_scenario_comparison(
