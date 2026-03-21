@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from starlette.datastructures import UploadFile
 
 from apps.api.models import ConfiguredCsvIngestRequest
+from apps.api.support import read_upload_limited
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
 from packages.pipelines.configured_ingestion_definition import (
@@ -107,7 +108,7 @@ def register_ingest_routes(
             source_asset, source_system_id, dataset_contract_id, column_mapping_id = (
                 resolve_configured_ingest_binding(payload)
             )
-            source_bytes = await upload.read()
+            source_bytes = await read_upload_limited(upload)
             await upload.close()
             run = configured_ingestion_service.ingest_bytes(
                 source_bytes=source_bytes,
@@ -168,7 +169,7 @@ def register_ingest_routes(
             form = await request.form()
             upload = require_upload(form.get("file"))
             source_name = str(form.get("source_name") or "manual-upload")
-            source_bytes = await upload.read()
+            source_bytes = await read_upload_limited(upload)
             await upload.close()
             run = subscription_service.ingest_bytes(
                 source_bytes=source_bytes,
@@ -208,7 +209,7 @@ def register_ingest_routes(
             form = await request.form()
             upload = require_upload(form.get("file"))
             source_name = str(form.get("source_name") or "manual-upload")
-            source_bytes = await upload.read()
+            source_bytes = await read_upload_limited(upload)
             await upload.close()
             run = contract_price_service.ingest_bytes(
                 source_bytes=source_bytes,
@@ -303,7 +304,7 @@ async def _handle_account_transaction_ingest(
         form = await request.form()
         upload = require_upload(form.get("file"))
         source_name = str(form.get("source_name") or "manual-upload")
-        source_bytes = await upload.read()
+        source_bytes = await read_upload_limited(upload)
         await upload.close()
         run = service.ingest_bytes(
             source_bytes=source_bytes,

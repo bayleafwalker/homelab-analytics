@@ -347,10 +347,30 @@ def serialize_summary(summary: MonthlyCashflowSummary) -> dict[str, Any]:
     }
 
 
+_MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+
+
 def require_upload(value: object) -> UploadFile:
     if not isinstance(value, UploadFile):
         raise ValueError("multipart request must include file")
     return value
+
+
+async def read_upload_limited(upload: UploadFile) -> bytes:
+    """Stream upload into memory, raising ValueError if it exceeds _MAX_UPLOAD_BYTES."""
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await upload.read(65536)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > _MAX_UPLOAD_BYTES:
+            raise ValueError(
+                f"Upload exceeds the {_MAX_UPLOAD_BYTES // (1024 * 1024)} MB size limit."
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def to_jsonable(value: Any) -> Any:

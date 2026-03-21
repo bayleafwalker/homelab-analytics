@@ -119,8 +119,14 @@ class RunMetadataRepository:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
+    def _connect(self):
+        connection = sqlite3.connect(self.database_path, timeout=30)
+        connection.execute("PRAGMA journal_mode = WAL")
+        connection.execute("PRAGMA busy_timeout = 10000")
+        return closing(connection)
+
     def create_run(self, run: IngestionRunCreate) -> IngestionRunRecord:
-        with closing(sqlite3.connect(self.database_path)) as connection:
+        with self._connect() as connection:
             connection.execute(
                 """
                 INSERT INTO ingestion_runs (
@@ -182,7 +188,7 @@ class RunMetadataRepository:
         return self.get_run(run.run_id)
 
     def get_run(self, run_id: str) -> IngestionRunRecord:
-        with closing(sqlite3.connect(self.database_path)) as connection:
+        with self._connect() as connection:
             connection.row_factory = sqlite3.Row
             run_row = connection.execute(
                 """
@@ -252,7 +258,7 @@ class RunMetadataRepository:
         dataset_name: str | None = None,
     ) -> IngestionRunRecord | None:
         """Return the earliest landed run matching *sha256* within the dataset scope."""
-        with closing(sqlite3.connect(self.database_path)) as connection:
+        with self._connect() as connection:
             clauses = ["sha256 = ?", "passed = 1"]
             params: list[Any] = [sha256]
             if dataset_name is not None:
@@ -302,7 +308,7 @@ class RunMetadataRepository:
         if limit is not None:
             query += " LIMIT ? OFFSET ?"
             params = list(params) + [limit, offset]
-        with closing(sqlite3.connect(self.database_path)) as connection:
+        with self._connect() as connection:
             connection.row_factory = sqlite3.Row
             run_rows = connection.execute(query, params).fetchall()
             issues_by_run = self._load_issues_for_run_ids(
@@ -337,7 +343,7 @@ class RunMetadataRepository:
     ) -> int:
         """Return the total number of runs matching the given filters."""
         where_sql, params = _build_filter_clause(dataset_name, status, from_date, to_date)
-        with closing(sqlite3.connect(self.database_path)) as connection:
+        with self._connect() as connection:
             row = connection.execute(
                 f"SELECT COUNT(*) FROM ingestion_runs {where_sql}",
                 params,
@@ -345,7 +351,7 @@ class RunMetadataRepository:
         return row[0]
 
     def _initialize(self) -> None:
-        with closing(sqlite3.connect(self.database_path)) as connection:
+        with self._connect() as connection:
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS ingestion_runs (

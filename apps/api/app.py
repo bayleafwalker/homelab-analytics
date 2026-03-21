@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Union, cast
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -77,6 +77,105 @@ from packages.storage.auth_store import AuthStore
 from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.ingestion_config import IngestionConfigRepository
 from packages.storage.run_metadata import IngestionRunRecord
+
+
+def _initialize_metrics() -> None:
+    """Pre-declare all Prometheus counters/gauges so /metrics renders at cold start."""
+    metrics_registry.inc("ingestion_runs_total", 0, help_text="Total ingestion runs observed by the API.")
+    metrics_registry.inc("ingestion_failures_total", 0, help_text="Total failed or rejected ingestion runs observed by the API.")
+    metrics_registry.inc("ingestion_duration_seconds", 0, help_text="Cumulative ingestion handling duration in seconds.")
+    metrics_registry.set("worker_queue_depth", 0, help_text="Current queued schedule-dispatch count.")
+    metrics_registry.set("worker_running_dispatches", 0, help_text="Current running schedule-dispatch count.")
+    metrics_registry.set("worker_failed_dispatches", 0, help_text="Current failed schedule-dispatch count.")
+    metrics_registry.set("worker_stale_dispatches", 0, help_text="Current running schedule-dispatch count with expired claims.")
+    metrics_registry.set("worker_recovered_dispatches", 0, help_text="Current recovered schedule-dispatch count in control-plane history.")
+    metrics_registry.set("worker_active_workers", 0, help_text="Current worker heartbeat count.")
+    metrics_registry.set("worker_oldest_heartbeat_age_seconds", 0, help_text="Age in seconds of the oldest recorded worker heartbeat.")
+    metrics_registry.set("worker_failed_dispatch_ratio", 0, help_text="Failed dispatches divided by total terminal dispatches.")
+    metrics_registry.inc("auth_failures_total", 0, help_text="Total failed login attempts observed by the API.")
+    metrics_registry.inc("auth_lockouts_total", 0, help_text="Total login lockouts observed by the API.")
+
+
+def ensure_matching_identifier(
+    resource_name: str,
+    path_value: str,
+    body_value: str,
+) -> None:
+    """Raise 400 if a request body identifier does not match its URL path segment."""
+    if path_value != body_value:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{resource_name} in the request body must match the path.",
+        )
+
+
+def _load_run_manifest_and_context(
+    run: IngestionRunRecord,
+    *,
+    blob_store: Any,
+    logger: logging.Logger,
+) -> tuple[dict[str, Any] | None, RunControlContext | None]:
+    """Read a run's manifest from blob storage and parse its control context."""
+    try:
+        manifest = read_run_manifest(blob_store, run.manifest_path)
+    except (KeyError, OSError, ValueError) as exc:
+        logger.warning(
+            "run manifest unavailable",
+            extra={"run_id": run.run_id, "manifest_path": run.manifest_path, "error": str(exc)},
+        )
+        return None, None
+    return manifest, run_context_from_manifest(manifest)
+
+
+def _build_run_recovery_payload(
+    run: IngestionRunRecord,
+    context: RunControlContext | None,
+) -> dict[str, Any]:
+    return build_run_recovery(
+        run,
+        context,
+        has_subscription_service=True,
+        has_contract_price_service=True,
+    )
+
+
+def _register_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(FileNotFoundError)
+    async def handle_missing_file(_, exc: FileNotFoundError) -> JSONResponse:
+        return JSONResponse(status_code=404, content={"error": str(exc)})
+
+    @app.exception_handler(KeyError)
+    async def handle_missing_key(_, exc: KeyError) -> JSONResponse:
+        message = exc.args[0] if exc.args else str(exc)
+        return JSONResponse(status_code=404, content={"error": message})
+
+    @app.exception_handler(ValueError)
+    async def handle_value_error(_, exc: ValueError) -> JSONResponse:
+        return JSONResponse(status_code=400, content={"error": str(exc)})
+
+
+def _register_base_routes(
+    app: FastAPI,
+    *,
+    auth_mode: str,
+    config_repository: ControlPlaneStore,
+) -> None:
+    @app.get("/health")
+    async def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/ready")
+    async def ready() -> dict[str, str]:
+        return {"status": "ready", "auth_mode": auth_mode}
+
+    @app.get("/metrics")
+    async def metrics() -> PlainTextResponse:
+        update_worker_runtime_metrics(config_repository)
+        update_auth_runtime_metrics(config_repository)
+        return PlainTextResponse(
+            metrics_registry.render_prometheus_text(),
+            media_type="text/plain; version=0.0.4",
+        )
 
 
 def _build_container_from_legacy_args(
@@ -212,8 +311,6 @@ def create_app(
     if resolved_auth_mode == "oidc" and oidc_provider is None:
         raise ValueError("OIDC auth requires a configured OIDC provider.")
 
-    from typing import cast
-
     resolved_auth_store_candidate = auth_store or resolved_config_repository
     if resolved_auth_mode in {"local", "oidc"} and not isinstance(
         resolved_auth_store_candidate, AuthStore
@@ -239,71 +336,7 @@ def create_app(
         auth_lockout_seconds=auth_lockout_seconds,
     )
 
-    metrics_registry.inc(
-        "ingestion_runs_total",
-        0,
-        help_text="Total ingestion runs observed by the API.",
-    )
-    metrics_registry.inc(
-        "ingestion_failures_total",
-        0,
-        help_text="Total failed or rejected ingestion runs observed by the API.",
-    )
-    metrics_registry.inc(
-        "ingestion_duration_seconds",
-        0,
-        help_text="Cumulative ingestion handling duration in seconds.",
-    )
-    metrics_registry.set(
-        "worker_queue_depth",
-        0,
-        help_text="Current queued schedule-dispatch count.",
-    )
-    metrics_registry.set(
-        "worker_running_dispatches",
-        0,
-        help_text="Current running schedule-dispatch count.",
-    )
-    metrics_registry.set(
-        "worker_failed_dispatches",
-        0,
-        help_text="Current failed schedule-dispatch count.",
-    )
-    metrics_registry.set(
-        "worker_stale_dispatches",
-        0,
-        help_text="Current running schedule-dispatch count with expired claims.",
-    )
-    metrics_registry.set(
-        "worker_recovered_dispatches",
-        0,
-        help_text="Current recovered schedule-dispatch count in control-plane history.",
-    )
-    metrics_registry.set(
-        "worker_active_workers",
-        0,
-        help_text="Current worker heartbeat count.",
-    )
-    metrics_registry.set(
-        "worker_oldest_heartbeat_age_seconds",
-        0,
-        help_text="Age in seconds of the oldest recorded worker heartbeat.",
-    )
-    metrics_registry.set(
-        "worker_failed_dispatch_ratio",
-        0,
-        help_text="Failed dispatches divided by total terminal dispatches.",
-    )
-    metrics_registry.inc(
-        "auth_failures_total",
-        0,
-        help_text="Total failed login attempts observed by the API.",
-    )
-    metrics_registry.inc(
-        "auth_lockouts_total",
-        0,
-        help_text="Total login lockouts observed by the API.",
-    )
+    _initialize_metrics()
 
     def require_unsafe_admin() -> None:
         if resolved_auth_mode in {"local", "oidc"}:
@@ -314,55 +347,17 @@ def create_app(
                 detail="Unsafe admin routes are disabled until authentication is implemented.",
             )
 
-    def ensure_matching_identifier(
-        resource_name: str,
-        path_value: str,
-        body_value: str,
-    ) -> None:
-        if path_value != body_value:
-            raise HTTPException(
-                status_code=400,
-                detail=f"{resource_name} in the request body must match the path.",
-            )
-
     def publish_reporting(promotion: PromotionResult | None) -> None:
         publish_promotion_reporting(reporting_service, promotion)
 
     def load_run_manifest_and_context(
         run: IngestionRunRecord,
     ) -> tuple[dict[str, Any] | None, RunControlContext | None]:
-        try:
-            manifest = read_run_manifest(container.blob_store, run.manifest_path)
-        except (KeyError, OSError, ValueError) as exc:
-            logger.warning(
-                "run manifest unavailable",
-                extra={
-                    "run_id": run.run_id,
-                    "manifest_path": run.manifest_path,
-                    "error": str(exc),
-                },
-            )
-            return None, None
-        return manifest, run_context_from_manifest(manifest)
-
-    def _build_run_recovery(
-        run: IngestionRunRecord,
-        context: RunControlContext | None,
-    ) -> dict[str, Any]:
-        return build_run_recovery(
-            run,
-            context,
-            has_subscription_service=True,
-            has_contract_price_service=True,
-        )
+        return _load_run_manifest_and_context(run, blob_store=container.blob_store, logger=logger)
 
     def serialize_run_detail(run: IngestionRunRecord) -> dict[str, Any]:
         _, context = load_run_manifest_and_context(run)
-        return serialize_run(
-            run,
-            context=context,
-            recovery=_build_run_recovery(run, context),
-        )
+        return serialize_run(run, context=context, recovery=_build_run_recovery_payload(run, context))
 
     register_auth_middleware(
         app,
@@ -374,36 +369,8 @@ def create_app(
         enable_unsafe_admin=enable_unsafe_admin,
         record_auth_event=record_auth_event,
     )
-
-    @app.exception_handler(FileNotFoundError)
-    async def handle_missing_file(_, exc: FileNotFoundError) -> JSONResponse:
-        return JSONResponse(status_code=404, content={"error": str(exc)})
-
-    @app.exception_handler(KeyError)
-    async def handle_missing_key(_, exc: KeyError) -> JSONResponse:
-        message = exc.args[0] if exc.args else str(exc)
-        return JSONResponse(status_code=404, content={"error": message})
-
-    @app.exception_handler(ValueError)
-    async def handle_value_error(_, exc: ValueError) -> JSONResponse:
-        return JSONResponse(status_code=400, content={"error": str(exc)})
-
-    @app.get("/health")
-    async def health() -> dict[str, str]:
-        return {"status": "ok"}
-
-    @app.get("/ready")
-    async def ready() -> dict[str, str]:
-        return {"status": "ready", "auth_mode": resolved_auth_mode}
-
-    @app.get("/metrics")
-    async def metrics() -> PlainTextResponse:
-        update_worker_runtime_metrics(resolved_config_repository)
-        update_auth_runtime_metrics(resolved_config_repository)
-        return PlainTextResponse(
-            metrics_registry.render_prometheus_text(),
-            media_type="text/plain; version=0.0.4",
-        )
+    _register_exception_handlers(app)
+    _register_base_routes(app, auth_mode=resolved_auth_mode, config_repository=resolved_config_repository)
 
     register_auth_routes(
         app,
@@ -432,7 +399,7 @@ def create_app(
         registry=container.extension_registry,
         promotion_handler_registry=container.promotion_handler_registry,
         load_run_manifest_and_context=load_run_manifest_and_context,
-        build_run_recovery=_build_run_recovery,
+        build_run_recovery=_build_run_recovery_payload,
         serialize_run=serialize_run,
         serialize_run_detail=serialize_run_detail,
         build_run_response=build_run_response,
@@ -463,7 +430,7 @@ def create_app(
             service=container.service,
             config_repository=resolved_config_repository,
             load_run_manifest_and_context=load_run_manifest_and_context,
-            build_run_recovery=_build_run_recovery,
+            build_run_recovery=_build_run_recovery_payload,
         ),
         to_jsonable=to_jsonable,
     )

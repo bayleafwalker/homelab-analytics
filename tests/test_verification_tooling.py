@@ -34,7 +34,9 @@ def test_makefile_contains_required_verification_targets() -> None:
         assert target in content
 
     assert ".venv/bin/python" in content
-    assert "verify-fast: lint typecheck test-fast verify-docs verify-agent verify-arch helm-lint" in content
+    assert "test-sqlite-adapters:" in content
+    assert "test-coverage:" in content
+    assert "verify-fast: lint typecheck test-fast test-sqlite-adapters verify-docs verify-agent verify-arch helm-lint" in content
     assert "APP_IMAGE := homelab-analytics:latest" in content
     assert "WEB_IMAGE := homelab-analytics-web:latest" in content
     assert "docker image inspect $(APP_IMAGE)" in content

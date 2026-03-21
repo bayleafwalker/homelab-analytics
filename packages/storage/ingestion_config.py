@@ -133,6 +133,8 @@ class IngestionConfigRepository(
             connection.commit()
 
     def _connect(self):
-        connection = sqlite3.connect(self.database_path)
+        connection = sqlite3.connect(self.database_path, timeout=30)
+        connection.execute("PRAGMA journal_mode = WAL")
+        connection.execute("PRAGMA busy_timeout = 10000")
         connection.execute("PRAGMA foreign_keys = ON")
         return closing(connection)

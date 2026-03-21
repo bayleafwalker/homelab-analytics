@@ -14,8 +14,9 @@ DOMAIN ?=
 VERIFY_CONFIG_ARGS ?=
 
 .PHONY: lint typecheck test test-fast test-target test-integration test-e2e-local \
-	test-storage-adapters verify-config verify-docs verify-agent verify-arch verify-fast \
-	verify-all verify-domain helm-lint docker-build compose-smoke audit-deps
+	test-storage-adapters test-sqlite-adapters test-coverage verify-config verify-docs \
+	verify-agent verify-arch verify-fast verify-all verify-domain helm-lint \
+	docker-build compose-smoke audit-deps
 
 lint:
 	$(RUFF) check .
@@ -38,8 +39,14 @@ test-integration:
 test-e2e-local:
 	$(PYTEST) -q -m e2e
 
+test-sqlite-adapters:
+	$(PYTEST) -q tests/test_blob_store.py tests/test_run_metadata_repository.py tests/test_storage_runtime.py tests/test_control_plane_store_contract.py tests/test_sqlite_auth_store_contract.py
+
 test-storage-adapters:
-	$(PYTEST) -q tests/test_blob_store.py tests/test_run_metadata_repository.py tests/test_storage_runtime.py tests/test_sqlite_control_plane_contract.py tests/test_sqlite_auth_store_contract.py tests/test_postgres_run_metadata_integration.py tests/test_postgres_ingestion_config_integration.py tests/test_postgres_auth_store_integration.py tests/test_postgres_reporting_integration.py tests/test_s3_postgres_control_plane_integration.py
+	$(PYTEST) -q tests/test_blob_store.py tests/test_run_metadata_repository.py tests/test_storage_runtime.py tests/test_control_plane_store_contract.py tests/test_sqlite_auth_store_contract.py tests/test_postgres_run_metadata_integration.py tests/test_postgres_ingestion_config_integration.py tests/test_postgres_auth_store_integration.py tests/test_postgres_reporting_integration.py tests/test_s3_postgres_control_plane_integration.py
+
+test-coverage:
+	$(PYTEST) -q --cov=apps --cov=packages --cov-report=term-missing
 
 verify-config:
 	$(PYTHON) -m apps.worker.main verify-config $(VERIFY_CONFIG_ARGS)
@@ -92,7 +99,7 @@ compose-smoke:
 audit-deps:
 	-$(PIP_AUDIT)
 
-verify-fast: lint typecheck test-fast verify-docs verify-agent verify-arch helm-lint
+verify-fast: lint typecheck test-fast test-sqlite-adapters verify-docs verify-agent verify-arch helm-lint
 
 verify-all: verify-fast test-integration test-e2e-local docker-build
 
