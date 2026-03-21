@@ -205,6 +205,12 @@ export default async function UploadPage({ searchParams }) {
             action="/upload/loan-repayments"
             description="Upload loan repayment records with optional loan definition columns."
           />
+          <UploadCard
+            eyebrow="Built-In Domain"
+            title="HA States"
+            action="/upload/ha-states"
+            description="Upload a Home Assistant /api/states JSON export to ingest entity state snapshots."
+          />
         </section>
 
         {activeSourceAssets.length === 0 ? (

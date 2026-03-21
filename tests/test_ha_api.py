@@ -1,0 +1,132 @@
+"""API tests for HA integration routes — ingest and query."""
+from __future__ import annotations
+
+import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from fastapi.testclient import TestClient
+
+from apps.api.app import create_app
+from packages.pipelines.transformation_service import TransformationService
+from packages.storage.duckdb_store import DuckDBStore
+from packages.storage.run_metadata import RunMetadataRepository
+
+
+def _build_client(temp_dir: str) -> TestClient:
+    from packages.pipelines.account_transaction_service import AccountTransactionService
+
+    service = AccountTransactionService(
+        landing_root=Path(temp_dir) / "landing",
+        metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+    )
+    ts = TransformationService(DuckDBStore.memory())
+    app = create_app(service, transformation_service=ts)
+    return TestClient(app)
+
+
+def _sample_states() -> list[dict]:
+    return [
+        {
+            "entity_id": "sensor.living_room_temp",
+            "state": "21.3",
+            "attributes": {"unit_of_measurement": "°C", "friendly_name": "LR Temp"},
+            "last_changed": "2026-03-21T10:00:00+00:00",
+        },
+        {
+            "entity_id": "light.kitchen",
+            "state": "on",
+            "attributes": {"friendly_name": "Kitchen Light"},
+            "last_changed": "2026-03-21T10:00:00+00:00",
+        },
+    ]
+
+
+class HaIngestAPITests(unittest.TestCase):
+    def test_post_ingest_returns_count(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.post("/api/ha/ingest", json={"states": _sample_states()})
+            self.assertEqual(200, resp.status_code)
+            self.assertEqual(2, resp.json()["ingested"])
+
+    def test_post_empty_states_returns_zero(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.post("/api/ha/ingest", json={"states": []})
+            self.assertEqual(200, resp.status_code)
+            self.assertEqual(0, resp.json()["ingested"])
+
+    def test_post_invalid_body_returns_422(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.post("/api/ha/ingest", json={"not_states": "wrong"})
+            self.assertEqual(422, resp.status_code)
+
+    def test_post_run_id_echoed(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.post(
+                "/api/ha/ingest",
+                json={"states": _sample_states(), "run_id": "test-run-42"},
+            )
+            self.assertEqual("test-run-42", resp.json()["run_id"])
+
+
+class HaEntitiesAPITests(unittest.TestCase):
+    def _ingest(self, client: TestClient) -> None:
+        client.post("/api/ha/ingest", json={"states": _sample_states()})
+
+    def test_get_entities_returns_rows(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            self._ingest(client)
+            resp = client.get("/api/ha/entities")
+            self.assertEqual(200, resp.status_code)
+            rows = resp.json()["rows"]
+            self.assertEqual(2, len(rows))
+
+    def test_get_entities_filter_by_class(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            self._ingest(client)
+            resp = client.get("/api/ha/entities?entity_class=sensor")
+            rows = resp.json()["rows"]
+            self.assertEqual(1, len(rows))
+            self.assertEqual("sensor.living_room_temp", rows[0]["entity_id"])
+
+    def test_get_entity_history_returns_rows(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            self._ingest(client)
+            resp = client.get("/api/ha/entities/sensor.living_room_temp/history")
+            self.assertEqual(200, resp.status_code)
+            rows = resp.json()["rows"]
+            self.assertGreater(len(rows), 0)
+            self.assertEqual("21.3", rows[0]["state"])
+
+    def test_get_history_unknown_entity_returns_empty(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.get("/api/ha/entities/sensor.unknown/history")
+            self.assertEqual(200, resp.status_code)
+            self.assertEqual([], resp.json()["rows"])
+
+    def test_get_history_limit_param(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            # Ingest 5 times
+            for i in range(5):
+                client.post(
+                    "/api/ha/ingest",
+                    json={
+                        "states": [{"entity_id": "sensor.temp", "state": str(i), "last_changed": f"2026-03-21T{10 + i}:00:00"}],
+                        "run_id": f"run-{i:03d}",
+                    },
+                )
+            resp = client.get("/api/ha/entities/sensor.temp/history?limit=2")
+            self.assertEqual(2, len(resp.json()["rows"]))
+
+
+if __name__ == "__main__":
+    unittest.main()

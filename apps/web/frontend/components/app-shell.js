@@ -15,6 +15,7 @@ function navItemsForUser(user) {
     { href: "/budgets", label: "Budgets" },
     { href: "/loans", label: "Loans" },
     { href: "/costs", label: "Costs" },
+    { href: "/homelab", label: "Homelab" },
   ];
   if (hasRequiredRole(user, "operator")) {
     items.push({ href: "/upload", label: "Upload" });

@@ -277,6 +277,16 @@ export async function getFunctions() {
   return payload.functions || {};
 }
 
+export async function getHaEntities(entityClass = null) {
+  const payload = await backendJson(`/api/ha/entities${buildQuery({ entity_class: entityClass })}`);
+  return payload.rows || [];
+}
+
+export async function getHaEntityHistory(entityId, limit = 50) {
+  const payload = await backendJson(`/api/ha/entities/${entityId}/history${buildQuery({ limit })}`);
+  return payload.rows || [];
+}
+
 export async function getTransformationPackages({ includeArchived = false } = {}) {
   const payload = await backendJson(
     `/config/transformation-packages${buildQuery({

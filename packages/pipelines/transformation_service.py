@@ -37,6 +37,12 @@ from packages.pipelines.normalization import (
     normalize_currency_code,
     normalize_timestamp_utc,
 )
+from packages.pipelines.ha_service import (
+    ensure_ha_storage,
+    get_ha_entities,
+    get_ha_entity_history,
+    ingest_ha_states,
+)
 from packages.pipelines.scenario_service import (
     ComparisonResult,
     ExpenseShockResult,
@@ -250,6 +256,7 @@ class TransformationService:
         self._store.ensure_dimension(DIM_WORKLOAD)
         self._store.ensure_current_dimension_view(DIM_WORKLOAD, CURRENT_DIM_WORKLOAD_VIEW)
         ensure_homelab_storage(self._store)
+        ensure_ha_storage(self._store)
 
     @staticmethod
     def _normalize_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -1039,3 +1046,29 @@ class TransformationService:
         self, scenario_id: str
     ) -> IncomeCashflowComparison | None:
         return get_expense_shock_comparison(self._store, scenario_id)
+
+    # ------------------------------------------------------------------
+    # HA integration service
+    # ------------------------------------------------------------------
+
+    def ingest_ha_states(
+        self,
+        states: list[dict[str, Any]],
+        *,
+        run_id: str | None = None,
+        source_system: str = "home_assistant",
+    ) -> int:
+        return ingest_ha_states(
+            self._store,
+            states,
+            run_id=run_id,
+            source_system=source_system,
+        )
+
+    def get_ha_entities(self) -> list[dict[str, Any]]:
+        return get_ha_entities(self._store)
+
+    def get_ha_entity_history(
+        self, entity_id: str, *, limit: int = 50
+    ) -> list[dict[str, Any]]:
+        return get_ha_entity_history(self._store, entity_id, limit=limit)
