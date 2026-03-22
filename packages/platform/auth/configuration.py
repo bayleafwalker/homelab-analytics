@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+import warnings
 from ipaddress import ip_network
 
 from packages.platform.auth.crypto import hash_password
@@ -11,6 +12,19 @@ from packages.storage.auth_store import AuthStore, LocalUserCreate, LocalUserRec
 
 
 def validate_auth_configuration(settings: AppSettings) -> None:
+    if settings.identity_mode is None:
+        legacy_auth_mode = settings.auth_mode.strip().lower()
+        if legacy_auth_mode and legacy_auth_mode != "disabled":
+            warnings.warn(
+                (
+                    "HOMELAB_ANALYTICS_AUTH_MODE is a legacy compatibility input and "
+                    "will be removed no earlier than v0.2.0; configure "
+                    "HOMELAB_ANALYTICS_IDENTITY_MODE instead."
+                ),
+                DeprecationWarning,
+                stacklevel=3,
+            )
+
     if settings.break_glass_ttl_minutes <= 0:
         raise ValueError(
             "Break-glass TTL must be a positive integer number of minutes."
