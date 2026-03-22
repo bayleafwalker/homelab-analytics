@@ -30,6 +30,18 @@ PERMISSION_RUNS_READ_RUN_PREFIX = f"{PERMISSION_RUNS_READ}.run."
 PERMISSION_RUNS_RETRY_RUN_PREFIX = f"{PERMISSION_RUNS_RETRY}.run."
 PERMISSION_RUNS_READ_RUN_WILDCARD = f"{PERMISSION_RUNS_READ_RUN_PREFIX}*"
 PERMISSION_RUNS_RETRY_RUN_WILDCARD = f"{PERMISSION_RUNS_RETRY_RUN_PREFIX}*"
+PERMISSION_CONTROL_SOURCE_LINEAGE_RUN_PREFIX = (
+    f"{PERMISSION_CONTROL_SOURCE_LINEAGE_READ}.run."
+)
+PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_PREFIX = (
+    f"{PERMISSION_CONTROL_PUBLICATION_AUDIT_READ}.publication."
+)
+PERMISSION_CONTROL_SOURCE_LINEAGE_RUN_WILDCARD = (
+    f"{PERMISSION_CONTROL_SOURCE_LINEAGE_RUN_PREFIX}*"
+)
+PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_WILDCARD = (
+    f"{PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_PREFIX}*"
+)
 PERMISSION_REPORTS_READ_PUBLICATION_PREFIX = f"{PERMISSION_REPORTS_READ}.publication."
 PERMISSION_REPORTS_READ_PUBLICATION_WILDCARD = (
     f"{PERMISSION_REPORTS_READ_PUBLICATION_PREFIX}*"
@@ -159,16 +171,38 @@ def run_retry_permission(run_id: str) -> str | None:
     return f"{PERMISSION_RUNS_RETRY_RUN_PREFIX}{normalized}"
 
 
+def source_lineage_run_permission(run_id: str) -> str | None:
+    normalized = run_id.strip().lower()
+    if not normalized:
+        return None
+    if not _DYNAMIC_PERMISSION_PATTERN.fullmatch(normalized):
+        return None
+    return f"{PERMISSION_CONTROL_SOURCE_LINEAGE_RUN_PREFIX}{normalized}"
+
+
+def publication_audit_publication_permission(publication_key: str) -> str | None:
+    normalized = publication_key.strip().lower()
+    if not normalized:
+        return None
+    if not _DYNAMIC_PERMISSION_PATTERN.fullmatch(normalized):
+        return None
+    return f"{PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_PREFIX}{normalized}"
+
+
 def _normalize_dynamic_permission(permission: str) -> str | None:
     if permission in {
         PERMISSION_RUNS_READ_RUN_WILDCARD,
         PERMISSION_RUNS_RETRY_RUN_WILDCARD,
+        PERMISSION_CONTROL_SOURCE_LINEAGE_RUN_WILDCARD,
+        PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_WILDCARD,
         PERMISSION_REPORTS_READ_PUBLICATION_WILDCARD,
     }:
         return permission
     for prefix in (
         PERMISSION_RUNS_READ_RUN_PREFIX,
         PERMISSION_RUNS_RETRY_RUN_PREFIX,
+        PERMISSION_CONTROL_SOURCE_LINEAGE_RUN_PREFIX,
+        PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_PREFIX,
         PERMISSION_REPORTS_READ_PUBLICATION_PREFIX,
     ):
         if permission.startswith(prefix):
@@ -204,6 +238,16 @@ def _granted_permission_satisfies_required(granted: str, required: str) -> bool:
     if granted == PERMISSION_RUNS_READ and required.startswith(PERMISSION_RUNS_READ_RUN_PREFIX):
         return True
     if granted == PERMISSION_RUNS_RETRY and required.startswith(PERMISSION_RUNS_RETRY_RUN_PREFIX):
+        return True
+    if (
+        granted == PERMISSION_CONTROL_SOURCE_LINEAGE_READ
+        and required.startswith(PERMISSION_CONTROL_SOURCE_LINEAGE_RUN_PREFIX)
+    ):
+        return True
+    if (
+        granted == PERMISSION_CONTROL_PUBLICATION_AUDIT_READ
+        and required.startswith(PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_PREFIX)
+    ):
         return True
     if granted.endswith(".*"):
         prefix = granted[:-2]

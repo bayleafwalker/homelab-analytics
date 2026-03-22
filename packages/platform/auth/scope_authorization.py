@@ -1,6 +1,8 @@
 """Path-level role and service-token scope requirements for the API."""
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from packages.platform.auth.permission_registry import (
     PERMISSION_ADMIN_WRITE,
     PERMISSION_CONTROL_PUBLICATION_AUDIT_READ,
@@ -10,9 +12,11 @@ from packages.platform.auth.permission_registry import (
     PERMISSION_RUNS_READ,
     PERMISSION_RUNS_RETRY,
     PERMISSION_TRANSFORMATION_AUDIT_READ,
+    publication_audit_publication_permission,
     publication_read_permission,
     run_read_permission,
     run_retry_permission,
+    source_lineage_run_permission,
 )
 from packages.storage.auth_store import (
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
@@ -74,6 +78,28 @@ def required_permission_for_path(path: str) -> str | None:
         publication_key = suffix.split("/", 1)[0].strip()
         return publication_read_permission(publication_key) or PERMISSION_REPORTS_READ
     return None
+
+
+def required_permission_for_request(
+    path: str,
+    query_params: Mapping[str, str] | None = None,
+) -> str | None:
+    required_permission = required_permission_for_path(path)
+    if path == "/control/source-lineage":
+        run_id = (query_params or {}).get("run_id", "").strip()
+        if run_id:
+            return (
+                source_lineage_run_permission(run_id)
+                or PERMISSION_CONTROL_SOURCE_LINEAGE_READ
+            )
+    if path == "/control/publication-audit":
+        publication_key = (query_params or {}).get("publication_key", "").strip()
+        if publication_key:
+            return (
+                publication_audit_publication_permission(publication_key)
+                or PERMISSION_CONTROL_PUBLICATION_AUDIT_READ
+            )
+    return required_permission
 
 
 def required_role_for_path(path: str) -> UserRole | None:

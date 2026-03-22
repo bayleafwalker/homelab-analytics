@@ -466,6 +466,56 @@ def test_api_oidc_permission_bound_principal_enforces_run_asset_permissions() ->
         assert denied_retry.json()["detail"] == "operator role required."
 
 
+def test_api_oidc_permission_bound_principal_enforces_control_asset_permissions() -> None:
+    issuer = MockOidcIssuer()
+    with TemporaryDirectory() as temp_dir:
+        client = _build_oidc_client(
+            temp_dir,
+            issuer,
+            reader_groups=("readers",),
+            permissions_claim="hla_permissions",
+        )
+        token = issuer.issue_token(
+            subject="permission-only-control",
+            username="permission-control@example.test",
+            audience=issuer.api_audience,
+            groups=(),
+            extra_claims={
+                "hla_permissions": [
+                    "control.source_lineage.read.run.run-001",
+                    "control.publication_audit.read.publication.monthly-cashflow",
+                ],
+            },
+        )
+        headers = {"authorization": f"Bearer {token}"}
+
+        allowed_lineage = client.get("/control/source-lineage?run_id=run-001", headers=headers)
+        assert allowed_lineage.status_code == 200
+
+        denied_lineage = client.get("/control/source-lineage?run_id=run-002", headers=headers)
+        assert denied_lineage.status_code == 403
+        assert (
+            denied_lineage.json()["detail"]
+            == "control.source_lineage.read.run.run-002 permission required."
+        )
+
+        allowed_audit = client.get(
+            "/control/publication-audit?publication_key=monthly-cashflow",
+            headers=headers,
+        )
+        assert allowed_audit.status_code == 200
+
+        denied_audit = client.get(
+            "/control/publication-audit?publication_key=budget-variance",
+            headers=headers,
+        )
+        assert denied_audit.status_code == 403
+        assert (
+            denied_audit.json()["detail"]
+            == "control.publication_audit.read.publication.budget-variance permission required."
+        )
+
+
 def test_api_oidc_group_to_permission_mapping_grants_ingest() -> None:
     issuer = MockOidcIssuer()
     with TemporaryDirectory() as temp_dir:

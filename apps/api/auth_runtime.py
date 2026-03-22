@@ -37,6 +37,7 @@ from packages.platform.auth.role_hierarchy import (
 )
 from packages.platform.auth.scope_authorization import (
     required_permission_for_path,
+    required_permission_for_request,
     required_role_for_path,
     required_service_token_scope_for_path,
 )
@@ -55,6 +56,7 @@ __all__ = [
     "build_auth_event_recorder",
     "build_lockout_checker",
     "cookie_secure_for_request",
+    "required_permission_for_request",
     "register_auth_middleware",
     "request_remote_addr",
     "required_permission_for_path",
@@ -90,7 +92,10 @@ def register_auth_middleware(
                 assert resolved_session_manager is not None
             required_role = required_role_for_path(request.url.path)
             required_scope = required_service_token_scope_for_path(request.url.path)
-            required_permission = required_permission_for_path(request.url.path)
+            required_permission = required_permission_for_request(
+                request.url.path,
+                request.query_params,
+            )
             auth_error_response: JSONResponse | None = None
             bearer_token = bearer_token_from_request(request)
             if bearer_token is not None:

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from packages.platform.auth.permission_registry import (
     PERMISSION_ADMIN_WRITE,
+    PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_WILDCARD,
+    PERMISSION_CONTROL_SOURCE_LINEAGE_RUN_WILDCARD,
     PERMISSION_INGEST_WRITE,
     PERMISSION_REPORTS_READ,
     PERMISSION_REPORTS_READ_PUBLICATION_WILDCARD,
@@ -15,11 +17,16 @@ from packages.platform.auth.permission_registry import (
     permissions_for_principal,
     permissions_for_role,
     permissions_for_service_token_scopes,
+    publication_audit_publication_permission,
     publication_read_permission,
     run_read_permission,
     run_retry_permission,
+    source_lineage_run_permission,
 )
-from packages.platform.auth.scope_authorization import required_permission_for_path
+from packages.platform.auth.scope_authorization import (
+    required_permission_for_path,
+    required_permission_for_request,
+)
 from packages.storage.auth_store import (
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
     SERVICE_TOKEN_SCOPE_INGEST_WRITE,
@@ -134,6 +141,29 @@ def test_permission_normalization_accepts_run_permissions_and_wildcards() -> Non
     )
 
 
+def test_permission_normalization_accepts_control_asset_permissions_and_wildcards() -> None:
+    normalized = normalize_permission_grants(
+        [
+            "control.source_lineage.read.run.run-001",
+            "control.source_lineage.read.run.finance.*",
+            "control.source_lineage.read.run.*",
+            "control.publication_audit.read.publication.monthly-cashflow",
+            "control.publication_audit.read.publication.reports.*",
+            "control.publication_audit.read.publication.*",
+            "control.publication_audit.read.publication.invalid key",
+        ]
+    )
+
+    assert normalized == (
+        "control.publication_audit.read.publication.*",
+        "control.publication_audit.read.publication.monthly-cashflow",
+        "control.publication_audit.read.publication.reports.*",
+        "control.source_lineage.read.run.*",
+        "control.source_lineage.read.run.finance.*",
+        "control.source_lineage.read.run.run-001",
+    )
+
+
 def test_permission_bound_principal_uses_explicit_grants_only() -> None:
     ctx = PrincipalAuthorizationContext(
         role=UserRole.READER,
@@ -183,6 +213,30 @@ def test_operator_role_implies_run_asset_permissions() -> None:
     assert has_required_permission(operator_ctx, PERMISSION_RUNS_RETRY_RUN_WILDCARD)
 
 
+def test_reader_role_implies_control_asset_permissions() -> None:
+    reader_ctx = PrincipalAuthorizationContext(
+        role=UserRole.READER,
+        auth_provider="local",
+    )
+
+    assert has_required_permission(
+        reader_ctx,
+        source_lineage_run_permission("run-001"),
+    )
+    assert has_required_permission(
+        reader_ctx,
+        publication_audit_publication_permission("monthly-cashflow"),
+    )
+    assert has_required_permission(
+        reader_ctx,
+        PERMISSION_CONTROL_SOURCE_LINEAGE_RUN_WILDCARD,
+    )
+    assert has_required_permission(
+        reader_ctx,
+        PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_WILDCARD,
+    )
+
+
 def test_path_permission_mapping_matches_current_auth_surfaces() -> None:
     assert required_permission_for_path("/health") is None
     assert required_permission_for_path("/reports/monthly-cashflow") == publication_read_permission(
@@ -196,3 +250,28 @@ def test_path_permission_mapping_matches_current_auth_surfaces() -> None:
     assert required_permission_for_path("/runs/run-1/retry") == run_retry_permission("run-1")
     assert required_permission_for_path("/ingest") == PERMISSION_INGEST_WRITE
     assert required_permission_for_path("/config/source-systems") == PERMISSION_ADMIN_WRITE
+
+
+def test_request_permission_mapping_supports_control_asset_scopes() -> None:
+    assert required_permission_for_request(
+        "/control/source-lineage",
+        {"run_id": "run-001"},
+    ) == source_lineage_run_permission("run-001")
+    assert required_permission_for_request(
+        "/control/publication-audit",
+        {"publication_key": "monthly-cashflow"},
+    ) == publication_audit_publication_permission("monthly-cashflow")
+    assert (
+        required_permission_for_request(
+            "/control/source-lineage",
+            {},
+        )
+        == "control.source_lineage.read"
+    )
+    assert (
+        required_permission_for_request(
+            "/control/publication-audit",
+            {},
+        )
+        == "control.publication_audit.read"
+    )
