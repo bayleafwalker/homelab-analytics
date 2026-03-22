@@ -44,6 +44,15 @@ def _payload_string_tuple(payload: dict[str, Any], key: str) -> tuple[str, ...]:
     return ()
 
 
+def _payload_bool(payload: dict[str, Any], key: str) -> bool:
+    value = payload.get(key)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return False
+
+
 def build_session_manager(settings: AppSettings) -> "SessionManager | None":
     if not is_cookie_auth_mode(settings.resolved_auth_mode):
         return None
@@ -103,6 +112,7 @@ class SessionManager:
                 csrf_token=csrf_token,
                 scopes=principal.scopes,
                 permissions=principal.permissions,
+                permission_bound=principal.permission_bound,
             )
             resolved_fingerprint = credential_fingerprint
         payload: dict[str, Any] = {
@@ -121,6 +131,8 @@ class SessionManager:
             payload["scopes"] = list(session_principal.scopes)
         if session_principal.permissions:
             payload["permissions"] = list(session_principal.permissions)
+        if session_principal.permission_bound:
+            payload["pb"] = True
         return IssuedSession(
             cookie_value=_encode_signed_payload(self._secret, payload),
             csrf_token=csrf_token,
@@ -176,6 +188,7 @@ class SessionManager:
                 return None
             permissions = _payload_string_tuple(payload, "permissions")
             scopes = _payload_string_tuple(payload, "scopes")
+            permission_bound = _payload_bool(payload, "pb")
             return AuthenticatedPrincipal(
                 user_id=subject,
                 username=username,
@@ -184,6 +197,7 @@ class SessionManager:
                 csrf_token=csrf_token,
                 scopes=scopes,
                 permissions=permissions,
+                permission_bound=permission_bound,
             )
         return None
 

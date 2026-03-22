@@ -10,6 +10,7 @@ from packages.platform.auth.permission_registry import (
     PERMISSION_RUNS_READ,
     PERMISSION_RUNS_RETRY,
     PERMISSION_TRANSFORMATION_AUDIT_READ,
+    publication_read_permission,
 )
 from packages.storage.auth_store import (
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
@@ -60,7 +61,11 @@ def required_permission_for_path(path: str) -> str | None:
     if path.startswith("/runs"):
         return PERMISSION_RUNS_READ
     if path.startswith("/reports"):
-        return PERMISSION_REPORTS_READ
+        suffix = path.removeprefix("/reports").strip("/")
+        if not suffix:
+            return PERMISSION_REPORTS_READ
+        publication_key = suffix.split("/", 1)[0].strip()
+        return publication_read_permission(publication_key) or PERMISSION_REPORTS_READ
     return None
 
 

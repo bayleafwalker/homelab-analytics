@@ -24,6 +24,7 @@ class AuthenticatedPrincipal:
     csrf_token: str | None = None
     scopes: tuple[str, ...] = ()
     permissions: tuple[str, ...] = ()
+    permission_bound: bool = False
 
 
 def has_required_role(role: UserRole, required_role: UserRole) -> bool:

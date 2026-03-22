@@ -253,6 +253,7 @@ def register_auth_middleware(
                             auth_provider=request.state.principal.auth_provider,
                             scopes=request.state.principal.scopes,
                             granted_permissions=request.state.principal.permissions,
+                            permission_bound=request.state.principal.permission_bound,
                         ),
                         required_permission,
                     )

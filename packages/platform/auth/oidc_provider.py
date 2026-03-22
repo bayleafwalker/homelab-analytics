@@ -243,11 +243,15 @@ class OidcProvider:
     def principal_from_claims(self, claims: dict[str, Any]) -> AuthenticatedPrincipal:
         username = self._claim_username(claims)
         groups = self._groups_from_claims(claims)
+        has_group_role_mapping = self._has_group_role_mapping(groups)
         permissions = normalize_permission_grants(
             [
                 *self._permissions_from_claims(claims),
                 *self._permissions_from_groups(groups),
             ]
+        )
+        role_mapping_configured = bool(
+            self.reader_groups or self.operator_groups or self.admin_groups
         )
         role = self._role_from_groups(
             groups,
@@ -262,6 +266,11 @@ class OidcProvider:
             role=role,
             auth_provider="oidc",
             permissions=permissions,
+            permission_bound=(
+                bool(permissions)
+                and role_mapping_configured
+                and not has_group_role_mapping
+            ),
         )
 
     def build_set_state_cookie_header(
@@ -333,6 +342,13 @@ class OidcProvider:
                 return UserRole.READER
             raise OidcAuthorizationError("OIDC identity is not mapped to any application role.")
         return UserRole.READER
+
+    def _has_group_role_mapping(self, groups: set[str]) -> bool:
+        return bool(
+            groups & self.admin_groups
+            or groups & self.operator_groups
+            or groups & self.reader_groups
+        )
 
     def _permissions_from_claims(self, claims: dict[str, Any]) -> tuple[str, ...]:
         if not self.permissions_claim:

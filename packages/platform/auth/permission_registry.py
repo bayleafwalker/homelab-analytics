@@ -5,6 +5,7 @@ reader/operator/admin role ladder and service-token scopes.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import FrozenSet
 
@@ -25,6 +26,13 @@ PERMISSION_CONTROL_SOURCE_LINEAGE_READ = "control.source_lineage.read"
 PERMISSION_CONTROL_PUBLICATION_AUDIT_READ = "control.publication_audit.read"
 PERMISSION_TRANSFORMATION_AUDIT_READ = "transformation.audit.read"
 PERMISSION_ADMIN_WRITE = "admin.write"
+PERMISSION_REPORTS_READ_PUBLICATION_PREFIX = f"{PERMISSION_REPORTS_READ}.publication."
+PERMISSION_REPORTS_READ_PUBLICATION_WILDCARD = (
+    f"{PERMISSION_REPORTS_READ_PUBLICATION_PREFIX}*"
+)
+
+
+_DYNAMIC_PERMISSION_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_.-]*$")
 
 
 _READER_PERMISSIONS: frozenset[str] = frozenset(
@@ -93,6 +101,7 @@ class PrincipalAuthorizationContext:
     auth_provider: str
     scopes: tuple[str, ...] = ()
     granted_permissions: tuple[str, ...] = ()
+    permission_bound: bool = False
 
 
 def permissions_for_role(role: UserRole) -> FrozenSet[str]:
@@ -110,12 +119,67 @@ def normalize_permission_grants(
     permissions: tuple[str, ...] | list[str],
 ) -> tuple[str, ...]:
     normalized = {permission.strip().lower() for permission in permissions if permission.strip()}
-    recognized = sorted(normalized.intersection(KNOWN_PERMISSIONS))
-    return tuple(recognized)
+    recognized = set(normalized.intersection(KNOWN_PERMISSIONS))
+    for permission in normalized:
+        dynamic_permission = _normalize_dynamic_permission(permission)
+        if dynamic_permission is not None:
+            recognized.add(dynamic_permission)
+    resolved = sorted(recognized)
+    return tuple(resolved)
+
+
+def publication_read_permission(publication_key: str) -> str | None:
+    normalized = publication_key.strip().lower()
+    if not normalized:
+        return None
+    if not _DYNAMIC_PERMISSION_PATTERN.fullmatch(normalized):
+        return None
+    return f"{PERMISSION_REPORTS_READ_PUBLICATION_PREFIX}{normalized}"
+
+
+def _normalize_dynamic_permission(permission: str) -> str | None:
+    if permission == PERMISSION_REPORTS_READ_PUBLICATION_WILDCARD:
+        return permission
+    if not permission.startswith(PERMISSION_REPORTS_READ_PUBLICATION_PREFIX):
+        return None
+    suffix = permission.removeprefix(PERMISSION_REPORTS_READ_PUBLICATION_PREFIX)
+    if suffix.endswith(".*"):
+        wildcard_prefix = suffix[:-2]
+        if wildcard_prefix and _DYNAMIC_PERMISSION_PATTERN.fullmatch(wildcard_prefix):
+            return f"{PERMISSION_REPORTS_READ_PUBLICATION_PREFIX}{wildcard_prefix}.*"
+        return None
+    if _DYNAMIC_PERMISSION_PATTERN.fullmatch(suffix):
+        return f"{PERMISSION_REPORTS_READ_PUBLICATION_PREFIX}{suffix}"
+    return None
+
+
+def _normalize_required_permission(required_permission: str) -> str:
+    normalized = normalize_permission_grants([required_permission])
+    if normalized:
+        return normalized[0]
+    return required_permission.strip().lower()
+
+
+def _granted_permission_satisfies_required(granted: str, required: str) -> bool:
+    if granted == required:
+        return True
+    if (
+        granted == PERMISSION_REPORTS_READ
+        and required.startswith(PERMISSION_REPORTS_READ_PUBLICATION_PREFIX)
+    ):
+        return True
+    if granted.endswith(".*"):
+        prefix = granted[:-2]
+        return required == prefix or required.startswith(f"{prefix}.")
+    return False
 
 
 def permissions_for_principal(context: PrincipalAuthorizationContext) -> FrozenSet[str]:
-    role_permissions = permissions_for_role(context.role)
+    role_permissions = (
+        frozenset()
+        if context.permission_bound
+        else permissions_for_role(context.role)
+    )
     direct_permissions = frozenset(
         permission
         for permission in normalize_permission_grants(context.granted_permissions)
@@ -133,4 +197,8 @@ def has_required_permission(
 ) -> bool:
     if required_permission is None:
         return True
-    return required_permission in permissions_for_principal(context)
+    normalized_required = _normalize_required_permission(required_permission)
+    return any(
+        _granted_permission_satisfies_required(granted, normalized_required)
+        for granted in permissions_for_principal(context)
+    )

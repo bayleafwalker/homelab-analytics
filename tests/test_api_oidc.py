@@ -392,6 +392,38 @@ def test_api_oidc_unknown_permission_claim_values_are_ignored() -> None:
         assert response.status_code == 403
 
 
+def test_api_oidc_permission_bound_principal_enforces_publication_permissions() -> None:
+    issuer = MockOidcIssuer()
+    with TemporaryDirectory() as temp_dir:
+        client = _build_oidc_client(
+            temp_dir,
+            issuer,
+            reader_groups=("readers",),
+            permissions_claim="hla_permissions",
+        )
+        token = issuer.issue_token(
+            subject="permission-only-reader",
+            username="permission-only@example.test",
+            audience=issuer.api_audience,
+            groups=(),
+            extra_claims={
+                "hla_permissions": ["reports.read.publication.finance-only"],
+            },
+        )
+        headers = {"authorization": f"Bearer {token}"}
+
+        allowed = client.get("/reports/finance-only", headers=headers)
+        assert allowed.status_code == 400
+
+        denied_report = client.get("/reports/budget-variance", headers=headers)
+        assert denied_report.status_code == 403
+        assert denied_report.json()["detail"] == "reports.read.publication.budget-variance permission required."
+
+        denied_runs = client.get("/runs", headers=headers)
+        assert denied_runs.status_code == 403
+        assert denied_runs.json()["detail"] == "runs.read permission required."
+
+
 def test_api_oidc_group_to_permission_mapping_grants_ingest() -> None:
     issuer = MockOidcIssuer()
     with TemporaryDirectory() as temp_dir:

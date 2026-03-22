@@ -4,6 +4,7 @@ from packages.platform.auth.permission_registry import (
     PERMISSION_ADMIN_WRITE,
     PERMISSION_INGEST_WRITE,
     PERMISSION_REPORTS_READ,
+    PERMISSION_REPORTS_READ_PUBLICATION_WILDCARD,
     PERMISSION_RUNS_READ,
     PERMISSION_RUNS_RETRY,
     PrincipalAuthorizationContext,
@@ -12,6 +13,7 @@ from packages.platform.auth.permission_registry import (
     permissions_for_principal,
     permissions_for_role,
     permissions_for_service_token_scopes,
+    publication_read_permission,
 )
 from packages.platform.auth.scope_authorization import required_permission_for_path
 from packages.storage.auth_store import (
@@ -88,9 +90,62 @@ def test_explicit_principal_permission_grants_are_normalized_and_additive() -> N
     assert has_required_permission(oidc_ctx, PERMISSION_INGEST_WRITE)
 
 
+def test_permission_normalization_accepts_publication_permissions_and_wildcards() -> None:
+    normalized = normalize_permission_grants(
+        [
+            "reports.read.publication.monthly-cashflow",
+            "reports.read.publication.finance.*",
+            "reports.read.publication.*",
+            "reports.read.publication.invalid key",
+        ]
+    )
+
+    assert normalized == (
+        "reports.read.publication.*",
+        "reports.read.publication.finance.*",
+        "reports.read.publication.monthly-cashflow",
+    )
+
+
+def test_permission_bound_principal_uses_explicit_grants_only() -> None:
+    ctx = PrincipalAuthorizationContext(
+        role=UserRole.READER,
+        auth_provider="oidc",
+        granted_permissions=("reports.read.publication.monthly-cashflow",),
+        permission_bound=True,
+    )
+
+    assert has_required_permission(
+        ctx,
+        publication_read_permission("monthly-cashflow"),
+    )
+    assert not has_required_permission(
+        ctx,
+        publication_read_permission("budget-variance"),
+    )
+
+
+def test_reader_role_implies_publication_read_permissions() -> None:
+    reader_ctx = PrincipalAuthorizationContext(
+        role=UserRole.READER,
+        auth_provider="local",
+    )
+
+    assert has_required_permission(
+        reader_ctx,
+        publication_read_permission("monthly-cashflow"),
+    )
+    assert has_required_permission(reader_ctx, PERMISSION_REPORTS_READ_PUBLICATION_WILDCARD)
+
+
 def test_path_permission_mapping_matches_current_auth_surfaces() -> None:
     assert required_permission_for_path("/health") is None
-    assert required_permission_for_path("/reports/monthly-cashflow") == PERMISSION_REPORTS_READ
+    assert required_permission_for_path("/reports/monthly-cashflow") == publication_read_permission(
+        "monthly-cashflow"
+    )
+    assert required_permission_for_path("/reports/loan-schedule/loan-001") == publication_read_permission(
+        "loan-schedule"
+    )
     assert required_permission_for_path("/runs") == PERMISSION_RUNS_READ
     assert required_permission_for_path("/runs/run-1/retry") == PERMISSION_RUNS_RETRY
     assert required_permission_for_path("/ingest") == PERMISSION_INGEST_WRITE
