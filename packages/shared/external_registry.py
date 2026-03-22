@@ -12,7 +12,16 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from uuid import uuid4
 
+from packages.domains.finance.manifest import FINANCE_PACK
+from packages.domains.homelab.manifest import HOMELAB_PACK
+from packages.domains.overview.manifest import OVERVIEW_PACK
+from packages.domains.utilities.manifest import UTILITIES_PACK
 from packages.pipelines.extension_registries import load_pipeline_registries
+from packages.platform.capability_registry import load_capability_packs
+from packages.platform.publication_contracts import (
+    build_publication_contract_catalog,
+    build_publication_relation_map,
+)
 from packages.shared.extensions import load_extension_registry
 from packages.shared.function_registry import load_function_registry
 from packages.shared.secrets import (
@@ -385,13 +394,24 @@ def _validate_manifest_modules(
 ) -> None:
     extension_paths = tuple((source_root / import_path).resolve() for import_path in manifest.import_paths)
     if manifest.extension_modules:
-        load_extension_registry(
+        extension_registry = load_extension_registry(
             extension_paths=extension_paths,
             extension_modules=manifest.extension_modules,
         )
         load_pipeline_registries(
             extension_paths=extension_paths,
             extension_modules=manifest.extension_modules,
+        )
+        capability_packs = load_capability_packs(
+            builtin_packs=(FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK, HOMELAB_PACK),
+            extension_paths=extension_paths,
+            extension_modules=manifest.extension_modules,
+        )
+        build_publication_contract_catalog(
+            capability_packs,
+            publication_relations=build_publication_relation_map(
+                extension_registry=extension_registry,
+            ),
         )
     if manifest.function_modules:
         load_function_registry(

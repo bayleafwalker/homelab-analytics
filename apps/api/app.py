@@ -253,6 +253,7 @@ def _build_container_from_legacy_args(
         subscription_service=resolved_subscription_service,
         contract_price_service=resolved_contract_price_service,
         configured_definition_service=resolved_configured_definition_service,
+        capability_packs=(FINANCE_PACK,),
         finance_pack=FINANCE_PACK,
     )
 
@@ -445,6 +446,7 @@ def create_app(
     register_contract_routes(
         app,
         capability_packs=container.capability_packs,
+        extension_registry=container.extension_registry,
     )
     register_control_routes(
         app,

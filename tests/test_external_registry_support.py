@@ -103,6 +103,97 @@ class ExternalRegistrySupportTests(unittest.TestCase):
             self.assertTrue(Path(result.revision.runtime_path).is_dir())
             self.assertTrue(Path(result.revision.manifest_path).is_file())
 
+    def test_sync_fails_when_external_capability_pack_contract_is_invalid(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            extension_root = temp_root / "invalid-pack-extension"
+            extension_root.mkdir(parents=True, exist_ok=True)
+            (extension_root / "invalid_extension.py").write_text(
+                "\n".join(
+                    [
+                        "from packages.platform.capability_types import CapabilityPack, PublicationDefinition",
+                        "from packages.shared.extensions import ExtensionPublication, LayerExtension",
+                        "",
+                        "def register_extensions(registry):",
+                        "    registry.register(",
+                        "        LayerExtension(",
+                        '            layer=\"reporting\",',
+                        '            key=\"invalid_projection\",',
+                        '            kind=\"mart\",',
+                        '            description=\"Invalid external publication.\",',
+                        '            module=\"invalid_extension\",',
+                        '            source=\"invalid-pack-extension\",',
+                        '            data_access=\"published\",',
+                        "            publication_relations=(",
+                        "                ExtensionPublication(",
+                        '                    relation_name=\"mart_invalid_projection\",',
+                        '                    columns=((\"metric\", \"VARCHAR NOT NULL\"),),',
+                        '                    source_query=\"SELECT booking_month AS metric FROM mart_monthly_cashflow\",',
+                        '                    order_by=\"metric\",',
+                        "                ),",
+                        "            ),",
+                        "        )",
+                        "    )",
+                        "",
+                        "def register_capability_packs(registry):",
+                        "    registry.register(",
+                        "        CapabilityPack(",
+                        '            name=\"invalid_external_pack\",',
+                        '            version=\"1.0.0\",',
+                        "            sources=(),",
+                        "            workflows=(),",
+                        "            publications=(",
+                        "                PublicationDefinition(",
+                        '                    key=\"mart_invalid_projection\",',
+                        '                    schema_name=\"invalid_projection\",',
+                        '                    schema_version=\"1.0.0\",',
+                        '                    display_name=\"Invalid Projection\",',
+                        '                    description=\"Invalid pack contract.\",',
+                        '                    visibility=\"public\",',
+                        '                    lineage_required=True,',
+                        '                    retention_policy=\"indefinite\",',
+                        "                    field_semantics={},",
+                        "                ),",
+                        "            ),",
+                        "            ui_descriptors=(),",
+                        "        )",
+                        "    )",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (extension_root / EXTERNAL_REGISTRY_MANIFEST_FILENAME).write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "import_paths": ["."],
+                        "extension_modules": ["invalid_extension"],
+                        "function_modules": [],
+                        "minimum_platform_version": "0.1.0",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            repository = IngestionConfigRepository(temp_root / "config.db")
+            repository.create_extension_registry_source(
+                ExtensionRegistrySourceCreate(
+                    extension_registry_source_id="invalid-capability-pack",
+                    name="Invalid Capability Pack",
+                    source_kind="path",
+                    location=str(extension_root),
+                )
+            )
+
+            result = sync_extension_registry_source(
+                repository,
+                "invalid-capability-pack",
+            )
+
+            self.assertFalse(result.passed)
+            self.assertEqual("failed", result.revision.sync_status)
+            self.assertIn("missing field semantics", result.revision.validation_error)
+
     def test_git_environment_uses_secret_reference_for_http_auth(self) -> None:
         environment = _build_git_environment(
             ExtensionRegistrySourceRecord(

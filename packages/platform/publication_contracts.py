@@ -13,6 +13,7 @@ from packages.platform.capability_types import (
     PublicationDefinition,
     PublicationFieldDefinition,
 )
+from packages.shared.extensions import ExtensionRegistry
 
 
 @dataclass(frozen=True)
@@ -352,6 +353,31 @@ def _publication_field_definitions(
         name: publication.field_semantics[name]
         for name in column_names
     }
+
+
+def build_publication_relation_map(
+    *,
+    base_relations: Mapping[str, PublicationRelation] | None = None,
+    extension_registry: ExtensionRegistry | None = None,
+) -> dict[str, PublicationRelation]:
+    relation_map = dict(base_relations or PUBLICATION_RELATIONS)
+    if extension_registry is None:
+        return relation_map
+
+    for publication in extension_registry.list_reporting_publications():
+        relation_name = publication.relation_name
+        if relation_name in relation_map:
+            raise ValueError(
+                "Publication relation already registered: "
+                f"{relation_name}"
+            )
+        relation_map[relation_name] = PublicationRelation(
+            relation_name=publication.relation_name,
+            columns=list(publication.columns),
+            order_by=publication.order_by,
+            source_query=publication.source_query,
+        )
+    return relation_map
 
 
 def build_publication_contracts(

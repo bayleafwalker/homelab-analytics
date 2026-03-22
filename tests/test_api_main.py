@@ -39,7 +39,10 @@ from tests.account_test_support import (
     FIXTURES as ACCOUNT_FIXTURES,
 )
 from tests.contract_price_test_support import FIXTURES as CONTRACT_PRICE_FIXTURES
-from tests.external_registry_test_support import create_path_function_extension
+from tests.external_registry_test_support import (
+    create_path_capability_pack_extension,
+    create_path_function_extension,
+)
 from tests.subscription_test_support import FIXTURES as SUBSCRIPTION_FIXTURES
 
 
@@ -274,6 +277,56 @@ class ApiMainTests(unittest.TestCase):
                     "counterparty_name"
                 ],
             )
+
+    def test_build_app_exposes_external_capability_pack_contracts(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            extension = create_path_capability_pack_extension(
+                temp_root,
+                module_name="custom_contract_pack",
+                pack_name="custom_contracts",
+                publication_key="mart_external_projection",
+            )
+            settings = AppSettings(
+                data_dir=temp_root,
+                landing_root=temp_root / "landing",
+                metadata_database_path=temp_root / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    temp_root / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    temp_root / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    temp_root / "failed" / "account-transactions"
+                ),
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+                extension_paths=(extension.root,),
+                extension_modules=(extension.module_name,),
+                enable_unsafe_admin=True,
+            )
+
+            client = TestClient(build_app(settings))
+
+            publication_response = client.get("/contracts/publications")
+            self.assertEqual(200, publication_response.status_code)
+            publication_keys = {
+                contract["publication_key"]
+                for contract in publication_response.json()["publication_contracts"]
+            }
+            self.assertIn("mart_external_projection", publication_keys)
+
+            descriptor_response = client.get("/contracts/ui-descriptors")
+            self.assertEqual(200, descriptor_response.status_code)
+            descriptor_keys = {
+                descriptor["key"]
+                for descriptor in descriptor_response.json()["ui_descriptors"]
+            }
+            self.assertIn("custom_contracts-dashboard", descriptor_keys)
 
     def test_build_app_rejects_local_auth_without_session_secret(self) -> None:
         with TemporaryDirectory() as temp_dir:

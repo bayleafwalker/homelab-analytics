@@ -53,6 +53,18 @@ The export pipeline rejects pack-owned publications when:
 
 Internal non-pack relations still export with inferred fallback semantics so contract discovery stays complete, but pack-owned publications are the strict semantic boundary that renderers should prefer.
 
+### External pack authoring
+
+External registry modules that want contract parity with built-ins should expose `register_capability_packs(registry)` alongside any existing `register_extensions(registry)` hooks.
+
+For a contract-bearing external publication to validate and export successfully:
+
+- the external module must register a `CapabilityPack` with complete publication field semantics and any UI descriptors it wants to expose
+- the same module must also register the backing reporting relation through the reporting extension contract when the publication is published-backed
+- the publication key, relation name, and declared schema must line up across the capability pack, reporting relation, and any pipeline catalog entries
+
+External registry sync validates those hooks before activation. Invalid external pack contracts should therefore fail at sync time rather than surfacing later as a runtime-only startup error.
+
 ## Renderer guidance
 
 Renderers should treat publication contracts as the source of truth for:

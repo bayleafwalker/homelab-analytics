@@ -11,7 +11,11 @@ from packages.domains.finance.manifest import FINANCE_PACK
 from packages.domains.homelab.manifest import HOMELAB_PACK
 from packages.domains.overview.manifest import OVERVIEW_PACK
 from packages.domains.utilities.manifest import UTILITIES_PACK
-from packages.platform.publication_contracts import build_publication_contract_catalog
+from packages.platform.publication_contracts import (
+    build_publication_contract_catalog,
+    build_publication_relation_map,
+)
+from packages.platform.runtime.builder import build_capability_packs, build_extension_registry
 from packages.shared.settings import AppSettings
 
 DEFAULT_GENERATED_DIR = Path("apps/web/frontend/generated")
@@ -47,8 +51,16 @@ def export_contracts(output_dir: Path = DEFAULT_GENERATED_DIR) -> None:
             encoding="utf-8",
         )
 
+        capability_packs = build_capability_packs(
+            settings,
+            builtin_packs=(FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK, HOMELAB_PACK),
+        )
+        extension_registry = build_extension_registry(settings)
         publication_catalog = build_publication_contract_catalog(
-            (FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK, HOMELAB_PACK)
+            capability_packs,
+            publication_relations=build_publication_relation_map(
+                extension_registry=extension_registry,
+            ),
         )
         publication_contracts_path.write_text(
             json.dumps(publication_catalog, indent=2, sort_keys=True, default=to_jsonable)

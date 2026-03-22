@@ -12,6 +12,7 @@ from packages.pipelines.extension_registries import PipelineRegistries, load_pip
 from packages.pipelines.pipeline_catalog import sync_pipeline_catalog
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.platform.auth.configuration import maybe_bootstrap_local_admin
+from packages.platform.capability_registry import load_capability_packs
 from packages.platform.capability_types import CapabilityPack
 from packages.platform.runtime.container import AppContainer
 from packages.shared.extensions import ExtensionRegistry, load_extension_registry
@@ -96,6 +97,24 @@ def build_pipeline_registries(
     )
 
 
+def build_capability_packs(
+    settings: AppSettings,
+    *,
+    builtin_packs: Sequence[CapabilityPack] = (),
+    config_repository: ControlPlaneStore | None = None,
+) -> tuple[CapabilityPack, ...]:
+    resolved = _resolve_extension_settings(settings, config_repository=config_repository)
+    return load_capability_packs(
+        builtin_packs=builtin_packs,
+        extension_paths=(
+            resolved.extension_paths if resolved is not None else settings.extension_paths
+        ),
+        extension_modules=(
+            resolved.extension_modules if resolved is not None else settings.extension_modules
+        ),
+    )
+
+
 def build_container(
     settings: AppSettings,
     *,
@@ -112,19 +131,23 @@ def build_container(
     before the container is assembled.  The first pack (if any) is stored on
     the container as finance_pack for backward-compatible access.
     """
-    for pack in capability_packs:
+    blob_store = build_blob_store(settings)
+    run_metadata_store = build_run_metadata_store(settings)
+    control_plane_store = build_config_store(settings)
+    resolved_capability_packs = build_capability_packs(
+        settings,
+        builtin_packs=capability_packs,
+        config_repository=control_plane_store,
+    )
+    for pack in resolved_capability_packs:
         pack.validate()
 
-    all_pub_keys = [pub.key for pack in capability_packs for pub in pack.publications]
+    all_pub_keys = [pub.key for pack in resolved_capability_packs for pub in pack.publications]
     duplicates = [key for key, count in Counter(all_pub_keys).items() if count > 1]
     if duplicates:
         raise ValueError(
             f"Publication keys owned by multiple capability packs: {duplicates}"
         )
-
-    blob_store = build_blob_store(settings)
-    run_metadata_store = build_run_metadata_store(settings)
-    control_plane_store = build_config_store(settings)
 
     extension_registry = build_extension_registry(
         settings, config_repository=control_plane_store
@@ -144,7 +167,7 @@ def build_container(
         promotion_handler_registry=pipeline_registries.promotion_handler_registry,
     )
 
-    finance_pack = next((p for p in capability_packs if p.name == "finance"), None)
+    finance_pack = next((p for p in resolved_capability_packs if p.name == "finance"), None)
 
     service = AccountTransactionService(
         landing_root=settings.landing_root,
@@ -181,6 +204,6 @@ def build_container(
             blob_store=blob_store,
             function_registry=function_registry,
         ),
-        capability_packs=tuple(capability_packs),
+        capability_packs=tuple(resolved_capability_packs),
         finance_pack=finance_pack,
     )

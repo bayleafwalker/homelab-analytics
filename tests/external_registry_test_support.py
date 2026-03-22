@@ -30,6 +30,14 @@ class PathPipelineExtension:
     transformation_package_id: str
 
 
+@dataclass(frozen=True)
+class PathCapabilityPackExtension:
+    root: Path
+    module_name: str
+    pack_name: str
+    publication_key: str
+
+
 def create_git_extension_repository(
     root: Path,
     *,
@@ -238,6 +246,110 @@ def create_path_pipeline_extension(
         handler_key=handler_key,
         publication_key=publication_key,
         transformation_package_id=transformation_package_id,
+    )
+
+
+def create_path_capability_pack_extension(
+    root: Path,
+    *,
+    module_name: str,
+    pack_name: str,
+    publication_key: str,
+) -> PathCapabilityPackExtension:
+    extension_root = root / "path-capability-pack-extension"
+    extension_root.mkdir(parents=True, exist_ok=True)
+    schema_name = publication_key.removeprefix("mart_")
+    ui_key = f"{pack_name}-dashboard"
+    (extension_root / f"{module_name}.py").write_text(
+        "\n".join(
+            [
+                "from packages.platform.capability_types import (",
+                "    CapabilityPack,",
+                "    PublicationDefinition,",
+                "    UiDescriptor,",
+                "    dimension_field,",
+                ")",
+                "from packages.shared.extensions import (",
+                "    ExtensionPublication,",
+                "    LayerExtension,",
+                ")",
+                "",
+                "def register_extensions(registry):",
+                "    registry.register(",
+                "        LayerExtension(",
+                '            layer="reporting",',
+                f'            key="{pack_name}_reporting_extension",',
+                '            kind="mart",',
+                '            description="External pack reporting relation.",',
+                f'            module="{module_name}",',
+                '            source="path-capability-pack-extension",',
+                '            data_access="published",',
+                "            publication_relations=(",
+                "                ExtensionPublication(",
+                f'                    relation_name="{publication_key}",',
+                '                    columns=(("metric", "VARCHAR NOT NULL"),),',
+                '                    source_query="SELECT booking_month AS metric FROM mart_monthly_cashflow",',
+                '                    order_by="metric",',
+                "                ),",
+                "            ),",
+                "        )",
+                "    )",
+                "",
+                "def register_capability_packs(registry):",
+                "    registry.register(",
+                "        CapabilityPack(",
+                f'            name="{pack_name}",',
+                '            version="1.0.0",',
+                "            sources=(),",
+                "            workflows=(),",
+                "            publications=(",
+                "                PublicationDefinition(",
+                f'                    key="{publication_key}",',
+                f'                    schema_name="{schema_name}",',
+                '                    schema_version="1.0.0",',
+                '                    display_name="External Projection",',
+                '                    description="External projection contract.",',
+                '                    visibility="public",',
+                '                    lineage_required=True,',
+                '                    retention_policy="indefinite",',
+                '                    field_semantics={"metric": dimension_field("External metric label.")},',
+                "                ),",
+                "            ),",
+                "            ui_descriptors=(",
+                "                UiDescriptor(",
+                f'                    key="{ui_key}",',
+                '                    nav_label="External Projection",',
+                f'                    nav_path="/external/{pack_name}",',
+                '                    kind="table",',
+                f'                    publication_keys=("{publication_key}",),',
+                '                    icon="box",',
+                '                    supported_renderers=("web",),',
+                "                ),",
+                "            ),",
+                "        )",
+                "    )",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (extension_root / "homelab-analytics.registry.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "import_paths": ["."],
+                "extension_modules": [module_name],
+                "function_modules": [],
+                "minimum_platform_version": "0.1.0",
+            }
+        ),
+        encoding="utf-8",
+    )
+    return PathCapabilityPackExtension(
+        root=extension_root,
+        module_name=module_name,
+        pack_name=pack_name,
+        publication_key=publication_key,
     )
 
 
