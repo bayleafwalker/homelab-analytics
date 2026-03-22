@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from packages.platform.auth.permission_registry import (
     PERMISSION_ADMIN_WRITE,
+    PERMISSION_CONTROL_CONFIG_READ,
+    PERMISSION_CONTROL_CONFIG_READ_RESOURCE_WILDCARD,
+    PERMISSION_CONTROL_CONFIG_WRITE,
+    PERMISSION_CONTROL_CONFIG_WRITE_RESOURCE_WILDCARD,
     PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_WILDCARD,
     PERMISSION_CONTROL_SCHEDULE_DISPATCHES_READ_DISPATCH_WILDCARD,
     PERMISSION_CONTROL_SCHEDULE_DISPATCHES_READ_SCHEDULE_WILDCARD,
@@ -16,6 +20,8 @@ from packages.platform.auth.permission_registry import (
     PERMISSION_RUNS_RETRY_RUN_WILDCARD,
     PERMISSION_TRANSFORMATION_AUDIT_RUN_WILDCARD,
     PrincipalAuthorizationContext,
+    config_read_resource_permission,
+    config_write_resource_permission,
     has_required_permission,
     normalize_permission_grants,
     permissions_for_principal,
@@ -67,10 +73,15 @@ def test_service_scope_permissions_map_to_canonical_permissions() -> None:
     ingest_scope = permissions_for_service_token_scopes(
         (SERVICE_TOKEN_SCOPE_INGEST_WRITE,)
     )
+    admin_scope = permissions_for_service_token_scopes(
+        (SERVICE_TOKEN_SCOPE_ADMIN_WRITE,)
+    )
 
     assert report_scope == {PERMISSION_REPORTS_READ}
     assert PERMISSION_RUNS_READ in run_scope
     assert PERMISSION_RUNS_RETRY in ingest_scope
+    assert PERMISSION_CONTROL_CONFIG_READ in admin_scope
+    assert PERMISSION_CONTROL_CONFIG_WRITE in admin_scope
 
 
 def test_service_token_permissions_intersect_role_and_scope_grants() -> None:
@@ -166,6 +177,10 @@ def test_permission_normalization_accepts_control_asset_permissions_and_wildcard
             "control.schedule_dispatches.read.schedule.*",
             "control.schedule_dispatches.write.dispatch.dispatch-001",
             "control.schedule_dispatches.write.dispatch.*",
+            "control.config.read.resource.source-systems.source-001",
+            "control.config.read.resource.source-systems.*",
+            "control.config.write.resource.execution-schedules.schedule-001.archive",
+            "control.config.write.resource.execution-schedules.*",
             "control.publication_audit.read.publication.invalid key",
             "transformation.audit.read.run.run-001",
             "transformation.audit.read.run.finance.*",
@@ -174,6 +189,10 @@ def test_permission_normalization_accepts_control_asset_permissions_and_wildcard
     )
 
     assert normalized == (
+        "control.config.read.resource.source-systems.*",
+        "control.config.read.resource.source-systems.source-001",
+        "control.config.write.resource.execution-schedules.*",
+        "control.config.write.resource.execution-schedules.schedule-001.archive",
         "control.publication_audit.read.publication.*",
         "control.publication_audit.read.publication.monthly-cashflow",
         "control.publication_audit.read.publication.reports.*",
@@ -305,6 +324,30 @@ def test_operator_role_implies_control_schedule_dispatch_write_permissions() -> 
     )
 
 
+def test_admin_role_implies_control_config_resource_permissions() -> None:
+    admin_ctx = PrincipalAuthorizationContext(
+        role=UserRole.ADMIN,
+        auth_provider="local",
+    )
+
+    assert has_required_permission(
+        admin_ctx,
+        config_read_resource_permission("source-systems.source-001"),
+    )
+    assert has_required_permission(
+        admin_ctx,
+        config_write_resource_permission("execution-schedules.schedule-001.archive"),
+    )
+    assert has_required_permission(
+        admin_ctx,
+        PERMISSION_CONTROL_CONFIG_READ_RESOURCE_WILDCARD,
+    )
+    assert has_required_permission(
+        admin_ctx,
+        PERMISSION_CONTROL_CONFIG_WRITE_RESOURCE_WILDCARD,
+    )
+
+
 def test_path_permission_mapping_matches_current_auth_surfaces() -> None:
     assert required_permission_for_path("/health") is None
     assert required_permission_for_path("/reports/monthly-cashflow") == publication_read_permission(
@@ -357,6 +400,29 @@ def test_request_permission_mapping_supports_control_asset_scopes() -> None:
 
 
 def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> None:
+    assert required_role_for_request("/config/source-systems", "GET") == UserRole.ADMIN
+    assert required_permission_for_request(
+        "/config/source-systems",
+        method="GET",
+    ) == "control.config.read.resource.source-systems"
+    assert (
+        required_service_token_scope_for_request("/config/source-systems", "GET")
+        == "admin:write"
+    )
+
+    assert required_role_for_request("/config/source-systems/source-001", "PATCH") == UserRole.ADMIN
+    assert required_permission_for_request(
+        "/config/source-systems/source-001",
+        method="PATCH",
+    ) == "control.config.write.resource.source-systems.source-001"
+    assert (
+        required_service_token_scope_for_request(
+            "/config/source-systems/source-001",
+            "PATCH",
+        )
+        == "admin:write"
+    )
+
     assert required_role_for_request("/control/schedule-dispatches", "GET") == UserRole.READER
     assert required_permission_for_request(
         "/control/schedule-dispatches",

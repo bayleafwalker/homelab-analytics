@@ -392,6 +392,117 @@ def test_api_oidc_unknown_permission_claim_values_are_ignored() -> None:
         assert response.status_code == 403
 
 
+def test_api_oidc_rejects_invalid_permissions_claim_shape_for_bearer_tokens() -> None:
+    issuer = MockOidcIssuer()
+    with TemporaryDirectory() as temp_dir:
+        client = _build_oidc_client(
+            temp_dir,
+            issuer,
+            reader_groups=("readers",),
+            permissions_claim="hla_permissions",
+        )
+        token = issuer.issue_token(
+            subject="reader-invalid-permissions-shape",
+            username="reader-invalid-permissions@example.test",
+            audience=issuer.api_audience,
+            groups=("readers",),
+            extra_claims={"hla_permissions": {"permission": "ingest.write"}},
+        )
+
+        response = client.get(
+            "/runs",
+            headers={"authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Invalid bearer token."
+
+
+def test_api_oidc_rejects_invalid_permissions_claim_members_for_bearer_tokens() -> None:
+    issuer = MockOidcIssuer()
+    with TemporaryDirectory() as temp_dir:
+        client = _build_oidc_client(
+            temp_dir,
+            issuer,
+            reader_groups=("readers",),
+            permissions_claim="hla_permissions",
+        )
+        token = issuer.issue_token(
+            subject="reader-invalid-permissions-member",
+            username="reader-invalid-member@example.test",
+            audience=issuer.api_audience,
+            groups=("readers",),
+            extra_claims={"hla_permissions": ["runs.read", 123]},
+        )
+
+        response = client.get(
+            "/runs",
+            headers={"authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Invalid bearer token."
+
+
+def test_api_oidc_rejects_invalid_groups_claim_shape_for_bearer_tokens() -> None:
+    issuer = MockOidcIssuer()
+    with TemporaryDirectory() as temp_dir:
+        client = _build_oidc_client(
+            temp_dir,
+            issuer,
+            reader_groups=("readers",),
+        )
+        token = issuer.issue_token(
+            subject="reader-invalid-groups-shape",
+            username="reader-invalid-groups@example.test",
+            audience=issuer.api_audience,
+            groups=(),
+            extra_claims={"groups": {"role": "readers"}},
+        )
+
+        response = client.get(
+            "/runs",
+            headers={"authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Invalid bearer token."
+
+
+def test_api_oidc_callback_rejects_invalid_permissions_claim_shape() -> None:
+    issuer = MockOidcIssuer()
+    with TemporaryDirectory() as temp_dir:
+        client = _build_oidc_client(
+            temp_dir,
+            issuer,
+            reader_groups=("readers",),
+            permissions_claim="hla_permissions",
+        )
+
+        start = client.get("/auth/login?return_to=/reports", follow_redirects=False)
+        assert start.status_code == 303
+        redirect = urlparse(start.headers["location"])
+        query = parse_qs(redirect.query)
+        nonce = query["nonce"][0]
+        state = query["state"][0]
+        issuer.register_code(
+            "oidc-invalid-permissions-callback-code",
+            subject="user-oidc-invalid-permissions",
+            username="reader-invalid-permissions@example.test",
+            nonce=nonce,
+            groups=("readers",),
+            extra_claims={"hla_permissions": {"permission": "runs.read"}},
+        )
+
+        callback = client.get(
+            f"/auth/callback?code=oidc-invalid-permissions-callback-code&state={state}",
+            follow_redirects=False,
+        )
+
+        assert callback.status_code == 303
+        assert callback.headers["location"] == "/login?error=oidc-failed"
+
+
 def test_api_oidc_permission_bound_principal_enforces_publication_permissions() -> None:
     issuer = MockOidcIssuer()
     with TemporaryDirectory() as temp_dir:
@@ -601,6 +712,84 @@ def test_api_oidc_permission_bound_principal_enforces_schedule_dispatch_asset_pe
         )
         assert denied_retry.status_code == 403
         assert denied_retry.json()["detail"] == "operator role required."
+
+
+def test_api_oidc_permission_bound_principal_enforces_config_resource_permissions() -> None:
+    issuer = MockOidcIssuer()
+    with TemporaryDirectory() as temp_dir:
+        client = _build_oidc_client(
+            temp_dir,
+            issuer,
+            reader_groups=("readers",),
+            permissions_claim="hla_permissions",
+        )
+        token = issuer.issue_token(
+            subject="permission-only-config",
+            username="permission-config@example.test",
+            audience=issuer.api_audience,
+            groups=(),
+            extra_claims={
+                "hla_permissions": [
+                    "control.config.read.resource.source-systems",
+                    "control.config.write.resource.source-systems.source-001",
+                ],
+            },
+        )
+        headers = {"authorization": f"Bearer {token}"}
+
+        allowed_list = client.get("/config/source-systems", headers=headers)
+        assert allowed_list.status_code == 200
+
+        denied_list = client.get("/config/ingestion-definitions", headers=headers)
+        assert denied_list.status_code == 403
+        assert denied_list.json()["detail"] == "admin role required."
+
+        allowed_update = client.patch(
+            "/config/source-systems/source-001",
+            json={
+                "source_system_id": "source-001",
+                "name": "Source 001",
+                "source_type": "api",
+                "transport": "http",
+                "schedule_mode": "manual",
+                "description": None,
+                "enabled": True,
+            },
+            headers=headers,
+        )
+        assert allowed_update.status_code == 404
+
+        denied_update = client.patch(
+            "/config/source-systems/source-002",
+            json={
+                "source_system_id": "source-002",
+                "name": "Source 002",
+                "source_type": "api",
+                "transport": "http",
+                "schedule_mode": "manual",
+                "description": None,
+                "enabled": True,
+            },
+            headers=headers,
+        )
+        assert denied_update.status_code == 403
+        assert denied_update.json()["detail"] == "admin role required."
+
+        denied_create = client.post(
+            "/config/source-systems",
+            json={
+                "source_system_id": "source-003",
+                "name": "Source 003",
+                "source_type": "api",
+                "transport": "http",
+                "schedule_mode": "manual",
+                "description": None,
+                "enabled": True,
+            },
+            headers=headers,
+        )
+        assert denied_create.status_code == 403
+        assert denied_create.json()["detail"] == "admin role required."
 
 
 def test_api_oidc_group_to_permission_mapping_grants_ingest() -> None:

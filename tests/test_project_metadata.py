@@ -1,3 +1,4 @@
+import re
 import tomllib
 import unittest
 from pathlib import Path
@@ -128,6 +129,33 @@ class ProjectMetadataTests(unittest.TestCase):
         self.assertIn("http://127.0.0.1:8080/ready", content)
         self.assertIn("http://127.0.0.1:8081/ready", content)
         self.assertGreaterEqual(content.count("healthcheck:"), 3)
+
+    def test_examples_do_not_use_legacy_local_auth_mode_value(self) -> None:
+        files = [
+            ROOT / ".env.example",
+            ROOT / "infra" / "examples" / "compose.yaml",
+            ROOT / "infra" / "examples" / "secrets" / "auth-local-secret.example.yaml",
+            ROOT / "charts" / "homelab-analytics" / "values.yaml",
+            ROOT / "charts" / "homelab-analytics" / "values.runtime-secrets-example.yaml",
+            ROOT / "charts" / "homelab-analytics" / "values.oidc-ingress-example.yaml",
+        ]
+        local_auth_mode = re.compile(
+            r"HOMELAB_ANALYTICS_AUTH_MODE\s*[:=]\s*['\"]?local['\"]?(?:\s|$)"
+        )
+        local_identity_mode = re.compile(
+            r"HOMELAB_ANALYTICS_IDENTITY_MODE\s*[:=]\s*['\"]?local['\"]?(?:\s|$)"
+        )
+
+        for path in files:
+            content = path.read_text()
+            self.assertIsNone(
+                local_auth_mode.search(content),
+                f"{path} still uses HOMELAB_ANALYTICS_AUTH_MODE=local; use local_single_user or OIDC defaults.",
+            )
+            self.assertIsNone(
+                local_identity_mode.search(content),
+                f"{path} still uses HOMELAB_ANALYTICS_IDENTITY_MODE=local; use local_single_user or OIDC defaults.",
+            )
 
     def test_example_compose_enforces_release_ops_dependency_contract(self) -> None:
         compose = yaml.safe_load((ROOT / "infra" / "examples" / "compose.yaml").read_text())

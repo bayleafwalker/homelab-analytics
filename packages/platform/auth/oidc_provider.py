@@ -304,13 +304,22 @@ class OidcProvider:
         return ("Set-Cookie", morsel.OutputString())
 
     def _claim_username(self, claims: dict[str, Any]) -> str:
+        configured_claim = self.username_claim.strip()
+        raw_configured = claims.get(configured_claim)
+        if raw_configured is not None:
+            if isinstance(raw_configured, str) and raw_configured.strip():
+                return raw_configured.strip()
+            raise OidcAuthenticationError(
+                f"OIDC username claim '{configured_claim}' must be a non-empty string."
+            )
         for field_name in (
-            self.username_claim,
             "preferred_username",
             "email",
             "name",
             "sub",
         ):
+            if field_name == configured_claim:
+                continue
             value = claims.get(field_name)
             if isinstance(value, str) and value.strip():
                 return value.strip()
@@ -318,12 +327,24 @@ class OidcProvider:
 
     def _groups_from_claims(self, claims: dict[str, Any]) -> set[str]:
         raw_groups = claims.get(self.groups_claim)
-        groups: set[str] = set()
+        if raw_groups is None:
+            return set()
         if isinstance(raw_groups, list):
-            groups = {str(value).strip().lower() for value in raw_groups if str(value).strip()}
-        elif isinstance(raw_groups, str) and raw_groups.strip():
-            groups = {part.strip().lower() for part in raw_groups.split(",") if part.strip()}
-        return groups
+            groups: set[str] = set()
+            for value in raw_groups:
+                if not isinstance(value, str):
+                    raise OidcAuthenticationError(
+                        f"OIDC groups claim '{self.groups_claim}' must contain only string values."
+                    )
+                normalized = value.strip().lower()
+                if normalized:
+                    groups.add(normalized)
+            return groups
+        if isinstance(raw_groups, str):
+            return {part.strip().lower() for part in raw_groups.split(",") if part.strip()}
+        raise OidcAuthenticationError(
+            f"OIDC groups claim '{self.groups_claim}' must be a string or list of strings."
+        )
 
     def _role_from_groups(
         self,
@@ -354,15 +375,24 @@ class OidcProvider:
         if not self.permissions_claim:
             return ()
         raw_permissions = claims.get(self.permissions_claim)
+        if raw_permissions is None:
+            return ()
         if isinstance(raw_permissions, list):
-            return normalize_permission_grants(
-                [str(value) for value in raw_permissions]
-            )
+            permissions: list[str] = []
+            for value in raw_permissions:
+                if not isinstance(value, str):
+                    raise OidcAuthenticationError(
+                        f"OIDC permissions claim '{self.permissions_claim}' must contain only string values."
+                    )
+                permissions.append(value)
+            return normalize_permission_grants(permissions)
         if isinstance(raw_permissions, str) and raw_permissions.strip():
             return normalize_permission_grants(
                 [part for part in raw_permissions.split(",")]
             )
-        return ()
+        raise OidcAuthenticationError(
+            f"OIDC permissions claim '{self.permissions_claim}' must be a string or list of strings."
+        )
 
     def _permissions_from_groups(self, groups: set[str]) -> tuple[str, ...]:
         if not self.permission_group_mappings:

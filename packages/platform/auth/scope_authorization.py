@@ -5,6 +5,8 @@ from collections.abc import Mapping
 
 from packages.platform.auth.permission_registry import (
     PERMISSION_ADMIN_WRITE,
+    PERMISSION_CONTROL_CONFIG_READ,
+    PERMISSION_CONTROL_CONFIG_WRITE,
     PERMISSION_CONTROL_PUBLICATION_AUDIT_READ,
     PERMISSION_CONTROL_SCHEDULE_DISPATCHES_READ,
     PERMISSION_CONTROL_SCHEDULE_DISPATCHES_WRITE,
@@ -14,6 +16,8 @@ from packages.platform.auth.permission_registry import (
     PERMISSION_RUNS_READ,
     PERMISSION_RUNS_RETRY,
     PERMISSION_TRANSFORMATION_AUDIT_READ,
+    config_read_resource_permission,
+    config_write_resource_permission,
     publication_audit_publication_permission,
     publication_read_permission,
     run_read_permission,
@@ -31,6 +35,16 @@ from packages.storage.auth_store import (
     SERVICE_TOKEN_SCOPE_RUNS_READ,
     UserRole,
 )
+
+
+def _config_resource_key(path: str) -> str | None:
+    suffix = path.removeprefix("/config/").strip("/")
+    if not suffix:
+        return None
+    parts = [part.strip().lower() for part in suffix.split("/") if part.strip()]
+    if not parts:
+        return None
+    return ".".join(parts)
 
 
 def required_permission_for_path(path: str) -> str | None:
@@ -93,6 +107,21 @@ def required_permission_for_request(
 ) -> str | None:
     request_method = (method or "GET").upper()
     required_permission = required_permission_for_path(path)
+    if path.startswith("/config/"):
+        resource_key = _config_resource_key(path)
+        if request_method in {"GET", "HEAD", "OPTIONS"}:
+            if resource_key:
+                return (
+                    config_read_resource_permission(resource_key)
+                    or PERMISSION_CONTROL_CONFIG_READ
+                )
+            return PERMISSION_CONTROL_CONFIG_READ
+        if resource_key:
+            return (
+                config_write_resource_permission(resource_key)
+                or PERMISSION_CONTROL_CONFIG_WRITE
+            )
+        return PERMISSION_CONTROL_CONFIG_WRITE
     if path == "/control/schedule-dispatches":
         if request_method == "GET":
             schedule_id = (query_params or {}).get("schedule_id", "").strip()
