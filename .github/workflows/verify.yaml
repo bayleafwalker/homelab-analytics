@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -32,6 +34,29 @@ jobs:
 
       - name: Run blocking verification
         run: make verify-fast
+
+      - name: Build contract artifact bundle for pull requests
+        if: github.event_name == 'pull_request'
+        run: make contract-release-artifacts CONTRACT_BASE_REF=origin/${{ github.base_ref }}
+
+      - name: Build contract artifact bundle for main pushes
+        if: github.event_name == 'push'
+        run: |
+          if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            make contract-release-artifacts CONTRACT_BASE_REF=${{ github.event.before }}
+          else
+            make contract-release-artifacts
+          fi
+
+      - name: Build contract artifact bundle for manual runs
+        if: github.event_name == 'workflow_dispatch'
+        run: make contract-release-artifacts
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: contract-artifacts-${{ github.sha }}
+          path: dist/contracts
 
   docker-smoke:
     runs-on: ubuntu-latest

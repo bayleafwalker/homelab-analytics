@@ -26,6 +26,9 @@ def test_makefile_contains_required_verification_targets() -> None:
         "verify-docs:",
         "verify-agent:",
         "verify-arch:",
+        "contract-export-check:",
+        "contract-compat-report:",
+        "contract-release-artifacts:",
         "verify-fast:",
         "verify-all:",
         "verify-domain:",
@@ -38,8 +41,8 @@ def test_makefile_contains_required_verification_targets() -> None:
     assert "test-coverage:" in content
     assert (
         "verify-fast: lint typecheck test-fast test-sqlite-adapters "
-        "verify-docs verify-agent verify-arch web-codegen-check web-typecheck "
-        "web-build helm-lint"
+        "verify-docs verify-agent verify-arch contract-export-check "
+        "web-codegen-check web-typecheck web-build helm-lint"
     ) in content
     assert "APP_IMAGE := homelab-analytics:latest" in content
     assert "WEB_IMAGE := homelab-analytics-web:latest" in content
@@ -52,10 +55,13 @@ def test_ci_workflow_runs_blocking_and_advisory_verification() -> None:
 
     for fragment in [
         "make verify-fast",
+        "make contract-release-artifacts",
         "make docker-build",
         "make compose-smoke",
         "make audit-deps",
         "azure/setup-helm",
         "python -m pip install -e .[dev]",
+        "actions/upload-artifact@v4",
+        "fetch-depth: 0",
     ]:
         assert fragment in content

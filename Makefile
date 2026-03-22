@@ -14,12 +14,15 @@ WEB_IMAGE := homelab-analytics-web:latest
 TEST ?=
 DOMAIN ?=
 VERIFY_CONFIG_ARGS ?=
+CONTRACT_BASE_REF ?=
+CONTRACT_RELEASE_DIR ?= dist/contracts
 
 .PHONY: lint typecheck test test-fast test-target test-integration test-e2e-local \
 	test-storage-adapters test-sqlite-adapters test-coverage verify-config verify-docs \
 	verify-agent verify-arch verify-fast verify-all verify-domain helm-lint \
 	docker-build compose-smoke audit-deps db-migrate-sqlite db-migrate-postgres \
-	web-codegen web-codegen-check web-typecheck web-build
+	web-codegen web-codegen-check web-typecheck web-build \
+	contract-export-check contract-compat-report contract-release-artifacts
 
 lint:
 	$(RUFF) check .
@@ -70,6 +73,19 @@ verify-agent:
 
 verify-arch:
 	$(PYTEST) -q tests/test_architecture_contract.py
+
+contract-export-check:
+	$(PYTHON) -m apps.api.contract_artifacts export-check
+
+contract-compat-report:
+	$(PYTHON) -m apps.api.contract_artifacts report \
+		$(if $(CONTRACT_BASE_REF),--base-ref $(CONTRACT_BASE_REF),) \
+		--output-dir $(CONTRACT_RELEASE_DIR)
+
+contract-release-artifacts:
+	$(PYTHON) -m apps.api.contract_artifacts bundle \
+		$(if $(CONTRACT_BASE_REF),--base-ref $(CONTRACT_BASE_REF),) \
+		--output-dir $(CONTRACT_RELEASE_DIR)
 
 web-codegen:
 	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run codegen
@@ -122,7 +138,7 @@ compose-smoke:
 audit-deps:
 	-$(PIP_AUDIT)
 
-verify-fast: lint typecheck test-fast test-sqlite-adapters verify-docs verify-agent verify-arch web-codegen-check web-typecheck web-build helm-lint
+verify-fast: lint typecheck test-fast test-sqlite-adapters verify-docs verify-agent verify-arch contract-export-check web-codegen-check web-typecheck web-build helm-lint
 
 verify-all: verify-fast test-integration test-e2e-local docker-build
 

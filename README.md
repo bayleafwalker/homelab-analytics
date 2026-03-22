@@ -93,6 +93,7 @@ homelab-analytics/
 - `docs/README.md` — full documentation index
 - `requirements/README.md` — requirements baseline across five domains
 - `docs/architecture/data-platform-architecture.md` — source-to-reporting data architecture and forward-looking layer definitions
+- `docs/architecture/contract-governance.md` — contract compatibility policy, stale-artifact checks, and release bundle workflow
 - `docs/architecture/publication-contracts.md` — publication and UI descriptor contract model for renderer consumers
 - `docs/decisions/household-operating-platform-direction.md` — operating platform direction and 11-stage model
 - `docs/decisions/household-platform-adr-and-refactor-blueprint.md` — modular monolith architecture and capability pack model

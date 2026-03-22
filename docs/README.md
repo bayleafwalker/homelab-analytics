@@ -7,6 +7,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 ## Architecture
 
 - `architecture/data-platform-architecture.md` — source ingestion pattern, landing/bronze, transformation/silver, reporting/gold, SCD handling, extensibility model, and API/UI publishing model. Also covers forward-looking architectural layers: semantic domain, planning/scenario, policy/automation, multi-renderer delivery, pack ecosystem, and trust/governance.
+- `architecture/contract-governance.md` — stale-artifact checks, contract compatibility policy, and CI/release contract bundle workflow.
 - `architecture/publication-contracts.md` — backend-owned publication and UI descriptor contract model, semantic field metadata, renderer expectations, and generated frontend publication types.
 - `architecture/homeassistant-integration-hub.md` — six-layer integration hub architecture: entity normalization bridge, bidirectional event/command fabric, synthetic entity publication model, and resilience model.
 - `architecture/simulation-engine.md` — scenario storage schema, compute model, assumption tracking, and planned scenario types.

@@ -40,6 +40,7 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/agents/review.md",
             "docs/agents/release-ops.md",
             "docs/plans/homelab-analytics-platform-plan.md",
+            "docs/architecture/contract-governance.md",
             "docs/architecture/data-platform-architecture.md",
             "docs/decisions/compute-and-orchestration-options.md",
             "docs/notes/appservice-cluster-integration-notes.md",
