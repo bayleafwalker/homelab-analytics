@@ -26,6 +26,11 @@ from packages.platform.auth.permission_registry import (
     PrincipalAuthorizationContext,
     has_required_permission,
 )
+from packages.platform.auth.proxy_provider import (
+    ProxyAuthenticationError,
+    ProxyAuthorizationError,
+    ProxyProvider,
+)
 from packages.platform.auth.role_hierarchy import (
     authenticate_service_token,
     has_required_role,
@@ -67,6 +72,7 @@ def register_auth_middleware(
     resolved_auth_store: AuthStore,
     resolved_session_manager: SessionManager | None,
     resolved_oidc_provider: OidcProvider | None,
+    resolved_proxy_provider: ProxyProvider | None,
     enable_unsafe_admin: bool,
     break_glass_controller: BreakGlassController | None,
     record_auth_event: Callable[..., None],
@@ -79,8 +85,9 @@ def register_auth_middleware(
         started = time.perf_counter()
         request.state.principal = None
         request.state.auth_via_cookie = False
-        if is_cookie_auth_mode(resolved_auth_mode):
-            assert resolved_session_manager is not None
+        if resolved_auth_mode != "disabled":
+            if is_cookie_auth_mode(resolved_auth_mode):
+                assert resolved_session_manager is not None
             required_role = required_role_for_path(request.url.path)
             required_scope = required_service_token_scope_for_path(request.url.path)
             required_permission = required_permission_for_path(request.url.path)
@@ -138,11 +145,29 @@ def register_auth_middleware(
                             content={"detail": "Invalid bearer token."},
                         )
             else:
-                request.state.principal = resolved_session_manager.authenticate(
-                    request.cookies.get(resolved_session_manager.cookie_name),
-                    resolved_auth_store,
-                )
-                request.state.auth_via_cookie = request.state.principal is not None
+                if resolved_auth_mode == "proxy":
+                    assert resolved_proxy_provider is not None
+                    try:
+                        request.state.principal = resolved_proxy_provider.authenticate_request(
+                            request
+                        )
+                    except ProxyAuthorizationError as exc:
+                        auth_error_response = JSONResponse(
+                            status_code=403,
+                            content={"detail": str(exc)},
+                        )
+                    except ProxyAuthenticationError as exc:
+                        auth_error_response = JSONResponse(
+                            status_code=401,
+                            content={"detail": str(exc)},
+                        )
+                else:
+                    assert resolved_session_manager is not None
+                    request.state.principal = resolved_session_manager.authenticate(
+                        request.cookies.get(resolved_session_manager.cookie_name),
+                        resolved_auth_store,
+                    )
+                    request.state.auth_via_cookie = request.state.principal is not None
             if auth_error_response is not None:
                 log_request(
                     logger,
@@ -195,6 +220,7 @@ def register_auth_middleware(
                 and bool(getattr(request.state, "auth_via_cookie", False))
                 and request.method.upper() not in {"GET", "HEAD", "OPTIONS"}
             ):
+                assert resolved_session_manager is not None
                 csrf_header = request.headers.get("x-csrf-token")
                 csrf_cookie = request.cookies.get(
                     resolved_session_manager.csrf_cookie_name

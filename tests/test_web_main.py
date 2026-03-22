@@ -148,7 +148,7 @@ class WebMainTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "OIDC auth requires settings"):
                 build_runtime(settings)
 
-    def test_build_runtime_rejects_proxy_mode_until_supported(self) -> None:
+    def test_build_runtime_rejects_proxy_mode_without_trusted_cidrs(self) -> None:
         with TemporaryDirectory() as temp_dir:
             settings = AppSettings(
                 data_dir=Path(temp_dir),
@@ -174,9 +174,40 @@ class WebMainTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 ValueError,
-                "reserved but not implemented yet",
+                "HOMELAB_ANALYTICS_PROXY_TRUSTED_CIDRS",
             ):
                 build_runtime(settings)
+
+    def test_build_runtime_accepts_proxy_mode_with_trusted_cidrs(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="127.0.0.1",
+                api_port=8090,
+                api_base_url="http://api.internal:8090",
+                web_host="0.0.0.0",
+                web_port=8081,
+                worker_poll_interval_seconds=1,
+                auth_mode="proxy",
+                proxy_trusted_cidrs=("10.0.0.0/8",),
+            )
+
+            with patch("apps.web.main.build_web_command", return_value=["node", "server.js"]):
+                _, _, environment = build_runtime(settings)
+
+            self.assertEqual("proxy", environment["HOMELAB_ANALYTICS_AUTH_MODE"])
+            self.assertEqual("proxy", environment["HOMELAB_ANALYTICS_IDENTITY_MODE"])
 
 
 if __name__ == "__main__":

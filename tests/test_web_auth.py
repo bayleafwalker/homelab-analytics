@@ -367,6 +367,7 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert 'action="/auth/login"' in login_page
     assert "Too many failed login attempts" in login_page
     assert "Sign In with OIDC" in login_page
+    assert "Proxy-Managed Sign-In" in login_page
     assert 'process.env.HOMELAB_ANALYTICS_AUTH_MODE' in login_page
     assert 'process.env.HOMELAB_ANALYTICS_IDENTITY_MODE' in login_page
     assert "getLocalUsers" in control_page

@@ -19,6 +19,12 @@ from packages.platform.auth.oidc_provider import (
     OidcProvider,
     build_oidc_provider,
 )
+from packages.platform.auth.proxy_provider import (
+    ProxyAuthenticationError,
+    ProxyAuthorizationError,
+    ProxyProvider,
+    build_proxy_provider,
+)
 from packages.platform.auth.role_hierarchy import (
     AuthenticatedPrincipal,
     authenticate_service_token,
@@ -52,6 +58,10 @@ __all__ = [
     "OidcAuthorizationError",
     "OidcProvider",
     "build_oidc_provider",
+    "ProxyAuthenticationError",
+    "ProxyAuthorizationError",
+    "ProxyProvider",
+    "build_proxy_provider",
     "AuthenticatedPrincipal",
     "authenticate_service_token",
     "has_required_role",

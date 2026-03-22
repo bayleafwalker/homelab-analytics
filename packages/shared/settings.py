@@ -57,6 +57,10 @@ class AppSettings:
     break_glass_internal_only: bool = True
     break_glass_ttl_minutes: int = 30
     break_glass_allowed_cidrs: tuple[str, ...] = ()
+    proxy_username_header: str = "x-forwarded-user"
+    proxy_role_header: str = "x-forwarded-role"
+    proxy_permissions_header: str | None = None
+    proxy_trusted_cidrs: tuple[str, ...] = ()
     oidc_issuer_url: str | None = None
     oidc_client_id: str | None = None
     oidc_client_secret: str | None = None
@@ -223,6 +227,23 @@ class AppSettings:
                 delimiter=",",
             )
         )
+        proxy_username_header = env.get(
+            "HOMELAB_ANALYTICS_PROXY_USERNAME_HEADER",
+            "x-forwarded-user",
+        ).strip()
+        proxy_role_header = env.get(
+            "HOMELAB_ANALYTICS_PROXY_ROLE_HEADER",
+            "x-forwarded-role",
+        ).strip()
+        proxy_permissions_header = (
+            env.get("HOMELAB_ANALYTICS_PROXY_PERMISSIONS_HEADER") or None
+        )
+        proxy_trusted_cidrs = tuple(
+            _split_config_value(
+                env.get("HOMELAB_ANALYTICS_PROXY_TRUSTED_CIDRS", ""),
+                delimiter=",",
+            )
+        )
         oidc_issuer_url = env.get("HOMELAB_ANALYTICS_OIDC_ISSUER_URL") or None
         oidc_client_id = env.get("HOMELAB_ANALYTICS_OIDC_CLIENT_ID") or None
         oidc_client_secret = env.get("HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET") or None
@@ -340,6 +361,10 @@ class AppSettings:
             break_glass_internal_only=break_glass_internal_only,
             break_glass_ttl_minutes=break_glass_ttl_minutes,
             break_glass_allowed_cidrs=break_glass_allowed_cidrs,
+            proxy_username_header=proxy_username_header,
+            proxy_role_header=proxy_role_header,
+            proxy_permissions_header=proxy_permissions_header,
+            proxy_trusted_cidrs=proxy_trusted_cidrs,
             oidc_issuer_url=oidc_issuer_url,
             oidc_client_id=oidc_client_id,
             oidc_client_secret=oidc_client_secret,

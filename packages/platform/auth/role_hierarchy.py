@@ -20,7 +20,7 @@ class AuthenticatedPrincipal:
     user_id: str
     username: str
     role: UserRole
-    auth_provider: Literal["local", "oidc", "service_token"] = "local"
+    auth_provider: Literal["local", "oidc", "proxy", "service_token"] = "local"
     csrf_token: str | None = None
     scopes: tuple[str, ...] = ()
     permissions: tuple[str, ...] = ()

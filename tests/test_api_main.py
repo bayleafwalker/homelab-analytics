@@ -449,7 +449,7 @@ class ApiMainTests(unittest.TestCase):
             ):
                 build_app(settings)
 
-    def test_build_app_rejects_proxy_auth_mode_until_supported(self) -> None:
+    def test_build_app_rejects_proxy_auth_mode_without_trusted_cidrs(self) -> None:
         with TemporaryDirectory() as temp_dir:
             settings = AppSettings(
                 data_dir=Path(temp_dir),
@@ -468,9 +468,34 @@ class ApiMainTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 ValueError,
-                "reserved but not implemented yet",
+                "HOMELAB_ANALYTICS_PROXY_TRUSTED_CIDRS",
             ):
                 build_app(settings)
+
+    def test_build_app_accepts_proxy_auth_mode_with_trusted_cidrs(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+                auth_mode="proxy",
+                proxy_trusted_cidrs=("10.0.0.0/8",),
+            )
+
+            client = TestClient(build_app(settings))
+            response = client.get(
+                "/runs",
+                headers={"x-forwarded-for": "10.2.3.4"},
+            )
+            self.assertEqual(401, response.status_code)
 
     def test_build_app_requires_explicit_local_bootstrap_flag(self) -> None:
         with TemporaryDirectory() as temp_dir:

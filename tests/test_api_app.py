@@ -45,11 +45,11 @@ FIXTURES = ROOT / "tests" / "fixtures"
 
 
 class ApiAppTests(unittest.TestCase):
-    def test_create_app_rejects_proxy_auth_mode_until_supported(self) -> None:
+    def test_create_app_requires_configured_proxy_provider_for_proxy_mode(self) -> None:
         with TemporaryDirectory() as temp_dir:
             with self.assertRaisesRegex(
                 ValueError,
-                "reserved but not implemented yet",
+                "configured proxy provider",
             ):
                 create_app(
                     AccountTransactionService(

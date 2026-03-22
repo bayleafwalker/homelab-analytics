@@ -68,6 +68,7 @@ from packages.pipelines.run_context import (
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.platform.auth.break_glass import BreakGlassController
 from packages.platform.auth.oidc_provider import OidcProvider
+from packages.platform.auth.proxy_provider import ProxyProvider
 from packages.platform.auth.session_manager import SessionManager
 from packages.platform.runtime.container import AppContainer
 from packages.shared.auth_modes import (
@@ -295,6 +296,7 @@ def create_app(
     auth_mode: str = "disabled",
     session_manager: SessionManager | None = None,
     oidc_provider: OidcProvider | None = None,
+    proxy_provider: ProxyProvider | None = None,
     auth_failure_window_seconds: int = 900,
     auth_failure_threshold: int = 5,
     auth_lockout_seconds: int = 900,
@@ -337,14 +339,12 @@ def create_app(
         container.settings.landing_root.parent / "external-registry-cache"
     )
 
-    if resolved_auth_mode == "proxy":
-        raise ValueError(
-            "Proxy auth mode is reserved but not implemented yet. Use OIDC until trusted proxy identity headers are supported."
-        )
     if is_cookie_auth_mode(resolved_auth_mode) and session_manager is None:
         raise ValueError("Cookie-backed auth requires a configured session manager.")
     if resolved_auth_mode == "oidc" and oidc_provider is None:
         raise ValueError("OIDC auth requires a configured OIDC provider.")
+    if resolved_auth_mode == "proxy" and proxy_provider is None:
+        raise ValueError("Proxy auth requires a configured proxy provider.")
 
     resolved_auth_store_candidate = auth_store or resolved_config_repository
     if is_cookie_auth_mode(resolved_auth_mode) and not isinstance(
@@ -394,7 +394,7 @@ def create_app(
     _initialize_metrics()
 
     def require_unsafe_admin() -> None:
-        if is_cookie_auth_mode(resolved_auth_mode):
+        if resolved_auth_mode != "disabled":
             return
         if not enable_unsafe_admin:
             raise HTTPException(
@@ -422,6 +422,7 @@ def create_app(
         resolved_auth_store=resolved_auth_store,
         resolved_session_manager=session_manager,
         resolved_oidc_provider=oidc_provider,
+        resolved_proxy_provider=proxy_provider,
         enable_unsafe_admin=enable_unsafe_admin,
         break_glass_controller=break_glass_controller,
         record_auth_event=record_auth_event,

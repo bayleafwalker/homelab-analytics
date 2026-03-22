@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from apps.api.app import create_app
 from apps.api.main import build_app
 from packages.pipelines.account_transaction_service import AccountTransactionService
-from packages.shared.auth import SessionManager, hash_password
+from packages.shared.auth import SessionManager, build_proxy_provider, hash_password
 from packages.shared.settings import AppSettings
 from packages.storage.auth_store import LocalUserCreate, UserRole
 from packages.storage.ingestion_config import IngestionConfigRepository
@@ -85,6 +85,41 @@ def _build_local_single_user_break_glass_client(temp_dir: str) -> TestClient:
         bootstrap_admin_password="admin-password",
     )
     return TestClient(build_app(settings))
+
+
+def _build_proxy_client(temp_dir: str) -> TestClient:
+    settings = AppSettings(
+        data_dir=Path(temp_dir),
+        landing_root=Path(temp_dir) / "landing",
+        metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+        account_transactions_inbox_dir=Path(temp_dir) / "inbox" / "account-transactions",
+        processed_files_dir=Path(temp_dir) / "processed" / "account-transactions",
+        failed_files_dir=Path(temp_dir) / "failed" / "account-transactions",
+        api_host="127.0.0.1",
+        api_port=8080,
+        web_host="127.0.0.1",
+        web_port=8081,
+        worker_poll_interval_seconds=30,
+        auth_mode="proxy",
+        proxy_trusted_cidrs=("10.0.0.0/8",),
+        proxy_username_header="x-auth-user",
+        proxy_role_header="x-auth-role",
+        proxy_permissions_header="x-auth-permissions",
+    )
+    service = AccountTransactionService(
+        landing_root=Path(temp_dir) / "landing",
+        metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+    )
+    repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+    return TestClient(
+        create_app(
+            service,
+            config_repository=repository,
+            auth_store=repository,
+            auth_mode="proxy",
+            proxy_provider=build_proxy_provider(settings),
+        )
+    )
 
 
 def test_api_local_auth_login_logout_and_me() -> None:
@@ -551,3 +586,76 @@ def test_api_local_single_user_disables_multi_user_local_management() -> None:
         )
         assert create_user.status_code == 403
         assert "local_single_user mode" in create_user.json()["detail"]
+
+
+def test_api_proxy_auth_enforces_trusted_source_and_header_identity() -> None:
+    with TemporaryDirectory() as temp_dir:
+        client = _build_proxy_client(temp_dir)
+
+        missing_identity = client.get("/runs", headers={"x-forwarded-for": "10.2.3.4"})
+        assert missing_identity.status_code == 401
+        assert "x-auth-user" in missing_identity.json()["detail"]
+
+        untrusted = client.get(
+            "/runs",
+            headers={
+                "x-forwarded-for": "198.51.100.17",
+                "x-auth-user": "reader@example.test",
+                "x-auth-role": "reader",
+            },
+        )
+        assert untrusted.status_code == 403
+
+        reader_runs = client.get(
+            "/runs",
+            headers={
+                "x-forwarded-for": "10.2.3.4",
+                "x-auth-user": "reader@example.test",
+                "x-auth-role": "reader",
+            },
+        )
+        assert reader_runs.status_code == 200
+
+        denied_ingest = client.post(
+            "/ingest",
+            json={
+                "source_path": str(ACCOUNT_FIXTURES / "account_transactions_valid.csv"),
+                "source_name": "proxy-reader-upload",
+            },
+            headers={
+                "x-forwarded-for": "10.2.3.4",
+                "x-auth-user": "reader@example.test",
+                "x-auth-role": "reader",
+            },
+        )
+        assert denied_ingest.status_code == 403
+
+        operator_ingest = client.post(
+            "/ingest",
+            json={
+                "source_path": str(ACCOUNT_FIXTURES / "account_transactions_valid.csv"),
+                "source_name": "proxy-operator-upload",
+            },
+            headers={
+                "x-forwarded-for": "10.2.3.4",
+                "x-auth-user": "operator@example.test",
+                "x-auth-role": "operator",
+                "x-auth-permissions": "ingest.write,runs.retry",
+            },
+        )
+        assert operator_ingest.status_code == 201
+
+        me = client.get(
+            "/auth/me",
+            headers={
+                "x-forwarded-for": "10.2.3.4",
+                "x-auth-user": "operator@example.test",
+                "x-auth-role": "operator",
+                "x-auth-permissions": "ingest.write,runs.retry",
+            },
+        )
+        assert me.status_code == 200
+        payload = me.json()
+        assert payload["auth_mode"] == "proxy"
+        assert payload["principal"]["auth_provider"] == "proxy"
+        assert "ingest.write" in payload["principal"]["permissions"]

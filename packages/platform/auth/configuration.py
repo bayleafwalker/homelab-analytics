@@ -22,17 +22,33 @@ def validate_auth_configuration(settings: AppSettings) -> None:
             raise ValueError(
                 f"Invalid break-glass CIDR entry: {cidr!r}."
             ) from exc
+    for cidr in settings.proxy_trusted_cidrs:
+        try:
+            ip_network(cidr.strip(), strict=False)
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid proxy trusted CIDR entry: {cidr!r}."
+            ) from exc
 
     auth_mode = settings.resolved_auth_mode
     identity_mode = settings.resolved_identity_mode
-    if auth_mode == "proxy":
-        raise ValueError(
-            "Proxy auth mode is reserved but not implemented yet. Use OIDC until trusted proxy identity headers are supported."
-        )
     if is_cookie_auth_mode(auth_mode) and not settings.session_secret:
         raise ValueError(
             "Cookie-backed authentication requires HOMELAB_ANALYTICS_SESSION_SECRET to be configured."
         )
+    if auth_mode == "proxy":
+        if not settings.proxy_username_header:
+            raise ValueError(
+                "Proxy auth mode requires HOMELAB_ANALYTICS_PROXY_USERNAME_HEADER."
+            )
+        if not settings.proxy_role_header:
+            raise ValueError(
+                "Proxy auth mode requires HOMELAB_ANALYTICS_PROXY_ROLE_HEADER."
+            )
+        if not settings.proxy_trusted_cidrs:
+            raise ValueError(
+                "Proxy auth mode requires HOMELAB_ANALYTICS_PROXY_TRUSTED_CIDRS."
+            )
     if settings.break_glass_enabled and identity_mode != "local_single_user":
         raise ValueError(
             "Break-glass settings require HOMELAB_ANALYTICS_IDENTITY_MODE=local_single_user (or HOMELAB_ANALYTICS_AUTH_MODE=local_single_user)."

@@ -62,8 +62,8 @@ This document lists all environment variables used by the homelab-analytics plat
 
 | Variable | Default | Description |
 |---|---|---|
-| `HOMELAB_ANALYTICS_AUTH_MODE` | `disabled` | Legacy compatibility auth mode input. Supports `disabled`, `local`, `local_single_user`, `oidc`, `proxy` (reserved/rejected). Prefer `HOMELAB_ANALYTICS_IDENTITY_MODE` for new deployments. |
-| `HOMELAB_ANALYTICS_IDENTITY_MODE` | falls back to `HOMELAB_ANALYTICS_AUTH_MODE` | Canonical identity mode selector: `disabled`, `local`, `local_single_user`, `oidc`, `proxy` (reserved/rejected). |
+| `HOMELAB_ANALYTICS_AUTH_MODE` | `disabled` | Legacy compatibility auth mode input. Supports `disabled`, `local`, `local_single_user`, `oidc`, `proxy`. Prefer `HOMELAB_ANALYTICS_IDENTITY_MODE` for new deployments. |
+| `HOMELAB_ANALYTICS_IDENTITY_MODE` | falls back to `HOMELAB_ANALYTICS_AUTH_MODE` | Canonical identity mode selector: `disabled`, `local`, `local_single_user`, `oidc`, `proxy`. |
 | `HOMELAB_ANALYTICS_SESSION_SECRET` | — | Signed app-session and OIDC state-cookie secret (required when auth is `local` or `oidc`) |
 | `HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED` | `false` | Required when identity mode is `local_single_user`; enables temporary emergency local access. |
 | `HOMELAB_ANALYTICS_BREAK_GLASS_INTERNAL_ONLY` | `true` | When enabled, local break-glass requests are restricted to internal/allowed addresses. |
@@ -76,6 +76,15 @@ This document lists all environment variables used by the homelab-analytics plat
 | `HOMELAB_ANALYTICS_AUTH_FAILURE_THRESHOLD` | — | Local-auth login lockout: failure count threshold |
 | `HOMELAB_ANALYTICS_AUTH_LOCKOUT_SECONDS` | — | Local-auth login lockout: lockout duration |
 | `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` | `false` | Temporary dev-only bypass for unauthenticated admin routes (not for shared deployments) |
+
+### Trusted proxy mode
+
+| Variable | Default | Description |
+|---|---|---|
+| `HOMELAB_ANALYTICS_PROXY_TRUSTED_CIDRS` | — | Required for `identity_mode=proxy`. Comma-separated source CIDRs whose forwarded identity headers are trusted. |
+| `HOMELAB_ANALYTICS_PROXY_USERNAME_HEADER` | `x-forwarded-user` | Header name used for proxy-authenticated username. |
+| `HOMELAB_ANALYTICS_PROXY_ROLE_HEADER` | `x-forwarded-role` | Header name used for proxy-authenticated role (`reader`, `operator`, `admin`). |
+| `HOMELAB_ANALYTICS_PROXY_PERMISSIONS_HEADER` | — | Optional comma-separated permission header mapped into in-app authorization grants. |
 
 The architecture direction is external identity by default and in-app authorization semantics. `local_single_user` is a break-glass mode: it requires `HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED=true`, applies TTL-bounded local sessions, enforces internal/CIDR source checks, and surfaces status on `/ready`.
 

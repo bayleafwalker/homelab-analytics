@@ -72,6 +72,10 @@ class AppSettingsTests(unittest.TestCase):
         self.assertTrue(settings.break_glass_internal_only)
         self.assertEqual(30, settings.break_glass_ttl_minutes)
         self.assertEqual((), settings.break_glass_allowed_cidrs)
+        self.assertEqual("x-forwarded-user", settings.proxy_username_header)
+        self.assertEqual("x-forwarded-role", settings.proxy_role_header)
+        self.assertIsNone(settings.proxy_permissions_header)
+        self.assertEqual((), settings.proxy_trusted_cidrs)
         self.assertIsNone(settings.oidc_issuer_url)
         self.assertIsNone(settings.oidc_client_id)
         self.assertIsNone(settings.oidc_client_secret)
@@ -261,6 +265,12 @@ class AppSettingsTests(unittest.TestCase):
                 "HOMELAB_ANALYTICS_BREAK_GLASS_ALLOWED_CIDRS": (
                     "10.0.0.0/8,192.168.0.0/16"
                 ),
+                "HOMELAB_ANALYTICS_PROXY_USERNAME_HEADER": "x-auth-user",
+                "HOMELAB_ANALYTICS_PROXY_ROLE_HEADER": "x-auth-role",
+                "HOMELAB_ANALYTICS_PROXY_PERMISSIONS_HEADER": "x-auth-permissions",
+                "HOMELAB_ANALYTICS_PROXY_TRUSTED_CIDRS": (
+                    "10.0.0.0/8,172.16.0.0/12"
+                ),
                 "HOMELAB_ANALYTICS_OIDC_ISSUER_URL": "https://auth.example.test/application/o/homelab/",
                 "HOMELAB_ANALYTICS_OIDC_CLIENT_ID": "homelab-analytics",
                 "HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET": "oidc-client-secret",
@@ -326,6 +336,13 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual(
             ("10.0.0.0/8", "192.168.0.0/16"),
             settings.break_glass_allowed_cidrs,
+        )
+        self.assertEqual("x-auth-user", settings.proxy_username_header)
+        self.assertEqual("x-auth-role", settings.proxy_role_header)
+        self.assertEqual("x-auth-permissions", settings.proxy_permissions_header)
+        self.assertEqual(
+            ("10.0.0.0/8", "172.16.0.0/12"),
+            settings.proxy_trusted_cidrs,
         )
         self.assertEqual(
             "https://auth.example.test/application/o/homelab/",

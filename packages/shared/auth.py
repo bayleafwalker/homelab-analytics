@@ -1,8 +1,4 @@
-"""Compatibility shim — re-exports all public auth symbols from packages.platform.auth.*
-
-All implementation has moved to platform modules. Import from there in new code.
-This shim exists so existing consumers continue working without import changes.
-"""
+"""Compatibility shim re-exporting public auth symbols from platform modules."""
 from __future__ import annotations
 
 from packages.platform.auth.configuration import (
@@ -31,6 +27,12 @@ from packages.platform.auth.oidc_provider import (
     build_oidc_provider,
     normalize_return_to,
 )
+from packages.platform.auth.proxy_provider import (
+    ProxyAuthenticationError,
+    ProxyAuthorizationError,
+    ProxyProvider,
+    build_proxy_provider,
+)
 from packages.platform.auth.role_hierarchy import (
     AuthenticatedPrincipal,
     authenticate_service_token,
@@ -53,10 +55,8 @@ from packages.platform.auth.session_manager import (
 )
 
 __all__ = [
-    # configuration
     "maybe_bootstrap_local_admin",
     "validate_auth_configuration",
-    # crypto
     "SERVICE_TOKEN_VALUE_PREFIX",
     "IssuedServiceToken",
     "hash_password",
@@ -66,7 +66,6 @@ __all__ = [
     "parse_service_token",
     "verify_password",
     "verify_service_token_secret",
-    # oidc
     "OIDC_STATE_COOKIE_NAME",
     "OIDC_STATE_MAX_AGE_SECONDS",
     "OidcAuthenticationError",
@@ -76,17 +75,18 @@ __all__ = [
     "OidcProvider",
     "build_oidc_provider",
     "normalize_return_to",
-    # role hierarchy
+    "ProxyAuthenticationError",
+    "ProxyAuthorizationError",
+    "ProxyProvider",
+    "build_proxy_provider",
     "AuthenticatedPrincipal",
     "authenticate_service_token",
     "has_required_role",
     "principal_from_service_token",
-    # serialization
     "serialize_authenticated_user",
     "serialize_principal",
     "serialize_service_token",
     "serialize_user",
-    # session
     "CSRF_COOKIE_NAME",
     "SESSION_COOKIE_NAME",
     "SESSION_MAX_AGE_SECONDS",

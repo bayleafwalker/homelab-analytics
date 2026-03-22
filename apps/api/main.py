@@ -16,6 +16,7 @@ from packages.pipelines.reporting_service import ReportingAccessMode, ReportingS
 from packages.pipelines.transformation_service import TransformationService
 from packages.platform.auth.configuration import validate_auth_configuration
 from packages.platform.auth.oidc_provider import build_oidc_provider
+from packages.platform.auth.proxy_provider import build_proxy_provider
 from packages.platform.auth.session_manager import build_session_manager
 from packages.platform.runtime.builder import build_container
 from packages.platform.runtime.builder import (
@@ -193,6 +194,7 @@ def build_app(settings: AppSettings | None = None):
         reporting_service=reporting_service,
         session_manager=build_session_manager(resolved_settings),
         oidc_provider=build_oidc_provider(resolved_settings),
+        proxy_provider=build_proxy_provider(resolved_settings),
         auth_failure_window_seconds=resolved_settings.auth_failure_window_seconds,
         auth_failure_threshold=resolved_settings.auth_failure_threshold,
         auth_lockout_seconds=resolved_settings.auth_lockout_seconds,

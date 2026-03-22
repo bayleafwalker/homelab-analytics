@@ -27,6 +27,7 @@ export default function LoginPage({ searchParams }) {
   const error = searchParams?.error;
   const identityMode = IDENTITY_MODE.toLowerCase();
   const isOidc = identityMode === "oidc";
+  const isProxy = identityMode === "proxy";
   const errorMessage = errorMessageFor(error, identityMode);
 
   return (
@@ -35,6 +36,8 @@ export default function LoginPage({ searchParams }) {
         <div className="eyebrow">
           {isOidc
             ? "OIDC Single Sign-On"
+            : isProxy
+              ? "Proxy-Managed Sign-In"
             : identityMode === "local_single_user"
               ? "Break-Glass Local Auth"
               : "Bootstrap Local Auth"}
@@ -43,6 +46,8 @@ export default function LoginPage({ searchParams }) {
         <p className="lede">
           {isOidc
             ? "This frontend only consumes the API. Sign in through your configured OIDC provider."
+            : isProxy
+              ? "This deployment trusts upstream proxy identity headers. Authenticate through your ingress proxy."
             : identityMode === "local_single_user"
               ? "This frontend only consumes the API. Local auth is running in temporary break-glass mode."
               : "This frontend only consumes the API. Local auth remains available for bootstrap and break-glass access."}
@@ -52,6 +57,10 @@ export default function LoginPage({ searchParams }) {
           <a className="primaryButton" href="/auth/login">
             Sign In with OIDC
           </a>
+        ) : isProxy ? (
+          <p className="lede">
+            No direct login form is available in proxy mode.
+          </p>
         ) : (
           <form className="loginForm" action="/auth/login" method="post">
             <div className="field">
