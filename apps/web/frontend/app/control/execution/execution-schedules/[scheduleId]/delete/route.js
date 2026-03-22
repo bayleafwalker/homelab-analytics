@@ -1,11 +1,17 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
 import { backendRequest } from "@/lib/backend";
 
+/**
+ * @param {Request} request
+ * @param {{ params: { scheduleId: string } }} context
+ */
 export async function POST(request, { params }) {
-  const response = await backendRequest(`/config/execution-schedules/${params.scheduleId}`, {
-    method: "DELETE",
-    cookieHeader: request.headers.get("cookie") || ""
+  const response = await backendRequest("delete", "/config/execution-schedules/{schedule_id}", {
+    cookieHeader: request.headers.get("cookie") || "",
+    params: { path: { schedule_id: params.scheduleId } }
   });
   if (!response.ok) {
     return NextResponse.redirect(

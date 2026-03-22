@@ -1,14 +1,15 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
 import { backendRequest } from "@/lib/backend";
 
+/** @param {Request} request */
 export async function POST(request) {
   const formData = await request.formData();
-  const response = await backendRequest("/config/publication-definitions", {
-    method: "POST",
+  const response = await backendRequest("post", "/config/publication-definitions", {
     cookieHeader: request.headers.get("cookie") || "",
-    contentType: "application/json",
-    body: JSON.stringify({
+    body: {
       publication_definition_id: String(
         formData.get("publication_definition_id") || ""
       ),
@@ -18,7 +19,7 @@ export async function POST(request) {
       publication_key: String(formData.get("publication_key") || ""),
       name: String(formData.get("name") || ""),
       description: String(formData.get("description") || "") || null
-    })
+    }
   });
 
   if (!response.ok) {

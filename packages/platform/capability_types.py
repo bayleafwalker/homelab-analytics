@@ -5,7 +5,15 @@ Domains import from here; platform never imports from domains.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+PUBLICATION_FIELD_ROLES = {
+    "identifier",
+    "dimension",
+    "time",
+    "measure",
+    "status",
+}
 
 
 @dataclass(frozen=True)
@@ -30,14 +38,104 @@ class WorkflowDefinition:
 
 
 @dataclass(frozen=True)
+class PublicationFieldDefinition:
+    description: str
+    semantic_role: str
+    unit: str | None = None
+    grain: str | None = None
+    aggregation: str | None = None
+    filterable: bool = True
+    sortable: bool = True
+
+
+def identifier_field(
+    description: str,
+    *,
+    filterable: bool = True,
+    sortable: bool = True,
+) -> PublicationFieldDefinition:
+    return PublicationFieldDefinition(
+        description=description,
+        semantic_role="identifier",
+        filterable=filterable,
+        sortable=sortable,
+    )
+
+
+def dimension_field(
+    description: str,
+    *,
+    filterable: bool = True,
+    sortable: bool = True,
+) -> PublicationFieldDefinition:
+    return PublicationFieldDefinition(
+        description=description,
+        semantic_role="dimension",
+        filterable=filterable,
+        sortable=sortable,
+    )
+
+
+def time_field(
+    description: str,
+    *,
+    grain: str,
+    filterable: bool = True,
+    sortable: bool = True,
+) -> PublicationFieldDefinition:
+    return PublicationFieldDefinition(
+        description=description,
+        semantic_role="time",
+        grain=grain,
+        filterable=filterable,
+        sortable=sortable,
+    )
+
+
+def measure_field(
+    description: str,
+    *,
+    aggregation: str,
+    unit: str | None = None,
+    filterable: bool = False,
+    sortable: bool = True,
+) -> PublicationFieldDefinition:
+    return PublicationFieldDefinition(
+        description=description,
+        semantic_role="measure",
+        unit=unit,
+        aggregation=aggregation,
+        filterable=filterable,
+        sortable=sortable,
+    )
+
+
+def status_field(
+    description: str,
+    *,
+    filterable: bool = True,
+    sortable: bool = True,
+) -> PublicationFieldDefinition:
+    return PublicationFieldDefinition(
+        description=description,
+        semantic_role="status",
+        filterable=filterable,
+        sortable=sortable,
+    )
+
+
+@dataclass(frozen=True)
 class PublicationDefinition:
     key: str
     schema_name: str
+    schema_version: str
     display_name: str
     description: str
     visibility: str  # "public" | "admin"
     lineage_required: bool
     retention_policy: str  # e.g. "rolling_12_months" | "indefinite"
+    renderer_hints: dict[str, str] = field(default_factory=dict)
+    field_semantics: dict[str, PublicationFieldDefinition] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -48,6 +146,10 @@ class UiDescriptor:
     kind: str  # "dashboard" | "report" | "table"
     publication_keys: tuple[str, ...]  # data publications this view consumes
     icon: str | None
+    required_permissions: tuple[str, ...] = ()
+    supported_renderers: tuple[str, ...] = ("web",)
+    renderer_hints: dict[str, str] = field(default_factory=dict)
+    default_filters: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -125,6 +227,10 @@ class CapabilityPack:
                 raise ValueError(
                     f"PublicationDefinition '{publication.key}' must declare schema_name"
                 )
+            if not publication.schema_version:
+                raise ValueError(
+                    f"PublicationDefinition '{publication.key}' must declare schema_version"
+                )
             if not publication.visibility:
                 raise ValueError(
                     f"PublicationDefinition '{publication.key}' must declare visibility"
@@ -133,6 +239,47 @@ class CapabilityPack:
                 raise ValueError(
                     f"PublicationDefinition '{publication.key}' must declare retention_policy"
                 )
+            if publication.renderer_hints is None:
+                raise ValueError(
+                    f"PublicationDefinition '{publication.key}' must declare renderer_hints"
+                )
+            if publication.field_semantics is None:
+                raise ValueError(
+                    f"PublicationDefinition '{publication.key}' must declare field_semantics"
+                )
+            for field_name, field_definition in publication.field_semantics.items():
+                if not field_name:
+                    raise ValueError(
+                        f"PublicationDefinition '{publication.key}' has blank field_semantics key"
+                    )
+                if not field_definition.description:
+                    raise ValueError(
+                        f"PublicationDefinition '{publication.key}' field '{field_name}' "
+                        "must declare description"
+                    )
+                if field_definition.semantic_role not in PUBLICATION_FIELD_ROLES:
+                    raise ValueError(
+                        f"PublicationDefinition '{publication.key}' field '{field_name}' "
+                        f"declares unsupported semantic_role '{field_definition.semantic_role}'"
+                    )
+                if field_definition.semantic_role == "time" and not field_definition.grain:
+                    raise ValueError(
+                        f"PublicationDefinition '{publication.key}' field '{field_name}' "
+                        "must declare grain for time semantics"
+                    )
+                if (
+                    field_definition.semantic_role == "measure"
+                    and not field_definition.aggregation
+                ):
+                    raise ValueError(
+                        f"PublicationDefinition '{publication.key}' field '{field_name}' "
+                        "must declare aggregation for measure semantics"
+                    )
+                if field_definition.filterable is None or field_definition.sortable is None:
+                    raise ValueError(
+                        f"PublicationDefinition '{publication.key}' field '{field_name}' "
+                        "must declare filterable and sortable flags"
+                    )
 
         # --- Pack-local referential integrity -----------------------------------
         pack_pub_keys = seen_pub_keys  # already collected above
@@ -150,3 +297,18 @@ class CapabilityPack:
                         f"UI descriptor '{ui.key}' in pack '{self.name}' references "
                         f"publication key '{pk}' not declared by this pack"
                     )
+            if ui.required_permissions is None:
+                raise ValueError(
+                    f"UI descriptor '{ui.key}' in pack '{self.name}' must declare "
+                    "required_permissions"
+                )
+            if ui.supported_renderers is None:
+                raise ValueError(
+                    f"UI descriptor '{ui.key}' in pack '{self.name}' must declare "
+                    "supported_renderers"
+                )
+            if not ui.supported_renderers:
+                raise ValueError(
+                    f"UI descriptor '{ui.key}' in pack '{self.name}' must declare at least "
+                    "one supported renderer"
+                )

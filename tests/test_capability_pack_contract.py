@@ -8,8 +8,12 @@ from packages.domains.utilities.manifest import UTILITIES_PACK
 from packages.platform.capability_types import (
     CapabilityPack,
     PublicationDefinition,
+    PublicationFieldDefinition,
     UiDescriptor,
     WorkflowDefinition,
+    dimension_field,
+    measure_field,
+    time_field,
 )
 
 pytestmark = [pytest.mark.architecture]
@@ -25,11 +29,26 @@ def _minimal_pack(**overrides) -> CapabilityPack:
             PublicationDefinition(
                 key="test_pub",
                 schema_name="test_pub",
+                schema_version="1.0.0",
                 display_name="Test Publication",
                 description="A test publication.",
                 visibility="public",
                 lineage_required=True,
                 retention_policy="indefinite",
+                field_semantics={
+                    "period_month": time_field(
+                        "Calendar month bucket for the test publication.",
+                        grain="month",
+                    ),
+                    "value": measure_field(
+                        "Test measure value.",
+                        aggregation="sum",
+                        unit="currency",
+                    ),
+                    "category": dimension_field(
+                        "Test grouping dimension."
+                    ),
+                },
             ),
         ),
         ui_descriptors=(),
@@ -57,6 +76,7 @@ def _minimal_publication(**overrides) -> PublicationDefinition:
     defaults = dict(
         key="test_pub",
         schema_name="test_pub",
+        schema_version="1.0.0",
         display_name="Test Publication",
         description="A test publication.",
         visibility="public",
@@ -162,9 +182,62 @@ def test_publication_missing_visibility_fails_validation() -> None:
         pack.validate()
 
 
+def test_publication_missing_schema_version_fails_validation() -> None:
+    pack = _minimal_pack(publications=(_minimal_publication(schema_version=""),))
+    with pytest.raises(ValueError, match="must declare schema_version"):
+        pack.validate()
+
+
 def test_publication_missing_retention_policy_fails_validation() -> None:
     pack = _minimal_pack(publications=(_minimal_publication(retention_policy=""),))
     with pytest.raises(ValueError, match="must declare retention_policy"):
+        pack.validate()
+
+
+def test_publication_measure_field_missing_aggregation_fails_validation() -> None:
+    pack = _minimal_pack(
+        publications=(
+            _minimal_publication(
+                field_semantics={
+                    "value": measure_field(
+                        "Test measure value.",
+                        aggregation="sum",
+                        unit="currency",
+                    ),
+                    "broken_value": measure_field(
+                        "Broken measure value.",
+                        aggregation="sum",
+                        unit="currency",
+                    ),
+                    "broken_measure": PublicationFieldDefinition(
+                        description="Broken measure value.",
+                        semantic_role="measure",
+                        unit="currency",
+                        aggregation=None,
+                    ),
+                }
+            ),
+        )
+    )
+    with pytest.raises(ValueError, match="must declare aggregation"):
+        pack.validate()
+
+
+def test_publication_time_field_missing_grain_fails_validation() -> None:
+    pack = _minimal_pack(
+        publications=(
+            _minimal_publication(
+                field_semantics={
+                    "period_month": PublicationFieldDefinition(
+                        description="Calendar month bucket for the test publication.",
+                        semantic_role="time",
+                        grain=None,
+                    ),
+                }
+            ),
+        )
+    )
+    with pytest.raises(ValueError, match="must declare grain"):
         pack.validate()
 
 
@@ -221,6 +294,29 @@ def test_ui_descriptor_referencing_valid_publication_key_passes_validation() -> 
     ui = _minimal_ui_descriptor(publication_keys=("test_pub",))
     pack = _minimal_pack(ui_descriptors=(ui,))
     pack.validate()  # must not raise
+
+
+def test_publication_renderer_hints_default_to_empty_dict() -> None:
+    publication = _minimal_publication()
+    assert publication.renderer_hints == {}
+
+
+def test_ui_descriptor_defaults_include_web_renderer_and_empty_metadata() -> None:
+    ui = _minimal_ui_descriptor()
+    assert ui.required_permissions == ()
+    assert ui.supported_renderers == ("web",)
+    assert ui.renderer_hints == {}
+    assert ui.default_filters == {}
+
+
+def test_ui_descriptor_missing_supported_renderers_fails_validation() -> None:
+    pack = _minimal_pack(
+        ui_descriptors=(
+            _minimal_ui_descriptor(supported_renderers=()),  # type: ignore[arg-type]
+        )
+    )
+    with pytest.raises(ValueError, match="supported renderer"):
+        pack.validate()
 
 
 # ---------------------------------------------------------------------------

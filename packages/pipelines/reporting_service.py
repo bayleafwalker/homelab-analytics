@@ -298,14 +298,14 @@ class ReportingService:
                     meter_id,
                     meter_name,
                     utility_type,
-                    usage_quantity,
-                    usage_unit,
-                    billed_amount,
-                    currency,
-                    unit_cost,
-                    bill_count,
-                    usage_record_count,
-                    coverage_status
+                usage_quantity,
+                usage_unit,
+                billed_amount,
+                currency,
+                CAST(unit_cost AS DECIMAL(18,4)) AS unit_cost,
+                bill_count,
+                usage_record_count,
+                coverage_status
                 FROM {MART_UTILITY_COST_SUMMARY_TABLE}
                 {where_sql}
                 ORDER BY period_day, meter_id
@@ -328,7 +328,7 @@ class ReportingService:
                 MIN(currency) AS currency,
                 CASE
                     WHEN SUM(usage_quantity) > 0
-                    THEN ROUND(SUM(billed_amount) / SUM(usage_quantity), 4)
+                    THEN CAST(ROUND(SUM(billed_amount) / SUM(usage_quantity), 4) AS DECIMAL(18,4))
                     ELSE NULL
                 END AS unit_cost,
                 SUM(bill_count) AS bill_count,

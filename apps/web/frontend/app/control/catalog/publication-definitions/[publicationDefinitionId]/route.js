@@ -1,16 +1,24 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
 import { backendRequest } from "@/lib/backend";
 
+/**
+ * @param {Request} request
+ * @param {{ params: { publicationDefinitionId: string } }} context
+ */
 export async function POST(request, { params }) {
   const formData = await request.formData();
   const response = await backendRequest(
-    `/config/publication-definitions/${params.publicationDefinitionId}`,
+    "patch",
+    "/config/publication-definitions/{publication_definition_id}",
     {
-      method: "PATCH",
       cookieHeader: request.headers.get("cookie") || "",
-      contentType: "application/json",
-      body: JSON.stringify({
+      params: {
+        path: { publication_definition_id: params.publicationDefinitionId }
+      },
+      body: {
         publication_definition_id: String(
           formData.get("publication_definition_id") ||
             params.publicationDefinitionId ||
@@ -22,7 +30,7 @@ export async function POST(request, { params }) {
         publication_key: String(formData.get("publication_key") || ""),
         name: String(formData.get("name") || ""),
         description: String(formData.get("description") || "") || null
-      })
+      }
     }
   );
 

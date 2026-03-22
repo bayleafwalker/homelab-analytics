@@ -1,13 +1,22 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
-import { backendRequest } from "@/lib/backend";
+import { backendJsonRequest } from "@/lib/backend";
 
+/**
+ * @param {Request} request
+ * @param {{ params: { ingestionDefinitionId: string } }} context
+ */
 export async function POST(request, { params }) {
-  const response = await backendRequest(
-    `/ingest/ingestion-definitions/${params.ingestionDefinitionId}/process`,
+  const { response, data } = await backendJsonRequest(
+    "post",
+    "/ingest/ingestion-definitions/{ingestion_definition_id}/process",
     {
-      method: "POST",
-      cookieHeader: request.headers.get("cookie") || ""
+      cookieHeader: request.headers.get("cookie") || "",
+      params: {
+        path: { ingestion_definition_id: params.ingestionDefinitionId }
+      }
     }
   );
 
@@ -17,8 +26,7 @@ export async function POST(request, { params }) {
       { status: 303 }
     );
   }
-  const payload = await response.json();
-  const runId = payload?.result?.run_ids?.[0];
+  const runId = data?.result?.run_ids?.[0];
   return NextResponse.redirect(
     new URL(runId ? `/runs/${runId}` : "/control/execution", request.url),
     { status: 303 }

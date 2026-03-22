@@ -58,7 +58,7 @@ exclude = '(^\.venv/|^tests/fixtures/|^docs/|^infra/)'
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-exclude = [".git", ".local", ".venv", "__pycache__"]
+exclude = [".git", ".local", ".tooling", ".venv", "__pycache__"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]

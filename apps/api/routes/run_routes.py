@@ -6,6 +6,7 @@ from typing import Any, Callable
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
+from apps.api.response_models import RunMutationResponseModel
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
 from packages.pipelines.contract_price_service import ContractPriceService
@@ -81,7 +82,7 @@ def register_run_routes(
     async def get_run(run_id: str) -> dict[str, Any]:
         return {"run": serialize_run_detail(service.get_run(run_id))}
 
-    @app.post("/runs/{run_id}/retry")
+    @app.post("/runs/{run_id}/retry", response_model=RunMutationResponseModel)
     async def retry_run(run_id: str) -> JSONResponse:
         original_run = service.metadata_repository.get_run(run_id)
         _, context = load_run_manifest_and_context(original_run)

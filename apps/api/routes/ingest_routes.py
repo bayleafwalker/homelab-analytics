@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from starlette.datastructures import UploadFile
 
 from apps.api.models import ConfiguredCsvIngestRequest
+from apps.api.response_models import ConfiguredIngestionProcessResponseModel
 from apps.api.support import read_upload_limited
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
@@ -240,7 +241,11 @@ def register_ingest_routes(
         )
         return JSONResponse(status_code=status_code, content=body)
 
-    @app.post("/ingest/ingestion-definitions/{ingestion_definition_id}/process", status_code=201)
+    @app.post(
+        "/ingest/ingestion-definitions/{ingestion_definition_id}/process",
+        status_code=201,
+        response_model=ConfiguredIngestionProcessResponseModel,
+    )
     async def process_ingestion_definition(
         ingestion_definition_id: str,
     ) -> dict[str, Any]:

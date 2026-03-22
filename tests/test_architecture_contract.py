@@ -48,7 +48,7 @@ def test_transformation_service_imports_split_domain_modules() -> None:
 def test_app_reporting_paths_do_not_compute_cashflow_from_landing_service() -> None:
     api_source = (ROOT / "apps" / "api" / "routes" / "report_routes.py").read_text()
     web_dashboard_source = (ROOT / "apps" / "web" / "frontend" / "app" / "page.js").read_text()
-    web_backend_source = (ROOT / "apps" / "web" / "frontend" / "lib" / "backend.js").read_text()
+    web_backend_source = (ROOT / "apps" / "web" / "frontend" / "lib" / "backend.ts").read_text()
 
     legacy_call_re = re.compile(r"(?<![A-Za-z0-9_])service\.get_monthly_cashflow\(")
     direct_transform_re = re.compile(
@@ -196,7 +196,7 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     ingest_route_source = (ROOT / "apps" / "api" / "routes" / "ingest_routes.py").read_text()
     run_route_source = (ROOT / "apps" / "api" / "routes" / "run_routes.py").read_text()
     api_main_source = (ROOT / "apps" / "api" / "main.py").read_text()
-    web_backend_source = (ROOT / "apps" / "web" / "frontend" / "lib" / "backend.js").read_text()
+    web_backend_source = (ROOT / "apps" / "web" / "frontend" / "lib" / "backend.ts").read_text()
     web_control_page = (
         ROOT / "apps" / "web" / "frontend" / "app" / "control" / "page.js"
     ).read_text()
@@ -476,17 +476,17 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert "maybe_bootstrap_local_admin" in platform_builder_source
     assert 'action="/auth/login"' in web_login_page
     assert "Sign In with OIDC" in web_login_page
-    assert 'backendRequest("/auth/login"' in web_login_route
-    assert "backendRequest(`/auth/callback${search}`" in web_callback_route
-    assert 'backendRequest("/auth/logout"' in web_logout_route
+    assert 'backendRequest("get", "/auth/login"' in web_login_route
+    assert 'backendRequest("get", "/auth/callback"' in web_callback_route
+    assert 'backendRequest("post", "/auth/logout"' in web_logout_route
     assert 'status: "ready"' in web_ready_route
     assert 'outboundHeaders.set("x-csrf-token", csrfToken)' in web_backend_source
     assert "getLocalUsers" in web_control_page
     assert "getAuthAuditEvents" in web_control_page
     assert "getOperationalSummary" in web_control_page
     assert "getServiceTokens" in web_control_page
-    assert 'backendRequest("/auth/service-tokens"' in web_service_token_route
-    assert "/auth/service-tokens/${params.tokenId}/revoke" in web_service_token_revoke_route
+    assert 'backendJsonRequest("post", "/auth/service-tokens"' in web_service_token_route
+    assert "/auth/service-tokens/{token_id}/revoke" in web_service_token_revoke_route
     assert 'fetch("/control/service-tokens"' in web_service_token_panel
     assert "expiring soon" in web_service_token_panel
     assert "getSourceSystems" in web_control_catalog_page
@@ -497,7 +497,8 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert "MappingPreviewPanel" in web_control_catalog_page
     assert "/config/dataset-contracts" in web_dataset_contract_route
     assert "/config/column-mappings" in web_column_mapping_route
-    assert 'backendRequest("/config/column-mappings/preview"' in web_preview_route
+    assert "backendJsonRequest" in web_preview_route
+    assert '"/config/column-mappings/preview"' in web_preview_route
     assert "getIngestionDefinitions" in web_control_execution_page
     assert "getExecutionSchedules" in web_control_execution_page
     assert "getOperationalSummary" in web_control_execution_page
@@ -515,32 +516,32 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert "getPublicationAudit" in web_run_detail_page
     assert "getTransformationAudit" in web_run_detail_page
     assert "Retry run" in web_run_detail_page
-    assert "/config/source-systems/${params.sourceSystemId}" in web_source_system_update_route
-    assert "/config/source-assets/${params.sourceAssetId}" in web_source_asset_update_route
-    assert "/config/source-assets/${params.sourceAssetId}/archive" in web_source_asset_archive_route
-    assert "/config/source-assets/${params.sourceAssetId}" in web_source_asset_delete_route
+    assert '"/config/source-systems/{source_system_id}"' in web_source_system_update_route
+    assert '"/config/source-assets/{source_asset_id}"' in web_source_asset_update_route
+    assert '"/config/source-assets/{source_asset_id}/archive"' in web_source_asset_archive_route
+    assert '"/config/source-assets/{source_asset_id}"' in web_source_asset_delete_route
     assert (
-        "/config/ingestion-definitions/${params.ingestionDefinitionId}"
+        '"/config/ingestion-definitions/{ingestion_definition_id}"'
         in web_ingestion_definition_update_route
     )
     assert (
-        "/config/ingestion-definitions/${params.ingestionDefinitionId}/archive"
+        '"/config/ingestion-definitions/{ingestion_definition_id}/archive"'
         in web_ingestion_definition_archive_route
     )
     assert (
-        "/config/ingestion-definitions/${params.ingestionDefinitionId}"
+        '"/config/ingestion-definitions/{ingestion_definition_id}"'
         in web_ingestion_definition_delete_route
     )
-    assert "/config/execution-schedules/${params.scheduleId}" in web_schedule_update_route
-    assert "/config/execution-schedules/${params.scheduleId}/archive" in web_schedule_archive_route
-    assert "/config/execution-schedules/${params.scheduleId}" in web_schedule_delete_route
-    assert 'backendRequest("/control/schedule-dispatches"' in web_schedule_dispatch_route
+    assert '"/config/execution-schedules/{schedule_id}"' in web_schedule_update_route
+    assert '"/config/execution-schedules/{schedule_id}/archive"' in web_schedule_archive_route
+    assert '"/config/execution-schedules/{schedule_id}"' in web_schedule_delete_route
+    assert 'backendRequest("post", "/control/schedule-dispatches"' in web_schedule_dispatch_route
     assert "getScheduleDispatch" in web_dispatch_detail_page
     assert "Requeue dispatch" in web_dispatch_detail_page
     assert "Claim expires" in web_dispatch_detail_page
     assert "Failure reason" in web_dispatch_detail_page
-    assert "/control/schedule-dispatches/${params.dispatchId}/retry" in web_dispatch_retry_route
-    assert "backendRequest(`/runs/${params.runId}/retry`" in web_run_retry_route
+    assert '"/control/schedule-dispatches/{dispatch_id}/retry"' in web_dispatch_retry_route
+    assert 'backendJsonRequest("post", "/runs/{run_id}/retry"' in web_run_retry_route
     assert "build_web_environment" in web_main_source
     assert "resolved_api_base_url" in web_main_source
 

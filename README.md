@@ -36,7 +36,7 @@ Stages 2–3 are complete. Stage 4 is partially shipped (three scenario types). 
 - Recurring Cost Baseline: active subscriptions, loan payments, and detected utility fixed charges
 - Config-driven source onboarding for CSV, XLSX, JSON, and HTTP sources
 - SCD Type 2 dimensions with current-dimension reporting views
-- Authentication: local bootstrap, OIDC, and scoped service tokens with role separation
+- Authentication: OIDC-first external identity, app-local authorization, scoped service tokens, and narrow local break-glass fallback
 - FastAPI-based REST API with Prometheus metrics and structured JSON logging
 - Next.js web shell with dashboard, budgets, loans, costs, upload, and control-plane admin
 - Source freshness operator view: staleness indicators and quick-action upload links
@@ -93,6 +93,7 @@ homelab-analytics/
 - `docs/README.md` — full documentation index
 - `requirements/README.md` — requirements baseline across five domains
 - `docs/architecture/data-platform-architecture.md` — source-to-reporting data architecture and forward-looking layer definitions
+- `docs/architecture/publication-contracts.md` — publication and UI descriptor contract model for renderer consumers
 - `docs/decisions/household-operating-platform-direction.md` — operating platform direction and 11-stage model
 - `docs/decisions/household-platform-adr-and-refactor-blueprint.md` — modular monolith architecture and capability pack model
 - `docs/product/core-household-operating-picture.md` — core product definition and acceptance criteria
@@ -108,7 +109,7 @@ Key environment variables (see `docs/runbooks/configuration.md` for the full ref
 
 - `HOMELAB_ANALYTICS_DATA_DIR` — local data directory (default: `.local/homelab-analytics`)
 - `HOMELAB_ANALYTICS_POSTGRES_DSN` — shared Postgres backend DSN
-- `HOMELAB_ANALYTICS_AUTH_MODE` — `disabled`, `local`, or `oidc` (default: `disabled`)
+- `HOMELAB_ANALYTICS_AUTH_MODE` — current runtime: `disabled`, `local` (or `local_single_user` alias), or `oidc`; `proxy` is a reserved mode and currently rejected at startup (default: `disabled`)
 - `HOMELAB_ANALYTICS_BLOB_BACKEND` — `filesystem` or `s3` (default: `filesystem`)
 - `HOMELAB_ANALYTICS_EXTENSION_PATHS` — custom import roots for external extensions
 

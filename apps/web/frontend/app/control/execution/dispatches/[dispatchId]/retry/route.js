@@ -1,13 +1,20 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
-import { backendRequest } from "@/lib/backend";
+import { backendJsonRequest } from "@/lib/backend";
 
+/**
+ * @param {Request} request
+ * @param {{ params: { dispatchId: string } }} context
+ */
 export async function POST(request, { params }) {
-  const response = await backendRequest(
-    `/control/schedule-dispatches/${params.dispatchId}/retry`,
+  const { response, data } = await backendJsonRequest(
+    "post",
+    "/control/schedule-dispatches/{dispatch_id}/retry",
     {
-      method: "POST",
-      cookieHeader: request.headers.get("cookie") || ""
+      cookieHeader: request.headers.get("cookie") || "",
+      params: { path: { dispatch_id: params.dispatchId } }
     }
   );
 
@@ -21,8 +28,7 @@ export async function POST(request, { params }) {
     );
   }
 
-  const payload = await response.json();
-  const retriedDispatchId = payload?.dispatch?.dispatch_id;
+  const retriedDispatchId = data?.dispatch?.dispatch_id;
   if (!retriedDispatchId) {
     return NextResponse.redirect(
       new URL(`/control/execution/dispatches/${params.dispatchId}`, request.url),

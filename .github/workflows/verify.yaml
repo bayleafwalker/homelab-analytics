@@ -17,12 +17,18 @@ jobs:
         with:
           python-version: "3.12"
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - uses: azure/setup-helm@v4
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e .[dev]
+          cd apps/web/frontend
+          npm ci
 
       - name: Run blocking verification
         run: make verify-fast

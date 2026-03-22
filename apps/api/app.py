@@ -17,6 +17,7 @@ from apps.api.auth_runtime import (
 from apps.api.routes.auth_routes import register_auth_routes
 from apps.api.routes.category_routes import register_category_routes
 from apps.api.routes.config_routes import register_config_routes
+from apps.api.routes.contract_routes import register_contract_routes
 from apps.api.routes.control_routes import register_control_routes
 from apps.api.routes.ha_routes import register_ha_routes
 from apps.api.routes.homelab_routes import register_homelab_routes
@@ -68,6 +69,7 @@ from packages.pipelines.subscription_service import SubscriptionService
 from packages.platform.auth.oidc_provider import OidcProvider
 from packages.platform.auth.session_manager import SessionManager
 from packages.platform.runtime.container import AppContainer
+from packages.shared.auth_modes import is_cookie_auth_mode, normalize_auth_mode
 from packages.shared.extensions import (
     ExtensionRegistry,
     build_builtin_extension_registry,
@@ -283,7 +285,7 @@ def create_app(
     # AccountTransactionService-first call from existing tests.
     if isinstance(service_or_container, AppContainer):
         container = service_or_container
-        resolved_auth_mode = container.settings.auth_mode.lower()
+        resolved_auth_mode = container.settings.resolved_auth_mode
     else:
         service = service_or_container
         container = _build_container_from_legacy_args(
@@ -295,7 +297,7 @@ def create_app(
             subscription_service=subscription_service,
             contract_price_service=contract_price_service,
         )
-        resolved_auth_mode = auth_mode.lower()
+        resolved_auth_mode = normalize_auth_mode(auth_mode)
 
     # Auto-build a reporting service from transformation_service when reporting_service
     # was not explicitly provided — preserves the behaviour of the original create_app().
@@ -310,15 +312,17 @@ def create_app(
         container.settings.landing_root.parent / "external-registry-cache"
     )
 
-    if resolved_auth_mode not in {"disabled", "local", "oidc"}:
-        raise ValueError(f"Unsupported auth mode: {resolved_auth_mode!r}")
-    if resolved_auth_mode in {"local", "oidc"} and session_manager is None:
+    if resolved_auth_mode == "proxy":
+        raise ValueError(
+            "Proxy auth mode is reserved but not implemented yet. Use OIDC until trusted proxy identity headers are supported."
+        )
+    if is_cookie_auth_mode(resolved_auth_mode) and session_manager is None:
         raise ValueError("Cookie-backed auth requires a configured session manager.")
     if resolved_auth_mode == "oidc" and oidc_provider is None:
         raise ValueError("OIDC auth requires a configured OIDC provider.")
 
     resolved_auth_store_candidate = auth_store or resolved_config_repository
-    if resolved_auth_mode in {"local", "oidc"} and not isinstance(
+    if is_cookie_auth_mode(resolved_auth_mode) and not isinstance(
         resolved_auth_store_candidate, AuthStore
     ):
         raise ValueError("Configured auth requires an auth-capable control-plane store.")
@@ -357,7 +361,7 @@ def create_app(
     _initialize_metrics()
 
     def require_unsafe_admin() -> None:
-        if resolved_auth_mode in {"local", "oidc"}:
+        if is_cookie_auth_mode(resolved_auth_mode):
             return
         if not enable_unsafe_admin:
             raise HTTPException(
@@ -437,6 +441,10 @@ def create_app(
         to_jsonable=to_jsonable,
         build_dataset_contract_diff=build_dataset_contract_diff,
         build_column_mapping_diff=build_column_mapping_diff,
+    )
+    register_contract_routes(
+        app,
+        capability_packs=container.capability_packs,
     )
     register_control_routes(
         app,

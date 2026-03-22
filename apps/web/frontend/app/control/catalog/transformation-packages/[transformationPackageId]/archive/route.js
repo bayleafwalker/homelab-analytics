@@ -1,18 +1,26 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
 import { backendRequest } from "@/lib/backend";
 
+/**
+ * @param {Request} request
+ * @param {{ params: { transformationPackageId: string } }} context
+ */
 export async function POST(request, { params }) {
   const formData = await request.formData();
   const response = await backendRequest(
-    `/config/transformation-packages/${params.transformationPackageId}/archive`,
+    "patch",
+    "/config/transformation-packages/{transformation_package_id}/archive",
     {
-      method: "PATCH",
       cookieHeader: request.headers.get("cookie") || "",
-      contentType: "application/json",
-      body: JSON.stringify({
+      params: {
+        path: { transformation_package_id: params.transformationPackageId }
+      },
+      body: {
         archived: String(formData.get("archived") || "true") === "true"
-      })
+      }
     }
   );
 

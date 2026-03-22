@@ -1,18 +1,24 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
 import { backendRequest } from "@/lib/backend";
 
+/**
+ * @param {Request} request
+ * @param {{ params: { datasetContractId: string } }} context
+ */
 export async function POST(request, { params }) {
   const formData = await request.formData();
   const response = await backendRequest(
-    `/config/dataset-contracts/${params.datasetContractId}/archive`,
+    "patch",
+    "/config/dataset-contracts/{dataset_contract_id}/archive",
     {
-      method: "PATCH",
       cookieHeader: request.headers.get("cookie") || "",
-      contentType: "application/json",
-      body: JSON.stringify({
+      params: { path: { dataset_contract_id: params.datasetContractId } },
+      body: {
         archived: String(formData.get("archived") || "true") === "true"
-      })
+      }
     }
   );
   if (!response.ok) {

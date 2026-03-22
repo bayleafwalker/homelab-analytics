@@ -1,18 +1,26 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
 import { backendRequest } from "@/lib/backend";
 
+/**
+ * @param {Request} request
+ * @param {{ params: { ingestionDefinitionId: string } }} context
+ */
 export async function POST(request, { params }) {
   const formData = await request.formData();
   const response = await backendRequest(
-    `/config/ingestion-definitions/${params.ingestionDefinitionId}/archive`,
+    "patch",
+    "/config/ingestion-definitions/{ingestion_definition_id}/archive",
     {
-      method: "PATCH",
       cookieHeader: request.headers.get("cookie") || "",
-      contentType: "application/json",
-      body: JSON.stringify({
+      params: {
+        path: { ingestion_definition_id: params.ingestionDefinitionId }
+      },
+      body: {
         archived: String(formData.get("archived") || "true") === "true"
-      })
+      }
     }
   );
   if (!response.ok) {

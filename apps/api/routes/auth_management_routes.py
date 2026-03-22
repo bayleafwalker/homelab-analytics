@@ -16,6 +16,11 @@ from apps.api.models import (
     LocalUserUpdateRequest,
     ServiceTokenCreateRequest,
 )
+from apps.api.response_models import (
+    LocalUserResponseModel,
+    ServiceTokenCreateResponseModel,
+    ServiceTokenResponseModel,
+)
 from packages.platform.auth.crypto import hash_password, issue_service_token
 from packages.platform.auth.role_hierarchy import AuthenticatedPrincipal
 from packages.platform.auth.serialization import serialize_service_token, serialize_user
@@ -44,7 +49,7 @@ def register_auth_management_routes(
         require_unsafe_admin()
         return {"users": to_jsonable(resolved_auth_store.list_local_users())}
 
-    @app.post("/auth/users", status_code=201)
+    @app.post("/auth/users", status_code=201, response_model=LocalUserResponseModel)
     async def create_auth_user(
         request: Request,
         payload: LocalUserCreateRequest,
@@ -79,7 +84,7 @@ def register_auth_management_routes(
         )
         return {"user": serialize_user(user)}
 
-    @app.patch("/auth/users/{user_id}")
+    @app.patch("/auth/users/{user_id}", response_model=LocalUserResponseModel)
     async def update_auth_user(
         user_id: str,
         payload: LocalUserUpdateRequest,
@@ -117,7 +122,7 @@ def register_auth_management_routes(
         )
         return {"user": serialize_user(user)}
 
-    @app.post("/auth/users/{user_id}/password")
+    @app.post("/auth/users/{user_id}/password", response_model=LocalUserResponseModel)
     async def reset_auth_user_password(
         user_id: str,
         payload: LocalUserPasswordResetRequest,
@@ -156,7 +161,11 @@ def register_auth_management_routes(
             ]
         }
 
-    @app.post("/auth/service-tokens", status_code=201)
+    @app.post(
+        "/auth/service-tokens",
+        status_code=201,
+        response_model=ServiceTokenCreateResponseModel,
+    )
     async def create_service_token_endpoint(
         request: Request,
         payload: ServiceTokenCreateRequest,
@@ -199,7 +208,10 @@ def register_auth_management_routes(
             "token_value": issued_token.token_value,
         }
 
-    @app.post("/auth/service-tokens/{token_id}/revoke")
+    @app.post(
+        "/auth/service-tokens/{token_id}/revoke",
+        response_model=ServiceTokenResponseModel,
+    )
     async def revoke_service_token_endpoint(
         token_id: str,
         request: Request,

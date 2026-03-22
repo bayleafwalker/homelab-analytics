@@ -1,16 +1,21 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
 import { backendRequest } from "@/lib/backend";
 
+/**
+ * @param {Request} request
+ * @param {{ params: { userId: string } }} context
+ */
 export async function POST(request, { params }) {
   const formData = await request.formData();
-  const response = await backendRequest(`/auth/users/${params.userId}/password`, {
-    method: "POST",
+  const response = await backendRequest("post", "/auth/users/{user_id}/password", {
     cookieHeader: request.headers.get("cookie") || "",
-    contentType: "application/json",
-    body: JSON.stringify({
+    params: { path: { user_id: params.userId } },
+    body: {
       password: String(formData.get("password") || "")
-    })
+    }
   });
 
   if (!response.ok) {

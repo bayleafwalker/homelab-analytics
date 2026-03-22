@@ -7,6 +7,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 ## Architecture
 
 - `architecture/data-platform-architecture.md` — source ingestion pattern, landing/bronze, transformation/silver, reporting/gold, SCD handling, extensibility model, and API/UI publishing model. Also covers forward-looking architectural layers: semantic domain, planning/scenario, policy/automation, multi-renderer delivery, pack ecosystem, and trust/governance.
+- `architecture/publication-contracts.md` — backend-owned publication and UI descriptor contract model, semantic field metadata, renderer expectations, and generated frontend publication types.
 - `architecture/homeassistant-integration-hub.md` — six-layer integration hub architecture: entity normalization bridge, bidirectional event/command fabric, synthetic entity publication model, and resilience model.
 - `architecture/simulation-engine.md` — scenario storage schema, compute model, assumption tracking, and planned scenario types.
 
@@ -50,6 +51,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 - `decisions/household-operating-platform-direction.md` — operating platform identity evolution, 11-stage roadmap direction, relationship to Home Assistant, and relationship to existing ADRs.
 - `decisions/household-platform-adr-and-refactor-blueprint.md` — modular monolith architecture, 5-layer model, capability pack registration, boundary enforcement, and migration plan.
 - `decisions/compute-and-orchestration-options.md` — comparison of Spark and alternative engines/orchestrators, with the recommended initial stack and upgrade path.
+- `decisions/auth-boundary-external-identity-internal-authorization.md` — auth boundary lock: external identity, in-app authorization semantics, service-token alignment, and narrow break-glass posture.
 
 ## Plans
 

@@ -17,6 +17,11 @@ from packages.platform.capability_types import (
     PublicationDefinition,
     UiDescriptor,
     WorkflowDefinition,
+    dimension_field,
+    identifier_field,
+    measure_field,
+    status_field,
+    time_field,
 )
 
 HOMELAB_PACK = CapabilityPack(
@@ -49,38 +54,177 @@ HOMELAB_PACK = CapabilityPack(
         PublicationDefinition(
             key="service_health_current",
             schema_name="service_health_current",
+            schema_version="1.0.0",
             display_name="Service Health (Current)",
             description="Latest health state per service with uptime and last-change timestamp.",
             visibility="public",
             lineage_required=True,
             retention_policy="rolling_12_months",
+            field_semantics={
+                "service_id": identifier_field(
+                    "Stable service identifier emitted by the homelab source."
+                ),
+                "service_name": dimension_field(
+                    "Human-readable service name."
+                ),
+                "service_type": dimension_field(
+                    "Service class such as container, VM, or integration."
+                ),
+                "host": dimension_field(
+                    "Host or node currently running the service."
+                ),
+                "criticality": status_field(
+                    "Declared service criticality used for prioritization."
+                ),
+                "managed_by": dimension_field(
+                    "System or operator responsible for the service lifecycle."
+                ),
+                "state": status_field(
+                    "Current service health state."
+                ),
+                "uptime_seconds": measure_field(
+                    "Elapsed uptime for the current service state window.",
+                    aggregation="latest",
+                    unit="seconds",
+                ),
+                "last_state_change": time_field(
+                    "Timestamp when the service last changed state.",
+                    grain="timestamp",
+                ),
+                "recorded_at": time_field(
+                    "Timestamp when the health snapshot was recorded.",
+                    grain="timestamp",
+                ),
+            },
         ),
         PublicationDefinition(
             key="backup_freshness",
             schema_name="backup_freshness",
+            schema_version="1.0.0",
             display_name="Backup Freshness",
             description="Most recent backup per target with staleness flag (>24h = stale).",
             visibility="public",
             lineage_required=True,
             retention_policy="rolling_12_months",
+            field_semantics={
+                "target": identifier_field(
+                    "Backup target or job identifier being monitored."
+                ),
+                "last_backup_at": time_field(
+                    "Timestamp of the most recent completed backup.",
+                    grain="timestamp",
+                ),
+                "last_status": status_field(
+                    "Status of the most recent backup attempt."
+                ),
+                "last_size_bytes": measure_field(
+                    "Size of the most recent backup payload.",
+                    aggregation="latest",
+                    unit="bytes",
+                ),
+                "hours_since_backup": measure_field(
+                    "Elapsed hours since the most recent backup completed.",
+                    aggregation="latest",
+                    unit="hours",
+                ),
+                "is_stale": status_field(
+                    "Boolean stale flag derived from the freshness threshold."
+                ),
+                "backup_count_7d": measure_field(
+                    "Number of backup runs observed in the trailing seven days.",
+                    aggregation="count",
+                    unit="count",
+                ),
+            },
         ),
         PublicationDefinition(
             key="storage_risk",
             schema_name="storage_risk",
+            schema_version="1.0.0",
             display_name="Storage Risk",
             description="Per-device capacity usage with risk tier (warn >80%, crit >90%).",
             visibility="public",
             lineage_required=True,
             retention_policy="rolling_12_months",
+            field_semantics={
+                "entity_id": identifier_field(
+                    "Stable storage entity identifier from the telemetry source."
+                ),
+                "device_name": dimension_field(
+                    "Human-readable storage device name."
+                ),
+                "recorded_at": time_field(
+                    "Timestamp when the storage measurement was recorded.",
+                    grain="timestamp",
+                ),
+                "capacity_bytes": measure_field(
+                    "Total storage capacity for the monitored device.",
+                    aggregation="latest",
+                    unit="bytes",
+                ),
+                "used_bytes": measure_field(
+                    "Used storage capacity for the monitored device.",
+                    aggregation="latest",
+                    unit="bytes",
+                ),
+                "free_bytes": measure_field(
+                    "Remaining free storage capacity for the monitored device.",
+                    aggregation="latest",
+                    unit="bytes",
+                ),
+                "pct_used": measure_field(
+                    "Percent of storage capacity currently consumed.",
+                    aggregation="latest",
+                    unit="percent",
+                ),
+                "risk_tier": status_field(
+                    "Derived storage-risk tier based on utilization thresholds."
+                ),
+            },
         ),
         PublicationDefinition(
             key="workload_cost_7d",
             schema_name="workload_cost_7d",
+            schema_version="1.0.0",
             display_name="Workload Cost (7-day rolling)",
             description="Rolling 7-day average CPU and memory per workload with cost estimate.",
             visibility="public",
             lineage_required=True,
             retention_policy="rolling_12_months",
+            field_semantics={
+                "workload_id": identifier_field(
+                    "Stable workload identifier from the telemetry source."
+                ),
+                "display_name": dimension_field(
+                    "Human-readable workload name."
+                ),
+                "host": dimension_field(
+                    "Host or node currently running the workload."
+                ),
+                "workload_type": dimension_field(
+                    "Workload class such as VM, container, or service."
+                ),
+                "avg_cpu_pct_7d": measure_field(
+                    "Seven-day rolling average CPU utilization.",
+                    aggregation="avg",
+                    unit="percent",
+                ),
+                "avg_mem_gb_7d": measure_field(
+                    "Seven-day rolling average memory consumption.",
+                    aggregation="avg",
+                    unit="gigabytes",
+                ),
+                "reading_count_7d": measure_field(
+                    "Number of telemetry readings included in the rolling window.",
+                    aggregation="count",
+                    unit="count",
+                ),
+                "est_monthly_cost": measure_field(
+                    "Estimated monthly infrastructure cost for the workload.",
+                    aggregation="estimate",
+                    unit="currency",
+                ),
+            },
         ),
     ),
     ui_descriptors=(
@@ -91,6 +235,12 @@ HOMELAB_PACK = CapabilityPack(
             kind="dashboard",
             publication_keys=("service_health_current",),
             icon="server",
+            supported_renderers=("web",),
+            renderer_hints={
+                "web_surface": "homelab",
+                "web_render_mode": "discovery",
+                "web_anchor": "homelab-services",
+            },
         ),
         UiDescriptor(
             key="homelab-backups",
@@ -99,6 +249,12 @@ HOMELAB_PACK = CapabilityPack(
             kind="table",
             publication_keys=("backup_freshness",),
             icon="archive",
+            supported_renderers=("web",),
+            renderer_hints={
+                "web_surface": "homelab",
+                "web_render_mode": "discovery",
+                "web_anchor": "homelab-backups",
+            },
         ),
         UiDescriptor(
             key="homelab-storage",
@@ -107,6 +263,12 @@ HOMELAB_PACK = CapabilityPack(
             kind="dashboard",
             publication_keys=("storage_risk",),
             icon="hard-drive",
+            supported_renderers=("web",),
+            renderer_hints={
+                "web_surface": "homelab",
+                "web_render_mode": "discovery",
+                "web_anchor": "homelab-storage",
+            },
         ),
         UiDescriptor(
             key="homelab-workloads",
@@ -115,6 +277,12 @@ HOMELAB_PACK = CapabilityPack(
             kind="table",
             publication_keys=("workload_cost_7d",),
             icon="cpu",
+            supported_renderers=("web",),
+            renderer_hints={
+                "web_surface": "homelab",
+                "web_render_mode": "discovery",
+                "web_anchor": "homelab-workloads",
+            },
         ),
     ),
 )

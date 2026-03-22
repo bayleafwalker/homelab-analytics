@@ -1,11 +1,17 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
-import { backendRequest } from "@/lib/backend";
+import { backendJsonRequest } from "@/lib/backend";
 
+/**
+ * @param {Request} request
+ * @param {{ params: { runId: string } }} context
+ */
 export async function POST(request, { params }) {
-  const response = await backendRequest(`/runs/${params.runId}/retry`, {
-    method: "POST",
-    cookieHeader: request.headers.get("cookie") || ""
+  const { response, data } = await backendJsonRequest("post", "/runs/{run_id}/retry", {
+    cookieHeader: request.headers.get("cookie") || "",
+    params: { path: { run_id: params.runId } }
   });
 
   if (!response.ok) {
@@ -15,8 +21,7 @@ export async function POST(request, { params }) {
     );
   }
 
-  const payload = await response.json();
-  const retriedRunId = payload?.run?.run_id;
+  const retriedRunId = data?.run?.run_id;
   if (!retriedRunId) {
     return NextResponse.redirect(new URL(`/runs/${params.runId}`, request.url), {
       status: 303

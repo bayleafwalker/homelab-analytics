@@ -1,14 +1,16 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
-import { backendRequest } from "@/lib/backend";
+import { backendJsonRequest } from "@/lib/backend";
 
+/** @param {Request} request */
 export async function POST(request) {
+  /** @type {import("@/lib/backend").RequestBodyForMethodPath<"post", "/auth/service-tokens">} */
   const payload = await request.json();
-  const response = await backendRequest("/auth/service-tokens", {
-    method: "POST",
+  const { response, data, error } = await backendJsonRequest("post", "/auth/service-tokens", {
     cookieHeader: request.headers.get("cookie") || "",
-    contentType: "application/json",
-    body: JSON.stringify(payload)
+    body: payload
   });
-  return NextResponse.json(await response.json(), { status: response.status });
+  return NextResponse.json(response.ok ? data ?? {} : error ?? {}, { status: response.status });
 }

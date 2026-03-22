@@ -4,6 +4,8 @@ __pycache__/
 .ruff_cache/
 .venv/
 venv/
+.tooling/
+*.tsbuildinfo
 .local/
 *.egg-info/
 node_modules/

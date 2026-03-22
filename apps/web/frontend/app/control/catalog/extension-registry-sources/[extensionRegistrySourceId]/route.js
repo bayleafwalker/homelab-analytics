@@ -1,16 +1,26 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
 import { backendRequest } from "@/lib/backend";
 
+/**
+ * @param {Request} request
+ * @param {{ params: { extensionRegistrySourceId: string } }} context
+ */
 export async function POST(request, { params }) {
   const formData = await request.formData();
   const response = await backendRequest(
-    `/config/extension-registry-sources/${params.extensionRegistrySourceId}`,
+    "patch",
+    "/config/extension-registry-sources/{extension_registry_source_id}",
     {
-      method: "PATCH",
       cookieHeader: request.headers.get("cookie") || "",
-      contentType: "application/json",
-      body: JSON.stringify({
+      params: {
+        path: {
+          extension_registry_source_id: params.extensionRegistrySourceId
+        }
+      },
+      body: {
         extension_registry_source_id: String(
           formData.get("extension_registry_source_id") ||
             params.extensionRegistrySourceId ||
@@ -24,7 +34,7 @@ export async function POST(request, { params }) {
         auth_secret_name: String(formData.get("auth_secret_name") || "") || null,
         auth_secret_key: String(formData.get("auth_secret_key") || "") || null,
         enabled: String(formData.get("enabled") || "true") === "true"
-      })
+      }
     }
   );
   if (!response.ok) {

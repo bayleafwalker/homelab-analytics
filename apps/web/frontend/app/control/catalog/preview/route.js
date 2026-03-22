@@ -1,26 +1,39 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
-import { backendRequest } from "@/lib/backend";
+import { backendJsonRequest } from "@/lib/backend";
 
-export async function POST(request) {
-  const payload = await request.json();
-  const response = await backendRequest("/config/column-mappings/preview", {
-    method: "POST",
-    cookieHeader: request.headers.get("cookie") || "",
-    contentType: "application/json",
-    body: JSON.stringify(payload)
-  });
-  let body = null;
-  try {
-    body = await response.json();
-  } catch {
-    body = null;
+/** @param {unknown} error */
+function getPreviewErrorMessage(error) {
+  if (error && typeof error === "object") {
+    if ("error" in error && typeof error.error === "string") {
+      return error.error;
+    }
+    if ("detail" in error && typeof error.detail === "string") {
+      return error.detail;
+    }
   }
+  return "Preview failed.";
+}
+
+/** @param {Request} request */
+export async function POST(request) {
+  /** @type {import("@/lib/backend").RequestBodyForMethodPath<"post", "/config/column-mappings/preview">} */
+  const payload = await request.json();
+  const { response, data, error } = await backendJsonRequest(
+    "post",
+    "/config/column-mappings/preview",
+    {
+      cookieHeader: request.headers.get("cookie") || "",
+      body: payload
+    }
+  );
   if (!response.ok) {
     return NextResponse.json(
-      { error: body?.error || body?.detail || "Preview failed." },
+      { error: getPreviewErrorMessage(error) },
       { status: response.status }
     );
   }
-  return NextResponse.json(body || { preview: null }, { status: response.status });
+  return NextResponse.json(data || { preview: null }, { status: response.status });
 }

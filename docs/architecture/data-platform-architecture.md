@@ -276,7 +276,7 @@ Runtime deployments should still support per-purpose DSN overrides so workload c
 
 - API and web workloads should consume published reporting relations when Postgres reporting is enabled
 - worker jobs and local bootstrap flows may continue to read the DuckDB warehouse directly
-- bootstrap auth is local username/password with HTTP-only signed session cookies only when explicitly enabled for break-glass use; OIDC is the production interactive path; scoped service tokens are available for automation clients; `/health`, `/ready`, and `/metrics` stay public, while admin/control routes require an `admin` role
+- interactive authentication should default to external OIDC identity providers; local username/password remains a deliberately narrow single-user break-glass path with HTTP-only signed session cookies only when explicitly enabled; authorization semantics stay in-app and should evolve from role-only checks toward explicit permission bundles that apply to both human and service-token principals; `/health`, `/ready`, and `/metrics` stay public, while admin/control routes require elevated authorization
 - `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` is a temporary local-only escape hatch and should stay disabled in shared deployment manifests
 - the web workload should stay API-backed: the current Next.js shell consumes API routes only, and any future product/admin UI should continue to avoid server-side warehouse or control-plane reads in the web runtime
 
@@ -412,6 +412,8 @@ Delivery model:
 - each publication carries semantic metadata sufficient for a renderer to display it without understanding its implementation: schema, data type, aggregation semantics, time grain, and optional display hints
 - UI descriptors (as defined in the platform ADR) provide renderer-facing presentation metadata: chart type, layout hints, card titles, filter bindings
 - renderers discover available publications and their descriptors through a stable registry contract rather than hard-coded endpoint lists
+
+The concrete publication and UI descriptor payload shape is documented in `docs/architecture/publication-contracts.md`.
 
 Renderer expectations:
 

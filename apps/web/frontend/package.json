@@ -2,13 +2,24 @@
   "name": "homelab-analytics-web",
   "private": true,
   "scripts": {
+    "codegen": "node scripts/codegen.mjs",
+    "codegen:check": "node scripts/codegen.mjs --check",
     "build": "next build",
     "dev": "next dev",
-    "start": "next start"
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "openapi-fetch": "^0.13.3",
     "next": "^14.2.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "openapi-typescript": "^7.6.1",
+    "typescript": "^5.8.2"
   }
 }

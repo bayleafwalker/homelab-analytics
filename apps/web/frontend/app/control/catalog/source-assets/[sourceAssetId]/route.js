@@ -1,14 +1,19 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
 import { backendRequest } from "@/lib/backend";
 
+/**
+ * @param {Request} request
+ * @param {{ params: { sourceAssetId: string } }} context
+ */
 export async function POST(request, { params }) {
   const formData = await request.formData();
-  const response = await backendRequest(`/config/source-assets/${params.sourceAssetId}`, {
-    method: "PATCH",
+  const response = await backendRequest("patch", "/config/source-assets/{source_asset_id}", {
     cookieHeader: request.headers.get("cookie") || "",
-    contentType: "application/json",
-    body: JSON.stringify({
+    params: { path: { source_asset_id: params.sourceAssetId } },
+    body: {
       source_asset_id: String(formData.get("source_asset_id") || params.sourceAssetId || ""),
       source_system_id: String(formData.get("source_system_id") || ""),
       dataset_contract_id: String(formData.get("dataset_contract_id") || ""),
@@ -19,7 +24,7 @@ export async function POST(request, { params }) {
         String(formData.get("transformation_package_id") || "") || null,
       description: String(formData.get("description") || "") || null,
       enabled: String(formData.get("enabled") || "true") === "true"
-    })
+    }
   });
 
   if (!response.ok) {

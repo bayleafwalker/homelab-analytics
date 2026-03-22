@@ -1,18 +1,28 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
 import { backendRequest } from "@/lib/backend";
 
+/**
+ * @param {Request} request
+ * @param {{ params: { extensionRegistrySourceId: string } }} context
+ */
 export async function POST(request, { params }) {
   const formData = await request.formData();
   const response = await backendRequest(
-    `/config/extension-registry-sources/${params.extensionRegistrySourceId}/sync`,
+    "post",
+    "/config/extension-registry-sources/{extension_registry_source_id}/sync",
     {
-      method: "POST",
       cookieHeader: request.headers.get("cookie") || "",
-      contentType: "application/json",
-      body: JSON.stringify({
+      params: {
+        path: {
+          extension_registry_source_id: params.extensionRegistrySourceId
+        }
+      },
+      body: {
         activate: String(formData.get("activate") || "false") === "true"
-      })
+      }
     }
   );
   if (!response.ok) {

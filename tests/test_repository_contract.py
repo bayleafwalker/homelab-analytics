@@ -50,6 +50,20 @@ class RepositoryContractTests(unittest.TestCase):
         missing = [path for path in expected if not (ROOT / path).is_file()]
         self.assertEqual([], missing, f"Missing files: {missing}")
 
+    def test_frontend_contract_artifacts_exist(self) -> None:
+        expected = [
+            "apps/web/frontend/tsconfig.json",
+            "apps/web/frontend/next-env.d.ts",
+            "apps/web/frontend/scripts/codegen.mjs",
+            "apps/web/frontend/generated/openapi.json",
+            "apps/web/frontend/generated/publication-contracts.json",
+            "apps/web/frontend/generated/api.d.ts",
+            "apps/web/frontend/generated/publication-contracts.ts",
+        ]
+
+        missing = [path for path in expected if not (ROOT / path).is_file()]
+        self.assertEqual([], missing, f"Missing frontend contract artifacts: {missing}")
+
     def test_architecture_doc_covers_core_layers(self) -> None:
         content = (ROOT / "docs/architecture/data-platform-architecture.md").read_text()
 

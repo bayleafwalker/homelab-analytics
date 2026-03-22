@@ -1,18 +1,24 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
 import { backendRequest } from "@/lib/backend";
 
+/**
+ * @param {Request} request
+ * @param {{ params: { columnMappingId: string } }} context
+ */
 export async function POST(request, { params }) {
   const formData = await request.formData();
   const response = await backendRequest(
-    `/config/column-mappings/${params.columnMappingId}/archive`,
+    "patch",
+    "/config/column-mappings/{column_mapping_id}/archive",
     {
-      method: "PATCH",
       cookieHeader: request.headers.get("cookie") || "",
-      contentType: "application/json",
-      body: JSON.stringify({
+      params: { path: { column_mapping_id: params.columnMappingId } },
+      body: {
         archived: String(formData.get("archived") || "true") === "true"
-      })
+      }
     }
   );
   if (!response.ok) {

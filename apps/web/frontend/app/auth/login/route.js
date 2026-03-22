@@ -1,7 +1,14 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
 import { backendRequest, copyBackendSetCookies } from "@/lib/backend";
 
+/**
+ * @param {Response} response
+ * @param {import("next/server").NextRequest} request
+ * @param {string} fallbackPath
+ */
 function redirectWithBackendCookies(response, request, fallbackPath) {
   const location = response.headers.get("location") || fallbackPath;
   const redirectResponse = NextResponse.redirect(new URL(location, request.url), {
@@ -11,24 +18,24 @@ function redirectWithBackendCookies(response, request, fallbackPath) {
   return redirectResponse;
 }
 
+/** @param {import("next/server").NextRequest} request */
 export async function GET(request) {
-  const search = request.nextUrl.search || "";
-  const response = await backendRequest(`/auth/login${search}`, {
-    method: "GET",
-    cookieHeader: request.headers.get("cookie") || ""
+  const returnTo = request.nextUrl.searchParams.get("return_to");
+  const response = await backendRequest("get", "/auth/login", {
+    cookieHeader: request.headers.get("cookie") || "",
+    params: returnTo ? { query: { return_to: returnTo } } : {}
   });
   return redirectWithBackendCookies(response, request, "/login?error=oidc-failed");
 }
 
+/** @param {Request} request */
 export async function POST(request) {
   const formData = await request.formData();
   const username = String(formData.get("username") || "");
   const password = String(formData.get("password") || "");
-  const response = await backendRequest("/auth/login", {
-    method: "POST",
+  const response = await backendRequest("post", "/auth/login", {
     cookieHeader: request.headers.get("cookie") || "",
-    contentType: "application/json",
-    body: JSON.stringify({ username, password })
+    body: { username, password }
   });
 
   if (response.status !== 200) {

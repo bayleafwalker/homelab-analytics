@@ -1,17 +1,27 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
 import { backendRequest } from "@/lib/backend";
 
+/**
+ * @param {Request} request
+ * @param {{ params: { userId: string } }} context
+ */
 export async function POST(request, { params }) {
   const formData = await request.formData();
-  const response = await backendRequest(`/auth/users/${params.userId}`, {
-    method: "PATCH",
+  const roleValue = String(formData.get("role") || "reader");
+  const role =
+    roleValue === "admin" || roleValue === "operator" || roleValue === "reader"
+      ? roleValue
+      : "reader";
+  const response = await backendRequest("patch", "/auth/users/{user_id}", {
     cookieHeader: request.headers.get("cookie") || "",
-    contentType: "application/json",
-    body: JSON.stringify({
-      role: String(formData.get("role") || "reader"),
+    params: { path: { user_id: params.userId } },
+    body: {
+      role,
       enabled: String(formData.get("enabled") || "true") === "true"
-    })
+    }
   });
 
   if (!response.ok) {

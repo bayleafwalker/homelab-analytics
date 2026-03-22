@@ -1,7 +1,10 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
 import { backendRequest } from "@/lib/backend";
 
+/** @param {FormDataEntryValue | null} value */
 function parseOptionalInteger(value) {
   if (!value) {
     return null;
@@ -10,13 +13,12 @@ function parseOptionalInteger(value) {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+/** @param {Request} request */
 export async function POST(request) {
   const formData = await request.formData();
-  const response = await backendRequest("/config/ingestion-definitions", {
-    method: "POST",
+  const response = await backendRequest("post", "/config/ingestion-definitions", {
     cookieHeader: request.headers.get("cookie") || "",
-    contentType: "application/json",
-    body: JSON.stringify({
+    body: {
       ingestion_definition_id: String(formData.get("ingestion_definition_id") || ""),
       source_asset_id: String(formData.get("source_asset_id") || ""),
       transport: String(formData.get("transport") || ""),
@@ -34,7 +36,7 @@ export async function POST(request) {
       output_file_name: null,
       enabled: String(formData.get("enabled") || "true") === "true",
       source_name: String(formData.get("source_name") || "") || null
-    })
+    }
   });
 
   if (!response.ok) {

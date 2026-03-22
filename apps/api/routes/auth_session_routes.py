@@ -11,10 +11,10 @@ readability gain. Revisit if a third auth variant is added.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any, Callable, cast
+from typing import Annotated, Any, Callable, cast
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from apps.api.models import LoginRequest
@@ -160,7 +160,10 @@ def register_auth_session_routes(
         return response
 
     @app.get("/auth/login")
-    async def start_oidc_login(request: Request) -> RedirectResponse:
+    async def start_oidc_login(
+        request: Request,
+        return_to: Annotated[str | None, Query()] = None,
+    ) -> RedirectResponse:
         if resolved_auth_mode != "oidc":
             raise HTTPException(
                 status_code=400,
@@ -168,9 +171,7 @@ def register_auth_session_routes(
             )
         assert resolved_oidc_provider is not None
         try:
-            redirect = resolved_oidc_provider.build_login_redirect(
-                request.query_params.get("return_to")
-            )
+            redirect = resolved_oidc_provider.build_login_redirect(return_to)
         except (OidcAuthenticationError, httpx.HTTPError) as exc:
             raise HTTPException(
                 status_code=502,
@@ -192,7 +193,12 @@ def register_auth_session_routes(
         return response
 
     @app.get("/auth/callback")
-    async def oidc_callback(request: Request) -> RedirectResponse:
+    async def oidc_callback(
+        request: Request,
+        code: Annotated[str | None, Query()] = None,
+        state: Annotated[str | None, Query()] = None,
+        error: Annotated[str | None, Query()] = None,
+    ) -> RedirectResponse:
         if resolved_auth_mode != "oidc":
             raise HTTPException(
                 status_code=400,
@@ -200,15 +206,12 @@ def register_auth_session_routes(
             )
         assert resolved_session_manager is not None
         assert resolved_oidc_provider is not None
-        provider_error = request.query_params.get("error")
-        code = request.query_params.get("code")
-        state = request.query_params.get("state")
-        if provider_error or not code or not state:
+        if error or not code or not state:
             record_auth_event(
                 request,
                 event_type="login_failed",
                 success=False,
-                detail=provider_error or "OIDC callback missing code or state.",
+                detail=error or "OIDC callback missing code or state.",
             )
             response = RedirectResponse("/login?error=oidc-failed", status_code=303)
             response.delete_cookie(

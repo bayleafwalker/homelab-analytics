@@ -38,10 +38,14 @@ class _StubReportingService:
     def get_transformation_audit(self, input_run_id=None):
         return [
             {
+                "audit_id": "audit-001",
                 "input_run_id": input_run_id or "run-001",
                 "fact_rows": 2,
                 "started_at": "2026-03-10T10:00:00+00:00",
                 "completed_at": "2026-03-10T10:00:01+00:00",
+                "duration_ms": 1000,
+                "accounts_upserted": 1,
+                "counterparties_upserted": 1,
             }
         ]
 
@@ -235,7 +239,9 @@ class CategoryApiTests(unittest.TestCase):
 
             list_response = client.get("/categories/rules")
             self.assertEqual(200, list_response.status_code)
-            rules = list_response.json()["rules"]
+            payload = list_response.json()
+            self.assertNotIn("rules", payload)
+            rules = payload["rows"]
             self.assertEqual(1, len(rules))
             self.assertEqual("supermarket", rules[0]["pattern"])
 
@@ -249,7 +255,9 @@ class CategoryApiTests(unittest.TestCase):
             delete_response = client.delete("/categories/rules/r1")
             self.assertEqual(200, delete_response.status_code)
 
-            rules = client.get("/categories/rules").json()["rules"]
+            rules_payload = client.get("/categories/rules").json()
+            self.assertNotIn("rules", rules_payload)
+            rules = rules_payload["rows"]
             self.assertEqual(0, len(rules))
 
     def test_set_and_list_category_overrides(self) -> None:
@@ -263,7 +271,9 @@ class CategoryApiTests(unittest.TestCase):
 
             list_response = client.get("/categories/overrides")
             self.assertEqual(200, list_response.status_code)
-            overrides = list_response.json()["overrides"]
+            payload = list_response.json()
+            self.assertNotIn("overrides", payload)
+            overrides = payload["rows"]
             self.assertEqual(1, len(overrides))
             self.assertEqual("income", overrides[0]["category"])
 
@@ -274,7 +284,9 @@ class CategoryApiTests(unittest.TestCase):
             delete_response = client.delete("/categories/overrides/X")
             self.assertEqual(200, delete_response.status_code)
 
-            overrides = client.get("/categories/overrides").json()["overrides"]
+            overrides_payload = client.get("/categories/overrides").json()
+            self.assertNotIn("overrides", overrides_payload)
+            overrides = overrides_payload["rows"]
             self.assertEqual(0, len(overrides))
 
 
@@ -329,16 +341,21 @@ class ReportingApiAppTests(unittest.TestCase):
                 )
 
         self.assertEqual(200, response.status_code)
+        self.assertNotIn("audit", response.json())
         self.assertEqual(
             [
                 {
+                    "audit_id": "audit-001",
                     "input_run_id": "run-123",
                     "fact_rows": 2,
                     "started_at": "2026-03-10T10:00:00+00:00",
                     "completed_at": "2026-03-10T10:00:01+00:00",
+                    "duration_ms": 1000,
+                    "accounts_upserted": 1,
+                    "counterparties_upserted": 1,
                 }
             ],
-            response.json()["audit"],
+            response.json()["rows"],
         )
 
     def test_reporting_extension_endpoint_can_use_reporting_service_without_transformation_service(

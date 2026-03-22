@@ -354,12 +354,12 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
         FRONTEND_ROOT / "app" / "runs" / "[runId]" / "retry" / "route.js"
     ).read_text()
 
-    assert 'backendRequest("/auth/login"' in login_route
-    assert 'backendRequest(`/auth/login${search}`' in login_route
-    assert 'backendRequest(`/auth/callback${search}`' in callback_route
+    assert "// @ts-check" in login_route
+    assert 'backendRequest("get", "/auth/login"' in login_route
+    assert 'backendRequest("get", "/auth/callback"' in callback_route
     assert "copyBackendSetCookies" in callback_route
     assert "copyBackendSetCookies" in login_route
-    assert 'backendRequest("/auth/logout"' in logout_route
+    assert 'backendRequest("post", "/auth/logout"' in logout_route
     assert 'status: "ready"' in ready_route
     assert "HOMELAB_ANALYTICS_AUTH_MODE" in ready_route
     assert "Sign In" in login_page
@@ -372,8 +372,8 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert "getOperationalSummary" in control_page
     assert "getServiceTokens" in control_page
     assert "ServiceTokenPanel" in control_page
-    assert 'backendRequest("/auth/service-tokens"' in service_token_route
-    assert "/auth/service-tokens/${params.tokenId}/revoke" in service_token_revoke_route
+    assert 'backendJsonRequest("post", "/auth/service-tokens"' in service_token_route
+    assert "/auth/service-tokens/{token_id}/revoke" in service_token_revoke_route
     assert 'fetch("/control/service-tokens"' in service_token_panel
     assert "Copy once" in service_token_panel
     assert "expiring soon" in service_token_panel
@@ -397,11 +397,11 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert "TransformationCatalogPanel" in control_catalog_page
     assert "parseColumnsSpec" in dataset_contract_route
     assert "/config/dataset-contracts" in dataset_contract_route
-    assert "/config/dataset-contracts/${params.datasetContractId}/archive" in dataset_contract_archive_route
+    assert '"/config/dataset-contracts/{dataset_contract_id}/archive"' in dataset_contract_archive_route
     assert "parseRulesSpec" in column_mapping_route
     assert "function_key" in config_spec
     assert "/config/column-mappings" in column_mapping_route
-    assert "/config/column-mappings/${params.columnMappingId}/archive" in column_mapping_archive_route
+    assert '"/config/column-mappings/{column_mapping_id}/archive"' in column_mapping_archive_route
     assert "Create external registry source" in external_registry_panel
     assert "External registry sources" in external_registry_panel
     assert "Sync and activate" in external_registry_panel
@@ -414,7 +414,8 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert "Available publication keys" in transformation_catalog_panel
     assert "Archive package" in transformation_catalog_panel
     assert "Archive publication" in transformation_catalog_panel
-    assert 'backendRequest("/config/column-mappings/preview"' in preview_route
+    assert "backendJsonRequest" in preview_route
+    assert '"/config/column-mappings/preview"' in preview_route
     assert "getIngestionDefinitions" in control_execution_page
     assert "getExecutionSchedules" in control_execution_page
     assert "getOperationalSummary" in control_execution_page
@@ -431,46 +432,47 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert 'backendPath: "/ingest/configured-csv"' in upload_configured_route
     assert 'fetch("/control/catalog/preview"' in mapping_preview_component
     assert "getRun" in run_detail_page
-    assert 'backendRequest("/config/source-systems"' in source_system_route
-    assert 'backendRequest(`/config/source-systems/${params.sourceSystemId}`' in source_system_update_route
-    assert 'backendRequest("/config/source-assets"' in source_asset_route
-    assert 'backendRequest(`/config/source-assets/${params.sourceAssetId}`' in source_asset_update_route
-    assert "/config/source-assets/${params.sourceAssetId}/archive" in source_asset_archive_route
-    assert "/config/source-assets/${params.sourceAssetId}" in source_asset_delete_route
-    assert 'backendRequest("/config/extension-registry-sources"' in extension_registry_source_route
-    assert "/config/extension-registry-sources/${params.extensionRegistrySourceId}" in extension_registry_source_update_route
-    assert "/config/extension-registry-sources/${params.extensionRegistrySourceId}/archive" in extension_registry_source_archive_route
-    assert "/config/extension-registry-sources/${params.extensionRegistrySourceId}/sync" in extension_registry_source_sync_route
-    assert "/config/extension-registry-sources/${params.extensionRegistrySourceId}/activate" in extension_registry_source_activate_route
-    assert 'backendRequest("/config/transformation-packages"' in transformation_package_route
-    assert "/config/transformation-packages/${params.transformationPackageId}" in transformation_package_update_route
-    assert "/config/transformation-packages/${params.transformationPackageId}/archive" in transformation_package_archive_route
-    assert 'backendRequest("/config/publication-definitions"' in publication_definition_route
-    assert "/config/publication-definitions/${params.publicationDefinitionId}" in publication_definition_update_route
-    assert "/config/publication-definitions/${params.publicationDefinitionId}/archive" in publication_definition_archive_route
-    assert 'backendRequest("/config/ingestion-definitions"' in ingestion_definition_route
-    assert "/config/ingestion-definitions/${params.ingestionDefinitionId}" in ingestion_definition_update_route
-    assert "/config/ingestion-definitions/${params.ingestionDefinitionId}/archive" in ingestion_definition_archive_route
-    assert "/config/ingestion-definitions/${params.ingestionDefinitionId}" in ingestion_definition_delete_route
-    assert 'backendRequest("/config/execution-schedules"' in execution_schedule_route
-    assert "/config/execution-schedules/${params.scheduleId}" in execution_schedule_update_route
-    assert "/config/execution-schedules/${params.scheduleId}/archive" in execution_schedule_archive_route
-    assert "/config/execution-schedules/${params.scheduleId}" in execution_schedule_delete_route
-    assert 'backendRequest("/control/schedule-dispatches"' in schedule_dispatch_route
+    assert 'backendRequest("post", "/config/source-systems"' in source_system_route
+    assert '"/config/source-systems/{source_system_id}"' in source_system_update_route
+    assert 'backendRequest("post", "/config/source-assets"' in source_asset_route
+    assert '"/config/source-assets/{source_asset_id}"' in source_asset_update_route
+    assert '"/config/source-assets/{source_asset_id}/archive"' in source_asset_archive_route
+    assert '"/config/source-assets/{source_asset_id}"' in source_asset_delete_route
+    assert 'backendRequest("post", "/config/extension-registry-sources"' in extension_registry_source_route
+    assert '"/config/extension-registry-sources/{extension_registry_source_id}"' in extension_registry_source_update_route
+    assert '"/config/extension-registry-sources/{extension_registry_source_id}/archive"' in extension_registry_source_archive_route
+    assert '"/config/extension-registry-sources/{extension_registry_source_id}/sync"' in extension_registry_source_sync_route
+    assert '"/config/extension-registry-sources/{extension_registry_source_id}/activate"' in extension_registry_source_activate_route
+    assert 'backendRequest("post", "/config/transformation-packages"' in transformation_package_route
+    assert '"/config/transformation-packages/{transformation_package_id}"' in transformation_package_update_route
+    assert '"/config/transformation-packages/{transformation_package_id}/archive"' in transformation_package_archive_route
+    assert 'backendRequest("post", "/config/publication-definitions"' in publication_definition_route
+    assert '"/config/publication-definitions/{publication_definition_id}"' in publication_definition_update_route
+    assert '"/config/publication-definitions/{publication_definition_id}/archive"' in publication_definition_archive_route
+    assert 'backendRequest("post", "/config/ingestion-definitions"' in ingestion_definition_route
+    assert '"/config/ingestion-definitions/{ingestion_definition_id}"' in ingestion_definition_update_route
+    assert '"/config/ingestion-definitions/{ingestion_definition_id}/archive"' in ingestion_definition_archive_route
+    assert '"/config/ingestion-definitions/{ingestion_definition_id}"' in ingestion_definition_delete_route
+    assert 'backendRequest("post", "/config/execution-schedules"' in execution_schedule_route
+    assert '"/config/execution-schedules/{schedule_id}"' in execution_schedule_update_route
+    assert '"/config/execution-schedules/{schedule_id}/archive"' in execution_schedule_archive_route
+    assert '"/config/execution-schedules/{schedule_id}"' in execution_schedule_delete_route
+    assert 'backendRequest("post", "/control/schedule-dispatches"' in schedule_dispatch_route
     assert "getScheduleDispatch" in dispatch_detail_page
     assert "getOperationalSummary" in dispatch_detail_page
     assert "Requeue dispatch" in dispatch_detail_page
     assert "Claim expires" in dispatch_detail_page
     assert "Failure reason" in dispatch_detail_page
     assert "Worker detail" in dispatch_detail_page
-    assert "/control/schedule-dispatches/${params.dispatchId}/retry" in dispatch_retry_route
-    assert "/ingest/ingestion-definitions/${params.ingestionDefinitionId}/process" in process_definition_route
-    assert 'backendRequest(`/runs/${params.runId}/retry`' in run_retry_route
+    assert '"/control/schedule-dispatches/{dispatch_id}/retry"' in dispatch_retry_route
+    assert '"/ingest/ingestion-definitions/{ingestion_definition_id}/process"' in process_definition_route
+    assert 'backendJsonRequest("post", "/runs/{run_id}/retry"' in run_retry_route
     assert "Retry run" in run_detail_page
 
 
 def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     dashboard_source = (FRONTEND_ROOT / "app" / "page.js").read_text()
+    homelab_source = (FRONTEND_ROOT / "app" / "homelab" / "page.js").read_text()
     runs_source = (FRONTEND_ROOT / "app" / "runs" / "page.js").read_text()
     reports_source = (FRONTEND_ROOT / "app" / "reports" / "page.js").read_text()
     control_source = (FRONTEND_ROOT / "app" / "control" / "page.js").read_text()
@@ -493,12 +495,17 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
         / "[dispatchId]"
         / "page.js"
     ).read_text()
-    backend_source = (FRONTEND_ROOT / "lib" / "backend.js").read_text()
+    backend_source = (FRONTEND_ROOT / "lib" / "backend.ts").read_text()
+    renderer_discovery_source = (
+        FRONTEND_ROOT / "lib" / "renderer-discovery.ts"
+    ).read_text()
     upload_route_helper = (FRONTEND_ROOT / "lib" / "upload-route.js").read_text()
 
     assert "HOMELAB_ANALYTICS_API_BASE_URL" in backend_source
     assert 'fetch(`${getApiBaseUrl()}${path}`' in backend_source
     assert 'outboundHeaders.set("x-csrf-token", csrfToken)' in backend_source
+    assert "Promise<any>" not in backend_source
+    assert "as any" not in backend_source
     assert "getSourceSystems" in backend_source
     assert "getSourceAssets" in backend_source
     assert "getDatasetContracts" in backend_source
@@ -520,10 +527,20 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getRunsPage" in backend_source
     assert "getRun" in backend_source
     assert "getTransformationAudit" in backend_source
+    assert "getPublicationContracts" in backend_source
+    assert "getUiDescriptors" in backend_source
+    assert "getPublicationContracts()" in renderer_discovery_source
+    assert "getUiDescriptors()" in renderer_discovery_source
+    assert "renderer_hints.web_surface" in renderer_discovery_source
+    assert "generated/publication-contracts" not in renderer_discovery_source
     assert "getMonthlyCashflow" in dashboard_source
     assert "getRuns" in dashboard_source
     assert "getRunsPage" in runs_source
     assert "getMonthlyCashflow" in reports_source
+    assert "getWebRendererDiscovery" in reports_source
+    assert "RendererDiscovery" in reports_source
+    assert "getWebRendererDiscovery" in homelab_source
+    assert "RendererDiscovery" in homelab_source
     assert "getLocalUsers" in control_source
     assert "getSourceSystems" in control_catalog_source
     assert "getDatasetContracts({ includeArchived: true })" in control_catalog_source
@@ -549,3 +566,49 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getPublicationAudit" in run_detail_source
     assert "getScheduleDispatch" in dispatch_detail_source
     assert "ReportingService(" not in dashboard_source
+
+
+def test_nextjs_frontend_centralizes_raw_backend_transport() -> None:
+    backend_boundary = FRONTEND_ROOT / "lib" / "backend.ts"
+    transport_markers = (
+        'fetch(`${getApiBaseUrl()}${path}`',
+        "createClient<paths>",
+        "HOMELAB_ANALYTICS_API_BASE_URL",
+    )
+    source_suffixes = {".js", ".jsx", ".ts", ".tsx"}
+
+    for source_path in FRONTEND_ROOT.rglob("*"):
+        if (
+            not source_path.is_file()
+            or source_path.suffix not in source_suffixes
+            or source_path == backend_boundary
+            or "generated" in source_path.parts
+            or ".next" in source_path.parts
+            or "node_modules" in source_path.parts
+        ):
+            continue
+        source = source_path.read_text()
+        for marker in transport_markers:
+            assert marker not in source, f"{source_path} should not contain {marker!r}"
+
+
+def test_nextjs_frontend_uses_typed_contract_mutation_helpers() -> None:
+    allowed_raw_routes = {
+        FRONTEND_ROOT / "app" / "upload" / "ha-states" / "route.js",
+    }
+
+    for route_path in FRONTEND_ROOT.rglob("route.js"):
+        source = route_path.read_text()
+        if route_path in allowed_raw_routes:
+            continue
+        if "backendRequest(" not in source and "backendJsonRequest(" not in source:
+            continue
+        assert "// @ts-check" in source, f"{route_path} should opt into JS type-checking"
+        assert 'backendRequest("/' not in source, f"{route_path} should use literal typed method/path helpers"
+        assert 'method: "' not in source, f"{route_path} should not pass raw HTTP methods"
+        assert 'contentType: "application/json"' not in source, (
+            f"{route_path} should rely on typed JSON serialization"
+        )
+        assert "JSON.stringify(" not in source, (
+            f"{route_path} should not hand-serialize JSON bodies"
+        )

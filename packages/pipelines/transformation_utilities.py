@@ -231,7 +231,7 @@ def refresh_utility_cost_summary(store: DuckDBStore) -> int:
             b.currency,
             CASE
                 WHEN COALESCE(SUM(u.usage_quantity), 0) > 0
-                THEN ROUND(SUM(b.billed_amount) / SUM(u.usage_quantity), 4)
+                THEN CAST(ROUND(SUM(b.billed_amount) / SUM(u.usage_quantity), 4) AS DECIMAL(18,4))
                 ELSE NULL
             END AS unit_cost,
             COUNT(DISTINCT b.bill_id) AS bill_count,
@@ -276,7 +276,7 @@ def refresh_utility_cost_summary(store: DuckDBStore) -> int:
             any_value(u.usage_unit) AS usage_unit,
             CAST(0 AS DECIMAL(18,4)) AS billed_amount,
             NULL AS currency,
-            NULL AS unit_cost,
+            CAST(NULL AS DECIMAL(18,4)) AS unit_cost,
             0 AS bill_count,
             COUNT(*) AS usage_record_count,
             'usage_only' AS coverage_status
@@ -346,7 +346,7 @@ def get_utility_cost_summary(
                 usage_unit,
                 billed_amount,
                 currency,
-                unit_cost,
+                CAST(unit_cost AS DECIMAL(18,4)) AS unit_cost,
                 bill_count,
                 usage_record_count,
                 coverage_status
@@ -372,7 +372,7 @@ def get_utility_cost_summary(
             any_value(currency) AS currency,
             CASE
                 WHEN SUM(usage_quantity) > 0
-                THEN ROUND(SUM(billed_amount) / SUM(usage_quantity), 4)
+                THEN CAST(ROUND(SUM(billed_amount) / SUM(usage_quantity), 4) AS DECIMAL(18,4))
                 ELSE NULL
             END AS unit_cost,
             SUM(bill_count) AS bill_count,
@@ -405,7 +405,7 @@ def refresh_utility_cost_trend_monthly(store: DuckDBStore) -> int:
             SUM(usage_quantity)                         AS usage_amount,
             CASE
                 WHEN SUM(usage_quantity) > 0
-                THEN ROUND(SUM(billed_amount) / SUM(usage_quantity), 4)
+                THEN CAST(ROUND(SUM(billed_amount) / SUM(usage_quantity), 4) AS DECIMAL(18,4))
                 ELSE NULL
             END                                         AS unit_price_effective,
             ANY_VALUE(currency)                         AS currency,
@@ -481,15 +481,15 @@ def refresh_usage_vs_price_summary(store: DuckDBStore) -> int:
             utility_type,
             period_month AS period,
             CASE WHEN prev_usage > 0
-                 THEN ROUND((usage_amount - prev_usage) / prev_usage * 100, 2)
+                 THEN CAST(ROUND((usage_amount - prev_usage) / prev_usage * 100, 2) AS DECIMAL(18,4))
                  ELSE NULL
             END AS usage_change_pct,
             CASE WHEN prev_unit_price > 0
-                 THEN ROUND((unit_price - prev_unit_price) / prev_unit_price * 100, 2)
+                 THEN CAST(ROUND((unit_price - prev_unit_price) / prev_unit_price * 100, 2) AS DECIMAL(18,4))
                  ELSE NULL
             END AS price_change_pct,
             CASE WHEN prev_cost > 0
-                 THEN ROUND((total_cost - prev_cost) / prev_cost * 100, 2)
+                 THEN CAST(ROUND((total_cost - prev_cost) / prev_cost * 100, 2) AS DECIMAL(18,4))
                  ELSE NULL
             END AS cost_change_pct,
             CASE

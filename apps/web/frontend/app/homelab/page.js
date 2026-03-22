@@ -1,5 +1,7 @@
 import { AppShell } from "@/components/app-shell";
+import { RendererDiscovery } from "@/components/renderer-discovery";
 import { getCurrentUser, getHaEntities, getHaBridgeStatus, getHaMqttStatus, getHaPolicies, getHaActions, getHaActionsStatus } from "@/lib/backend";
+import { getWebRendererDiscovery } from "@/lib/renderer-discovery";
 
 function formatTimestamp(ts) {
   if (!ts) return "—";
@@ -21,8 +23,9 @@ const CLASS_LABELS = {
 };
 
 export default async function HomelabPage() {
-  const [user, entities, bridge, mqtt, policies, actions, actionsStatus] = await Promise.all([
+  const [user, discovery, entities, bridge, mqtt, policies, actions, actionsStatus] = await Promise.all([
     getCurrentUser(),
+    getWebRendererDiscovery(),
     getHaEntities(),
     getHaBridgeStatus(),
     getHaMqttStatus(),
@@ -40,6 +43,12 @@ export default async function HomelabPage() {
       lede="Live entity state from Home Assistant via WebSocket subscription."
     >
       <section className="stack">
+        <RendererDiscovery
+          title="Published homelab views"
+          eyebrow="Web renderer discovery"
+          descriptors={discovery.homelab}
+        />
+
         <article className="panel section">
           <div className="sectionHeader">
             <div>
@@ -290,4 +299,3 @@ export default async function HomelabPage() {
     </AppShell>
   );
 }
-

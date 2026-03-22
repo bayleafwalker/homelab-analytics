@@ -1,11 +1,23 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
-import { backendRequest } from "@/lib/backend";
+import { backendJsonRequest } from "@/lib/backend";
 
+/**
+ * @param {Request} request
+ * @param {{ params: { tokenId: string } }} context
+ */
 export async function POST(request, { params }) {
-  const response = await backendRequest(`/auth/service-tokens/${params.tokenId}/revoke`, {
-    method: "POST",
-    cookieHeader: request.headers.get("cookie") || ""
+  const { response, data, error } = await backendJsonRequest(
+    "post",
+    "/auth/service-tokens/{token_id}/revoke",
+    {
+      cookieHeader: request.headers.get("cookie") || "",
+      params: { path: { token_id: params.tokenId } }
+    }
+  );
+  return NextResponse.json(response.ok ? data ?? {} : error ?? {}, {
+    status: response.status
   });
-  return NextResponse.json(await response.json(), { status: response.status });
 }

@@ -45,6 +45,38 @@ FIXTURES = ROOT / "tests" / "fixtures"
 
 
 class ApiAppTests(unittest.TestCase):
+    def test_create_app_rejects_proxy_auth_mode_until_supported(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(
+                ValueError,
+                "reserved but not implemented yet",
+            ):
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs.db"
+                        ),
+                    ),
+                    auth_mode="proxy",
+                )
+
+    def test_create_app_treats_local_single_user_as_cookie_auth(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(
+                ValueError,
+                "session manager",
+            ):
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs.db"
+                        ),
+                    ),
+                    auth_mode="local_single_user",
+                )
+
     def test_health_endpoint_returns_ok(self) -> None:
         with TemporaryDirectory() as temp_dir:
             client = TestClient(
@@ -108,6 +140,80 @@ class ApiAppTests(unittest.TestCase):
             self.assertEqual(
                 "#/components/schemas/SourceSystemRequest",
                 request_body_schema["$ref"],
+            )
+
+    def test_openapi_schema_exposes_contract_routes(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs.db"
+                        ),
+                    ),
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            response = client.get("/openapi.json")
+
+            self.assertEqual(200, response.status_code)
+            schema = response.json()
+            self.assertEqual(
+                "#/components/schemas/PublicationContractsResponse",
+                schema["paths"]["/contracts/publications"]["get"]["responses"]["200"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+            self.assertEqual(
+                "#/components/schemas/PublicationContractModel",
+                schema["paths"]["/contracts/publications/{publication_key}"]["get"][
+                    "responses"
+                ]["200"]["content"]["application/json"]["schema"]["$ref"],
+            )
+            self.assertEqual(
+                "#/components/schemas/UiDescriptorsResponse",
+                schema["paths"]["/contracts/ui-descriptors"]["get"]["responses"]["200"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+
+    def test_openapi_schema_exposes_typed_mutation_response_models(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs.db"
+                        ),
+                    ),
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            response = client.get("/openapi.json")
+
+            self.assertEqual(200, response.status_code)
+            schema = response.json()
+            self.assertEqual(
+                "#/components/schemas/ServiceTokenCreateResponseModel",
+                schema["paths"]["/auth/service-tokens"]["post"]["responses"]["201"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+            self.assertEqual(
+                "#/components/schemas/RunMutationResponseModel",
+                schema["paths"]["/runs/{run_id}/retry"]["post"]["responses"]["200"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+            self.assertEqual(
+                "#/components/schemas/ConfiguredIngestionProcessResponseModel",
+                schema["paths"]["/ingest/ingestion-definitions/{ingestion_definition_id}/process"][
+                    "post"
+                ]["responses"]["201"]["content"]["application/json"]["schema"]["$ref"],
             )
 
     def test_typed_config_payload_validation_rejects_invalid_dataset_contracts(
@@ -182,6 +288,54 @@ class ApiAppTests(unittest.TestCase):
                 "2365.8500",
                 report_response.json()["rows"][0]["net"],
             )
+
+    def test_contract_routes_return_publication_catalog(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs.db"
+                        ),
+                    ),
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            publication_response = client.get("/contracts/publications")
+            self.assertEqual(200, publication_response.status_code)
+            publication_payload = publication_response.json()
+            publication_keys = {
+                contract["publication_key"]
+                for contract in publication_payload["publication_contracts"]
+            }
+            self.assertIn("monthly_cashflow", publication_keys)
+            self.assertIn("dim_category", publication_keys)
+
+            single_contract_response = client.get(
+                "/contracts/publications/monthly_cashflow"
+            )
+            self.assertEqual(200, single_contract_response.status_code)
+            single_contract_payload = single_contract_response.json()
+            self.assertEqual("monthly_cashflow", single_contract_payload["publication_key"])
+            self.assertEqual("1.0.0", single_contract_payload["schema_version"])
+            self.assertEqual(
+                "time",
+                single_contract_payload["columns"][0]["semantic_role"],
+            )
+            self.assertEqual(
+                "month",
+                single_contract_payload["columns"][0]["grain"],
+            )
+            self.assertEqual(
+                "sum",
+                single_contract_payload["columns"][1]["aggregation"],
+            )
+
+            descriptor_response = client.get("/contracts/ui-descriptors")
+            self.assertEqual(200, descriptor_response.status_code)
+            self.assertGreater(len(descriptor_response.json()["ui_descriptors"]), 0)
 
     def test_multipart_upload_ingests_account_transactions(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -1751,15 +1905,17 @@ class ApiAppTests(unittest.TestCase):
             audit_resp = client.get("/transformation-audit")
             self.assertEqual(200, audit_resp.status_code)
             audit_body = audit_resp.json()
-            self.assertIn("audit", audit_body)
-            self.assertEqual(1, len(audit_body["audit"]))
-            self.assertEqual("run-001", audit_body["audit"][0]["input_run_id"])
-            self.assertEqual(2, audit_body["audit"][0]["fact_rows"])
+            self.assertIn("rows", audit_body)
+            self.assertNotIn("audit", audit_body)
+            self.assertEqual(1, len(audit_body["rows"]))
+            self.assertEqual("run-001", audit_body["rows"][0]["input_run_id"])
+            self.assertEqual(2, audit_body["rows"][0]["fact_rows"])
 
             # Filter audit by run_id
             audit_filtered = client.get("/transformation-audit", params={"run_id": "run-001"})
             self.assertEqual(200, audit_filtered.status_code)
-            self.assertEqual(1, len(audit_filtered.json()["audit"]))
+            self.assertNotIn("audit", audit_filtered.json())
+            self.assertEqual(1, len(audit_filtered.json()["rows"]))
 
             # Without transformation_service wired in, endpoints return 404
             bare_client = TestClient(

@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell";
+import { RendererDiscovery } from "@/components/renderer-discovery";
 import { SparklineChart } from "@/components/sparkline-chart";
 import { IncomeScenarioPanel } from "@/components/income-scenario-panel";
 import { ExpenseShockPanel } from "@/components/expense-shock-panel";
@@ -10,35 +11,50 @@ import {
   getSubscriptionSummary,
   getUtilityCostTrend,
 } from "@/lib/backend";
+import { getWebRendererDiscovery } from "@/lib/renderer-discovery";
 
 export default async function ReportsPage() {
   const user = await getCurrentUser();
-  const [rows, balanceTrend, spendByCategory, subscriptions, utilityTrend] =
+  const [discovery, rows, balanceTrend, spendByCategory, subscriptions, utilityTrend] =
     await Promise.all([
+      getWebRendererDiscovery(),
       getMonthlyCashflow(),
       getAccountBalanceTrend(),
       getSpendByCategoryMonthly(),
       getSubscriptionSummary(),
       getUtilityCostTrend(),
     ]);
+  const descriptorByKey = Object.fromEntries(
+    discovery.reports.map((descriptor) => [descriptor.key, descriptor])
+  );
+  const cashflowDescriptor = descriptorByKey.cashflow;
+  const balanceTrendDescriptor = descriptorByKey["balance-trend"];
+  const spendingDescriptor = descriptorByKey["spending-by-category"];
+  const subscriptionsDescriptor = descriptorByKey.subscriptions;
+  const utilityTrendDescriptor = descriptorByKey["utility-cost-trend"];
 
-  // Group balance trend rows by account_id for SparklineChart
-  const balanceAccounts = [...new Set(balanceTrend.map((r) => r.account_id))];
-  const balanceMonths = [...new Set(balanceTrend.map((r) => r.booking_month))].sort();
-  const balanceSeries = balanceAccounts.map((account, idx) => {
-    const colors = ["var(--ok)", "var(--accent)", "var(--accent-cool)", "var(--accent-warm)"];
+  const balanceAccounts = [...new Set(balanceTrend.map((row) => row.account_id))];
+  const balanceMonths = [...new Set(balanceTrend.map((row) => row.booking_month))].sort();
+  const balanceSeries = balanceAccounts.map((account, index) => {
+    const colors = [
+      "var(--ok)",
+      "var(--accent)",
+      "var(--accent-cool)",
+      "var(--accent-warm)",
+    ];
     return {
       label: account,
-      color: colors[idx % colors.length],
+      color: colors[index % colors.length],
       values: balanceMonths.map((month) => {
-        const row = balanceTrend.find((r) => r.account_id === account && r.booking_month === month);
+        const row = balanceTrend.find(
+          (entry) => entry.account_id === account && entry.booking_month === month
+        );
         return row ? Number(row.cumulative_balance) : null;
       }),
     };
   });
 
-  // Group utility trend by utility_type
-  const utilityTypes = [...new Set(utilityTrend.map((r) => r.utility_type))];
+  const utilityTypes = [...new Set(utilityTrend.map((row) => row.utility_type))];
 
   return (
     <AppShell
@@ -46,14 +62,23 @@ export default async function ReportsPage() {
       user={user}
       title="Published Reports"
       eyebrow="Published Access"
-      lede="This shell is intentionally narrow. It renders published reporting models without embedding source-specific logic."
+      lede="The web renderer discovers report views from backend-owned publication and UI descriptor contracts before it renders any page-local detail."
     >
       <section className="stack">
-        <article className="panel section">
+        <RendererDiscovery
+          title="Published report views"
+          eyebrow="Web renderer discovery"
+          descriptors={discovery.reports}
+        />
+
+        <article
+          id={cashflowDescriptor?.anchor || "cashflow"}
+          className="panel section"
+        >
           <div className="sectionHeader">
             <div>
-              <div className="eyebrow">Built-In Mart</div>
-              <h2>Monthly cashflow</h2>
+              <div className="eyebrow">{cashflowDescriptor?.kind || "dashboard"}</div>
+              <h2>{cashflowDescriptor?.nav_label || "Monthly cashflow"}</h2>
             </div>
           </div>
           {rows.length === 0 ? (
@@ -87,22 +112,37 @@ export default async function ReportsPage() {
         </article>
 
         {balanceTrend.length > 0 && (
-          <article className="panel section">
+          <article
+            id={balanceTrendDescriptor?.anchor || "balance-trend"}
+            className="panel section"
+          >
             <div className="sectionHeader">
               <div>
-                <div className="eyebrow">Accounts</div>
-                <h2>Account balance trend</h2>
+                <div className="eyebrow">
+                  {balanceTrendDescriptor?.kind || "dashboard"}
+                </div>
+                <h2>
+                  {balanceTrendDescriptor?.nav_label || "Account balance trend"}
+                </h2>
               </div>
             </div>
-            <SparklineChart series={balanceSeries} labels={balanceMonths} height={120} width={600} />
+            <SparklineChart
+              series={balanceSeries}
+              labels={balanceMonths}
+              height={120}
+              width={600}
+            />
           </article>
         )}
 
-        <article className="panel section">
+        <article
+          id={spendingDescriptor?.anchor || "spending-by-category"}
+          className="panel section"
+        >
           <div className="sectionHeader">
             <div>
-              <div className="eyebrow">Spend</div>
-              <h2>Spend by category</h2>
+              <div className="eyebrow">{spendingDescriptor?.kind || "report"}</div>
+              <h2>{spendingDescriptor?.nav_label || "Spend by category"}</h2>
             </div>
           </div>
           {spendByCategory.length === 0 ? (
@@ -120,8 +160,8 @@ export default async function ReportsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {spendByCategory.map((row, i) => (
-                    <tr key={i}>
+                  {spendByCategory.map((row, index) => (
+                    <tr key={index}>
                       <td>{row.booking_month}</td>
                       <td>{row.category}</td>
                       <td>{row.counterparty_name}</td>
@@ -135,11 +175,18 @@ export default async function ReportsPage() {
           )}
         </article>
 
-        <article className="panel section">
+        <article
+          id={subscriptionsDescriptor?.anchor || "subscriptions"}
+          className="panel section"
+        >
           <div className="sectionHeader">
             <div>
-              <div className="eyebrow">Subscriptions</div>
-              <h2>Subscription summary</h2>
+              <div className="eyebrow">
+                {subscriptionsDescriptor?.kind || "report"}
+              </div>
+              <h2>
+                {subscriptionsDescriptor?.nav_label || "Subscription summary"}
+              </h2>
             </div>
           </div>
           {subscriptions.length === 0 ? (
@@ -157,14 +204,16 @@ export default async function ReportsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {subscriptions.map((row, i) => (
-                    <tr key={i}>
+                  {subscriptions.map((row, index) => (
+                    <tr key={index}>
                       <td>{row.subscription_name}</td>
                       <td>{row.provider_name}</td>
                       <td>{row.billing_cycle}</td>
                       <td>{row.monthly_equivalent_cost}</td>
                       <td>
-                        <span className={`statusPill status-${row.status}`}>{row.status}</span>
+                        <span className={`statusPill status-${row.status}`}>
+                          {row.status}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -174,32 +223,59 @@ export default async function ReportsPage() {
           )}
         </article>
 
-        {utilityTrend.length > 0 &&
-          utilityTypes.map((utilityType) => {
-            const typeRows = utilityTrend.filter((r) => r.utility_type === utilityType);
-            const months = [...new Set(typeRows.map((r) => r.billing_month))].sort();
-            const series = [
-              {
-                label: utilityType,
-                color: "var(--accent-warm)",
-                values: months.map((month) => {
-                  const row = typeRows.find((r) => r.billing_month === month);
-                  return row ? Number(row.total_cost) : null;
-                }),
-              },
-            ];
-            return (
-              <article key={utilityType} className="panel section">
-                <div className="sectionHeader">
-                  <div>
-                    <div className="eyebrow">Utilities</div>
-                    <h2>{utilityType} cost trend</h2>
-                  </div>
+        {utilityTrend.length > 0 && (
+          <article
+            id={utilityTrendDescriptor?.anchor || "utility-cost-trend"}
+            className="panel section"
+          >
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">
+                  {utilityTrendDescriptor?.kind || "dashboard"}
                 </div>
-                <SparklineChart series={series} labels={months} height={100} width={500} />
-              </article>
-            );
-          })}
+                <h2>{utilityTrendDescriptor?.nav_label || "Utility cost trend"}</h2>
+              </div>
+            </div>
+            <div style={{ display: "grid", gap: "18px" }}>
+              {utilityTypes.map((utilityType) => {
+                const typeRows = utilityTrend.filter(
+                  (row) => row.utility_type === utilityType
+                );
+                const months = [
+                  ...new Set(typeRows.map((row) => row.billing_month)),
+                ].sort();
+                const series = [
+                  {
+                    label: utilityType,
+                    color: "var(--accent-warm)",
+                    values: months.map((month) => {
+                      const row = typeRows.find(
+                        (entry) => entry.billing_month === month
+                      );
+                      return row ? Number(row.total_cost) : null;
+                    }),
+                  },
+                ];
+                return (
+                  <section key={utilityType}>
+                    <div
+                      className="metricLabel"
+                      style={{ marginBottom: "10px" }}
+                    >
+                      {utilityType}
+                    </div>
+                    <SparklineChart
+                      series={series}
+                      labels={months}
+                      height={100}
+                      width={500}
+                    />
+                  </section>
+                );
+              })}
+            </div>
+          </article>
+        )}
         <IncomeScenarioPanel />
         <ExpenseShockPanel />
       </section>

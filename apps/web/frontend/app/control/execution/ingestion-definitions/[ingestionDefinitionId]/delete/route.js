@@ -1,13 +1,22 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
 import { backendRequest } from "@/lib/backend";
 
+/**
+ * @param {Request} request
+ * @param {{ params: { ingestionDefinitionId: string } }} context
+ */
 export async function POST(request, { params }) {
   const response = await backendRequest(
-    `/config/ingestion-definitions/${params.ingestionDefinitionId}`,
+    "delete",
+    "/config/ingestion-definitions/{ingestion_definition_id}",
     {
-      method: "DELETE",
-      cookieHeader: request.headers.get("cookie") || ""
+      cookieHeader: request.headers.get("cookie") || "",
+      params: {
+        path: { ingestion_definition_id: params.ingestionDefinitionId }
+      }
     }
   );
   if (!response.ok) {

@@ -5,6 +5,7 @@ from typing import Any, Callable
 from fastapi import FastAPI, HTTPException
 
 from apps.api.models import ScheduleDispatchRequest
+from apps.api.response_models import ScheduleDispatchResponseModel
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.shared.metrics import metrics_registry
 from packages.storage.control_plane import ControlPlaneAdminStore
@@ -129,7 +130,11 @@ def register_control_routes(
             "runs": runs,
         }
 
-    @app.post("/control/schedule-dispatches/{dispatch_id}/retry", status_code=201)
+    @app.post(
+        "/control/schedule-dispatches/{dispatch_id}/retry",
+        status_code=201,
+        response_model=ScheduleDispatchResponseModel,
+    )
     async def retry_schedule_dispatch(dispatch_id: str) -> dict[str, Any]:
         require_unsafe_admin()
         try:

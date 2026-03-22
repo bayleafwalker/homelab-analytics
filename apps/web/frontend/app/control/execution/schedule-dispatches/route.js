@@ -1,7 +1,10 @@
+// @ts-check
+
 import { NextResponse } from "next/server";
 
 import { backendRequest } from "@/lib/backend";
 
+/** @param {FormDataEntryValue | null} value */
 function parseOptionalInteger(value) {
   if (!value) {
     return null;
@@ -10,17 +13,16 @@ function parseOptionalInteger(value) {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+/** @param {Request} request */
 export async function POST(request) {
   const formData = await request.formData();
   const scheduleId = String(formData.get("schedule_id") || "") || null;
-  const response = await backendRequest("/control/schedule-dispatches", {
-    method: "POST",
+  const response = await backendRequest("post", "/control/schedule-dispatches", {
     cookieHeader: request.headers.get("cookie") || "",
-    contentType: "application/json",
-    body: JSON.stringify({
+    body: {
       schedule_id: scheduleId,
       limit: parseOptionalInteger(formData.get("limit"))
-    })
+    }
   });
 
   if (!response.ok) {

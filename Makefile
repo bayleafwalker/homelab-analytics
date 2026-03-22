@@ -5,6 +5,8 @@ PYTEST := $(PYTHON) -m pytest
 RUFF := $(PYTHON) -m ruff
 MYPY := $(PYTHON) -m mypy
 PIP_AUDIT := $(PYTHON) -m pip_audit
+WEB_DIR := apps/web/frontend
+WEB_NODE_BIN_DIR := $(abspath .tooling/node-v20.20.1-linux-x64/bin)
 COMPOSE_FILE := infra/examples/compose.yaml
 APP_IMAGE := homelab-analytics:latest
 WEB_IMAGE := homelab-analytics-web:latest
@@ -16,7 +18,8 @@ VERIFY_CONFIG_ARGS ?=
 .PHONY: lint typecheck test test-fast test-target test-integration test-e2e-local \
 	test-storage-adapters test-sqlite-adapters test-coverage verify-config verify-docs \
 	verify-agent verify-arch verify-fast verify-all verify-domain helm-lint \
-	docker-build compose-smoke audit-deps db-migrate-sqlite db-migrate-postgres
+	docker-build compose-smoke audit-deps db-migrate-sqlite db-migrate-postgres \
+	web-codegen web-codegen-check web-typecheck web-build
 
 lint:
 	$(RUFF) check .
@@ -68,6 +71,18 @@ verify-agent:
 verify-arch:
 	$(PYTEST) -q tests/test_architecture_contract.py
 
+web-codegen:
+	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run codegen
+
+web-codegen-check:
+	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run codegen:check
+
+web-typecheck:
+	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run typecheck
+
+web-build:
+	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run build
+
 helm-lint:
 	helm lint charts/homelab-analytics
 
@@ -107,7 +122,7 @@ compose-smoke:
 audit-deps:
 	-$(PIP_AUDIT)
 
-verify-fast: lint typecheck test-fast test-sqlite-adapters verify-docs verify-agent verify-arch helm-lint
+verify-fast: lint typecheck test-fast test-sqlite-adapters verify-docs verify-agent verify-arch web-codegen-check web-typecheck web-build helm-lint
 
 verify-all: verify-fast test-integration test-e2e-local docker-build
 
