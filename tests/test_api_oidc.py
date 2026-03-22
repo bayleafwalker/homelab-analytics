@@ -533,6 +533,76 @@ def test_api_oidc_permission_bound_principal_enforces_control_asset_permissions(
         )
 
 
+def test_api_oidc_permission_bound_principal_enforces_schedule_dispatch_asset_permissions() -> None:
+    issuer = MockOidcIssuer()
+    with TemporaryDirectory() as temp_dir:
+        client = _build_oidc_client(
+            temp_dir,
+            issuer,
+            reader_groups=("readers",),
+            permissions_claim="hla_permissions",
+        )
+        token = issuer.issue_token(
+            subject="permission-only-schedule-dispatch",
+            username="permission-dispatch@example.test",
+            audience=issuer.api_audience,
+            groups=(),
+            extra_claims={
+                "hla_permissions": [
+                    "control.schedule_dispatches.read.schedule.allowed-schedule",
+                    "control.schedule_dispatches.read.dispatch.allowed-dispatch",
+                    "control.schedule_dispatches.write.dispatch.allowed-dispatch",
+                ],
+            },
+        )
+        headers = {"authorization": f"Bearer {token}"}
+
+        allowed_list = client.get(
+            "/control/schedule-dispatches?schedule_id=allowed-schedule",
+            headers=headers,
+        )
+        assert allowed_list.status_code == 200
+
+        denied_list = client.get(
+            "/control/schedule-dispatches?schedule_id=blocked-schedule",
+            headers=headers,
+        )
+        assert denied_list.status_code == 403
+        assert (
+            denied_list.json()["detail"]
+            == "control.schedule_dispatches.read.schedule.blocked-schedule permission required."
+        )
+
+        allowed_dispatch = client.get(
+            "/control/schedule-dispatches/allowed-dispatch",
+            headers=headers,
+        )
+        assert allowed_dispatch.status_code == 404
+
+        denied_dispatch = client.get(
+            "/control/schedule-dispatches/blocked-dispatch",
+            headers=headers,
+        )
+        assert denied_dispatch.status_code == 403
+        assert (
+            denied_dispatch.json()["detail"]
+            == "control.schedule_dispatches.read.dispatch.blocked-dispatch permission required."
+        )
+
+        allowed_retry = client.post(
+            "/control/schedule-dispatches/allowed-dispatch/retry",
+            headers=headers,
+        )
+        assert allowed_retry.status_code == 404
+
+        denied_retry = client.post(
+            "/control/schedule-dispatches/blocked-dispatch/retry",
+            headers=headers,
+        )
+        assert denied_retry.status_code == 403
+        assert denied_retry.json()["detail"] == "operator role required."
+
+
 def test_api_oidc_group_to_permission_mapping_grants_ingest() -> None:
     issuer = MockOidcIssuer()
     with TemporaryDirectory() as temp_dir:

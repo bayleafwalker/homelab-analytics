@@ -3,6 +3,9 @@ from __future__ import annotations
 from packages.platform.auth.permission_registry import (
     PERMISSION_ADMIN_WRITE,
     PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_WILDCARD,
+    PERMISSION_CONTROL_SCHEDULE_DISPATCHES_READ_DISPATCH_WILDCARD,
+    PERMISSION_CONTROL_SCHEDULE_DISPATCHES_READ_SCHEDULE_WILDCARD,
+    PERMISSION_CONTROL_SCHEDULE_DISPATCHES_WRITE_DISPATCH_WILDCARD,
     PERMISSION_CONTROL_SOURCE_LINEAGE_RUN_WILDCARD,
     PERMISSION_INGEST_WRITE,
     PERMISSION_REPORTS_READ,
@@ -22,12 +25,17 @@ from packages.platform.auth.permission_registry import (
     publication_read_permission,
     run_read_permission,
     run_retry_permission,
+    schedule_dispatch_read_dispatch_permission,
+    schedule_dispatch_read_schedule_permission,
+    schedule_dispatch_write_dispatch_permission,
     source_lineage_run_permission,
     transformation_audit_run_permission,
 )
 from packages.platform.auth.scope_authorization import (
     required_permission_for_path,
     required_permission_for_request,
+    required_role_for_request,
+    required_service_token_scope_for_request,
 )
 from packages.storage.auth_store import (
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
@@ -152,6 +160,12 @@ def test_permission_normalization_accepts_control_asset_permissions_and_wildcard
             "control.publication_audit.read.publication.monthly-cashflow",
             "control.publication_audit.read.publication.reports.*",
             "control.publication_audit.read.publication.*",
+            "control.schedule_dispatches.read.dispatch.dispatch-001",
+            "control.schedule_dispatches.read.dispatch.*",
+            "control.schedule_dispatches.read.schedule.finance.*",
+            "control.schedule_dispatches.read.schedule.*",
+            "control.schedule_dispatches.write.dispatch.dispatch-001",
+            "control.schedule_dispatches.write.dispatch.*",
             "control.publication_audit.read.publication.invalid key",
             "transformation.audit.read.run.run-001",
             "transformation.audit.read.run.finance.*",
@@ -163,6 +177,12 @@ def test_permission_normalization_accepts_control_asset_permissions_and_wildcard
         "control.publication_audit.read.publication.*",
         "control.publication_audit.read.publication.monthly-cashflow",
         "control.publication_audit.read.publication.reports.*",
+        "control.schedule_dispatches.read.dispatch.*",
+        "control.schedule_dispatches.read.dispatch.dispatch-001",
+        "control.schedule_dispatches.read.schedule.*",
+        "control.schedule_dispatches.read.schedule.finance.*",
+        "control.schedule_dispatches.write.dispatch.*",
+        "control.schedule_dispatches.write.dispatch.dispatch-001",
         "control.source_lineage.read.run.*",
         "control.source_lineage.read.run.finance.*",
         "control.source_lineage.read.run.run-001",
@@ -241,6 +261,14 @@ def test_reader_role_implies_control_asset_permissions() -> None:
     )
     assert has_required_permission(
         reader_ctx,
+        schedule_dispatch_read_schedule_permission("sched-001"),
+    )
+    assert has_required_permission(
+        reader_ctx,
+        schedule_dispatch_read_dispatch_permission("dispatch-001"),
+    )
+    assert has_required_permission(
+        reader_ctx,
         PERMISSION_CONTROL_SOURCE_LINEAGE_RUN_WILDCARD,
     )
     assert has_required_permission(
@@ -250,6 +278,30 @@ def test_reader_role_implies_control_asset_permissions() -> None:
     assert has_required_permission(
         reader_ctx,
         PERMISSION_TRANSFORMATION_AUDIT_RUN_WILDCARD,
+    )
+    assert has_required_permission(
+        reader_ctx,
+        PERMISSION_CONTROL_SCHEDULE_DISPATCHES_READ_SCHEDULE_WILDCARD,
+    )
+    assert has_required_permission(
+        reader_ctx,
+        PERMISSION_CONTROL_SCHEDULE_DISPATCHES_READ_DISPATCH_WILDCARD,
+    )
+
+
+def test_operator_role_implies_control_schedule_dispatch_write_permissions() -> None:
+    operator_ctx = PrincipalAuthorizationContext(
+        role=UserRole.OPERATOR,
+        auth_provider="local",
+    )
+
+    assert has_required_permission(
+        operator_ctx,
+        schedule_dispatch_write_dispatch_permission("dispatch-001"),
+    )
+    assert has_required_permission(
+        operator_ctx,
+        PERMISSION_CONTROL_SCHEDULE_DISPATCHES_WRITE_DISPATCH_WILDCARD,
     )
 
 
@@ -302,3 +354,115 @@ def test_request_permission_mapping_supports_control_asset_scopes() -> None:
         )
         == "transformation.audit.read"
     )
+
+
+def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> None:
+    assert required_role_for_request("/control/schedule-dispatches", "GET") == UserRole.READER
+    assert required_permission_for_request(
+        "/control/schedule-dispatches",
+        {"schedule_id": "sched-001"},
+        method="GET",
+    ) == schedule_dispatch_read_schedule_permission("sched-001")
+    assert (
+        required_service_token_scope_for_request("/control/schedule-dispatches", "GET")
+        == "runs:read"
+    )
+
+    assert required_role_for_request("/control/schedule-dispatches", "POST") == UserRole.OPERATOR
+    assert (
+        required_permission_for_request("/control/schedule-dispatches", method="POST")
+        == "control.schedule_dispatches.write"
+    )
+    assert (
+        required_service_token_scope_for_request("/control/schedule-dispatches", "POST")
+        == "ingest:write"
+    )
+
+    assert (
+        required_role_for_request("/control/schedule-dispatches/dispatch-001", "GET")
+        == UserRole.READER
+    )
+    assert required_permission_for_request(
+        "/control/schedule-dispatches/dispatch-001",
+        method="GET",
+    ) == schedule_dispatch_read_dispatch_permission("dispatch-001")
+    assert (
+        required_service_token_scope_for_request(
+            "/control/schedule-dispatches/dispatch-001",
+            "GET",
+        )
+        == "runs:read"
+    )
+
+    assert (
+        required_role_for_request("/control/schedule-dispatches/dispatch-001/retry", "POST")
+        == UserRole.OPERATOR
+    )
+    assert required_permission_for_request(
+        "/control/schedule-dispatches/dispatch-001/retry",
+        method="POST",
+    ) == schedule_dispatch_write_dispatch_permission("dispatch-001")
+    assert (
+        required_service_token_scope_for_request(
+            "/control/schedule-dispatches/dispatch-001/retry",
+            "POST",
+        )
+        == "ingest:write"
+    )
+
+    assert required_role_for_request("/contracts/publications", "GET") == UserRole.READER
+    assert required_permission_for_request("/contracts/publications", method="GET") == "reports.read"
+    assert (
+        required_service_token_scope_for_request("/contracts/publications", "GET")
+        == "reports:read"
+    )
+
+    assert required_role_for_request("/api/scenarios", "GET") == UserRole.READER
+    assert required_permission_for_request("/api/scenarios", method="GET") == "reports.read"
+    assert (
+        required_service_token_scope_for_request("/api/scenarios", "GET")
+        == "reports:read"
+    )
+
+    assert required_role_for_request("/api/scenarios/income-change", "POST") == UserRole.OPERATOR
+    assert (
+        required_permission_for_request("/api/scenarios/income-change", method="POST")
+        == "ingest.write"
+    )
+    assert (
+        required_service_token_scope_for_request("/api/scenarios/income-change", "POST")
+        == "ingest:write"
+    )
+
+    assert required_role_for_request("/api/scenarios/scn-001", "DELETE") == UserRole.OPERATOR
+    assert (
+        required_permission_for_request("/api/scenarios/scn-001", method="DELETE")
+        == "ingest.write"
+    )
+
+    assert required_role_for_request("/api/ha/entities", "GET") == UserRole.READER
+    assert required_permission_for_request("/api/ha/entities", method="GET") == "runs.read"
+    assert (
+        required_service_token_scope_for_request("/api/ha/entities", "GET")
+        == "runs:read"
+    )
+
+    assert required_role_for_request("/api/ha/ingest", "POST") == UserRole.OPERATOR
+    assert required_permission_for_request("/api/ha/ingest", method="POST") == "ingest.write"
+    assert (
+        required_service_token_scope_for_request("/api/ha/ingest", "POST")
+        == "ingest:write"
+    )
+
+    assert required_role_for_request("/api/categories", "GET") == UserRole.READER
+    assert required_permission_for_request("/api/categories", method="GET") == "reports.read"
+    assert required_role_for_request("/api/categories", "POST") == UserRole.ADMIN
+    assert required_permission_for_request("/api/categories", method="POST") == "admin.write"
+    assert (
+        required_service_token_scope_for_request("/api/categories", "POST")
+        == "admin:write"
+    )
+
+    assert required_role_for_request("/functions", "GET") == UserRole.ADMIN
+    assert required_permission_for_request("/functions", method="GET") == "admin.write"
+    assert required_service_token_scope_for_request("/functions", "GET") == "admin:write"

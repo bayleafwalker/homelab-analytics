@@ -6,6 +6,8 @@ from collections.abc import Mapping
 from packages.platform.auth.permission_registry import (
     PERMISSION_ADMIN_WRITE,
     PERMISSION_CONTROL_PUBLICATION_AUDIT_READ,
+    PERMISSION_CONTROL_SCHEDULE_DISPATCHES_READ,
+    PERMISSION_CONTROL_SCHEDULE_DISPATCHES_WRITE,
     PERMISSION_CONTROL_SOURCE_LINEAGE_READ,
     PERMISSION_INGEST_WRITE,
     PERMISSION_REPORTS_READ,
@@ -16,6 +18,9 @@ from packages.platform.auth.permission_registry import (
     publication_read_permission,
     run_read_permission,
     run_retry_permission,
+    schedule_dispatch_read_dispatch_permission,
+    schedule_dispatch_read_schedule_permission,
+    schedule_dispatch_write_dispatch_permission,
     source_lineage_run_permission,
     transformation_audit_run_permission,
 )
@@ -84,8 +89,70 @@ def required_permission_for_path(path: str) -> str | None:
 def required_permission_for_request(
     path: str,
     query_params: Mapping[str, str] | None = None,
+    method: str | None = None,
 ) -> str | None:
+    request_method = (method or "GET").upper()
     required_permission = required_permission_for_path(path)
+    if path == "/control/schedule-dispatches":
+        if request_method == "GET":
+            schedule_id = (query_params or {}).get("schedule_id", "").strip()
+            if schedule_id:
+                return (
+                    schedule_dispatch_read_schedule_permission(schedule_id)
+                    or PERMISSION_CONTROL_SCHEDULE_DISPATCHES_READ
+                )
+            return PERMISSION_CONTROL_SCHEDULE_DISPATCHES_READ
+        return PERMISSION_CONTROL_SCHEDULE_DISPATCHES_WRITE
+    if path.startswith("/control/schedule-dispatches/") and path.endswith("/retry"):
+        dispatch_id = (
+            path.removeprefix("/control/schedule-dispatches/")
+            .removesuffix("/retry")
+            .strip("/")
+        )
+        return (
+            schedule_dispatch_write_dispatch_permission(dispatch_id)
+            or PERMISSION_CONTROL_SCHEDULE_DISPATCHES_WRITE
+        )
+    if path.startswith("/control/schedule-dispatches/"):
+        dispatch_id = path.removeprefix("/control/schedule-dispatches/").strip("/")
+        return (
+            schedule_dispatch_read_dispatch_permission(dispatch_id)
+            or PERMISSION_CONTROL_SCHEDULE_DISPATCHES_READ
+        )
+    if path == "/functions":
+        return PERMISSION_ADMIN_WRITE
+    if path.startswith("/contracts/publications/"):
+        publication_key = path.removeprefix("/contracts/publications/").strip("/")
+        return publication_read_permission(publication_key) or PERMISSION_REPORTS_READ
+    if path.startswith("/contracts/"):
+        return PERMISSION_REPORTS_READ
+    if path == "/api/categories":
+        return PERMISSION_REPORTS_READ if request_method == "GET" else PERMISSION_ADMIN_WRITE
+    if path == "/categories/rules":
+        return PERMISSION_REPORTS_READ if request_method == "GET" else PERMISSION_ADMIN_WRITE
+    if path.startswith("/categories/rules/"):
+        return PERMISSION_ADMIN_WRITE
+    if path == "/categories/overrides":
+        return PERMISSION_REPORTS_READ
+    if path.startswith("/categories/overrides/"):
+        return PERMISSION_ADMIN_WRITE
+    if path.startswith("/api/scenarios"):
+        if path in {
+            "/api/scenarios/loan-what-if",
+            "/api/scenarios/income-change",
+            "/api/scenarios/expense-shock",
+        }:
+            return PERMISSION_INGEST_WRITE
+        path_parts = [part for part in path.strip("/").split("/") if part]
+        if len(path_parts) == 3 and request_method == "DELETE":
+            return PERMISSION_INGEST_WRITE
+        return PERMISSION_REPORTS_READ
+    if path.startswith("/api/ha"):
+        if path in {"/api/ha/ingest", "/api/ha/policies/evaluate"}:
+            return PERMISSION_INGEST_WRITE
+        return PERMISSION_RUNS_READ
+    if path.startswith("/api/homelab/"):
+        return PERMISSION_REPORTS_READ
     if path == "/control/source-lineage":
         run_id = (query_params or {}).get("run_id", "").strip()
         if run_id:
@@ -108,6 +175,110 @@ def required_permission_for_request(
                 or PERMISSION_TRANSFORMATION_AUDIT_READ
             )
     return required_permission
+
+
+def required_role_for_request(
+    path: str,
+    method: str | None = None,
+) -> UserRole | None:
+    request_method = (method or "GET").upper()
+    required_role = required_role_for_path(path)
+    if path == "/control/schedule-dispatches":
+        return UserRole.READER if request_method == "GET" else UserRole.OPERATOR
+    if path.startswith("/control/schedule-dispatches/") and path.endswith("/retry"):
+        return UserRole.OPERATOR
+    if path.startswith("/control/schedule-dispatches/"):
+        return UserRole.READER
+    if path == "/functions":
+        return UserRole.ADMIN
+    if path.startswith("/contracts/"):
+        return UserRole.READER
+    if path == "/api/categories":
+        return UserRole.READER if request_method == "GET" else UserRole.ADMIN
+    if path == "/categories/rules":
+        return UserRole.READER if request_method == "GET" else UserRole.ADMIN
+    if path.startswith("/categories/rules/"):
+        return UserRole.ADMIN
+    if path == "/categories/overrides":
+        return UserRole.READER
+    if path.startswith("/categories/overrides/"):
+        return UserRole.ADMIN
+    if path.startswith("/api/scenarios"):
+        if path in {
+            "/api/scenarios/loan-what-if",
+            "/api/scenarios/income-change",
+            "/api/scenarios/expense-shock",
+        }:
+            return UserRole.OPERATOR
+        path_parts = [part for part in path.strip("/").split("/") if part]
+        if len(path_parts) == 3 and request_method == "DELETE":
+            return UserRole.OPERATOR
+        return UserRole.READER
+    if path.startswith("/api/ha"):
+        if path in {"/api/ha/ingest", "/api/ha/policies/evaluate"}:
+            return UserRole.OPERATOR
+        return UserRole.READER
+    if path.startswith("/api/homelab/"):
+        return UserRole.READER
+    return required_role
+
+
+def required_service_token_scope_for_request(
+    path: str,
+    method: str | None = None,
+) -> str | None:
+    request_method = (method or "GET").upper()
+    required_scope = required_service_token_scope_for_path(path)
+    if path == "/control/schedule-dispatches":
+        return (
+            SERVICE_TOKEN_SCOPE_RUNS_READ
+            if request_method == "GET"
+            else SERVICE_TOKEN_SCOPE_INGEST_WRITE
+        )
+    if path.startswith("/control/schedule-dispatches/") and path.endswith("/retry"):
+        return SERVICE_TOKEN_SCOPE_INGEST_WRITE
+    if path.startswith("/control/schedule-dispatches/"):
+        return SERVICE_TOKEN_SCOPE_RUNS_READ
+    if path == "/functions":
+        return SERVICE_TOKEN_SCOPE_ADMIN_WRITE
+    if path.startswith("/contracts/"):
+        return SERVICE_TOKEN_SCOPE_REPORTS_READ
+    if path == "/api/categories":
+        return (
+            SERVICE_TOKEN_SCOPE_REPORTS_READ
+            if request_method == "GET"
+            else SERVICE_TOKEN_SCOPE_ADMIN_WRITE
+        )
+    if path == "/categories/rules":
+        return (
+            SERVICE_TOKEN_SCOPE_REPORTS_READ
+            if request_method == "GET"
+            else SERVICE_TOKEN_SCOPE_ADMIN_WRITE
+        )
+    if path.startswith("/categories/rules/"):
+        return SERVICE_TOKEN_SCOPE_ADMIN_WRITE
+    if path == "/categories/overrides":
+        return SERVICE_TOKEN_SCOPE_REPORTS_READ
+    if path.startswith("/categories/overrides/"):
+        return SERVICE_TOKEN_SCOPE_ADMIN_WRITE
+    if path.startswith("/api/scenarios"):
+        if path in {
+            "/api/scenarios/loan-what-if",
+            "/api/scenarios/income-change",
+            "/api/scenarios/expense-shock",
+        }:
+            return SERVICE_TOKEN_SCOPE_INGEST_WRITE
+        path_parts = [part for part in path.strip("/").split("/") if part]
+        if len(path_parts) == 3 and request_method == "DELETE":
+            return SERVICE_TOKEN_SCOPE_INGEST_WRITE
+        return SERVICE_TOKEN_SCOPE_REPORTS_READ
+    if path.startswith("/api/ha"):
+        if path in {"/api/ha/ingest", "/api/ha/policies/evaluate"}:
+            return SERVICE_TOKEN_SCOPE_INGEST_WRITE
+        return SERVICE_TOKEN_SCOPE_RUNS_READ
+    if path.startswith("/api/homelab/"):
+        return SERVICE_TOKEN_SCOPE_REPORTS_READ
+    return required_scope
 
 
 def required_role_for_path(path: str) -> UserRole | None:

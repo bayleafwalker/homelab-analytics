@@ -39,7 +39,9 @@ from packages.platform.auth.scope_authorization import (
     required_permission_for_path,
     required_permission_for_request,
     required_role_for_path,
+    required_role_for_request,
     required_service_token_scope_for_path,
+    required_service_token_scope_for_request,
 )
 from packages.platform.auth.session_manager import SessionManager
 from packages.shared.auth_modes import is_cookie_auth_mode
@@ -61,7 +63,9 @@ __all__ = [
     "request_remote_addr",
     "required_permission_for_path",
     "required_role_for_path",
+    "required_role_for_request",
     "required_service_token_scope_for_path",
+    "required_service_token_scope_for_request",
 ]
 
 
@@ -90,11 +94,18 @@ def register_auth_middleware(
         if resolved_auth_mode != "disabled":
             if is_cookie_auth_mode(resolved_auth_mode):
                 assert resolved_session_manager is not None
-            required_role = required_role_for_path(request.url.path)
-            required_scope = required_service_token_scope_for_path(request.url.path)
+            required_role = required_role_for_request(
+                request.url.path,
+                request.method,
+            )
+            required_scope = required_service_token_scope_for_request(
+                request.url.path,
+                request.method,
+            )
             required_permission = required_permission_for_request(
                 request.url.path,
                 request.query_params,
+                method=request.method,
             )
             auth_error_response: JSONResponse | None = None
             bearer_token = bearer_token_from_request(request)

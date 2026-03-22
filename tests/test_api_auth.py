@@ -158,6 +158,66 @@ def test_api_local_auth_login_logout_and_me() -> None:
         assert client.get("/auth/me").status_code == 401
 
 
+def test_api_local_auth_enforces_newly_mapped_api_surfaces() -> None:
+    with TemporaryDirectory() as temp_dir:
+        client = _build_client(
+            temp_dir,
+            users=(
+                ("reader", "reader-password", UserRole.READER),
+                ("admin", "admin-password", UserRole.ADMIN),
+            ),
+        )
+
+        assert client.get("/contracts/publications").status_code == 401
+        assert client.get("/api/scenarios").status_code == 401
+        assert client.get("/api/ha/entities").status_code == 401
+
+        assert (
+            client.post(
+                "/auth/login",
+                json={"username": "reader", "password": "reader-password"},
+            ).status_code
+            == 200
+        )
+
+        contracts = client.get("/contracts/publications")
+        assert contracts.status_code == 200
+
+        scenarios = client.get("/api/scenarios")
+        assert scenarios.status_code == 503
+
+        denied_scenario_create = client.post(
+            "/api/scenarios/income-change",
+            json={"monthly_income_delta": "100.00"},
+            headers=_csrf_headers(client),
+        )
+        assert denied_scenario_create.status_code == 403
+
+        ha_entities = client.get("/api/ha/entities")
+        assert ha_entities.status_code == 503
+
+        denied_ha_ingest = client.post(
+            "/api/ha/ingest",
+            json={"states": []},
+            headers=_csrf_headers(client),
+        )
+        assert denied_ha_ingest.status_code == 403
+
+        denied_functions = client.get("/functions")
+        assert denied_functions.status_code == 403
+
+        assert client.post("/auth/logout", headers=_csrf_headers(client)).status_code == 200
+        assert (
+            client.post(
+                "/auth/login",
+                json={"username": "admin", "password": "admin-password"},
+            ).status_code
+            == 200
+        )
+        functions = client.get("/functions")
+        assert functions.status_code == 200
+
+
 def test_api_local_auth_enforces_reader_operator_and_admin_roles() -> None:
     with TemporaryDirectory() as temp_dir:
         reader_client = _build_client(
@@ -195,6 +255,15 @@ def test_api_local_auth_enforces_reader_operator_and_admin_roles() -> None:
             ).status_code
             == 403
         )
+        assert reader_client.get("/control/schedule-dispatches").status_code == 200
+        assert (
+            reader_client.post(
+                "/control/schedule-dispatches",
+                json={},
+                headers=_csrf_headers(reader_client),
+            ).status_code
+            == 403
+        )
         assert reader_client.get("/config/source-systems").status_code == 403
 
     with TemporaryDirectory() as temp_dir:
@@ -222,6 +291,15 @@ def test_api_local_auth_enforces_reader_operator_and_admin_roles() -> None:
         assert (
             operator_client.post(
                 f"/runs/{ingest.json()['run']['run_id']}/retry",
+                headers=_csrf_headers(operator_client),
+            ).status_code
+            == 201
+        )
+        assert operator_client.get("/control/schedule-dispatches").status_code == 200
+        assert (
+            operator_client.post(
+                "/control/schedule-dispatches",
+                json={},
                 headers=_csrf_headers(operator_client),
             ).status_code
             == 201
