@@ -65,6 +65,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 ## Notes
 
 - `notes/appservice-cluster-integration-notes.md` — cluster deployment notes for the `appservice` GitOps repository.
+- `notes/backend-owned-contracts-review-handover.md` — merged review handoff for the backend-owned contracts workstream, including commit landmarks, review hotspots, and verification.
 
 ## Runbooks
 
