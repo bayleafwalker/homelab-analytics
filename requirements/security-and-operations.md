@@ -15,7 +15,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Shared deployments should default to external identity providers; local auth remains available for bootstrap and emergency recovery without becoming a parallel multi-user identity system.
 
 **Phase:** 4
-**Status:** in-progress (local-user storage, session cookies, CSRF checks, login lockout, bootstrap admin gating, auth-audit events, and explicit `local_single_user` break-glass controls are implemented; break-glass now enforces explicit enablement, internal/CIDR source restrictions, TTL-bounded local sessions, and `/ready` visibility; remaining work is retiring legacy multi-user `local` examples in favor of `local_single_user` defaults)
+**Status:** implemented (local-user storage, session cookies, CSRF checks, login lockout, bootstrap admin gating, auth-audit events, and explicit `local_single_user` break-glass controls are implemented; break-glass enforces explicit enablement, internal/CIDR source restrictions, TTL-bounded local sessions, and `/ready` visibility; deployment examples use `local_single_user` or OIDC defaults instead of legacy `local`)
 
 **Acceptance criteria:**
 - Local auth is explicitly enabled and defaults to off in shared deployment examples.
@@ -36,7 +36,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Upstream identity providers should own identity proofing and lifecycle concerns while the platform consumes standard claims for principal construction.
 
 **Phase:** 4
-**Status:** in-progress (OIDC discovery, authorization-code exchange, callback/session handling, JWT validation, and web/API wiring are implemented; remaining work is documenting provider posture, tightening generic-claim mapping contracts, and completing the broader identity-mode migration path)
+**Status:** implemented (OIDC discovery, authorization-code exchange, callback/session handling, JWT validation, and web/API wiring are implemented; generic claim mapping contracts and provider posture documentation are in place for Authentik-first deployment with Authelia and Keycloak compatibility)
 
 **Acceptance criteria:**
 - OIDC configuration supports issuer URL, client ID, client secret, and redirect URI via environment variables or Kubernetes Secrets.
@@ -57,7 +57,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Automation systems need persistent credentials without interactive login, and authorization semantics must stay consistent between humans and machines.
 
 **Phase:** 4
-**Status:** in-progress (service token storage, hashing, expiry, revocation, last-used metadata, API authentication, route scope checks, audit visibility, admin/web lifecycle UI, and worker CLI lifecycle commands are implemented; scope grants now map into the shared permission registry; remaining work is optional upstream machine-JWT mapping and exchange patterns)
+**Status:** implemented (service token storage, hashing, expiry, revocation, last-used metadata, API authentication, route scope checks, audit visibility, admin/web lifecycle UI, and worker CLI lifecycle commands are implemented; scope grants map into the shared permission registry used by principal authorization)
 
 **Acceptance criteria:**
 - Admin can create a named service token with optional expiry and explicit grants.
@@ -77,7 +77,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** The app, not the identity provider, owns domain semantics such as publication access, ingestion controls, run execution, and policy/action permissions.
 
 **Phase:** 4
-**Status:** in-progress (role separation is implemented across local auth, OIDC, and service tokens; a unified permission registry now backs route authorization, including service-token scope mapping and declarative OIDC claim/group permission grants; report routes now support per-publication permission grants, run detail/retry routes now support per-run grants, and permission-bound principal enforcement is in place for explicit grant-only identities; remaining work is extending per-asset grant families to broader control-plane surfaces)
+**Status:** implemented (role separation is implemented across local auth, OIDC, and service tokens; a unified permission registry backs route authorization, including service-token scope mapping and declarative OIDC claim/group permission grants; report routes support per-publication grants, run detail/retry routes support per-run grants, and control-plane lineage/publication-audit/transformation-audit/schedule-dispatch/config routes support per-asset grants; permission-bound principal enforcement is in place for explicit grant-only identities)
 
 **Acceptance criteria:**
 - Baseline roles remain available for coarse-grained access control.

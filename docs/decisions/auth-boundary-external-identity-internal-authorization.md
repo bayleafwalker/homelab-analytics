@@ -133,6 +133,8 @@ Compatibility mapping during migration:
 4. Add a trusted proxy identity mode without weakening authorization checks.
 5. Narrow local auth paths to single-user/break-glass operational semantics.
 
+Implementation status (2026-03-22): sequence complete. Remaining future-facing work is optional machine-JWT federation patterns and eventual retirement timing for compatibility env aliases.
+
 ---
 
 ## 7. Non-goals
@@ -155,5 +157,5 @@ Positive:
 
 Tradeoffs:
 
-- permission registry and claim-mapping work must be completed to replace role-only assumptions
 - local auth ergonomics become intentionally narrower in production use
+- `HOMELAB_ANALYTICS_AUTH_MODE` remains as a compatibility input during migration; deployments should use `HOMELAB_ANALYTICS_IDENTITY_MODE`
