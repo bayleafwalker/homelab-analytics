@@ -216,6 +216,31 @@ class ApiAppTests(unittest.TestCase):
                 ]["responses"]["201"]["content"]["application/json"]["schema"]["$ref"],
             )
 
+    def test_openapi_schema_exposes_typed_ha_mqtt_status_model(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs.db"
+                        ),
+                    ),
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            response = client.get("/openapi.json")
+
+            self.assertEqual(200, response.status_code)
+            schema = response.json()
+            self.assertEqual(
+                "#/components/schemas/HaMqttStatusModel",
+                schema["paths"]["/api/ha/mqtt/status"]["get"]["responses"]["200"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+
     def test_typed_config_payload_validation_rejects_invalid_dataset_contracts(
         self,
     ) -> None:

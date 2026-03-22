@@ -72,6 +72,22 @@ Built-in UI descriptors that support the web renderer currently use these `rende
 - `web_render_mode`: whether the current shell renders a dedicated detail section (`detail`) or only discovery metadata (`discovery`)
 - `web_anchor`: stable in-page anchor used by the renderer discovery navigation
 
+### Current Home Assistant renderer hints
+
+Built-in publications that support the Home Assistant renderer currently use these `renderer_hints` keys:
+
+- `ha_object_id`: MQTT discovery object id for the rendered sensor
+- `ha_entity_name`: Home Assistant-facing entity name
+- `ha_state_aggregation`: aggregation strategy over publication rows, currently `count`, `sum`, `latest`, or `max`
+- `ha_state_field`: optional publication field used by non-count aggregations
+- `ha_filter_field` and `ha_filter_values`: optional row filter applied before aggregation
+- `ha_icon`, `ha_unit`, and `ha_device_class`: optional MQTT discovery metadata
+
+The HA MQTT publisher is expected to consume these hints through the same publication and UI descriptor contract export used by the web renderer. HA-enabled publications should therefore opt in through both:
+
+- publication renderer hints that describe how to summarize the publication into an HA entity
+- at least one UI descriptor whose `supported_renderers` includes `ha`
+
 ## Frontend usage
 
 The generated TypeScript helper types in `apps/web/frontend/generated/publication-contracts.ts` include:

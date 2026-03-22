@@ -97,7 +97,11 @@ def build_app(settings: AppSettings | None = None):
     resolved_settings = settings or AppSettings.from_env()
     validate_auth_configuration(resolved_settings)
 
-    container = build_container(resolved_settings, capability_packs=[FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK, HOMELAB_PACK])
+    capability_packs = [FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK, HOMELAB_PACK]
+    container = build_container(
+        resolved_settings,
+        capability_packs=capability_packs,
+    )
 
     transformation_service = build_lazy_transformation_service(
         resolved_settings, container=container
@@ -151,7 +155,13 @@ def build_app(settings: AppSettings | None = None):
 
     ha_mqtt_publisher = None
     if resolved_settings.ha_mqtt_broker_url:
+        from packages.pipelines.ha_contract_renderer import HaContractRenderer
         from packages.pipelines.ha_mqtt_publisher import HaMqttPublisher
+
+        ha_contract_renderer = HaContractRenderer(
+            reporting_service,
+            capability_packs=capability_packs,
+        )
 
         def _mqtt_fetch_fn() -> dict:
             if ha_bridge is None:
@@ -165,6 +175,7 @@ def build_app(settings: AppSettings | None = None):
             }
             for result in ha_policy_evaluator.evaluate():
                 platform_state[f"policy_{result.id}"] = result.verdict
+            platform_state.update(ha_contract_renderer.render_states())
             return platform_state
 
         ha_mqtt_publisher = HaMqttPublisher(
@@ -173,6 +184,7 @@ def build_app(settings: AppSettings | None = None):
             username=resolved_settings.ha_mqtt_username,
             password=resolved_settings.ha_mqtt_password,
             action_dispatcher=ha_action_dispatcher,
+            entities=ha_contract_renderer.entity_definitions(),
         )
 
     return create_app(

@@ -1,14 +1,15 @@
-"""Home Assistant MQTT publisher — Phase 3/4/5 synthetic entity publication.
+"""Home Assistant MQTT publisher for bridge, policy, and contract-backed HA entities.
 
 The publisher connects to an MQTT broker and periodically publishes computed
 platform entities back into HA via MQTT discovery.  It runs as a long-lived
 asyncio task alongside uvicorn (started/stopped via FastAPI lifespan).
 
 Entities published:
-    sensor.homelab_analytics_freshness         — WebSocket bridge health timestamp
-    sensor.homelab_analytics_budget_status     — budget utilization verdict
+    sensor.homelab_analytics_freshness          — WebSocket bridge health timestamp
+    sensor.homelab_analytics_budget_status      — budget utilization verdict
     sensor.homelab_analytics_monthly_spend_rate — spending pace verdict
-    sensor.homelab_analytics_bridge_health     — bridge freshness verdict
+    sensor.homelab_analytics_bridge_health      — bridge freshness verdict
+    sensor.homelab_analytics_*                  — contract-backed publication summaries
 
 Discovery protocol:
     homeassistant/sensor/<object_id>/config       → JSON config (retain=True)
@@ -26,7 +27,9 @@ import asyncio
 import json
 import logging
 from datetime import UTC, datetime
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
+
+from packages.pipelines.ha_mqtt_models import HaMqttEntityDefinition
 
 logger = logging.getLogger("homelab_analytics.ha_mqtt_publisher")
 
@@ -44,34 +47,32 @@ _DEVICE_INFO: dict[str, Any] = {
     "manufacturer": "homelab-analytics",
 }
 
-# Synthetic entity definitions.
-# value_key: key in the platform_state dict returned by fetch_fn.
-_SYNTHETIC_ENTITIES: list[dict[str, Any]] = [
-    {
-        "object_id": "homelab_analytics_freshness",
-        "name": "Homelab Analytics Freshness",
-        "icon": "mdi:sync-circle",
-        "value_key": "bridge_last_sync_at",
-    },
-    {
-        "object_id": "homelab_analytics_budget_status",
-        "name": "Homelab Analytics Budget Status",
-        "icon": "mdi:currency-usd",
-        "value_key": "policy_budget_status",
-    },
-    {
-        "object_id": "homelab_analytics_monthly_spend_rate",
-        "name": "Homelab Analytics Monthly Spend Rate",
-        "icon": "mdi:chart-line",
-        "value_key": "policy_monthly_spend_rate",
-    },
-    {
-        "object_id": "homelab_analytics_bridge_health",
-        "name": "Homelab Analytics Bridge Health",
-        "icon": "mdi:lan-connect",
-        "value_key": "policy_bridge_health",
-    },
-]
+_STATIC_ENTITIES: tuple[HaMqttEntityDefinition, ...] = (
+    HaMqttEntityDefinition(
+        object_id="homelab_analytics_freshness",
+        name="Homelab Analytics Freshness",
+        state_key="bridge_last_sync_at",
+        icon="mdi:sync-circle",
+    ),
+    HaMqttEntityDefinition(
+        object_id="homelab_analytics_budget_status",
+        name="Homelab Analytics Budget Status",
+        state_key="policy_budget_status",
+        icon="mdi:currency-usd",
+    ),
+    HaMqttEntityDefinition(
+        object_id="homelab_analytics_monthly_spend_rate",
+        name="Homelab Analytics Monthly Spend Rate",
+        state_key="policy_monthly_spend_rate",
+        icon="mdi:chart-line",
+    ),
+    HaMqttEntityDefinition(
+        object_id="homelab_analytics_bridge_health",
+        name="Homelab Analytics Bridge Health",
+        state_key="policy_bridge_health",
+        icon="mdi:lan-connect",
+    ),
+)
 
 # Type alias for the platform-state fetch callable.
 FetchFn = Callable[[], dict[str, Any]]
@@ -99,11 +100,11 @@ def _state_topic(object_id: str) -> str:
     return f"{_STATE_PREFIX}/sensor/{object_id}/state"
 
 
-def _build_discovery_payload(entity: dict[str, Any]) -> str:
-    """Build the MQTT discovery config JSON for one synthetic entity."""
-    object_id = entity["object_id"]
+def _build_discovery_payload(entity: HaMqttEntityDefinition) -> str:
+    """Build the MQTT discovery config JSON for one entity."""
+    object_id = entity.object_id
     payload: dict[str, Any] = {
-        "name": entity["name"],
+        "name": entity.name,
         "unique_id": object_id,
         "state_topic": _state_topic(object_id),
         "availability_topic": _DEVICE_AVAILABILITY_TOPIC,
@@ -111,18 +112,21 @@ def _build_discovery_payload(entity: dict[str, Any]) -> str:
         "payload_not_available": "offline",
         "device": _DEVICE_INFO,
     }
-    if entity.get("icon"):
-        payload["icon"] = entity["icon"]
-    if entity.get("device_class"):
-        payload["device_class"] = entity["device_class"]
-    if entity.get("unit_of_measurement"):
-        payload["unit_of_measurement"] = entity["unit_of_measurement"]
+    if entity.icon:
+        payload["icon"] = entity.icon
+    if entity.device_class:
+        payload["device_class"] = entity.device_class
+    if entity.unit_of_measurement:
+        payload["unit_of_measurement"] = entity.unit_of_measurement
     return json.dumps(payload)
 
 
-def _build_state_value(entity: dict[str, Any], platform_state: dict[str, Any]) -> str:
+def _build_state_value(
+    entity: HaMqttEntityDefinition,
+    platform_state: dict[str, Any],
+) -> str:
     """Extract the state string to publish for one entity."""
-    value = platform_state.get(entity["value_key"])
+    value = platform_state.get(entity.state_key)
     if value is None:
         return "unavailable"
     return str(value)
@@ -152,9 +156,15 @@ class HaMqttPublisher:
         username: str | None = None,
         password: str | None = None,
         action_dispatcher: Any | None = None,
+        entities: Sequence[HaMqttEntityDefinition] | None = None,
     ) -> None:
         self._fetch_fn = fetch_fn
         self._action_dispatcher = action_dispatcher
+        self._entities = (
+            _STATIC_ENTITIES
+            if entities is None
+            else (*_STATIC_ENTITIES, *tuple(entities))
+        )
         self._broker_host, self._broker_port = _parse_broker_url(broker_url)
         self._username = username
         self._password = password
@@ -195,11 +205,25 @@ class HaMqttPublisher:
 
     def get_status(self) -> dict[str, Any]:
         """Return current publisher health snapshot."""
+        publication_keys = sorted(
+            {
+                entity.publication_key
+                for entity in self._entities
+                if entity.publication_key is not None
+            }
+        )
         return {
             "connected": self.connected,
             "last_publish_at": self.last_publish_at,
             "publish_count": self.publish_count,
-            "entity_count": len(_SYNTHETIC_ENTITIES),
+            "entity_count": len(self._entities),
+            "static_entity_count": len(
+                [entity for entity in self._entities if entity.publication_key is None]
+            ),
+            "contract_entity_count": len(
+                [entity for entity in self._entities if entity.publication_key is not None]
+            ),
+            "publication_keys": publication_keys,
         }
 
     # ------------------------------------------------------------------
@@ -269,9 +293,9 @@ class HaMqttPublisher:
                 await asyncio.sleep(_PUBLISH_INTERVAL)
 
     async def _publish_discovery(self, client: Any) -> None:
-        """Send retained discovery config for all synthetic entities."""
-        for entity in _SYNTHETIC_ENTITIES:
-            topic = _discovery_topic(entity["object_id"])
+        """Send retained discovery config for all configured entities."""
+        for entity in self._entities:
+            topic = _discovery_topic(entity.object_id)
             payload = _build_discovery_payload(entity)
             await client.publish(topic, payload=payload, retain=True, qos=1)
             logger.debug("MQTT discovery published: %s", topic)
@@ -284,8 +308,8 @@ class HaMqttPublisher:
             logger.warning("MQTT state fetch error", extra={"error": str(exc)})
             return
 
-        for entity in _SYNTHETIC_ENTITIES:
-            topic = _state_topic(entity["object_id"])
+        for entity in self._entities:
+            topic = _state_topic(entity.object_id)
             value = _build_state_value(entity, platform_state)
             await client.publish(topic, payload=value, qos=1)
             logger.debug("MQTT state published: %s = %s", topic, value)

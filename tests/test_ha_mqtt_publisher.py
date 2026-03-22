@@ -9,9 +9,10 @@ from __future__ import annotations
 import json
 import unittest
 
+from packages.pipelines.ha_mqtt_models import HaMqttEntityDefinition
 from packages.pipelines.ha_mqtt_publisher import (
     _DEVICE_AVAILABILITY_TOPIC,
-    _SYNTHETIC_ENTITIES,
+    _STATIC_ENTITIES,
     HaMqttPublisher,
     _build_discovery_payload,
     _build_state_value,
@@ -75,10 +76,34 @@ class PublisherStatusTests(unittest.TestCase):
         self.assertIn("last_publish_at", status)
         self.assertIn("publish_count", status)
         self.assertIn("entity_count", status)
+        self.assertIn("static_entity_count", status)
+        self.assertIn("contract_entity_count", status)
+        self.assertIn("publication_keys", status)
 
-    def test_entity_count_matches_synthetic_entities(self) -> None:
+    def test_entity_count_matches_static_entities(self) -> None:
         pub = _publisher()
-        self.assertEqual(len(_SYNTHETIC_ENTITIES), pub.get_status()["entity_count"])
+        self.assertEqual(len(_STATIC_ENTITIES), pub.get_status()["entity_count"])
+        self.assertEqual(len(_STATIC_ENTITIES), pub.get_status()["static_entity_count"])
+        self.assertEqual(0, pub.get_status()["contract_entity_count"])
+
+    def test_status_counts_contract_backed_entities(self) -> None:
+        pub = HaMqttPublisher(
+            lambda: {},
+            broker_url="mqtt://broker.local",
+            entities=(
+                HaMqttEntityDefinition(
+                    object_id="homelab_analytics_workload_cost_estimate",
+                    name="Homelab Workload Cost Estimate",
+                    state_key="homelab_analytics_workload_cost_estimate",
+                    publication_key="workload_cost_7d",
+                    ui_descriptor_key="homelab-workloads",
+                ),
+            ),
+        )
+        status = pub.get_status()
+        self.assertEqual(len(_STATIC_ENTITIES) + 1, status["entity_count"])
+        self.assertEqual(1, status["contract_entity_count"])
+        self.assertEqual(["workload_cost_7d"], status["publication_keys"])
 
     def test_optional_credentials_stored(self) -> None:
         pub = HaMqttPublisher(
@@ -115,26 +140,26 @@ class TopicConstructionTests(unittest.TestCase):
 
 class DiscoveryPayloadTests(unittest.TestCase):
     def _payload(self, entity=None) -> dict:
-        e = entity or _SYNTHETIC_ENTITIES[0]
+        e = entity or _STATIC_ENTITIES[0]
         return json.loads(_build_discovery_payload(e))
 
     def test_payload_is_valid_json(self) -> None:
-        raw = _build_discovery_payload(_SYNTHETIC_ENTITIES[0])
+        raw = _build_discovery_payload(_STATIC_ENTITIES[0])
         parsed = json.loads(raw)
         self.assertIsInstance(parsed, dict)
 
     def test_name_in_payload(self) -> None:
         p = self._payload()
-        self.assertEqual(_SYNTHETIC_ENTITIES[0]["name"], p["name"])
+        self.assertEqual(_STATIC_ENTITIES[0].name, p["name"])
 
     def test_unique_id_matches_object_id(self) -> None:
         p = self._payload()
-        self.assertEqual(_SYNTHETIC_ENTITIES[0]["object_id"], p["unique_id"])
+        self.assertEqual(_STATIC_ENTITIES[0].object_id, p["unique_id"])
 
     def test_state_topic_in_payload(self) -> None:
-        entity = _SYNTHETIC_ENTITIES[0]
+        entity = _STATIC_ENTITIES[0]
         p = self._payload(entity)
-        self.assertEqual(_state_topic(entity["object_id"]), p["state_topic"])
+        self.assertEqual(_state_topic(entity.object_id), p["state_topic"])
 
     def test_availability_topic_is_device_topic(self) -> None:
         p = self._payload()
@@ -156,12 +181,12 @@ class DiscoveryPayloadTests(unittest.TestCase):
 
 
 class StateValueTests(unittest.TestCase):
-    def _entity(self) -> dict:
-        return _SYNTHETIC_ENTITIES[0]
+    def _entity(self) -> HaMqttEntityDefinition:
+        return _STATIC_ENTITIES[0]
 
     def test_none_value_returns_unavailable(self) -> None:
         entity = self._entity()
-        value = _build_state_value(entity, {entity["value_key"]: None})
+        value = _build_state_value(entity, {entity.state_key: None})
         self.assertEqual("unavailable", value)
 
     def test_missing_key_returns_unavailable(self) -> None:
@@ -172,12 +197,12 @@ class StateValueTests(unittest.TestCase):
     def test_timestamp_string_returned_as_is(self) -> None:
         entity = self._entity()
         ts = "2026-03-21T10:05:23.441000+00:00"
-        value = _build_state_value(entity, {entity["value_key"]: ts})
+        value = _build_state_value(entity, {entity.state_key: ts})
         self.assertEqual(ts, value)
 
     def test_value_stringified(self) -> None:
         entity = self._entity()
-        value = _build_state_value(entity, {entity["value_key"]: 42})
+        value = _build_state_value(entity, {entity.state_key: 42})
         self.assertEqual("42", value)
 
 

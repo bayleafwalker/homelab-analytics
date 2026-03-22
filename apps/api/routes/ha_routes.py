@@ -17,6 +17,7 @@ from typing import Any, Callable
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
+from apps.api.response_models import HaMqttStatusModel
 from packages.pipelines.transformation_service import TransformationService
 
 
@@ -88,17 +89,20 @@ def register_ha_routes(
             return {"enabled": False, "connected": False, "last_sync_at": None, "reconnect_count": 0}
         return {"enabled": True, **ha_bridge.get_status()}
 
-    @app.get("/api/ha/mqtt/status")
-    async def get_mqtt_status() -> dict[str, Any]:
+    @app.get("/api/ha/mqtt/status", response_model=HaMqttStatusModel)
+    async def get_mqtt_status() -> HaMqttStatusModel:
         if ha_mqtt_publisher is None:
-            return {
-                "enabled": False,
-                "connected": False,
-                "last_publish_at": None,
-                "publish_count": 0,
-                "entity_count": 0,
-            }
-        return {"enabled": True, **ha_mqtt_publisher.get_status()}
+            return HaMqttStatusModel(
+                enabled=False,
+                connected=False,
+                last_publish_at=None,
+                publish_count=0,
+                entity_count=0,
+                static_entity_count=0,
+                contract_entity_count=0,
+                publication_keys=[],
+            )
+        return HaMqttStatusModel(enabled=True, **ha_mqtt_publisher.get_status())
 
     @app.get("/api/ha/policies")
     async def get_policies() -> dict[str, Any]:

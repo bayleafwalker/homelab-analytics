@@ -1918,6 +1918,64 @@
         "title": "HaIngestRequest",
         "type": "object"
       },
+      "HaMqttStatusModel": {
+        "additionalProperties": false,
+        "properties": {
+          "connected": {
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "contract_entity_count": {
+            "title": "Contract Entity Count",
+            "type": "integer"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "entity_count": {
+            "title": "Entity Count",
+            "type": "integer"
+          },
+          "last_publish_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Publish At"
+          },
+          "publication_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Publication Keys",
+            "type": "array"
+          },
+          "publish_count": {
+            "title": "Publish Count",
+            "type": "integer"
+          },
+          "static_entity_count": {
+            "title": "Static Entity Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "connected",
+          "publish_count",
+          "entity_count",
+          "static_entity_count",
+          "contract_entity_count",
+          "publication_keys"
+        ],
+        "title": "HaMqttStatusModel",
+        "type": "object"
+      },
       "HaStateObject": {
         "properties": {
           "attributes": {
@@ -5190,9 +5248,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Mqtt Status Api Ha Mqtt Status Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/HaMqttStatusModel"
                 }
               }
             },

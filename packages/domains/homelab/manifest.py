@@ -60,6 +60,14 @@ HOMELAB_PACK = CapabilityPack(
             visibility="public",
             lineage_required=True,
             retention_policy="rolling_12_months",
+            renderer_hints={
+                "ha_object_id": "homelab_analytics_services_unhealthy",
+                "ha_entity_name": "Homelab Services Unhealthy",
+                "ha_state_aggregation": "count",
+                "ha_filter_field": "state",
+                "ha_filter_values": "degraded,stopped",
+                "ha_icon": "mdi:server-alert",
+            },
             field_semantics={
                 "service_id": identifier_field(
                     "Stable service identifier emitted by the homelab source."
@@ -106,6 +114,14 @@ HOMELAB_PACK = CapabilityPack(
             visibility="public",
             lineage_required=True,
             retention_policy="rolling_12_months",
+            renderer_hints={
+                "ha_object_id": "homelab_analytics_backups_stale",
+                "ha_entity_name": "Homelab Backups Stale",
+                "ha_state_aggregation": "count",
+                "ha_filter_field": "is_stale",
+                "ha_filter_values": "true",
+                "ha_icon": "mdi:archive-alert",
+            },
             field_semantics={
                 "target": identifier_field(
                     "Backup target or job identifier being monitored."
@@ -146,6 +162,14 @@ HOMELAB_PACK = CapabilityPack(
             visibility="public",
             lineage_required=True,
             retention_policy="rolling_12_months",
+            renderer_hints={
+                "ha_object_id": "homelab_analytics_storage_risk_devices",
+                "ha_entity_name": "Homelab Storage Risk Devices",
+                "ha_state_aggregation": "count",
+                "ha_filter_field": "risk_tier",
+                "ha_filter_values": "warn,crit",
+                "ha_icon": "mdi:harddisk-alert",
+            },
             field_semantics={
                 "entity_id": identifier_field(
                     "Stable storage entity identifier from the telemetry source."
@@ -191,6 +215,13 @@ HOMELAB_PACK = CapabilityPack(
             visibility="public",
             lineage_required=True,
             retention_policy="rolling_12_months",
+            renderer_hints={
+                "ha_object_id": "homelab_analytics_workload_cost_estimate",
+                "ha_entity_name": "Homelab Workload Cost Estimate",
+                "ha_state_aggregation": "sum",
+                "ha_state_field": "est_monthly_cost",
+                "ha_icon": "mdi:cpu-64-bit",
+            },
             field_semantics={
                 "workload_id": identifier_field(
                     "Stable workload identifier from the telemetry source."
@@ -235,7 +266,7 @@ HOMELAB_PACK = CapabilityPack(
             kind="dashboard",
             publication_keys=("service_health_current",),
             icon="server",
-            supported_renderers=("web",),
+            supported_renderers=("web", "ha"),
             renderer_hints={
                 "web_surface": "homelab",
                 "web_render_mode": "discovery",
@@ -249,7 +280,7 @@ HOMELAB_PACK = CapabilityPack(
             kind="table",
             publication_keys=("backup_freshness",),
             icon="archive",
-            supported_renderers=("web",),
+            supported_renderers=("web", "ha"),
             renderer_hints={
                 "web_surface": "homelab",
                 "web_render_mode": "discovery",
@@ -263,7 +294,7 @@ HOMELAB_PACK = CapabilityPack(
             kind="dashboard",
             publication_keys=("storage_risk",),
             icon="hard-drive",
-            supported_renderers=("web",),
+            supported_renderers=("web", "ha"),
             renderer_hints={
                 "web_surface": "homelab",
                 "web_render_mode": "discovery",
@@ -277,7 +308,7 @@ HOMELAB_PACK = CapabilityPack(
             kind="table",
             publication_keys=("workload_cost_7d",),
             icon="cpu",
-            supported_renderers=("web",),
+            supported_renderers=("web", "ha"),
             renderer_hints={
                 "web_surface": "homelab",
                 "web_render_mode": "discovery",

@@ -93,6 +93,9 @@ def test_publication_contract_catalog_maps_columns_and_scalar_types() -> None:
     assert backup_columns["last_backup_at"].grain == "timestamp"
     assert backup_columns["last_size_bytes"].unit == "bytes"
     assert backup_columns["is_stale"].semantic_role == "status"
+    assert set(backup_freshness.supported_renderers) == {"web", "ha"}
+    assert backup_freshness.renderer_hints["ha_state_aggregation"] == "count"
+    assert backup_freshness.renderer_hints["ha_filter_field"] == "is_stale"
 
     dim_category = publication_contracts["dim_category"]
     assert dim_category.relation_name == "rpt_current_dim_category"
@@ -107,6 +110,9 @@ def test_publication_contract_catalog_maps_columns_and_scalar_types() -> None:
 
     overview_descriptor = ui_descriptors["overview"]
     assert overview_descriptor.renderer_hints["web_surface"] == "overview"
+
+    homelab_descriptor = ui_descriptors["homelab-services"]
+    assert set(homelab_descriptor.supported_renderers) == {"web", "ha"}
 
 
 def test_publication_contract_catalog_requires_reporting_relations() -> None:

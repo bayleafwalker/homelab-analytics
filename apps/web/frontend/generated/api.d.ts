@@ -2852,6 +2852,25 @@ export interface components {
             /** States */
             states: components["schemas"]["HaStateObject"][];
         };
+        /** HaMqttStatusModel */
+        HaMqttStatusModel: {
+            /** Connected */
+            connected: boolean;
+            /** Contract Entity Count */
+            contract_entity_count: number;
+            /** Enabled */
+            enabled: boolean;
+            /** Entity Count */
+            entity_count: number;
+            /** Last Publish At */
+            last_publish_at?: string | null;
+            /** Publication Keys */
+            publication_keys: string[];
+            /** Publish Count */
+            publish_count: number;
+            /** Static Entity Count */
+            static_entity_count: number;
+        };
         /** HaStateObject */
         HaStateObject: {
             /** Attributes */
@@ -4056,9 +4075,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["HaMqttStatusModel"];
                 };
             };
         };

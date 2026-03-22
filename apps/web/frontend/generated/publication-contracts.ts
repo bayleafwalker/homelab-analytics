@@ -190,11 +190,19 @@ export const publicationContractMap = {
     "pack_version": "0.1.0",
     "publication_key": "backup_freshness",
     "relation_name": "mart_backup_freshness",
-    "renderer_hints": {},
+    "renderer_hints": {
+      "ha_entity_name": "Homelab Backups Stale",
+      "ha_filter_field": "is_stale",
+      "ha_filter_values": "true",
+      "ha_icon": "mdi:archive-alert",
+      "ha_object_id": "homelab_analytics_backups_stale",
+      "ha_state_aggregation": "count"
+    },
     "retention_policy": "rolling_12_months",
     "schema_name": "backup_freshness",
     "schema_version": "1.0.0",
     "supported_renderers": [
+      "ha",
       "web"
     ],
     "ui_descriptor_keys": [
@@ -3502,11 +3510,19 @@ export const publicationContractMap = {
     "pack_version": "0.1.0",
     "publication_key": "service_health_current",
     "relation_name": "mart_service_health_current",
-    "renderer_hints": {},
+    "renderer_hints": {
+      "ha_entity_name": "Homelab Services Unhealthy",
+      "ha_filter_field": "state",
+      "ha_filter_values": "degraded,stopped",
+      "ha_icon": "mdi:server-alert",
+      "ha_object_id": "homelab_analytics_services_unhealthy",
+      "ha_state_aggregation": "count"
+    },
     "retention_policy": "rolling_12_months",
     "schema_name": "service_health_current",
     "schema_version": "1.0.0",
     "supported_renderers": [
+      "ha",
       "web"
     ],
     "ui_descriptor_keys": [
@@ -3715,11 +3731,19 @@ export const publicationContractMap = {
     "pack_version": "0.1.0",
     "publication_key": "storage_risk",
     "relation_name": "mart_storage_risk",
-    "renderer_hints": {},
+    "renderer_hints": {
+      "ha_entity_name": "Homelab Storage Risk Devices",
+      "ha_filter_field": "risk_tier",
+      "ha_filter_values": "warn,crit",
+      "ha_icon": "mdi:harddisk-alert",
+      "ha_object_id": "homelab_analytics_storage_risk_devices",
+      "ha_state_aggregation": "count"
+    },
     "retention_policy": "rolling_12_months",
     "schema_name": "storage_risk",
     "schema_version": "1.0.0",
     "supported_renderers": [
+      "ha",
       "web"
     ],
     "ui_descriptor_keys": [
@@ -4773,11 +4797,18 @@ export const publicationContractMap = {
     "pack_version": "0.1.0",
     "publication_key": "workload_cost_7d",
     "relation_name": "mart_workload_cost_7d",
-    "renderer_hints": {},
+    "renderer_hints": {
+      "ha_entity_name": "Homelab Workload Cost Estimate",
+      "ha_icon": "mdi:cpu-64-bit",
+      "ha_object_id": "homelab_analytics_workload_cost_estimate",
+      "ha_state_aggregation": "sum",
+      "ha_state_field": "est_monthly_cost"
+    },
     "retention_policy": "rolling_12_months",
     "schema_name": "workload_cost_7d",
     "schema_version": "1.0.0",
     "supported_renderers": [
+      "ha",
       "web"
     ],
     "ui_descriptor_keys": [
@@ -4924,7 +4955,8 @@ export const uiDescriptorMap = {
     },
     "required_permissions": [],
     "supported_renderers": [
-      "web"
+      "web",
+      "ha"
     ]
   },
   "homelab-services": {
@@ -4944,7 +4976,8 @@ export const uiDescriptorMap = {
     },
     "required_permissions": [],
     "supported_renderers": [
-      "web"
+      "web",
+      "ha"
     ]
   },
   "homelab-storage": {
@@ -4964,7 +4997,8 @@ export const uiDescriptorMap = {
     },
     "required_permissions": [],
     "supported_renderers": [
-      "web"
+      "web",
+      "ha"
     ]
   },
   "homelab-workloads": {
@@ -4984,7 +5018,8 @@ export const uiDescriptorMap = {
     },
     "required_permissions": [],
     "supported_renderers": [
-      "web"
+      "web",
+      "ha"
     ]
   },
   "large-transactions": {

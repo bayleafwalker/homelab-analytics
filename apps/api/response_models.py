@@ -75,6 +75,19 @@ class UiDescriptorsResponse(BaseModel):
     ui_descriptors: list[UiDescriptorContractModel]
 
 
+class HaMqttStatusModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool
+    connected: bool
+    last_publish_at: str | None = None
+    publish_count: int
+    entity_count: int
+    static_entity_count: int
+    contract_entity_count: int
+    publication_keys: list[str]
+
+
 class LocalUserModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

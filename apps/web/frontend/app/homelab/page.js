@@ -87,7 +87,7 @@ export default async function HomelabPage() {
           <div className="sectionHeader">
             <div>
               <div className="eyebrow">MQTT Publisher</div>
-              <h2>Synthetic Entities</h2>
+              <h2>Published Entities</h2>
             </div>
             {mqtt.enabled ? (
               <span className={`statusPill ${mqtt.connected ? "positive" : "negative"}`}>
@@ -102,7 +102,7 @@ export default async function HomelabPage() {
             <dd>
               {mqtt.enabled
                 ? mqtt.connected
-                  ? `Publishing ${mqtt.entity_count} synthetic ${mqtt.entity_count === 1 ? "entity" : "entities"} to HA`
+                  ? `Publishing ${mqtt.entity_count} entities to HA, including ${mqtt.contract_entity_count} contract-backed ${mqtt.contract_entity_count === 1 ? "summary" : "summaries"}`
                   : "Connecting to MQTT broker…"
                 : "Set HOMELAB_ANALYTICS_HA_MQTT_BROKER_URL to enable"}
             </dd>
@@ -114,6 +114,10 @@ export default async function HomelabPage() {
                 <dd>{mqtt.publish_count}</dd>
                 <dt>Entities</dt>
                 <dd>{mqtt.entity_count}</dd>
+                <dt>Contract summaries</dt>
+                <dd>{mqtt.contract_entity_count}</dd>
+                <dt>Publications</dt>
+                <dd>{mqtt.publication_keys.length}</dd>
               </>
             )}
           </dl>
