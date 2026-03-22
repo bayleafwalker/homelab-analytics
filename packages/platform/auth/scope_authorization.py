@@ -17,6 +17,7 @@ from packages.platform.auth.permission_registry import (
     run_read_permission,
     run_retry_permission,
     source_lineage_run_permission,
+    transformation_audit_run_permission,
 )
 from packages.storage.auth_store import (
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
@@ -98,6 +99,13 @@ def required_permission_for_request(
             return (
                 publication_audit_publication_permission(publication_key)
                 or PERMISSION_CONTROL_PUBLICATION_AUDIT_READ
+            )
+    if path == "/transformation-audit":
+        run_id = (query_params or {}).get("run_id", "").strip()
+        if run_id:
+            return (
+                transformation_audit_run_permission(run_id)
+                or PERMISSION_TRANSFORMATION_AUDIT_READ
             )
     return required_permission
 

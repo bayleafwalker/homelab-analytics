@@ -42,6 +42,10 @@ PERMISSION_CONTROL_SOURCE_LINEAGE_RUN_WILDCARD = (
 PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_WILDCARD = (
     f"{PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_PREFIX}*"
 )
+PERMISSION_TRANSFORMATION_AUDIT_RUN_PREFIX = f"{PERMISSION_TRANSFORMATION_AUDIT_READ}.run."
+PERMISSION_TRANSFORMATION_AUDIT_RUN_WILDCARD = (
+    f"{PERMISSION_TRANSFORMATION_AUDIT_RUN_PREFIX}*"
+)
 PERMISSION_REPORTS_READ_PUBLICATION_PREFIX = f"{PERMISSION_REPORTS_READ}.publication."
 PERMISSION_REPORTS_READ_PUBLICATION_WILDCARD = (
     f"{PERMISSION_REPORTS_READ_PUBLICATION_PREFIX}*"
@@ -189,12 +193,22 @@ def publication_audit_publication_permission(publication_key: str) -> str | None
     return f"{PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_PREFIX}{normalized}"
 
 
+def transformation_audit_run_permission(run_id: str) -> str | None:
+    normalized = run_id.strip().lower()
+    if not normalized:
+        return None
+    if not _DYNAMIC_PERMISSION_PATTERN.fullmatch(normalized):
+        return None
+    return f"{PERMISSION_TRANSFORMATION_AUDIT_RUN_PREFIX}{normalized}"
+
+
 def _normalize_dynamic_permission(permission: str) -> str | None:
     if permission in {
         PERMISSION_RUNS_READ_RUN_WILDCARD,
         PERMISSION_RUNS_RETRY_RUN_WILDCARD,
         PERMISSION_CONTROL_SOURCE_LINEAGE_RUN_WILDCARD,
         PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_WILDCARD,
+        PERMISSION_TRANSFORMATION_AUDIT_RUN_WILDCARD,
         PERMISSION_REPORTS_READ_PUBLICATION_WILDCARD,
     }:
         return permission
@@ -203,6 +217,7 @@ def _normalize_dynamic_permission(permission: str) -> str | None:
         PERMISSION_RUNS_RETRY_RUN_PREFIX,
         PERMISSION_CONTROL_SOURCE_LINEAGE_RUN_PREFIX,
         PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_PREFIX,
+        PERMISSION_TRANSFORMATION_AUDIT_RUN_PREFIX,
         PERMISSION_REPORTS_READ_PUBLICATION_PREFIX,
     ):
         if permission.startswith(prefix):
@@ -247,6 +262,11 @@ def _granted_permission_satisfies_required(granted: str, required: str) -> bool:
     if (
         granted == PERMISSION_CONTROL_PUBLICATION_AUDIT_READ
         and required.startswith(PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_PREFIX)
+    ):
+        return True
+    if (
+        granted == PERMISSION_TRANSFORMATION_AUDIT_READ
+        and required.startswith(PERMISSION_TRANSFORMATION_AUDIT_RUN_PREFIX)
     ):
         return True
     if granted.endswith(".*"):

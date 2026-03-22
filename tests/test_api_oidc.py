@@ -484,6 +484,7 @@ def test_api_oidc_permission_bound_principal_enforces_control_asset_permissions(
                 "hla_permissions": [
                     "control.source_lineage.read.run.run-001",
                     "control.publication_audit.read.publication.monthly-cashflow",
+                    "transformation.audit.read.run.run-001",
                 ],
             },
         )
@@ -513,6 +514,22 @@ def test_api_oidc_permission_bound_principal_enforces_control_asset_permissions(
         assert (
             denied_audit.json()["detail"]
             == "control.publication_audit.read.publication.budget-variance permission required."
+        )
+
+        allowed_transformation_audit = client.get(
+            "/transformation-audit?run_id=run-001",
+            headers=headers,
+        )
+        assert allowed_transformation_audit.status_code == 404
+
+        denied_transformation_audit = client.get(
+            "/transformation-audit?run_id=run-002",
+            headers=headers,
+        )
+        assert denied_transformation_audit.status_code == 403
+        assert (
+            denied_transformation_audit.json()["detail"]
+            == "transformation.audit.read.run.run-002 permission required."
         )
 
 

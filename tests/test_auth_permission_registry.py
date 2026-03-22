@@ -11,6 +11,7 @@ from packages.platform.auth.permission_registry import (
     PERMISSION_RUNS_READ_RUN_WILDCARD,
     PERMISSION_RUNS_RETRY,
     PERMISSION_RUNS_RETRY_RUN_WILDCARD,
+    PERMISSION_TRANSFORMATION_AUDIT_RUN_WILDCARD,
     PrincipalAuthorizationContext,
     has_required_permission,
     normalize_permission_grants,
@@ -22,6 +23,7 @@ from packages.platform.auth.permission_registry import (
     run_read_permission,
     run_retry_permission,
     source_lineage_run_permission,
+    transformation_audit_run_permission,
 )
 from packages.platform.auth.scope_authorization import (
     required_permission_for_path,
@@ -151,6 +153,9 @@ def test_permission_normalization_accepts_control_asset_permissions_and_wildcard
             "control.publication_audit.read.publication.reports.*",
             "control.publication_audit.read.publication.*",
             "control.publication_audit.read.publication.invalid key",
+            "transformation.audit.read.run.run-001",
+            "transformation.audit.read.run.finance.*",
+            "transformation.audit.read.run.*",
         ]
     )
 
@@ -161,6 +166,9 @@ def test_permission_normalization_accepts_control_asset_permissions_and_wildcard
         "control.source_lineage.read.run.*",
         "control.source_lineage.read.run.finance.*",
         "control.source_lineage.read.run.run-001",
+        "transformation.audit.read.run.*",
+        "transformation.audit.read.run.finance.*",
+        "transformation.audit.read.run.run-001",
     )
 
 
@@ -229,11 +237,19 @@ def test_reader_role_implies_control_asset_permissions() -> None:
     )
     assert has_required_permission(
         reader_ctx,
+        transformation_audit_run_permission("run-001"),
+    )
+    assert has_required_permission(
+        reader_ctx,
         PERMISSION_CONTROL_SOURCE_LINEAGE_RUN_WILDCARD,
     )
     assert has_required_permission(
         reader_ctx,
         PERMISSION_CONTROL_PUBLICATION_AUDIT_PUBLICATION_WILDCARD,
+    )
+    assert has_required_permission(
+        reader_ctx,
+        PERMISSION_TRANSFORMATION_AUDIT_RUN_WILDCARD,
     )
 
 
@@ -274,4 +290,15 @@ def test_request_permission_mapping_supports_control_asset_scopes() -> None:
             {},
         )
         == "control.publication_audit.read"
+    )
+    assert required_permission_for_request(
+        "/transformation-audit",
+        {"run_id": "run-001"},
+    ) == transformation_audit_run_permission("run-001")
+    assert (
+        required_permission_for_request(
+            "/transformation-audit",
+            {},
+        )
+        == "transformation.audit.read"
     )
