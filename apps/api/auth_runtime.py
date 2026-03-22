@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse, Response
 
 from apps.api.support import log_request
 from packages.platform.auth.audit_hooks import build_auth_event_recorder, build_lockout_checker
+from packages.platform.auth.break_glass import BreakGlassController
 from packages.platform.auth.credential_resolution import (
     bearer_token_from_request,
     cookie_secure_for_request,
@@ -62,10 +63,12 @@ def register_auth_middleware(
     *,
     logger: Logger,
     resolved_auth_mode: str,
+    resolved_identity_mode: str,
     resolved_auth_store: AuthStore,
     resolved_session_manager: SessionManager | None,
     resolved_oidc_provider: OidcProvider | None,
     enable_unsafe_admin: bool,
+    break_glass_controller: BreakGlassController | None,
     record_auth_event: Callable[..., None],
 ) -> None:
     @app.middleware("http")
@@ -149,6 +152,44 @@ def register_auth_middleware(
                     started,
                 )
                 return auth_error_response
+            if (
+                break_glass_controller is not None
+                and resolved_identity_mode == "local_single_user"
+                and request.state.principal is not None
+                and request.state.principal.auth_provider == "local"
+            ):
+                if not break_glass_controller.is_request_address_allowed(request):
+                    record_auth_event(
+                        request,
+                        event_type="break_glass_request_blocked",
+                        success=False,
+                        actor=request.state.principal,
+                        subject_user_id=request.state.principal.user_id,
+                        subject_username=request.state.principal.username,
+                        detail="Remote address is not allowed for break-glass access.",
+                    )
+                    denied_response = JSONResponse(
+                        status_code=403,
+                        content={"detail": "Break-glass access is limited to internal addresses."},
+                    )
+                    log_request(logger, request.method, request.url.path, 403, started)
+                    return denied_response
+                if not break_glass_controller.is_active():
+                    record_auth_event(
+                        request,
+                        event_type="break_glass_window_expired",
+                        success=False,
+                        actor=request.state.principal,
+                        subject_user_id=request.state.principal.user_id,
+                        subject_username=request.state.principal.username,
+                        detail="Break-glass window expired; new login required.",
+                    )
+                    denied_response = JSONResponse(
+                        status_code=401,
+                        content={"detail": "Break-glass session expired. Sign in again."},
+                    )
+                    log_request(logger, request.method, request.url.path, 401, started)
+                    return denied_response
             if (
                 request.state.principal is not None
                 and bool(getattr(request.state, "auth_via_cookie", False))

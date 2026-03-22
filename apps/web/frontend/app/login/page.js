@@ -1,4 +1,5 @@
 const AUTH_MODE = process.env.HOMELAB_ANALYTICS_AUTH_MODE || "disabled";
+const IDENTITY_MODE = process.env.HOMELAB_ANALYTICS_IDENTITY_MODE || AUTH_MODE;
 
 function errorMessageFor(error, authMode) {
   if (error === "locked-out") {
@@ -24,23 +25,30 @@ function errorMessageFor(error, authMode) {
 
 export default function LoginPage({ searchParams }) {
   const error = searchParams?.error;
-  const authMode = AUTH_MODE.toLowerCase();
-  const errorMessage = errorMessageFor(error, authMode);
+  const identityMode = IDENTITY_MODE.toLowerCase();
+  const isOidc = identityMode === "oidc";
+  const errorMessage = errorMessageFor(error, identityMode);
 
   return (
     <main className="loginPage">
       <section className="panel loginCard">
         <div className="eyebrow">
-          {authMode === "oidc" ? "OIDC Single Sign-On" : "Bootstrap Local Auth"}
+          {isOidc
+            ? "OIDC Single Sign-On"
+            : identityMode === "local_single_user"
+              ? "Break-Glass Local Auth"
+              : "Bootstrap Local Auth"}
         </div>
         <h1>Sign In</h1>
         <p className="lede">
-          {authMode === "oidc"
+          {isOidc
             ? "This frontend only consumes the API. Sign in through your configured OIDC provider."
-            : "This frontend only consumes the API. Local auth remains available for bootstrap and break-glass access."}
+            : identityMode === "local_single_user"
+              ? "This frontend only consumes the API. Local auth is running in temporary break-glass mode."
+              : "This frontend only consumes the API. Local auth remains available for bootstrap and break-glass access."}
         </p>
         {errorMessage ? <div className="errorBanner">{errorMessage}</div> : null}
-        {authMode === "oidc" ? (
+        {isOidc ? (
           <a className="primaryButton" href="/auth/login">
             Sign In with OIDC
           </a>

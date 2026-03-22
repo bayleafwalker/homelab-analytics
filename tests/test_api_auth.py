@@ -7,8 +7,10 @@ from typing import Any, cast
 from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
+from apps.api.main import build_app
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.shared.auth import SessionManager, hash_password
+from packages.shared.settings import AppSettings
 from packages.storage.auth_store import LocalUserCreate, UserRole
 from packages.storage.ingestion_config import IngestionConfigRepository
 from packages.storage.run_metadata import RunMetadataRepository
@@ -57,6 +59,32 @@ def _csrf_headers(client: TestClient) -> dict[str, str]:
     token = client.cookies.get("homelab_analytics_csrf")
     assert token
     return {"x-csrf-token": token}
+
+
+def _build_local_single_user_break_glass_client(temp_dir: str) -> TestClient:
+    settings = AppSettings(
+        data_dir=Path(temp_dir),
+        landing_root=Path(temp_dir) / "landing",
+        metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+        account_transactions_inbox_dir=Path(temp_dir) / "inbox" / "account-transactions",
+        processed_files_dir=Path(temp_dir) / "processed" / "account-transactions",
+        failed_files_dir=Path(temp_dir) / "failed" / "account-transactions",
+        api_host="127.0.0.1",
+        api_port=8080,
+        web_host="127.0.0.1",
+        web_port=8081,
+        worker_poll_interval_seconds=30,
+        auth_mode="local_single_user",
+        session_secret="test-session-secret",
+        break_glass_enabled=True,
+        break_glass_internal_only=True,
+        break_glass_ttl_minutes=5,
+        break_glass_allowed_cidrs=("10.0.0.0/8",),
+        enable_bootstrap_local_admin=True,
+        bootstrap_admin_username="admin",
+        bootstrap_admin_password="admin-password",
+    )
+    return TestClient(build_app(settings))
 
 
 def test_api_local_auth_login_logout_and_me() -> None:
@@ -459,3 +487,67 @@ def test_api_local_auth_allows_reader_run_lineage_and_publication_visibility() -
         )
         assert client.get("/control/source-lineage", params={"run_id": "run-001"}).status_code == 200
         assert client.get("/control/publication-audit", params={"run_id": "run-001"}).status_code == 200
+
+
+def test_api_local_single_user_break_glass_enforces_cidr_and_ttl_session_cookie() -> None:
+    with TemporaryDirectory() as temp_dir:
+        client = _build_local_single_user_break_glass_client(temp_dir)
+
+        blocked = client.post(
+            "/auth/login",
+            json={"username": "admin", "password": "admin-password"},
+            headers={"x-forwarded-for": "198.51.100.14"},
+        )
+        assert blocked.status_code == 403
+        assert "internal addresses" in blocked.json()["detail"]
+
+        login = client.post(
+            "/auth/login",
+            json={"username": "admin", "password": "admin-password"},
+            headers={"x-forwarded-for": "10.23.45.67"},
+        )
+        assert login.status_code == 200
+        assert "Max-Age=300" in login.headers["set-cookie"]
+        assert login.json()["auth_mode"] == "local_single_user"
+
+        ready = client.get("/ready", headers={"x-forwarded-for": "10.23.45.67"})
+        assert ready.status_code == 200
+        payload = ready.json()
+        assert payload["identity_mode"] == "local_single_user"
+        assert payload["break_glass"]["enabled"] is True
+        assert payload["break_glass"]["active"] is True
+        assert payload["break_glass"]["ttl_minutes"] == 5
+
+        me = client.get("/auth/me", headers={"x-forwarded-for": "10.23.45.67"})
+        assert me.status_code == 200
+
+
+def test_api_local_single_user_disables_multi_user_local_management() -> None:
+    with TemporaryDirectory() as temp_dir:
+        client = _build_local_single_user_break_glass_client(temp_dir)
+
+        login = client.post(
+            "/auth/login",
+            json={"username": "admin", "password": "admin-password"},
+            headers={"x-forwarded-for": "10.23.45.67"},
+        )
+        assert login.status_code == 200
+
+        csrf_token = client.cookies.get("homelab_analytics_csrf")
+        assert csrf_token is not None
+        headers = {
+            "x-csrf-token": csrf_token,
+            "x-forwarded-for": "10.23.45.67",
+        }
+
+        create_user = client.post(
+            "/auth/users",
+            json={
+                "username": "operator-two",
+                "password": "operator-password",
+                "role": "operator",
+            },
+            headers=headers,
+        )
+        assert create_user.status_code == 403
+        assert "local_single_user mode" in create_user.json()["detail"]

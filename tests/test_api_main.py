@@ -374,6 +374,81 @@ class ApiMainTests(unittest.TestCase):
             ):
                 build_app(settings)
 
+    def test_build_app_rejects_local_single_user_without_break_glass_enabled(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+                auth_mode="local_single_user",
+                session_secret="session-secret",
+            )
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED=true",
+            ):
+                build_app(settings)
+
+    def test_build_app_rejects_break_glass_outside_local_single_user_mode(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+                auth_mode="local",
+                session_secret="session-secret",
+                break_glass_enabled=True,
+            )
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "HOMELAB_ANALYTICS_IDENTITY_MODE=local_single_user",
+            ):
+                build_app(settings)
+
+    def test_build_app_rejects_invalid_break_glass_cidr_entry(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+                auth_mode="local_single_user",
+                session_secret="session-secret",
+                break_glass_enabled=True,
+                break_glass_allowed_cidrs=("not-a-cidr",),
+            )
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "Invalid break-glass CIDR entry",
+            ):
+                build_app(settings)
+
     def test_build_app_rejects_proxy_auth_mode_until_supported(self) -> None:
         with TemporaryDirectory() as temp_dir:
             settings = AppSettings(

@@ -36,6 +36,15 @@ The completed workstream now provides:
 - extension-pack contract parity, including activation-time validation of extension capability packs
 - contract governance tooling: stale-export detection, compatibility reports, and release-ready contract bundles
 
+## Post-merge hardening
+
+Follow-up remediation on `main` also closed review gaps in the governance layer:
+
+- route compatibility now treats request-body requiredness tightening as breaking
+- compatibility reporting now traverses `anyOf` and `oneOf` members instead of treating unions as opaque
+- publication and UI compatibility reporting now includes semantic metadata and renderer-discovery drift, not only column presence
+- external registry sync now rejects duplicate publication keys before activation instead of deferring that failure to application startup
+
 ## Primary review surfaces
 
 Review these files first:
@@ -86,5 +95,4 @@ The generated release bundle shape under `dist/contracts/` is:
 
 These are not blockers for the merged workstream, but they remain visible:
 
-- Next.js still prints the existing lockfile patch warning during `next build`, although the build succeeds.
 - OPS-05 tag-driven image/chart publishing is still a separate release-ops follow-up.

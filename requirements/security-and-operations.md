@@ -15,7 +15,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Shared deployments should default to external identity providers; local auth remains available for bootstrap and emergency recovery without becoming a parallel multi-user identity system.
 
 **Phase:** 4
-**Status:** in-progress (local-user storage, session cookies, CSRF checks, login lockout, bootstrap admin gating, and auth-audit events are implemented; the remaining work is narrowing local auth from general-purpose multi-user operation to explicit single-user/break-glass posture with stricter exposure and lifecycle constraints)
+**Status:** in-progress (local-user storage, session cookies, CSRF checks, login lockout, bootstrap admin gating, auth-audit events, and explicit `local_single_user` break-glass controls are implemented; break-glass now enforces explicit enablement, internal/CIDR source restrictions, TTL-bounded local sessions, and `/ready` visibility; remaining work is retiring legacy multi-user `local` examples in favor of `local_single_user` defaults)
 
 **Acceptance criteria:**
 - Local auth is explicitly enabled and defaults to off in shared deployment examples.
@@ -57,7 +57,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Automation systems need persistent credentials without interactive login, and authorization semantics must stay consistent between humans and machines.
 
 **Phase:** 4
-**Status:** in-progress (service token storage, hashing, expiry, revocation, last-used metadata, API authentication, route scope checks, audit visibility, admin/web lifecycle UI, and worker CLI lifecycle commands are implemented; remaining work is unifying scopes into the broader permission registry and preparing optional upstream machine-JWT mapping)
+**Status:** in-progress (service token storage, hashing, expiry, revocation, last-used metadata, API authentication, route scope checks, audit visibility, admin/web lifecycle UI, and worker CLI lifecycle commands are implemented; scope grants now map into the shared permission registry; remaining work is optional upstream machine-JWT mapping and exchange patterns)
 
 **Acceptance criteria:**
 - Admin can create a named service token with optional expiry and explicit grants.
@@ -77,7 +77,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** The app, not the identity provider, owns domain semantics such as publication access, ingestion controls, run execution, and policy/action permissions.
 
 **Phase:** 4
-**Status:** in-progress (role separation is implemented across local auth, OIDC, and service tokens; route scope checks exist for machine tokens; remaining work is introducing a unified permission registry, declarative claim-to-permission mapping, and per-asset grant support)
+**Status:** in-progress (role separation is implemented across local auth, OIDC, and service tokens; a unified permission registry now backs route authorization, including service-token scope mapping and declarative OIDC claim/group permission grants; remaining work is per-asset grant support)
 
 **Acceptance criteria:**
 - Baseline roles remain available for coarse-grained access control.

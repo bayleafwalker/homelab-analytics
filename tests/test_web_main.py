@@ -40,6 +40,7 @@ class WebMainTests(unittest.TestCase):
             self.assertEqual("8081", environment["PORT"])
             self.assertEqual("http://api.internal:8090", environment["HOMELAB_ANALYTICS_API_BASE_URL"])
             self.assertEqual("disabled", environment["HOMELAB_ANALYTICS_AUTH_MODE"])
+            self.assertEqual("disabled", environment["HOMELAB_ANALYTICS_IDENTITY_MODE"])
 
     def test_main_executes_next_runtime_command(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -107,12 +108,17 @@ class WebMainTests(unittest.TestCase):
                 worker_poll_interval_seconds=1,
                 auth_mode="local_single_user",
                 session_secret="session-secret",
+                break_glass_enabled=True,
             )
 
             with patch("apps.web.main.build_web_command", return_value=["node", "server.js"]):
                 _, _, environment = build_runtime(settings)
 
             self.assertEqual("local", environment["HOMELAB_ANALYTICS_AUTH_MODE"])
+            self.assertEqual(
+                "local_single_user",
+                environment["HOMELAB_ANALYTICS_IDENTITY_MODE"],
+            )
 
     def test_build_runtime_rejects_oidc_without_required_settings(self) -> None:
         with TemporaryDirectory() as temp_dir:

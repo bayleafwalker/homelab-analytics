@@ -62,17 +62,22 @@ This document lists all environment variables used by the homelab-analytics plat
 
 | Variable | Default | Description |
 |---|---|---|
-| `HOMELAB_ANALYTICS_AUTH_MODE` | `disabled` | Authentication mode (current runtime): `disabled`, `local` (or `local_single_user` alias), or `oidc`; `proxy` is reserved and currently rejected at startup |
+| `HOMELAB_ANALYTICS_AUTH_MODE` | `disabled` | Legacy compatibility auth mode input. Supports `disabled`, `local`, `local_single_user`, `oidc`, `proxy` (reserved/rejected). Prefer `HOMELAB_ANALYTICS_IDENTITY_MODE` for new deployments. |
+| `HOMELAB_ANALYTICS_IDENTITY_MODE` | falls back to `HOMELAB_ANALYTICS_AUTH_MODE` | Canonical identity mode selector: `disabled`, `local`, `local_single_user`, `oidc`, `proxy` (reserved/rejected). |
 | `HOMELAB_ANALYTICS_SESSION_SECRET` | — | Signed app-session and OIDC state-cookie secret (required when auth is `local` or `oidc`) |
+| `HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED` | `false` | Required when identity mode is `local_single_user`; enables temporary emergency local access. |
+| `HOMELAB_ANALYTICS_BREAK_GLASS_INTERNAL_ONLY` | `true` | When enabled, local break-glass requests are restricted to internal/allowed addresses. |
+| `HOMELAB_ANALYTICS_BREAK_GLASS_TTL_MINUTES` | `30` | Lifetime for break-glass activation windows and local break-glass session cookies. |
+| `HOMELAB_ANALYTICS_BREAK_GLASS_ALLOWED_CIDRS` | — | Optional CIDR allowlist for break-glass requests (comma-separated). |
 | `HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN` | `false` | Must be `true` before local bootstrap credentials are honored |
-| `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME` | — | First local admin username (only when `auth_mode=local` and bootstrap enabled; intended as single-user/break-glass path) |
-| `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD` | — | First local admin password (only when `auth_mode=local` and bootstrap enabled; intended as single-user/break-glass path) |
+| `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME` | — | First local admin username (only when local auth mode is enabled and bootstrap is enabled; intended as single-user/break-glass path) |
+| `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD` | — | First local admin password (only when local auth mode is enabled and bootstrap is enabled; intended as single-user/break-glass path) |
 | `HOMELAB_ANALYTICS_AUTH_FAILURE_WINDOW_SECONDS` | — | Local-auth login lockout: failure window |
 | `HOMELAB_ANALYTICS_AUTH_FAILURE_THRESHOLD` | — | Local-auth login lockout: failure count threshold |
 | `HOMELAB_ANALYTICS_AUTH_LOCKOUT_SECONDS` | — | Local-auth login lockout: lockout duration |
 | `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` | `false` | Temporary dev-only bypass for unauthenticated admin routes (not for shared deployments) |
 
-The architecture direction is external identity by default and in-app authorization semantics. Current runtime auth mode values remain supported during migration, with `local` treated as compatibility for a narrower `local_single_user` posture.
+The architecture direction is external identity by default and in-app authorization semantics. `local_single_user` is a break-glass mode: it requires `HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED=true`, applies TTL-bounded local sessions, enforces internal/CIDR source checks, and surfaces status on `/ready`.
 
 ## OIDC
 

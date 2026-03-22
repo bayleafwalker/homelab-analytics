@@ -255,10 +255,13 @@ def create_path_capability_pack_extension(
     module_name: str,
     pack_name: str,
     publication_key: str,
+    schema_name: str | None = None,
+    relation_name: str | None = None,
 ) -> PathCapabilityPackExtension:
     extension_root = root / "path-capability-pack-extension"
     extension_root.mkdir(parents=True, exist_ok=True)
-    schema_name = publication_key.removeprefix("mart_")
+    resolved_schema_name = schema_name or publication_key.removeprefix("mart_")
+    resolved_relation_name = relation_name or publication_key
     ui_key = f"{pack_name}-dashboard"
     (extension_root / f"{module_name}.py").write_text(
         "\n".join(
@@ -286,7 +289,7 @@ def create_path_capability_pack_extension(
                 '            data_access="published",',
                 "            publication_relations=(",
                 "                ExtensionPublication(",
-                f'                    relation_name="{publication_key}",',
+                f'                    relation_name="{resolved_relation_name}",',
                 '                    columns=(("metric", "VARCHAR NOT NULL"),),',
                 '                    source_query="SELECT booking_month AS metric FROM mart_monthly_cashflow",',
                 '                    order_by="metric",',
@@ -305,7 +308,7 @@ def create_path_capability_pack_extension(
                 "            publications=(",
                 "                PublicationDefinition(",
                 f'                    key="{publication_key}",',
-                f'                    schema_name="{schema_name}",',
+                f'                    schema_name="{resolved_schema_name}",',
                 '                    schema_version="1.0.0",',
                 '                    display_name="External Projection",',
                 '                    description="External projection contract.",',

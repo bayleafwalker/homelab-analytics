@@ -22,6 +22,7 @@ RELEASE_ARTIFACT_FILENAMES = (
 )
 DEFAULT_RELEASE_DIR = Path("dist/contracts")
 HTTP_METHODS = {"get", "put", "post", "patch", "delete", "options", "head"}
+UNION_MEMBER_REPLACEMENT_COST = 101
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,12 @@ class ContractChange:
     scope: str
     identifier: str
     detail: str
+
+
+@dataclass(frozen=True)
+class UnionSchemaMember:
+    identifier: str
+    member: dict[str, Any]
 
 
 def load_contract_artifacts(directory: Path) -> ContractArtifactsSnapshot:
@@ -435,6 +442,28 @@ def _compare_request_bodies(
             )
         )
         return
+    assert baseline_body is not None
+    assert candidate_body is not None
+    baseline_required = bool(baseline_body.get("required"))
+    candidate_required = bool(candidate_body.get("required"))
+    if not baseline_required and candidate_required:
+        changes.append(
+            ContractChange(
+                severity="breaking",
+                scope="route-request",
+                identifier=operation_identifier,
+                detail="request body became required",
+            )
+        )
+    elif baseline_required and not candidate_required:
+        changes.append(
+            ContractChange(
+                severity="additive",
+                scope="route-request",
+                identifier=operation_identifier,
+                detail="request body became optional",
+            )
+        )
     _compare_schema(
         baseline_spec,
         _select_json_schema(baseline_body),
@@ -528,6 +557,12 @@ def _compare_publication_contracts(
             )
             continue
         before_breaking = len([change for change in changes if change.severity == "breaking"])
+        _compare_publication_metadata(
+            publication_key,
+            baseline_contract,
+            candidate_contract,
+            changes,
+        )
         _compare_publication_columns(publication_key, baseline_contract, candidate_contract, changes)
         after_breaking = len([change for change in changes if change.severity == "breaking"])
         if after_breaking > before_breaking and not _schema_version_major_bumped(
@@ -558,6 +593,87 @@ def _compare_publication_contracts(
     )
 
 
+def _compare_publication_metadata(
+    publication_key: str,
+    baseline_contract: dict[str, Any],
+    candidate_contract: dict[str, Any],
+    changes: list[ContractChange],
+) -> None:
+    for field_name in ("relation_name", "schema_name", "visibility", "retention_policy"):
+        if baseline_contract.get(field_name) == candidate_contract.get(field_name):
+            continue
+        changes.append(
+            ContractChange(
+                severity="breaking",
+                scope="publication",
+                identifier=publication_key,
+                detail=f"{field_name} changed",
+            )
+        )
+
+    if baseline_contract.get("lineage_required") != candidate_contract.get("lineage_required"):
+        severity = (
+            "breaking"
+            if baseline_contract.get("lineage_required") is False
+            and candidate_contract.get("lineage_required") is True
+            else "additive"
+        )
+        detail = (
+            "lineage became required"
+            if severity == "breaking"
+            else "lineage is no longer required"
+        )
+        changes.append(
+            ContractChange(
+                severity=severity,
+                scope="publication",
+                identifier=publication_key,
+                detail=detail,
+            )
+        )
+
+    _compare_additive_text_metadata(
+        scope="publication",
+        identifier=publication_key,
+        field_name="display_name",
+        baseline_value=baseline_contract.get("display_name"),
+        candidate_value=candidate_contract.get("display_name"),
+        changes=changes,
+    )
+    _compare_additive_text_metadata(
+        scope="publication",
+        identifier=publication_key,
+        field_name="description",
+        baseline_value=baseline_contract.get("description"),
+        candidate_value=candidate_contract.get("description"),
+        changes=changes,
+    )
+    _compare_set_contract(
+        scope="publication",
+        identifier=publication_key,
+        field_name="supported_renderers",
+        baseline_values=baseline_contract.get("supported_renderers", ()),
+        candidate_values=candidate_contract.get("supported_renderers", ()),
+        changes=changes,
+        removal_detail="supported renderer was removed",
+        addition_detail="supported renderer was added",
+    )
+    _compare_mapping_contract(
+        scope="publication",
+        identifier=publication_key,
+        field_name="renderer_hints",
+        baseline_mapping=baseline_contract.get("renderer_hints", {}),
+        candidate_mapping=candidate_contract.get("renderer_hints", {}),
+        changes=changes,
+        addition_detail="renderer hint was added",
+        removal_detail="renderer hint was removed",
+        change_detail="renderer hint changed",
+        changed_value_severity="breaking",
+        removed_value_severity="breaking",
+        added_value_severity="additive",
+    )
+
+
 def _compare_publication_columns(
     publication_key: str,
     baseline_contract: dict[str, Any],
@@ -581,6 +697,15 @@ def _compare_publication_columns(
                 )
             )
             continue
+        if base_column.get("storage_type") != candidate_column.get("storage_type"):
+            changes.append(
+                ContractChange(
+                    severity="breaking",
+                    scope="publication-column",
+                    identifier=f"{publication_key}.{column_name}",
+                    detail="storage_type changed",
+                )
+            )
         if base_column.get("json_type") != candidate_column.get("json_type"):
             changes.append(
                 ContractChange(
@@ -590,6 +715,47 @@ def _compare_publication_columns(
                     detail="json_type changed",
                 )
             )
+        _compare_additive_text_metadata(
+            scope="publication-column",
+            identifier=f"{publication_key}.{column_name}",
+            field_name="description",
+            baseline_value=base_column.get("description"),
+            candidate_value=candidate_column.get("description"),
+            changes=changes,
+        )
+        if base_column.get("semantic_role") != candidate_column.get("semantic_role"):
+            changes.append(
+                ContractChange(
+                    severity="breaking",
+                    scope="publication-column",
+                    identifier=f"{publication_key}.{column_name}",
+                    detail="semantic_role changed",
+                )
+            )
+        _compare_optional_metadata_field(
+            scope="publication-column",
+            identifier=f"{publication_key}.{column_name}",
+            field_name="unit",
+            baseline_value=base_column.get("unit"),
+            candidate_value=candidate_column.get("unit"),
+            changes=changes,
+        )
+        _compare_optional_metadata_field(
+            scope="publication-column",
+            identifier=f"{publication_key}.{column_name}",
+            field_name="grain",
+            baseline_value=base_column.get("grain"),
+            candidate_value=candidate_column.get("grain"),
+            changes=changes,
+        )
+        _compare_optional_metadata_field(
+            scope="publication-column",
+            identifier=f"{publication_key}.{column_name}",
+            field_name="aggregation",
+            baseline_value=base_column.get("aggregation"),
+            candidate_value=candidate_column.get("aggregation"),
+            changes=changes,
+        )
         if base_column.get("nullable") is True and candidate_column.get("nullable") is False:
             changes.append(
                 ContractChange(
@@ -608,6 +774,22 @@ def _compare_publication_columns(
                     detail="column became nullable",
                 )
             )
+        _compare_boolean_capability(
+            scope="publication-column",
+            identifier=f"{publication_key}.{column_name}",
+            field_name="filterable",
+            baseline_value=base_column.get("filterable"),
+            candidate_value=candidate_column.get("filterable"),
+            changes=changes,
+        )
+        _compare_boolean_capability(
+            scope="publication-column",
+            identifier=f"{publication_key}.{column_name}",
+            field_name="sortable",
+            baseline_value=base_column.get("sortable"),
+            candidate_value=candidate_column.get("sortable"),
+            changes=changes,
+        )
 
     for column_name in sorted(candidate_columns):
         if column_name not in base_columns:
@@ -667,6 +849,84 @@ def _compare_ui_descriptors(
                     detail=f"descriptor now references publication `{publication_key}`",
                 )
             )
+        if baseline_descriptor.get("nav_path") != candidate_descriptor.get("nav_path"):
+            changes.append(
+                ContractChange(
+                    severity="breaking",
+                    scope="ui-descriptor",
+                    identifier=descriptor_key,
+                    detail="nav_path changed",
+                )
+            )
+        if baseline_descriptor.get("kind") != candidate_descriptor.get("kind"):
+            changes.append(
+                ContractChange(
+                    severity="breaking",
+                    scope="ui-descriptor",
+                    identifier=descriptor_key,
+                    detail="kind changed",
+                )
+            )
+        _compare_additive_text_metadata(
+            scope="ui-descriptor",
+            identifier=descriptor_key,
+            field_name="nav_label",
+            baseline_value=baseline_descriptor.get("nav_label"),
+            candidate_value=candidate_descriptor.get("nav_label"),
+            changes=changes,
+        )
+        _compare_additive_text_metadata(
+            scope="ui-descriptor",
+            identifier=descriptor_key,
+            field_name="icon",
+            baseline_value=baseline_descriptor.get("icon"),
+            candidate_value=candidate_descriptor.get("icon"),
+            changes=changes,
+        )
+        _compare_set_contract(
+            scope="ui-descriptor",
+            identifier=descriptor_key,
+            field_name="supported_renderers",
+            baseline_values=baseline_descriptor.get("supported_renderers", ()),
+            candidate_values=candidate_descriptor.get("supported_renderers", ()),
+            changes=changes,
+            removal_detail="supported renderer was removed",
+            addition_detail="supported renderer was added",
+        )
+        _compare_permission_contract(
+            descriptor_key,
+            baseline_descriptor.get("required_permissions", ()),
+            candidate_descriptor.get("required_permissions", ()),
+            changes,
+        )
+        _compare_mapping_contract(
+            scope="ui-descriptor",
+            identifier=descriptor_key,
+            field_name="renderer_hints",
+            baseline_mapping=baseline_descriptor.get("renderer_hints", {}),
+            candidate_mapping=candidate_descriptor.get("renderer_hints", {}),
+            changes=changes,
+            addition_detail="renderer hint was added",
+            removal_detail="renderer hint was removed",
+            change_detail="renderer hint changed",
+            changed_value_severity="breaking",
+            removed_value_severity="breaking",
+            added_value_severity="additive",
+        )
+        _compare_mapping_contract(
+            scope="ui-descriptor",
+            identifier=descriptor_key,
+            field_name="default_filters",
+            baseline_mapping=baseline_descriptor.get("default_filters", {}),
+            candidate_mapping=candidate_descriptor.get("default_filters", {}),
+            changes=changes,
+            addition_detail="default filter was added",
+            removal_detail="default filter was removed",
+            change_detail="default filter changed",
+            changed_value_severity="additive",
+            removed_value_severity="additive",
+            added_value_severity="additive",
+        )
 
     for descriptor_key in sorted(candidate_map):
         if descriptor_key not in base_map:
@@ -723,6 +983,8 @@ def _compare_schema(
     resolved_candidate, candidate_nullable = _normalize_nullable_schema(
         _resolve_schema(candidate_spec, candidate_schema)
     )
+    resolved_baseline = _resolve_schema(baseline_spec, resolved_baseline)
+    resolved_candidate = _resolve_schema(candidate_spec, resolved_candidate)
 
     if baseline_nullable != candidate_nullable:
         if direction == "request":
@@ -737,6 +999,23 @@ def _compare_schema(
                 detail="nullability changed",
             )
         )
+
+    baseline_union_kind = _union_kind(resolved_baseline)
+    candidate_union_kind = _union_kind(resolved_candidate)
+    if baseline_union_kind or candidate_union_kind:
+        _compare_union_schema(
+            baseline_spec,
+            resolved_baseline,
+            candidate_spec,
+            resolved_candidate,
+            scope=scope,
+            identifier=identifier,
+            direction=direction,
+            changes=changes,
+            baseline_union_kind=baseline_union_kind,
+            candidate_union_kind=candidate_union_kind,
+        )
+        return
 
     baseline_kind = _schema_kind(resolved_baseline)
     candidate_kind = _schema_kind(resolved_candidate)
@@ -943,6 +1222,204 @@ def _resolve_schema(spec: dict[str, Any], schema: dict[str, Any]) -> dict[str, A
     return schema
 
 
+def _union_kind(schema: dict[str, Any]) -> str | None:
+    for union_key in ("anyOf", "oneOf"):
+        if isinstance(schema.get(union_key), list):
+            return union_key
+    return None
+
+
+def _compare_union_schema(
+    baseline_spec: dict[str, Any],
+    baseline_schema: dict[str, Any],
+    candidate_spec: dict[str, Any],
+    candidate_schema: dict[str, Any],
+    *,
+    scope: str,
+    identifier: str,
+    direction: str,
+    changes: list[ContractChange],
+    baseline_union_kind: str | None,
+    candidate_union_kind: str | None,
+) -> None:
+    if baseline_union_kind != candidate_union_kind:
+        changes.append(
+            ContractChange(
+                severity="breaking",
+                scope=scope,
+                identifier=identifier,
+                detail=(
+                    "union schema kind changed "
+                    f"from {baseline_union_kind or 'non-union'} "
+                    f"to {candidate_union_kind or 'non-union'}"
+                ),
+            )
+        )
+        return
+
+    assert baseline_union_kind is not None
+    baseline_members = _collect_union_members(baseline_spec, baseline_schema, baseline_union_kind)
+    candidate_members = _collect_union_members(
+        candidate_spec,
+        candidate_schema,
+        baseline_union_kind,
+    )
+    matched_baseline_indices: set[int] = set()
+    matched_candidate_indices: set[int] = set()
+    candidate_indices_by_identifier: dict[str, list[int]] = {}
+    for candidate_index, candidate_member in enumerate(candidate_members):
+        candidate_indices_by_identifier.setdefault(candidate_member.identifier, []).append(
+            candidate_index
+        )
+
+    matched_pairs: list[tuple[int, int, str]] = []
+    for baseline_index, baseline_member in enumerate(baseline_members):
+        for candidate_index in candidate_indices_by_identifier.get(
+            baseline_member.identifier,
+            [],
+        ):
+            if candidate_index in matched_candidate_indices:
+                continue
+            matched_baseline_indices.add(baseline_index)
+            matched_candidate_indices.add(candidate_index)
+            matched_pairs.append(
+                (baseline_index, candidate_index, baseline_member.identifier)
+            )
+            break
+
+    candidate_matches: list[tuple[int, int, int]] = []
+    for baseline_index, baseline_member in enumerate(baseline_members):
+        if baseline_index in matched_baseline_indices:
+            continue
+        for candidate_index, candidate_member in enumerate(candidate_members):
+            if candidate_index in matched_candidate_indices:
+                continue
+            comparison_cost = _schema_comparison_cost(
+                baseline_spec,
+                baseline_member.member,
+                candidate_spec,
+                candidate_member.member,
+                direction=direction,
+            )
+            if comparison_cost >= UNION_MEMBER_REPLACEMENT_COST:
+                continue
+            candidate_matches.append((comparison_cost, baseline_index, candidate_index))
+
+    for _, baseline_index, candidate_index in sorted(candidate_matches):
+        if baseline_index in matched_baseline_indices or candidate_index in matched_candidate_indices:
+            continue
+        matched_baseline_indices.add(baseline_index)
+        matched_candidate_indices.add(candidate_index)
+        matched_pairs.append(
+            (
+                baseline_index,
+                candidate_index,
+                _union_member_match_identifier(
+                    baseline_members[baseline_index],
+                    candidate_members[candidate_index],
+                ),
+            )
+        )
+
+    for baseline_index, candidate_index, member_identifier in matched_pairs:
+        _compare_schema(
+            baseline_spec,
+            baseline_members[baseline_index].member,
+            candidate_spec,
+            candidate_members[candidate_index].member,
+            scope=scope,
+            identifier=f"{identifier}<{member_identifier}>",
+            direction=direction,
+            changes=changes,
+        )
+
+    for baseline_index, baseline_member in enumerate(baseline_members):
+        if baseline_index in matched_baseline_indices:
+            continue
+        changes.append(
+            ContractChange(
+                severity="breaking",
+                scope=scope,
+                identifier=f"{identifier}<{baseline_member.identifier}>",
+                detail=f"{baseline_union_kind} member was removed",
+            )
+        )
+
+    for candidate_index, candidate_member in enumerate(candidate_members):
+        if candidate_index in matched_candidate_indices:
+            continue
+        changes.append(
+            ContractChange(
+                severity="additive",
+                scope=scope,
+                identifier=f"{identifier}<{candidate_member.identifier}>",
+                detail=f"new {baseline_union_kind} member was added",
+            )
+        )
+
+
+def _collect_union_members(
+    spec: dict[str, Any],
+    schema: dict[str, Any],
+    union_kind: str,
+) -> list[UnionSchemaMember]:
+    members = schema.get(union_kind, [])
+    collected: list[UnionSchemaMember] = []
+    for member in members:
+        if not isinstance(member, dict):
+            continue
+        collected.append(
+            UnionSchemaMember(
+                identifier=_union_member_identifier(spec, member),
+                member=member,
+            )
+        )
+    return collected
+
+
+def _union_member_identifier(spec: dict[str, Any], member: dict[str, Any]) -> str:
+    ref = member.get("$ref")
+    if isinstance(ref, str):
+        return f"ref:{ref.split('/')[-1]}"
+    resolved = _resolve_schema(spec, member)
+    return "inline:" + json.dumps(resolved, sort_keys=True, separators=(",", ":"))
+
+
+def _union_member_match_identifier(
+    baseline_member: UnionSchemaMember,
+    candidate_member: UnionSchemaMember,
+) -> str:
+    if baseline_member.identifier == candidate_member.identifier:
+        return baseline_member.identifier
+    if baseline_member.identifier.startswith("ref:"):
+        return baseline_member.identifier
+    if candidate_member.identifier.startswith("ref:"):
+        return candidate_member.identifier
+    return baseline_member.identifier
+
+
+def _schema_comparison_cost(
+    baseline_spec: dict[str, Any],
+    baseline_schema: dict[str, Any],
+    candidate_spec: dict[str, Any],
+    candidate_schema: dict[str, Any],
+    *,
+    direction: str,
+) -> int:
+    comparison_changes: list[ContractChange] = []
+    _compare_schema(
+        baseline_spec,
+        baseline_schema,
+        candidate_spec,
+        candidate_schema,
+        scope="union-member",
+        identifier="<member>",
+        direction=direction,
+        changes=comparison_changes,
+    )
+    return sum(100 if change.severity == "breaking" else 1 for change in comparison_changes)
+
+
 def _normalize_nullable_schema(schema: dict[str, Any]) -> tuple[dict[str, Any], bool]:
     if schema.get("nullable") is True:
         normalized = dict(schema)
@@ -968,6 +1445,194 @@ def _normalize_nullable_schema(schema: dict[str, Any]) -> tuple[dict[str, Any], 
         if len(non_null_members) == 1 and len(non_null_members) != len(members):
             return non_null_members[0], True
     return schema, False
+
+
+def _compare_additive_text_metadata(
+    *,
+    scope: str,
+    identifier: str,
+    field_name: str,
+    baseline_value: Any,
+    candidate_value: Any,
+    changes: list[ContractChange],
+) -> None:
+    if baseline_value == candidate_value:
+        return
+    changes.append(
+        ContractChange(
+            severity="additive",
+            scope=scope,
+            identifier=identifier,
+            detail=f"{field_name} changed",
+        )
+    )
+
+
+def _compare_optional_metadata_field(
+    *,
+    scope: str,
+    identifier: str,
+    field_name: str,
+    baseline_value: Any,
+    candidate_value: Any,
+    changes: list[ContractChange],
+) -> None:
+    if baseline_value == candidate_value:
+        return
+    if baseline_value is None and candidate_value is not None:
+        severity = "additive"
+        detail = f"{field_name} was added"
+    else:
+        severity = "breaking"
+        detail = (
+            f"{field_name} changed"
+            if candidate_value is not None
+            else f"{field_name} was removed"
+        )
+    changes.append(
+        ContractChange(
+            severity=severity,
+            scope=scope,
+            identifier=identifier,
+            detail=detail,
+        )
+    )
+
+
+def _compare_boolean_capability(
+    *,
+    scope: str,
+    identifier: str,
+    field_name: str,
+    baseline_value: Any,
+    candidate_value: Any,
+    changes: list[ContractChange],
+) -> None:
+    if baseline_value == candidate_value:
+        return
+    changes.append(
+        ContractChange(
+            severity="breaking" if baseline_value and not candidate_value else "additive",
+            scope=scope,
+            identifier=identifier,
+            detail=(
+                f"{field_name} was removed"
+                if baseline_value and not candidate_value
+                else f"{field_name} was added"
+            ),
+        )
+    )
+
+
+def _compare_set_contract(
+    *,
+    scope: str,
+    identifier: str,
+    field_name: str,
+    baseline_values: Any,
+    candidate_values: Any,
+    changes: list[ContractChange],
+    removal_detail: str,
+    addition_detail: str,
+) -> None:
+    baseline_set = set(baseline_values or ())
+    candidate_set = set(candidate_values or ())
+    for value in sorted(baseline_set - candidate_set):
+        changes.append(
+            ContractChange(
+                severity="breaking",
+                scope=scope,
+                identifier=identifier,
+                detail=f"{field_name} `{value}` {removal_detail}",
+            )
+        )
+    for value in sorted(candidate_set - baseline_set):
+        changes.append(
+            ContractChange(
+                severity="additive",
+                scope=scope,
+                identifier=identifier,
+                detail=f"{field_name} `{value}` {addition_detail}",
+            )
+        )
+
+
+def _compare_permission_contract(
+    descriptor_key: str,
+    baseline_permissions: Any,
+    candidate_permissions: Any,
+    changes: list[ContractChange],
+) -> None:
+    baseline_set = set(baseline_permissions or ())
+    candidate_set = set(candidate_permissions or ())
+    for permission in sorted(baseline_set - candidate_set):
+        changes.append(
+            ContractChange(
+                severity="additive",
+                scope="ui-descriptor",
+                identifier=descriptor_key,
+                detail=f"required permission `{permission}` was removed",
+            )
+        )
+    for permission in sorted(candidate_set - baseline_set):
+        changes.append(
+            ContractChange(
+                severity="breaking",
+                scope="ui-descriptor",
+                identifier=descriptor_key,
+                detail=f"required permission `{permission}` was added",
+            )
+        )
+
+
+def _compare_mapping_contract(
+    *,
+    scope: str,
+    identifier: str,
+    field_name: str,
+    baseline_mapping: Any,
+    candidate_mapping: Any,
+    changes: list[ContractChange],
+    addition_detail: str,
+    removal_detail: str,
+    change_detail: str,
+    changed_value_severity: str,
+    removed_value_severity: str,
+    added_value_severity: str,
+) -> None:
+    baseline_dict = dict(baseline_mapping or {})
+    candidate_dict = dict(candidate_mapping or {})
+    for key, baseline_value in baseline_dict.items():
+        if key not in candidate_dict:
+            changes.append(
+                ContractChange(
+                    severity=removed_value_severity,
+                    scope=scope,
+                    identifier=identifier,
+                    detail=f"{field_name} `{key}` {removal_detail}",
+                )
+            )
+            continue
+        if candidate_dict[key] != baseline_value:
+            changes.append(
+                ContractChange(
+                    severity=changed_value_severity,
+                    scope=scope,
+                    identifier=identifier,
+                    detail=f"{field_name} `{key}` {change_detail}",
+                )
+            )
+    for key in sorted(candidate_dict):
+        if key in baseline_dict:
+            continue
+        changes.append(
+            ContractChange(
+                severity=added_value_severity,
+                scope=scope,
+                identifier=identifier,
+                detail=f"{field_name} `{key}` {addition_detail}",
+            )
+        )
 
 
 def _schema_kind(schema: dict[str, Any]) -> str:

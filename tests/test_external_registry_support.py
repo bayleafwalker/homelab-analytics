@@ -18,7 +18,10 @@ from packages.storage.ingestion_config import (
     ExtensionRegistrySourceRecord,
     IngestionConfigRepository,
 )
-from tests.external_registry_test_support import create_git_extension_repository
+from tests.external_registry_test_support import (
+    create_git_extension_repository,
+    create_path_capability_pack_extension,
+)
 
 
 class ExternalRegistrySupportTests(unittest.TestCase):
@@ -193,6 +196,40 @@ class ExternalRegistrySupportTests(unittest.TestCase):
             self.assertFalse(result.passed)
             self.assertEqual("failed", result.revision.sync_status)
             self.assertIn("missing field semantics", result.revision.validation_error)
+
+    def test_sync_fails_when_external_capability_pack_reuses_builtin_publication_key(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            extension = create_path_capability_pack_extension(
+                temp_root,
+                module_name="duplicate_publication_pack",
+                pack_name="duplicate_publication_contracts",
+                publication_key="monthly_cashflow",
+                schema_name="duplicate_monthly_cashflow_projection",
+                relation_name="mart_duplicate_monthly_cashflow_projection",
+            )
+            repository = IngestionConfigRepository(temp_root / "config.db")
+            repository.create_extension_registry_source(
+                ExtensionRegistrySourceCreate(
+                    extension_registry_source_id="duplicate-publication-key",
+                    name="Duplicate Publication Key",
+                    source_kind="path",
+                    location=str(extension.root),
+                )
+            )
+
+            result = sync_extension_registry_source(
+                repository,
+                "duplicate-publication-key",
+                activate=True,
+            )
+
+            self.assertFalse(result.passed)
+            self.assertEqual("failed", result.revision.sync_status)
+            self.assertIn(
+                "Publication keys owned by multiple capability packs",
+                result.revision.validation_error,
+            )
 
     def test_git_environment_uses_secret_reference_for_http_auth(self) -> None:
         environment = _build_git_environment(

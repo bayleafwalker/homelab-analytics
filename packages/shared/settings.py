@@ -5,7 +5,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
-from packages.shared.auth_modes import ResolvedAuthMode, normalize_auth_mode
+from packages.shared.auth_modes import (
+    IdentityMode,
+    ResolvedAuthMode,
+    normalize_auth_mode,
+    normalize_identity_mode,
+)
 
 
 @dataclass(frozen=True)
@@ -46,7 +51,12 @@ class AppSettings:
     s3_secret_access_key: str | None = None
     s3_prefix: str = ""
     auth_mode: str = "disabled"
+    identity_mode: str | None = None
     session_secret: str | None = None
+    break_glass_enabled: bool = False
+    break_glass_internal_only: bool = True
+    break_glass_ttl_minutes: int = 30
+    break_glass_allowed_cidrs: tuple[str, ...] = ()
     oidc_issuer_url: str | None = None
     oidc_client_id: str | None = None
     oidc_client_secret: str | None = None
@@ -99,8 +109,16 @@ class AppSettings:
         return self.api_base_url or f"http://127.0.0.1:{self.api_port}"
 
     @property
+    def resolved_identity_mode(self) -> IdentityMode:
+        return normalize_identity_mode(self.identity_mode or self.auth_mode)
+
+    @property
     def resolved_auth_mode(self) -> ResolvedAuthMode:
-        return normalize_auth_mode(self.auth_mode)
+        return normalize_auth_mode(self.resolved_identity_mode)
+
+    @property
+    def is_local_single_user_mode(self) -> bool:
+        return self.resolved_identity_mode == "local_single_user"
 
     @property
     def resolved_control_postgres_dsn(self) -> str | None:
@@ -187,7 +205,24 @@ class AppSettings:
         )
         s3_prefix = env.get("HOMELAB_ANALYTICS_S3_PREFIX", "")
         auth_mode = env.get("HOMELAB_ANALYTICS_AUTH_MODE", "disabled")
+        identity_mode = env.get("HOMELAB_ANALYTICS_IDENTITY_MODE") or None
         session_secret = env.get("HOMELAB_ANALYTICS_SESSION_SECRET") or None
+        break_glass_enabled = env.get(
+            "HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED", ""
+        ).lower() in {"1", "true", "yes", "on"}
+        break_glass_internal_only = env.get(
+            "HOMELAB_ANALYTICS_BREAK_GLASS_INTERNAL_ONLY",
+            "true",
+        ).lower() in {"1", "true", "yes", "on"}
+        break_glass_ttl_minutes = int(
+            env.get("HOMELAB_ANALYTICS_BREAK_GLASS_TTL_MINUTES", "30")
+        )
+        break_glass_allowed_cidrs = tuple(
+            _split_config_value(
+                env.get("HOMELAB_ANALYTICS_BREAK_GLASS_ALLOWED_CIDRS", ""),
+                delimiter=",",
+            )
+        )
         oidc_issuer_url = env.get("HOMELAB_ANALYTICS_OIDC_ISSUER_URL") or None
         oidc_client_id = env.get("HOMELAB_ANALYTICS_OIDC_CLIENT_ID") or None
         oidc_client_secret = env.get("HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET") or None
@@ -299,7 +334,12 @@ class AppSettings:
             s3_secret_access_key=s3_secret_access_key,
             s3_prefix=s3_prefix,
             auth_mode=auth_mode,
+            identity_mode=identity_mode,
             session_secret=session_secret,
+            break_glass_enabled=break_glass_enabled,
+            break_glass_internal_only=break_glass_internal_only,
+            break_glass_ttl_minutes=break_glass_ttl_minutes,
+            break_glass_allowed_cidrs=break_glass_allowed_cidrs,
             oidc_issuer_url=oidc_issuer_url,
             oidc_client_id=oidc_client_id,
             oidc_client_secret=oidc_client_secret,

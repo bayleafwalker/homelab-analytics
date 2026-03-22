@@ -51,7 +51,13 @@ def build_session_manager(settings: AppSettings) -> "SessionManager | None":
         raise ValueError(
             "Cookie-backed authentication requires HOMELAB_ANALYTICS_SESSION_SECRET to be configured."
         )
-    return SessionManager(settings.session_secret)
+    max_age_seconds = SESSION_MAX_AGE_SECONDS
+    if settings.is_local_single_user_mode and settings.break_glass_enabled:
+        max_age_seconds = min(
+            SESSION_MAX_AGE_SECONDS,
+            settings.break_glass_ttl_minutes * 60,
+        )
+    return SessionManager(settings.session_secret, max_age_seconds=max_age_seconds)
 
 
 class SessionManager:

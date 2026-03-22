@@ -38,6 +38,7 @@ from packages.storage.control_plane import AuthAuditStore
 def register_auth_management_routes(
     app: FastAPI,
     *,
+    resolved_identity_mode: str,
     resolved_auth_store: AuthStore,
     resolved_config_repository: AuthAuditStore,
     require_unsafe_admin: Callable[[], None],
@@ -55,6 +56,11 @@ def register_auth_management_routes(
         payload: LocalUserCreateRequest,
     ) -> dict[str, Any]:
         require_unsafe_admin()
+        if resolved_identity_mode == "local_single_user":
+            raise HTTPException(
+                status_code=403,
+                detail="local_single_user mode does not allow creating additional local users.",
+            )
         principal = cast(
             AuthenticatedPrincipal | None,
             getattr(request.state, "principal", None),
@@ -91,6 +97,11 @@ def register_auth_management_routes(
         request: Request,
     ) -> dict[str, Any]:
         require_unsafe_admin()
+        if resolved_identity_mode == "local_single_user":
+            raise HTTPException(
+                status_code=403,
+                detail="local_single_user mode does not allow editing local user profiles.",
+            )
         principal = cast(
             AuthenticatedPrincipal | None,
             getattr(request.state, "principal", None),
@@ -133,6 +144,15 @@ def register_auth_management_routes(
             AuthenticatedPrincipal | None,
             getattr(request.state, "principal", None),
         )
+        if (
+            resolved_identity_mode == "local_single_user"
+            and principal is not None
+            and principal.user_id != user_id
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="local_single_user mode only allows password resets for the active local user.",
+            )
         user = resolved_auth_store.update_local_user_password(
             user_id,
             password_hash=hash_password(payload.password),

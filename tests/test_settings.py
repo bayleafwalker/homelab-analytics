@@ -64,8 +64,14 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual("reporting", settings.reporting_schema)
         self.assertEqual("filesystem", settings.blob_backend)
         self.assertEqual("disabled", settings.auth_mode)
+        self.assertIsNone(settings.identity_mode)
+        self.assertEqual("disabled", settings.resolved_identity_mode)
         self.assertEqual("disabled", settings.resolved_auth_mode)
         self.assertIsNone(settings.session_secret)
+        self.assertFalse(settings.break_glass_enabled)
+        self.assertTrue(settings.break_glass_internal_only)
+        self.assertEqual(30, settings.break_glass_ttl_minutes)
+        self.assertEqual((), settings.break_glass_allowed_cidrs)
         self.assertIsNone(settings.oidc_issuer_url)
         self.assertIsNone(settings.oidc_client_id)
         self.assertIsNone(settings.oidc_client_secret)
@@ -247,7 +253,14 @@ class AppSettingsTests(unittest.TestCase):
                 "HOMELAB_ANALYTICS_S3_SECRET_ACCESS_KEY": "password",
                 "HOMELAB_ANALYTICS_S3_PREFIX": "bronze",
                 "HOMELAB_ANALYTICS_AUTH_MODE": "local",
+                "HOMELAB_ANALYTICS_IDENTITY_MODE": "local_single_user",
                 "HOMELAB_ANALYTICS_SESSION_SECRET": "session-secret",
+                "HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED": "true",
+                "HOMELAB_ANALYTICS_BREAK_GLASS_INTERNAL_ONLY": "false",
+                "HOMELAB_ANALYTICS_BREAK_GLASS_TTL_MINUTES": "45",
+                "HOMELAB_ANALYTICS_BREAK_GLASS_ALLOWED_CIDRS": (
+                    "10.0.0.0/8,192.168.0.0/16"
+                ),
                 "HOMELAB_ANALYTICS_OIDC_ISSUER_URL": "https://auth.example.test/application/o/homelab/",
                 "HOMELAB_ANALYTICS_OIDC_CLIENT_ID": "homelab-analytics",
                 "HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET": "oidc-client-secret",
@@ -303,8 +316,17 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual("password", settings.s3_secret_access_key)
         self.assertEqual("bronze", settings.s3_prefix)
         self.assertEqual("local", settings.auth_mode)
+        self.assertEqual("local_single_user", settings.identity_mode)
+        self.assertEqual("local_single_user", settings.resolved_identity_mode)
         self.assertEqual("local", settings.resolved_auth_mode)
         self.assertEqual("session-secret", settings.session_secret)
+        self.assertTrue(settings.break_glass_enabled)
+        self.assertFalse(settings.break_glass_internal_only)
+        self.assertEqual(45, settings.break_glass_ttl_minutes)
+        self.assertEqual(
+            ("10.0.0.0/8", "192.168.0.0/16"),
+            settings.break_glass_allowed_cidrs,
+        )
         self.assertEqual(
             "https://auth.example.test/application/o/homelab/",
             settings.oidc_issuer_url,
@@ -352,7 +374,21 @@ class AppSettingsTests(unittest.TestCase):
         )
 
         self.assertEqual("local_single_user", settings.auth_mode)
+        self.assertEqual("local_single_user", settings.resolved_identity_mode)
         self.assertEqual("local", settings.resolved_auth_mode)
+
+    def test_identity_mode_overrides_auth_mode_when_explicitly_set(self) -> None:
+        settings = AppSettings.from_env(
+            {
+                "HOMELAB_ANALYTICS_AUTH_MODE": "oidc",
+                "HOMELAB_ANALYTICS_IDENTITY_MODE": "disabled",
+            }
+        )
+
+        self.assertEqual("oidc", settings.auth_mode)
+        self.assertEqual("disabled", settings.identity_mode)
+        self.assertEqual("disabled", settings.resolved_identity_mode)
+        self.assertEqual("disabled", settings.resolved_auth_mode)
 
 
 if __name__ == "__main__":

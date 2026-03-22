@@ -9283,9 +9283,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
+                  "additionalProperties": true,
                   "title": "Response Ready Ready Get",
                   "type": "object"
                 }

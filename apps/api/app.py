@@ -66,10 +66,15 @@ from packages.pipelines.run_context import (
     run_context_from_manifest,
 )
 from packages.pipelines.subscription_service import SubscriptionService
+from packages.platform.auth.break_glass import BreakGlassController
 from packages.platform.auth.oidc_provider import OidcProvider
 from packages.platform.auth.session_manager import SessionManager
 from packages.platform.runtime.container import AppContainer
-from packages.shared.auth_modes import is_cookie_auth_mode, normalize_auth_mode
+from packages.shared.auth_modes import (
+    is_cookie_auth_mode,
+    normalize_auth_mode,
+    normalize_identity_mode,
+)
 from packages.shared.extensions import (
     ExtensionRegistry,
     build_builtin_extension_registry,
@@ -162,6 +167,8 @@ def _register_base_routes(
     app: FastAPI,
     *,
     auth_mode: str,
+    identity_mode: str,
+    break_glass_controller: BreakGlassController | None,
     config_repository: ControlPlaneStore,
 ) -> None:
     @app.get("/health")
@@ -169,8 +176,23 @@ def _register_base_routes(
         return {"status": "ok"}
 
     @app.get("/ready")
-    async def ready() -> dict[str, str]:
-        return {"status": "ready", "auth_mode": auth_mode}
+    async def ready() -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "status": "ready",
+            "auth_mode": auth_mode,
+            "identity_mode": identity_mode,
+        }
+        if break_glass_controller is not None:
+            status = break_glass_controller.status()
+            payload["break_glass"] = {
+                "enabled": status.enabled,
+                "internal_only": status.internal_only,
+                "ttl_minutes": status.ttl_minutes,
+                "allowed_cidrs": list(status.allowed_cidrs),
+                "active": status.active,
+                "active_until": status.active_until,
+            }
+        return payload
 
     @app.get("/metrics")
     async def metrics() -> PlainTextResponse:
@@ -286,6 +308,7 @@ def create_app(
     # AccountTransactionService-first call from existing tests.
     if isinstance(service_or_container, AppContainer):
         container = service_or_container
+        resolved_identity_mode = container.settings.resolved_identity_mode
         resolved_auth_mode = container.settings.resolved_auth_mode
     else:
         service = service_or_container
@@ -298,7 +321,8 @@ def create_app(
             subscription_service=subscription_service,
             contract_price_service=contract_price_service,
         )
-        resolved_auth_mode = normalize_auth_mode(auth_mode)
+        resolved_identity_mode = normalize_identity_mode(auth_mode)
+        resolved_auth_mode = normalize_auth_mode(resolved_identity_mode)
 
     # Auto-build a reporting service from transformation_service when reporting_service
     # was not explicitly provided — preserves the behaviour of the original create_app().
@@ -328,6 +352,14 @@ def create_app(
     ):
         raise ValueError("Configured auth requires an auth-capable control-plane store.")
     resolved_auth_store = cast(AuthStore, resolved_auth_store_candidate)
+    break_glass_controller = (
+        BreakGlassController.from_settings(container.settings)
+        if (
+            resolved_identity_mode == "local_single_user"
+            and isinstance(service_or_container, AppContainer)
+        )
+        else None
+    )
 
     configured_ingestion_service = ConfiguredCsvIngestionService(
         landing_root=container.settings.landing_root,
@@ -386,24 +418,34 @@ def create_app(
         app,
         logger=logger,
         resolved_auth_mode=resolved_auth_mode,
+        resolved_identity_mode=resolved_identity_mode,
         resolved_auth_store=resolved_auth_store,
         resolved_session_manager=session_manager,
         resolved_oidc_provider=oidc_provider,
         enable_unsafe_admin=enable_unsafe_admin,
+        break_glass_controller=break_glass_controller,
         record_auth_event=record_auth_event,
     )
     _register_exception_handlers(app)
-    _register_base_routes(app, auth_mode=resolved_auth_mode, config_repository=resolved_config_repository)
+    _register_base_routes(
+        app,
+        auth_mode=resolved_auth_mode,
+        identity_mode=resolved_identity_mode,
+        break_glass_controller=break_glass_controller,
+        config_repository=resolved_config_repository,
+    )
 
     register_auth_routes(
         app,
         resolved_auth_mode=resolved_auth_mode,
+        resolved_identity_mode=resolved_identity_mode,
         resolved_auth_store=resolved_auth_store,
         resolved_config_repository=resolved_config_repository,
         resolved_session_manager=session_manager,
         resolved_oidc_provider=oidc_provider,
         require_unsafe_admin=require_unsafe_admin,
         cookie_secure_for_request=cookie_secure_for_request,
+        break_glass_controller=break_glass_controller,
         record_auth_event=record_auth_event,
         locked_out_until=locked_out_until,
         request_principal_from_user=request_principal_from_user,

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+from ipaddress import ip_network
 
 from packages.platform.auth.crypto import hash_password
 from packages.shared.auth_modes import is_cookie_auth_mode
@@ -10,7 +11,20 @@ from packages.storage.auth_store import AuthStore, LocalUserCreate, LocalUserRec
 
 
 def validate_auth_configuration(settings: AppSettings) -> None:
+    if settings.break_glass_ttl_minutes <= 0:
+        raise ValueError(
+            "Break-glass TTL must be a positive integer number of minutes."
+        )
+    for cidr in settings.break_glass_allowed_cidrs:
+        try:
+            ip_network(cidr.strip(), strict=False)
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid break-glass CIDR entry: {cidr!r}."
+            ) from exc
+
     auth_mode = settings.resolved_auth_mode
+    identity_mode = settings.resolved_identity_mode
     if auth_mode == "proxy":
         raise ValueError(
             "Proxy auth mode is reserved but not implemented yet. Use OIDC until trusted proxy identity headers are supported."
@@ -18,6 +32,14 @@ def validate_auth_configuration(settings: AppSettings) -> None:
     if is_cookie_auth_mode(auth_mode) and not settings.session_secret:
         raise ValueError(
             "Cookie-backed authentication requires HOMELAB_ANALYTICS_SESSION_SECRET to be configured."
+        )
+    if settings.break_glass_enabled and identity_mode != "local_single_user":
+        raise ValueError(
+            "Break-glass settings require HOMELAB_ANALYTICS_IDENTITY_MODE=local_single_user (or HOMELAB_ANALYTICS_AUTH_MODE=local_single_user)."
+        )
+    if identity_mode == "local_single_user" and not settings.break_glass_enabled:
+        raise ValueError(
+            "local_single_user identity mode requires HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED=true."
         )
     if auth_mode == "oidc":
         missing = [

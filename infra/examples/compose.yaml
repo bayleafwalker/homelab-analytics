@@ -48,7 +48,7 @@ services:
       HOMELAB_ANALYTICS_REPORTING_BACKEND: postgres
       HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
       HOMELAB_ANALYTICS_BLOB_BACKEND: s3
-      HOMELAB_ANALYTICS_AUTH_MODE: local
+      HOMELAB_ANALYTICS_IDENTITY_MODE: local_single_user
       HOMELAB_ANALYTICS_S3_ENDPOINT_URL: http://minio:9000
       HOMELAB_ANALYTICS_S3_BUCKET: homelab-landing
       HOMELAB_ANALYTICS_S3_REGION: us-east-1
@@ -89,7 +89,7 @@ services:
       minio:
         condition: service_started
     environment:
-      HOMELAB_ANALYTICS_AUTH_MODE: local
+      HOMELAB_ANALYTICS_IDENTITY_MODE: local_single_user
       HOMELAB_ANALYTICS_API_BASE_URL: http://api:8080
       HOMELAB_ANALYTICS_WEB_HOST: 0.0.0.0
       HOMELAB_ANALYTICS_WEB_PORT: 8081
@@ -131,7 +131,7 @@ services:
       HOMELAB_ANALYTICS_REPORTING_BACKEND: postgres
       HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
       HOMELAB_ANALYTICS_BLOB_BACKEND: s3
-      HOMELAB_ANALYTICS_AUTH_MODE: local
+      HOMELAB_ANALYTICS_IDENTITY_MODE: local_single_user
       HOMELAB_ANALYTICS_S3_ENDPOINT_URL: http://minio:9000
       HOMELAB_ANALYTICS_S3_BUCKET: homelab-landing
       HOMELAB_ANALYTICS_S3_REGION: us-east-1

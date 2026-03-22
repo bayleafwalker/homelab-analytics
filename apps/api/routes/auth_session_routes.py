@@ -18,6 +18,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from apps.api.models import LoginRequest
+from packages.platform.auth.break_glass import BreakGlassController
 from packages.platform.auth.crypto import verify_password
 from packages.platform.auth.oidc_provider import (
     OidcAuthenticationError,
@@ -40,10 +41,12 @@ def register_auth_session_routes(
     app: FastAPI,
     *,
     resolved_auth_mode: str,
+    resolved_identity_mode: str,
     resolved_auth_store: AuthStore,
     resolved_session_manager: SessionManager | None,
     resolved_oidc_provider: OidcProvider | None,
     cookie_secure_for_request: Callable[[Request], bool],
+    break_glass_controller: BreakGlassController | None,
     record_auth_event: Callable[..., None],
     locked_out_until: Callable[[str, datetime], datetime | None],
     request_principal_from_user: Callable[..., AuthenticatedPrincipal],
@@ -55,6 +58,31 @@ def register_auth_session_routes(
                 status_code=400,
                 detail="Local authentication is not enabled.",
             )
+        if resolved_identity_mode == "local_single_user":
+            if break_glass_controller is None or not break_glass_controller.enabled:
+                record_auth_event(
+                    request,
+                    event_type="break_glass_login_blocked",
+                    success=False,
+                    subject_username=payload.username.strip().lower() or None,
+                    detail="Break-glass local login is disabled by configuration.",
+                )
+                raise HTTPException(
+                    status_code=403,
+                    detail="Break-glass local access is disabled.",
+                )
+            if not break_glass_controller.is_request_address_allowed(request):
+                record_auth_event(
+                    request,
+                    event_type="break_glass_login_blocked",
+                    success=False,
+                    subject_username=payload.username.strip().lower() or None,
+                    detail="Break-glass local login requires an internal address.",
+                )
+                raise HTTPException(
+                    status_code=403,
+                    detail="Break-glass local access is limited to internal addresses.",
+                )
         normalized_username = normalize_username(payload.username)
         now = datetime.now(UTC)
         locked_until = locked_out_until(normalized_username, now)
@@ -114,18 +142,34 @@ def register_auth_session_routes(
             )
         user = resolved_auth_store.record_local_user_login(user.user_id)
         assert resolved_session_manager is not None
+        break_glass_active_until: datetime | None = None
+        if resolved_identity_mode == "local_single_user" and break_glass_controller is not None:
+            break_glass_active_until = break_glass_controller.activate(now=now)
+            record_auth_event(
+                request,
+                event_type="break_glass_activated",
+                success=True,
+                subject_user_id=user.user_id,
+                subject_username=user.username,
+                detail=f"Break-glass active until {break_glass_active_until.isoformat()}",
+            )
         record_auth_event(
             request,
             event_type="login_succeeded",
             success=True,
             subject_user_id=user.user_id,
             subject_username=user.username,
+            detail=(
+                f"break_glass_active_until={break_glass_active_until.isoformat()}"
+                if break_glass_active_until is not None
+                else None
+            ),
         )
         issued_session = resolved_session_manager.issue_session(user)
         secure_cookie = cookie_secure_for_request(request)
         response = JSONResponse(
             {
-                "auth_mode": "local",
+                "auth_mode": resolved_identity_mode,
                 "authenticated": True,
                 "user": serialize_user(user),
                 "principal": serialize_principal(
@@ -320,6 +364,21 @@ def register_auth_session_routes(
                     subject_user_id=principal.user_id,
                     subject_username=principal.username,
                 )
+                if (
+                    resolved_identity_mode == "local_single_user"
+                    and principal.auth_provider == "local"
+                    and break_glass_controller is not None
+                ):
+                    break_glass_controller.clear()
+                    record_auth_event(
+                        request,
+                        event_type="break_glass_cleared",
+                        success=True,
+                        actor=principal,
+                        subject_user_id=principal.user_id,
+                        subject_username=principal.username,
+                        detail="Break-glass window cleared by logout.",
+                    )
             secure_cookie = cookie_secure_for_request(request)
             response.delete_cookie(
                 resolved_session_manager.cookie_name,
@@ -358,7 +417,7 @@ def register_auth_session_routes(
         else:
             serialized_user = serialize_authenticated_user(principal)
         return {
-            "auth_mode": resolved_auth_mode,
+            "auth_mode": resolved_identity_mode,
             "authenticated": True,
             "user": serialized_user,
             "principal": serialize_principal(principal),

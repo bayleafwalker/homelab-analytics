@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
@@ -407,6 +408,18 @@ def _validate_manifest_modules(
             extension_paths=extension_paths,
             extension_modules=manifest.extension_modules,
         )
+        all_publication_keys = [
+            publication.key
+            for pack in capability_packs
+            for publication in pack.publications
+        ]
+        duplicates = [
+            key for key, count in Counter(all_publication_keys).items() if count > 1
+        ]
+        if duplicates:
+            raise ValueError(
+                f"Publication keys owned by multiple capability packs: {duplicates}"
+            )
         build_publication_contract_catalog(
             capability_packs,
             publication_relations=build_publication_relation_map(

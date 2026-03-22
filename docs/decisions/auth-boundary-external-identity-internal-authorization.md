@@ -102,9 +102,10 @@ The app should avoid provider-specific assumptions beyond standards-compliant OI
 
 ## 5. Configuration evolution
 
-Current runtime uses:
+Current runtime supports:
 
-- `HOMELAB_ANALYTICS_AUTH_MODE=disabled|local|oidc`
+- `HOMELAB_ANALYTICS_IDENTITY_MODE=disabled|local|local_single_user|oidc|proxy`
+- `HOMELAB_ANALYTICS_AUTH_MODE` as a compatibility fallback when identity mode is not set
 
 Target config shape:
 

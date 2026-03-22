@@ -362,11 +362,13 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert 'backendRequest("post", "/auth/logout"' in logout_route
     assert 'status: "ready"' in ready_route
     assert "HOMELAB_ANALYTICS_AUTH_MODE" in ready_route
+    assert "HOMELAB_ANALYTICS_IDENTITY_MODE" in ready_route
     assert "Sign In" in login_page
     assert 'action="/auth/login"' in login_page
     assert "Too many failed login attempts" in login_page
     assert "Sign In with OIDC" in login_page
     assert 'process.env.HOMELAB_ANALYTICS_AUTH_MODE' in login_page
+    assert 'process.env.HOMELAB_ANALYTICS_IDENTITY_MODE' in login_page
     assert "getLocalUsers" in control_page
     assert "getAuthAuditEvents" in control_page
     assert "getOperationalSummary" in control_page

@@ -165,9 +165,10 @@ class ProjectMetadataTests(unittest.TestCase):
                 service["env_file"],
             )
             self.assertEqual(
-                "local",
-                service["environment"]["HOMELAB_ANALYTICS_AUTH_MODE"],
+                "local_single_user",
+                service["environment"]["HOMELAB_ANALYTICS_IDENTITY_MODE"],
             )
+            self.assertNotIn("HOMELAB_ANALYTICS_AUTH_MODE", service["environment"])
             self.assertNotIn("HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN", service["environment"])
 
     def test_example_secret_manifests_cover_current_credential_classes(self) -> None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Literal
 
 ResolvedAuthMode = Literal["disabled", "local", "oidc", "proxy"]
+IdentityMode = Literal["disabled", "local", "local_single_user", "oidc", "proxy"]
 
 _SUPPORTED_AUTH_MODES = frozenset(
     {
@@ -15,10 +16,15 @@ _SUPPORTED_AUTH_MODES = frozenset(
 )
 
 
-def normalize_auth_mode(raw_mode: str) -> ResolvedAuthMode:
+def normalize_identity_mode(raw_mode: str) -> IdentityMode:
     mode = raw_mode.strip().lower()
     if mode not in _SUPPORTED_AUTH_MODES:
         raise ValueError(f"Unsupported auth mode: {raw_mode!r}")
+    return mode  # type: ignore[return-value]
+
+
+def normalize_auth_mode(raw_mode: str) -> ResolvedAuthMode:
+    mode = normalize_identity_mode(raw_mode)
     if mode == "local_single_user":
         return "local"
     return mode  # type: ignore[return-value]

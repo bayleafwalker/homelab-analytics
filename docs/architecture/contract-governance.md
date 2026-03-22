@@ -33,11 +33,17 @@ The first case fails the blocking gate. The latter two are classified in the com
 The compatibility report classifies contract changes with two severities:
 
 - `additive`
-  Examples: new route, new optional request field, new response field, new publication, new publication column, new UI descriptor.
+  Examples: new route, new optional request field, a request body becoming optional, new response field, new union member, new publication, new publication column, added publication/UI metadata, new UI descriptor.
 - `breaking`
-  Examples: removed route, removed field, request field becoming required, response field becoming optional, type change, publication removal, publication column removal, or nullability tightening.
+  Examples: removed route, removed field, request field becoming required, request body becoming required, response field becoming optional, type change, `anyOf`/`oneOf` member removal or incompatible member drift, publication removal, publication column removal, semantic-role or renderer-hint regression, UI descriptor navigation drift, or nullability tightening.
 
 Publication contracts also carry `schema_version`. A breaking publication change is expected to come with a major `schema_version` bump. The compatibility report flags missing major bumps as policy warnings.
+
+Publication and UI compatibility is not limited to column presence anymore. The report now treats these renderer-facing surfaces as contract-bearing:
+
+- publication supported renderers and renderer hints
+- publication field semantics such as `semantic_role`, `unit`, `grain`, `aggregation`, `filterable`, and `sortable`
+- UI descriptor navigation metadata, required permissions, renderer support, renderer hints, and default filters
 
 Route contracts follow an additive-first policy:
 
