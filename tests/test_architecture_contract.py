@@ -646,6 +646,96 @@ def test_finance_pack_is_stored_in_app_container() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _iter_api_route_method_paths() -> set[tuple[str, str]]:
+    route_dir = ROOT / "apps" / "api" / "routes"
+    discovered: set[tuple[str, str]] = set()
+    method_names = {"get", "post", "put", "patch", "delete", "options", "head"}
+    for module_path in route_dir.glob("*.py"):
+        if module_path.name.startswith("__"):
+            continue
+        tree = ast.parse(module_path.read_text(), filename=str(module_path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                continue
+            method_name = node.func.attr.lower()
+            if method_name not in method_names:
+                continue
+            if not node.args:
+                continue
+            first_arg = node.args[0]
+            if not isinstance(first_arg, ast.Constant) or not isinstance(first_arg.value, str):
+                continue
+            path = first_arg.value
+            if not path.startswith("/"):
+                continue
+            discovered.add((path, method_name.upper()))
+    return discovered
+
+
+def test_request_auth_policy_covers_all_non_public_api_routes() -> None:
+    from packages.platform.auth.scope_authorization import required_role_for_request
+
+    public_routes = {
+        ("/auth/login", "GET"),
+        ("/auth/login", "POST"),
+        ("/auth/logout", "POST"),
+        ("/auth/callback", "GET"),
+        ("/health", "GET"),
+        ("/ready", "GET"),
+        ("/metrics", "GET"),
+    }
+    uncovered: list[tuple[str, str]] = []
+    for path, method in sorted(_iter_api_route_method_paths()):
+        if (path, method) in public_routes:
+            continue
+        if required_role_for_request(path, method) is None:
+            uncovered.append((method, path))
+    assert uncovered == [], (
+        "Every non-public API route must have a request-aware auth role mapping. "
+        f"Uncovered routes: {uncovered}"
+    )
+
+
+def test_request_permission_and_scope_policy_covers_protected_api_routes() -> None:
+    from packages.platform.auth.scope_authorization import (
+        required_permission_for_request,
+        required_service_token_scope_for_request,
+    )
+
+    public_routes = {
+        ("/auth/login", "GET"),
+        ("/auth/login", "POST"),
+        ("/auth/logout", "POST"),
+        ("/auth/callback", "GET"),
+        ("/health", "GET"),
+        ("/ready", "GET"),
+        ("/metrics", "GET"),
+    }
+    role_only_routes = {
+        ("/auth/me", "GET"),
+    }
+
+    missing_permission: list[tuple[str, str]] = []
+    missing_scope: list[tuple[str, str]] = []
+    for path, method in sorted(_iter_api_route_method_paths()):
+        route_key = (path, method)
+        if route_key in public_routes or route_key in role_only_routes:
+            continue
+        if required_permission_for_request(path, method=method) is None:
+            missing_permission.append((method, path))
+        if required_service_token_scope_for_request(path, method) is None:
+            missing_scope.append((method, path))
+
+    assert missing_permission == [], (
+        "Protected API routes must have request-aware permission mappings. "
+        f"Missing: {missing_permission}"
+    )
+    assert missing_scope == [], (
+        "Protected API routes must have service-token scope mappings. "
+        f"Missing: {missing_scope}"
+    )
+
+
 @pytest.mark.parametrize(
     "path,expected_role",
     [
