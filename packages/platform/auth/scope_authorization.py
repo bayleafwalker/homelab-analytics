@@ -11,6 +11,8 @@ from packages.platform.auth.permission_registry import (
     PERMISSION_RUNS_RETRY,
     PERMISSION_TRANSFORMATION_AUDIT_READ,
     publication_read_permission,
+    run_read_permission,
+    run_retry_permission,
 )
 from packages.storage.auth_store import (
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
@@ -36,7 +38,8 @@ def required_permission_for_path(path: str) -> str | None:
     }:
         return None
     if path.startswith("/runs/") and path.endswith("/retry"):
-        return PERMISSION_RUNS_RETRY
+        run_id = path.removeprefix("/runs/").removesuffix("/retry").strip("/")
+        return run_retry_permission(run_id) or PERMISSION_RUNS_RETRY
     if path == "/control/source-lineage":
         return PERMISSION_CONTROL_SOURCE_LINEAGE_READ
     if path == "/control/publication-audit":
@@ -59,7 +62,11 @@ def required_permission_for_path(path: str) -> str | None:
     if path.startswith("/ingest"):
         return PERMISSION_INGEST_WRITE
     if path.startswith("/runs"):
-        return PERMISSION_RUNS_READ
+        suffix = path.removeprefix("/runs").strip("/")
+        if not suffix:
+            return PERMISSION_RUNS_READ
+        run_id = suffix.split("/", 1)[0].strip()
+        return run_read_permission(run_id) or PERMISSION_RUNS_READ
     if path.startswith("/reports"):
         suffix = path.removeprefix("/reports").strip("/")
         if not suffix:

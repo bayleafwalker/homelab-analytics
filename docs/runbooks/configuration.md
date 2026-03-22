@@ -106,7 +106,7 @@ The architecture direction is external identity by default and in-app authorizat
 | `HOMELAB_ANALYTICS_OIDC_OPERATOR_GROUPS` | — | OIDC groups mapped to `operator` role |
 | `HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS` | — | OIDC groups mapped to `admin` role |
 
-OIDC and trusted-proxy permission grants support canonical static permissions (for example `ingest.write`, `runs.read`) plus publication-scoped grants: `reports.read.publication.<publication_key>`. Wildcards are supported as `reports.read.publication.*` and prefix wildcards such as `reports.read.publication.finance.*`.
+OIDC and trusted-proxy permission grants support canonical static permissions (for example `ingest.write`, `runs.read`) plus asset-scoped grants: `reports.read.publication.<publication_key>`, `runs.read.run.<run_id>`, and `runs.retry.run.<run_id>`. Wildcards are supported as `reports.read.publication.*`, `runs.read.run.*`, `runs.retry.run.*`, and prefix wildcards such as `reports.read.publication.finance.*`.
 
 ## Extensions
 

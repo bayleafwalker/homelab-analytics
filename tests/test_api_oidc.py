@@ -424,6 +424,48 @@ def test_api_oidc_permission_bound_principal_enforces_publication_permissions() 
         assert denied_runs.json()["detail"] == "runs.read permission required."
 
 
+def test_api_oidc_permission_bound_principal_enforces_run_asset_permissions() -> None:
+    issuer = MockOidcIssuer()
+    with TemporaryDirectory() as temp_dir:
+        client = _build_oidc_client(
+            temp_dir,
+            issuer,
+            reader_groups=("readers",),
+            permissions_claim="hla_permissions",
+        )
+        token = issuer.issue_token(
+            subject="permission-only-runner",
+            username="permission-runs@example.test",
+            audience=issuer.api_audience,
+            groups=(),
+            extra_claims={
+                "hla_permissions": [
+                    "runs.read.run.allowed-run",
+                    "runs.retry.run.allowed-run",
+                ],
+            },
+        )
+        headers = {"authorization": f"Bearer {token}"}
+
+        denied_run_list = client.get("/runs", headers=headers)
+        assert denied_run_list.status_code == 403
+        assert denied_run_list.json()["detail"] == "runs.read permission required."
+
+        allowed_run_detail = client.get("/runs/allowed-run", headers=headers)
+        assert allowed_run_detail.status_code == 404
+
+        denied_run_detail = client.get("/runs/blocked-run", headers=headers)
+        assert denied_run_detail.status_code == 403
+        assert denied_run_detail.json()["detail"] == "runs.read.run.blocked-run permission required."
+
+        allowed_retry = client.post("/runs/allowed-run/retry", headers=headers)
+        assert allowed_retry.status_code == 404
+
+        denied_retry = client.post("/runs/blocked-run/retry", headers=headers)
+        assert denied_retry.status_code == 403
+        assert denied_retry.json()["detail"] == "operator role required."
+
+
 def test_api_oidc_group_to_permission_mapping_grants_ingest() -> None:
     issuer = MockOidcIssuer()
     with TemporaryDirectory() as temp_dir:

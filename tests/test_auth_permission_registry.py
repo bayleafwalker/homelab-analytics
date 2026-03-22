@@ -6,7 +6,9 @@ from packages.platform.auth.permission_registry import (
     PERMISSION_REPORTS_READ,
     PERMISSION_REPORTS_READ_PUBLICATION_WILDCARD,
     PERMISSION_RUNS_READ,
+    PERMISSION_RUNS_READ_RUN_WILDCARD,
     PERMISSION_RUNS_RETRY,
+    PERMISSION_RUNS_RETRY_RUN_WILDCARD,
     PrincipalAuthorizationContext,
     has_required_permission,
     normalize_permission_grants,
@@ -14,6 +16,8 @@ from packages.platform.auth.permission_registry import (
     permissions_for_role,
     permissions_for_service_token_scopes,
     publication_read_permission,
+    run_read_permission,
+    run_retry_permission,
 )
 from packages.platform.auth.scope_authorization import required_permission_for_path
 from packages.storage.auth_store import (
@@ -107,6 +111,29 @@ def test_permission_normalization_accepts_publication_permissions_and_wildcards(
     )
 
 
+def test_permission_normalization_accepts_run_permissions_and_wildcards() -> None:
+    normalized = normalize_permission_grants(
+        [
+            "runs.read.run.run-001",
+            "runs.read.run.batch.*",
+            "runs.read.run.*",
+            "runs.retry.run.run-001",
+            "runs.retry.run.ops.*",
+            "runs.retry.run.*",
+            "runs.read.run.invalid key",
+        ]
+    )
+
+    assert normalized == (
+        "runs.read.run.*",
+        "runs.read.run.batch.*",
+        "runs.read.run.run-001",
+        "runs.retry.run.*",
+        "runs.retry.run.ops.*",
+        "runs.retry.run.run-001",
+    )
+
+
 def test_permission_bound_principal_uses_explicit_grants_only() -> None:
     ctx = PrincipalAuthorizationContext(
         role=UserRole.READER,
@@ -138,6 +165,24 @@ def test_reader_role_implies_publication_read_permissions() -> None:
     assert has_required_permission(reader_ctx, PERMISSION_REPORTS_READ_PUBLICATION_WILDCARD)
 
 
+def test_operator_role_implies_run_asset_permissions() -> None:
+    operator_ctx = PrincipalAuthorizationContext(
+        role=UserRole.OPERATOR,
+        auth_provider="local",
+    )
+
+    assert has_required_permission(
+        operator_ctx,
+        run_read_permission("run-001"),
+    )
+    assert has_required_permission(
+        operator_ctx,
+        run_retry_permission("run-001"),
+    )
+    assert has_required_permission(operator_ctx, PERMISSION_RUNS_READ_RUN_WILDCARD)
+    assert has_required_permission(operator_ctx, PERMISSION_RUNS_RETRY_RUN_WILDCARD)
+
+
 def test_path_permission_mapping_matches_current_auth_surfaces() -> None:
     assert required_permission_for_path("/health") is None
     assert required_permission_for_path("/reports/monthly-cashflow") == publication_read_permission(
@@ -147,6 +192,7 @@ def test_path_permission_mapping_matches_current_auth_surfaces() -> None:
         "loan-schedule"
     )
     assert required_permission_for_path("/runs") == PERMISSION_RUNS_READ
-    assert required_permission_for_path("/runs/run-1/retry") == PERMISSION_RUNS_RETRY
+    assert required_permission_for_path("/runs/run-1") == run_read_permission("run-1")
+    assert required_permission_for_path("/runs/run-1/retry") == run_retry_permission("run-1")
     assert required_permission_for_path("/ingest") == PERMISSION_INGEST_WRITE
     assert required_permission_for_path("/config/source-systems") == PERMISSION_ADMIN_WRITE

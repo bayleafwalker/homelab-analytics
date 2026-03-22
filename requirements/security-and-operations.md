@@ -77,7 +77,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** The app, not the identity provider, owns domain semantics such as publication access, ingestion controls, run execution, and policy/action permissions.
 
 **Phase:** 4
-**Status:** in-progress (role separation is implemented across local auth, OIDC, and service tokens; a unified permission registry now backs route authorization, including service-token scope mapping and declarative OIDC claim/group permission grants; report routes now support per-publication permission grants with permission-bound principal enforcement; remaining work is extending per-asset grant families beyond report surfaces)
+**Status:** in-progress (role separation is implemented across local auth, OIDC, and service tokens; a unified permission registry now backs route authorization, including service-token scope mapping and declarative OIDC claim/group permission grants; report routes now support per-publication permission grants, run detail/retry routes now support per-run grants, and permission-bound principal enforcement is in place for explicit grant-only identities; remaining work is extending per-asset grant families to broader control-plane surfaces)
 
 **Acceptance criteria:**
 - Baseline roles remain available for coarse-grained access control.
