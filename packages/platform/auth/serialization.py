@@ -32,6 +32,8 @@ def serialize_authenticated_user(principal: AuthenticatedPrincipal) -> dict[str,
     if principal.auth_provider == "service_token":
         payload["scopes"] = list(principal.scopes)
         payload["token_id"] = principal.user_id
+    if principal.permissions:
+        payload["permissions"] = list(principal.permissions)
     return payload
 
 
@@ -53,7 +55,7 @@ def serialize_service_token(
 
 
 def serialize_principal(principal: AuthenticatedPrincipal) -> dict[str, str]:
-    payload = {
+    payload: dict[str, str] = {
         "user_id": principal.user_id,
         "username": principal.username,
         "role": principal.role.value,
@@ -61,4 +63,6 @@ def serialize_principal(principal: AuthenticatedPrincipal) -> dict[str, str]:
     }
     if principal.auth_provider == "service_token":
         payload["scopes"] = ",".join(principal.scopes)
+    if principal.permissions:
+        payload["permissions"] = ",".join(principal.permissions)
     return payload

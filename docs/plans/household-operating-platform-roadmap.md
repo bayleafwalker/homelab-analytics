@@ -409,7 +409,7 @@ Make the platform explainable, auditable, and safe to rely on for consequential 
 
 ### Relationship to existing work
 
-The platform already has strong foundations: OIDC, service tokens, role separation, secret-backed config, readiness/liveness checks, run metadata with validation outcomes, source lineage, publication audit, and operational runbooks. This stage extends those foundations to cover planning outputs, simulation assumptions, automation actions, and pack execution.
+The platform already has strong foundations: OIDC, service tokens, role/scope authorization, secret-backed config, readiness/liveness checks, run metadata with validation outcomes, source lineage, publication audit, and operational runbooks. This stage extends those foundations toward full permission-level governance, planning outputs, simulation assumptions, automation actions, and pack execution.
 
 ### Architectural additions
 

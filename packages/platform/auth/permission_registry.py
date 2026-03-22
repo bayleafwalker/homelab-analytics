@@ -1,0 +1,136 @@
+"""Authorization permission registry and principal permission resolution.
+
+This module introduces a canonical permission vocabulary behind the existing
+reader/operator/admin role ladder and service-token scopes.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import FrozenSet
+
+from packages.storage.auth_store import (
+    SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
+    SERVICE_TOKEN_SCOPE_INGEST_WRITE,
+    SERVICE_TOKEN_SCOPE_REPORTS_READ,
+    SERVICE_TOKEN_SCOPE_RUNS_READ,
+    UserRole,
+)
+
+# Canonical app permissions.
+PERMISSION_RUNS_READ = "runs.read"
+PERMISSION_RUNS_RETRY = "runs.retry"
+PERMISSION_REPORTS_READ = "reports.read"
+PERMISSION_INGEST_WRITE = "ingest.write"
+PERMISSION_CONTROL_SOURCE_LINEAGE_READ = "control.source_lineage.read"
+PERMISSION_CONTROL_PUBLICATION_AUDIT_READ = "control.publication_audit.read"
+PERMISSION_TRANSFORMATION_AUDIT_READ = "transformation.audit.read"
+PERMISSION_ADMIN_WRITE = "admin.write"
+
+
+_READER_PERMISSIONS: frozenset[str] = frozenset(
+    {
+        PERMISSION_RUNS_READ,
+        PERMISSION_REPORTS_READ,
+        PERMISSION_CONTROL_SOURCE_LINEAGE_READ,
+        PERMISSION_CONTROL_PUBLICATION_AUDIT_READ,
+        PERMISSION_TRANSFORMATION_AUDIT_READ,
+    }
+)
+_OPERATOR_PERMISSIONS: frozenset[str] = _READER_PERMISSIONS.union(
+    {
+        PERMISSION_INGEST_WRITE,
+        PERMISSION_RUNS_RETRY,
+    }
+)
+_ADMIN_PERMISSIONS: frozenset[str] = _OPERATOR_PERMISSIONS.union(
+    {
+        PERMISSION_ADMIN_WRITE,
+    }
+)
+
+_ROLE_PERMISSION_BUNDLES: dict[UserRole, frozenset[str]] = {
+    UserRole.READER: _READER_PERMISSIONS,
+    UserRole.OPERATOR: _OPERATOR_PERMISSIONS,
+    UserRole.ADMIN: _ADMIN_PERMISSIONS,
+}
+
+_SERVICE_SCOPE_PERMISSIONS: dict[str, frozenset[str]] = {
+    SERVICE_TOKEN_SCOPE_REPORTS_READ: frozenset({PERMISSION_REPORTS_READ}),
+    SERVICE_TOKEN_SCOPE_RUNS_READ: frozenset(
+        {
+            PERMISSION_RUNS_READ,
+            PERMISSION_CONTROL_SOURCE_LINEAGE_READ,
+            PERMISSION_CONTROL_PUBLICATION_AUDIT_READ,
+            PERMISSION_TRANSFORMATION_AUDIT_READ,
+        }
+    ),
+    SERVICE_TOKEN_SCOPE_INGEST_WRITE: frozenset(
+        {
+            PERMISSION_INGEST_WRITE,
+            PERMISSION_RUNS_RETRY,
+        }
+    ),
+    SERVICE_TOKEN_SCOPE_ADMIN_WRITE: frozenset({PERMISSION_ADMIN_WRITE}),
+}
+
+KNOWN_PERMISSIONS: frozenset[str] = frozenset(
+    {
+        PERMISSION_RUNS_READ,
+        PERMISSION_RUNS_RETRY,
+        PERMISSION_REPORTS_READ,
+        PERMISSION_INGEST_WRITE,
+        PERMISSION_CONTROL_SOURCE_LINEAGE_READ,
+        PERMISSION_CONTROL_PUBLICATION_AUDIT_READ,
+        PERMISSION_TRANSFORMATION_AUDIT_READ,
+        PERMISSION_ADMIN_WRITE,
+    }
+)
+
+
+@dataclass(frozen=True)
+class PrincipalAuthorizationContext:
+    role: UserRole
+    auth_provider: str
+    scopes: tuple[str, ...] = ()
+    granted_permissions: tuple[str, ...] = ()
+
+
+def permissions_for_role(role: UserRole) -> FrozenSet[str]:
+    return _ROLE_PERMISSION_BUNDLES[role]
+
+
+def permissions_for_service_token_scopes(scopes: tuple[str, ...]) -> FrozenSet[str]:
+    resolved: set[str] = set()
+    for scope in scopes:
+        resolved.update(_SERVICE_SCOPE_PERMISSIONS.get(scope, frozenset()))
+    return frozenset(resolved)
+
+
+def normalize_permission_grants(
+    permissions: tuple[str, ...] | list[str],
+) -> tuple[str, ...]:
+    normalized = {permission.strip().lower() for permission in permissions if permission.strip()}
+    recognized = sorted(normalized.intersection(KNOWN_PERMISSIONS))
+    return tuple(recognized)
+
+
+def permissions_for_principal(context: PrincipalAuthorizationContext) -> FrozenSet[str]:
+    role_permissions = permissions_for_role(context.role)
+    direct_permissions = frozenset(
+        permission
+        for permission in normalize_permission_grants(context.granted_permissions)
+    )
+    if context.auth_provider != "service_token":
+        return role_permissions.union(direct_permissions)
+    scope_permissions = permissions_for_service_token_scopes(context.scopes)
+    # Service tokens keep role ceilings and explicit scope grants.
+    return frozenset(permission for permission in role_permissions if permission in scope_permissions)
+
+
+def has_required_permission(
+    context: PrincipalAuthorizationContext,
+    required_permission: str | None,
+) -> bool:
+    if required_permission is None:
+        return True
+    return required_permission in permissions_for_principal(context)

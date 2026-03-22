@@ -62,15 +62,17 @@ This document lists all environment variables used by the homelab-analytics plat
 
 | Variable | Default | Description |
 |---|---|---|
-| `HOMELAB_ANALYTICS_AUTH_MODE` | `disabled` | Authentication mode: `disabled`, `local`, or `oidc` |
+| `HOMELAB_ANALYTICS_AUTH_MODE` | `disabled` | Authentication mode (current runtime): `disabled`, `local` (or `local_single_user` alias), or `oidc`; `proxy` is reserved and currently rejected at startup |
 | `HOMELAB_ANALYTICS_SESSION_SECRET` | — | Signed app-session and OIDC state-cookie secret (required when auth is `local` or `oidc`) |
 | `HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN` | `false` | Must be `true` before local bootstrap credentials are honored |
-| `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME` | — | First local admin username (only when `auth_mode=local` and bootstrap enabled) |
-| `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD` | — | First local admin password (only when `auth_mode=local` and bootstrap enabled) |
+| `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME` | — | First local admin username (only when `auth_mode=local` and bootstrap enabled; intended as single-user/break-glass path) |
+| `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD` | — | First local admin password (only when `auth_mode=local` and bootstrap enabled; intended as single-user/break-glass path) |
 | `HOMELAB_ANALYTICS_AUTH_FAILURE_WINDOW_SECONDS` | — | Local-auth login lockout: failure window |
 | `HOMELAB_ANALYTICS_AUTH_FAILURE_THRESHOLD` | — | Local-auth login lockout: failure count threshold |
 | `HOMELAB_ANALYTICS_AUTH_LOCKOUT_SECONDS` | — | Local-auth login lockout: lockout duration |
 | `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` | `false` | Temporary dev-only bypass for unauthenticated admin routes (not for shared deployments) |
+
+The architecture direction is external identity by default and in-app authorization semantics. Current runtime auth mode values remain supported during migration, with `local` treated as compatibility for a narrower `local_single_user` posture.
 
 ## OIDC
 
@@ -83,7 +85,9 @@ This document lists all environment variables used by the homelab-analytics plat
 | `HOMELAB_ANALYTICS_OIDC_SCOPES` | `openid,profile,email` | Authorization-request scopes |
 | `HOMELAB_ANALYTICS_OIDC_API_AUDIENCE` | OIDC client ID | Accepted bearer-token audience for direct API clients |
 | `HOMELAB_ANALYTICS_OIDC_USERNAME_CLAIM` | — | Username claim for app principals |
-| `HOMELAB_ANALYTICS_OIDC_GROUPS_CLAIM` | — | Group claim for role mapping |
+| `HOMELAB_ANALYTICS_OIDC_GROUPS_CLAIM` | — | Group claim for role/permission mapping input |
+| `HOMELAB_ANALYTICS_OIDC_PERMISSIONS_CLAIM` | — | Optional claim carrying extra app permission grants (comma-separated string or string list) |
+| `HOMELAB_ANALYTICS_OIDC_PERMISSION_GROUP_MAPPINGS` | — | Optional group-to-permission mappings (`group=permission[,permission...];group2=permission`) |
 | `HOMELAB_ANALYTICS_OIDC_READER_GROUPS` | — | OIDC groups mapped to `reader` role |
 | `HOMELAB_ANALYTICS_OIDC_OPERATOR_GROUPS` | — | OIDC groups mapped to `operator` role |
 | `HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS` | — | OIDC groups mapped to `admin` role |

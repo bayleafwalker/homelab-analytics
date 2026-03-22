@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
+from packages.shared.auth_modes import ResolvedAuthMode, normalize_auth_mode
+
 
 @dataclass(frozen=True)
 class AppSettings:
@@ -53,6 +55,8 @@ class AppSettings:
     oidc_api_audience: str | None = None
     oidc_username_claim: str = "preferred_username"
     oidc_groups_claim: str = "groups"
+    oidc_permissions_claim: str | None = None
+    oidc_permission_group_mappings: tuple[str, ...] = ()
     oidc_reader_groups: tuple[str, ...] = ()
     oidc_operator_groups: tuple[str, ...] = ()
     oidc_admin_groups: tuple[str, ...] = ()
@@ -93,6 +97,10 @@ class AppSettings:
     @property
     def resolved_api_base_url(self) -> str:
         return self.api_base_url or f"http://127.0.0.1:{self.api_port}"
+
+    @property
+    def resolved_auth_mode(self) -> ResolvedAuthMode:
+        return normalize_auth_mode(self.auth_mode)
 
     @property
     def resolved_control_postgres_dsn(self) -> str | None:
@@ -199,6 +207,15 @@ class AppSettings:
             "HOMELAB_ANALYTICS_OIDC_GROUPS_CLAIM",
             "groups",
         )
+        oidc_permissions_claim = (
+            env.get("HOMELAB_ANALYTICS_OIDC_PERMISSIONS_CLAIM") or None
+        )
+        oidc_permission_group_mappings = tuple(
+            _split_config_value(
+                env.get("HOMELAB_ANALYTICS_OIDC_PERMISSION_GROUP_MAPPINGS", ""),
+                delimiter=";",
+            )
+        )
         oidc_reader_groups = tuple(
             _split_config_value(
                 env.get("HOMELAB_ANALYTICS_OIDC_READER_GROUPS", ""),
@@ -291,6 +308,8 @@ class AppSettings:
             oidc_api_audience=oidc_api_audience,
             oidc_username_claim=oidc_username_claim,
             oidc_groups_claim=oidc_groups_claim,
+            oidc_permissions_claim=oidc_permissions_claim,
+            oidc_permission_group_mappings=oidc_permission_group_mappings,
             oidc_reader_groups=oidc_reader_groups,
             oidc_operator_groups=oidc_operator_groups,
             oidc_admin_groups=oidc_admin_groups,

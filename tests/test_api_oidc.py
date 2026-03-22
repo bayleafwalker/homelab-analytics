@@ -32,22 +32,29 @@ def _oidc_settings(
     reader_groups: tuple[str, ...] = (),
     operator_groups: tuple[str, ...] = (),
     admin_groups: tuple[str, ...] = (),
+    permissions_claim: str | None = None,
+    permission_group_mappings: tuple[str, ...] = (),
 ) -> AppSettings:
-    return AppSettings.from_env(
-        {
-            "HOMELAB_ANALYTICS_DATA_DIR": temp_dir,
-            "HOMELAB_ANALYTICS_AUTH_MODE": "oidc",
-            "HOMELAB_ANALYTICS_SESSION_SECRET": "test-session-secret",
-            "HOMELAB_ANALYTICS_OIDC_ISSUER_URL": issuer.issuer_url,
-            "HOMELAB_ANALYTICS_OIDC_CLIENT_ID": issuer.client_id,
-            "HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET": issuer.client_secret,
-            "HOMELAB_ANALYTICS_OIDC_REDIRECT_URI": "http://testserver/auth/callback",
-            "HOMELAB_ANALYTICS_OIDC_API_AUDIENCE": issuer.api_audience,
-            "HOMELAB_ANALYTICS_OIDC_READER_GROUPS": ",".join(reader_groups),
-            "HOMELAB_ANALYTICS_OIDC_OPERATOR_GROUPS": ",".join(operator_groups),
-            "HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS": ",".join(admin_groups),
-        }
-    )
+    env = {
+        "HOMELAB_ANALYTICS_DATA_DIR": temp_dir,
+        "HOMELAB_ANALYTICS_AUTH_MODE": "oidc",
+        "HOMELAB_ANALYTICS_SESSION_SECRET": "test-session-secret",
+        "HOMELAB_ANALYTICS_OIDC_ISSUER_URL": issuer.issuer_url,
+        "HOMELAB_ANALYTICS_OIDC_CLIENT_ID": issuer.client_id,
+        "HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET": issuer.client_secret,
+        "HOMELAB_ANALYTICS_OIDC_REDIRECT_URI": "http://testserver/auth/callback",
+        "HOMELAB_ANALYTICS_OIDC_API_AUDIENCE": issuer.api_audience,
+        "HOMELAB_ANALYTICS_OIDC_READER_GROUPS": ",".join(reader_groups),
+        "HOMELAB_ANALYTICS_OIDC_OPERATOR_GROUPS": ",".join(operator_groups),
+        "HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS": ",".join(admin_groups),
+    }
+    if permissions_claim:
+        env["HOMELAB_ANALYTICS_OIDC_PERMISSIONS_CLAIM"] = permissions_claim
+    if permission_group_mappings:
+        env["HOMELAB_ANALYTICS_OIDC_PERMISSION_GROUP_MAPPINGS"] = ";".join(
+            permission_group_mappings
+        )
+    return AppSettings.from_env(env)
 
 
 def _build_oidc_client(
@@ -57,6 +64,8 @@ def _build_oidc_client(
     reader_groups: tuple[str, ...] = (),
     operator_groups: tuple[str, ...] = (),
     admin_groups: tuple[str, ...] = (),
+    permissions_claim: str | None = None,
+    permission_group_mappings: tuple[str, ...] = (),
 ) -> TestClient:
     settings = _oidc_settings(
         temp_dir,
@@ -64,6 +73,8 @@ def _build_oidc_client(
         reader_groups=reader_groups,
         operator_groups=operator_groups,
         admin_groups=admin_groups,
+        permissions_claim=permissions_claim,
+        permission_group_mappings=permission_group_mappings,
     )
     service = AccountTransactionService(
         landing_root=Path(temp_dir) / "landing",
@@ -139,6 +150,42 @@ def test_api_oidc_login_callback_and_me() -> None:
         logout = client.post("/auth/logout", headers=_csrf_headers(client))
         assert logout.status_code == 200
         assert client.get("/auth/me").status_code == 401
+
+
+def test_api_oidc_login_callback_preserves_permission_claims_in_session() -> None:
+    issuer = MockOidcIssuer()
+    with TemporaryDirectory() as temp_dir:
+        client = _build_oidc_client(
+            temp_dir,
+            issuer,
+            reader_groups=("readers",),
+            permissions_claim="hla_permissions",
+        )
+
+        start = client.get("/auth/login?return_to=/reports", follow_redirects=False)
+        assert start.status_code == 303
+        redirect = urlparse(start.headers["location"])
+        query = parse_qs(redirect.query)
+        nonce = query["nonce"][0]
+        state = query["state"][0]
+        issuer.register_code(
+            "oidc-permissions-callback-code",
+            subject="user-oidc-permissions",
+            username="reader-plus@example.test",
+            nonce=nonce,
+            groups=("readers",),
+            extra_claims={"hla_permissions": ["ingest.write"]},
+        )
+
+        callback = client.get(
+            f"/auth/callback?code=oidc-permissions-callback-code&state={state}",
+            follow_redirects=False,
+        )
+        assert callback.status_code == 303
+
+        me = client.get("/auth/me")
+        assert me.status_code == 200
+        assert "ingest.write" in me.json()["user"]["permissions"]
 
 
 def test_api_oidc_bearer_tokens_enforce_reader_operator_and_admin_roles() -> None:
@@ -279,3 +326,127 @@ def test_api_oidc_accepts_service_tokens_before_oidc_jwt_validation() -> None:
         )
 
         assert response.status_code == 200
+
+
+def test_api_oidc_permission_claim_grants_ingest_without_operator_group() -> None:
+    issuer = MockOidcIssuer()
+    with TemporaryDirectory() as temp_dir:
+        client = _build_oidc_client(
+            temp_dir,
+            issuer,
+            reader_groups=("readers",),
+            permissions_claim="hla_permissions",
+        )
+        token = issuer.issue_token(
+            subject="reader-plus-ingest",
+            username="reader-plus@example.test",
+            audience=issuer.api_audience,
+            groups=("readers",),
+            extra_claims={"hla_permissions": ["ingest.write"]},
+        )
+
+        response = client.post(
+            "/ingest",
+            json={
+                "source_path": str(ACCOUNT_FIXTURES / "account_transactions_valid.csv"),
+                "source_name": "claim-granted-ingest",
+            },
+            headers={"authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 201
+        me = client.get(
+            "/auth/me",
+            headers={"authorization": f"Bearer {token}"},
+        )
+        assert me.status_code == 200
+        assert "ingest.write" in me.json()["user"]["permissions"]
+
+
+def test_api_oidc_unknown_permission_claim_values_are_ignored() -> None:
+    issuer = MockOidcIssuer()
+    with TemporaryDirectory() as temp_dir:
+        client = _build_oidc_client(
+            temp_dir,
+            issuer,
+            reader_groups=("readers",),
+            permissions_claim="hla_permissions",
+        )
+        token = issuer.issue_token(
+            subject="reader-unknown-claim",
+            username="reader-unknown@example.test",
+            audience=issuer.api_audience,
+            groups=("readers",),
+            extra_claims={"hla_permissions": ["unknown.permission"]},
+        )
+
+        response = client.post(
+            "/ingest",
+            json={
+                "source_path": str(ACCOUNT_FIXTURES / "account_transactions_valid.csv"),
+                "source_name": "unknown-claim-ingest",
+            },
+            headers={"authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 403
+
+
+def test_api_oidc_group_to_permission_mapping_grants_ingest() -> None:
+    issuer = MockOidcIssuer()
+    with TemporaryDirectory() as temp_dir:
+        client = _build_oidc_client(
+            temp_dir,
+            issuer,
+            reader_groups=("readers",),
+            permission_group_mappings=("automation-operators=ingest.write,runs.retry",),
+        )
+        token = issuer.issue_token(
+            subject="group-granted-ingest",
+            username="group-granted@example.test",
+            audience=issuer.api_audience,
+            groups=("automation-operators",),
+        )
+
+        response = client.post(
+            "/ingest",
+            json={
+                "source_path": str(ACCOUNT_FIXTURES / "account_transactions_valid.csv"),
+                "source_name": "group-granted-ingest",
+            },
+            headers={"authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 201
+
+
+def test_oidc_invalid_permission_group_mapping_is_rejected() -> None:
+    issuer = MockOidcIssuer()
+    with TemporaryDirectory() as temp_dir:
+        settings = _oidc_settings(
+            temp_dir,
+            issuer,
+            permission_group_mappings=("broken-entry-without-equals",),
+        )
+        service = AccountTransactionService(
+            landing_root=Path(temp_dir) / "landing",
+            metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+        )
+        repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+
+        try:
+            create_app(
+                service,
+                config_repository=repository,
+                auth_store=repository,
+                auth_mode="oidc",
+                session_manager=build_session_manager(settings),
+                oidc_provider=build_oidc_provider(
+                    settings,
+                    http_client=issuer.http_client(),
+                ),
+            )
+        except ValueError as exc:
+            assert "permission-group mappings" in str(exc)
+        else:
+            raise AssertionError("Expected invalid permission-group mapping to raise ValueError.")

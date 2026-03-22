@@ -61,6 +61,7 @@ class MockOidcIssuer:
         audience: str,
         groups: tuple[str, ...] = (),
         nonce: str | None = None,
+        extra_claims: dict[str, Any] | None = None,
         expires_in: int = 3600,
     ) -> str:
         now = int(datetime.now(UTC).timestamp())
@@ -75,6 +76,8 @@ class MockOidcIssuer:
         }
         if nonce is not None:
             claims["nonce"] = nonce
+        if extra_claims:
+            claims.update(extra_claims)
         return jwt.encode(
             claims,
             self._private_key,
@@ -90,12 +93,14 @@ class MockOidcIssuer:
         username: str,
         nonce: str,
         groups: tuple[str, ...] = (),
+        extra_claims: dict[str, Any] | None = None,
     ) -> None:
         self._codes[code] = {
             "subject": subject,
             "username": username,
             "nonce": nonce,
             "groups": groups,
+            "extra_claims": extra_claims or {},
         }
 
     def http_client(self) -> httpx.Client:
@@ -134,6 +139,7 @@ class MockOidcIssuer:
                         username=str(registered["username"]),
                         audience=self.api_audience,
                         groups=tuple(registered["groups"]),
+                        extra_claims=dict(registered["extra_claims"]),
                     ),
                     "id_token": self.issue_token(
                         subject=str(registered["subject"]),
@@ -141,6 +147,7 @@ class MockOidcIssuer:
                         audience=self.client_id,
                         groups=tuple(registered["groups"]),
                         nonce=str(registered["nonce"]),
+                        extra_claims=dict(registered["extra_claims"]),
                     ),
                 },
             )

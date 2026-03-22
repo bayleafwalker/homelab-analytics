@@ -72,8 +72,10 @@ class WebAppTests(unittest.TestCase):
                 worker_poll_interval_seconds=1,
             )
 
-            with self.assertRaises(FileNotFoundError):
-                build_web_command(settings)
+            missing_entrypoint = Path(temp_dir) / ".next" / "standalone" / "server.js"
+            with patch("apps.web.app.standalone_entrypoint", return_value=missing_entrypoint):
+                with self.assertRaises(FileNotFoundError):
+                    build_web_command(settings)
 
     def test_build_web_command_points_to_next_standalone_server(self) -> None:
         with TemporaryDirectory() as temp_dir:

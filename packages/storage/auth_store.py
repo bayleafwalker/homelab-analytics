@@ -24,6 +24,16 @@ SERVICE_TOKEN_SCOPES = (
 )
 
 
+# Legacy scope-to-permission compatibility mapping.
+# New authorization code should prefer canonical permissions directly.
+SERVICE_TOKEN_SCOPE_PERMISSION_MAP = {
+    SERVICE_TOKEN_SCOPE_REPORTS_READ: "reports.read",
+    SERVICE_TOKEN_SCOPE_RUNS_READ: "runs.read",
+    SERVICE_TOKEN_SCOPE_INGEST_WRITE: "ingest.write",
+    SERVICE_TOKEN_SCOPE_ADMIN_WRITE: "admin.write",
+}
+
+
 def normalize_username(username: str) -> str:
     normalized = username.strip().lower()
     if not normalized:

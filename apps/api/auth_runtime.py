@@ -21,15 +21,21 @@ from packages.platform.auth.oidc_provider import (
     OidcAuthorizationError,
     OidcProvider,
 )
+from packages.platform.auth.permission_registry import (
+    PrincipalAuthorizationContext,
+    has_required_permission,
+)
 from packages.platform.auth.role_hierarchy import (
     authenticate_service_token,
     has_required_role,
 )
 from packages.platform.auth.scope_authorization import (
+    required_permission_for_path,
     required_role_for_path,
     required_service_token_scope_for_path,
 )
 from packages.platform.auth.session_manager import SessionManager
+from packages.shared.auth_modes import is_cookie_auth_mode
 from packages.shared.metrics import metrics_registry
 from packages.storage.auth_store import (
     AuthStore,
@@ -45,6 +51,7 @@ __all__ = [
     "cookie_secure_for_request",
     "register_auth_middleware",
     "request_remote_addr",
+    "required_permission_for_path",
     "required_role_for_path",
     "required_service_token_scope_for_path",
 ]
@@ -69,10 +76,11 @@ def register_auth_middleware(
         started = time.perf_counter()
         request.state.principal = None
         request.state.auth_via_cookie = False
-        if resolved_auth_mode in {"local", "oidc"}:
+        if is_cookie_auth_mode(resolved_auth_mode):
             assert resolved_session_manager is not None
             required_role = required_role_for_path(request.url.path)
             required_scope = required_service_token_scope_for_path(request.url.path)
+            required_permission = required_permission_for_path(request.url.path)
             auth_error_response: JSONResponse | None = None
             bearer_token = bearer_token_from_request(request)
             if bearer_token is not None:
@@ -170,12 +178,25 @@ def register_auth_middleware(
                     )
                     log_request(logger, request.method, request.url.path, 401, started)
                     return denied_response
+                principal_has_required_permission = (
+                    request.state.principal is not None
+                    and has_required_permission(
+                        PrincipalAuthorizationContext(
+                            role=request.state.principal.role,
+                            auth_provider=request.state.principal.auth_provider,
+                            scopes=request.state.principal.scopes,
+                            granted_permissions=request.state.principal.permissions,
+                        ),
+                        required_permission,
+                    )
+                )
                 if (
                     request.state.principal is not None
                     and not has_required_role(
                         request.state.principal.role,
                         required_role,
                     )
+                    and not principal_has_required_permission
                 ):
                     denied_response = JSONResponse(
                         status_code=403,
@@ -197,6 +218,18 @@ def register_auth_middleware(
                         status_code=403,
                         content={
                             "detail": f"{required_scope or 'required'} scope required.",
+                        },
+                    )
+                    log_request(logger, request.method, request.url.path, 403, started)
+                    return denied_response
+                if (
+                    request.state.principal is not None
+                    and not principal_has_required_permission
+                ):
+                    denied_response = JSONResponse(
+                        status_code=403,
+                        content={
+                            "detail": f"{required_permission or 'required'} permission required.",
                         },
                     )
                     log_request(logger, request.method, request.url.path, 403, started)

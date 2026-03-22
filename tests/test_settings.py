@@ -64,6 +64,7 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual("reporting", settings.reporting_schema)
         self.assertEqual("filesystem", settings.blob_backend)
         self.assertEqual("disabled", settings.auth_mode)
+        self.assertEqual("disabled", settings.resolved_auth_mode)
         self.assertIsNone(settings.session_secret)
         self.assertIsNone(settings.oidc_issuer_url)
         self.assertIsNone(settings.oidc_client_id)
@@ -73,6 +74,8 @@ class AppSettingsTests(unittest.TestCase):
         self.assertIsNone(settings.oidc_api_audience)
         self.assertEqual("preferred_username", settings.oidc_username_claim)
         self.assertEqual("groups", settings.oidc_groups_claim)
+        self.assertIsNone(settings.oidc_permissions_claim)
+        self.assertEqual((), settings.oidc_permission_group_mappings)
         self.assertEqual((), settings.oidc_reader_groups)
         self.assertEqual((), settings.oidc_operator_groups)
         self.assertEqual((), settings.oidc_admin_groups)
@@ -253,6 +256,11 @@ class AppSettingsTests(unittest.TestCase):
                 "HOMELAB_ANALYTICS_OIDC_API_AUDIENCE": "homelab-analytics-api",
                 "HOMELAB_ANALYTICS_OIDC_USERNAME_CLAIM": "email",
                 "HOMELAB_ANALYTICS_OIDC_GROUPS_CLAIM": "roles",
+                "HOMELAB_ANALYTICS_OIDC_PERMISSIONS_CLAIM": "hla_permissions",
+                "HOMELAB_ANALYTICS_OIDC_PERMISSION_GROUP_MAPPINGS": (
+                    "finance-readers=reports.read;"
+                    "automation-operators=ingest.write,runs.retry"
+                ),
                 "HOMELAB_ANALYTICS_OIDC_READER_GROUPS": "dash-readers",
                 "HOMELAB_ANALYTICS_OIDC_OPERATOR_GROUPS": "operators-a,operators-b",
                 "HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS": "platform-admins",
@@ -295,6 +303,7 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual("password", settings.s3_secret_access_key)
         self.assertEqual("bronze", settings.s3_prefix)
         self.assertEqual("local", settings.auth_mode)
+        self.assertEqual("local", settings.resolved_auth_mode)
         self.assertEqual("session-secret", settings.session_secret)
         self.assertEqual(
             "https://auth.example.test/application/o/homelab/",
@@ -313,6 +322,14 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual("homelab-analytics-api", settings.oidc_api_audience)
         self.assertEqual("email", settings.oidc_username_claim)
         self.assertEqual("roles", settings.oidc_groups_claim)
+        self.assertEqual("hla_permissions", settings.oidc_permissions_claim)
+        self.assertEqual(
+            (
+                "finance-readers=reports.read",
+                "automation-operators=ingest.write,runs.retry",
+            ),
+            settings.oidc_permission_group_mappings,
+        )
         self.assertEqual(("dash-readers",), settings.oidc_reader_groups)
         self.assertEqual(
             ("operators-a", "operators-b"),
@@ -326,6 +343,16 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual(4, settings.auth_failure_threshold)
         self.assertEqual(1200, settings.auth_lockout_seconds)
         self.assertTrue(settings.enable_unsafe_admin)
+
+    def test_local_single_user_auth_mode_alias_resolves_to_local(self) -> None:
+        settings = AppSettings.from_env(
+            {
+                "HOMELAB_ANALYTICS_AUTH_MODE": "local_single_user",
+            }
+        )
+
+        self.assertEqual("local_single_user", settings.auth_mode)
+        self.assertEqual("local", settings.resolved_auth_mode)
 
 
 if __name__ == "__main__":

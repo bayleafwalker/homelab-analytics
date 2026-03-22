@@ -4,15 +4,18 @@ from __future__ import annotations
 import uuid
 
 from packages.platform.auth.crypto import hash_password
+from packages.shared.auth_modes import is_cookie_auth_mode
 from packages.shared.settings import AppSettings
 from packages.storage.auth_store import AuthStore, LocalUserCreate, LocalUserRecord, UserRole
 
 
 def validate_auth_configuration(settings: AppSettings) -> None:
-    auth_mode = settings.auth_mode.lower()
-    if auth_mode not in {"disabled", "local", "oidc"}:
-        raise ValueError(f"Unsupported auth mode: {settings.auth_mode!r}")
-    if auth_mode in {"local", "oidc"} and not settings.session_secret:
+    auth_mode = settings.resolved_auth_mode
+    if auth_mode == "proxy":
+        raise ValueError(
+            "Proxy auth mode is reserved but not implemented yet. Use OIDC until trusted proxy identity headers are supported."
+        )
+    if is_cookie_auth_mode(auth_mode) and not settings.session_secret:
         raise ValueError(
             "Cookie-backed authentication requires HOMELAB_ANALYTICS_SESSION_SECRET to be configured."
         )
@@ -47,7 +50,7 @@ def maybe_bootstrap_local_admin(
     auth_store: AuthStore,
     settings: AppSettings,
 ) -> LocalUserRecord | None:
-    if settings.auth_mode.lower() != "local":
+    if settings.resolved_auth_mode != "local":
         return None
     if not settings.enable_bootstrap_local_admin:
         return None

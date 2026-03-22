@@ -45,7 +45,7 @@ All sources are onboarded through configuration (source system, dataset contract
 ## Security and authentication
 
 - **Secrets:** External Secrets Operator or SOPS-encrypted Secrets — never checked-in values
-- **Auth progression:** local username/password as bootstrap/break-glass, OIDC for interactive access, and scoped service tokens for Home Assistant and automation consumers
+- **Auth boundary:** OIDC-first external identity for interactive access, in-app authorization semantics (roles plus permission bundles), scoped service tokens for Home Assistant and automation consumers, and intentionally narrow local single-user break-glass fallback
 - **Credential isolation:** per-workload, least-privilege
 
 ## Release direction

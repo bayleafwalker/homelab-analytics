@@ -26,7 +26,7 @@ def _decode_signed_payload(
     value: str | None,
     *,
     required_fields: set[str],
-) -> dict[str, str] | None:
+) -> dict[str, Any] | None:
     if not value or "." not in value:
         return None
     encoded_payload, signature = value.rsplit(".", 1)
@@ -51,7 +51,7 @@ def _decode_signed_payload(
         return None
     if expires_at <= datetime.now(UTC):
         return None
-    return {key: str(value) for key, value in payload.items()}
+    return payload
 
 
 def _urlsafe_encode(value: bytes) -> str:

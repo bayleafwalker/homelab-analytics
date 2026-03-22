@@ -12,6 +12,7 @@ import httpx
 import jwt
 
 from packages.platform.auth._signing import _decode_signed_payload, _encode_signed_payload
+from packages.platform.auth.permission_registry import normalize_permission_grants
 from packages.platform.auth.role_hierarchy import AuthenticatedPrincipal
 from packages.shared.settings import AppSettings
 from packages.storage.auth_store import UserRole
@@ -65,12 +66,38 @@ def _resolve_jwt_key(header: dict[str, Any], jwks: dict[str, Any]) -> Any:
     raise OidcAuthenticationError("OIDC token signing key was not found in JWKS.")
 
 
+def _parse_permission_group_mappings(
+    raw_mappings: tuple[str, ...],
+) -> dict[str, tuple[str, ...]]:
+    parsed: dict[str, tuple[str, ...]] = {}
+    for raw_mapping in raw_mappings:
+        if "=" not in raw_mapping:
+            raise ValueError(
+                "OIDC permission-group mappings must use '<group>=<permission[,permission...]>' entries."
+            )
+        raw_group, raw_permissions = raw_mapping.split("=", 1)
+        group = raw_group.strip().lower()
+        if not group:
+            raise ValueError("OIDC permission-group mappings must include a group name.")
+        permissions = normalize_permission_grants(
+            [part for part in raw_permissions.split(",")]
+        )
+        if not permissions:
+            raise ValueError(
+                "OIDC permission-group mappings must include at least one known permission."
+            )
+        existing = set(parsed.get(group, ()))
+        existing.update(permissions)
+        parsed[group] = tuple(sorted(existing))
+    return parsed
+
+
 def build_oidc_provider(
     settings: AppSettings,
     *,
     http_client: httpx.Client | None = None,
 ) -> "OidcProvider | None":
-    if settings.auth_mode.lower() != "oidc":
+    if settings.resolved_auth_mode != "oidc":
         return None
     missing = [
         variable
@@ -112,6 +139,10 @@ class OidcProvider:
         self.api_audience = settings.oidc_api_audience or self.client_id
         self.username_claim = settings.oidc_username_claim
         self.groups_claim = settings.oidc_groups_claim
+        self.permissions_claim = settings.oidc_permissions_claim
+        self.permission_group_mappings = _parse_permission_group_mappings(
+            settings.oidc_permission_group_mappings
+        )
         self.reader_groups = {value.strip().lower() for value in settings.oidc_reader_groups if value.strip()}
         self.operator_groups = {
             value.strip().lower() for value in settings.oidc_operator_groups if value.strip()
@@ -191,17 +222,37 @@ class OidcProvider:
             cookie_value,
             required_fields={"state", "nonce", "return_to", "exp"},
         )
-        if payload is None or payload.get("state") != state:
+        if payload is None:
+            raise OidcAuthenticationError("OIDC login state is invalid or expired.")
+        state_value = payload.get("state")
+        nonce_value = payload.get("nonce")
+        return_to_value = payload.get("return_to")
+        if (
+            not isinstance(state_value, str)
+            or not isinstance(nonce_value, str)
+            or not isinstance(return_to_value, str)
+            or state_value != state
+        ):
             raise OidcAuthenticationError("OIDC login state is invalid or expired.")
         return OidcLoginState(
-            state=payload["state"],
-            nonce=payload["nonce"],
-            return_to=normalize_return_to(payload["return_to"]),
+            state=state_value,
+            nonce=nonce_value,
+            return_to=normalize_return_to(return_to_value),
         )
 
     def principal_from_claims(self, claims: dict[str, Any]) -> AuthenticatedPrincipal:
         username = self._claim_username(claims)
-        role = self._role_from_claims(claims)
+        groups = self._groups_from_claims(claims)
+        permissions = normalize_permission_grants(
+            [
+                *self._permissions_from_claims(claims),
+                *self._permissions_from_groups(groups),
+            ]
+        )
+        role = self._role_from_groups(
+            groups,
+            allow_unmapped=bool(permissions),
+        )
         subject = str(claims.get("sub", "")).strip()
         if not subject:
             raise OidcAuthenticationError("OIDC token is missing a subject.")
@@ -210,6 +261,7 @@ class OidcProvider:
             username=username,
             role=role,
             auth_provider="oidc",
+            permissions=permissions,
         )
 
     def build_set_state_cookie_header(
@@ -255,13 +307,21 @@ class OidcProvider:
                 return value.strip()
         raise OidcAuthenticationError("OIDC token did not include a usable username claim.")
 
-    def _role_from_claims(self, claims: dict[str, Any]) -> UserRole:
+    def _groups_from_claims(self, claims: dict[str, Any]) -> set[str]:
         raw_groups = claims.get(self.groups_claim)
         groups: set[str] = set()
         if isinstance(raw_groups, list):
             groups = {str(value).strip().lower() for value in raw_groups if str(value).strip()}
         elif isinstance(raw_groups, str) and raw_groups.strip():
             groups = {part.strip().lower() for part in raw_groups.split(",") if part.strip()}
+        return groups
+
+    def _role_from_groups(
+        self,
+        groups: set[str],
+        *,
+        allow_unmapped: bool,
+    ) -> UserRole:
         if groups & self.admin_groups:
             return UserRole.ADMIN
         if groups & self.operator_groups:
@@ -269,8 +329,32 @@ class OidcProvider:
         if groups & self.reader_groups:
             return UserRole.READER
         if self.reader_groups or self.operator_groups or self.admin_groups:
+            if allow_unmapped:
+                return UserRole.READER
             raise OidcAuthorizationError("OIDC identity is not mapped to any application role.")
         return UserRole.READER
+
+    def _permissions_from_claims(self, claims: dict[str, Any]) -> tuple[str, ...]:
+        if not self.permissions_claim:
+            return ()
+        raw_permissions = claims.get(self.permissions_claim)
+        if isinstance(raw_permissions, list):
+            return normalize_permission_grants(
+                [str(value) for value in raw_permissions]
+            )
+        if isinstance(raw_permissions, str) and raw_permissions.strip():
+            return normalize_permission_grants(
+                [part for part in raw_permissions.split(",")]
+            )
+        return ()
+
+    def _permissions_from_groups(self, groups: set[str]) -> tuple[str, ...]:
+        if not self.permission_group_mappings:
+            return ()
+        permissions: set[str] = set()
+        for group in groups:
+            permissions.update(self.permission_group_mappings.get(group, ()))
+        return tuple(sorted(permissions))
 
     def _load_discovery(self) -> dict[str, Any]:
         if self._discovery is not None:

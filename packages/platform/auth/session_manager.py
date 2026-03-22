@@ -7,10 +7,11 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from http.cookies import SimpleCookie
-from typing import Literal
+from typing import Any, Literal
 
 from packages.platform.auth._signing import _decode_signed_payload, _encode_signed_payload
 from packages.platform.auth.role_hierarchy import AuthenticatedPrincipal
+from packages.shared.auth_modes import is_cookie_auth_mode
 from packages.shared.settings import AppSettings
 from packages.storage.auth_store import AuthStore, LocalUserRecord, UserRole
 
@@ -29,8 +30,22 @@ def _password_fingerprint(password_hash: str) -> str:
     return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()
 
 
+def _payload_string(payload: dict[str, Any], key: str) -> str | None:
+    value = payload.get(key)
+    return value if isinstance(value, str) else None
+
+
+def _payload_string_tuple(payload: dict[str, Any], key: str) -> tuple[str, ...]:
+    value = payload.get(key)
+    if isinstance(value, (list, tuple)):
+        return tuple(str(item).strip() for item in value if str(item).strip())
+    if isinstance(value, str):
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+    return ()
+
+
 def build_session_manager(settings: AppSettings) -> "SessionManager | None":
-    if settings.auth_mode.lower() not in {"local", "oidc"}:
+    if not is_cookie_auth_mode(settings.resolved_auth_mode):
         return None
     if not settings.session_secret:
         raise ValueError(
@@ -80,9 +95,11 @@ class SessionManager:
                 role=principal.role,
                 auth_provider=principal.auth_provider,
                 csrf_token=csrf_token,
+                scopes=principal.scopes,
+                permissions=principal.permissions,
             )
             resolved_fingerprint = credential_fingerprint
-        payload = {
+        payload: dict[str, Any] = {
             "sub": session_principal.user_id,
             "usr": session_principal.username,
             "role": session_principal.role.value,
@@ -94,6 +111,10 @@ class SessionManager:
         }
         if resolved_fingerprint:
             payload["fp"] = resolved_fingerprint
+        if session_principal.scopes:
+            payload["scopes"] = list(session_principal.scopes)
+        if session_principal.permissions:
+            payload["permissions"] = list(session_principal.permissions)
         return IssuedSession(
             cookie_value=_encode_signed_payload(self._secret, payload),
             csrf_token=csrf_token,
@@ -114,38 +135,49 @@ class SessionManager:
         )
         if payload is None:
             return None
-        provider = payload["provider"]
+        provider = _payload_string(payload, "provider")
+        subject = _payload_string(payload, "sub")
+        username = _payload_string(payload, "usr")
+        role_value = _payload_string(payload, "role")
+        csrf_token = _payload_string(payload, "csrf")
+        if provider is None or subject is None or username is None or role_value is None:
+            return None
         if provider == "local":
             if auth_store is None:
                 return None
             try:
-                user = auth_store.get_local_user(payload["sub"])
+                user = auth_store.get_local_user(subject)
             except (KeyError, ValueError):
                 return None
             if not user.enabled:
                 return None
-            if user.username != payload["usr"]:
+            if user.username != username:
                 return None
-            if _password_fingerprint(user.password_hash) != payload.get("fp", ""):
+            fingerprint = _payload_string(payload, "fp") or ""
+            if _password_fingerprint(user.password_hash) != fingerprint:
                 return None
             return AuthenticatedPrincipal(
                 user_id=user.user_id,
                 username=user.username,
                 role=user.role,
                 auth_provider="local",
-                csrf_token=payload.get("csrf"),
+                csrf_token=csrf_token,
             )
         if provider == "oidc":
             try:
-                role = UserRole(payload["role"])
+                role = UserRole(role_value)
             except ValueError:
                 return None
+            permissions = _payload_string_tuple(payload, "permissions")
+            scopes = _payload_string_tuple(payload, "scopes")
             return AuthenticatedPrincipal(
-                user_id=payload["sub"],
-                username=payload["usr"],
+                user_id=subject,
+                username=username,
                 role=role,
                 auth_provider="oidc",
-                csrf_token=payload.get("csrf"),
+                csrf_token=csrf_token,
+                scopes=scopes,
+                permissions=permissions,
             )
         return None
 

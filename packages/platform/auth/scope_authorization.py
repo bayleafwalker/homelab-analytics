@@ -1,6 +1,16 @@
 """Path-level role and service-token scope requirements for the API."""
 from __future__ import annotations
 
+from packages.platform.auth.permission_registry import (
+    PERMISSION_ADMIN_WRITE,
+    PERMISSION_CONTROL_PUBLICATION_AUDIT_READ,
+    PERMISSION_CONTROL_SOURCE_LINEAGE_READ,
+    PERMISSION_INGEST_WRITE,
+    PERMISSION_REPORTS_READ,
+    PERMISSION_RUNS_READ,
+    PERMISSION_RUNS_RETRY,
+    PERMISSION_TRANSFORMATION_AUDIT_READ,
+)
 from packages.storage.auth_store import (
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
     SERVICE_TOKEN_SCOPE_INGEST_WRITE,
@@ -8,6 +18,50 @@ from packages.storage.auth_store import (
     SERVICE_TOKEN_SCOPE_RUNS_READ,
     UserRole,
 )
+
+
+def required_permission_for_path(path: str) -> str | None:
+    if path in {
+        "/health",
+        "/ready",
+        "/metrics",
+        "/auth/login",
+        "/auth/logout",
+        "/auth/callback",
+        "/auth/me",
+        "/docs",
+        "/redoc",
+        "/openapi.json",
+    }:
+        return None
+    if path.startswith("/runs/") and path.endswith("/retry"):
+        return PERMISSION_RUNS_RETRY
+    if path == "/control/source-lineage":
+        return PERMISSION_CONTROL_SOURCE_LINEAGE_READ
+    if path == "/control/publication-audit":
+        return PERMISSION_CONTROL_PUBLICATION_AUDIT_READ
+    if path == "/transformation-audit":
+        return PERMISSION_TRANSFORMATION_AUDIT_READ
+    if (
+        path.startswith("/auth/users")
+        or path.startswith("/auth/service-tokens")
+        or path == "/control/auth-audit"
+        or path == "/control/schedule-dispatches"
+        or path.startswith("/config/")
+        or path.startswith("/control/")
+        or path in {"/extensions", "/sources"}
+        or path.startswith("/landing/")
+        or path.startswith("/transformations/")
+        or path.startswith("/ingest/ingestion-definitions/")
+    ):
+        return PERMISSION_ADMIN_WRITE
+    if path.startswith("/ingest"):
+        return PERMISSION_INGEST_WRITE
+    if path.startswith("/runs"):
+        return PERMISSION_RUNS_READ
+    if path.startswith("/reports"):
+        return PERMISSION_REPORTS_READ
+    return None
 
 
 def required_role_for_path(path: str) -> UserRole | None:

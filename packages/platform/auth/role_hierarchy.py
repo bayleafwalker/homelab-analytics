@@ -23,6 +23,7 @@ class AuthenticatedPrincipal:
     auth_provider: Literal["local", "oidc", "service_token"] = "local"
     csrf_token: str | None = None
     scopes: tuple[str, ...] = ()
+    permissions: tuple[str, ...] = ()
 
 
 def has_required_role(role: UserRole, required_role: UserRole) -> bool:

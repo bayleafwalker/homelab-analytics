@@ -8,82 +8,85 @@ The platform must handle sensitive financial and personal data securely, deploy 
 
 ## Requirements
 
-### SEC-01: Local username/password authentication
+### SEC-01: Local single-user / break-glass authentication
 
-**Description:** The platform supports local username/password authentication as the bootstrap mechanism.
+**Description:** The platform provides a deliberately narrow local username/password path for single-user bootstrap and break-glass recovery.
 
-**Rationale:** A standalone auth option is required before OIDC infrastructure is available, and as a break-glass fallback.
+**Rationale:** Shared deployments should default to external identity providers; local auth remains available for bootstrap and emergency recovery without becoming a parallel multi-user identity system.
 
 **Phase:** 4
-**Status:** implemented (local-user storage exists in both SQLite and Postgres control-plane backends; API exposes `/auth/login`, `/auth/logout`, `/auth/me`, and admin user-management endpoints with signed session cookies, CSRF protection, and login lockout; auth events are recorded in control-plane audit data; API/web startup now fail fast on incomplete local-auth configuration; the Next.js web shell authenticates through the API; worker CLI can still create/reset/list local users; and bootstrap local-admin creation is now explicitly gated behind `HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN` so local auth remains a deliberate break-glass path)
+**Status:** in-progress (local-user storage, session cookies, CSRF checks, login lockout, bootstrap admin gating, and auth-audit events are implemented; the remaining work is narrowing local auth from general-purpose multi-user operation to explicit single-user/break-glass posture with stricter exposure and lifecycle constraints)
 
 **Acceptance criteria:**
-- Username/password login endpoint issues a signed session cookie or JWT.
-- Web UI login page authenticates against the local store.
-- At least one admin user can be created during initial setup.
-- Passwords are stored hashed (bcrypt or argon2).
-- Cookie-authenticated state-changing routes enforce CSRF protection.
-- Repeated failed logins trigger a lockout policy with audit visibility.
-- Tests verify login, session, and rejection flows.
+- Local auth is explicitly enabled and defaults to off in shared deployment examples.
+- Username/password login issues a signed session cookie and state-changing routes enforce CSRF protection.
+- Passwords are stored hashed and repeated failed logins trigger lockout with audit visibility.
+- Bootstrap local admin creation requires explicit enablement and remains documented as break-glass.
+- Break-glass activation and usage are auditable and visible to operators.
+- Tests verify login/session/rejection flows and break-glass gating behavior.
 
 **Dependencies:** none
 
 ---
 
-### SEC-02: OIDC authentication
+### SEC-02: External OIDC authentication (primary human path)
 
-**Description:** The platform supports OIDC authentication for production deployments, integrating with Authentik, Keycloak, or Dex.
+**Description:** The platform supports generic OIDC authentication as the default interactive path, with Authentik as the reference provider and compatibility with Authelia and Keycloak.
 
-**Rationale:** OIDC provides centralized identity management for multi-service homelab environments.
+**Rationale:** Upstream identity providers should own identity proofing and lifecycle concerns while the platform consumes standard claims for principal construction.
 
 **Phase:** 4
-**Status:** implemented (OIDC settings are now supported through environment variables and Secret-backed runtime config; API/web startup fail fast when OIDC settings are incomplete; the API performs discovery, code exchange, signed callback/session handling, and JWT validation against issuer JWKS; the Next.js web shell proxies OIDC login and callback through the API while keeping the browser-facing auth surface on the web origin; protected API endpoints accept validated OIDC bearer JWTs; and the Helm shared-deployment defaults now assume OIDC rather than local auth)
+**Status:** in-progress (OIDC discovery, authorization-code exchange, callback/session handling, JWT validation, and web/API wiring are implemented; remaining work is documenting provider posture, tightening generic-claim mapping contracts, and completing the broader identity-mode migration path)
 
 **Acceptance criteria:**
-- OIDC configuration via environment variables or Kubernetes Secret: issuer URL, client ID, client secret, redirect URI.
-- Web UI redirects to OIDC provider for login and handles the callback.
+- OIDC configuration supports issuer URL, client ID, client secret, and redirect URI via environment variables or Kubernetes Secrets.
+- Web login redirects to the OIDC provider and callback handling completes without exposing provider secrets to the browser.
 - API validates OIDC-issued JWTs on protected endpoints.
-- Tests verify token validation against a mock OIDC issuer.
+- Claims are normalized into internal principals through explicit claim mapping inputs.
+- Documentation includes Authentik as the default reference plus Authelia and Keycloak compatibility notes.
+- Tests verify token validation and claim-mapping behavior against a mock OIDC issuer.
 
-**Dependencies:** SEC-01
-
----
-
-### SEC-03: Service tokens
-
-**Description:** API tokens for automation consumers (Home Assistant, cron jobs). Tokens are scoped and revocable.
-
-**Rationale:** Automation systems need persistent credentials that do not require interactive login.
-
-**Phase:** 4
-**Status:** implemented (service tokens now live in the control plane for both SQLite and Postgres backends with hashed-secret storage, optional expiry, revocation, and last-used metadata; the API authenticates opaque `hst_...` bearer tokens before OIDC JWT validation, enforces route-to-scope checks, records failed-token attempts in auth audit history, exposes admin create/list/revoke endpoints, and exports service-token state gauges through `/metrics`; the Next.js admin page can mint copy-once tokens, show last-used and expiry warnings, and revoke them; and the worker CLI supports create/list/revoke plus snapshot import/export parity)
-
-**Acceptance criteria:**
-- Admin can create a named service token with an optional expiry and scope.
-- API authenticates requests bearing a valid service token.
-- Tokens can be revoked by admin.
-- Tests verify token creation, usage, and revocation.
-
-**Dependencies:** SEC-01
+**Dependencies:** none
 
 ---
 
-### SEC-04: Role separation
+### SEC-03: Service and machine tokens
 
-**Description:** At minimum three roles: read-only dashboard access, ingestion/configuration management, and administrative access.
+**Description:** API tokens for automation consumers (Home Assistant, schedulers, integrations) remain first-class, are revocable, and are evaluated through the same internal authorization vocabulary used for human principals.
 
-**Rationale:** Not all household members or automation systems should have full configuration access.
+**Rationale:** Automation systems need persistent credentials without interactive login, and authorization semantics must stay consistent between humans and machines.
 
 **Phase:** 4
-**Status:** implemented (local auth, OIDC, and service tokens now all enforce the shared `reader`, `operator`, and `admin` separation across API and Next.js web routes; cookie-backed identities are role-gated directly, while service tokens layer explicit scopes such as `reports:read`, `runs:read`, `ingest:write`, and `admin:write` on top of the same route model)
+**Status:** in-progress (service token storage, hashing, expiry, revocation, last-used metadata, API authentication, route scope checks, audit visibility, admin/web lifecycle UI, and worker CLI lifecycle commands are implemented; remaining work is unifying scopes into the broader permission registry and preparing optional upstream machine-JWT mapping)
 
 **Acceptance criteria:**
-- Read-only role can view dashboards and reports but cannot ingest or configure.
-- Operator role can trigger ingestion and manage sources.
-- Admin role has full access including user and token management.
-- Role enforcement is tested across API and web endpoints.
+- Admin can create a named service token with optional expiry and explicit grants.
+- API authenticates requests bearing valid service tokens.
+- Service-token grants are evaluated with the same permission semantics used by other principal types.
+- Tokens can be revoked by admin and usage metadata is recorded.
+- Tests verify token creation, usage, authorization behavior, and revocation.
 
-**Dependencies:** SEC-01
+**Dependencies:** SEC-04
+
+---
+
+### SEC-04: Authorization kernel (roles plus permissions)
+
+**Description:** The platform enforces authorization in-app using baseline roles (`reader`, `operator`, `admin`) plus explicit permission bundles and grant mapping for app-specific actions.
+
+**Rationale:** The app, not the identity provider, owns domain semantics such as publication access, ingestion controls, run execution, and policy/action permissions.
+
+**Phase:** 4
+**Status:** in-progress (role separation is implemented across local auth, OIDC, and service tokens; route scope checks exist for machine tokens; remaining work is introducing a unified permission registry, declarative claim-to-permission mapping, and per-asset grant support)
+
+**Acceptance criteria:**
+- Baseline roles remain available for coarse-grained access control.
+- A permission registry defines canonical app actions (for example report reads, ingest writes, run execution, admin writes, and policy/action operations).
+- Roles map to permission bundles, and additional grants can be mapped from identity claims or machine-token grants.
+- API and web authorization checks evaluate permissions consistently across local, OIDC, and service-token principals.
+- Tests verify both role-based and grant-specific authorization behavior.
+
+**Dependencies:** SEC-02, SEC-03
 
 ---
 
