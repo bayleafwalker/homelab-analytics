@@ -47,7 +47,7 @@ test-e2e-local:
 	$(PYTEST) -q -m e2e
 
 test-sqlite-adapters:
-	$(PYTEST) -q tests/test_blob_store.py tests/test_run_metadata_repository.py tests/test_storage_runtime.py tests/test_control_plane_store_contract.py tests/test_sqlite_auth_store_contract.py tests/test_migration_runner.py
+	$(PYTEST) -q tests/test_blob_store.py tests/test_run_metadata_repository.py tests/test_storage_runtime.py tests/test_sqlite_control_plane_smoke.py tests/test_sqlite_auth_store_contract.py tests/test_migration_runner.py
 
 db-migrate-sqlite:
 	@if [ -z "$(DB_PATH)" ]; then echo "DB_PATH is required, e.g. make db-migrate-sqlite DB_PATH=data/config.db"; exit 1; fi
@@ -67,7 +67,7 @@ db-migrate-postgres-run-metadata:
 	$(PYTHON) -c "import psycopg; from pathlib import Path; from packages.storage.migration_runner import apply_pending_postgres_migrations; conn = psycopg.connect('$(POSTGRES_DSN)'); applied = apply_pending_postgres_migrations(conn, Path('migrations/postgres_run_metadata')); conn.close(); print('Applied run-metadata:', applied or 'none (already up to date)')"
 
 test-storage-adapters:
-	$(PYTEST) -q tests/test_blob_store.py tests/test_run_metadata_repository.py tests/test_storage_runtime.py tests/test_control_plane_store_contract.py tests/test_sqlite_auth_store_contract.py tests/test_postgres_run_metadata_integration.py tests/test_postgres_ingestion_config_integration.py tests/test_postgres_auth_store_integration.py tests/test_postgres_reporting_integration.py tests/test_s3_postgres_control_plane_integration.py
+	$(PYTEST) -q --override-ini addopts=-ra tests/test_blob_store.py tests/test_run_metadata_repository.py tests/test_storage_runtime.py tests/test_sqlite_control_plane_smoke.py tests/test_sqlite_auth_store_contract.py tests/test_control_plane_store_contract.py tests/test_postgres_run_metadata_integration.py tests/test_postgres_ingestion_config_integration.py tests/test_postgres_auth_store_integration.py tests/test_postgres_reporting_integration.py tests/test_s3_postgres_control_plane_integration.py
 
 test-coverage:
 	$(PYTEST) -q --cov=apps --cov=packages --cov-report=term-missing

@@ -118,7 +118,9 @@ Key environment variables (see `docs/runbooks/configuration.md` for the full ref
 - `HOMELAB_ANALYTICS_CONTROL_PLANE_DSN` — control-plane Postgres DSN override
 - deprecated compatibility aliases: `HOMELAB_ANALYTICS_CONFIG_BACKEND`, `HOMELAB_ANALYTICS_METADATA_BACKEND`, `HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN`, `HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN`
   - aliases emit runtime `DeprecationWarning`; removal is planned no earlier than `v0.2.0`
-- `HOMELAB_ANALYTICS_AUTH_MODE` — current runtime: `disabled`, `local` (or `local_single_user` alias), or `oidc`; `proxy` is a reserved mode and currently rejected at startup (default: `disabled`)
+- `HOMELAB_ANALYTICS_IDENTITY_MODE` — canonical identity mode selector: `disabled`, `local`, `local_single_user`, `oidc`, or `proxy`
+- `HOMELAB_ANALYTICS_AUTH_MODE` — legacy compatibility fallback when `HOMELAB_ANALYTICS_IDENTITY_MODE` is unset; migration strict guard: `HOMELAB_ANALYTICS_AUTH_MODE_LEGACY_STRICT=true`
+- optional upstream machine JWT path: set `HOMELAB_ANALYTICS_MACHINE_JWT_ENABLED=true` with issuer/audience config to accept non-interactive bearer principals through the same in-app authorization model used by service tokens
 - `HOMELAB_ANALYTICS_BLOB_BACKEND` — `filesystem` or `s3` (default: `filesystem`)
 - `HOMELAB_ANALYTICS_EXTENSION_PATHS` — custom import roots for external extensions
 

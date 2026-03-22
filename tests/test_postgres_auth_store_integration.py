@@ -1,3 +1,5 @@
+"""Authoritative Postgres auth-store integration plus snapshot portability checks."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -28,6 +30,7 @@ def test_postgres_auth_store_round_trips_local_users() -> None:
 
 
 def test_sqlite_auth_snapshot_imports_into_postgres() -> None:
+    # Snapshot portability is intentionally shared across backends for migration flows.
     with TemporaryDirectory() as temp_dir:
         sqlite_repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
         sqlite_repository.create_local_user(

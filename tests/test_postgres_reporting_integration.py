@@ -1,3 +1,5 @@
+"""Postgres-published reporting integration coverage (authoritative app-facing path)."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -98,59 +100,6 @@ def test_reporting_service_reads_published_marts_and_dimensions_from_postgres() 
     assert len(account_rows) == 1
     assert account_rows[0]["account_id"] == "checking"
     assert account_rows[0]["currency"] == "EUR"
-
-
-def test_reporting_service_returns_same_results_in_warehouse_and_published_modes() -> None:
-    transformation_service = TransformationService(DuckDBStore.memory())
-    transformation_service.load_transactions(
-        [
-            {
-                "booked_at": "2026-01-03T08:00:00+00:00",
-                "account_id": "checking",
-                "counterparty_name": "Employer",
-                "amount": "2500.00",
-                "currency": "EUR",
-                "description": "salary",
-            },
-            {
-                "booked_at": "2026-01-05T08:00:00+00:00",
-                "account_id": "checking",
-                "counterparty_name": "Landlord",
-                "amount": "-900.00",
-                "currency": "EUR",
-                "description": "rent",
-            },
-        ],
-        run_id="run-001",
-    )
-    transformation_service.refresh_monthly_cashflow()
-
-    warehouse_reporting_service = ReportingService(transformation_service)
-    warehouse_monthly_rows = warehouse_reporting_service.get_monthly_cashflow()
-    warehouse_account_rows = warehouse_reporting_service.get_current_dimension_rows(
-        "dim_account"
-    )
-
-    with running_postgres_container() as dsn:
-        publisher = ReportingService(
-            transformation_service,
-            publication_store=PostgresReportingStore(dsn),
-        )
-        publisher.publish_publications(
-            ["mart_monthly_cashflow", "rpt_current_dim_account"]
-        )
-
-        published_reporting_service = ReportingService(
-            _FailingTransformationService(),  # type: ignore[arg-type]
-            publication_store=PostgresReportingStore(dsn),
-        )
-        published_monthly_rows = published_reporting_service.get_monthly_cashflow()
-        published_account_rows = published_reporting_service.get_current_dimension_rows(
-            "dim_account"
-        )
-
-    assert published_monthly_rows == warehouse_monthly_rows
-    assert published_account_rows == warehouse_account_rows
 
 
 def test_reporting_service_reads_published_transformation_audit_from_postgres() -> None:

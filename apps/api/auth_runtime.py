@@ -17,6 +17,11 @@ from packages.platform.auth.credential_resolution import (
     request_remote_addr,
 )
 from packages.platform.auth.crypto import has_required_service_token_scope, parse_service_token
+from packages.platform.auth.machine_jwt_provider import (
+    MachineJwtAuthenticationError,
+    MachineJwtAuthorizationError,
+    MachineJwtProvider,
+)
 from packages.platform.auth.oidc_provider import (
     OidcAuthenticationError,
     OidcAuthorizationError,
@@ -78,6 +83,7 @@ def register_auth_middleware(
     resolved_auth_store: AuthStore,
     resolved_session_manager: SessionManager | None,
     resolved_oidc_provider: OidcProvider | None,
+    resolved_machine_jwt_provider: MachineJwtProvider | None,
     resolved_proxy_provider: ProxyProvider | None,
     enable_unsafe_admin: bool,
     break_glass_controller: BreakGlassController | None,
@@ -142,23 +148,80 @@ def register_auth_middleware(
                         status_code=401,
                         content={"detail": "Invalid service token."},
                     )
-                elif request.state.principal is None and resolved_auth_mode == "oidc":
-                    assert resolved_oidc_provider is not None
-                    try:
-                        request.state.principal = (
-                            resolved_oidc_provider.authenticate_bearer_token(
-                                bearer_token
+                elif request.state.principal is None:
+                    machine_jwt_error: tuple[int, str, str] | None = None
+                    if resolved_machine_jwt_provider is not None:
+                        try:
+                            request.state.principal = (
+                                resolved_machine_jwt_provider.authenticate_bearer_token(
+                                    bearer_token
+                                )
                             )
+                            metrics_registry.inc(
+                                "auth_machine_jwt_authenticated_requests_total",
+                                1,
+                                help_text=(
+                                    "Total successfully authenticated machine-JWT "
+                                    "bearer requests observed by this API process."
+                                ),
+                            )
+                            record_auth_event(
+                                request,
+                                event_type="machine_jwt_auth_succeeded",
+                                success=True,
+                                subject_user_id=request.state.principal.user_id,
+                                subject_username=request.state.principal.username,
+                                detail="Machine JWT bearer authenticated.",
+                            )
+                        except MachineJwtAuthorizationError as exc:
+                            machine_jwt_error = (
+                                403,
+                                str(exc),
+                                str(exc),
+                            )
+                        except MachineJwtAuthenticationError:
+                            machine_jwt_error = (
+                                401,
+                                "Invalid bearer token.",
+                                "Invalid or unauthorized machine JWT bearer token.",
+                            )
+
+                    if request.state.principal is None and resolved_auth_mode == "oidc":
+                        assert resolved_oidc_provider is not None
+                        try:
+                            request.state.principal = (
+                                resolved_oidc_provider.authenticate_bearer_token(
+                                    bearer_token
+                                )
+                            )
+                        except OidcAuthorizationError as exc:
+                            auth_error_response = JSONResponse(
+                                status_code=403,
+                                content={"detail": str(exc)},
+                            )
+                        except OidcAuthenticationError:
+                            auth_error_response = JSONResponse(
+                                status_code=401,
+                                content={"detail": "Invalid bearer token."},
+                            )
+                    elif request.state.principal is None and machine_jwt_error is not None:
+                        metrics_registry.inc(
+                            "auth_machine_jwt_failed_requests_total",
+                            1,
+                            help_text=(
+                                "Total rejected machine-JWT bearer requests "
+                                "observed by this API process."
+                            ),
                         )
-                    except OidcAuthorizationError as exc:
-                        auth_error_response = JSONResponse(
-                            status_code=403,
-                            content={"detail": str(exc)},
+                        record_auth_event(
+                            request,
+                            event_type="machine_jwt_auth_failed",
+                            success=False,
+                            detail=machine_jwt_error[2],
                         )
-                    except OidcAuthenticationError:
                         auth_error_response = JSONResponse(
-                            status_code=401,
-                            content={"detail": "Invalid bearer token."},
+                            status_code=machine_jwt_error[0],
+                            content={"detail": machine_jwt_error[1]},
                         )
             else:
                 if resolved_auth_mode == "proxy":
@@ -292,7 +355,8 @@ def register_auth_middleware(
                     return denied_response
                 if (
                     request.state.principal is not None
-                    and request.state.principal.auth_provider == "service_token"
+                    and request.state.principal.auth_provider
+                    in {"service_token", "machine_jwt"}
                     and not has_required_service_token_scope(
                         request.state.principal.scopes,
                         required_scope,

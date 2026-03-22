@@ -39,8 +39,8 @@ class WebMainTests(unittest.TestCase):
             self.assertEqual("0.0.0.0", environment["HOSTNAME"])
             self.assertEqual("8081", environment["PORT"])
             self.assertEqual("http://api.internal:8090", environment["HOMELAB_ANALYTICS_API_BASE_URL"])
-            self.assertEqual("disabled", environment["HOMELAB_ANALYTICS_AUTH_MODE"])
             self.assertEqual("disabled", environment["HOMELAB_ANALYTICS_IDENTITY_MODE"])
+            self.assertNotIn("HOMELAB_ANALYTICS_AUTH_MODE", environment)
 
     def test_main_executes_next_runtime_command(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -106,7 +106,7 @@ class WebMainTests(unittest.TestCase):
                 web_host="0.0.0.0",
                 web_port=8081,
                 worker_poll_interval_seconds=1,
-                auth_mode="local_single_user",
+                identity_mode="local_single_user",
                 session_secret="session-secret",
                 break_glass_enabled=True,
             )
@@ -114,7 +114,6 @@ class WebMainTests(unittest.TestCase):
             with patch("apps.web.main.build_web_command", return_value=["node", "server.js"]):
                 _, _, environment = build_runtime(settings)
 
-            self.assertEqual("local", environment["HOMELAB_ANALYTICS_AUTH_MODE"])
             self.assertEqual(
                 "local_single_user",
                 environment["HOMELAB_ANALYTICS_IDENTITY_MODE"],
@@ -141,7 +140,7 @@ class WebMainTests(unittest.TestCase):
                 web_host="0.0.0.0",
                 web_port=8081,
                 worker_poll_interval_seconds=1,
-                auth_mode="oidc",
+                identity_mode="oidc",
                 session_secret="session-secret",
             )
 
@@ -169,7 +168,7 @@ class WebMainTests(unittest.TestCase):
                 web_host="0.0.0.0",
                 web_port=8081,
                 worker_poll_interval_seconds=1,
-                auth_mode="proxy",
+                identity_mode="proxy",
             )
 
             with self.assertRaisesRegex(
@@ -199,14 +198,13 @@ class WebMainTests(unittest.TestCase):
                 web_host="0.0.0.0",
                 web_port=8081,
                 worker_poll_interval_seconds=1,
-                auth_mode="proxy",
+                identity_mode="proxy",
                 proxy_trusted_cidrs=("10.0.0.0/8",),
             )
 
             with patch("apps.web.main.build_web_command", return_value=["node", "server.js"]):
                 _, _, environment = build_runtime(settings)
 
-            self.assertEqual("proxy", environment["HOMELAB_ANALYTICS_AUTH_MODE"])
             self.assertEqual("proxy", environment["HOMELAB_ANALYTICS_IDENTITY_MODE"])
 
 

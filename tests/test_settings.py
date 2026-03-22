@@ -70,6 +70,16 @@ class AppSettingsTests(unittest.TestCase):
         self.assertIsNone(settings.identity_mode)
         self.assertEqual("disabled", settings.resolved_identity_mode)
         self.assertEqual("disabled", settings.resolved_auth_mode)
+        self.assertFalse(settings.auth_mode_legacy_strict)
+        self.assertFalse(settings.machine_jwt_enabled)
+        self.assertIsNone(settings.machine_jwt_issuer_url)
+        self.assertIsNone(settings.machine_jwt_jwks_url)
+        self.assertIsNone(settings.machine_jwt_audience)
+        self.assertEqual("sub", settings.machine_jwt_username_claim)
+        self.assertEqual("role", settings.machine_jwt_role_claim)
+        self.assertEqual("reader", settings.machine_jwt_default_role)
+        self.assertIsNone(settings.machine_jwt_permissions_claim)
+        self.assertEqual("scope", settings.machine_jwt_scopes_claim)
         self.assertIsNone(settings.session_secret)
         self.assertFalse(settings.break_glass_enabled)
         self.assertTrue(settings.break_glass_internal_only)
@@ -258,6 +268,7 @@ class AppSettingsTests(unittest.TestCase):
                 "HOMELAB_ANALYTICS_S3_PREFIX": "bronze",
                 "HOMELAB_ANALYTICS_AUTH_MODE": "local",
                 "HOMELAB_ANALYTICS_IDENTITY_MODE": "local_single_user",
+                "HOMELAB_ANALYTICS_AUTH_MODE_LEGACY_STRICT": "true",
                 "HOMELAB_ANALYTICS_SESSION_SECRET": "session-secret",
                 "HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED": "true",
                 "HOMELAB_ANALYTICS_BREAK_GLASS_INTERNAL_ONLY": "false",
@@ -287,6 +298,15 @@ class AppSettingsTests(unittest.TestCase):
                 "HOMELAB_ANALYTICS_OIDC_READER_GROUPS": "dash-readers",
                 "HOMELAB_ANALYTICS_OIDC_OPERATOR_GROUPS": "operators-a,operators-b",
                 "HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS": "platform-admins",
+                "HOMELAB_ANALYTICS_MACHINE_JWT_ENABLED": "true",
+                "HOMELAB_ANALYTICS_MACHINE_JWT_ISSUER_URL": "https://machine-auth.example.test/",
+                "HOMELAB_ANALYTICS_MACHINE_JWT_JWKS_URL": "https://machine-auth.example.test/jwks",
+                "HOMELAB_ANALYTICS_MACHINE_JWT_AUDIENCE": "homelab-machine",
+                "HOMELAB_ANALYTICS_MACHINE_JWT_USERNAME_CLAIM": "client_id",
+                "HOMELAB_ANALYTICS_MACHINE_JWT_ROLE_CLAIM": "hla_role",
+                "HOMELAB_ANALYTICS_MACHINE_JWT_DEFAULT_ROLE": "operator",
+                "HOMELAB_ANALYTICS_MACHINE_JWT_PERMISSIONS_CLAIM": "hla_permissions",
+                "HOMELAB_ANALYTICS_MACHINE_JWT_SCOPES_CLAIM": "scope",
                 "HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN": "true",
                 "HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME": "admin",
                 "HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD": "admin-password",
@@ -329,6 +349,7 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual("local_single_user", settings.identity_mode)
         self.assertEqual("local_single_user", settings.resolved_identity_mode)
         self.assertEqual("local", settings.resolved_auth_mode)
+        self.assertTrue(settings.auth_mode_legacy_strict)
         self.assertEqual("session-secret", settings.session_secret)
         self.assertTrue(settings.break_glass_enabled)
         self.assertFalse(settings.break_glass_internal_only)
@@ -375,6 +396,24 @@ class AppSettingsTests(unittest.TestCase):
             settings.oidc_operator_groups,
         )
         self.assertEqual(("platform-admins",), settings.oidc_admin_groups)
+        self.assertTrue(settings.machine_jwt_enabled)
+        self.assertEqual(
+            "https://machine-auth.example.test/",
+            settings.machine_jwt_issuer_url,
+        )
+        self.assertEqual(
+            "https://machine-auth.example.test/jwks",
+            settings.machine_jwt_jwks_url,
+        )
+        self.assertEqual("homelab-machine", settings.machine_jwt_audience)
+        self.assertEqual("client_id", settings.machine_jwt_username_claim)
+        self.assertEqual("hla_role", settings.machine_jwt_role_claim)
+        self.assertEqual("operator", settings.machine_jwt_default_role)
+        self.assertEqual(
+            "hla_permissions",
+            settings.machine_jwt_permissions_claim,
+        )
+        self.assertEqual("scope", settings.machine_jwt_scopes_claim)
         self.assertTrue(settings.enable_bootstrap_local_admin)
         self.assertEqual("admin", settings.bootstrap_admin_username)
         self.assertEqual("admin-password", settings.bootstrap_admin_password)

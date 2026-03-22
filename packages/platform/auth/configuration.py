@@ -7,23 +7,46 @@ from ipaddress import ip_network
 
 from packages.platform.auth.crypto import hash_password
 from packages.shared.auth_modes import is_cookie_auth_mode
+from packages.shared.metrics import metrics_registry
 from packages.shared.settings import AppSettings
 from packages.storage.auth_store import AuthStore, LocalUserCreate, LocalUserRecord, UserRole
 
+LEGACY_AUTH_MODE_WARN_WINDOW = "v0.1.x"
+LEGACY_AUTH_MODE_ERROR_WINDOW = "v0.2.x"
+LEGACY_AUTH_MODE_REMOVAL_TARGET = "v0.3.0"
+
 
 def validate_auth_configuration(settings: AppSettings) -> None:
-    if settings.identity_mode is None:
-        legacy_auth_mode = settings.auth_mode.strip().lower()
-        if legacy_auth_mode and legacy_auth_mode != "disabled":
-            warnings.warn(
-                (
-                    "HOMELAB_ANALYTICS_AUTH_MODE is a legacy compatibility input and "
-                    "will be removed no earlier than v0.2.0; configure "
-                    "HOMELAB_ANALYTICS_IDENTITY_MODE instead."
-                ),
-                DeprecationWarning,
-                stacklevel=3,
+    if settings.uses_legacy_auth_mode_fallback:
+        metrics_registry.inc(
+            "auth_legacy_mode_fallback_startups_total",
+            1,
+            help_text=(
+                "Total startup validations that relied on legacy "
+                "HOMELAB_ANALYTICS_AUTH_MODE fallback instead of explicit "
+                "HOMELAB_ANALYTICS_IDENTITY_MODE."
+            ),
+        )
+        if settings.auth_mode_legacy_strict:
+            raise ValueError(
+                "HOMELAB_ANALYTICS_AUTH_MODE fallback is disabled when "
+                "HOMELAB_ANALYTICS_AUTH_MODE_LEGACY_STRICT=true. Configure "
+                "HOMELAB_ANALYTICS_IDENTITY_MODE explicitly. "
+                f"Migration policy: warning window={LEGACY_AUTH_MODE_WARN_WINDOW}, "
+                f"error window={LEGACY_AUTH_MODE_ERROR_WINDOW}, "
+                f"removal target={LEGACY_AUTH_MODE_REMOVAL_TARGET}."
             )
+        warnings.warn(
+            (
+                "HOMELAB_ANALYTICS_AUTH_MODE is a legacy compatibility input; "
+                "configure HOMELAB_ANALYTICS_IDENTITY_MODE instead. "
+                f"Migration policy: warning window={LEGACY_AUTH_MODE_WARN_WINDOW}, "
+                f"error window={LEGACY_AUTH_MODE_ERROR_WINDOW}, "
+                f"removal target={LEGACY_AUTH_MODE_REMOVAL_TARGET}."
+            ),
+            DeprecationWarning,
+            stacklevel=3,
+        )
 
     if settings.break_glass_ttl_minutes <= 0:
         raise ValueError(
@@ -84,6 +107,51 @@ def validate_auth_configuration(settings: AppSettings) -> None:
         ]
         if missing:
             raise ValueError(f"OIDC auth requires settings: {', '.join(missing)}")
+    if settings.machine_jwt_enabled:
+        missing_machine_settings = [
+            variable
+            for variable, value in (
+                (
+                    "HOMELAB_ANALYTICS_MACHINE_JWT_ISSUER_URL",
+                    settings.machine_jwt_issuer_url,
+                ),
+                (
+                    "HOMELAB_ANALYTICS_MACHINE_JWT_AUDIENCE",
+                    settings.machine_jwt_audience,
+                ),
+            )
+            if not value
+        ]
+        if missing_machine_settings:
+            raise ValueError(
+                "Machine JWT auth requires settings: "
+                f"{', '.join(missing_machine_settings)}"
+            )
+        if settings.resolved_auth_mode == "disabled":
+            raise ValueError(
+                "Machine JWT auth requires authentication to be enabled. Set "
+                "HOMELAB_ANALYTICS_IDENTITY_MODE to local/local_single_user, "
+                "oidc, or proxy."
+            )
+        if not settings.machine_jwt_username_claim.strip():
+            raise ValueError(
+                "Machine JWT auth requires HOMELAB_ANALYTICS_MACHINE_JWT_USERNAME_CLAIM."
+            )
+        if settings.machine_jwt_role_claim is not None and not settings.machine_jwt_role_claim.strip():
+            raise ValueError(
+                "Machine JWT role claim, when set, must be a non-empty string."
+            )
+        if settings.machine_jwt_scopes_claim is not None and not settings.machine_jwt_scopes_claim.strip():
+            raise ValueError(
+                "Machine JWT scopes claim, when set, must be a non-empty string."
+            )
+        try:
+            UserRole(settings.machine_jwt_default_role.strip().lower())
+        except ValueError as exc:
+            raise ValueError(
+                "HOMELAB_ANALYTICS_MACHINE_JWT_DEFAULT_ROLE must be one of: "
+                "reader, operator, admin."
+            ) from exc
     if auth_mode != "local":
         return
     if not settings.enable_bootstrap_local_admin:

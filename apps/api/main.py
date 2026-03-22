@@ -15,6 +15,7 @@ from packages.pipelines.lazy_transformation_service import LazyTransformationSer
 from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.platform.auth.configuration import validate_auth_configuration
+from packages.platform.auth.machine_jwt_provider import build_machine_jwt_provider
 from packages.platform.auth.oidc_provider import build_oidc_provider
 from packages.platform.auth.proxy_provider import build_proxy_provider
 from packages.platform.auth.session_manager import build_session_manager
@@ -194,6 +195,7 @@ def build_app(settings: AppSettings | None = None):
         reporting_service=reporting_service,
         session_manager=build_session_manager(resolved_settings),
         oidc_provider=build_oidc_provider(resolved_settings),
+        machine_jwt_provider=build_machine_jwt_provider(resolved_settings),
         proxy_provider=build_proxy_provider(resolved_settings),
         auth_failure_window_seconds=resolved_settings.auth_failure_window_seconds,
         auth_failure_threshold=resolved_settings.auth_failure_threshold,
@@ -216,7 +218,10 @@ def main() -> int:
     except ValueError as exc:
         logger.error(
             "api startup configuration invalid",
-            extra={"auth_mode": settings.auth_mode, "error": str(exc)},
+            extra={
+                "identity_mode": settings.identity_mode or settings.auth_mode,
+                "error": str(exc),
+            },
         )
         return 1
     uvicorn.run(

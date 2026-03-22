@@ -342,7 +342,7 @@ class ApiMainTests(unittest.TestCase):
                 web_host="127.0.0.1",
                 web_port=8091,
                 worker_poll_interval_seconds=1,
-                auth_mode="local",
+                identity_mode="local",
             )
 
             with self.assertRaisesRegex(
@@ -365,7 +365,7 @@ class ApiMainTests(unittest.TestCase):
                 web_host="127.0.0.1",
                 web_port=8091,
                 worker_poll_interval_seconds=1,
-                auth_mode="local_single_user",
+                identity_mode="local_single_user",
             )
 
             with self.assertRaisesRegex(
@@ -388,7 +388,7 @@ class ApiMainTests(unittest.TestCase):
                 web_host="127.0.0.1",
                 web_port=8091,
                 worker_poll_interval_seconds=1,
-                auth_mode="local_single_user",
+                identity_mode="local_single_user",
                 session_secret="session-secret",
             )
 
@@ -412,7 +412,7 @@ class ApiMainTests(unittest.TestCase):
                 web_host="127.0.0.1",
                 web_port=8091,
                 worker_poll_interval_seconds=1,
-                auth_mode="local",
+                identity_mode="local",
                 session_secret="session-secret",
                 break_glass_enabled=True,
             )
@@ -437,7 +437,7 @@ class ApiMainTests(unittest.TestCase):
                 web_host="127.0.0.1",
                 web_port=8091,
                 worker_poll_interval_seconds=1,
-                auth_mode="local_single_user",
+                identity_mode="local_single_user",
                 session_secret="session-secret",
                 break_glass_enabled=True,
                 break_glass_allowed_cidrs=("not-a-cidr",),
@@ -463,7 +463,7 @@ class ApiMainTests(unittest.TestCase):
                 web_host="127.0.0.1",
                 web_port=8091,
                 worker_poll_interval_seconds=1,
-                auth_mode="proxy",
+                identity_mode="proxy",
             )
 
             with self.assertRaisesRegex(
@@ -486,7 +486,7 @@ class ApiMainTests(unittest.TestCase):
                 web_host="127.0.0.1",
                 web_port=8091,
                 worker_poll_interval_seconds=1,
-                auth_mode="proxy",
+                identity_mode="proxy",
                 proxy_trusted_cidrs=("10.0.0.0/8",),
             )
 
@@ -511,7 +511,7 @@ class ApiMainTests(unittest.TestCase):
                 web_host="127.0.0.1",
                 web_port=8091,
                 worker_poll_interval_seconds=1,
-                auth_mode="local",
+                identity_mode="local",
                 session_secret="session-secret",
                 bootstrap_admin_username="admin",
                 bootstrap_admin_password="admin-password",

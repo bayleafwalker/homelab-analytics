@@ -1,3 +1,5 @@
+"""Postgres control-plane integration tests plus explicit snapshot portability contracts."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,6 +16,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.slow]
 
 
 def test_sqlite_snapshot_imports_into_postgres_control_plane_store() -> None:
+    # Snapshot portability is an intentional cross-backend contract worth preserving.
     with TemporaryDirectory() as temp_dir:
         source_repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
         seeded = seed_source_asset_graph(source_repository)

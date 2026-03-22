@@ -48,7 +48,7 @@ def _build_client(
             service,
             config_repository=repository,
             auth_store=repository,
-            auth_mode="local",
+            identity_mode="local",
             session_manager=SessionManager("test-session-secret"),
             reporting_service=cast(Any, reporting_service),
         )
@@ -74,7 +74,7 @@ def _build_local_single_user_break_glass_client(temp_dir: str) -> TestClient:
         web_host="127.0.0.1",
         web_port=8081,
         worker_poll_interval_seconds=30,
-        auth_mode="local_single_user",
+        identity_mode="local_single_user",
         session_secret="test-session-secret",
         break_glass_enabled=True,
         break_glass_internal_only=True,
@@ -100,7 +100,7 @@ def _build_proxy_client(temp_dir: str) -> TestClient:
         web_host="127.0.0.1",
         web_port=8081,
         worker_poll_interval_seconds=30,
-        auth_mode="proxy",
+        identity_mode="proxy",
         proxy_trusted_cidrs=("10.0.0.0/8",),
         proxy_username_header="x-auth-user",
         proxy_role_header="x-auth-role",
@@ -116,7 +116,7 @@ def _build_proxy_client(temp_dir: str) -> TestClient:
             service,
             config_repository=repository,
             auth_store=repository,
-            auth_mode="proxy",
+            identity_mode="proxy",
             proxy_provider=build_proxy_provider(settings),
         )
     )
@@ -586,7 +586,7 @@ def test_api_local_auth_allows_reader_run_lineage_and_publication_visibility() -
                 service,
                 config_repository=repository,
                 auth_store=repository,
-                auth_mode="local",
+                identity_mode="local",
                 session_manager=SessionManager("test-session-secret"),
             )
         )

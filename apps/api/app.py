@@ -67,6 +67,7 @@ from packages.pipelines.run_context import (
 )
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.platform.auth.break_glass import BreakGlassController
+from packages.platform.auth.machine_jwt_provider import MachineJwtProvider
 from packages.platform.auth.oidc_provider import OidcProvider
 from packages.platform.auth.proxy_provider import ProxyProvider
 from packages.platform.auth.session_manager import SessionManager
@@ -104,6 +105,30 @@ def _initialize_metrics() -> None:
     metrics_registry.set("worker_failed_dispatch_ratio", 0, help_text="Failed dispatches divided by total terminal dispatches.")
     metrics_registry.inc("auth_failures_total", 0, help_text="Total failed login attempts observed by the API.")
     metrics_registry.inc("auth_lockouts_total", 0, help_text="Total login lockouts observed by the API.")
+    metrics_registry.inc(
+        "auth_legacy_mode_fallback_startups_total",
+        0,
+        help_text=(
+            "Total startup validations that relied on legacy "
+            "HOMELAB_ANALYTICS_AUTH_MODE fallback instead of explicit "
+            "HOMELAB_ANALYTICS_IDENTITY_MODE."
+        ),
+    )
+    metrics_registry.inc(
+        "auth_machine_jwt_authenticated_requests_total",
+        0,
+        help_text=(
+            "Total successfully authenticated machine-JWT bearer requests "
+            "observed by this API process."
+        ),
+    )
+    metrics_registry.inc(
+        "auth_machine_jwt_failed_requests_total",
+        0,
+        help_text=(
+            "Total rejected machine-JWT bearer requests observed by this API process."
+        ),
+    )
 
 
 def ensure_matching_identifier(
@@ -167,7 +192,6 @@ def _register_exception_handlers(app: FastAPI) -> None:
 def _register_base_routes(
     app: FastAPI,
     *,
-    auth_mode: str,
     identity_mode: str,
     break_glass_controller: BreakGlassController | None,
     config_repository: ControlPlaneStore,
@@ -180,7 +204,6 @@ def _register_base_routes(
     async def ready() -> dict[str, Any]:
         payload: dict[str, Any] = {
             "status": "ready",
-            "auth_mode": auth_mode,
             "identity_mode": identity_mode,
         }
         if break_glass_controller is not None:
@@ -294,8 +317,10 @@ def create_app(
     contract_price_service: ContractPriceService | None = None,
     auth_store: AuthStore | None = None,
     auth_mode: str = "disabled",
+    identity_mode: str | None = None,
     session_manager: SessionManager | None = None,
     oidc_provider: OidcProvider | None = None,
+    machine_jwt_provider: MachineJwtProvider | None = None,
     proxy_provider: ProxyProvider | None = None,
     auth_failure_window_seconds: int = 900,
     auth_failure_threshold: int = 5,
@@ -323,7 +348,9 @@ def create_app(
             subscription_service=subscription_service,
             contract_price_service=contract_price_service,
         )
-        resolved_identity_mode = normalize_identity_mode(auth_mode)
+        resolved_identity_mode = normalize_identity_mode(
+            identity_mode or auth_mode
+        )
         resolved_auth_mode = normalize_auth_mode(resolved_identity_mode)
 
     # Auto-build a reporting service from transformation_service when reporting_service
@@ -422,6 +449,7 @@ def create_app(
         resolved_auth_store=resolved_auth_store,
         resolved_session_manager=session_manager,
         resolved_oidc_provider=oidc_provider,
+        resolved_machine_jwt_provider=machine_jwt_provider,
         resolved_proxy_provider=proxy_provider,
         enable_unsafe_admin=enable_unsafe_admin,
         break_glass_controller=break_glass_controller,
@@ -430,7 +458,6 @@ def create_app(
     _register_exception_handlers(app)
     _register_base_routes(
         app,
-        auth_mode=resolved_auth_mode,
         identity_mode=resolved_identity_mode,
         break_glass_controller=break_glass_controller,
         config_repository=resolved_config_repository,

@@ -83,8 +83,9 @@ Deprecation rollout:
 
 | Variable | Default | Description |
 |---|---|---|
-| `HOMELAB_ANALYTICS_AUTH_MODE` | `disabled` | Legacy compatibility auth mode input. Supports `disabled`, `local`, `local_single_user`, `oidc`, `proxy`. Prefer `HOMELAB_ANALYTICS_IDENTITY_MODE` for new deployments. |
-| `HOMELAB_ANALYTICS_IDENTITY_MODE` | falls back to `HOMELAB_ANALYTICS_AUTH_MODE` | Canonical identity mode selector: `disabled`, `local`, `local_single_user`, `oidc`, `proxy`. |
+| `HOMELAB_ANALYTICS_IDENTITY_MODE` | `disabled` | Canonical identity mode selector: `disabled`, `local`, `local_single_user`, `oidc`, `proxy`. |
+| `HOMELAB_ANALYTICS_AUTH_MODE` | `disabled` | Legacy compatibility fallback only when `HOMELAB_ANALYTICS_IDENTITY_MODE` is unset. Supports `disabled`, `local`, `local_single_user`, `oidc`, `proxy`. |
+| `HOMELAB_ANALYTICS_AUTH_MODE_LEGACY_STRICT` | `false` | Feature-flagged startup guard. When `true`, startup fails if non-disabled legacy `HOMELAB_ANALYTICS_AUTH_MODE` fallback is used without explicit `HOMELAB_ANALYTICS_IDENTITY_MODE`. |
 | `HOMELAB_ANALYTICS_SESSION_SECRET` | — | Signed app-session and OIDC state-cookie secret (required when auth is `local` or `oidc`) |
 | `HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED` | `false` | Required when identity mode is `local_single_user`; enables temporary emergency local access. |
 | `HOMELAB_ANALYTICS_BREAK_GLASS_INTERNAL_ONLY` | `true` | When enabled, local break-glass requests are restricted to internal/allowed addresses. |
@@ -97,6 +98,12 @@ Deprecation rollout:
 | `HOMELAB_ANALYTICS_AUTH_FAILURE_THRESHOLD` | — | Local-auth login lockout: failure count threshold |
 | `HOMELAB_ANALYTICS_AUTH_LOCKOUT_SECONDS` | — | Local-auth login lockout: lockout duration |
 | `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` | `false` | Temporary dev-only bypass for unauthenticated admin routes (not for shared deployments) |
+
+Legacy auth-mode migration policy:
+- warning window: `v0.1.x` (fallback allowed but emits `DeprecationWarning`)
+- error window: `v0.2.x` (enable `HOMELAB_ANALYTICS_AUTH_MODE_LEGACY_STRICT=true` during rollout to pre-flight this posture now)
+- removal target: no earlier than `v0.3.0`
+- observability: API metrics expose `auth_legacy_mode_fallback_startups_total`
 
 ### Trusted proxy mode
 
@@ -128,6 +135,22 @@ The architecture direction is external identity by default and in-app authorizat
 | `HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS` | — | OIDC groups mapped to `admin` role |
 
 OIDC and trusted-proxy permission grants support canonical static permissions (for example `ingest.write`, `runs.read`) plus asset-scoped grants: `reports.read.publication.<publication_key>`, `runs.read.run.<run_id>`, `runs.retry.run.<run_id>`, `control.source_lineage.read.run.<run_id>`, and `control.publication_audit.read.publication.<publication_key>`. Wildcards are supported as `reports.read.publication.*`, `runs.read.run.*`, `runs.retry.run.*`, `control.source_lineage.read.run.*`, `control.publication_audit.read.publication.*`, and prefix wildcards such as `reports.read.publication.finance.*`.
+
+## Machine JWT federation (optional)
+
+| Variable | Default | Description |
+|---|---|---|
+| `HOMELAB_ANALYTICS_MACHINE_JWT_ENABLED` | `false` | Enables optional upstream machine JWT bearer authentication in addition to service tokens. |
+| `HOMELAB_ANALYTICS_MACHINE_JWT_ISSUER_URL` | — | Required when machine JWT is enabled. Expected token issuer (`iss`) and discovery base URL. |
+| `HOMELAB_ANALYTICS_MACHINE_JWT_JWKS_URL` | — | Optional JWKS override. If unset, runtime attempts issuer discovery (`/.well-known/openid-configuration`) for `jwks_uri`. |
+| `HOMELAB_ANALYTICS_MACHINE_JWT_AUDIENCE` | — | Required when machine JWT is enabled. Expected JWT audience (`aud`). |
+| `HOMELAB_ANALYTICS_MACHINE_JWT_USERNAME_CLAIM` | `sub` | Claim used for principal username. |
+| `HOMELAB_ANALYTICS_MACHINE_JWT_ROLE_CLAIM` | `role` | Optional claim for role ceiling (`reader`, `operator`, `admin`). |
+| `HOMELAB_ANALYTICS_MACHINE_JWT_DEFAULT_ROLE` | `reader` | Role used when role claim is absent. |
+| `HOMELAB_ANALYTICS_MACHINE_JWT_PERMISSIONS_CLAIM` | — | Optional claim with direct permission grants (string list or comma-separated string). |
+| `HOMELAB_ANALYTICS_MACHINE_JWT_SCOPES_CLAIM` | `scope` | Optional claim with service-token-compatible scopes (`reports:read`, `runs:read`, `ingest:write`, `admin:write`). |
+
+Machine JWT tokens are evaluated by the existing in-app authorization kernel. Scope grants are enforced with the same policy semantics as service tokens for equivalent role/scope combinations. API metrics expose `auth_machine_jwt_authenticated_requests_total` and `auth_machine_jwt_failed_requests_total`, and auth-audit captures `machine_jwt_auth_succeeded`/`machine_jwt_auth_failed` events.
 
 ## Extensions
 

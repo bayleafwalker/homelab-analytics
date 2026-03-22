@@ -97,6 +97,31 @@ def test_service_token_permissions_intersect_role_and_scope_grants() -> None:
     assert not has_required_permission(token_ctx, PERMISSION_ADMIN_WRITE)
 
 
+def test_machine_jwt_scope_permissions_match_service_token_semantics() -> None:
+    machine_ctx = PrincipalAuthorizationContext(
+        role=UserRole.READER,
+        auth_provider="machine_jwt",
+        scopes=(SERVICE_TOKEN_SCOPE_ADMIN_WRITE,),
+    )
+
+    resolved_permissions = permissions_for_principal(machine_ctx)
+
+    assert PERMISSION_ADMIN_WRITE not in resolved_permissions
+    assert not has_required_permission(machine_ctx, PERMISSION_ADMIN_WRITE)
+
+
+def test_machine_jwt_direct_permissions_are_additive_when_present() -> None:
+    machine_ctx = PrincipalAuthorizationContext(
+        role=UserRole.READER,
+        auth_provider="machine_jwt",
+        scopes=(SERVICE_TOKEN_SCOPE_RUNS_READ,),
+        granted_permissions=("ingest.write",),
+    )
+
+    assert has_required_permission(machine_ctx, PERMISSION_RUNS_READ)
+    assert has_required_permission(machine_ctx, PERMISSION_INGEST_WRITE)
+
+
 def test_local_principal_permissions_follow_role_bundle_only() -> None:
     local_ctx = PrincipalAuthorizationContext(
         role=UserRole.OPERATOR,

@@ -75,6 +75,16 @@ class AppSettings:
     s3_prefix: str = ""
     auth_mode: str = "disabled"
     identity_mode: str | None = None
+    auth_mode_legacy_strict: bool = False
+    machine_jwt_enabled: bool = False
+    machine_jwt_issuer_url: str | None = None
+    machine_jwt_jwks_url: str | None = None
+    machine_jwt_audience: str | None = None
+    machine_jwt_username_claim: str = "sub"
+    machine_jwt_role_claim: str | None = "role"
+    machine_jwt_default_role: str = "reader"
+    machine_jwt_permissions_claim: str | None = None
+    machine_jwt_scopes_claim: str | None = "scope"
     session_secret: str | None = None
     break_glass_enabled: bool = False
     break_glass_internal_only: bool = True
@@ -146,6 +156,11 @@ class AppSettings:
     @property
     def is_local_single_user_mode(self) -> bool:
         return self.resolved_identity_mode == "local_single_user"
+
+    @property
+    def uses_legacy_auth_mode_fallback(self) -> bool:
+        auth_mode = self.auth_mode.strip().lower()
+        return self.identity_mode is None and bool(auth_mode) and auth_mode != "disabled"
 
     @property
     def resolved_control_plane_backend(self) -> str:
@@ -297,6 +312,39 @@ class AppSettings:
         s3_prefix = env.get("HOMELAB_ANALYTICS_S3_PREFIX", "")
         auth_mode = env.get("HOMELAB_ANALYTICS_AUTH_MODE", "disabled")
         identity_mode = env.get("HOMELAB_ANALYTICS_IDENTITY_MODE") or None
+        auth_mode_legacy_strict = env.get(
+            "HOMELAB_ANALYTICS_AUTH_MODE_LEGACY_STRICT", ""
+        ).lower() in {"1", "true", "yes", "on"}
+        machine_jwt_enabled = env.get(
+            "HOMELAB_ANALYTICS_MACHINE_JWT_ENABLED", ""
+        ).lower() in {"1", "true", "yes", "on"}
+        machine_jwt_issuer_url = (
+            env.get("HOMELAB_ANALYTICS_MACHINE_JWT_ISSUER_URL") or None
+        )
+        machine_jwt_jwks_url = (
+            env.get("HOMELAB_ANALYTICS_MACHINE_JWT_JWKS_URL") or None
+        )
+        machine_jwt_audience = (
+            env.get("HOMELAB_ANALYTICS_MACHINE_JWT_AUDIENCE") or None
+        )
+        machine_jwt_username_claim = env.get(
+            "HOMELAB_ANALYTICS_MACHINE_JWT_USERNAME_CLAIM",
+            "sub",
+        ).strip()
+        machine_jwt_role_claim = (
+            env.get("HOMELAB_ANALYTICS_MACHINE_JWT_ROLE_CLAIM", "role").strip() or None
+        )
+        machine_jwt_default_role = env.get(
+            "HOMELAB_ANALYTICS_MACHINE_JWT_DEFAULT_ROLE",
+            "reader",
+        ).strip()
+        machine_jwt_permissions_claim = (
+            env.get("HOMELAB_ANALYTICS_MACHINE_JWT_PERMISSIONS_CLAIM") or None
+        )
+        machine_jwt_scopes_claim = (
+            env.get("HOMELAB_ANALYTICS_MACHINE_JWT_SCOPES_CLAIM", "scope").strip()
+            or None
+        )
         session_secret = env.get("HOMELAB_ANALYTICS_SESSION_SECRET") or None
         break_glass_enabled = env.get(
             "HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED", ""
@@ -445,6 +493,16 @@ class AppSettings:
             s3_prefix=s3_prefix,
             auth_mode=auth_mode,
             identity_mode=identity_mode,
+            auth_mode_legacy_strict=auth_mode_legacy_strict,
+            machine_jwt_enabled=machine_jwt_enabled,
+            machine_jwt_issuer_url=machine_jwt_issuer_url,
+            machine_jwt_jwks_url=machine_jwt_jwks_url,
+            machine_jwt_audience=machine_jwt_audience,
+            machine_jwt_username_claim=machine_jwt_username_claim,
+            machine_jwt_role_claim=machine_jwt_role_claim,
+            machine_jwt_default_role=machine_jwt_default_role,
+            machine_jwt_permissions_claim=machine_jwt_permissions_claim,
+            machine_jwt_scopes_claim=machine_jwt_scopes_claim,
             session_secret=session_secret,
             break_glass_enabled=break_glass_enabled,
             break_glass_internal_only=break_glass_internal_only,

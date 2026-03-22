@@ -32,6 +32,8 @@ def serialize_authenticated_user(principal: AuthenticatedPrincipal) -> dict[str,
     if principal.auth_provider == "service_token":
         payload["scopes"] = list(principal.scopes)
         payload["token_id"] = principal.user_id
+    elif principal.auth_provider == "machine_jwt":
+        payload["scopes"] = list(principal.scopes)
     if principal.permissions:
         payload["permissions"] = list(principal.permissions)
     return payload
@@ -61,7 +63,7 @@ def serialize_principal(principal: AuthenticatedPrincipal) -> dict[str, str]:
         "role": principal.role.value,
         "auth_provider": principal.auth_provider,
     }
-    if principal.auth_provider == "service_token":
+    if principal.auth_provider in {"service_token", "machine_jwt"}:
         payload["scopes"] = ",".join(principal.scopes)
     if principal.permissions:
         payload["permissions"] = ",".join(principal.permissions)

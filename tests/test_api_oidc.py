@@ -37,7 +37,7 @@ def _oidc_settings(
 ) -> AppSettings:
     env = {
         "HOMELAB_ANALYTICS_DATA_DIR": temp_dir,
-        "HOMELAB_ANALYTICS_AUTH_MODE": "oidc",
+        "HOMELAB_ANALYTICS_IDENTITY_MODE": "oidc",
         "HOMELAB_ANALYTICS_SESSION_SECRET": "test-session-secret",
         "HOMELAB_ANALYTICS_OIDC_ISSUER_URL": issuer.issuer_url,
         "HOMELAB_ANALYTICS_OIDC_CLIENT_ID": issuer.client_id,
@@ -86,7 +86,7 @@ def _build_oidc_client(
             service,
             config_repository=repository,
             auth_store=repository,
-            auth_mode="oidc",
+            identity_mode="oidc",
             session_manager=build_session_manager(settings),
             oidc_provider=build_oidc_provider(
                 settings,
@@ -311,7 +311,7 @@ def test_api_oidc_accepts_service_tokens_before_oidc_jwt_validation() -> None:
                 service,
                 config_repository=repository,
                 auth_store=repository,
-                auth_mode="oidc",
+                identity_mode="oidc",
                 session_manager=build_session_manager(settings),
                 oidc_provider=build_oidc_provider(
                     settings,
@@ -839,7 +839,7 @@ def test_oidc_invalid_permission_group_mapping_is_rejected() -> None:
                 service,
                 config_repository=repository,
                 auth_store=repository,
-                auth_mode="oidc",
+                identity_mode="oidc",
                 session_manager=build_session_manager(settings),
                 oidc_provider=build_oidc_provider(
                     settings,

@@ -27,7 +27,10 @@ def main() -> int:
     except ValueError as exc:
         logger.error(
             "web startup configuration invalid",
-            extra={"auth_mode": settings.auth_mode, "error": str(exc)},
+            extra={
+                "identity_mode": settings.identity_mode or settings.auth_mode,
+                "error": str(exc),
+            },
         )
         return 1
     logger.info(

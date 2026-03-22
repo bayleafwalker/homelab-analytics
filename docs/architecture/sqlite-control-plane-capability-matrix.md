@@ -27,3 +27,10 @@ compared with the canonical Postgres control-plane path.
 - If a new control-plane feature lands Postgres-first, SQLite may lag until a local-dev use case justifies support.
 - Snapshot export/import is the migration and portability aid across backends; it is not a promise of full schema equivalence.
 - Shared deployments and production-like paths should use Postgres for control-plane and published reporting concerns.
+
+## Test Strategy Mapping
+
+- Authoritative control-plane integration coverage runs against Postgres-backed stores.
+- SQLite coverage is kept as local/bootstrap smoke validation (startup, core CRUD, dispatch smoke, snapshot import/export).
+- DuckDB tests stay focused on transformation/reporting engine semantics (facts, SCD dimensions, marts, refresh behavior).
+- Cross-backend tests are limited to explicit shared contracts such as snapshot portability.

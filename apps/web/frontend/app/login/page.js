@@ -1,5 +1,4 @@
-const AUTH_MODE = process.env.HOMELAB_ANALYTICS_AUTH_MODE || "disabled";
-const IDENTITY_MODE = process.env.HOMELAB_ANALYTICS_IDENTITY_MODE || AUTH_MODE;
+const IDENTITY_MODE = process.env.HOMELAB_ANALYTICS_IDENTITY_MODE || "disabled";
 
 function errorMessageFor(error, authMode) {
   if (error === "locked-out") {

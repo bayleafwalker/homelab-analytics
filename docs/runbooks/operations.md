@@ -7,6 +7,7 @@ The current shared-deployment path is:
 - API and worker on the shared Python image
 - web on the dedicated Next.js image
 - OIDC as the default interactive auth mode
+- trusted proxy identity mode supported when `HOMELAB_ANALYTICS_IDENTITY_MODE=proxy` with explicit trusted CIDRs/header mapping
 - Postgres for control-plane, metadata, and published reporting state
 - DuckDB confined to worker/local warehouse flows rather than shared app-facing reads
 - S3-compatible object storage for landed payloads
@@ -51,11 +52,37 @@ helm upgrade --install homelab-analytics charts/homelab-analytics \
 - `curl -fsS https://<public-host>/ready`
 - `curl -fsS https://<public-host>/api/health` only if ingress also routes API separately outside this chart
 
+## Auth identity-mode migration rollout
+
+Canonical deployment input is `HOMELAB_ANALYTICS_IDENTITY_MODE`. Legacy `HOMELAB_ANALYTICS_AUTH_MODE` fallback remains temporary compatibility only.
+
+Before (legacy fallback, tolerated during migration):
+
+```bash
+HOMELAB_ANALYTICS_AUTH_MODE=oidc
+# HOMELAB_ANALYTICS_IDENTITY_MODE unset
+```
+
+After (canonical, target posture):
+
+```bash
+HOMELAB_ANALYTICS_IDENTITY_MODE=oidc
+# HOMELAB_ANALYTICS_AUTH_MODE unset
+```
+
+Recommended rollout sequencing:
+
+1. Set `HOMELAB_ANALYTICS_IDENTITY_MODE` in all API/web/worker environments while leaving current `AUTH_MODE` values in place temporarily.
+2. Deploy and verify `/ready`, `/auth/me`, and ingress login/callback behavior.
+3. Watch API metrics for residual fallback usage (`auth_legacy_mode_fallback_startups_total`).
+4. Enable strict guard: `HOMELAB_ANALYTICS_AUTH_MODE_LEGACY_STRICT=true`.
+5. Remove `HOMELAB_ANALYTICS_AUTH_MODE` from workload envs once strict-guarded startup is clean.
+
 ## Readiness and health
 
 - `/health` is liveness only.
 - `/ready` is the deployment readiness contract for API and web.
-- Startup fails fast when `local` or `oidc` auth settings are incomplete.
+- Startup fails fast when configured auth settings are incomplete (`local`/`oidc` session requirements, proxy trusted-CIDR requirements, legacy strict-guard violations, and optional machine-JWT issuer/audience requirements).
 
 Initial checks:
 
@@ -70,6 +97,7 @@ If `/ready` fails:
 
 - confirm the expected Secret names are mounted through `secretEnvFrom`
 - confirm OIDC issuer, client, redirect URI, and session secret values
+- for proxy mode, confirm `HOMELAB_ANALYTICS_PROXY_TRUSTED_CIDRS` and header-name settings are present
 - confirm the API/worker Postgres DSNs point at reachable roles and schemas
 - confirm blob-storage settings include bucket and credentials when `blob_backend=s3`
 

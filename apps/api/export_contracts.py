@@ -37,7 +37,7 @@ def export_contracts(output_dir: Path = DEFAULT_GENERATED_DIR) -> None:
             web_host="127.0.0.1",
             web_port=8081,
             worker_poll_interval_seconds=60,
-            auth_mode="disabled",
+            identity_mode="disabled",
             enable_unsafe_admin=True,
         )
         app = build_app(settings)

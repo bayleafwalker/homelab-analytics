@@ -1,6 +1,13 @@
+"""Authoritative control-plane contract coverage against the Postgres backend."""
+
 from __future__ import annotations
 
+from collections.abc import Iterator
+
+import pytest
+
 from packages.storage.control_plane import ControlPlaneStore
+from packages.storage.postgres_ingestion_config import PostgresIngestionConfigRepository
 from tests.control_plane_test_support import (
     assert_auth_audit_behaviour,
     assert_control_plane_protocol_conformance,
@@ -11,8 +18,16 @@ from tests.control_plane_test_support import (
     assert_schedule_dispatch_resilience_behaviour,
     assert_service_token_behaviour,
 )
+from tests.postgres_test_support import running_postgres_container
 
-pytest_plugins = ("tests.control_plane_backend_fixtures",)
+pytestmark = [pytest.mark.integration, pytest.mark.slow]
+
+
+@pytest.fixture
+def control_plane_store() -> Iterator[ControlPlaneStore]:
+    """Canonical control-plane contract coverage runs only against Postgres."""
+    with running_postgres_container() as dsn:
+        yield PostgresIngestionConfigRepository(dsn, schema="control")
 
 
 def test_control_plane_store_implements_aggregate_protocols(

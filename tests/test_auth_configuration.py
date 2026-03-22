@@ -42,3 +42,42 @@ def test_validate_auth_configuration_uses_identity_mode_without_legacy_warning()
         for warning in caught
         if warning.category is DeprecationWarning
     )
+
+
+def test_validate_auth_configuration_rejects_legacy_auth_mode_fallback_when_strict() -> None:
+    settings = AppSettings.from_env(
+        {
+            "HOMELAB_ANALYTICS_AUTH_MODE": "local",
+            "HOMELAB_ANALYTICS_AUTH_MODE_LEGACY_STRICT": "true",
+            "HOMELAB_ANALYTICS_SESSION_SECRET": "session-secret",
+        }
+    )
+
+    try:
+        validate_auth_configuration(settings)
+    except ValueError as exc:
+        assert "HOMELAB_ANALYTICS_AUTH_MODE_LEGACY_STRICT=true" in str(exc)
+    else:
+        raise AssertionError("Expected strict legacy auth-mode guard to raise ValueError.")
+
+
+def test_validate_auth_configuration_requires_machine_jwt_issuer_and_audience() -> None:
+    settings = AppSettings.from_env(
+        {
+            "HOMELAB_ANALYTICS_IDENTITY_MODE": "oidc",
+            "HOMELAB_ANALYTICS_SESSION_SECRET": "session-secret",
+            "HOMELAB_ANALYTICS_OIDC_ISSUER_URL": "https://issuer.example.test/oidc",
+            "HOMELAB_ANALYTICS_OIDC_CLIENT_ID": "homelab-analytics",
+            "HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET": "client-secret",
+            "HOMELAB_ANALYTICS_OIDC_REDIRECT_URI": "https://analytics.example.test/auth/callback",
+            "HOMELAB_ANALYTICS_MACHINE_JWT_ENABLED": "true",
+        }
+    )
+
+    try:
+        validate_auth_configuration(settings)
+    except ValueError as exc:
+        assert "HOMELAB_ANALYTICS_MACHINE_JWT_ISSUER_URL" in str(exc)
+        assert "HOMELAB_ANALYTICS_MACHINE_JWT_AUDIENCE" in str(exc)
+    else:
+        raise AssertionError("Expected missing machine JWT settings to raise ValueError.")

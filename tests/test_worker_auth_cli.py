@@ -75,7 +75,7 @@ def test_worker_cli_bootstraps_local_admin_from_settings() -> None:
         settings = AppSettings(
             **{
                 **settings.__dict__,
-                "auth_mode": "local",
+                "identity_mode": "local",
                 "enable_bootstrap_local_admin": True,
                 "bootstrap_admin_username": "bootstrap-admin",
                 "bootstrap_admin_password": "bootstrap-password",

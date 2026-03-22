@@ -411,6 +411,19 @@ def permissions_for_principal(context: PrincipalAuthorizationContext) -> FrozenS
         for permission in normalize_permission_grants(context.granted_permissions)
     )
     if context.auth_provider != "service_token":
+        if context.auth_provider == "machine_jwt":
+            scope_permissions = permissions_for_service_token_scopes(context.scopes)
+            # machine_jwt can mirror service-token semantics via scope claims while
+            # still allowing optional direct permission claims.
+            if context.scopes:
+                scoped_role_permissions = frozenset(
+                    permission
+                    for permission in role_permissions
+                    if permission in scope_permissions
+                )
+            else:
+                scoped_role_permissions = role_permissions
+            return scoped_role_permissions.union(direct_permissions)
         return role_permissions.union(direct_permissions)
     scope_permissions = permissions_for_service_token_scopes(context.scopes)
     # Service tokens keep role ceilings and explicit scope grants.

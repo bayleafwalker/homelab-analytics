@@ -13,6 +13,12 @@ from packages.platform.auth.crypto import (
     verify_password,
     verify_service_token_secret,
 )
+from packages.platform.auth.machine_jwt_provider import (
+    MachineJwtAuthenticationError,
+    MachineJwtAuthorizationError,
+    MachineJwtProvider,
+    build_machine_jwt_provider,
+)
 from packages.platform.auth.oidc_provider import (
     OidcAuthenticationError,
     OidcAuthorizationError,
@@ -58,6 +64,10 @@ __all__ = [
     "OidcAuthorizationError",
     "OidcProvider",
     "build_oidc_provider",
+    "MachineJwtAuthenticationError",
+    "MachineJwtAuthorizationError",
+    "MachineJwtProvider",
+    "build_machine_jwt_provider",
     "ProxyAuthenticationError",
     "ProxyAuthorizationError",
     "ProxyProvider",

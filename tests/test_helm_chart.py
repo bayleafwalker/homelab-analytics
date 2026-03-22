@@ -52,7 +52,6 @@ class HelmChartTests(unittest.TestCase):
             "kind: Service",
             "HOMELAB_ANALYTICS_DATA_DIR",
             "HOMELAB_ANALYTICS_IDENTITY_MODE",
-            "HOMELAB_ANALYTICS_AUTH_MODE",
             "HOMELAB_ANALYTICS_WEB_PORT",
             "watch-schedule-dispatches",
         ]:

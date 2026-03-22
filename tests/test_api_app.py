@@ -58,7 +58,7 @@ class ApiAppTests(unittest.TestCase):
                             Path(temp_dir) / "runs.db"
                         ),
                     ),
-                    auth_mode="proxy",
+                    identity_mode="proxy",
                 )
 
     def test_create_app_treats_local_single_user_as_cookie_auth(self) -> None:
@@ -74,7 +74,7 @@ class ApiAppTests(unittest.TestCase):
                             Path(temp_dir) / "runs.db"
                         ),
                     ),
-                    auth_mode="local_single_user",
+                    identity_mode="local_single_user",
                 )
 
     def test_health_endpoint_returns_ok(self) -> None:
