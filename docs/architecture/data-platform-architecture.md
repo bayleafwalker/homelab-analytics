@@ -120,7 +120,7 @@ Typical reporting outputs:
 
 Reporting publication forms:
 
-- Postgres schemas or materialized views for the application
+- Postgres schemas or materialized views as the primary application contract
 - Parquet extracts for reproducible snapshots
 - API endpoints for downstream tools
 - dashboard datasets for interactive charts
@@ -246,12 +246,22 @@ This avoids implementing multiple proprietary file APIs in the first release.
 
 Use storage according to responsibility rather than trying to collapse everything into one engine.
 
+The platform does not treat SQLite, Postgres, and DuckDB as equal long-term database targets.
+
+Operational support model:
+
+- Postgres is the canonical operational database for control-plane state, landing metadata, run metadata, lineage, auth, scheduling, and published reporting.
+- SQLite is retained only as a local bootstrap fallback and smoke-test convenience path.
+- DuckDB remains the worker/local-development warehouse engine for transformation and analytical workloads.
+
+This reduces migration burden, feature friction, and SQL dialect drift in the operational path while preserving DuckDB for the warehouse role it is good at.
+
 | Layer | Primary store | Purpose |
 |---|---|---|
 | Input queue / sync area | PVC or mounted share | Short-lived watched folders and synced data |
 | Landing / bronze | S3-compatible object storage | Immutable payload archive |
 | Transformation / silver | DuckDB files plus Parquet on PVC or object storage | Batch normalization and reusable intermediate models |
-| Reporting / gold | Postgres | Published marts, API datasets, app metadata |
+| Reporting / gold | Postgres | Published marts and API-facing datasets |
 
 Metadata that spans all layers belongs in Postgres:
 
@@ -266,6 +276,18 @@ Use one DSN with separate schemas by default:
 - `control` for source registry, contracts, mappings, source assets, ingestion definitions, schedules, dispatch records, lineage, publication audit, and run metadata
 - `reporting` for published marts and current-dimension relations
 
+Do not interpret the retained SQLite path as a promise of full long-term feature parity for control-plane storage. It remains a local bootstrap and migration convenience path.
+
+Schema ownership for control-plane evolution:
+
+- `migrations/postgres` is the authoritative schema history for control-plane state.
+- `migrations/postgres_run_metadata` is the dedicated Postgres run-metadata schema history.
+- SQLite bootstrap/schema helpers are retained for local/dev fallback and portability drills, and may intentionally lag new Postgres-first control-plane features.
+- `migrations/duckdb` remains dedicated to transformation/reporting-store warehouse evolution.
+
+For explicit guaranteed-vs-best-effort boundaries, see
+`docs/architecture/sqlite-control-plane-capability-matrix.md`.
+
 Runtime deployments should still support per-purpose DSN overrides so workload credentials can differ by privilege:
 
 - API can receive control-plane and reporting DSNs aligned to its control/admin and read paths
@@ -276,6 +298,7 @@ Runtime deployments should still support per-purpose DSN overrides so workload c
 
 - API and web workloads should consume published reporting relations when Postgres reporting is enabled
 - worker jobs and local bootstrap flows may continue to read the DuckDB warehouse directly
+- warehouse reads are not the primary production application contract
 - interactive authentication should default to external OIDC identity providers; local username/password remains a deliberately narrow single-user break-glass path with HTTP-only signed session cookies only when explicitly enabled; authorization semantics stay in-app and should evolve from role-only checks toward explicit permission bundles that apply to both human and service-token principals; `/health`, `/ready`, and `/metrics` stay public, while admin/control routes require elevated authorization
 - `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` is a temporary local-only escape hatch and should stay disabled in shared deployment manifests
 - the web workload should stay API-backed: the current Next.js shell consumes API routes only, and any future product/admin UI should continue to avoid server-side warehouse or control-plane reads in the web runtime

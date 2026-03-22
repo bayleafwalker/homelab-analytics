@@ -33,6 +33,8 @@ def test_makefile_contains_required_verification_targets() -> None:
         "verify-all:",
         "verify-domain:",
         "compose-smoke:",
+        "db-migrate-postgres-control-plane:",
+        "db-migrate-postgres-run-metadata:",
     ]:
         assert target in content
 
@@ -48,6 +50,7 @@ def test_makefile_contains_required_verification_targets() -> None:
     assert "WEB_IMAGE := homelab-analytics-web:latest" in content
     assert "docker image inspect $(APP_IMAGE)" in content
     assert "docker image inspect $(WEB_IMAGE)" in content
+    assert "migrations/postgres_run_metadata" in content
 
 
 def test_ci_workflow_runs_blocking_and_advisory_verification() -> None:

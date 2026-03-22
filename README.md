@@ -6,6 +6,8 @@ The platform answers recurring household questions about money, utilities, and i
 
 This is not a Home Assistant add-on. Home Assistant is a first-class integration partner: it is the edge runtime, device hub, family-facing operational UI, and primary actuation surface. This platform provides what a HA add-on cannot — canonical cross-domain household semantics spanning finance, utilities, assets, contracts, loans, and homelab telemetry; long-horizon history; planning, simulation, and policy evaluation logic; trust and lineage; and multi-surface publishing. Platform outputs flow back to HA as synthetic entities for visualization, voice responses, and automation triggers. See `docs/product/homeassistant-and-smart-home-hub.md` for the product boundary and `docs/architecture/homeassistant-integration-hub.md` for the integration architecture.
 
+Database support model: Postgres is the canonical operational database for control-plane state, landing metadata, and published reporting. SQLite remains a local bootstrap fallback. DuckDB remains the worker/local analytical warehouse engine and is not the application's primary shared-production read contract.
+
 ## Product direction
 
 The project follows an 11-stage roadmap from analytics platform to household operating platform:
@@ -69,7 +71,7 @@ homelab-analytics/
 │   ├── pipelines/              # Transformation and mart logic
 │   ├── platform/               # Runtime, auth, capability types
 │   ├── shared/                 # Extension registry, auth shim, contracts
-│   └── storage/                # DuckDB, Postgres, SQLite, S3 adapters
+│   └── storage/                # Postgres control-plane/reporting, DuckDB warehouse, SQLite local fallback, S3 adapters
 ├── charts/
 │   └── homelab-analytics/      # Helm chart
 ├── infra/
@@ -97,6 +99,7 @@ homelab-analytics/
 - `docs/architecture/publication-contracts.md` — publication and UI descriptor contract model for renderer consumers
 - `docs/decisions/household-operating-platform-direction.md` — operating platform direction and 11-stage model
 - `docs/decisions/household-platform-adr-and-refactor-blueprint.md` — modular monolith architecture and capability pack model
+- `docs/decisions/operational-database-support-model.md` — canonical operational database support model and database-role separation
 - `docs/product/core-household-operating-picture.md` — core product definition and acceptance criteria
 - `docs/plans/household-operating-platform-roadmap.md` — 11-stage roadmap with deliverables and dependencies
 - `docs/product/homeassistant-and-smart-home-hub.md` — Home Assistant as edge runtime and actuation layer, platform vs HA boundary, and build ordering
@@ -109,7 +112,12 @@ The API uses FastAPI, the worker is a lightweight Python entrypoint, and the web
 Key environment variables (see `docs/runbooks/configuration.md` for the full reference):
 
 - `HOMELAB_ANALYTICS_DATA_DIR` — local data directory (default: `.local/homelab-analytics`)
+- `HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND` — control-plane backend selector (`postgres` for shared deployments, `sqlite` only for local bootstrap fallback)
+- `HOMELAB_ANALYTICS_REPORTING_BACKEND` — reporting read path selector; `duckdb` for worker/local warehouse reads, `postgres` for published app-facing relations
 - `HOMELAB_ANALYTICS_POSTGRES_DSN` — shared Postgres backend DSN
+- `HOMELAB_ANALYTICS_CONTROL_PLANE_DSN` — control-plane Postgres DSN override
+- deprecated compatibility aliases: `HOMELAB_ANALYTICS_CONFIG_BACKEND`, `HOMELAB_ANALYTICS_METADATA_BACKEND`, `HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN`, `HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN`
+  - aliases emit runtime `DeprecationWarning`; removal is planned no earlier than `v0.2.0`
 - `HOMELAB_ANALYTICS_AUTH_MODE` — current runtime: `disabled`, `local` (or `local_single_user` alias), or `oidc`; `proxy` is a reserved mode and currently rejected at startup (default: `disabled`)
 - `HOMELAB_ANALYTICS_BLOB_BACKEND` — `filesystem` or `s3` (default: `filesystem`)
 - `HOMELAB_ANALYTICS_EXTENSION_PATHS` — custom import roots for external extensions

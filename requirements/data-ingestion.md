@@ -145,7 +145,7 @@ The platform must accept data from heterogeneous sources — manual file uploads
 **Rationale:** Hard-coding per-source logic prevents scaling to many sources. Configuration-driven onboarding lets the platform grow without code changes for each new provider.
 
 **Phase:** 1
-**Status:** implemented (SQLite-backed `source_system`, `source_asset`, `ingestion_definition`, `dataset_contract`, `column_mapping`, `transformation_package`, and `publication_definition` entities exist; filesystem and HTTP ingestion definitions resolve at runtime; source assets now bind transformation packages and publication selection for promotion)
+**Status:** implemented (the retained SQLite bootstrap path and the canonical Postgres control-plane path both persist `source_system`, `source_asset`, `ingestion_definition`, `dataset_contract`, `column_mapping`, `transformation_package`, and `publication_definition`; filesystem and HTTP ingestion definitions resolve at runtime; source assets now bind transformation packages and publication selection for promotion)
 
 **Acceptance criteria:**
 - Configuration entities are defined as data models and persisted (initially file-based YAML/JSON, later database-backed).

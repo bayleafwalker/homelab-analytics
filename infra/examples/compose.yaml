@@ -41,10 +41,8 @@ services:
         condition: service_started
     environment:
       HOMELAB_ANALYTICS_DATA_DIR: /data
-      HOMELAB_ANALYTICS_CONFIG_BACKEND: postgres
-      HOMELAB_ANALYTICS_METADATA_BACKEND: postgres
-      HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
-      HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
+      HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND: postgres
+      HOMELAB_ANALYTICS_CONTROL_PLANE_DSN: postgresql://homelab:homelab@postgres:5432/homelab
       HOMELAB_ANALYTICS_REPORTING_BACKEND: postgres
       HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
       HOMELAB_ANALYTICS_BLOB_BACKEND: s3
@@ -124,10 +122,8 @@ services:
         condition: service_started
     environment:
       HOMELAB_ANALYTICS_DATA_DIR: /data
-      HOMELAB_ANALYTICS_CONFIG_BACKEND: postgres
-      HOMELAB_ANALYTICS_METADATA_BACKEND: postgres
-      HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
-      HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
+      HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND: postgres
+      HOMELAB_ANALYTICS_CONTROL_PLANE_DSN: postgresql://homelab:homelab@postgres:5432/homelab
       HOMELAB_ANALYTICS_REPORTING_BACKEND: postgres
       HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN: postgresql://homelab:homelab@postgres:5432/homelab
       HOMELAB_ANALYTICS_BLOB_BACKEND: s3

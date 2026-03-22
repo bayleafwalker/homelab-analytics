@@ -6,7 +6,7 @@ The minimum production backup set is:
 
 - Postgres `control` and `reporting` schemas
 - landed payloads in S3-compatible object storage
-- DuckDB warehouse files if any worker or local-recovery workflow still depends on them
+- DuckDB warehouse files only if a worker or local-recovery workflow still depends on them; they are not the primary application production contract
 
 The worker CLI export/import snapshot is a portability tool for control-plane metadata. It is not a replacement for full Postgres backup policy.
 
@@ -22,7 +22,7 @@ pg_dump \
   --file /backups/homelab-control-$(date +%F).dump \
   --schema=control \
   --schema=reporting \
-  "$HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN"
+  "$HOMELAB_ANALYTICS_CONTROL_PLANE_DSN"
 ```
 
 If you use separate DSNs per workload, use a dedicated backup DSN rather than reusing API or worker credentials.
@@ -67,7 +67,7 @@ pg_restore \
   --clean \
   --if-exists \
   --no-owner \
-  --dbname "$HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN" \
+  --dbname "$HOMELAB_ANALYTICS_CONTROL_PLANE_DSN" \
   /backups/homelab-control-2026-03-15.dump
 ```
 

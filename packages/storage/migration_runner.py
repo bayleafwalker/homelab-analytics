@@ -4,6 +4,14 @@ Migration files live under ``migrations/{backend}/NNNN_description.sql`` and are
 applied in lexicographic order.  Applied versions are tracked in the
 ``schema_migrations`` table so each migration runs exactly once.
 
+Ownership model:
+
+- ``migrations/postgres`` is the canonical control-plane schema evolution path.
+- ``migrations/postgres_run_metadata`` is the dedicated Postgres run-metadata
+  migration track.
+- ``migrations/sqlite`` remains a local bootstrap/dev compatibility path.
+- ``migrations/duckdb`` is dedicated to warehouse/reporting-store evolution.
+
 The runner is intentionally dependency-free: it uses only the raw dbapi2
 connections (sqlite3 / psycopg) and the DuckDB connection that the rest of
 the storage layer already holds.

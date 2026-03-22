@@ -12,7 +12,8 @@ Build a self-hosted data platform that ingests household and homelab datasets, n
 
 - API: FastAPI
 - Worker runtime: Python with Polars + DuckDB + PyArrow
-- Metadata and reporting store: Postgres
+- Operational database: Postgres
+- SQLite retained only as a local bootstrap fallback
 - Raw landing archive: S3-compatible object storage
 - Web UI: Next.js
 - Deployment: Docker plus Helm on Kubernetes

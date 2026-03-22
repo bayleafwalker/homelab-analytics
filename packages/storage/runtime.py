@@ -13,6 +13,28 @@ from packages.storage.run_metadata import RunMetadataRepository, RunMetadataStor
 from packages.storage.s3_blob import S3BlobStore
 
 
+def _resolve_control_plane_backend(settings: AppSettings) -> str:
+    backend = settings.resolved_control_plane_backend
+    if backend not in {"sqlite", "postgres"}:
+        raise ValueError(
+            "Unsupported control-plane backend: "
+            f"{backend!r}. Supported values are 'sqlite' and 'postgres'."
+        )
+    return backend
+
+
+def _resolve_control_plane_postgres_dsn(settings: AppSettings) -> str:
+    resolved_dsn = settings.resolved_control_plane_postgres_dsn
+    if not resolved_dsn:
+        raise ValueError(
+            "Postgres control-plane backend requires "
+            "HOMELAB_ANALYTICS_CONTROL_PLANE_DSN or HOMELAB_ANALYTICS_POSTGRES_DSN "
+            "(deprecated aliases: HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN, "
+            "HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN)."
+        )
+    return resolved_dsn
+
+
 def build_blob_store(settings: AppSettings) -> BlobStore:
     backend = settings.blob_backend.lower()
     if backend == "filesystem":
@@ -32,39 +54,29 @@ def build_blob_store(settings: AppSettings) -> BlobStore:
 
 
 def build_run_metadata_store(settings: AppSettings) -> RunMetadataStore:
-    backend = settings.metadata_backend.lower()
+    backend = _resolve_control_plane_backend(settings)
     if backend == "sqlite":
-        return RunMetadataRepository(settings.metadata_database_path)
+        return RunMetadataRepository(settings.resolved_config_database_path)
     if backend == "postgres":
-        resolved_dsn = settings.resolved_metadata_postgres_dsn
-        if not resolved_dsn:
-            raise ValueError(
-                "Postgres metadata backend requires HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN or HOMELAB_ANALYTICS_POSTGRES_DSN."
-            )
         return PostgresRunMetadataRepository(
-            resolved_dsn,
+            _resolve_control_plane_postgres_dsn(settings),
             schema=settings.control_schema,
         )
-    raise ValueError(f"Unsupported metadata backend: {settings.metadata_backend!r}")
+    raise AssertionError(f"Unhandled control-plane backend: {backend!r}")
 
 
 def build_config_store(
     settings: AppSettings,
 ) -> IngestionConfigRepository | PostgresIngestionConfigRepository:
-    backend = settings.config_backend.lower()
+    backend = _resolve_control_plane_backend(settings)
     if backend == "sqlite":
         return IngestionConfigRepository(settings.resolved_config_database_path)
     if backend == "postgres":
-        resolved_dsn = settings.resolved_control_postgres_dsn
-        if not resolved_dsn:
-            raise ValueError(
-                "Postgres config backend requires HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN or HOMELAB_ANALYTICS_POSTGRES_DSN."
-            )
         return PostgresIngestionConfigRepository(
-            resolved_dsn,
+            _resolve_control_plane_postgres_dsn(settings),
             schema=settings.control_schema,
         )
-    raise ValueError(f"Unsupported config backend: {settings.config_backend!r}")
+    raise AssertionError(f"Unhandled control-plane backend: {backend!r}")
 
 
 def build_auth_store(settings: AppSettings) -> AuthStore:

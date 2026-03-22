@@ -2,35 +2,56 @@
 
 This document lists all environment variables used by the homelab-analytics platform across API, worker, and web workloads.
 
+Operational support model:
+
+- Postgres is the canonical shared-deployment database for control-plane state, landing metadata, and published reporting.
+- SQLite is retained only for local bootstrap and smoke-test convenience.
+- DuckDB remains the worker/local-development warehouse engine.
+
 ---
 
 ## Data and storage
 
 | Variable | Default | Description |
 |---|---|---|
-| `HOMELAB_ANALYTICS_DATA_DIR` | `.local/homelab-analytics` | Local data directory for config databases, DuckDB warehouse, and landing payloads |
-| `HOMELAB_ANALYTICS_CONFIG_DATABASE_PATH` | `<data_dir>/config.db` | SQLite ingestion-config database path override |
-| `HOMELAB_ANALYTICS_ANALYTICS_DATABASE_PATH` | `<data_dir>/analytics/warehouse.duckdb` | DuckDB warehouse path override |
+| `HOMELAB_ANALYTICS_DATA_DIR` | `.local/homelab-analytics` | Local data directory for SQLite bootstrap state, DuckDB warehouse files, and landed payloads |
+| `HOMELAB_ANALYTICS_CONFIG_DATABASE_PATH` | `<data_dir>/config.db` | SQLite local control-plane database path override for bootstrap/dev fallback |
+| `HOMELAB_ANALYTICS_ANALYTICS_DATABASE_PATH` | `<data_dir>/analytics/warehouse.duckdb` | DuckDB warehouse path override for worker and local analytical runs |
 
 ## Backend selection
 
 | Variable | Default | Description |
 |---|---|---|
-| `HOMELAB_ANALYTICS_CONFIG_BACKEND` | `sqlite` | Control-plane backend: `sqlite` or `postgres` |
-| `HOMELAB_ANALYTICS_METADATA_BACKEND` | `sqlite` | Ingestion run metadata backend: `sqlite` or `postgres` |
-| `HOMELAB_ANALYTICS_REPORTING_BACKEND` | `duckdb` | Published reporting reads: `duckdb` or `postgres` |
+| `HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND` | `sqlite` | Canonical backend selector for control-plane configuration, auth/control metadata, and run-metadata state. `postgres` is the canonical shared-deployment target; `sqlite` is retained for local bootstrap fallback only. |
+| `HOMELAB_ANALYTICS_REPORTING_BACKEND` | `duckdb` | Reporting read path selector. `duckdb` keeps worker/local warehouse reads available; `postgres` selects published reporting relations for shared app-facing reads. |
 | `HOMELAB_ANALYTICS_BLOB_BACKEND` | `filesystem` | Landed payload storage: `filesystem` or `s3` |
+
+Deprecated backend aliases remain supported for compatibility: `HOMELAB_ANALYTICS_CONFIG_BACKEND` and `HOMELAB_ANALYTICS_METADATA_BACKEND`.
+
+When `HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND=sqlite`, the runtime uses one SQLite file (`HOMELAB_ANALYTICS_CONFIG_DATABASE_PATH`, default `<data_dir>/config.db`) for both control-plane state and run metadata.
+
+Schema-evolution contract:
+
+- Postgres is the canonical control-plane schema target and owns tracked operational migrations in `migrations/postgres`.
+- Postgres run-metadata tables use a dedicated migration track in `migrations/postgres_run_metadata`.
+- SQLite remains a local/bootstrap fallback path and is not a long-term feature-parity guarantee for control-plane schema evolution.
+- DuckDB schema lifecycle remains separate for worker/reporting-store concerns.
 
 ## Postgres
 
 | Variable | Default | Description |
 |---|---|---|
-| `HOMELAB_ANALYTICS_POSTGRES_DSN` | — | Shared Postgres DSN for control-plane, metadata, and reporting |
-| `HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN` | falls back to shared DSN | Per-concern override for control-plane and metadata |
-| `HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN` | falls back to shared DSN | Per-concern override for ingestion run metadata |
-| `HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN` | falls back to shared DSN | Per-concern override for published reporting reads |
-| `HOMELAB_ANALYTICS_CONTROL_SCHEMA` | `control` | Postgres schema for control-plane and metadata state |
+| `HOMELAB_ANALYTICS_POSTGRES_DSN` | — | Shared Postgres DSN for the canonical operational database |
+| `HOMELAB_ANALYTICS_CONTROL_PLANE_DSN` | falls back to shared DSN | Canonical Postgres DSN override for control-plane configuration, auth/control metadata, and ingestion run metadata |
+| `HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN` | falls back to shared DSN | Per-concern override for published reporting reads and refreshes |
+| `HOMELAB_ANALYTICS_CONTROL_SCHEMA` | `control` | Postgres schema for control-plane, landing metadata, auth, scheduling, lineage, and run state |
 | `HOMELAB_ANALYTICS_REPORTING_SCHEMA` | `reporting` | Postgres schema for published reporting relations |
+
+Deprecated DSN aliases remain supported for compatibility: `HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN` and `HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN`.
+
+Deprecation rollout:
+- Runtime now emits `DeprecationWarning` when any legacy alias above is set to a non-empty value.
+- Legacy alias removal is planned no earlier than `v0.2.0`.
 
 ## S3 / MinIO
 
@@ -106,7 +127,7 @@ The architecture direction is external identity by default and in-app authorizat
 | `HOMELAB_ANALYTICS_OIDC_OPERATOR_GROUPS` | — | OIDC groups mapped to `operator` role |
 | `HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS` | — | OIDC groups mapped to `admin` role |
 
-OIDC and trusted-proxy permission grants support canonical static permissions (for example `ingest.write`, `runs.read`) plus asset-scoped grants: `reports.read.publication.<publication_key>`, `runs.read.run.<run_id>`, and `runs.retry.run.<run_id>`. Wildcards are supported as `reports.read.publication.*`, `runs.read.run.*`, `runs.retry.run.*`, and prefix wildcards such as `reports.read.publication.finance.*`.
+OIDC and trusted-proxy permission grants support canonical static permissions (for example `ingest.write`, `runs.read`) plus asset-scoped grants: `reports.read.publication.<publication_key>`, `runs.read.run.<run_id>`, `runs.retry.run.<run_id>`, `control.source_lineage.read.run.<run_id>`, and `control.publication_audit.read.publication.<publication_key>`. Wildcards are supported as `reports.read.publication.*`, `runs.read.run.*`, `runs.retry.run.*`, `control.source_lineage.read.run.*`, `control.publication_audit.read.publication.*`, and prefix wildcards such as `reports.read.publication.finance.*`.
 
 ## Extensions
 

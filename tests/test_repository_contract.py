@@ -42,6 +42,7 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/plans/homelab-analytics-platform-plan.md",
             "docs/architecture/contract-governance.md",
             "docs/architecture/data-platform-architecture.md",
+            "docs/architecture/sqlite-control-plane-capability-matrix.md",
             "docs/decisions/compute-and-orchestration-options.md",
             "docs/notes/appservice-cluster-integration-notes.md",
             "docs/runbooks/operations.md",

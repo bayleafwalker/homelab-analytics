@@ -8,12 +8,12 @@ The current shared-deployment path is:
 - web on the dedicated Next.js image
 - OIDC as the default interactive auth mode
 - Postgres for control-plane, metadata, and published reporting state
+- DuckDB confined to worker/local warehouse flows rather than shared app-facing reads
 - S3-compatible object storage for landed payloads
 
 Use `charts/homelab-analytics/values.oidc-ingress-example.yaml` as the starting point for shared environments. It enables:
 
-- `HOMELAB_ANALYTICS_CONFIG_BACKEND=postgres`
-- `HOMELAB_ANALYTICS_METADATA_BACKEND=postgres`
+- `HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND=postgres`
 - `HOMELAB_ANALYTICS_REPORTING_BACKEND=postgres`
 - web ingress with TLS
 - `PrometheusRule` rendering for runtime alerts
@@ -72,6 +72,29 @@ If `/ready` fails:
 - confirm OIDC issuer, client, redirect URI, and session secret values
 - confirm the API/worker Postgres DSNs point at reachable roles and schemas
 - confirm blob-storage settings include bucket and credentials when `blob_backend=s3`
+
+## Schema migrations
+
+Run Postgres migrations before deployment or after pulling schema-affecting changes.
+
+Default path (recommended) applies both tracks:
+
+```bash
+make db-migrate-postgres POSTGRES_DSN=postgresql://...
+```
+
+Use targeted commands only when you need to isolate blast radius:
+
+```bash
+make db-migrate-postgres-control-plane POSTGRES_DSN=postgresql://...
+make db-migrate-postgres-run-metadata POSTGRES_DSN=postgresql://...
+```
+
+When to run each:
+
+- `db-migrate-postgres-control-plane`: source/contract/asset catalogs, scheduling/dispatch, provenance, auth, and control-plane config changes.
+- `db-migrate-postgres-run-metadata`: ingestion run-history and run-issue schema changes only.
+- `db-migrate-postgres`: standard operator path for normal releases or when unsure.
 
 ## Alert signals
 

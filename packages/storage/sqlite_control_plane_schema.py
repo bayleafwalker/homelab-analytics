@@ -10,6 +10,11 @@ from packages.storage.ingestion_catalog import (
 
 
 def initialize_sqlite_control_plane_schema(connection: sqlite3.Connection) -> None:
+    """Bootstrap SQLite control-plane schema for local/dev convenience.
+
+    SQLite is retained as a best-effort fallback and is not the canonical
+    control-plane schema evolution target.
+    """
     connection.executescript(
         """
         CREATE TABLE IF NOT EXISTS source_systems (

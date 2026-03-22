@@ -164,9 +164,10 @@ def test_postgres_ingestion_backend_imports_split_catalog_modules() -> None:
     imports = _import_names(ROOT / "packages" / "storage" / "postgres_ingestion_config.py")
 
     assert "packages.storage.control_plane_snapshot" in imports
+    assert "packages.storage.migration_runner" in imports
     assert "packages.storage.postgres_asset_definition_catalog" in imports
     assert "packages.storage.postgres_auth_control_plane" in imports
-    assert "packages.storage.postgres_control_plane_schema" in imports
+    assert "packages.storage.postgres_control_plane_schema" not in imports
     assert "packages.storage.postgres_execution_control_plane" in imports
     assert "packages.storage.postgres_provenance_control_plane" in imports
     assert "packages.storage.postgres_source_contract_catalog" in imports
@@ -178,12 +179,20 @@ def test_sqlite_ingestion_backend_imports_split_catalog_modules() -> None:
 
     assert "packages.storage.ingestion_catalog" in imports
     assert "packages.storage.control_plane_snapshot" in imports
+    assert "packages.storage.migration_runner" not in imports
     assert "packages.storage.sqlite_asset_definition_catalog" in imports
     assert "packages.storage.sqlite_auth_control_plane" in imports
     assert "packages.storage.sqlite_control_plane_schema" in imports
     assert "packages.storage.sqlite_execution_control_plane" in imports
     assert "packages.storage.sqlite_provenance_control_plane" in imports
     assert "packages.storage.sqlite_source_contract_catalog" in imports
+
+
+def test_postgres_run_metadata_backend_uses_migration_runner() -> None:
+    imports = _import_names(ROOT / "packages" / "storage" / "postgres_run_metadata.py")
+    assert "packages.storage.migration_runner" in imports
+    source = (ROOT / "packages" / "storage" / "postgres_run_metadata.py").read_text()
+    assert "migrations/postgres_run_metadata" in source
 
 
 def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> None:
@@ -889,6 +898,24 @@ def test_source_route_sub_modules_exist() -> None:
         assert path.exists(), f"Expected source route sub-module not found: {path}"
 
 
+def test_sqlite_capability_matrix_documents_guaranteed_vs_best_effort_contract() -> None:
+    content = (
+        ROOT / "docs" / "architecture" / "sqlite-control-plane-capability-matrix.md"
+    ).read_text()
+    for term in [
+        "Postgres",
+        "SQLite",
+        "Guaranteed",
+        "Best-effort",
+        "local bootstrap",
+        "snapshot",
+    ]:
+        assert term in content, (
+            "SQLite capability matrix must document guaranteed vs best-effort "
+            f"support boundaries; missing {term!r}"
+        )
+
+
 # ---------------------------------------------------------------------------
 # Migration file contracts
 # ---------------------------------------------------------------------------
@@ -899,12 +926,15 @@ def test_migration_files_follow_naming_convention() -> None:
     import re
 
     pattern = re.compile(r"^\d{4}_[a-z0-9_]+\.sql$")
-    for backend in ("sqlite", "postgres"):
-        migrations_dir = ROOT / "migrations" / backend
+    for migrations_dir in (
+        ROOT / "migrations" / "sqlite",
+        ROOT / "migrations" / "postgres",
+        ROOT / "migrations" / "postgres_run_metadata",
+    ):
         assert migrations_dir.exists(), (
-            f"migrations/{backend}/ directory not found — run the migration system setup"
+            f"{migrations_dir} directory not found — run the migration system setup"
         )
-        for f in migrations_dir.iterdir():
+        for f in migrations_dir.glob("*.sql"):
             if f.name.startswith("."):
                 continue
             assert pattern.match(f.name), (
@@ -912,8 +942,8 @@ def test_migration_files_follow_naming_convention() -> None:
             )
 
 
-def test_migration_versions_match_across_backends() -> None:
-    """SQLite and Postgres migration directories must have the same version numbers."""
+def test_sqlite_migration_versions_do_not_get_ahead_of_postgres() -> None:
+    """Postgres is canonical; SQLite versions may lag but must not lead."""
     sqlite_versions = {
         f.stem.split("_")[0]
         for f in (ROOT / "migrations" / "sqlite").glob("*.sql")
@@ -922,9 +952,9 @@ def test_migration_versions_match_across_backends() -> None:
         f.stem.split("_")[0]
         for f in (ROOT / "migrations" / "postgres").glob("*.sql")
     }
-    assert sqlite_versions == postgres_versions, (
-        f"Migration version mismatch: sqlite={sqlite_versions}, postgres={postgres_versions}. "
-        "Both backends must have the same set of version numbers."
+    assert sqlite_versions.issubset(postgres_versions), (
+        "SQLite migration versions must be a subset of canonical Postgres versions. "
+        f"sqlite={sqlite_versions}, postgres={postgres_versions}."
     )
 
 

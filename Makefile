@@ -21,6 +21,7 @@ CONTRACT_RELEASE_DIR ?= dist/contracts
 	test-storage-adapters test-sqlite-adapters test-coverage verify-config verify-docs \
 	verify-agent verify-arch verify-fast verify-all verify-domain helm-lint \
 	docker-build compose-smoke audit-deps db-migrate-sqlite db-migrate-postgres \
+	db-migrate-postgres-control-plane db-migrate-postgres-run-metadata \
 	web-codegen web-codegen-check web-typecheck web-build \
 	contract-export-check contract-compat-report contract-release-artifacts
 
@@ -54,7 +55,16 @@ db-migrate-sqlite:
 
 db-migrate-postgres:
 	@if [ -z "$(POSTGRES_DSN)" ]; then echo "POSTGRES_DSN is required, e.g. make db-migrate-postgres POSTGRES_DSN=postgresql://..."; exit 1; fi
-	$(PYTHON) -c "import psycopg; from pathlib import Path; from packages.storage.migration_runner import apply_pending_postgres_migrations; conn = psycopg.connect('$(POSTGRES_DSN)'); applied = apply_pending_postgres_migrations(conn, Path('migrations/postgres')); conn.close(); print('Applied:', applied or 'none (already up to date)')"
+	$(MAKE) db-migrate-postgres-control-plane POSTGRES_DSN="$(POSTGRES_DSN)"
+	$(MAKE) db-migrate-postgres-run-metadata POSTGRES_DSN="$(POSTGRES_DSN)"
+
+db-migrate-postgres-control-plane:
+	@if [ -z "$(POSTGRES_DSN)" ]; then echo "POSTGRES_DSN is required, e.g. make db-migrate-postgres-control-plane POSTGRES_DSN=postgresql://..."; exit 1; fi
+	$(PYTHON) -c "import psycopg; from pathlib import Path; from packages.storage.migration_runner import apply_pending_postgres_migrations; conn = psycopg.connect('$(POSTGRES_DSN)'); applied = apply_pending_postgres_migrations(conn, Path('migrations/postgres')); conn.close(); print('Applied control-plane:', applied or 'none (already up to date)')"
+
+db-migrate-postgres-run-metadata:
+	@if [ -z "$(POSTGRES_DSN)" ]; then echo "POSTGRES_DSN is required, e.g. make db-migrate-postgres-run-metadata POSTGRES_DSN=postgresql://..."; exit 1; fi
+	$(PYTHON) -c "import psycopg; from pathlib import Path; from packages.storage.migration_runner import apply_pending_postgres_migrations; conn = psycopg.connect('$(POSTGRES_DSN)'); applied = apply_pending_postgres_migrations(conn, Path('migrations/postgres_run_metadata')); conn.close(); print('Applied run-metadata:', applied or 'none (already up to date)')"
 
 test-storage-adapters:
 	$(PYTEST) -q tests/test_blob_store.py tests/test_run_metadata_repository.py tests/test_storage_runtime.py tests/test_control_plane_store_contract.py tests/test_sqlite_auth_store_contract.py tests/test_postgres_run_metadata_integration.py tests/test_postgres_ingestion_config_integration.py tests/test_postgres_auth_store_integration.py tests/test_postgres_reporting_integration.py tests/test_s3_postgres_control_plane_integration.py

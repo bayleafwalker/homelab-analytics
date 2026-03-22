@@ -34,12 +34,12 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Run-level metadata enables lineage tracking, reprocessing, deduplication, and operational monitoring.
 
 **Phase:** 0
-**Status:** implemented (SQLite remains the default local metadata store, and a Postgres adapter now exists for production-oriented run metadata persistence)
+**Status:** implemented (Postgres-backed run metadata is the canonical operational target, while the existing SQLite path remains in place as a local bootstrap fallback)
 
 **Acceptance criteria:**
 - Every ingestion writes a run record with all specified metadata fields.
 - Run records are queryable by status, dataset, and date range.
-- Postgres adapter is available for production use (Phase 1).
+- Postgres adapter is available for the canonical shared-deployment path (Phase 1).
 
 **Dependencies:** none
 
@@ -222,7 +222,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Dashboard and API consumers need simple, current-state views without knowing SCD mechanics.
 
 **Phase:** 1
-**Status:** in-progress (reporting views now publish current snapshots for `dim_account`, `dim_counterparty`, `dim_contract`, `dim_category`, and `dim_meter`; FastAPI exposes them via `GET /reports/current-dimensions/{dimension_name}`, and a Postgres publication path now mirrors the implemented current-dimension relations when configured)
+**Status:** in-progress (reporting views now publish current snapshots for `dim_account`, `dim_counterparty`, `dim_contract`, `dim_category`, and `dim_meter`; FastAPI exposes them via `GET /reports/current-dimensions/{dimension_name}`, and the Postgres publication path mirrors the implemented current-dimension relations for the shared app-facing contract when configured)
 
 **Acceptance criteria:**
 - Each SCD dimension has a corresponding current-view in the reporting layer.
@@ -254,10 +254,10 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Marts provide the stable query surfaces that dashboards and APIs consume.
 
 **Phase:** 1–3
-**Status:** in-progress (`TransformationService` materialises `mart_monthly_cashflow`, `mart_subscription_summary`, `mart_contract_price_current`, `mart_electricity_price_current`, and `mart_utility_cost_summary` in DuckDB; a Postgres publication path now mirrors the implemented marts for API/worker reads when configured, and remaining marts are still not implemented)
+**Status:** in-progress (`TransformationService` materialises `mart_monthly_cashflow`, `mart_subscription_summary`, `mart_contract_price_current`, `mart_electricity_price_current`, and `mart_utility_cost_summary` in DuckDB; a Postgres publication path now mirrors the implemented marts for shared app-facing reads when configured, and remaining marts are still not implemented)
 
 **Acceptance criteria:**
-- Each mart is materialized in Postgres with a documented schema.
+- Each application-facing mart is materialized in Postgres with a documented schema.
 - Marts are refreshable from transformation-layer inputs.
 - The API exposes each mart through a reporting endpoint.
 - Tests verify mart content from known fixture data.
@@ -285,18 +285,19 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 
 ### PLT-14: Persistent analytical store
 
-**Description:** Replace current SQLite metadata store with Postgres for metadata and reporting, and use DuckDB/Parquet for transformation-layer intermediate storage.
+**Description:** Standardize on Postgres as the canonical operational database for control-plane state, landing metadata, and published reporting; retain SQLite only as a local bootstrap fallback; and use DuckDB/Parquet for transformation-layer intermediate storage and local analytical work.
 
-**Rationale:** SQLite is inadequate for concurrent access, multi-process workers, and production-scale metadata. DuckDB provides efficient columnar analytics without Spark overhead.
+**Rationale:** SQLite is inadequate for concurrent access, multi-process workers, and production-scale metadata. Maintaining peer operational support across SQLite, Postgres, and DuckDB would increase migration burden, feature friction, and dialect drift. DuckDB provides efficient columnar analytics without Spark overhead and remains the right warehouse engine for worker and local-development use.
 
 **Phase:** 1
-**Status:** in-progress (DuckDB is already the transformation store, runtime backend selection now supports SQLite or Postgres metadata plus filesystem or S3 landing storage, and Postgres-backed publication storage now exists for implemented marts/current dimensions; the remaining work is broader gold/publication migration)
+**Status:** in-progress (DuckDB is already the transformation store, runtime backend selection still supports SQLite or Postgres for control-plane and metadata wiring, and Postgres-backed publication storage now exists for implemented marts/current dimensions; the remaining work is to complete the Postgres-first operational direction and keep the SQLite path clearly scoped as a local fallback instead of a parity promise)
 
 **Acceptance criteria:**
 - Postgres adapter implements `RunMetadataStore` protocol and passes storage adapter verification.
+- Postgres is the documented canonical operational store for control-plane, landing metadata, and published reporting.
 - DuckDB is used for transformation-layer reads and writes (fact/dimension persistence).
 - Polars is used for in-process data manipulation replacing stdlib CSV processing.
-- Existing SQLite path remains as a development fallback.
+- Existing SQLite path remains only as a development fallback and is documented as transitional rather than parity-critical.
 
 **Dependencies:** none
 
@@ -411,7 +412,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 | PLT-07 | SCD handling | `packages/storage/duckdb_store.py`, `packages/pipelines/transformation_service.py` | `tests/test_scd_dimension.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py` |
 | PLT-08 | Transformation | `packages/pipelines/normalization.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_normalization.py` |
 | PLT-09 | Transformation | `packages/pipelines/transformation_service.py`, `packages/pipelines/transformation_domain_registry.py`, `packages/pipelines/transformation_refresh_registry.py`, `packages/pipelines/builtin_transformation_refresh.py`, `packages/pipelines/transformation_transactions.py`, `packages/pipelines/transformation_subscriptions.py`, `packages/pipelines/transformation_contract_prices.py`, `packages/pipelines/transformation_utilities.py`, `packages/pipelines/transaction_models.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/contract_price_models.py` | `tests/test_architecture_contract.py`, `tests/test_transformation_service.py` |
-| PLT-10 | Transformation, Bridge models | `packages/storage/control_plane.py`, `packages/storage/control_plane_snapshot.py`, `packages/storage/ingestion_config.py`, `packages/storage/postgres_ingestion_config.py`, `packages/storage/sqlite_control_plane_schema.py`, `packages/storage/postgres_control_plane_schema.py`, `packages/storage/sqlite_execution_control_plane.py`, `packages/storage/postgres_execution_control_plane.py`, `packages/storage/sqlite_provenance_control_plane.py`, `packages/storage/postgres_provenance_control_plane.py`, `packages/storage/sqlite_auth_control_plane.py`, `packages/storage/postgres_auth_control_plane.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py` | `tests/test_control_plane_store_contract.py`, `tests/test_postgres_ingestion_config_integration.py`, `tests/test_control_plane_api_app.py`, `tests/test_s3_postgres_control_plane_integration.py` |
+| PLT-10 | Transformation, Bridge models | `packages/storage/control_plane.py`, `packages/storage/control_plane_snapshot.py`, `packages/storage/ingestion_config.py`, `packages/storage/postgres_ingestion_config.py`, `packages/storage/sqlite_control_plane_schema.py`, `packages/storage/sqlite_execution_control_plane.py`, `packages/storage/postgres_execution_control_plane.py`, `packages/storage/sqlite_provenance_control_plane.py`, `packages/storage/postgres_provenance_control_plane.py`, `packages/storage/sqlite_auth_control_plane.py`, `packages/storage/postgres_auth_control_plane.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py` | `tests/test_control_plane_store_contract.py`, `tests/test_postgres_ingestion_config_integration.py`, `tests/test_control_plane_api_app.py`, `tests/test_s3_postgres_control_plane_integration.py` |
 | PLT-11 | Reporting | `packages/storage/duckdb_store.py`, `packages/storage/postgres_reporting.py`, `packages/pipelines/builtin_reporting.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/transformation_transactions.py`, `packages/pipelines/transformation_subscriptions.py`, `packages/pipelines/transformation_contract_prices.py`, `packages/pipelines/transformation_utilities.py`, `packages/pipelines/reporting_service.py`, `apps/api/app.py` | `tests/test_transformation_normalization.py`, `tests/test_subscription_domain.py`, `tests/test_api_app.py`, `tests/test_postgres_reporting_integration.py` |
 | PLT-12 | Reporting | `packages/storage/postgres_reporting.py`, `packages/pipelines/builtin_reporting.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/transformation_transactions.py`, `packages/pipelines/transformation_subscriptions.py`, `packages/pipelines/transformation_contract_prices.py`, `packages/pipelines/transformation_utilities.py`, `packages/pipelines/reporting_service.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_monthly_cashflow_reporting.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py`, `tests/test_utility_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py`, `tests/test_postgres_reporting_integration.py`, `tests/test_reporting_api_app.py` |
 | PLT-13 | Reporting publication forms | — | — |

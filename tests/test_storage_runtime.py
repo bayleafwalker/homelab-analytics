@@ -83,18 +83,20 @@ def test_build_blob_store_constructs_s3_store() -> None:
 
 def test_build_run_metadata_store_defaults_to_sqlite() -> None:
     with TemporaryDirectory() as temp_dir:
-        store = build_run_metadata_store(_build_settings(temp_dir))
+        settings = _build_settings(temp_dir)
+        store = build_run_metadata_store(settings)
 
     assert isinstance(store, RunMetadataRepository)
+    assert store.database_path == settings.resolved_config_database_path
 
 
 def test_build_run_metadata_store_requires_dsn_for_postgres() -> None:
     with TemporaryDirectory() as temp_dir:
-        settings = _build_settings(temp_dir, metadata_backend="postgres")
+        settings = _build_settings(temp_dir, control_plane_backend="postgres")
 
         with pytest.raises(
             ValueError,
-            match="HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN or HOMELAB_ANALYTICS_POSTGRES_DSN",
+            match="HOMELAB_ANALYTICS_CONTROL_PLANE_DSN or HOMELAB_ANALYTICS_POSTGRES_DSN",
         ):
             build_run_metadata_store(settings)
 
@@ -103,7 +105,7 @@ def test_build_run_metadata_store_constructs_postgres_repository() -> None:
     with TemporaryDirectory() as temp_dir:
         settings = _build_settings(
             temp_dir,
-            metadata_backend="POSTGRES",
+            control_plane_backend="POSTGRES",
             postgres_dsn="postgresql://homelab:homelab@postgres:5432/homelab",
         )
 
@@ -116,20 +118,20 @@ def test_build_run_metadata_store_constructs_postgres_repository() -> None:
     )
 
 
-def test_build_run_metadata_store_prefers_metadata_specific_dsn() -> None:
+def test_build_run_metadata_store_prefers_control_plane_specific_dsn() -> None:
     with TemporaryDirectory() as temp_dir:
         settings = _build_settings(
             temp_dir,
-            metadata_backend="postgres",
+            control_plane_backend="postgres",
             postgres_dsn="postgresql://fallback:fallback@postgres:5432/homelab",
-            metadata_postgres_dsn="postgresql://metadata:metadata@postgres:5432/homelab",
+            control_plane_dsn="postgresql://control:control@postgres:5432/homelab",
         )
 
         with patch("packages.storage.runtime.PostgresRunMetadataRepository") as repository:
             build_run_metadata_store(settings)
 
     repository.assert_called_once_with(
-        "postgresql://metadata:metadata@postgres:5432/homelab",
+        "postgresql://control:control@postgres:5432/homelab",
         schema="control",
     )
 
@@ -196,11 +198,11 @@ def test_build_config_store_defaults_to_sqlite() -> None:
 
 def test_build_config_store_requires_dsn_for_postgres() -> None:
     with TemporaryDirectory() as temp_dir:
-        settings = _build_settings(temp_dir, config_backend="postgres")
+        settings = _build_settings(temp_dir, control_plane_backend="postgres")
 
         with pytest.raises(
             ValueError,
-            match="HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN or HOMELAB_ANALYTICS_POSTGRES_DSN",
+            match="HOMELAB_ANALYTICS_CONTROL_PLANE_DSN or HOMELAB_ANALYTICS_POSTGRES_DSN",
         ):
             build_config_store(settings)
 
@@ -209,7 +211,7 @@ def test_build_config_store_constructs_postgres_repository() -> None:
     with TemporaryDirectory() as temp_dir:
         settings = _build_settings(
             temp_dir,
-            config_backend="POSTGRES",
+            control_plane_backend="POSTGRES",
             postgres_dsn="postgresql://homelab:homelab@postgres:5432/homelab",
         )
 
@@ -222,13 +224,13 @@ def test_build_config_store_constructs_postgres_repository() -> None:
     )
 
 
-def test_build_config_store_prefers_control_specific_dsn() -> None:
+def test_build_config_store_prefers_control_plane_specific_dsn() -> None:
     with TemporaryDirectory() as temp_dir:
         settings = _build_settings(
             temp_dir,
-            config_backend="postgres",
+            control_plane_backend="postgres",
             postgres_dsn="postgresql://fallback:fallback@postgres:5432/homelab",
-            control_postgres_dsn="postgresql://control:control@postgres:5432/homelab",
+            control_plane_dsn="postgresql://control:control@postgres:5432/homelab",
         )
 
         with patch("packages.storage.runtime.PostgresIngestionConfigRepository") as repository:
@@ -245,3 +247,80 @@ def test_build_auth_store_reuses_config_store_backend() -> None:
         store = build_auth_store(_build_settings(temp_dir))
 
     assert isinstance(store, IngestionConfigRepository)
+
+
+def test_build_control_plane_stores_support_deprecated_backend_aliases() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(
+            temp_dir,
+            config_backend="postgres",
+            metadata_backend="postgres",
+            control_postgres_dsn="postgresql://legacy:legacy@postgres:5432/homelab",
+            metadata_postgres_dsn="postgresql://legacy:legacy@postgres:5432/homelab",
+        )
+
+        with (
+            patch("packages.storage.runtime.PostgresIngestionConfigRepository") as config_repository,
+            patch("packages.storage.runtime.PostgresRunMetadataRepository") as metadata_repository,
+        ):
+            build_config_store(settings)
+            build_run_metadata_store(settings)
+
+    config_repository.assert_called_once_with(
+        "postgresql://legacy:legacy@postgres:5432/homelab",
+        schema="control",
+    )
+    metadata_repository.assert_called_once_with(
+        "postgresql://legacy:legacy@postgres:5432/homelab",
+        schema="control",
+    )
+
+
+def test_build_control_plane_stores_reject_conflicting_backend_aliases() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(
+            temp_dir,
+            config_backend="postgres",
+            metadata_backend="sqlite",
+        )
+
+        with pytest.raises(ValueError, match="Conflicting control-plane backend settings"):
+            build_config_store(settings)
+
+        with pytest.raises(ValueError, match="Conflicting control-plane backend settings"):
+            build_run_metadata_store(settings)
+
+
+def test_build_control_plane_stores_reject_conflicting_dsn_aliases() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(
+            temp_dir,
+            control_plane_backend="postgres",
+            control_postgres_dsn="postgresql://legacy-control:legacy-control@postgres:5432/homelab",
+            metadata_postgres_dsn=(
+                "postgresql://legacy-metadata:legacy-metadata@postgres:5432/homelab"
+            ),
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="Conflicting control-plane Postgres DSN settings",
+        ):
+            build_config_store(settings)
+
+        with pytest.raises(
+            ValueError,
+            match="Conflicting control-plane Postgres DSN settings",
+        ):
+            build_run_metadata_store(settings)
+
+
+def test_build_control_plane_stores_reject_unknown_backend() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(temp_dir, control_plane_backend="mysql")
+
+        with pytest.raises(ValueError, match="Unsupported control-plane backend"):
+            build_config_store(settings)
+
+        with pytest.raises(ValueError, match="Unsupported control-plane backend"):
+            build_run_metadata_store(settings)

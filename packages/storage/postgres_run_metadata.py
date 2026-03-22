@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import psycopg
 from psycopg.rows import dict_row
 
 from packages.pipelines.csv_validation import ValidationIssue
+from packages.storage.migration_runner import apply_pending_postgres_migrations
 from packages.storage.postgres_support import configure_search_path, initialize_schema
 from packages.storage.run_metadata import (
     IngestionRunCreate,
@@ -16,8 +18,18 @@ from packages.storage.run_metadata import (
     _build_filter_clause,
 )
 
+_POSTGRES_RUN_METADATA_MIGRATIONS_DIR = (
+    Path(__file__).resolve().parents[2] / "migrations" / "postgres_run_metadata"
+)
+
 
 class PostgresRunMetadataRepository:
+    """Postgres-backed ingestion run metadata for the control-plane path.
+
+    Run-metadata schema evolution is owned by ``migrations/postgres_run_metadata``
+    so this repository can initialize only its own tables.
+    """
+
     def __init__(self, dsn: str, *, schema: str = "public") -> None:
         self.dsn = dsn
         self.schema = schema
@@ -233,49 +245,9 @@ class PostgresRunMetadataRepository:
 
     def _initialize(self) -> None:
         with self._connect() as connection:
-            connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS ingestion_runs (
-                    run_id TEXT PRIMARY KEY,
-                    source_name TEXT NOT NULL,
-                    dataset_name TEXT NOT NULL,
-                    file_name TEXT NOT NULL,
-                    raw_path TEXT NOT NULL,
-                    manifest_path TEXT NOT NULL,
-                    sha256 TEXT NOT NULL,
-                    row_count INTEGER NOT NULL,
-                    header_json TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    passed BOOLEAN NOT NULL,
-                    created_at TIMESTAMPTZ NOT NULL
-                )
-                """
-            )
-            connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS ingestion_run_issues (
-                    run_id TEXT NOT NULL,
-                    issue_order INTEGER NOT NULL,
-                    code TEXT NOT NULL,
-                    message TEXT NOT NULL,
-                    column_name TEXT,
-                    row_number INTEGER,
-                    PRIMARY KEY (run_id, issue_order),
-                    FOREIGN KEY (run_id) REFERENCES ingestion_runs (run_id)
-                )
-                """
-            )
-            connection.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_ingestion_runs_dataset_status_created
-                ON ingestion_runs (dataset_name, status, created_at DESC)
-                """
-            )
-            connection.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_ingestion_runs_sha_dataset_created
-                ON ingestion_runs (sha256, dataset_name, created_at ASC)
-                """
+            apply_pending_postgres_migrations(
+                connection,
+                _POSTGRES_RUN_METADATA_MIGRATIONS_DIR,
             )
 
     def _load_issues_for_run_ids(

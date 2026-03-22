@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
@@ -10,6 +11,22 @@ from packages.shared.auth_modes import (
     ResolvedAuthMode,
     normalize_auth_mode,
     normalize_identity_mode,
+)
+
+_DEPRECATED_ENV_ALIAS_REPLACEMENTS: tuple[tuple[str, str], ...] = (
+    ("HOMELAB_ANALYTICS_CONFIG_BACKEND", "HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND"),
+    (
+        "HOMELAB_ANALYTICS_METADATA_BACKEND",
+        "HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND",
+    ),
+    (
+        "HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN",
+        "HOMELAB_ANALYTICS_CONTROL_PLANE_DSN",
+    ),
+    (
+        "HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN",
+        "HOMELAB_ANALYTICS_CONTROL_PLANE_DSN",
+    ),
 )
 
 
@@ -34,9 +51,15 @@ class AppSettings:
     external_registry_cache_root: Path | None = None
     config_database_path: Path | None = None
     analytics_database_path: Path | None = None
-    config_backend: str = "sqlite"
-    metadata_backend: str = "sqlite"
+    control_plane_backend: str | None = None
+    # Deprecated aliases for backward compatibility. Prefer
+    # HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND.
+    config_backend: str | None = None
+    metadata_backend: str | None = None
     postgres_dsn: str | None = None
+    control_plane_dsn: str | None = None
+    # Deprecated aliases for backward compatibility. Prefer
+    # HOMELAB_ANALYTICS_CONTROL_PLANE_DSN.
     control_postgres_dsn: str | None = None
     metadata_postgres_dsn: str | None = None
     reporting_postgres_dsn: str | None = None
@@ -125,12 +148,71 @@ class AppSettings:
         return self.resolved_identity_mode == "local_single_user"
 
     @property
+    def resolved_control_plane_backend(self) -> str:
+        backends: dict[str, str] = {}
+        if self.control_plane_backend:
+            backends["HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND"] = (
+                self.control_plane_backend
+            )
+        if self.config_backend:
+            backends["HOMELAB_ANALYTICS_CONFIG_BACKEND (deprecated)"] = (
+                self.config_backend
+            )
+        if self.metadata_backend:
+            backends["HOMELAB_ANALYTICS_METADATA_BACKEND (deprecated)"] = (
+                self.metadata_backend
+            )
+        if not backends:
+            return "sqlite"
+
+        normalized = {
+            source: value.strip().lower() for source, value in backends.items()
+        }
+        unique_values = sorted(set(normalized.values()))
+        if len(unique_values) > 1:
+            rendered = ", ".join(
+                f"{source}={value!r}" for source, value in normalized.items()
+            )
+            raise ValueError(
+                "Conflicting control-plane backend settings; configure only one "
+                "effective value via HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND. "
+                f"Received: {rendered}."
+            )
+        return unique_values[0]
+
+    @property
+    def resolved_control_plane_postgres_dsn(self) -> str | None:
+        dsns: dict[str, str] = {}
+        if self.control_plane_dsn:
+            dsns["HOMELAB_ANALYTICS_CONTROL_PLANE_DSN"] = self.control_plane_dsn
+        if self.control_postgres_dsn:
+            dsns["HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN (deprecated)"] = (
+                self.control_postgres_dsn
+            )
+        if self.metadata_postgres_dsn:
+            dsns["HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN (deprecated)"] = (
+                self.metadata_postgres_dsn
+            )
+        if not dsns:
+            return self.postgres_dsn
+
+        unique_values = sorted(set(dsns.values()))
+        if len(unique_values) > 1:
+            rendered = ", ".join(f"{source}={value!r}" for source, value in dsns.items())
+            raise ValueError(
+                "Conflicting control-plane Postgres DSN settings; configure only one "
+                "effective value via HOMELAB_ANALYTICS_CONTROL_PLANE_DSN. "
+                f"Received: {rendered}."
+            )
+        return unique_values[0]
+
+    @property
     def resolved_control_postgres_dsn(self) -> str | None:
-        return self.control_postgres_dsn or self.postgres_dsn
+        return self.resolved_control_plane_postgres_dsn
 
     @property
     def resolved_metadata_postgres_dsn(self) -> str | None:
-        return self.metadata_postgres_dsn or self.postgres_dsn
+        return self.resolved_control_plane_postgres_dsn
 
     @property
     def resolved_reporting_postgres_dsn(self) -> str | None:
@@ -139,6 +221,7 @@ class AppSettings:
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> "AppSettings":
         env = environ or os.environ
+        _emit_deprecated_env_alias_warnings(env)
         data_dir = Path(
             env.get(
                 "HOMELAB_ANALYTICS_DATA_DIR",
@@ -184,9 +267,13 @@ class AppSettings:
         analytics_database_path = (
             Path(analytics_db_override) if analytics_db_override else None
         )
-        config_backend = env.get("HOMELAB_ANALYTICS_CONFIG_BACKEND", "sqlite")
-        metadata_backend = env.get("HOMELAB_ANALYTICS_METADATA_BACKEND", "sqlite")
+        control_plane_backend = (
+            env.get("HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND") or None
+        )
+        config_backend = env.get("HOMELAB_ANALYTICS_CONFIG_BACKEND") or None
+        metadata_backend = env.get("HOMELAB_ANALYTICS_METADATA_BACKEND") or None
         postgres_dsn = env.get("HOMELAB_ANALYTICS_POSTGRES_DSN") or None
+        control_plane_dsn = env.get("HOMELAB_ANALYTICS_CONTROL_PLANE_DSN") or None
         control_postgres_dsn = (
             env.get("HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN") or None
         )
@@ -338,9 +425,11 @@ class AppSettings:
             external_registry_cache_root=external_registry_cache_root,
             config_database_path=config_database_path,
             analytics_database_path=analytics_database_path,
+            control_plane_backend=control_plane_backend,
             config_backend=config_backend,
             metadata_backend=metadata_backend,
             postgres_dsn=postgres_dsn,
+            control_plane_dsn=control_plane_dsn,
             control_postgres_dsn=control_postgres_dsn,
             metadata_postgres_dsn=metadata_postgres_dsn,
             reporting_postgres_dsn=reporting_postgres_dsn,
@@ -395,3 +484,18 @@ class AppSettings:
 
 def _split_config_value(value: str, *, delimiter: str) -> tuple[str, ...]:
     return tuple(part.strip() for part in value.split(delimiter) if part.strip())
+
+
+def _emit_deprecated_env_alias_warnings(env: Mapping[str, str]) -> None:
+    for alias, replacement in _DEPRECATED_ENV_ALIAS_REPLACEMENTS:
+        alias_value = env.get(alias)
+        if alias_value is None or not alias_value.strip():
+            continue
+        warnings.warn(
+            (
+                f"{alias} is deprecated and will be removed no earlier than v0.2.0; "
+                f"use {replacement} instead."
+            ),
+            DeprecationWarning,
+            stacklevel=3,
+        )

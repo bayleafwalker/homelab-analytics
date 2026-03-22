@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import cast
 
 import psycopg
@@ -12,14 +13,12 @@ from packages.storage.control_plane_snapshot import (
     export_control_plane_snapshot,
     import_control_plane_snapshot,
 )
+from packages.storage.migration_runner import apply_pending_postgres_migrations
 from packages.storage.postgres_asset_definition_catalog import (
     PostgresAssetDefinitionCatalogMixin,
 )
 from packages.storage.postgres_auth_control_plane import (
     PostgresAuthControlPlaneMixin,
-)
-from packages.storage.postgres_control_plane_schema import (
-    initialize_postgres_control_plane_schema,
 )
 from packages.storage.postgres_execution_control_plane import (
     PostgresExecutionControlPlaneMixin,
@@ -35,6 +34,8 @@ from packages.storage.postgres_source_contract_catalog import (
 )
 from packages.storage.postgres_support import configure_search_path, initialize_schema
 
+_POSTGRES_MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "migrations" / "postgres"
+
 
 class PostgresIngestionConfigRepository(
     PostgresSourceContractCatalogMixin,
@@ -44,6 +45,12 @@ class PostgresIngestionConfigRepository(
     PostgresProvenanceControlPlaneMixin,
     PostgresAuthControlPlaneMixin,
 ):
+    """Canonical Postgres-backed control-plane repository.
+
+    Postgres schema evolution is owned by versioned SQL migrations under
+    ``migrations/postgres``.
+    """
+
     def __init__(self, dsn: str, *, schema: str = "public") -> None:
         self.dsn = dsn
         self.schema = schema
@@ -69,4 +76,4 @@ class PostgresIngestionConfigRepository(
 
     def _initialize(self) -> None:
         with self._connect() as connection:
-            initialize_postgres_control_plane_schema(connection)
+            apply_pending_postgres_migrations(connection, _POSTGRES_MIGRATIONS_DIR)

@@ -1,3 +1,10 @@
+"""Control-plane snapshot export/import helpers.
+
+These helpers are portability utilities across control-plane backends. They
+preserve shared catalog/control entities where practical, but they are not a
+feature-parity contract for every backend-specific schema detail.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Callable

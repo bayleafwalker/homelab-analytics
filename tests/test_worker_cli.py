@@ -62,7 +62,7 @@ class WorkerCliTests(unittest.TestCase):
 
             self.assertEqual(settings.landing_root, service.landing_root)
             self.assertEqual(
-                settings.metadata_database_path,
+                settings.resolved_config_database_path,
                 service.metadata_repository.database_path,
             )
 

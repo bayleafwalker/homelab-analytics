@@ -1,5 +1,6 @@
 import os
 import unittest
+import warnings
 from pathlib import Path
 
 from packages.shared.settings import AppSettings
@@ -57,8 +58,10 @@ class AppSettingsTests(unittest.TestCase):
             Path("/tmp/homelab-analytics/analytics/warehouse.duckdb"),
             settings.resolved_analytics_database_path,
         )
-        self.assertEqual("sqlite", settings.config_backend)
-        self.assertEqual("sqlite", settings.metadata_backend)
+        self.assertIsNone(settings.control_plane_backend)
+        self.assertIsNone(settings.config_backend)
+        self.assertIsNone(settings.metadata_backend)
+        self.assertEqual("sqlite", settings.resolved_control_plane_backend)
         self.assertEqual("control", settings.control_schema)
         self.assertEqual("duckdb", settings.reporting_backend)
         self.assertEqual("reporting", settings.reporting_schema)
@@ -97,6 +100,7 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual(900, settings.auth_lockout_seconds)
         self.assertFalse(settings.enable_unsafe_admin)
         self.assertIsNone(settings.postgres_dsn)
+        self.assertIsNone(settings.control_plane_dsn)
         self.assertIsNone(settings.control_postgres_dsn)
         self.assertIsNone(settings.metadata_postgres_dsn)
         self.assertIsNone(settings.reporting_postgres_dsn)
@@ -232,16 +236,12 @@ class AppSettingsTests(unittest.TestCase):
         settings = AppSettings.from_env(
             {
                 "HOMELAB_ANALYTICS_DATA_DIR": "/tmp/homelab-test",
-                "HOMELAB_ANALYTICS_METADATA_BACKEND": "postgres",
-                "HOMELAB_ANALYTICS_CONFIG_BACKEND": "postgres",
+                "HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND": "postgres",
                 "HOMELAB_ANALYTICS_POSTGRES_DSN": (
                     "postgresql://homelab:homelab@postgres:5432/homelab"
                 ),
-                "HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN": (
+                "HOMELAB_ANALYTICS_CONTROL_PLANE_DSN": (
                     "postgresql://api-control:api-control@postgres:5432/homelab"
-                ),
-                "HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN": (
-                    "postgresql://api-metadata:api-metadata@postgres:5432/homelab"
                 ),
                 "HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN": (
                     "postgresql://api-reporting:api-reporting@postgres:5432/homelab"
@@ -297,24 +297,24 @@ class AppSettingsTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual("postgres", settings.config_backend)
-        self.assertEqual("postgres", settings.metadata_backend)
+        self.assertEqual("postgres", settings.control_plane_backend)
+        self.assertEqual("postgres", settings.resolved_control_plane_backend)
+        self.assertIsNone(settings.config_backend)
+        self.assertIsNone(settings.metadata_backend)
         self.assertEqual(
             "postgresql://homelab:homelab@postgres:5432/homelab",
             settings.postgres_dsn,
         )
         self.assertEqual(
             "postgresql://api-control:api-control@postgres:5432/homelab",
-            settings.control_postgres_dsn,
-        )
-        self.assertEqual(
-            "postgresql://api-metadata:api-metadata@postgres:5432/homelab",
-            settings.metadata_postgres_dsn,
+            settings.control_plane_dsn,
         )
         self.assertEqual(
             "postgresql://api-reporting:api-reporting@postgres:5432/homelab",
             settings.reporting_postgres_dsn,
         )
+        self.assertIsNone(settings.control_postgres_dsn)
+        self.assertIsNone(settings.metadata_postgres_dsn)
         self.assertEqual("platform_control", settings.control_schema)
         self.assertEqual("postgres", settings.reporting_backend)
         self.assertEqual("published_reporting", settings.reporting_schema)
@@ -382,6 +382,91 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual(4, settings.auth_failure_threshold)
         self.assertEqual(1200, settings.auth_lockout_seconds)
         self.assertTrue(settings.enable_unsafe_admin)
+
+    def test_settings_support_deprecated_control_plane_env_aliases(self) -> None:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", DeprecationWarning)
+            settings = AppSettings.from_env(
+                {
+                    "HOMELAB_ANALYTICS_CONFIG_BACKEND": "postgres",
+                    "HOMELAB_ANALYTICS_METADATA_BACKEND": "postgres",
+                    "HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN": (
+                        "postgresql://legacy-control:legacy-control@postgres:5432/homelab"
+                    ),
+                    "HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN": (
+                        "postgresql://legacy-control:legacy-control@postgres:5432/homelab"
+                    ),
+                }
+            )
+
+        self.assertEqual("postgres", settings.resolved_control_plane_backend)
+        self.assertEqual(
+            "postgresql://legacy-control:legacy-control@postgres:5432/homelab",
+            settings.resolved_control_plane_postgres_dsn,
+        )
+        self.assertEqual(
+            {
+                "HOMELAB_ANALYTICS_CONFIG_BACKEND",
+                "HOMELAB_ANALYTICS_METADATA_BACKEND",
+                "HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN",
+                "HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN",
+            },
+            {
+                str(warning.message).split(" is deprecated", maxsplit=1)[0]
+                for warning in caught
+                if warning.category is DeprecationWarning
+            },
+        )
+
+    def test_empty_deprecated_env_alias_values_do_not_emit_warnings(self) -> None:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", DeprecationWarning)
+            AppSettings.from_env(
+                {
+                    "HOMELAB_ANALYTICS_CONFIG_BACKEND": "",
+                    "HOMELAB_ANALYTICS_METADATA_BACKEND": "   ",
+                    "HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN": "",
+                    "HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN": "   ",
+                }
+            )
+
+        self.assertEqual([], [warning for warning in caught if warning.category is DeprecationWarning])
+
+    def test_conflicting_control_plane_backend_aliases_raise_value_error(self) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            settings = AppSettings.from_env(
+                {
+                    "HOMELAB_ANALYTICS_CONFIG_BACKEND": "postgres",
+                    "HOMELAB_ANALYTICS_METADATA_BACKEND": "sqlite",
+                }
+            )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "Conflicting control-plane backend settings",
+        ):
+            _ = settings.resolved_control_plane_backend
+
+    def test_conflicting_control_plane_dsn_aliases_raise_value_error(self) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            settings = AppSettings.from_env(
+                {
+                    "HOMELAB_ANALYTICS_CONTROL_POSTGRES_DSN": (
+                        "postgresql://legacy-control:legacy-control@postgres:5432/homelab"
+                    ),
+                    "HOMELAB_ANALYTICS_METADATA_POSTGRES_DSN": (
+                        "postgresql://legacy-metadata:legacy-metadata@postgres:5432/homelab"
+                    ),
+                }
+            )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "Conflicting control-plane Postgres DSN settings",
+        ):
+            _ = settings.resolved_control_plane_postgres_dsn
 
     def test_local_single_user_auth_mode_alias_resolves_to_local(self) -> None:
         settings = AppSettings.from_env(
