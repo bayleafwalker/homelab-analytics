@@ -10,7 +10,11 @@ from psycopg.rows import dict_row
 
 from packages.pipelines.csv_validation import ValidationIssue
 from packages.storage.migration_runner import apply_pending_postgres_migrations
-from packages.storage.postgres_support import configure_search_path, initialize_schema
+from packages.storage.postgres_support import (
+    configure_search_path,
+    connect_with_retry,
+    initialize_schema,
+)
 from packages.storage.run_metadata import (
     IngestionRunCreate,
     IngestionRunRecord,
@@ -37,7 +41,7 @@ class PostgresRunMetadataRepository:
         self._initialize()
 
     def _connect(self, *, row_factory=None):
-        connection = psycopg.connect(self.dsn, row_factory=row_factory)
+        connection = connect_with_retry(self.dsn, row_factory=row_factory)
         configure_search_path(connection, self.schema)
         return connection
 

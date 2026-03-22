@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-import psycopg
 from psycopg.rows import dict_row
 
-from packages.storage.postgres_support import configure_search_path, initialize_schema
+from packages.storage.postgres_support import (
+    configure_search_path,
+    connect_with_retry,
+    initialize_schema,
+)
 
 
 def _postgres_dtype(dtype: str) -> str:
@@ -22,7 +25,7 @@ class PostgresReportingStore:
         initialize_schema(dsn, schema)
 
     def _connect(self, *, row_factory=None):
-        connection = psycopg.connect(self.dsn, row_factory=row_factory)
+        connection = connect_with_retry(self.dsn, row_factory=row_factory)
         configure_search_path(connection, self.schema)
         return connection
 

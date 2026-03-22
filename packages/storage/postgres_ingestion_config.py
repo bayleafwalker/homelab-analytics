@@ -32,7 +32,11 @@ from packages.storage.postgres_provenance_control_plane import (
 from packages.storage.postgres_source_contract_catalog import (
     PostgresSourceContractCatalogMixin,
 )
-from packages.storage.postgres_support import configure_search_path, initialize_schema
+from packages.storage.postgres_support import (
+    configure_search_path,
+    connect_with_retry,
+    initialize_schema,
+)
 
 _POSTGRES_MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "migrations" / "postgres"
 
@@ -58,7 +62,7 @@ class PostgresIngestionConfigRepository(
         self._initialize()
 
     def _connect(self, *, row_factory=None):
-        connection = psycopg.connect(self.dsn, row_factory=row_factory)
+        connection = connect_with_retry(self.dsn, row_factory=row_factory)
         configure_search_path(connection, self.schema)
         return connection
 
