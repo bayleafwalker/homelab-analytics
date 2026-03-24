@@ -614,3 +614,117 @@ def test_nextjs_frontend_uses_typed_contract_mutation_helpers() -> None:
         assert "JSON.stringify(" not in source, (
             f"{route_path} should not hand-serialize JSON bodies"
         )
+
+
+def test_nextjs_frontend_exposes_parallel_retro_shell_and_terminal_boundary() -> None:
+    app_shell_source = (FRONTEND_ROOT / "components" / "app-shell.js").read_text()
+    retro_layout_source = (FRONTEND_ROOT / "app" / "retro" / "layout.js").read_text()
+    retro_page_source = (FRONTEND_ROOT / "app" / "retro" / "page.js").read_text()
+    retro_control_source = (
+        FRONTEND_ROOT / "app" / "retro" / "control" / "page.js"
+    ).read_text()
+    retro_catalog_source = (
+        FRONTEND_ROOT / "app" / "retro" / "control" / "catalog" / "page.js"
+    ).read_text()
+    retro_execution_source = (
+        FRONTEND_ROOT / "app" / "retro" / "control" / "execution" / "page.js"
+    ).read_text()
+    retro_money_source = (
+        FRONTEND_ROOT / "app" / "retro" / "money" / "page.js"
+    ).read_text()
+    retro_terminal_source = (
+        FRONTEND_ROOT / "app" / "retro" / "terminal" / "page.js"
+    ).read_text()
+    retro_utilities_source = (
+        FRONTEND_ROOT / "app" / "retro" / "utilities" / "page.js"
+    ).read_text()
+    retro_operations_source = (
+        FRONTEND_ROOT / "app" / "retro" / "operations" / "page.js"
+    ).read_text()
+    retro_schedule_dispatch_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "retro"
+        / "control"
+        / "execution"
+        / "schedule-dispatches"
+        / "route.js"
+    ).read_text()
+    retro_retry_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "retro"
+        / "control"
+        / "execution"
+        / "dispatches"
+        / "[dispatchId]"
+        / "retry"
+        / "route.js"
+    ).read_text()
+    retro_commands_route = (
+        FRONTEND_ROOT / "app" / "retro" / "terminal" / "commands" / "route.js"
+    ).read_text()
+    retro_execute_route = (
+        FRONTEND_ROOT / "app" / "retro" / "terminal" / "execute" / "route.js"
+    ).read_text()
+    retro_shell_source = (
+        FRONTEND_ROOT / "components" / "retro-shell.js"
+    ).read_text()
+    retro_terminal_panel_source = (
+        FRONTEND_ROOT / "components" / "retro-terminal-panel.js"
+    ).read_text()
+    control_terminal_source = (
+        ROOT / "packages" / "application" / "use_cases" / "control_terminal.py"
+    ).read_text()
+    globals_source = (FRONTEND_ROOT / "app" / "globals.css").read_text()
+
+    assert 'href="/retro"' in app_shell_source
+    assert 'className="retroRoot"' in retro_layout_source
+    assert "getWebRendererDiscovery()" in retro_page_source
+    assert "MODULE_ORDER" in retro_page_source
+    assert 'user.role === "admin"' in retro_page_source
+    assert 'href: "/retro/money"' in retro_page_source
+    assert 'href: "/retro/utilities"' in retro_page_source
+    assert 'href: "/retro/operations"' in retro_page_source
+    assert "/retro/operations#${descriptor.anchor}" in retro_page_source
+    assert 'redirect("/retro")' in retro_control_source
+    assert 'redirect("/retro")' in retro_catalog_source
+    assert 'getExecutionSchedules({ includeArchived: true })' in retro_execution_source
+    assert 'action="/retro/control/execution/schedule-dispatches"' in retro_execution_source
+    assert "/retro/control/execution/dispatches/${record.dispatch_id}/retry" in retro_execution_source
+    assert "getMonthlyCashflow()" in retro_money_source
+    assert "getAffordabilityRatios()" in retro_money_source
+    assert "id={descriptor.anchor}" in retro_money_source
+    assert "getTerminalCommands()" in retro_terminal_source
+    assert "RetroTerminalPanel" in retro_terminal_source
+    assert "source systems, source assets, ingestion definitions, and publication definitions" in retro_terminal_source
+    assert "getUtilityCostTrend(utilityType || undefined)" in retro_utilities_source
+    assert "getContractReviewCandidates()" in retro_utilities_source
+    assert 'descriptorByKey["utility-costs"]' in retro_utilities_source
+    assert 'descriptorByKey["contract-review"]' in retro_utilities_source
+    assert 'descriptorByKey["contract-renewals"]' in retro_utilities_source
+    assert "id={descriptor.anchor}" in retro_utilities_source
+    assert "getHaBridgeStatus()" in retro_operations_source
+    assert "getHaEntities()" in retro_operations_source
+    assert "id={descriptor.anchor}" in retro_operations_source
+    assert 'backendRequest("post", "/control/schedule-dispatches"' in retro_schedule_dispatch_route
+    assert "/control/schedule-dispatches/{dispatch_id}/retry" in retro_retry_route
+    assert 'backendJsonRequest(\n    "get",\n    "/control/terminal/commands"' in retro_commands_route
+    assert 'backendJsonRequest(\n    "post",\n    "/control/terminal/execute"' in retro_execute_route
+    assert 'href: "/retro/money"' in retro_shell_source
+    assert 'href: "/retro/utilities"' in retro_shell_source
+    assert 'href: "/retro/operations"' in retro_shell_source
+    assert 'href: "/retro/terminal"' in retro_shell_source
+    assert 'fetch("/retro/terminal/execute"' in retro_terminal_panel_source
+    assert "SYNC / NO SHELL ACCESS" in retro_terminal_panel_source
+    assert 'usage="schedules [limit]"' in control_terminal_source
+    assert 'usage="tokens [limit]"' in control_terminal_source
+    assert 'usage="audit [limit]"' in control_terminal_source
+    assert 'usage="publication-audit [limit]"' in control_terminal_source
+    assert 'usage="users [limit]"' in control_terminal_source
+    assert 'usage="source-systems [limit]"' in control_terminal_source
+    assert 'usage="source-assets [limit]"' in control_terminal_source
+    assert 'usage="ingestion-definitions [limit]"' in control_terminal_source
+    assert 'usage="publication-definitions [limit]"' in control_terminal_source
+    assert 'usage="lineage [limit]"' in control_terminal_source
+    assert "--retro-bg" in globals_source

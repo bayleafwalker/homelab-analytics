@@ -19,6 +19,7 @@ from apps.api.routes.category_routes import register_category_routes
 from apps.api.routes.config_routes import register_config_routes
 from apps.api.routes.contract_routes import register_contract_routes
 from apps.api.routes.control_routes import register_control_routes
+from apps.api.routes.control_terminal_routes import register_control_terminal_routes
 from apps.api.routes.ha_routes import register_ha_routes
 from apps.api.routes.homelab_routes import register_homelab_routes
 from apps.api.routes.ingest_routes import register_ingest_routes
@@ -530,6 +531,23 @@ def create_app(
             load_run_manifest_and_context=load_run_manifest_and_context,
             build_run_recovery=_build_run_recovery_payload,
         ),
+        to_jsonable=to_jsonable,
+    )
+    register_control_terminal_routes(
+        app,
+        service=container.service,
+        resolved_config_repository=resolved_config_repository,
+        extension_registry=container.extension_registry,
+        function_registry=container.function_registry,
+        promotion_handler_registry=container.promotion_handler_registry,
+        require_unsafe_admin=require_unsafe_admin,
+        build_operational_summary=lambda: build_runtime_operational_summary(
+            service=container.service,
+            config_repository=resolved_config_repository,
+            load_run_manifest_and_context=load_run_manifest_and_context,
+            build_run_recovery=_build_run_recovery_payload,
+        ),
+        record_auth_event=record_auth_event,
         to_jsonable=to_jsonable,
     )
     register_report_routes(

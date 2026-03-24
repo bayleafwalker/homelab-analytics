@@ -216,6 +216,49 @@ class ApiAppTests(unittest.TestCase):
                 ]["responses"]["201"]["content"]["application/json"]["schema"]["$ref"],
             )
 
+    def test_openapi_schema_exposes_control_terminal_models(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs.db"
+                        ),
+                    ),
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            response = client.get("/openapi.json")
+
+            self.assertEqual(200, response.status_code)
+            schema = response.json()
+            self.assertEqual(
+                "#/components/schemas/TerminalCommandsResponseModel",
+                schema["paths"]["/control/terminal/commands"]["get"]["responses"]["200"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+            self.assertEqual(
+                "#/components/schemas/TerminalExecutionRequest",
+                schema["paths"]["/control/terminal/execute"]["post"]["requestBody"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+            self.assertEqual(
+                "#/components/schemas/TerminalExecutionResponseModel",
+                schema["paths"]["/control/terminal/execute"]["post"]["responses"]["200"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+            self.assertEqual(
+                "#/components/schemas/TerminalExecutionResponseModel",
+                schema["paths"]["/control/terminal/execute"]["post"]["responses"]["400"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+
     def test_openapi_schema_exposes_typed_ha_mqtt_status_model(self) -> None:
         with TemporaryDirectory() as temp_dir:
             client = TestClient(

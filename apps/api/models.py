@@ -181,3 +181,7 @@ class ServiceTokenCreateRequest(BaseModel):
     role: UserRole
     scopes: list[str]
     expires_at: datetime | None = None
+
+
+class TerminalExecutionRequest(BaseModel):
+    command_line: str

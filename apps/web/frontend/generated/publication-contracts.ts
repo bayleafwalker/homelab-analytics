@@ -4830,6 +4830,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "anomalies",
+      "web_nav_group": "Money",
       "web_render_mode": "discovery",
       "web_surface": "reports"
     },
@@ -4850,6 +4851,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "balance-trend",
+      "web_nav_group": "Money",
       "web_render_mode": "detail",
       "web_surface": "reports"
     },
@@ -4870,6 +4872,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "cashflow",
+      "web_nav_group": "Money",
       "web_render_mode": "detail",
       "web_surface": "reports"
     },
@@ -4890,6 +4893,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "contract-prices",
+      "web_nav_group": "Utilities",
       "web_render_mode": "discovery",
       "web_surface": "reports"
     },
@@ -4910,6 +4914,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "contract-renewals",
+      "web_nav_group": "Utilities",
       "web_render_mode": "discovery",
       "web_surface": "reports"
     },
@@ -4930,6 +4935,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "contract-review",
+      "web_nav_group": "Utilities",
       "web_render_mode": "discovery",
       "web_surface": "reports"
     },
@@ -4950,6 +4956,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "homelab-backups",
+      "web_nav_group": "Operations",
       "web_render_mode": "discovery",
       "web_surface": "homelab"
     },
@@ -4971,6 +4978,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "homelab-services",
+      "web_nav_group": "Operations",
       "web_render_mode": "discovery",
       "web_surface": "homelab"
     },
@@ -4992,6 +5000,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "homelab-storage",
+      "web_nav_group": "Operations",
       "web_render_mode": "discovery",
       "web_surface": "homelab"
     },
@@ -5013,6 +5022,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "homelab-workloads",
+      "web_nav_group": "Operations",
       "web_render_mode": "discovery",
       "web_surface": "homelab"
     },
@@ -5034,6 +5044,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "large-transactions",
+      "web_nav_group": "Money",
       "web_render_mode": "discovery",
       "web_surface": "reports"
     },
@@ -5057,6 +5068,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "overview",
+      "web_nav_group": "Overview",
       "web_render_mode": "detail",
       "web_surface": "overview"
     },
@@ -5077,6 +5089,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "spending-by-category",
+      "web_nav_group": "Money",
       "web_render_mode": "detail",
       "web_surface": "reports"
     },
@@ -5097,6 +5110,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "subscriptions",
+      "web_nav_group": "Money",
       "web_render_mode": "detail",
       "web_surface": "reports"
     },
@@ -5117,6 +5131,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "upcoming-costs",
+      "web_nav_group": "Money",
       "web_render_mode": "discovery",
       "web_surface": "reports"
     },
@@ -5137,6 +5152,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "usage-vs-price",
+      "web_nav_group": "Utilities",
       "web_render_mode": "discovery",
       "web_surface": "reports"
     },
@@ -5157,6 +5173,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "utility-cost-trend",
+      "web_nav_group": "Utilities",
       "web_render_mode": "detail",
       "web_surface": "reports"
     },
@@ -5178,6 +5195,7 @@ export const uiDescriptorMap = {
     ],
     "renderer_hints": {
       "web_anchor": "utility-costs",
+      "web_nav_group": "Utilities",
       "web_render_mode": "discovery",
       "web_surface": "reports"
     },

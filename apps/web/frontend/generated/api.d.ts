@@ -1414,6 +1414,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/control/terminal/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Terminal Commands */
+        get: operations["list_terminal_commands_control_terminal_commands_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/terminal/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Execute Terminal Command Endpoint */
+        post: operations["execute_terminal_command_endpoint_control_terminal_execute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/extensions": {
         parameters: {
             query?: never;
@@ -3587,6 +3621,52 @@ export interface components {
             start_date: string;
             /** Status */
             status: string;
+        };
+        /** TerminalCommandModel */
+        TerminalCommandModel: {
+            /** Description */
+            description: string;
+            /** Mutating */
+            mutating: boolean;
+            /** Name */
+            name: string;
+            /** Usage */
+            usage: string;
+        };
+        /** TerminalCommandsResponseModel */
+        TerminalCommandsResponseModel: {
+            /** Commands */
+            commands: components["schemas"]["TerminalCommandModel"][];
+        };
+        /** TerminalExecutionModel */
+        TerminalExecutionModel: {
+            /** Command Name */
+            command_name: string;
+            /** Exit Code */
+            exit_code: number;
+            /** Mutating */
+            mutating: boolean;
+            /** Normalized Command */
+            normalized_command: string;
+            /** Result */
+            result: {
+                [key: string]: unknown;
+            };
+            /** Status */
+            status: string;
+            /** Stderr Lines */
+            stderr_lines: string[];
+            /** Stdout Lines */
+            stdout_lines: string[];
+        };
+        /** TerminalExecutionRequest */
+        TerminalExecutionRequest: {
+            /** Command Line */
+            command_line: string;
+        };
+        /** TerminalExecutionResponseModel */
+        TerminalExecutionResponseModel: {
+            execution: components["schemas"]["TerminalExecutionModel"];
         };
         /** TransactionAnomaliesResponse */
         TransactionAnomaliesResponse: {
@@ -7047,6 +7127,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_terminal_commands_control_terminal_commands_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TerminalCommandsResponseModel"];
+                };
+            };
+        };
+    };
+    execute_terminal_command_endpoint_control_terminal_execute_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TerminalExecutionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TerminalExecutionResponseModel"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TerminalExecutionResponseModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TerminalExecutionResponseModel"];
                 };
             };
         };

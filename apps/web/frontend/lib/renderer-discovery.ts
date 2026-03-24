@@ -24,6 +24,7 @@ export type WebRendererDescriptor = UiDescriptorRecord & {
   renderMode: WebRendererMode;
   anchor: string;
   href: string;
+  navGroup: string;
   publications: PublicationContractRecord[];
 };
 
@@ -78,6 +79,23 @@ function hrefForDescriptor(
   return basePath === "/" ? `/#${targetAnchor}` : `${basePath}#${targetAnchor}`;
 }
 
+function navGroupForDescriptor(
+  descriptor: UiDescriptorRecord,
+  surface: WebRendererSurface
+): string {
+  const explicitGroup = descriptor.renderer_hints.web_nav_group?.trim();
+  if (explicitGroup) {
+    return explicitGroup;
+  }
+  if (surface === "overview") {
+    return "Overview";
+  }
+  if (surface === "homelab") {
+    return "Operations";
+  }
+  return "Money";
+}
+
 export async function getWebRendererDiscovery(): Promise<WebRendererDiscovery> {
   const [publicationContracts, uiDescriptors] = await Promise.all([
     getPublicationContracts() as Promise<PublicationContractRecord[]>,
@@ -103,6 +121,7 @@ export async function getWebRendererDiscovery(): Promise<WebRendererDiscovery> {
         renderMode,
         anchor,
         href: hrefForDescriptor(surface, anchor, renderMode),
+        navGroup: navGroupForDescriptor(descriptor, surface),
         publications: descriptor.publication_keys
           .map((publicationKey) => publicationContractsByKey.get(publicationKey))
           .filter(

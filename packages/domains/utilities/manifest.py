@@ -411,6 +411,7 @@ UTILITIES_PACK = CapabilityPack(
                 "web_surface": "reports",
                 "web_render_mode": "discovery",
                 "web_anchor": "utility-costs",
+                "web_nav_group": "Utilities",
             },
         ),
         UiDescriptor(
@@ -425,6 +426,7 @@ UTILITIES_PACK = CapabilityPack(
                 "web_surface": "reports",
                 "web_render_mode": "discovery",
                 "web_anchor": "contract-prices",
+                "web_nav_group": "Utilities",
             },
         ),
         UiDescriptor(
@@ -439,6 +441,7 @@ UTILITIES_PACK = CapabilityPack(
                 "web_surface": "reports",
                 "web_render_mode": "detail",
                 "web_anchor": "utility-cost-trend",
+                "web_nav_group": "Utilities",
             },
         ),
         UiDescriptor(
@@ -453,6 +456,7 @@ UTILITIES_PACK = CapabilityPack(
                 "web_surface": "reports",
                 "web_render_mode": "discovery",
                 "web_anchor": "usage-vs-price",
+                "web_nav_group": "Utilities",
             },
         ),
         UiDescriptor(
@@ -467,6 +471,7 @@ UTILITIES_PACK = CapabilityPack(
                 "web_surface": "reports",
                 "web_render_mode": "discovery",
                 "web_anchor": "contract-review",
+                "web_nav_group": "Utilities",
             },
         ),
         UiDescriptor(
@@ -481,6 +486,7 @@ UTILITIES_PACK = CapabilityPack(
                 "web_surface": "reports",
                 "web_render_mode": "discovery",
                 "web_anchor": "contract-renewals",
+                "web_nav_group": "Utilities",
             },
         ),
     ),

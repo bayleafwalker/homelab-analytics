@@ -13,7 +13,10 @@ from packages.storage.control_plane_snapshot import (
     export_control_plane_snapshot,
     import_control_plane_snapshot,
 )
-from packages.storage.migration_runner import apply_pending_postgres_migrations
+from packages.storage.migration_runner import (
+    apply_pending_postgres_migrations,
+    resolve_migrations_dir,
+)
 from packages.storage.postgres_asset_definition_catalog import (
     PostgresAssetDefinitionCatalogMixin,
 )
@@ -37,8 +40,6 @@ from packages.storage.postgres_support import (
     connect_with_retry,
     initialize_schema,
 )
-
-_POSTGRES_MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "migrations" / "postgres"
 
 
 class PostgresIngestionConfigRepository(
@@ -80,4 +81,7 @@ class PostgresIngestionConfigRepository(
 
     def _initialize(self) -> None:
         with self._connect() as connection:
-            apply_pending_postgres_migrations(connection, _POSTGRES_MIGRATIONS_DIR)
+            apply_pending_postgres_migrations(
+                connection,
+                resolve_migrations_dir("postgres", anchor_file=Path(__file__)),
+            )

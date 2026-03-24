@@ -196,6 +196,7 @@ OVERVIEW_PACK = CapabilityPack(
                 "web_surface": "overview",
                 "web_render_mode": "detail",
                 "web_anchor": "overview",
+                "web_nav_group": "Overview",
             },
         ),
     ),

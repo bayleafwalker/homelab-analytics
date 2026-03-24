@@ -9,6 +9,7 @@ from pathlib import Path
 from packages.storage.migration_runner import (
     _split_statements,
     apply_pending_sqlite_migrations,
+    resolve_migrations_dir,
 )
 
 MIGRATIONS_DIR = Path(__file__).resolve().parents[1] / "migrations" / "sqlite"
@@ -124,6 +125,43 @@ def test_empty_migrations_dir_is_safe(tmp_path: Path) -> None:
     conn = _in_memory()
     applied = apply_pending_sqlite_migrations(conn, tmp_path)
     assert applied == []
+
+
+def test_resolve_migrations_dir_uses_source_tree_anchor(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    source_file = repo_root / "packages" / "storage" / "postgres_ingestion_config.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("# stub")
+    expected = repo_root / "migrations" / "postgres"
+    expected.mkdir(parents=True)
+
+    resolved = resolve_migrations_dir(
+        "postgres",
+        anchor_file=source_file,
+        working_directory=tmp_path / "elsewhere",
+    )
+
+    assert resolved == expected
+
+
+def test_resolve_migrations_dir_falls_back_to_working_directory_for_installed_image(
+    tmp_path: Path,
+) -> None:
+    install_root = tmp_path / "venv" / "lib" / "python3.12" / "site-packages"
+    installed_file = install_root / "packages" / "storage" / "postgres_ingestion_config.py"
+    installed_file.parent.mkdir(parents=True)
+    installed_file.write_text("# installed stub")
+    working_directory = tmp_path / "app"
+    expected = working_directory / "migrations" / "postgres"
+    expected.mkdir(parents=True)
+
+    resolved = resolve_migrations_dir(
+        "postgres",
+        anchor_file=installed_file,
+        working_directory=working_directory,
+    )
+
+    assert resolved == expected
 
 
 

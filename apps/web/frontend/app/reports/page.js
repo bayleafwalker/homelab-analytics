@@ -206,10 +206,10 @@ export default async function ReportsPage() {
                 <tbody>
                   {subscriptions.map((row, index) => (
                     <tr key={index}>
-                      <td>{row.subscription_name}</td>
-                      <td>{row.provider_name}</td>
+                      <td>{row.contract_name}</td>
+                      <td>{row.provider}</td>
                       <td>{row.billing_cycle}</td>
-                      <td>{row.monthly_equivalent_cost}</td>
+                      <td>{row.monthly_equivalent}</td>
                       <td>
                         <span className={`statusPill status-${row.status}`}>
                           {row.status}

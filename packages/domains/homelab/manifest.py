@@ -271,6 +271,7 @@ HOMELAB_PACK = CapabilityPack(
                 "web_surface": "homelab",
                 "web_render_mode": "discovery",
                 "web_anchor": "homelab-services",
+                "web_nav_group": "Operations",
             },
         ),
         UiDescriptor(
@@ -285,6 +286,7 @@ HOMELAB_PACK = CapabilityPack(
                 "web_surface": "homelab",
                 "web_render_mode": "discovery",
                 "web_anchor": "homelab-backups",
+                "web_nav_group": "Operations",
             },
         ),
         UiDescriptor(
@@ -299,6 +301,7 @@ HOMELAB_PACK = CapabilityPack(
                 "web_surface": "homelab",
                 "web_render_mode": "discovery",
                 "web_anchor": "homelab-storage",
+                "web_nav_group": "Operations",
             },
         ),
         UiDescriptor(
@@ -313,6 +316,7 @@ HOMELAB_PACK = CapabilityPack(
                 "web_surface": "homelab",
                 "web_render_mode": "discovery",
                 "web_anchor": "homelab-workloads",
+                "web_nav_group": "Operations",
             },
         ),
     ),

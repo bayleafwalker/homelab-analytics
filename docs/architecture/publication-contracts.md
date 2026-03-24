@@ -89,6 +89,9 @@ Built-in UI descriptors that support the web renderer currently use these `rende
 - `web_surface`: which aggregate web surface owns the view today, for example `overview`, `reports`, or `homelab`
 - `web_render_mode`: whether the current shell renders a dedicated detail section (`detail`) or only discovery metadata (`discovery`)
 - `web_anchor`: stable in-page anchor used by the renderer discovery navigation
+- `web_nav_group`: optional backend-owned launcher grouping for route-scoped shells such as `/retro`, for example `Overview`, `Money`, `Utilities`, or `Operations`
+
+Frontend shells should treat `web_nav_group` as renderer-owned metadata rather than re-deriving module buckets from routes or package names. Shell-owned admin surfaces such as control and terminal views may still sit outside descriptor discovery when they are not publication-backed views.
 
 ### Current Home Assistant renderer hints
 

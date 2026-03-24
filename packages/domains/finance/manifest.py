@@ -343,6 +343,7 @@ FINANCE_PACK = CapabilityPack(
                 "web_surface": "reports",
                 "web_render_mode": "detail",
                 "web_anchor": "cashflow",
+                "web_nav_group": "Money",
             },
         ),
         UiDescriptor(
@@ -357,6 +358,7 @@ FINANCE_PACK = CapabilityPack(
                 "web_surface": "reports",
                 "web_render_mode": "detail",
                 "web_anchor": "subscriptions",
+                "web_nav_group": "Money",
             },
         ),
         UiDescriptor(
@@ -371,6 +373,7 @@ FINANCE_PACK = CapabilityPack(
                 "web_surface": "reports",
                 "web_render_mode": "detail",
                 "web_anchor": "spending-by-category",
+                "web_nav_group": "Money",
             },
         ),
         UiDescriptor(
@@ -385,6 +388,7 @@ FINANCE_PACK = CapabilityPack(
                 "web_surface": "reports",
                 "web_render_mode": "discovery",
                 "web_anchor": "large-transactions",
+                "web_nav_group": "Money",
             },
         ),
         UiDescriptor(
@@ -399,6 +403,7 @@ FINANCE_PACK = CapabilityPack(
                 "web_surface": "reports",
                 "web_render_mode": "detail",
                 "web_anchor": "balance-trend",
+                "web_nav_group": "Money",
             },
         ),
         UiDescriptor(
@@ -413,6 +418,7 @@ FINANCE_PACK = CapabilityPack(
                 "web_surface": "reports",
                 "web_render_mode": "discovery",
                 "web_anchor": "anomalies",
+                "web_nav_group": "Money",
             },
         ),
         UiDescriptor(
@@ -427,6 +433,7 @@ FINANCE_PACK = CapabilityPack(
                 "web_surface": "reports",
                 "web_render_mode": "discovery",
                 "web_anchor": "upcoming-costs",
+                "web_nav_group": "Money",
             },
         ),
     ),

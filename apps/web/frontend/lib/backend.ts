@@ -879,6 +879,11 @@ export async function getOperationalSummary() {
   return backendGet("/control/operational-summary");
 }
 
+export async function getTerminalCommands() {
+  const payload = await backendGet("/control/terminal/commands");
+  return getResponseArray(payload, "commands");
+}
+
 export async function getSourceFreshness() {
   const payload = await backendGet("/control/source-freshness");
   return getResponseArray(payload, "datasets");

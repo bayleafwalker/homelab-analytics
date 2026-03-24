@@ -62,7 +62,7 @@ export default async function DashboardPage() {
   // Recurring cost: sum of active subscription monthly equivalents
   const recurringTotal = subscriptions
     .filter((r) => r.status === "active")
-    .reduce((sum, r) => sum + Number(r.monthly_equivalent_cost || 0), 0);
+    .reduce((sum, r) => sum + Number(r.monthly_equivalent || 0), 0);
 
   const trendLabels = cashflowRows.slice(-12).map((r) => r.booking_month);
   const trendSeries = [

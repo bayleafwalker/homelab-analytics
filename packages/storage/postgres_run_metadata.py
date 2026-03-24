@@ -9,7 +9,10 @@ import psycopg
 from psycopg.rows import dict_row
 
 from packages.pipelines.csv_validation import ValidationIssue
-from packages.storage.migration_runner import apply_pending_postgres_migrations
+from packages.storage.migration_runner import (
+    apply_pending_postgres_migrations,
+    resolve_migrations_dir,
+)
 from packages.storage.postgres_support import (
     configure_search_path,
     connect_with_retry,
@@ -20,10 +23,6 @@ from packages.storage.run_metadata import (
     IngestionRunRecord,
     IngestionRunStatus,
     _build_filter_clause,
-)
-
-_POSTGRES_RUN_METADATA_MIGRATIONS_DIR = (
-    Path(__file__).resolve().parents[2] / "migrations" / "postgres_run_metadata"
 )
 
 
@@ -251,7 +250,10 @@ class PostgresRunMetadataRepository:
         with self._connect() as connection:
             apply_pending_postgres_migrations(
                 connection,
-                _POSTGRES_RUN_METADATA_MIGRATIONS_DIR,
+                resolve_migrations_dir(
+                    "postgres_run_metadata",
+                    anchor_file=Path(__file__),
+                ),
             )
 
     def _load_issues_for_run_ids(

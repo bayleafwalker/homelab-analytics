@@ -324,6 +324,55 @@ def test_api_local_auth_enforces_reader_operator_and_admin_roles() -> None:
         assert config_response.json()["source_systems"] == []
 
 
+def test_api_local_auth_restricts_terminal_manifest_and_execute_to_admins() -> None:
+    with TemporaryDirectory() as temp_dir:
+        client = _build_client(
+            temp_dir,
+            users=(
+                ("reader", "reader-password", UserRole.READER),
+                ("admin", "admin-password", UserRole.ADMIN),
+            ),
+        )
+
+        assert (
+            client.post(
+                "/auth/login",
+                json={"username": "reader", "password": "reader-password"},
+            ).status_code
+            == 200
+        )
+        assert client.get("/control/terminal/commands").status_code == 403
+        assert (
+            client.post(
+                "/control/terminal/execute",
+                json={"command_line": "help"},
+                headers=_csrf_headers(client),
+            ).status_code
+            == 403
+        )
+
+        assert client.post("/auth/logout", headers=_csrf_headers(client)).status_code == 200
+        assert (
+            client.post(
+                "/auth/login",
+                json={"username": "admin", "password": "admin-password"},
+            ).status_code
+            == 200
+        )
+
+        commands = client.get("/control/terminal/commands")
+        assert commands.status_code == 200
+        assert "help" in {command["name"] for command in commands.json()["commands"]}
+
+        execution = client.post(
+            "/control/terminal/execute",
+            json={"command_line": "help"},
+            headers=_csrf_headers(client),
+        )
+        assert execution.status_code == 200
+        assert execution.json()["execution"]["command_name"] == "help"
+
+
 def test_api_local_auth_rejects_state_changing_requests_without_csrf_token() -> None:
     with TemporaryDirectory() as temp_dir:
         client = _build_client(

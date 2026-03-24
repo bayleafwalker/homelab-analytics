@@ -98,6 +98,11 @@ class ProjectMetadataTests(unittest.TestCase):
         ]:
             self.assertIn(fragment, content)
 
+    def test_python_runtime_image_includes_sql_migrations(self) -> None:
+        content = (ROOT / "infra" / "docker" / "Dockerfile").read_text()
+
+        self.assertIn("COPY migrations ./migrations", content)
+
     def test_example_compose_reuses_shared_application_image(self) -> None:
         content = (ROOT / "infra" / "examples" / "compose.yaml").read_text()
 

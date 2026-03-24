@@ -565,6 +565,460 @@ th {
                    font-size: 0.78rem; font-weight: 700; color: var(--muted); }
 .chartLegendDot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
+.retroRoot {
+  --retro-bg: #08110c;
+  --retro-panel: rgba(9, 21, 15, 0.9);
+  --retro-panel-strong: rgba(9, 21, 15, 0.98);
+  --retro-line: rgba(136, 255, 164, 0.28);
+  --retro-line-strong: rgba(250, 208, 122, 0.34);
+  --retro-text: #d9ffd7;
+  --retro-muted: rgba(199, 244, 204, 0.72);
+  --retro-ok: #88ffa4;
+  --retro-warn: #f6c76d;
+  --retro-accent: #8ae6ff;
+  --retro-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  position: relative;
+  min-height: 100vh;
+  color: var(--retro-text);
+  background:
+    radial-gradient(circle at top left, rgba(246, 199, 109, 0.12), transparent 24%),
+    radial-gradient(circle at top right, rgba(138, 230, 255, 0.09), transparent 28%),
+    linear-gradient(180deg, #0d1d14 0%, var(--retro-bg) 56%, #040806 100%);
+  overflow: hidden;
+}
+
+.retroRoot::before,
+.retroRoot::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.retroRoot::before {
+  background:
+    repeating-linear-gradient(
+      180deg,
+      rgba(217, 255, 215, 0.07) 0,
+      rgba(217, 255, 215, 0.07) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  opacity: 0.18;
+}
+
+.retroRoot::after {
+  background:
+    linear-gradient(90deg, rgba(138, 230, 255, 0.05), transparent 18%, transparent 82%, rgba(246, 199, 109, 0.05)),
+    radial-gradient(circle at center, transparent 56%, rgba(0, 0, 0, 0.28) 100%);
+}
+
+.retroPage {
+  position: relative;
+  z-index: 1;
+  width: min(1320px, 100%);
+  margin: 0 auto;
+  padding: 28px 18px 56px;
+  display: grid;
+  gap: 18px;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+.retroHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.retroPanel {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(15, 31, 21, 0.98), rgba(9, 21, 15, 0.9));
+  border: 1px solid var(--retro-line);
+  box-shadow: inset 0 0 0 1px rgba(136, 255, 164, 0.08), var(--retro-shadow);
+  border-radius: 20px;
+  padding: 18px;
+  overflow: hidden;
+}
+
+.retroPanel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 34%);
+}
+
+.retroBrand,
+.retroChrome,
+.retroStack,
+.retroStackCompact,
+.retroModuleLinks,
+.retroListBlock {
+  display: grid;
+  gap: 12px;
+}
+
+.retroBrand h1,
+.retroSectionHeader h2,
+.retroHero h2 {
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.retroBrand h1 {
+  font-size: clamp(1.8rem, 4vw, 3.1rem);
+  line-height: 1.04;
+  text-transform: uppercase;
+}
+
+.retroSectionHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.retroSectionHeader h2 {
+  font-size: 1.25rem;
+}
+
+.retroEyebrow,
+.retroMetricLabel {
+  color: var(--retro-warn);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.retroLede,
+.retroMuted,
+.retroEmptyState,
+.retroListRow {
+  color: var(--retro-muted);
+  line-height: 1.55;
+}
+
+.retroStatusBar,
+.retroNav,
+.retroActionRow,
+.retroMetricStrip,
+.retroHintRow,
+.retroPromptRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.retroStatusCell,
+.retroUserBadge,
+.retroTag,
+.retroHintButton,
+.retroNavLink,
+.retroActionLink,
+.retroActionButton {
+  border: 1px solid var(--retro-line);
+  border-radius: 999px;
+  background: rgba(8, 18, 13, 0.75);
+  color: var(--retro-text);
+  box-shadow: inset 0 0 18px rgba(136, 255, 164, 0.05);
+}
+
+.retroStatusCell,
+.retroUserBadge,
+.retroTag {
+  padding: 0.45rem 0.72rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.retroTag[data-variant="warn"] {
+  color: var(--retro-warn);
+  border-color: var(--retro-line-strong);
+}
+
+.retroTag[data-variant="ok"] {
+  color: var(--retro-ok);
+}
+
+.retroNavLink,
+.retroActionLink,
+.retroActionButton,
+.retroHintButton {
+  padding: 0.72rem 1rem;
+  font: inherit;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    background 120ms ease;
+}
+
+.retroNavLink:hover,
+.retroActionLink:hover,
+.retroActionButton:hover,
+.retroHintButton:hover {
+  transform: translateY(-1px);
+  border-color: rgba(136, 255, 164, 0.46);
+}
+
+.retroNavLink[data-active="true"] {
+  color: var(--retro-ok);
+  border-color: rgba(136, 255, 164, 0.48);
+  background: rgba(16, 43, 24, 0.88);
+}
+
+.retroActionLink,
+.retroActionButton,
+.retroHintButton {
+  color: var(--retro-warn);
+}
+
+.retroActionButton {
+  background: linear-gradient(180deg, rgba(57, 43, 16, 0.92), rgba(31, 23, 10, 0.96));
+}
+
+.retroActionButton:disabled {
+  cursor: wait;
+  opacity: 0.78;
+}
+
+.retroHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.retroMetricStrip,
+.retroMetricGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.retroMetricGrid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.retroMetricBox {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.retroMetricBox strong {
+  font-size: clamp(1.25rem, 3vw, 2rem);
+  color: var(--retro-ok);
+  text-shadow: 0 0 16px rgba(136, 255, 164, 0.22);
+}
+
+.retroModuleGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.retroModuleCard {
+  display: grid;
+  gap: 12px;
+}
+
+.retroModuleLink,
+.retroMonoStrong {
+  font-weight: 700;
+  color: var(--retro-ok);
+}
+
+.retroModuleLink {
+  padding: 0.2rem 0;
+}
+
+.retroSplit {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.retroSplitWide {
+  align-items: start;
+}
+
+.retroTableWrap {
+  overflow-x: auto;
+}
+
+.retroTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.retroTable th,
+.retroTable td {
+  padding: 0.82rem 0;
+  border-bottom: 1px solid rgba(136, 255, 164, 0.14);
+  vertical-align: top;
+}
+
+.retroTable th {
+  color: var(--retro-warn);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.retroBanner {
+  border-radius: 16px;
+  padding: 0.9rem 1rem;
+  border: 1px solid;
+  background: rgba(10, 24, 17, 0.9);
+}
+
+.retroBannerOk {
+  color: var(--retro-ok);
+  border-color: rgba(136, 255, 164, 0.36);
+}
+
+.retroBannerWarn {
+  color: var(--retro-warn);
+  border-color: rgba(246, 199, 109, 0.36);
+}
+
+.retroActionGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
+}
+
+.retroInlineForm {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.retroFieldLabel {
+  color: var(--retro-warn);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.76rem;
+}
+
+.retroInput,
+.retroCommandInput,
+.retroRoot .field input,
+.retroRoot .field select,
+.retroRoot .field textarea {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--retro-line);
+  background: rgba(6, 13, 10, 0.92);
+  color: var(--retro-text);
+  padding: 0.82rem 0.92rem;
+  font: inherit;
+}
+
+.retroInput:focus,
+.retroCommandInput:focus,
+.retroRoot .field input:focus,
+.retroRoot .field select:focus,
+.retroRoot .field textarea:focus {
+  outline: 1px solid rgba(136, 255, 164, 0.48);
+  outline-offset: 2px;
+}
+
+.retroSubPanel,
+.retroHistoryEntry,
+.retroCatalogRow,
+.retroListRow,
+.retroRoot .adminCard,
+.retroRoot .entityCard,
+.retroRoot .metaItem,
+.retroRoot .checkboxRow,
+.retroRoot .tokenReveal {
+  border-radius: 16px;
+  border: 1px solid rgba(136, 255, 164, 0.14);
+  background: rgba(5, 10, 8, 0.74);
+  padding: 12px 14px;
+}
+
+.retroTerminal {
+  display: grid;
+  gap: 14px;
+}
+
+.retroTerminal .retroSectionHeader {
+  margin-bottom: 0;
+}
+
+.retroHintButton {
+  font-size: 0.78rem;
+  padding: 0.58rem 0.84rem;
+}
+
+.retroPromptRow {
+  align-items: center;
+}
+
+.retroPromptLabel {
+  color: var(--retro-ok);
+  font-weight: 700;
+}
+
+.retroCommandInput {
+  flex: 1 1 280px;
+}
+
+.retroCatalogRow,
+.retroHistoryHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.retroTranscript {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(2, 5, 4, 0.9);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--retro-ok);
+}
+
+.retroTranscriptError {
+  color: var(--retro-warn);
+}
+
+.retroListBlock {
+  margin-top: 10px;
+}
+
+.retroRoot .primaryButton,
+.retroRoot .ghostButton,
+.retroRoot .successBanner,
+.retroRoot .errorBanner,
+.retroRoot .userBadge {
+  border-color: var(--retro-line);
+  background: rgba(8, 18, 13, 0.82);
+  color: var(--retro-text);
+}
+
+.retroRoot .successBanner {
+  color: var(--retro-ok);
+}
+
+.retroRoot .errorBanner {
+  color: var(--retro-warn);
+}
+
 @media (max-width: 920px) {
   .hero,
   .cards,
@@ -586,5 +1040,24 @@ th {
   .spanTwo,
   .spanThree {
     grid-column: auto;
+  }
+
+  .retroHeader,
+  .retroActionGrid,
+  .retroSplit,
+  .retroMetricStrip,
+  .retroMetricGrid,
+  .retroModuleGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .retroActionRow,
+  .retroStatusBar,
+  .retroNav,
+  .retroPromptRow,
+  .retroHistoryHeader,
+  .retroCatalogRow {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

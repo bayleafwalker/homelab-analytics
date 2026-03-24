@@ -4238,6 +4238,134 @@
         "title": "SubscriptionSummaryRow",
         "type": "object"
       },
+      "TerminalCommandModel": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "mutating": {
+            "title": "Mutating",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "usage": {
+            "title": "Usage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "usage",
+          "description",
+          "mutating"
+        ],
+        "title": "TerminalCommandModel",
+        "type": "object"
+      },
+      "TerminalCommandsResponseModel": {
+        "additionalProperties": false,
+        "properties": {
+          "commands": {
+            "items": {
+              "$ref": "#/components/schemas/TerminalCommandModel"
+            },
+            "title": "Commands",
+            "type": "array"
+          }
+        },
+        "required": [
+          "commands"
+        ],
+        "title": "TerminalCommandsResponseModel",
+        "type": "object"
+      },
+      "TerminalExecutionModel": {
+        "additionalProperties": false,
+        "properties": {
+          "command_name": {
+            "title": "Command Name",
+            "type": "string"
+          },
+          "exit_code": {
+            "title": "Exit Code",
+            "type": "integer"
+          },
+          "mutating": {
+            "title": "Mutating",
+            "type": "boolean"
+          },
+          "normalized_command": {
+            "title": "Normalized Command",
+            "type": "string"
+          },
+          "result": {
+            "additionalProperties": true,
+            "title": "Result",
+            "type": "object"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "stderr_lines": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Stderr Lines",
+            "type": "array"
+          },
+          "stdout_lines": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Stdout Lines",
+            "type": "array"
+          }
+        },
+        "required": [
+          "command_name",
+          "normalized_command",
+          "status",
+          "mutating",
+          "exit_code",
+          "stdout_lines",
+          "stderr_lines",
+          "result"
+        ],
+        "title": "TerminalExecutionModel",
+        "type": "object"
+      },
+      "TerminalExecutionRequest": {
+        "properties": {
+          "command_line": {
+            "title": "Command Line",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command_line"
+        ],
+        "title": "TerminalExecutionRequest",
+        "type": "object"
+      },
+      "TerminalExecutionResponseModel": {
+        "additionalProperties": false,
+        "properties": {
+          "execution": {
+            "$ref": "#/components/schemas/TerminalExecutionModel"
+          }
+        },
+        "required": [
+          "execution"
+        ],
+        "title": "TerminalExecutionResponseModel",
+        "type": "object"
+      },
       "TransactionAnomaliesResponse": {
         "properties": {
           "rows": {
@@ -9023,6 +9151,82 @@
           }
         },
         "summary": "Get Source Lineage"
+      }
+    },
+    "/control/terminal/commands": {
+      "get": {
+        "operationId": "list_terminal_commands_control_terminal_commands_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalCommandsResponseModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Terminal Commands"
+      }
+    },
+    "/control/terminal/execute": {
+      "post": {
+        "operationId": "execute_terminal_command_endpoint_control_terminal_execute_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerminalExecutionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalExecutionResponseModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalExecutionResponseModel"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalExecutionResponseModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Execute Terminal Command Endpoint"
       }
     },
     "/extensions": {

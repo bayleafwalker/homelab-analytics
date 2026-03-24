@@ -107,12 +107,15 @@ def test_publication_contract_catalog_maps_columns_and_scalar_types() -> None:
     assert balance_descriptor.required_permissions == ()
     assert balance_descriptor.renderer_hints["web_surface"] == "reports"
     assert balance_descriptor.renderer_hints["web_render_mode"] == "detail"
+    assert balance_descriptor.renderer_hints["web_nav_group"] == "Money"
 
     overview_descriptor = ui_descriptors["overview"]
     assert overview_descriptor.renderer_hints["web_surface"] == "overview"
+    assert overview_descriptor.renderer_hints["web_nav_group"] == "Overview"
 
     homelab_descriptor = ui_descriptors["homelab-services"]
     assert set(homelab_descriptor.supported_renderers) == {"web", "ha"}
+    assert homelab_descriptor.renderer_hints["web_nav_group"] == "Operations"
 
 
 def test_publication_contract_catalog_requires_reporting_relations() -> None:

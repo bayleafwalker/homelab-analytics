@@ -223,6 +223,40 @@ class ServiceTokenCreateResponseModel(BaseModel):
     token_value: str
 
 
+class TerminalCommandModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    usage: str
+    description: str
+    mutating: bool
+
+
+class TerminalCommandsResponseModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    commands: list[TerminalCommandModel]
+
+
+class TerminalExecutionModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    command_name: str
+    normalized_command: str
+    status: str
+    mutating: bool
+    exit_code: int
+    stdout_lines: list[str]
+    stderr_lines: list[str]
+    result: dict[str, Any]
+
+
+class TerminalExecutionResponseModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    execution: TerminalExecutionModel
+
+
 _STORAGE_TYPE_TO_PYTHON_TYPE: dict[str, Any] = {
     "DECIMAL": str,
     "DATE": str,

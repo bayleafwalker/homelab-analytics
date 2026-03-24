@@ -163,6 +163,35 @@ def _apply_pending(
     return newly_applied
 
 
+def resolve_migrations_dir(
+    track: str,
+    *,
+    anchor_file: Path | None = None,
+    working_directory: Path | None = None,
+) -> Path:
+    """Resolve a migration track for both source checkouts and installed images.
+
+    Source checkouts keep ``migrations/`` at the repository root relative to the
+    Python modules. Installed Docker images copy ``migrations/`` into ``/app``,
+    so the package path under ``site-packages`` is no longer adjacent.
+    """
+    anchor_root = (
+        (anchor_file or Path(__file__)).resolve().parents[2]
+    )
+    cwd_root = (working_directory or Path.cwd()).resolve()
+    candidate_roots = (anchor_root, cwd_root, Path("/app"))
+
+    for root in candidate_roots:
+        candidate = root / "migrations" / track
+        if candidate.is_dir():
+            return candidate
+
+    searched = ", ".join(str(root / "migrations" / track) for root in candidate_roots)
+    raise FileNotFoundError(
+        f"Could not locate migration track {track!r}. Searched: {searched}"
+    )
+
+
 def _split_statements(sql: str) -> list[str]:
     """Split SQL text on semicolons, filtering empty blocks and comment-only chunks."""
     result = []
