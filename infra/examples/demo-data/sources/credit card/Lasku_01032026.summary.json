@@ -1,0 +1,30 @@
+{
+  "statement_date": "2026-03-01",
+  "period_start": "2026-02-02",
+  "period_end": "2026-03-01",
+  "due_date": "2026-03-24",
+  "previous_balance": "3302.04",
+  "payments_total": "387.12",
+  "purchases_total": "437.62",
+  "interest_amount": "21.94",
+  "service_fee": "3.50",
+  "minimum_due": "101.34",
+  "ending_balance": "3377.98",
+  "transactions": [
+    {
+      "posted_at": "2026-02-07",
+      "merchant": "K-Ruoka Tampere",
+      "amount": "124.80"
+    },
+    {
+      "posted_at": "2026-02-13",
+      "merchant": "Gigantti Ideapark",
+      "amount": "189.00"
+    },
+    {
+      "posted_at": "2026-02-20",
+      "merchant": "Prisma Kaleva",
+      "amount": "96.40"
+    }
+  ]
+}

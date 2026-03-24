@@ -1,0 +1,4 @@
+loan_id,loan_name,lender,loan_type,principal,annual_rate,term_months,start_date,payment_frequency,repayment_date,payment_amount,principal_portion,interest_portion,extra_amount,currency
+mortgage-001,Home Mortgage,First National Bank,mortgage,280000.00,0.045,300,2022-01-01,monthly,2025-10-01,1557.00,514.50,1042.50,,EUR
+mortgage-001,Home Mortgage,First National Bank,mortgage,280000.00,0.045,300,2022-01-01,monthly,2025-11-01,1557.00,516.43,1040.57,,EUR
+mortgage-001,Home Mortgage,First National Bank,mortgage,280000.00,0.045,300,2022-01-01,monthly,2025-12-01,1557.00,518.37,1038.63,,EUR

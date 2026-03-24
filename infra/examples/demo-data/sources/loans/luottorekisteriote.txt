@@ -1,0 +1,26 @@
+Luottotietorekisteriote - Demo Pankki Oyj, 2026-03-02
+Tämä ote on synteettinen demoaineisto.
+
+Tilauksen tiedot
+Tilaajan tunniste: 1234567-8
+Otteen viite: b7341e6a-6e6a-4fcb-91b9-2d75ab1e9c10
+Henkilötunnus: 010190-XXXX
+
+Luotto 1
+Luoton tyyppi: Asuntolaina
+Luotonantaja: Ensiasunto Pankki Oyj
+Luoton tunniste: mortgage-001
+Luotto myönnetty: 2022-01-01
+Pääoma: 280000.00 EUR
+Saldo: 251420.11 EUR
+Kuukausierä: 1557.00 EUR
+
+Luotto 2
+Luoton tyyppi: Kulutusluotto
+Luotonantaja: Koti Luotto Oy
+Luoton tunniste: consumer-002
+Luotto myönnetty: 2024-09-15
+Pääoma: 4200.00 EUR
+Saldo: 2895.40 EUR
+Kuukausierä: 126.00 EUR
+

@@ -1,0 +1,145 @@
+booked_at,account_id,counterparty_name,amount,currency,description
+2025-01-03,PERS-001,Employer Corp,3200.00,EUR,Monthly salary
+2025-01-04,PERS-001,Demo Shared Household,-959.24,EUR,Own transfer
+2025-01-05,COMM-001,Demo Personal Household,959.24,EUR,Shared household transfer
+2025-01-05,PERS-001,Revolut Top Up,-159.35,EUR,Card top up
+2025-01-05,REV-001,Google Pay deposit by *8221,159.35,EUR,Top up
+2025-01-07,COMM-001,Supermarket Plus,-253.71,EUR,groceries
+2025-01-09,COMM-001,City Power,-85.35,EUR,utilities
+2025-01-11,COMM-001,Metro Transport,-61.12,EUR,transport
+2025-01-13,COMM-001,Restaurant Roma,-50.46,EUR,dining
+2025-01-15,REV-001,Netflix Inc.,-15.99,EUR,entertainment
+2025-01-17,REV-001,Pharmacy Central,-20.75,EUR,health
+2025-01-25,PERS-001,OP-Korttiyhtiö Oyj,-193.32,EUR,OP Gold payment
+2025-02-03,PERS-001,Employer Corp,3200.00,EUR,Monthly salary
+2025-02-04,PERS-001,Demo Shared Household,-916.44,EUR,Own transfer
+2025-02-05,COMM-001,Demo Personal Household,916.44,EUR,Shared household transfer
+2025-02-05,PERS-001,Revolut Top Up,-175.46,EUR,Card top up
+2025-02-05,REV-001,Google Pay deposit by *8221,175.46,EUR,Top up
+2025-02-07,COMM-001,Supermarket Plus,-279.32,EUR,groceries
+2025-02-09,COMM-001,City Power,-83.20,EUR,utilities
+2025-02-11,COMM-001,Metro Transport,-65.14,EUR,transport
+2025-02-13,COMM-001,Restaurant Roma,-52.28,EUR,dining
+2025-02-15,REV-001,Netflix Inc.,-15.99,EUR,entertainment
+2025-02-17,REV-001,Pharmacy Central,-20.56,EUR,health
+2025-02-25,PERS-001,OP-Korttiyhtiö Oyj,-266.56,EUR,OP Gold payment
+2025-03-03,PERS-001,Employer Corp,3200.00,EUR,Monthly salary
+2025-03-04,PERS-001,Demo Shared Household,-917.44,EUR,Own transfer
+2025-03-05,COMM-001,Demo Personal Household,917.44,EUR,Shared household transfer
+2025-03-05,PERS-001,Revolut Top Up,-174.04,EUR,Card top up
+2025-03-05,REV-001,Google Pay deposit by *8221,174.04,EUR,Top up
+2025-03-07,COMM-001,Supermarket Plus,-266.47,EUR,groceries
+2025-03-09,COMM-001,City Power,-85.35,EUR,utilities
+2025-03-11,COMM-001,Metro Transport,-56.78,EUR,transport
+2025-03-13,COMM-001,Restaurant Roma,-52.71,EUR,dining
+2025-03-15,REV-001,Netflix Inc.,-15.99,EUR,entertainment
+2025-03-17,REV-001,Pharmacy Central,-18.19,EUR,health
+2025-03-25,PERS-001,OP-Korttiyhtiö Oyj,-224.07,EUR,OP Gold payment
+2025-04-03,PERS-001,Employer Corp,3200.00,EUR,Monthly salary
+2025-04-04,PERS-001,Demo Shared Household,-958.56,EUR,Own transfer
+2025-04-05,COMM-001,Demo Personal Household,958.56,EUR,Shared household transfer
+2025-04-05,PERS-001,Revolut Top Up,-182.91,EUR,Card top up
+2025-04-05,REV-001,Google Pay deposit by *8221,182.91,EUR,Top up
+2025-04-07,COMM-001,Supermarket Plus,-295.08,EUR,groceries
+2025-04-09,COMM-001,City Power,-80.96,EUR,utilities
+2025-04-11,COMM-001,Metro Transport,-59.70,EUR,transport
+2025-04-13,COMM-001,Restaurant Roma,-44.51,EUR,dining
+2025-04-15,REV-001,Netflix Inc.,-15.99,EUR,entertainment
+2025-04-17,REV-001,Pharmacy Central,-21.22,EUR,health
+2025-04-25,PERS-001,OP-Korttiyhtiö Oyj,-232.95,EUR,OP Gold payment
+2025-05-03,PERS-001,Employer Corp,3200.00,EUR,Monthly salary
+2025-05-04,PERS-001,Demo Shared Household,-901.14,EUR,Own transfer
+2025-05-05,COMM-001,Demo Personal Household,901.14,EUR,Shared household transfer
+2025-05-05,PERS-001,Revolut Top Up,-152.41,EUR,Card top up
+2025-05-05,REV-001,Google Pay deposit by *8221,152.41,EUR,Top up
+2025-05-07,COMM-001,Supermarket Plus,-257.46,EUR,groceries
+2025-05-09,COMM-001,City Power,-87.61,EUR,utilities
+2025-05-11,COMM-001,Metro Transport,-62.49,EUR,transport
+2025-05-13,COMM-001,Restaurant Roma,-41.50,EUR,dining
+2025-05-15,REV-001,Netflix Inc.,-15.99,EUR,entertainment
+2025-05-17,REV-001,Pharmacy Central,-24.03,EUR,health
+2025-05-25,PERS-001,OP-Korttiyhtiö Oyj,-237.63,EUR,OP Gold payment
+2025-06-03,PERS-001,Employer Corp,3200.00,EUR,Monthly salary
+2025-06-04,PERS-001,Demo Shared Household,-963.30,EUR,Own transfer
+2025-06-05,COMM-001,Demo Personal Household,963.30,EUR,Shared household transfer
+2025-06-05,PERS-001,Revolut Top Up,-172.69,EUR,Card top up
+2025-06-05,REV-001,Google Pay deposit by *8221,172.69,EUR,Top up
+2025-06-07,COMM-001,Supermarket Plus,-280.90,EUR,groceries
+2025-06-09,COMM-001,City Power,-96.19,EUR,utilities
+2025-06-11,COMM-001,Metro Transport,-65.28,EUR,transport
+2025-06-13,COMM-001,Restaurant Roma,-42.07,EUR,dining
+2025-06-15,REV-001,Netflix Inc.,-15.99,EUR,entertainment
+2025-06-17,REV-001,Pharmacy Central,-18.13,EUR,health
+2025-06-25,PERS-001,OP-Korttiyhtiö Oyj,-242.29,EUR,OP Gold payment
+2025-07-03,PERS-001,Employer Corp,3200.00,EUR,Monthly salary
+2025-07-04,PERS-001,Demo Shared Household,-908.47,EUR,Own transfer
+2025-07-05,COMM-001,Demo Personal Household,908.47,EUR,Shared household transfer
+2025-07-05,PERS-001,Revolut Top Up,-151.32,EUR,Card top up
+2025-07-05,REV-001,Google Pay deposit by *8221,151.32,EUR,Top up
+2025-07-07,COMM-001,Supermarket Plus,-299.05,EUR,groceries
+2025-07-09,COMM-001,City Power,-95.70,EUR,utilities
+2025-07-11,COMM-001,Metro Transport,-67.47,EUR,transport
+2025-07-13,COMM-001,Restaurant Roma,-40.09,EUR,dining
+2025-07-15,REV-001,Netflix Inc.,-15.99,EUR,entertainment
+2025-07-17,REV-001,Pharmacy Central,-23.26,EUR,health
+2025-07-25,PERS-001,OP-Korttiyhtiö Oyj,-199.19,EUR,OP Gold payment
+2025-08-03,PERS-001,Employer Corp,3200.00,EUR,Monthly salary
+2025-08-04,PERS-001,Demo Shared Household,-987.47,EUR,Own transfer
+2025-08-05,COMM-001,Demo Personal Household,987.47,EUR,Shared household transfer
+2025-08-05,PERS-001,Revolut Top Up,-170.06,EUR,Card top up
+2025-08-05,REV-001,Google Pay deposit by *8221,170.06,EUR,Top up
+2025-08-07,COMM-001,Supermarket Plus,-307.75,EUR,groceries
+2025-08-09,COMM-001,City Power,-82.44,EUR,utilities
+2025-08-11,COMM-001,Metro Transport,-58.83,EUR,transport
+2025-08-13,COMM-001,Restaurant Roma,-48.70,EUR,dining
+2025-08-15,REV-001,Netflix Inc.,-15.99,EUR,entertainment
+2025-08-17,REV-001,Pharmacy Central,-23.88,EUR,health
+2025-08-25,PERS-001,OP-Korttiyhtiö Oyj,-201.42,EUR,OP Gold payment
+2025-09-03,PERS-001,Employer Corp,3200.00,EUR,Monthly salary
+2025-09-04,PERS-001,Demo Shared Household,-968.88,EUR,Own transfer
+2025-09-05,COMM-001,Demo Personal Household,968.88,EUR,Shared household transfer
+2025-09-05,PERS-001,Revolut Top Up,-179.51,EUR,Card top up
+2025-09-05,REV-001,Google Pay deposit by *8221,179.51,EUR,Top up
+2025-09-07,COMM-001,Supermarket Plus,-278.76,EUR,groceries
+2025-09-09,COMM-001,City Power,-79.42,EUR,utilities
+2025-09-11,COMM-001,Metro Transport,-54.25,EUR,transport
+2025-09-13,COMM-001,Restaurant Roma,-44.60,EUR,dining
+2025-09-15,REV-001,Netflix Inc.,-15.99,EUR,entertainment
+2025-09-17,REV-001,Pharmacy Central,-26.03,EUR,health
+2025-09-25,PERS-001,OP-Korttiyhtiö Oyj,-193.36,EUR,OP Gold payment
+2025-10-03,PERS-001,Employer Corp,3200.00,EUR,Monthly salary
+2025-10-04,PERS-001,Demo Shared Household,-964.88,EUR,Own transfer
+2025-10-05,COMM-001,Demo Personal Household,964.88,EUR,Shared household transfer
+2025-10-05,PERS-001,Revolut Top Up,-155.44,EUR,Card top up
+2025-10-05,REV-001,Google Pay deposit by *8221,155.44,EUR,Top up
+2025-10-07,COMM-001,Supermarket Plus,-262.77,EUR,groceries
+2025-10-09,COMM-001,City Power,-91.75,EUR,utilities
+2025-10-11,COMM-001,Metro Transport,-67.91,EUR,transport
+2025-10-13,COMM-001,Restaurant Roma,-50.63,EUR,dining
+2025-10-15,REV-001,Netflix Inc.,-15.99,EUR,entertainment
+2025-10-17,REV-001,Pharmacy Central,-18.41,EUR,health
+2025-10-25,PERS-001,OP-Korttiyhtiö Oyj,-215.89,EUR,OP Gold payment
+2025-11-03,PERS-001,Employer Corp,3200.00,EUR,Monthly salary
+2025-11-04,PERS-001,Demo Shared Household,-937.40,EUR,Own transfer
+2025-11-05,COMM-001,Demo Personal Household,937.40,EUR,Shared household transfer
+2025-11-05,PERS-001,Revolut Top Up,-172.57,EUR,Card top up
+2025-11-05,REV-001,Google Pay deposit by *8221,172.57,EUR,Top up
+2025-11-07,COMM-001,Supermarket Plus,-279.04,EUR,groceries
+2025-11-09,COMM-001,City Power,-97.05,EUR,utilities
+2025-11-11,COMM-001,Metro Transport,-56.53,EUR,transport
+2025-11-13,COMM-001,Restaurant Roma,-52.84,EUR,dining
+2025-11-15,REV-001,Netflix Inc.,-15.99,EUR,entertainment
+2025-11-17,REV-001,Pharmacy Central,-25.66,EUR,health
+2025-11-25,PERS-001,OP-Korttiyhtiö Oyj,-217.37,EUR,OP Gold payment
+2025-12-03,PERS-001,Employer Corp,3200.00,EUR,Monthly salary
+2025-12-04,PERS-001,Demo Shared Household,-978.27,EUR,Own transfer
+2025-12-05,COMM-001,Demo Personal Household,978.27,EUR,Shared household transfer
+2025-12-05,PERS-001,Revolut Top Up,-165.08,EUR,Card top up
+2025-12-05,REV-001,Google Pay deposit by *8221,165.08,EUR,Top up
+2025-12-07,COMM-001,Supermarket Plus,-253.00,EUR,groceries
+2025-12-09,COMM-001,City Power,-86.18,EUR,utilities
+2025-12-11,COMM-001,Metro Transport,-65.49,EUR,transport
+2025-12-13,COMM-001,Restaurant Roma,-52.05,EUR,dining
+2025-12-15,REV-001,Netflix Inc.,-15.99,EUR,entertainment
+2025-12-17,REV-001,Pharmacy Central,-22.94,EUR,health
+2025-12-25,PERS-001,OP-Korttiyhtiö Oyj,-229.37,EUR,OP Gold payment

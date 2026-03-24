@@ -1,0 +1,193 @@
+{
+  "generated_at": "2026-03-24T00:00:00+00:00",
+  "seed": 20260324,
+  "artifacts": [
+    {
+      "artifact_id": "account_transactions_canonical_csv",
+      "relative_path": "canonical/account_transactions.csv",
+      "source_family": "canonical",
+      "format": "csv",
+      "intended_dataset_name": "account_transactions",
+      "ingest_support": "supported_now",
+      "source_name": null,
+      "sha256": "2a67cbc39b5ab245b5b94aba80bb5c741939092e4fc70c974de138858b27118c",
+      "size_bytes": 8875
+    },
+    {
+      "artifact_id": "budgets_canonical_csv",
+      "relative_path": "canonical/budgets.csv",
+      "source_family": "canonical",
+      "format": "csv",
+      "intended_dataset_name": "budgets",
+      "ingest_support": "supported_now",
+      "source_name": null,
+      "sha256": "e8e7e19f5dd4e424f50299c7b5ae8424a7d4b69e341f11e034583db1a7717347",
+      "size_bytes": 347
+    },
+    {
+      "artifact_id": "contract_prices_canonical_csv",
+      "relative_path": "canonical/contract_prices.csv",
+      "source_family": "canonical",
+      "format": "csv",
+      "intended_dataset_name": "contract_prices",
+      "ingest_support": "supported_now",
+      "source_name": null,
+      "sha256": "44d81857d3f278a5759eeb369016824bc99c2c0f3285b40359f362a80c545a88",
+      "size_bytes": 331
+    },
+    {
+      "artifact_id": "loan_repayments_canonical_csv",
+      "relative_path": "canonical/loan_repayments.csv",
+      "source_family": "canonical",
+      "format": "csv",
+      "intended_dataset_name": "loan_repayments",
+      "ingest_support": "supported_now",
+      "source_name": null,
+      "sha256": "0f0544c308a8c8d042c4deef98f62426262c61c745b4a7276a921f5c7105dc32",
+      "size_bytes": 587
+    },
+    {
+      "artifact_id": "subscriptions_canonical_csv",
+      "relative_path": "canonical/subscriptions.csv",
+      "source_family": "canonical",
+      "format": "csv",
+      "intended_dataset_name": "subscriptions",
+      "ingest_support": "supported_now",
+      "source_name": null,
+      "sha256": "187177a8bb46094aa4c68ff2719f916e23b8fc9eebc0008f70daabe15f5fdf2b",
+      "size_bytes": 275
+    },
+    {
+      "artifact_id": "utility_bills_canonical_csv",
+      "relative_path": "canonical/utility_bills.csv",
+      "source_family": "canonical",
+      "format": "csv",
+      "intended_dataset_name": "utility_bills",
+      "ingest_support": "supported_now",
+      "source_name": null,
+      "sha256": "534ed77a081c96671d8555d5e8d85e44981ebd71094a1a10353f39ed06371fc0",
+      "size_bytes": 2758
+    },
+    {
+      "artifact_id": "op_common_account_csv",
+      "relative_path": "sources/common account/tapahtumat20250101-20251231.csv",
+      "source_family": "common account",
+      "format": "csv",
+      "intended_dataset_name": "account_transactions",
+      "ingest_support": "supported_now",
+      "source_name": "demo-op-common",
+      "sha256": "86b3ea1df8096b588ce7b1da3a02f0fc745f5a364e8497c0b4bee85178094871",
+      "size_bytes": 9182
+    },
+    {
+      "artifact_id": "credit_card_statement_2026_01",
+      "relative_path": "sources/credit card/Lasku_01012026.pdf",
+      "source_family": "credit card",
+      "format": "pdf",
+      "intended_dataset_name": "card_statement_document",
+      "ingest_support": "template_only",
+      "source_name": null,
+      "sha256": "360949b8fe3956da418bec8bc1c6ec9cc204aff655582011dbb3499fe4603517",
+      "size_bytes": 2306
+    },
+    {
+      "artifact_id": "credit_card_statement_2026_01_summary",
+      "relative_path": "sources/credit card/Lasku_01012026.summary.json",
+      "source_family": "credit card",
+      "format": "json",
+      "intended_dataset_name": "card_statement_document",
+      "ingest_support": "template_only",
+      "source_name": null,
+      "sha256": "13ec82f9a46d91ea56743028b60b73c2e24c8ff63ddedc2cf2d2aeeb9a218217",
+      "size_bytes": 680
+    },
+    {
+      "artifact_id": "credit_card_statement_2026_02",
+      "relative_path": "sources/credit card/Lasku_01022026.pdf",
+      "source_family": "credit card",
+      "format": "pdf",
+      "intended_dataset_name": "card_statement_document",
+      "ingest_support": "template_only",
+      "source_name": null,
+      "sha256": "07c6904af9d7b59fcbc5ad526cc6a90b40f1bf779d4a59884e79219b39366b5c",
+      "size_bytes": 2302
+    },
+    {
+      "artifact_id": "credit_card_statement_2026_02_summary",
+      "relative_path": "sources/credit card/Lasku_01022026.summary.json",
+      "source_family": "credit card",
+      "format": "json",
+      "intended_dataset_name": "card_statement_document",
+      "ingest_support": "template_only",
+      "source_name": null,
+      "sha256": "9e29e492be12c71287d39f199ba838dee1644ca8a11d758bbfb52e63a6113b31",
+      "size_bytes": 680
+    },
+    {
+      "artifact_id": "credit_card_statement_2026_03",
+      "relative_path": "sources/credit card/Lasku_01032026.pdf",
+      "source_family": "credit card",
+      "format": "pdf",
+      "intended_dataset_name": "card_statement_document",
+      "ingest_support": "template_only",
+      "source_name": null,
+      "sha256": "0d3c2d6f634409ffb6f9948d7787600f1b1d36ba8fcf4236cfd29668eb17b523",
+      "size_bytes": 2304
+    },
+    {
+      "artifact_id": "credit_card_statement_2026_03_summary",
+      "relative_path": "sources/credit card/Lasku_01032026.summary.json",
+      "source_family": "credit card",
+      "format": "json",
+      "intended_dataset_name": "card_statement_document",
+      "ingest_support": "template_only",
+      "source_name": null,
+      "sha256": "5612fdb9fd9313839d24ac07d88eb27a7f95439ddf2d7536235f40254e23b2eb",
+      "size_bytes": 681
+    },
+    {
+      "artifact_id": "loan_registry_html",
+      "relative_path": "sources/loans/Luottotietorekisteriote - Positiivinen luottotietorekisteri.html",
+      "source_family": "loans",
+      "format": "html",
+      "intended_dataset_name": "loan_registry_snapshot",
+      "ingest_support": "template_only",
+      "source_name": null,
+      "sha256": "4fe6c079dddde3966b214f4cecadffc7d1d0551fe579c58add2b8ee822e10943",
+      "size_bytes": 1327
+    },
+    {
+      "artifact_id": "loan_registry_text",
+      "relative_path": "sources/loans/luottorekisteriote.txt",
+      "source_family": "loans",
+      "format": "txt",
+      "intended_dataset_name": "loan_registry_snapshot",
+      "ingest_support": "template_only",
+      "source_name": null,
+      "sha256": "dbbd4b400654b7d50296a5917c85d3cc5d87b5ee59871bccde6ab4da1a8683a9",
+      "size_bytes": 620
+    },
+    {
+      "artifact_id": "op_personal_account_csv",
+      "relative_path": "sources/personal account/tapahtumat20250101-20251231.csv",
+      "source_family": "personal account",
+      "format": "csv",
+      "intended_dataset_name": "account_transactions",
+      "ingest_support": "supported_now",
+      "source_name": "demo-op-personal",
+      "sha256": "c8c31a1eef9ba61d62d70436022c7b51fef11308e0935f8a926d915dc1c256f0",
+      "size_bytes": 7034
+    },
+    {
+      "artifact_id": "revolut_account_csv",
+      "relative_path": "sources/revolut/account-statement_2025-01-01_2025-12-31_en-us_demo.csv",
+      "source_family": "revolut",
+      "format": "csv",
+      "intended_dataset_name": "account_transactions",
+      "ingest_support": "supported_now",
+      "source_name": "demo-revolut",
+      "sha256": "e67e1e3f8d87ed47e9d39f4281845a6ae440fc5dd26e4ae48c370e30d6271249",
+      "size_bytes": 4122
+    }
+  ]
+}

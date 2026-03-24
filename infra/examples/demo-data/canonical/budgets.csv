@@ -1,0 +1,6 @@
+budget_name,category,period_type,target_amount,currency,effective_from,effective_to
+Monthly Budget,groceries,monthly,350.00,EUR,2025-01,
+Monthly Budget,entertainment,monthly,50.00,EUR,2025-01,
+Monthly Budget,transport,monthly,80.00,EUR,2025-01,
+Monthly Budget,utilities,monthly,120.00,EUR,2025-01,
+Monthly Budget,dining,monthly,60.00,EUR,2025-01,
