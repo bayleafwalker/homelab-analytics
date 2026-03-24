@@ -11,6 +11,18 @@ def build_parser() -> argparse.ArgumentParser:
     ingest_parser.add_argument("source_path")
     ingest_parser.add_argument("--source-name", default="manual-upload")
 
+    generate_demo_parser = subparsers.add_parser("generate-demo-data")
+    generate_demo_parser.add_argument(
+        "--output-dir",
+        default="infra/examples/demo-data",
+    )
+
+    seed_demo_parser = subparsers.add_parser("seed-demo-data")
+    seed_demo_parser.add_argument(
+        "--input-dir",
+        default="infra/examples/demo-data",
+    )
+
     configured_csv_parser = subparsers.add_parser("ingest-configured-csv")
     configured_csv_parser.add_argument("source_path")
     configured_csv_parser.add_argument("--source-asset-id", default="")

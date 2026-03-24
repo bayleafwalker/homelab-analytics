@@ -165,6 +165,17 @@ class ConfiguredCsvIngestionService:
         )
 
 
+def _sniff_csv_dialect(source_text: str) -> CsvDialect:
+    sample_lines = source_text.splitlines()[:10]
+    sample = "\n".join(sample_lines).strip()
+    if not sample:
+        return csv.excel
+    try:
+        return csv.Sniffer().sniff(sample, delimiters=",;\t|")
+    except csv.Error:
+        return csv.excel
+
+
 def map_csv_columns(
     *,
     source_bytes: bytes,
@@ -182,7 +193,8 @@ def map_csv_columns(
         )
 
     input_buffer = StringIO(source_bytes.decode("utf-8"))
-    reader = csv.DictReader(input_buffer)
+    dialect = _sniff_csv_dialect(input_buffer.getvalue())
+    reader = csv.DictReader(input_buffer, dialect=dialect)
     output_buffer = StringIO()
     writer = csv.DictWriter(
         output_buffer,
@@ -238,6 +250,7 @@ def preview_mapped_csv(
     function_registry: FunctionRegistry | None = None,
 ) -> ConfiguredCsvPreview:
     source_text = source_bytes.decode("utf-8")
+    dialect = _sniff_csv_dialect(source_text)
     mapped_bytes = map_csv_columns(
         source_bytes=source_bytes,
         dataset_contract=dataset_contract,
@@ -253,7 +266,7 @@ def preview_mapped_csv(
         if index >= max(preview_limit, 0):
             break
         preview_rows.append({key: (value or "") for key, value in row.items()})
-    source_header = next(csv.reader(StringIO(source_text)), [])
+    source_header = next(csv.reader(StringIO(source_text), dialect=dialect), [])
     return ConfiguredCsvPreview(
         source_header=[column.strip() for column in source_header],
         mapped_header=validation.header,
@@ -261,3 +274,4 @@ def preview_mapped_csv(
         preview_rows=preview_rows,
         issues=validation.issues,
     )
+CsvDialect = csv.Dialect | type[csv.Dialect]

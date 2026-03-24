@@ -128,6 +128,8 @@ Examples:
 
 ```bash
 python -m apps.worker.main ingest-account-transactions tests/fixtures/account_transactions_valid.csv
+python -m apps.worker.main generate-demo-data --output-dir infra/examples/demo-data
+python -m apps.worker.main seed-demo-data --input-dir infra/examples/demo-data
 python -m apps.worker.main list-runs
 python -m apps.worker.main report-monthly-cashflow
 python -m apps.worker.main watch-schedule-dispatches
@@ -136,6 +138,40 @@ python -m apps.web.main
 ```
 
 When a DuckDB transformation service is configured, built-in datasets auto-promote successful runs into the current silver/gold path through source-asset transformation bindings and publication definitions. Re-running promotion for the same run is idempotent and refreshes marts without duplicating facts.
+
+## Demo data
+
+The repository now ships a public synthetic demo bundle under `infra/examples/demo-data/`.
+It contains:
+
+- source-shaped finance exports under `infra/examples/demo-data/sources/` for OP-style personal/common account CSVs, a Revolut CSV, credit-card statement PDFs plus JSON sidecars, and loan-registry HTML/TXT snapshots
+- canonical seed datasets under `infra/examples/demo-data/canonical/` for account transactions, subscriptions, contract prices, utility bills, budgets, and loan repayments
+- a `manifest.json` that records the bundle contents, intended dataset names, and whether each artifact is supported now or template-only
+
+`.samples/` remains local-only reference material and is gitignored. The demo generator does not read from `.samples/` at runtime.
+
+Generate or refresh the bundle locally:
+
+```bash
+make demo-generate
+```
+
+Seed a local instance:
+
+```bash
+make demo-seed
+```
+
+Seed the example Compose stack:
+
+```bash
+docker compose -f infra/examples/compose.yaml up -d api web
+docker compose -f infra/examples/compose.yaml --profile worker run --rm \
+  -v "$(pwd)/infra/examples/demo-data:/demo-data:ro" \
+  worker seed-demo-data --input-dir /demo-data
+```
+
+The seed command creates or updates stable demo source bindings for the source-shaped account exports, ingests the supported demo datasets through the existing landing and promotion services, and prints a JSON summary with config status, run IDs, and reporting counts.
 
 ## Verification
 

@@ -21,6 +21,7 @@ from .admin_commands import (
     handle_verify_config,
 )
 from .ingest_commands import (
+    handle_generate_demo_data,
     handle_ingest_account_transactions,
     handle_ingest_configured_csv,
     handle_ingest_contract_prices,
@@ -36,6 +37,7 @@ from .ingest_commands import (
     handle_run_landing_extension,
     handle_run_reporting_extension,
     handle_run_transformation_extension,
+    handle_seed_demo_data,
     handle_watch_account_transactions_inbox,
 )
 from .registry_commands import (
@@ -69,6 +71,7 @@ def build_worker_command_handlers() -> dict[str, WorkerCommandHandler]:
         "create-service-token": handle_create_service_token,
         "enqueue-due-schedules": handle_enqueue_due_schedules,
         "export-control-plane": handle_export_control_plane,
+        "generate-demo-data": handle_generate_demo_data,
         "import-control-plane": handle_import_control_plane,
         "ingest-account-transactions": handle_ingest_account_transactions,
         "ingest-configured-csv": handle_ingest_configured_csv,
@@ -106,6 +109,7 @@ def build_worker_command_handlers() -> dict[str, WorkerCommandHandler]:
         "run-landing-extension": handle_run_landing_extension,
         "run-reporting-extension": handle_run_reporting_extension,
         "run-transformation-extension": handle_run_transformation_extension,
+        "seed-demo-data": handle_seed_demo_data,
         "sync-extension-registry-source": handle_sync_extension_registry_source,
         "verify-config": handle_verify_config,
         "watch-account-transactions-inbox": handle_watch_account_transactions_inbox,

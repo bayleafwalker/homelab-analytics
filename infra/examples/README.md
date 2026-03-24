@@ -14,3 +14,20 @@ Current foundation:
 - `secrets/*.example.yaml` provides example Kubernetes Secret manifests for bootstrap single-DSN database access, workload-scoped API/worker database access, bootstrap local auth, blob storage, OIDC session/provider credentials, and provider API credentials
 - `secrets/postgres-external-secret.example.yaml` shows the External Secrets Operator path for the bootstrap single-DSN database credential
 - `secrets/provider-api-secret.sops.example.yaml` shows the SOPS-encrypted Secret path for Git-managed provider credentials
+- `demo-data/` contains the committed synthetic demo bundle plus `manifest.json`
+
+Demo-data notes:
+
+- `demo-data/sources/` contains Finnish-shaped public mock exports for finance sources
+- `demo-data/canonical/` contains the current supported seed CSVs used by `seed-demo-data`
+- `.samples/` stays local-only and is not part of the public bundle
+
+Useful commands:
+
+```bash
+make demo-generate
+make demo-seed
+docker compose -f infra/examples/compose.yaml --profile worker run --rm \
+  -v "$(pwd)/infra/examples/demo-data:/demo-data:ro" \
+  worker seed-demo-data --input-dir /demo-data
+```

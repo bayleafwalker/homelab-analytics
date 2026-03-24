@@ -21,6 +21,7 @@ from apps.worker.serialization import (
     _serialize_inbox_result,
     _write_json,
 )
+from packages.demo import seed_demo_data, write_demo_bundle
 from packages.pipelines.promotion import (
     PromotionResult,
     promote_contract_price_run,
@@ -76,6 +77,27 @@ def handle_ingest_account_transactions(args: Namespace, runtime: WorkerRuntime) 
         )
         _publish_reporting(reporting_service, promotion)
         payload["promotion"] = promotion
+    _write_json(runtime.output, payload)
+    return 0
+
+
+def handle_generate_demo_data(args: Namespace, runtime: WorkerRuntime) -> int:
+    output_dir = Path(args.output_dir)
+    manifest = write_demo_bundle(output_dir)
+    _write_json(
+        runtime.output,
+        {
+            "output_dir": str(output_dir),
+            "manifest_path": str(output_dir / "manifest.json"),
+            "artifact_count": len(manifest["artifacts"]),
+            "seed": manifest["seed"],
+        },
+    )
+    return 0
+
+
+def handle_seed_demo_data(args: Namespace, runtime: WorkerRuntime) -> int:
+    payload = seed_demo_data(runtime.settings, Path(args.input_dir))
     _write_json(runtime.output, payload)
     return 0
 

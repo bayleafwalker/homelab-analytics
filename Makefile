@@ -22,7 +22,7 @@ CONTRACT_RELEASE_DIR ?= dist/contracts
 	verify-agent verify-arch verify-fast verify-all verify-domain helm-lint \
 	docker-build compose-smoke audit-deps db-migrate-sqlite db-migrate-postgres \
 	db-migrate-postgres-control-plane db-migrate-postgres-run-metadata \
-	web-codegen web-codegen-check web-typecheck web-build \
+	web-codegen web-codegen-check web-typecheck web-build demo-generate demo-seed \
 	contract-export-check contract-compat-report contract-release-artifacts
 
 lint:
@@ -108,6 +108,12 @@ web-typecheck:
 
 web-build:
 	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run build
+
+demo-generate:
+	$(PYTHON) -m apps.worker.main generate-demo-data --output-dir infra/examples/demo-data
+
+demo-seed:
+	$(PYTHON) -m apps.worker.main seed-demo-data --input-dir infra/examples/demo-data
 
 helm-lint:
 	helm lint charts/homelab-analytics

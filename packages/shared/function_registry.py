@@ -68,7 +68,10 @@ def load_function_registry(
     extension_paths: tuple[Path, ...] = (),
     function_modules: tuple[str, ...] = (),
 ) -> FunctionRegistry:
+    from packages.shared.builtin_functions import register_builtin_functions
+
     registry = FunctionRegistry()
+    register_builtin_functions(registry)
     if not function_modules:
         return registry
     loaded_modules = load_extension_modules(
