@@ -20,5 +20,8 @@ Sprint state is managed via `sprintctl` and knowledge extraction via `kctl`. Bot
 - The committed source of truth for sprint state is `docs/sprint-snapshots/sprint-current.txt` (output of `sprintctl render`).
 - Use `sprintctl item status --id <n> --status <active|done|blocked>` to advance work items. Status transitions are enforced.
 - Use `sprintctl event add --sprint-id <id> --type <type> --actor <name>` to log decisions, blockers, and notable events during implementation.
+- Use `sprintctl maintain check [--sprint-id N]` for a health report (stale items, track health, overrun risk).
+- Use `sprintctl maintain sweep [--sprint-id N] [--auto-close]` to mark stale active items as blocked.
+- Use `sprintctl maintain carryover --from-sprint N --to-sprint M` to move unfinished items at sprint close.
 - Use `kctl extract` after a sprint closes to surface decisions and lessons into the knowledge pipeline, then `kctl review approve` or `kctl review reject` per candidate.
 - Use the `sprint-snapshot` skill to render and commit a snapshot. Use the `kctl-extract` skill at sprint close.
