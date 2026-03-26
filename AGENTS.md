@@ -1,67 +1,24 @@
 # Agent Guidance
 
-## Project intent
-
-This repository is building a homelab and household analytics product with a strict layered model:
-
-- landing is for immutable raw payloads plus input validation
-- transformation is for reusable normalized models and SCD dimensions
-- reporting is for dashboard and API-facing marts
-
-Do not collapse those layers just to make an early feature faster.
-
-## Current phase
-
-The project is still in bootstrap and architecture mode. Prefer:
-
-- small, testable scaffolding
-- explicit contracts and sample-driven connector design
-- documentation updates when architecture changes
-
-Avoid introducing heavy infrastructure before the core ingestion and modeling path exists.
-
-## Default technical direction
-
-- API: FastAPI
-- worker: Python with Polars and DuckDB
-- web: React/Next.js
-- published state and metadata: Postgres
-- raw payload archive: S3-compatible object storage
-- deployment target: Docker and Helm on Kubernetes
-
-Spark, Dagster, Argo, and similar additions are optional later steps, not default assumptions.
-
-## Agent modes
-
-Detailed mode guides live under `docs/agents/`:
-
-- `docs/agents/planning.md`
-- `docs/agents/implementation.md`
-- `docs/agents/review.md`
-- `docs/agents/release-ops.md`
-
-Choose the mode that matches the task. If a task spans modes, complete planning first, then implementation, then review or release work.
-
-## Pre-PR verification gate
-
-Before opening a pull request or pushing to a branch that will trigger CI, always run:
-
-```
-make verify-fast
-```
-
-This runs ruff lint, mypy typecheck, the fast test suite, documentation contracts, agent guidance contracts, architecture contracts, and helm lint — the same checks the `verify-fast` CI job runs. A PR that fails `verify-fast` locally will fail CI. Do not open a PR with a known `verify-fast` failure.
-
-## Mandatory repo rules
-
-- When adding a source connector, define its landing contract, validation checks, and canonical mapping target.
-- When adding a dimension, decide whether it needs SCD handling in transformation and a current snapshot in reporting.
-- When adding dashboard logic, build on reporting models instead of source-specific transforms.
-- Keep key ingestion, transformation, and reporting logic in-repo unless there is a strong reason not to.
-- When adding extensibility, prefer registering external code through configured modules and custom paths instead of asking users to fork core packages.
-- Treat landing, transformation, reporting, and application additions as separate extension layers with explicit contracts.
+- Preserve the layer split: `landing` is immutable raw payloads plus validation, `transformation` is reusable normalized models plus SCD handling, and `reporting` is dashboard/API-facing marts.
+- Before opening a pull request or pushing a branch that will trigger CI, run `make verify-fast`.
 - When changing architecture or stack choices, update the relevant docs under `docs/`.
 - When changing or adding requirements, update the relevant file under `requirements/` and keep status and phase fields current.
-- Keep tests aligned with the repository bootstrap contract in `tests/test_repository_contract.py`.
 - Behavior changes must update or add tests in the same change.
+- When adding a source connector, define its landing contract, validation checks, and canonical mapping target.
+- When adding a dimension, decide whether it needs SCD handling in transformation and a current snapshot in reporting.
 - App-facing reporting paths must use reporting-layer models when configured; do not add new landing-to-dashboard shortcuts.
+
+Mode guides: `docs/agents/planning.md`, `docs/agents/implementation.md`, `docs/agents/review.md`, `docs/agents/release-ops.md`.
+Workflow skills: `.agents/skills/`.
+
+## Sprint and knowledge tooling
+
+Sprint state is managed via `sprintctl` and knowledge extraction via `kctl`. Both are installed as user tools (`uv tool`) and scoped to this project via `.envrc` (loaded by direnv).
+
+- `SPRINTCTL_DB` and `KCTL_DB` point to `.sprintctl/sprintctl.db` and `.kctl/kctl.db` respectively — both gitignored.
+- The committed source of truth for sprint state is `docs/sprint-snapshots/sprint-current.txt` (output of `sprintctl render`).
+- Use `sprintctl item status --id <n> --status <active|done|blocked>` to advance work items. Status transitions are enforced.
+- Use `sprintctl event add --sprint-id <id> --type <type> --actor <name>` to log decisions, blockers, and notable events during implementation.
+- Use `kctl extract` after a sprint closes to surface decisions and lessons into the knowledge pipeline, then `kctl review approve` or `kctl review reject` per candidate.
+- Use the `sprint-snapshot` skill to render and commit a snapshot. Use the `kctl-extract` skill at sprint close.

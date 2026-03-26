@@ -18,3 +18,5 @@ build/
 !.env.example
 docs/sprints
 .samples/
+.sprintctl/
+.kctl/
