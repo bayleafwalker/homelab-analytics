@@ -25,3 +25,15 @@ Sprint state is managed via `sprintctl` and knowledge extraction via `kctl`. Bot
 - Use `sprintctl maintain carryover --from-sprint N --to-sprint M` to move unfinished items at sprint close.
 - Use `kctl extract` after a sprint closes to surface decisions and lessons into the knowledge pipeline, then `kctl review approve` or `kctl review reject` per candidate.
 - Use the `sprint-snapshot` skill to render and commit a snapshot. Use the `kctl-extract` skill at sprint close.
+
+### DB portability and recovery
+
+Both `.sprintctl/sprintctl.db` and `.kctl/kctl.db` are machine-local and gitignored. If the DB is lost or needs to be seeded on a new machine:
+- Use `docs/sprint-snapshots/sprint-current.txt` (the committed `sprintctl render` output) as the source of truth for current sprint state.
+- Recreate sprints and items manually from that snapshot using `sprintctl sprint create` and `sprintctl item add`.
+- Mark all completed/historical sprints closed immediately via `sprintctl sprint status --id <n> --status closed`.
+- There is no automated import path; the snapshot is the rehydration baseline.
+
+### sweep warning
+
+`sprintctl maintain sweep` marks stale active items as `blocked`. **Do not use `--auto-close` by default** — once blocked, items cannot be unblocked and must be recreated. Run sweep without `--auto-close` to get a report of stale items, then decide manually whether to block or advance them.
