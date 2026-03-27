@@ -125,11 +125,17 @@ contract_name, provider, contract_type, price_component, billing_cycle, unit_pri
 ## Domain 5: Loans and Debt
 
 ### Sources
-| Source | Format | Access | Phase |
-|---|---|---|---|
-| Bank loan statement CSV | CSV | Manual upload | 3 |
-| Amortization schedule input (manual entry) | CSV / JSON | Upload | 3 |
-| Transaction-derived repayments (pattern matching) | Internal | Transformation | 3 |
+| Source | Format | Access | Phase | Contract |
+|---|---|---|---|---|
+| OP account transaction CSV | CSV (semicolon, Finnish locale) | Manual upload | 2 | `op_account_transactions_csv_v1` |
+| Revolut personal account CSV | CSV | Manual upload | 2 | `revolut_personal_account_statement_v1` |
+| OP Gold credit card invoice | PDF | Manual upload | 2 | `op_gold_credit_card_invoice_pdf_v1` |
+| Finnish positive credit registry export | Structured text | Manual upload | 2 | `fi_positive_credit_registry_snapshot_v1` |
+| Amortization schedule input (manual entry) | Manual reference facts | Dashboard entry | 3 | Manual reference inputs |
+| Transaction-derived repayments (message enrichment) | Internal | Transformation | 2 | OP CSV repayment decomposition enrichment |
+
+**Ingestion model:** `docs/architecture/finance-ingestion-model.md`
+**Source contracts:** `docs/product/finance-source-contracts.md`
 
 ### Canonical models
 | Model | Type | Description |
