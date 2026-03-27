@@ -47,6 +47,22 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 - `agents/implementation.md` — implementation mode guardrails and required validation.
 - `agents/review.md` — review mode findings-first expectations and architecture checks.
 - `agents/release-ops.md` — local, CI, and deployment verification expectations.
+- `agent-guidance-refactor.md` — migration note for the compact `AGENTS.md` plus `.agents/skills/` split.
+
+## Agent Skills
+
+- `../.agents/skills/README.md` — short index of repo skills and when to use them.
+- `../.agents/skills/domain-impact-scan/SKILL.md` — impact scan for cross-layer, contract, architecture, and requirements changes.
+- `../.agents/skills/sprint-packet/SKILL.md` — build an execution-ready sprint or work packet from roadmap or requirements material.
+- `../.agents/skills/code-change-verification/SKILL.md` — select, run, and report the right local verification.
+- `../.agents/skills/pr-handoff-summary/SKILL.md` — produce a concise reviewer or handoff summary after the change shape is stable.
+- `../.agents/skills/sprint-snapshot/SKILL.md` — render the active sprint state from sprintctl into the committed plaintext snapshot.
+- `../.agents/skills/kctl-extract/SKILL.md` — run sprint-close knowledge extraction and review with kctl.
+
+## Knowledge
+
+- `knowledge/README.md` — conventions for committed `kctl` render outputs.
+- `knowledge/knowledge-base.md` — canonical committed knowledge base rendered from published `kctl` entries.
 
 ## Decisions
 

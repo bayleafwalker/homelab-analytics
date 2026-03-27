@@ -22,8 +22,10 @@ Convert accepted scope into a concise sprint packet with clear deliverables, dep
 4. Slice work by repo contracts and layers rather than by vague task buckets.
 5. Call out any required doc, requirement, fixture, or contract updates needed for the sprint to be complete.
 6. After the packet is agreed, register the sprint in sprintctl:
-   - `sprintctl sprint create --name "<Sprint ID> — <name>" --start <YYYY-MM-DD> --end <YYYY-MM-DD> --status active`
+   - Load the project DB first via `.envrc` or exported `SPRINTCTL_DB`.
+   - `sprintctl sprint create --name "<Sprint ID> — <name>" --start <YYYY-MM-DD> --end <YYYY-MM-DD> --status active --kind active_sprint`
    - Add each deliverable as a work item: `sprintctl item add --sprint-id <id> --track <stage-N> --title "<title>"`
+   - If the packet represents parked scope rather than active delivery, use `--kind backlog` instead of mixing it into the active sprint list.
    - Run `sprintctl render` and confirm output matches the agreed packet before starting implementation.
 
 ## Output contract

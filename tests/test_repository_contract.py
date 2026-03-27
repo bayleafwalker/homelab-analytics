@@ -7,6 +7,13 @@ ROOT = Path(__file__).resolve().parents[1]
 class RepositoryContractTests(unittest.TestCase):
     def test_expected_directories_exist(self) -> None:
         expected = [
+            ".agents/skills",
+            ".agents/skills/domain-impact-scan",
+            ".agents/skills/sprint-packet",
+            ".agents/skills/code-change-verification",
+            ".agents/skills/pr-handoff-summary",
+            ".agents/skills/sprint-snapshot",
+            ".agents/skills/kctl-extract",
             "apps/api",
             "apps/worker",
             "apps/web",
@@ -21,6 +28,7 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/architecture",
             "docs/agents",
             "docs/decisions",
+            "docs/knowledge",
             "docs/notes",
             "docs/plans",
             "docs/runbooks",
@@ -34,7 +42,11 @@ class RepositoryContractTests(unittest.TestCase):
         expected = [
             "README.md",
             "AGENTS.md",
+            "docs/agent-guidance-refactor.md",
             "docs/README.md",
+            "docs/knowledge/README.md",
+            "docs/knowledge/knowledge-base.md",
+            "docs/sprint-snapshots/sprint-current.txt",
             "docs/agents/planning.md",
             "docs/agents/implementation.md",
             "docs/agents/review.md",

@@ -39,21 +39,31 @@ Log events at the moment a decision is made or a blocker resolves — not retroa
 
 ## Steps
 
-1. Confirm the sprint has meaningful events logged. If none, note that extraction will yield no candidates.
-2. Run `kctl extract --sprint-id <id>` to scan events and insert candidates.
-3. Run `kctl review list` to see the extracted candidates.
-4. For each candidate:
+1. Load the project DB environment via `.envrc` or exported `SPRINTCTL_DB` and `KCTL_DB`.
+2. Run `kctl preflight` or `sprintctl maintain check --sprint-id <id>` first so stale-item or sprint-health warnings are visible before close-out.
+3. Confirm the sprint has meaningful events logged. If none, note that extraction will yield no candidates.
+4. Run `kctl extract --sprint-id <id>` to scan events and insert candidates.
+5. Run `kctl review list` to see the extracted candidates. Use `--json` if the result is being consumed by another agent or script.
+6. For each candidate:
    - `kctl review approve --id <n> --title "<concise title>" --tags '["<tag1>","<tag2>"]'` for decisions/patterns worth keeping.
    - `kctl review reject --id <n> --reason "<reason>"` for duplicates, noise, or low-signal entries.
-5. Run `kctl review list --status approved` to confirm the promoted set.
+7. Run `kctl review list --status approved` to confirm the promoted set.
+8. Run `kctl status --sprint-id <id>` to confirm there are no unexpected leftovers in the pipeline. Use `--json` if the result needs to be machine-consumable.
+9. If the task explicitly includes promoting approved knowledge into published entries:
+   - Use `kctl publish` for the approved entries that should become durable repo knowledge.
+   - Render the committed artifact to `docs/knowledge/knowledge-base.md` via `kctl render --output docs/knowledge/knowledge-base.md`.
+   - Keep the knowledge-base update separate from unrelated feature work.
 
 ## Output contract
 
 - All extractable events from the sprint have been reviewed (approved or rejected).
 - No candidates left in `candidate` status at sprint close.
+- Any remaining approved-but-unpublished entries are intentional and visible via `kctl status`.
+- If publication was in scope, `docs/knowledge/knowledge-base.md` reflects the published state after rendering.
 
 ## Do not
 
 - Do not approve candidates without setting a meaningful title — the default summary is often terse.
 - Do not run extraction before the sprint has events; add events first via `sprintctl event add`.
 - Do not use this skill mid-sprint unless capturing an important decision that must not be lost.
+- Do not render repo knowledge artifacts anywhere other than `docs/knowledge/knowledge-base.md` unless the repo docs are updated first.

@@ -20,3 +20,8 @@ docs/sprints
 .samples/
 .sprintctl/
 .kctl/
+sprint-*.json
+handoff-*.json
+docs/knowledge/*
+!docs/knowledge/README.md
+!docs/knowledge/knowledge-base.md
