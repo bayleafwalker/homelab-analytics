@@ -4,10 +4,10 @@ Dates:  2026-04-12 to 2026-04-25
 ID:     5
 
 --- Track: stage-3 ---
-  health: 3 items — 2 done (66%), 1 active, 0 pending, 0 blocked (0%)
+  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
   [done    ] #29  Stage 3 — Category-based cost envelopes with drift visibility  (assignee: -)
   [done    ] #30  Stage 3 — Structured state indicators (good/warning/needs-action)  (assignee: -)
-  [active  ] #58  Stage 3 — Homelab value loop (cost/benefit model, reporting mart, operator surface)  (assignee: -)
+  [done    ] #58  Stage 3 — Homelab value loop (cost/benefit model, reporting mart, operator surface)  (assignee: -)
 
 --- Track: stage-4 ---
   health: 3 items — 2 done (66%), 0 active, 1 pending, 0 blocked (0%)
@@ -15,4 +15,4 @@ ID:     5
   [done    ] #28  Stage 4 — Scenario comparison view  (assignee: -)
   [pending ] #65  Stage 4 — Shared compare-set management (rename, archived visibility, restore)  (assignee: -)
 
-Rendered: 2026-03-28T19:18:34Z
+Rendered: 2026-03-28T19:26:10Z
