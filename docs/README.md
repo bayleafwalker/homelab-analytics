@@ -7,6 +7,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 ## Architecture
 
 - `architecture/data-platform-architecture.md` — source ingestion pattern, landing/bronze, transformation/silver, reporting/gold, SCD handling, extensibility model, and API/UI publishing model. Also covers forward-looking architectural layers: semantic domain, planning/scenario, policy/automation, multi-renderer delivery, pack ecosystem, and trust/governance.
+- `architecture/finance-ingestion-model.md` — personal-finance ingestion taxonomy, lane model, canonical dataset types, parser protocol, lifecycle, and evidence/lineage expectations.
 - `architecture/sqlite-control-plane-capability-matrix.md` — explicit Postgres-vs-SQLite control-plane capability boundaries: guaranteed vs best-effort support posture.
 - `architecture/contract-governance.md` — stale-artifact checks, contract compatibility policy, and CI/release contract bundle workflow.
 - `architecture/publication-contracts.md` — backend-owned publication and UI descriptor contract model, semantic field metadata, renderer expectations, and generated frontend publication types.
@@ -16,6 +17,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 ## Product
 
 - `product/README.md` — product documentation index and the boundary between architecture decisions and product decisions.
+- `product/finance-source-contracts.md` — operator-facing guidance for personal-finance source contracts, reconciliation roles, acquisition flow, validation behavior, and canonical output fields.
 - `product/homeassistant-and-smart-home-hub.md` — Home Assistant as edge runtime and actuation layer, platform's role beyond HA, integration principle, and roadmap alignment.
 - `product/core-household-operating-picture.md` — core product definition: the Household Operating Picture, four core views (Overview, Money, Utilities, Operations), product principles, and acceptance criteria.
 - `product/initial-capability-packs-and-publications.md` — domain pack definitions, publication sets, insight types, and priority ordering for finance, utilities, homelab, and overview.
@@ -24,6 +26,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 
 ## Sprints
 
+- `sprints/finance-ingestion-subsystem.md` — Sprint I plan for the finance ingestion subsystem, including the brief ordering and implementation stop points.
 - `sprints/household-operator-product-loop.md` — 4-sprint product delivery plan: Weekly Money View, Budget vs Reality, Debt and Cost Truth, Household Control Panel.
 - `sprints/product-sprint-scope.md` — initial product sprint scope and deliverables.
 - `sprints/product-sprint-remaining.md` — remaining product sprint work.
@@ -90,3 +93,4 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 - `runbooks/operations.md` — deployment, ingress, readiness, and alert-response guidance for shared environments.
 - `runbooks/backup-and-restore.md` — backup and restore guidance for Postgres control-plane state, landed object storage, and DuckDB artifacts.
 - `runbooks/configuration.md` — environment variable reference for API, worker, web, auth, storage, and extension configuration.
+- `runbooks/sprint-and-knowledge-operations.md` — repo-level operating model for `sprintctl` and `kctl`, including shared artifacts, workflow phases, and local-vs-committed boundaries.
