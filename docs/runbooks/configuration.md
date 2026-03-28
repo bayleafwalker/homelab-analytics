@@ -126,6 +126,8 @@ Legacy auth-mode migration policy:
 
 The architecture direction is external identity by default and in-app authorization semantics. `local_single_user` is the blessed single-user homelab startup story: it requires `HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED=true`, applies TTL-bounded local sessions, enforces internal/CIDR source checks, and surfaces status on `/ready`.
 
+Web workloads only propagate `HOMELAB_ANALYTICS_IDENTITY_MODE` into the Next.js runtime. Legacy `HOMELAB_ANALYTICS_AUTH_MODE` is stripped before launch so the frontend contract stays on the canonical identity-mode input.
+
 ## OIDC
 
 | Variable | Default | Description |
