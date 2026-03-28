@@ -98,6 +98,27 @@ def test_validate_auth_configuration_rejects_legacy_auth_mode_fallback_when_stri
         raise AssertionError("Expected strict legacy auth-mode guard to raise ValueError.")
 
 
+def test_validate_auth_configuration_rejects_break_glass_outside_local_single_user_mode() -> None:
+    settings = AppSettings.from_env(
+        {
+            "HOMELAB_ANALYTICS_IDENTITY_MODE": "local",
+            "HOMELAB_ANALYTICS_SESSION_SECRET": "session-secret",
+            "HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED": "true",
+        }
+    )
+
+    try:
+        validate_auth_configuration(settings)
+    except ValueError as exc:
+        message = str(exc)
+        assert "HOMELAB_ANALYTICS_IDENTITY_MODE=local_single_user" in message
+        assert "HOMELAB_ANALYTICS_AUTH_MODE" not in message
+    else:
+        raise AssertionError(
+            "Expected break-glass validation outside local_single_user to raise ValueError."
+        )
+
+
 def test_validate_auth_configuration_requires_machine_jwt_issuer_and_audience() -> None:
     settings = AppSettings.from_env(
         {

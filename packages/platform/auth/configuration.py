@@ -88,7 +88,7 @@ def validate_auth_configuration(settings: AppSettings) -> None:
             )
     if settings.break_glass_enabled and identity_mode != "local_single_user":
         raise ValueError(
-            "Break-glass settings require HOMELAB_ANALYTICS_IDENTITY_MODE=local_single_user (or HOMELAB_ANALYTICS_AUTH_MODE=local_single_user)."
+            "Break-glass settings require HOMELAB_ANALYTICS_IDENTITY_MODE=local_single_user."
         )
     if identity_mode == "local_single_user" and not settings.break_glass_enabled:
         raise ValueError(
