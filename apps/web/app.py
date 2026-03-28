@@ -27,7 +27,6 @@ def build_web_environment(
     environment["HOSTNAME"] = settings.web_host
     environment["PORT"] = str(settings.web_port)
     environment["HOMELAB_ANALYTICS_API_BASE_URL"] = settings.resolved_api_base_url
-    environment.pop("HOMELAB_ANALYTICS_AUTH_MODE", None)
     environment["HOMELAB_ANALYTICS_IDENTITY_MODE"] = settings.resolved_identity_mode
     environment.setdefault("NODE_ENV", "production")
     return environment

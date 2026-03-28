@@ -43,13 +43,19 @@ class WebAppTests(unittest.TestCase):
                 worker_poll_interval_seconds=1,
             )
 
-            environment = build_web_environment(settings, environ={"NODE_ENV": "production"})
+            environment = build_web_environment(
+                settings,
+                environ={
+                    "NODE_ENV": "production",
+                    "HOMELAB_ANALYTICS_AUTH_MODE": "oidc",
+                },
+            )
 
             self.assertEqual("0.0.0.0", environment["HOSTNAME"])
             self.assertEqual("8081", environment["PORT"])
             self.assertEqual("http://api.internal:8090", environment["HOMELAB_ANALYTICS_API_BASE_URL"])
             self.assertEqual("disabled", environment["HOMELAB_ANALYTICS_IDENTITY_MODE"])
-            self.assertNotIn("HOMELAB_ANALYTICS_AUTH_MODE", environment)
+            self.assertEqual("oidc", environment["HOMELAB_ANALYTICS_AUTH_MODE"])
             self.assertEqual("production", environment["NODE_ENV"])
 
     def test_build_web_command_requires_standalone_build_output(self) -> None:
