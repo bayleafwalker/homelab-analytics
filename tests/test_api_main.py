@@ -21,8 +21,8 @@ from apps.api.main import (
     build_lazy_transformation_service,
     build_reporting_service,
     build_service,
-    main,
     build_transformation_service,
+    main,
 )
 from packages.domains.finance.manifest import FINANCE_PACK
 from packages.domains.homelab.manifest import HOMELAB_PACK
