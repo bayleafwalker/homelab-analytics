@@ -1,7 +1,39 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-03-28T20:07:51Z
+Generated: 2026-03-28T20:57:46Z
 
 ## Decisions
+
+### Keep API startup wiring thin behind a shared HA startup helper
+Source: track: stage-5, sprint: 9
+Tags: api, composition-root, ha-startup
+
+API startup assembly now delegates HA-specific runtime wiring to a private helper so the composition root stays thin and the shared startup path remains centralized.
+
+---
+
+### Type HA bridge and action status endpoints with explicit response models
+Source: track: stage-6, sprint: 9
+Tags: api, openapi, status-model
+
+The HA bridge and action status endpoints now use explicit Pydantic response models, keeping OpenAPI and runtime payloads aligned while preserving the existing JSON behavior.
+
+---
+
+### Extract shared HA runtime status snapshots for policy and MQTT wiring
+Source: track: stage-6, sprint: 9
+Tags: api, ha-startup, status-model
+
+Policy and MQTT startup closures now reuse shared bridge and approval status snapshot helpers so the runtime status shape stays consistent across consumers.
+
+---
+
+### Keep AdapterManifest separate from typed runtime-status snapshots
+Source: track: stage-6, sprint: 9
+Tags: architecture, stage-6, adapter-boundary
+
+Adapter manifests stay static while runtime status snapshots stay separate and typed; HA health endpoints should project transport state into API-facing models instead of leaking raw dictionaries.
+
+---
 
 ### Codify legacy auth-mode retirement policy in requirements and tests
 Source: sprint: 8
