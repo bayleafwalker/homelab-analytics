@@ -1,7 +1,71 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-03-28T19:01:03Z
+Generated: 2026-03-28T20:07:51Z
 
 ## Decisions
+
+### Codify legacy auth-mode retirement policy in requirements and tests
+Source: sprint: 8
+Tags: auth, migration, requirements, tests
+
+Capture the warning and error windows plus the strict guard contract in requirements and auth configuration tests before any further runtime cleanup work.
+
+---
+
+### Remove stale authMode fallback from the web login page
+Source: sprint: 8
+Tags: auth, frontend, identity-mode, web
+
+The login page now keys entirely off canonical identity mode and no longer accepts a legacy authMode branch for generic OIDC error rendering. This keeps the frontend contract aligned with the migrated runtime posture.
+
+---
+
+### Remove the generic OIDC fallback branch from the web login page
+Source: sprint: 8
+Tags: auth, frontend, oidc, identity-mode
+
+The login page now treats explicit OIDC error cases only and no longer performs a generic auth-mode-based fallback for unknown errors. That keeps the frontend aligned with the canonical identity-mode contract and avoids carrying legacy auth-mode semantics into the UI.
+
+---
+
+### Remove legacy auth-mode-only create_app bootstrap support
+Source: sprint: 8
+Tags: auth, api, bootstrap, identity-mode
+
+Direct API app construction now requires explicit identity_mode when a non-disabled auth mode is intended. This keeps the remaining compatibility boundary at settings ingestion and avoids keeping auth-mode-only bootstrap paths alive in app construction.
+
+---
+
+### Stop special-casing legacy auth_mode in web runtime env propagation
+Source: sprint: 8
+Tags: auth, web, identity-mode, cleanup
+
+The web entrypoint no longer strips HOMELAB_ANALYTICS_AUTH_MODE from the child environment. The runtime contract now only sets HOMELAB_ANALYTICS_IDENTITY_MODE explicitly and leaves unrelated inherited env keys untouched, keeping legacy compatibility behavior confined to configuration ingestion boundaries.
+
+---
+
+### Tighten break-glass validation to identity-mode wording
+Source: sprint: 8
+Tags: auth, validation, identity-mode, cleanup
+
+The auth configuration error for break-glass outside local_single_user now references HOMELAB_ANALYTICS_IDENTITY_MODE only. This keeps the user-facing contract aligned with the canonical identity-mode path and removes a remaining legacy auth-mode mention from runtime validation messaging.
+
+---
+
+### Canonicalize web auth env propagation
+Source: track: stage-9, sprint: 8
+Tags: auth, web, identity-mode, runtime-contract
+
+Web workloads now strip legacy HOMELAB_ANALYTICS_AUTH_MODE before launch and propagate only HOMELAB_ANALYTICS_IDENTITY_MODE into the Next.js runtime so the frontend contract stays on the canonical identity-mode input.
+
+---
+
+### Align auth decision record with implemented machine JWT runtime
+Source: track: stage-9, sprint: 8
+Tags: auth, machine-jwt, docs, architecture
+
+The architecture decision record now describes machine JWT federation as an implemented optional upstream bearer path that reuses the existing permission kernel, matching the runtime and test coverage already in the repository.
+
+---
 
 ### Keep utility provider pulls on configured HTTP CSV landing
 Source: track: stage-1, sprint: 4
@@ -54,6 +118,14 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 ---
 
 ## Lessons
+
+### Require explicit claim proof for item transitions
+Source: track: stage-9, sprint: 8
+Tags: claims, coordination, ownership
+
+An exclusive claim blocked the transition because no valid claim proof was supplied.
+
+---
 
 ### Claimed sprint items require claim proof for status transitions
 Source: track: stage-1, sprint: 4
