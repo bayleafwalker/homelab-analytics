@@ -14,15 +14,27 @@ from packages.pipelines.transformation_domain_registry import TransformationDoma
 from packages.pipelines.transformation_refresh_registry import PublicationRefreshRegistry
 from packages.pipelines.transformation_service import TransformationService
 from packages.platform.runtime.builder import (
+    build_account_transaction_service as _platform_build_service,
+)
+from packages.platform.runtime.builder import (
     build_container,
-    build_extension_registry as _platform_build_extension_registry,
-    build_pipeline_registries as _platform_build_pipeline_registries,
 )
 from packages.platform.runtime.builder import (
     build_contract_price_service as _platform_build_contract_price_service,
-    build_account_transaction_service as _platform_build_service,
+)
+from packages.platform.runtime.builder import (
+    build_extension_registry as _platform_build_extension_registry,
+)
+from packages.platform.runtime.builder import (
+    build_pipeline_registries as _platform_build_pipeline_registries,
+)
+from packages.platform.runtime.builder import (
     build_reporting_service as _platform_build_reporting_service,
+)
+from packages.platform.runtime.builder import (
     build_subscription_service as _platform_build_subscription_service,
+)
+from packages.platform.runtime.builder import (
     build_transformation_service as _platform_build_transformation_service,
 )
 from packages.platform.runtime.container import AppContainer

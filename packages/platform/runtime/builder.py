@@ -28,11 +28,12 @@ from packages.shared.function_registry import FunctionRegistry, load_function_re
 from packages.shared.settings import AppSettings
 from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.duckdb_store import DuckDBStore
+from packages.storage.run_metadata import RunMetadataStore
 from packages.storage.runtime import (
     build_blob_store,
     build_config_store,
-    build_run_metadata_store,
     build_reporting_store,
+    build_run_metadata_store,
 )
 
 
@@ -124,7 +125,7 @@ def build_capability_packs(
 def build_account_transaction_service(
     settings: AppSettings,
     *,
-    metadata_repository: ControlPlaneStore | None = None,
+    metadata_repository: RunMetadataStore | None = None,
     blob_store=None,
 ) -> AccountTransactionService:
     return AccountTransactionService(
@@ -137,7 +138,7 @@ def build_account_transaction_service(
 def build_subscription_service(
     settings: AppSettings,
     *,
-    metadata_repository: ControlPlaneStore | None = None,
+    metadata_repository: RunMetadataStore | None = None,
     blob_store=None,
 ) -> SubscriptionService:
     return SubscriptionService(
@@ -150,7 +151,7 @@ def build_subscription_service(
 def build_contract_price_service(
     settings: AppSettings,
     *,
-    metadata_repository: ControlPlaneStore | None = None,
+    metadata_repository: RunMetadataStore | None = None,
     blob_store=None,
 ) -> ContractPriceService:
     return ContractPriceService(

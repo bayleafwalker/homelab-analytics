@@ -5,13 +5,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
-from packages.platform.capability_types import CapabilityPack
 from packages.pipelines.ha_action_proposals import ApprovalActionRegistry
 from packages.pipelines.ha_policy import HaPolicyEvaluator
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
+from packages.platform.capability_types import CapabilityPack
 from packages.shared.settings import AppSettings
 
 

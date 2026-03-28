@@ -1033,6 +1033,24 @@ class MqttSyntheticStateTests(unittest.TestCase):
             ),
         )
 
+    def test_electricity_cost_forecast_today_falls_back_to_monthly_trend(self) -> None:
+        from datetime import datetime
+
+        class _Reporting:
+            def get_utility_cost_summary(self, **kwargs):
+                return []
+
+            def get_utility_cost_trend_monthly(self, **kwargs):
+                return [{"billing_month": "2026-03", "total_cost": "31.00"}]
+
+        self.assertEqual(
+            "1",
+            _compute_electricity_cost_forecast_today(
+                _Reporting(),
+                now=datetime(2026, 3, 15, 12, 0, 0),
+            ),
+        )
+
     def test_maintenance_state_uses_service_and_storage_pressure(self) -> None:
         class _Reporting:
             def get_service_health_current(self):

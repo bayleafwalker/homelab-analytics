@@ -8,8 +8,7 @@ from packages.pipelines.balance_models import (
     FACT_BALANCE_SNAPSHOT_COLUMNS,
     FACT_BALANCE_SNAPSHOT_TABLE,
 )
-from packages.pipelines.loan_models import CURRENT_DIM_LOAN_VIEW
-from packages.pipelines.loan_models import FACT_LOAN_REPAYMENT_TABLE
+from packages.pipelines.loan_models import CURRENT_DIM_LOAN_VIEW, FACT_LOAN_REPAYMENT_TABLE
 from packages.pipelines.transaction_models import FACT_TRANSACTION_CURRENT_TABLE
 from packages.storage.duckdb_store import DuckDBStore
 

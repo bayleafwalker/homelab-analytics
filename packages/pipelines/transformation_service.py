@@ -47,11 +47,6 @@ from packages.pipelines.loan_models import (
     CURRENT_DIM_LOAN_VIEW,
     DIM_LOAN,
 )
-from packages.pipelines.transformation_balances import (
-    ensure_balance_storage,
-    get_balance_snapshot,
-    refresh_balance_snapshot,
-)
 from packages.pipelines.normalization import (
     normalize_currency_code,
     normalize_timestamp_utc,
@@ -97,6 +92,11 @@ from packages.pipelines.transformation_assets import (
     get_current_assets,
     load_asset_event_rows,
     load_asset_register_rows,
+)
+from packages.pipelines.transformation_balances import (
+    ensure_balance_storage,
+    get_balance_snapshot,
+    refresh_balance_snapshot,
 )
 from packages.pipelines.transformation_budgets import (
     count_budget_targets,

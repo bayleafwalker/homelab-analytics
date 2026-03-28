@@ -5,12 +5,9 @@ from typing import cast
 
 import uvicorn
 
+import packages.platform.runtime.builder as platform_runtime_builder
 from apps.api.app import create_app
 from apps.api.ha_startup import (
-    _compute_contract_renewal_due_count,
-    _compute_electricity_cost_forecast_today,
-    _compute_maintenance_state,
-    _compute_peak_tariff_active,
     build_ha_startup_runtime,
 )
 from packages.domains.finance.manifest import FINANCE_PACK
@@ -28,12 +25,17 @@ from packages.platform.auth.machine_jwt_provider import build_machine_jwt_provid
 from packages.platform.auth.oidc_provider import build_oidc_provider
 from packages.platform.auth.proxy_provider import build_proxy_provider
 from packages.platform.auth.session_manager import build_session_manager
-import packages.platform.runtime.builder as platform_runtime_builder
+from packages.platform.runtime.builder import (
+    build_account_transaction_service as _platform_build_service,
+)
 from packages.platform.runtime.builder import build_container
 from packages.platform.runtime.builder import (
     build_function_registry as _platform_build_function_registry,
+)
+from packages.platform.runtime.builder import (
     build_reporting_service as _platform_build_reporting_service,
-    build_account_transaction_service as _platform_build_service,
+)
+from packages.platform.runtime.builder import (
     build_transformation_service as _platform_build_transformation_service,
 )
 from packages.shared.logging import configure_logging

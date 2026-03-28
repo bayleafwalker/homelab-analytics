@@ -154,7 +154,7 @@ compose-smoke:
 audit-deps:
 	-$(PIP_AUDIT)
 
-verify-fast: lint typecheck test-fast test-sqlite-adapters verify-docs verify-agent verify-arch contract-export-check web-codegen-check web-typecheck web-build helm-lint
+verify-fast: lint typecheck test-fast test-sqlite-adapters verify-docs verify-agent verify-arch contract-export-check web-codegen-check web-build web-typecheck helm-lint
 
 verify-all: verify-fast test-integration test-e2e-local docker-build
 
