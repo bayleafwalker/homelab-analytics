@@ -4,8 +4,8 @@ Dates:  2026-03-28 to 2026-04-11
 ID:     3
 
 --- Track: stage-1 ---
-  health: 7 items — 0 done (0%), 0 active, 7 pending, 0 blocked (0%)
-  [pending ] #42  Stage 1 — Finance ingestion: Brief 1 (ingestion architecture + contract taxonomy)  (assignee: -)
+  health: 7 items — 0 done (0%), 1 active, 6 pending, 0 blocked (0%)
+  [active  ] #42  Stage 1 — Finance ingestion: Brief 1 (ingestion architecture + contract taxonomy)  (assignee: -)
   [pending ] #43  Stage 1 — Finance ingestion: Brief 3 (OP account transaction CSV contract)  (assignee: -)
   [pending ] #44  Stage 1 — Finance ingestion: Brief 4 (positive credit registry snapshot)  (assignee: -)
   [pending ] #45  Stage 1 — Finance ingestion: Brief 5 (OP Gold credit card invoice PDF parser)  (assignee: -)
@@ -13,4 +13,4 @@ ID:     3
   [pending ] #47  Stage 1 — Finance ingestion: Brief 2 (Revolut personal account CSV contract)  (assignee: -)
   [pending ] #48  Stage 1 — Finance ingestion: Brief 6 (manual reference inputs)  (assignee: -)
 
-Rendered: 2026-03-28T07:08:57Z
+Rendered: 2026-03-28T07:21:34Z
