@@ -14,4 +14,4 @@ ID:     4
   [done    ] #57  Stage 1 — Asset inventory foundation (manual register, dim_asset, fact_asset_event)  (assignee: -)
   [done    ] #59  Stage 1 — Cross-domain dimension governance and semantic contracts  (assignee: -)
 
-Rendered: 2026-03-28T17:52:14Z
+Rendered: 2026-03-28T18:23:53Z
