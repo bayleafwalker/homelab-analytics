@@ -110,6 +110,12 @@ homelab-analytics/
 
 The API uses FastAPI, the worker is a lightweight Python entrypoint, and the web workload is a Next.js frontend with a thin Python launcher.
 
+The repository intentionally supports three blessed startup stories:
+
+- Local demo/dev: `.env.example`, `make demo-generate`, and `make demo-seed`; SQLite control plane, DuckDB warehouse, disabled identity, and filesystem blob storage.
+- Single-user homelab: `infra/examples/compose.yaml` with `infra/examples/secrets/auth-local.env.example`; Postgres control plane/reporting, MinIO-backed blob storage, and `local_single_user` break-glass auth.
+- Shared OIDC deployment: `charts/homelab-analytics/values.oidc-ingress-example.yaml` with `infra/examples/secrets/oidc-secret.example.yaml`; Postgres control plane/reporting, S3-compatible blob storage, and `oidc` identity.
+
 Key environment variables (see `docs/runbooks/configuration.md` for the full reference):
 
 - `HOMELAB_ANALYTICS_DATA_DIR` — local data directory (default: `.local/homelab-analytics`)

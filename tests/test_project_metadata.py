@@ -135,6 +135,36 @@ class ProjectMetadataTests(unittest.TestCase):
         self.assertIn("http://127.0.0.1:8081/ready", content)
         self.assertGreaterEqual(content.count("healthcheck:"), 3)
 
+    def test_blessed_startup_profiles_match_the_committed_examples(self) -> None:
+        expected_fragments = {
+            ROOT / ".env.example": [
+                "HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND=sqlite",
+                "HOMELAB_ANALYTICS_REPORTING_BACKEND=duckdb",
+                "HOMELAB_ANALYTICS_IDENTITY_MODE=disabled",
+            ],
+            ROOT / "infra" / "examples" / "compose.yaml": [
+                "HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND: postgres",
+                "HOMELAB_ANALYTICS_REPORTING_BACKEND: postgres",
+                "HOMELAB_ANALYTICS_BLOB_BACKEND: s3",
+                "HOMELAB_ANALYTICS_IDENTITY_MODE: local_single_user",
+            ],
+            ROOT / "charts" / "homelab-analytics" / "values.oidc-ingress-example.yaml": [
+                "HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND: postgres",
+                "HOMELAB_ANALYTICS_REPORTING_BACKEND: postgres",
+                "HOMELAB_ANALYTICS_BLOB_BACKEND: s3",
+                "HOMELAB_ANALYTICS_IDENTITY_MODE: oidc",
+            ],
+        }
+
+        for path, fragments in expected_fragments.items():
+            content = path.read_text()
+            for fragment in fragments:
+                self.assertIn(
+                    fragment,
+                    content,
+                    f"{path} should advertise the blessed profile fragment: {fragment}",
+                )
+
     def test_examples_do_not_use_legacy_local_auth_mode_value(self) -> None:
         files = [
             ROOT / ".env.example",

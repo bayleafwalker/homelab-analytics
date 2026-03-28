@@ -1,8 +1,14 @@
 # Operations Runbook
 
+## Blessed startup stories
+
+- Local demo/dev: `.env.example`, `make demo-generate`, `make demo-seed`; SQLite control plane, DuckDB warehouse, disabled identity, filesystem blob storage.
+- Single-user homelab: `infra/examples/compose.yaml` plus `infra/examples/secrets/auth-local.env.example`; Postgres control plane/reporting, MinIO-backed blob storage, and `local_single_user` break-glass auth.
+- Shared OIDC deployment: `charts/homelab-analytics/values.oidc-ingress-example.yaml` plus OIDC Secret manifests; Postgres control plane/reporting, S3-compatible blob storage, and `oidc` identity.
+
 ## Deployment shape
 
-The current shared-deployment path is:
+The rest of this runbook describes the shared OIDC profile, which is the canonical deployed shape:
 
 - API and worker on the shared Python image
 - web on the dedicated Next.js image

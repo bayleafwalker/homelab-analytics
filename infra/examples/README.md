@@ -4,7 +4,7 @@ Environment examples, sample values, and demo fixtures belong here.
 
 Current foundation:
 
-- `compose.yaml` for running API, web, and optional worker containers against a shared local volume
+- `compose.yaml` for the blessed single-user homelab startup story: API, web, and optional worker containers against a shared local volume, backed by Postgres + MinIO and `secrets/auth-local.env.example`
 - `make compose-smoke` for a full local startup check of the example stack
 - API and worker reuse the shared `homelab-analytics:latest` image; web builds from the dedicated `homelab-analytics-web:latest` Next.js image
 - API and web define explicit container healthchecks against `/ready` so Compose and external tooling can observe the startup contract directly
@@ -12,6 +12,7 @@ Current foundation:
 - third-party runtime images are pinned to explicit tags, including MinIO, so the example stack does not drift with upstream `latest`
 - `secrets/auth-local.env.example` provides example explicit local break-glass auth values for the Compose stack
 - `secrets/*.example.yaml` provides example Kubernetes Secret manifests for bootstrap single-DSN database access, workload-scoped API/worker database access, bootstrap local auth, blob storage, OIDC session/provider credentials, and provider API credentials
+- `charts/homelab-analytics/values.oidc-ingress-example.yaml` is the blessed shared OIDC startup story; it pairs with the OIDC Secret example and the API/worker/database Secret split
 - `secrets/postgres-external-secret.example.yaml` shows the External Secrets Operator path for the bootstrap single-DSN database credential
 - `secrets/provider-api-secret.sops.example.yaml` shows the SOPS-encrypted Secret path for Git-managed provider credentials
 - `demo-data/` contains the committed synthetic demo bundle plus `manifest.json`
