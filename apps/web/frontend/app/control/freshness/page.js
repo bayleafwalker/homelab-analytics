@@ -25,6 +25,34 @@ function stalenessLabel(lastRunAt) {
   return { label: `${Math.floor(diffDays)}d ago — stale`, color: "var(--error)", indicator: "red" };
 }
 
+function nextActionFor(lastRun, uploadPath) {
+  if (!lastRun) {
+    return {
+      label: uploadPath ? "Upload first file" : "Set up source",
+      href: uploadPath || "/control/catalog",
+    };
+  }
+
+  if (lastRun.status === "rejected" || lastRun.status === "failed") {
+    return {
+      label: "Open failed run",
+      href: `/runs/${lastRun.run_id}`,
+    };
+  }
+
+  if (uploadPath) {
+    return {
+      label: "Upload next export",
+      href: uploadPath,
+    };
+  }
+
+  return {
+    label: "Review schedule",
+    href: "/control/execution",
+  };
+}
+
 export default async function FreshnessPage() {
   const user = await getCurrentUser();
   if (user.role === "reader") {
@@ -71,13 +99,14 @@ export default async function FreshnessPage() {
                   <th>Last run</th>
                   <th>Run status</th>
                   <th>Source</th>
-                  <th>Action</th>
+                  <th>Next action</th>
                 </tr>
               </thead>
               <tbody>
                 {BUILTIN_DATASETS.map(({ dataset, label, uploadPath }) => {
                   const last = lastRunByDataset[dataset];
                   const { label: staleLabel, color, indicator } = stalenessLabel(last?.created_at);
+                  const nextAction = nextActionFor(last, uploadPath);
                   return (
                     <tr key={dataset}>
                       <td>
@@ -123,13 +152,9 @@ export default async function FreshnessPage() {
                         <span className="muted">{last?.source_name || "—"}</span>
                       </td>
                       <td>
-                        {uploadPath ? (
-                          <Link className="inlineLink" href={uploadPath}>
-                            Upload
-                          </Link>
-                        ) : (
-                          <span className="muted">CLI / worker</span>
-                        )}
+                        <Link className="inlineLink" href={nextAction.href}>
+                          {nextAction.label}
+                        </Link>
                       </td>
                     </tr>
                   );

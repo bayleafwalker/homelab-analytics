@@ -509,6 +509,9 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     control_execution_source = (
         FRONTEND_ROOT / "app" / "control" / "execution" / "page.js"
     ).read_text()
+    control_freshness_source = (
+        FRONTEND_ROOT / "app" / "control" / "freshness" / "page.js"
+    ).read_text()
     run_detail_source = (
         FRONTEND_ROOT / "app" / "runs" / "[runId]" / "page.js"
     ).read_text()
@@ -600,6 +603,13 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getSourceAssets({ includeArchived: true })" in control_execution_source
     assert "getExecutionSchedules({ includeArchived: true })" in control_execution_source
     assert "getOperationalSummary" in control_execution_source
+    assert "getRuns(200)" in control_freshness_source
+    assert "nextActionFor" in control_freshness_source
+    assert "Next action" in control_freshness_source
+    assert "Upload first file" in control_freshness_source
+    assert "Open failed run" in control_freshness_source
+    assert "Upload next export" in control_freshness_source
+    assert "Review schedule" in control_freshness_source
     assert "getRun" in run_detail_source
     assert "getSourceLineage" in run_detail_source
     assert "getPublicationAudit" in run_detail_source

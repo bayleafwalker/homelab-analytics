@@ -135,6 +135,7 @@ The `parse_failed` state takes priority over schedule-based states — a failed 
 1. Create the source asset binding (source system → dataset contract → column mapping) through the admin surface for the selected deployment profile
 2. Attach a freshness config specifying frequency, due date, and SLA
 3. The platform begins tracking freshness from the first successful ingest
+4. The freshness view should tell the operator the next action directly: upload the missing export, open the failed run, or repair the source binding before retrying
 
 ### Monthly export cycle (single-user homelab example: OP account CSV)
 
@@ -186,6 +187,7 @@ Operator can backfill by uploading the missing export
 - Per-source detail: last ingest date, covered period, next expected date, state
 - Quick action: jump to upload for overdue sources
 - Quick action: jump to run history for failed sources
+- Next action column: show the operator what to do now, not just whether the source is stale
 
 ### API
 
