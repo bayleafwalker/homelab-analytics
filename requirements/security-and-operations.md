@@ -10,7 +10,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 
 ### SEC-01: Local single-user / break-glass authentication
 
-**Description:** The platform provides a deliberately narrow local username/password path for single-user bootstrap and break-glass recovery.
+**Description:** The platform provides a deliberately narrow local username/password path for single-user homelab bootstrap and break-glass recovery through `local_single_user`.
 
 **Rationale:** Shared deployments should default to external identity providers; local auth remains available for bootstrap and emergency recovery without becoming a parallel multi-user identity system.
 
@@ -18,7 +18,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Status:** implemented (local-user storage, session cookies, CSRF checks, login lockout, bootstrap admin gating, auth-audit events, and explicit `local_single_user` break-glass controls are implemented; break-glass enforces explicit enablement, internal/CIDR source restrictions, TTL-bounded local sessions, and `/ready` visibility; deployment examples use `local_single_user` or OIDC defaults instead of legacy `local`)
 
 **Acceptance criteria:**
-- Local auth is explicitly enabled and defaults to off in shared deployment examples.
+- Local auth is explicitly enabled and defaults to off in shared deployment examples; the single-user homelab startup story uses `local_single_user` instead of legacy `local`.
 - Username/password login issues a signed session cookie and state-changing routes enforce CSRF protection.
 - Passwords are stored hashed and repeated failed logins trigger lockout with audit visibility.
 - Bootstrap local admin creation requires explicit enablement and remains documented as break-glass.

@@ -8,6 +8,16 @@ Operational support model:
 - SQLite is retained only for local bootstrap and smoke-test convenience.
 - DuckDB remains the worker/local-development warehouse engine.
 
+## Blessed deployment profiles
+
+These profiles are the supported startup stories the rest of the docs should point to.
+
+| Profile | Storage posture | Identity posture | Startup story |
+|---|---|---|---|
+| Local demo/dev | SQLite control plane, DuckDB warehouse, filesystem landing | `disabled` by default; no shared identity required | Generate or seed `infra/examples/demo-data`, then launch the local app/worker entrypoints for disposable demos and fixture validation |
+| Single-user homelab | Postgres control plane/reporting, DuckDB warehouse, S3 or MinIO landing | `local_single_user` with `HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED=true` and a session secret | `docker compose -f infra/examples/compose.yaml up` or the equivalent single-node bootstrap path with the local auth example env file |
+| Shared OIDC deployment | Postgres control plane/reporting, DuckDB warehouse, S3 landing | `oidc` with external identity provider secrets and no local bootstrap admin by default | Helm chart or cluster deployment using the OIDC ingress example values and secret-backed runtime config |
+
 ---
 
 ## Data and storage
@@ -86,8 +96,8 @@ Deprecation rollout:
 | `HOMELAB_ANALYTICS_IDENTITY_MODE` | `disabled` | Canonical identity mode selector: `disabled`, `local`, `local_single_user`, `oidc`, `proxy`. |
 | `HOMELAB_ANALYTICS_AUTH_MODE` | `disabled` | Legacy compatibility fallback only when `HOMELAB_ANALYTICS_IDENTITY_MODE` is unset. Supports `disabled`, `local`, `local_single_user`, `oidc`, `proxy`. |
 | `HOMELAB_ANALYTICS_AUTH_MODE_LEGACY_STRICT` | `false` | Feature-flagged startup guard. When `true`, startup fails if non-disabled legacy `HOMELAB_ANALYTICS_AUTH_MODE` fallback is used without explicit `HOMELAB_ANALYTICS_IDENTITY_MODE`. |
-| `HOMELAB_ANALYTICS_SESSION_SECRET` | — | Signed app-session and OIDC state-cookie secret (required when auth is `local` or `oidc`) |
-| `HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED` | `false` | Required when identity mode is `local_single_user`; enables temporary emergency local access. |
+| `HOMELAB_ANALYTICS_SESSION_SECRET` | — | Signed app-session and OIDC state-cookie secret (required when auth is `local`, `local_single_user`, or `oidc`) |
+| `HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED` | `false` | Required when identity mode is `local_single_user`; enables temporary emergency local access for the single-user homelab profile. |
 | `HOMELAB_ANALYTICS_BREAK_GLASS_INTERNAL_ONLY` | `true` | When enabled, local break-glass requests are restricted to internal/allowed addresses. |
 | `HOMELAB_ANALYTICS_BREAK_GLASS_TTL_MINUTES` | `30` | Lifetime for break-glass activation windows and local break-glass session cookies. |
 | `HOMELAB_ANALYTICS_BREAK_GLASS_ALLOWED_CIDRS` | — | Optional CIDR allowlist for break-glass requests (comma-separated). |
@@ -114,7 +124,7 @@ Legacy auth-mode migration policy:
 | `HOMELAB_ANALYTICS_PROXY_ROLE_HEADER` | `x-forwarded-role` | Header name used for proxy-authenticated role (`reader`, `operator`, `admin`). |
 | `HOMELAB_ANALYTICS_PROXY_PERMISSIONS_HEADER` | — | Optional comma-separated permission header mapped into in-app authorization grants. |
 
-The architecture direction is external identity by default and in-app authorization semantics. `local_single_user` is a break-glass mode: it requires `HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED=true`, applies TTL-bounded local sessions, enforces internal/CIDR source checks, and surfaces status on `/ready`.
+The architecture direction is external identity by default and in-app authorization semantics. `local_single_user` is the blessed single-user homelab startup story: it requires `HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED=true`, applies TTL-bounded local sessions, enforces internal/CIDR source checks, and surfaces status on `/ready`.
 
 ## OIDC
 
