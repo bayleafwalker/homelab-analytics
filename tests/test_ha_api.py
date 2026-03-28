@@ -17,6 +17,7 @@ from packages.storage.run_metadata import RunMetadataRepository
 def _build_client(
     temp_dir: str,
     *,
+    bridge: object | None = None,
     proposal_registry: ApprovalActionRegistry | None = None,
     action_dispatcher: object | None = None,
 ) -> TestClient:
@@ -30,6 +31,7 @@ def _build_client(
     app = create_app(
         service,
         transformation_service=ts,
+        ha_bridge=bridge,
         ha_action_dispatcher=action_dispatcher,
         ha_action_proposal_registry=proposal_registry or ApprovalActionRegistry(),
     )
@@ -197,6 +199,68 @@ class HaApprovalProposalAPITests(unittest.TestCase):
             )
             self.assertEqual(200, dismiss_resp.status_code)
             self.assertEqual("dismissed", dismiss_resp.json()["status"])
+
+
+class HaStatusAPITests(unittest.TestCase):
+    def test_bridge_and_action_status_endpoints_expose_typed_payloads(self) -> None:
+        with TemporaryDirectory() as tmp:
+            class _FakeBridge:
+                def get_status(self) -> dict[str, object]:
+                    return {
+                        "connected": True,
+                        "last_sync_at": "2026-03-21T10:00:00+00:00",
+                        "reconnect_count": 3,
+                    }
+
+            class _FakeDispatcher:
+                def get_status(self) -> dict[str, object]:
+                    return {
+                        "last_dispatch_at": "2026-03-21T10:05:00+00:00",
+                        "dispatch_count": 7,
+                        "error_count": 1,
+                        "action_log_size": 5,
+                        "tracked_policies": 4,
+                        "approval_tracked_count": 2,
+                        "approval_pending_count": 1,
+                        "approval_approved_count": 1,
+                        "approval_dismissed_count": 0,
+                    }
+
+            client = _build_client(
+                tmp,
+                bridge=_FakeBridge(),
+                action_dispatcher=_FakeDispatcher(),
+            )
+
+            bridge_response = client.get("/api/ha/bridge/status")
+            self.assertEqual(200, bridge_response.status_code)
+            self.assertEqual(
+                {
+                    "enabled": True,
+                    "connected": True,
+                    "last_sync_at": "2026-03-21T10:00:00+00:00",
+                    "reconnect_count": 3,
+                },
+                bridge_response.json(),
+            )
+
+            actions_response = client.get("/api/ha/actions/status")
+            self.assertEqual(200, actions_response.status_code)
+            self.assertEqual(
+                {
+                    "enabled": True,
+                    "last_dispatch_at": "2026-03-21T10:05:00+00:00",
+                    "dispatch_count": 7,
+                    "error_count": 1,
+                    "action_log_size": 5,
+                    "tracked_policies": 4,
+                    "approval_tracked_count": 2,
+                    "approval_pending_count": 1,
+                    "approval_approved_count": 1,
+                    "approval_dismissed_count": 0,
+                },
+                actions_response.json(),
+            )
 
 
 if __name__ == "__main__":

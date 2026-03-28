@@ -3123,6 +3123,41 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HaActionsStatusModel */
+        HaActionsStatusModel: {
+            /** Action Log Size */
+            action_log_size: number;
+            /**
+             * Approval Approved Count
+             * @default 0
+             */
+            approval_approved_count: number;
+            /**
+             * Approval Dismissed Count
+             * @default 0
+             */
+            approval_dismissed_count: number;
+            /**
+             * Approval Pending Count
+             * @default 0
+             */
+            approval_pending_count: number;
+            /**
+             * Approval Tracked Count
+             * @default 0
+             */
+            approval_tracked_count: number;
+            /** Dispatch Count */
+            dispatch_count: number;
+            /** Enabled */
+            enabled: boolean;
+            /** Error Count */
+            error_count: number;
+            /** Last Dispatch At */
+            last_dispatch_at?: string | null;
+            /** Tracked Policies */
+            tracked_policies: number;
+        };
         /** HaApprovalProposalListModel */
         HaApprovalProposalListModel: {
             /** Proposals */
@@ -3154,6 +3189,17 @@ export interface components {
             value?: string | null;
             /** Verdict */
             verdict: string;
+        };
+        /** HaBridgeStatusModel */
+        HaBridgeStatusModel: {
+            /** Connected */
+            connected: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /** Last Sync At */
+            last_sync_at?: string | null;
+            /** Reconnect Count */
+            reconnect_count: number;
         };
         /** HaIngestRequest */
         HaIngestRequest: {
@@ -4431,9 +4477,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["HaActionsStatusModel"];
                 };
             };
         };
@@ -4453,9 +4497,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["HaBridgeStatusModel"];
                 };
             };
         };

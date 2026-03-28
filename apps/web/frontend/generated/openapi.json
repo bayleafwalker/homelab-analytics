@@ -2160,6 +2160,71 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HaActionsStatusModel": {
+        "additionalProperties": false,
+        "properties": {
+          "action_log_size": {
+            "title": "Action Log Size",
+            "type": "integer"
+          },
+          "approval_approved_count": {
+            "default": 0,
+            "title": "Approval Approved Count",
+            "type": "integer"
+          },
+          "approval_dismissed_count": {
+            "default": 0,
+            "title": "Approval Dismissed Count",
+            "type": "integer"
+          },
+          "approval_pending_count": {
+            "default": 0,
+            "title": "Approval Pending Count",
+            "type": "integer"
+          },
+          "approval_tracked_count": {
+            "default": 0,
+            "title": "Approval Tracked Count",
+            "type": "integer"
+          },
+          "dispatch_count": {
+            "title": "Dispatch Count",
+            "type": "integer"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "error_count": {
+            "title": "Error Count",
+            "type": "integer"
+          },
+          "last_dispatch_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Dispatch At"
+          },
+          "tracked_policies": {
+            "title": "Tracked Policies",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "dispatch_count",
+          "error_count",
+          "action_log_size",
+          "tracked_policies"
+        ],
+        "title": "HaActionsStatusModel",
+        "type": "object"
+      },
       "HaApprovalProposalListModel": {
         "properties": {
           "proposals": {
@@ -2255,6 +2320,41 @@
           "created_at"
         ],
         "title": "HaApprovalProposalModel",
+        "type": "object"
+      },
+      "HaBridgeStatusModel": {
+        "additionalProperties": false,
+        "properties": {
+          "connected": {
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "last_sync_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sync At"
+          },
+          "reconnect_count": {
+            "title": "Reconnect Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "connected",
+          "reconnect_count"
+        ],
+        "title": "HaBridgeStatusModel",
         "type": "object"
       },
       "HaIngestRequest": {
@@ -5819,9 +5919,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Actions Status Api Ha Actions Status Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/HaActionsStatusModel"
                 }
               }
             },
@@ -5839,9 +5937,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Bridge Status Api Ha Bridge Status Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/HaBridgeStatusModel"
                 }
               }
             },

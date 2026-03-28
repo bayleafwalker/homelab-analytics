@@ -9,6 +9,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from apps.api.ha_startup import (
+    _build_approval_status_state,
+    _build_bridge_status_state,
     _compute_contract_renewal_due_count,
     _compute_electricity_cost_forecast_today,
     _compute_maintenance_state,
@@ -1164,6 +1166,61 @@ class MqttSyntheticStateTests(unittest.TestCase):
                 return [{"contract_id": "a"}, {"contract_id": "b"}]
 
         self.assertEqual("2", _compute_contract_renewal_due_count(_Reporting()))
+
+
+class HaStartupStatusStateTests(unittest.TestCase):
+    def test_bridge_status_defaults_without_bridge(self) -> None:
+        self.assertEqual(
+            {
+                "bridge_connected": False,
+                "bridge_last_sync_at": None,
+                "bridge_reconnect_count": 0,
+            },
+            _build_bridge_status_state(None),
+        )
+
+    def test_bridge_status_uses_bridge_snapshot(self) -> None:
+        class _Bridge:
+            def get_status(self):
+                return {
+                    "connected": True,
+                    "last_sync_at": "2026-03-28T20:37:00+00:00",
+                    "reconnect_count": 3,
+                }
+
+        self.assertEqual(
+            {
+                "bridge_connected": True,
+                "bridge_last_sync_at": "2026-03-28T20:37:00+00:00",
+                "bridge_reconnect_count": 3,
+            },
+            _build_bridge_status_state(_Bridge()),
+        )
+
+    def test_approval_status_defaults_without_dispatcher(self) -> None:
+        self.assertEqual(
+            {
+                "approval_tracked_count": 0,
+                "approval_pending_count": 0,
+            },
+            _build_approval_status_state(None),
+        )
+
+    def test_approval_status_uses_dispatcher_snapshot(self) -> None:
+        class _Dispatcher:
+            def get_status(self):
+                return {
+                    "approval_tracked_count": 4,
+                    "approval_pending_count": 2,
+                }
+
+        self.assertEqual(
+            {
+                "approval_tracked_count": 4,
+                "approval_pending_count": 2,
+            },
+            _build_approval_status_state(_Dispatcher()),
+        )
 
 
 if __name__ == "__main__":

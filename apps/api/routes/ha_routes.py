@@ -21,7 +21,11 @@ from typing import Any, Callable
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from apps.api.response_models import HaMqttStatusModel
+from apps.api.response_models import (
+    HaActionsStatusModel,
+    HaBridgeStatusModel,
+    HaMqttStatusModel,
+)
 from packages.pipelines.ha_action_proposals import ApprovalActionRegistry
 from packages.pipelines.transformation_service import TransformationService
 
@@ -107,11 +111,16 @@ def register_ha_routes(
         rows = svc.get_ha_entity_history(entity_id, limit=limit)
         return {"rows": to_jsonable(rows), "limit": limit}
 
-    @app.get("/api/ha/bridge/status")
-    async def get_bridge_status() -> dict[str, Any]:
+    @app.get("/api/ha/bridge/status", response_model=HaBridgeStatusModel)
+    async def get_bridge_status() -> HaBridgeStatusModel:
         if ha_bridge is None:
-            return {"enabled": False, "connected": False, "last_sync_at": None, "reconnect_count": 0}
-        return {"enabled": True, **ha_bridge.get_status()}
+            return HaBridgeStatusModel(
+                enabled=False,
+                connected=False,
+                last_sync_at=None,
+                reconnect_count=0,
+            )
+        return HaBridgeStatusModel(enabled=True, **ha_bridge.get_status())
 
     @app.get("/api/ha/mqtt/status", response_model=HaMqttStatusModel)
     async def get_mqtt_status() -> HaMqttStatusModel:
@@ -150,18 +159,18 @@ def register_ha_routes(
             return {"actions": []}
         return {"actions": ha_action_dispatcher.get_actions(limit=limit)}
 
-    @app.get("/api/ha/actions/status")
-    async def get_actions_status() -> dict[str, Any]:
+    @app.get("/api/ha/actions/status", response_model=HaActionsStatusModel)
+    async def get_actions_status() -> HaActionsStatusModel:
         if ha_action_dispatcher is None:
-            return {
-                "enabled": False,
-                "last_dispatch_at": None,
-                "dispatch_count": 0,
-                "error_count": 0,
-                "action_log_size": 0,
-                "tracked_policies": 0,
-            }
-        return ha_action_dispatcher.get_status()
+            return HaActionsStatusModel(
+                enabled=False,
+                last_dispatch_at=None,
+                dispatch_count=0,
+                error_count=0,
+                action_log_size=0,
+                tracked_policies=0,
+            )
+        return HaActionsStatusModel(enabled=True, **ha_action_dispatcher.get_status())
 
     def _proposal_registry() -> ApprovalActionRegistry:
         if ha_action_proposal_registry is None:

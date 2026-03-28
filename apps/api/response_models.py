@@ -88,6 +88,30 @@ class HaMqttStatusModel(BaseModel):
     publication_keys: list[str]
 
 
+class HaBridgeStatusModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool
+    connected: bool
+    last_sync_at: str | None = None
+    reconnect_count: int
+
+
+class HaActionsStatusModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool
+    last_dispatch_at: str | None = None
+    dispatch_count: int
+    error_count: int
+    action_log_size: int
+    tracked_policies: int
+    approval_tracked_count: int = 0
+    approval_pending_count: int = 0
+    approval_approved_count: int = 0
+    approval_dismissed_count: int = 0
+
+
 class LocalUserModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

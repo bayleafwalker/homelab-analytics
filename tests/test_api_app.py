@@ -359,6 +359,18 @@ class ApiAppTests(unittest.TestCase):
                     "content"
                 ]["application/json"]["schema"]["$ref"],
             )
+            self.assertEqual(
+                "#/components/schemas/HaBridgeStatusModel",
+                schema["paths"]["/api/ha/bridge/status"]["get"]["responses"]["200"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+            self.assertEqual(
+                "#/components/schemas/HaActionsStatusModel",
+                schema["paths"]["/api/ha/actions/status"]["get"]["responses"]["200"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
 
     def test_typed_config_payload_validation_rejects_invalid_dataset_contracts(
         self,
