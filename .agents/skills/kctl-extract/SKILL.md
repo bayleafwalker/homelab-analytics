@@ -11,6 +11,7 @@ Recover durable knowledge from sprint events before the sprint goes stale. This 
 
 - A closed or nearly-closed sprint with events logged via `sprintctl event add`.
 - Event types that carry extractable knowledge: `decision`, `blocker-resolved`, `pattern-noted`, `risk-accepted`, `lesson-learned`.
+- Process, coordination, or workflow corrections that were logged during the sprint when they were discovered, even if extraction itself waits until sprint close.
 
 ## Event payload quality
 
@@ -36,6 +37,7 @@ sprintctl event add --sprint-id 2 --type decision --actor claude
 ```
 
 Log events at the moment a decision is made or a blocker resolves — not retroactively at sprint close, where context is lost.
+This includes coordination corrections such as claim misuse, handoff rules, or other lessons that future agents should not relearn the hard way.
 
 ## Steps
 
@@ -65,5 +67,5 @@ Log events at the moment a decision is made or a blocker resolves — not retroa
 
 - Do not approve candidates without setting a meaningful title — the default summary is often terse.
 - Do not run extraction before the sprint has events; add events first via `sprintctl event add`.
-- Do not use this skill mid-sprint unless capturing an important decision that must not be lost.
+- Do not use this skill mid-sprint as a substitute for logging events now; capture the event immediately and leave extraction for sprint close unless immediate review is required.
 - Do not render repo knowledge artifacts anywhere other than `docs/knowledge/knowledge-base.md` unless the repo docs are updated first.

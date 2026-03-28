@@ -50,13 +50,16 @@ Interpretation rules:
 **While in progress:**
 - load `.envrc` before consulting or mutating sprint state
 - inspect item status, active claims, and recent events
+- use a distinct actor or session identifier for each live agent or worktree when claiming or heartbeating sprint work
 - claim the item before repo edits when parallel overlap is possible
+- if an exclusive claim already exists, only continue under that claim when the actor or session identity and workspace metadata clearly match the current workspace; otherwise stop repo edits and resolve a handoff or pick different work
 - move the item to `active` before implementation when appropriate
+- log `decision` or `lesson-learned` events when process, coordination, or design rules are clarified during execution; do not wait until sprint close to capture them
 - use sprint docs, requirements, and architecture docs only as implementation context for the selected item
 
 **Close-out artifacts:** updated item state, claim metadata, relevant events, and refreshed snapshot after material state changes.
 
-**Primary references:** `AGENTS.md`, `runbooks/sprint-and-knowledge-operations.md`
+**Primary references:** `AGENTS.md`, `runbooks/sprint-and-knowledge-operations.md`, `.agents/skills/sprint-resume/SKILL.md`
 
 ### 3. Implementation
 
@@ -163,6 +166,7 @@ Minimum done criteria:
 - refresh `docs/sprint-snapshots/sprint-current.txt` only after the state change exists in the DB
 - keep snapshot updates separate from unrelated feature commits when committed
 - add `sprintctl event` or `sprintctl handoff` output when the change materially affects ownership, decisions, blockers, or execution history
+- for multi-agent work, keep ownership transfers explicit through matching claim identity or a handoff artifact before another agent resumes implementation
 
 ## Multi-Agent Coordination
 
@@ -173,8 +177,8 @@ Claim before repo edits when:
 - the next task is being selected from live sprint state rather than assigned explicitly by the user
 - ownership of the item would otherwise be ambiguous
 
-Expected claim metadata when available:
-- actor
+Required claim identity for multi-agent work when the local workflow supports it:
+- unique actor or session id, not just a shared tool or model label
 - branch
 - worktree
 - commit SHA
@@ -182,7 +186,10 @@ Expected claim metadata when available:
 
 Coordination rules:
 - do not infer ownership from sprint docs, plans, or session notes when live `sprintctl` state exists
+- if an exclusive claim already exists and the identity clearly matches the current workspace, refresh the heartbeat and continue
+- if an exclusive claim already exists and the identity is missing, ambiguous, or points to another live workspace, do not heartbeat it and do not edit repo files until a handoff is produced or a different item is selected
 - add `sprintctl event` records when decisions are made or blockers are resolved, not only at close-out
+- log reusable workflow corrections and coordination lessons as `decision` or `lesson-learned` events with summary, detail, tags, and confidence at the moment they are discovered
 - use `sprintctl handoff --output <path>` when work changes hands, pauses materially, or needs machine-readable transfer context
 - keep handoff bundles local unless the task explicitly asks for a committed artifact
 
