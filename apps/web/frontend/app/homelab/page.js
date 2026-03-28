@@ -71,17 +71,33 @@ function summarizeValueLoop(services, workloads) {
   const healthyServiceShare = services.length > 0 ? serviceSummary.running / services.length : null;
   const costPerHealthyService =
     serviceSummary.running > 0 ? workloadSummary.totalEstimatedCost / serviceSummary.running : null;
+  const costPerTrackedWorkload =
+    workloads.length > 0 ? workloadSummary.totalEstimatedCost / workloads.length : null;
   const topWorkload = workloadSummary.topWorkloads[0] || null;
   const topWorkloadShare =
     topWorkload && workloadSummary.totalEstimatedCost > 0
       ? Number(topWorkload.est_monthly_cost || 0) / workloadSummary.totalEstimatedCost
       : null;
+  let decisionCue = "No homelab service or workload rows are published yet.";
+  if (services.length > 0 || workloads.length > 0) {
+    if (serviceSummary.needsAttention > 0) {
+      decisionCue = "Healthy services are outnumbered by services needing attention.";
+    } else if (topWorkloadShare !== null && topWorkloadShare >= 0.5) {
+      decisionCue = "One workload dominates the current cost profile.";
+    } else if (healthyServiceShare !== null && healthyServiceShare < 0.8) {
+      decisionCue = "Most services are healthy, but the overall value ratio is still soft.";
+    } else {
+      decisionCue = "Operational value is broadly aligned with the current workload cost base.";
+    }
+  }
 
   return {
     healthyServiceShare,
     costPerHealthyService,
+    costPerTrackedWorkload,
     topWorkload,
     topWorkloadShare,
+    decisionCue,
   };
 }
 
@@ -402,10 +418,7 @@ export default async function HomelabPage({ searchParams }) {
               {services.length} services
             </span>
           </div>
-          <p className="muted">
-            Comparing the published service-health and workload-cost marts as a directional
-            value-vs-cost signal, not a formal ROI model.
-          </p>
+          <p className="muted">{valueLoopSummary.decisionCue}</p>
           <dl className="kvGrid">
             <dt>Healthy services</dt>
             <dd>{serviceSummary.running}</dd>
@@ -421,6 +434,8 @@ export default async function HomelabPage({ searchParams }) {
             <dd>{formatPercent(valueLoopSummary.healthyServiceShare)}</dd>
             <dt>Cost per healthy service</dt>
             <dd>{formatCost(valueLoopSummary.costPerHealthyService)}</dd>
+            <dt>Cost per tracked workload</dt>
+            <dd>{formatCost(valueLoopSummary.costPerTrackedWorkload)}</dd>
             <dt>Highest-cost workload</dt>
             <dd>
               {valueLoopSummary.topWorkload

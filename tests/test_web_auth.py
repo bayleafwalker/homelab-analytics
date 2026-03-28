@@ -579,8 +579,11 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getHomelabWorkloads" in homelab_source
     assert "Value Loop" in homelab_source
     assert "formatPercent" in homelab_source
+    assert "summarizeValueLoop" in homelab_source
+    assert "decisionCue" in homelab_source
     assert "Healthy service share" in homelab_source
     assert "Cost per healthy service" in homelab_source
+    assert "Cost per tracked workload" in homelab_source
     assert "Highest-cost workload" in homelab_source
     assert "Approval queue" in homelab_source
     assert "Approve" in homelab_source
