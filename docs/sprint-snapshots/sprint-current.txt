@@ -12,4 +12,4 @@ ID:     9
   [active  ] #67  Health/reporting packet: coherent integration runtime status model  (assignee: -)
   [pending ] #68  Stage 6 adapter packet: AdapterManifest and integration contract boundaries  (assignee: -)
 
-Rendered: 2026-03-28T20:38:35Z
+Rendered: 2026-03-28T20:48:49Z
