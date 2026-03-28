@@ -12,6 +12,7 @@ from packages.pipelines.account_transaction_service import AccountTransactionSer
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository
+from tests.test_homelab_domain import _service_rows, _workload_rows
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
@@ -132,6 +133,12 @@ class NewReportingEndpointTests(unittest.TestCase):
         ts.refresh_budget_variance()
         ts.refresh_budget_envelope_drift()
 
+        # Load homelab data for the operator value-loop surface.
+        ts.load_service_health(_service_rows(), run_id="run-hl-services")
+        ts.refresh_service_health_current()
+        ts.load_workload_sensors(_workload_rows(), run_id="run-hl-workloads")
+        ts.refresh_workload_cost_7d()
+
         # Refresh overview
         ts.refresh_household_overview()
         ts.refresh_open_attention_items()
@@ -218,6 +225,24 @@ class NewReportingEndpointTests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         self.assertIn("rows", response.json())
 
+    def test_homelab_services_endpoint(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app_with_data(temp_dir)
+            response = client.get("/api/homelab/services")
+        self.assertEqual(200, response.status_code)
+        rows = response.json()["rows"]
+        self.assertGreater(len(rows), 0)
+        self.assertIn("state", rows[0])
+
+    def test_homelab_workloads_endpoint(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app_with_data(temp_dir)
+            response = client.get("/api/homelab/workloads")
+        self.assertEqual(200, response.status_code)
+        rows = response.json()["rows"]
+        self.assertGreater(len(rows), 0)
+        self.assertIn("est_monthly_cost", rows[0])
+
     def test_operating_baseline_endpoint(self) -> None:
         with TemporaryDirectory() as temp_dir:
             client = self._make_app_with_data(temp_dir)
@@ -244,6 +269,8 @@ class NewReportingEndpointTests(unittest.TestCase):
                 "/reports/attention-items",
                 "/reports/recent-changes",
                 "/reports/operating-baseline",
+                "/api/homelab/services",
+                "/api/homelab/workloads",
             ):
                 response = client.get(path)
                 self.assertEqual(

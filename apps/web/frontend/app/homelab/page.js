@@ -1,6 +1,17 @@
 import { AppShell } from "@/components/app-shell";
 import { RendererDiscovery } from "@/components/renderer-discovery";
-import { getCurrentUser, getHaActionProposals, getHaEntities, getHaBridgeStatus, getHaMqttStatus, getHaPolicies, getHaActions, getHaActionsStatus } from "@/lib/backend";
+import {
+  getCurrentUser,
+  getHaActionProposals,
+  getHaActions,
+  getHaActionsStatus,
+  getHaBridgeStatus,
+  getHaEntities,
+  getHaMqttStatus,
+  getHaPolicies,
+  getHomelabServices,
+  getHomelabWorkloads,
+} from "@/lib/backend";
 import { getWebRendererDiscovery } from "@/lib/renderer-discovery";
 
 function formatTimestamp(ts) {
@@ -22,6 +33,30 @@ function noticeCopy(notice, actionId) {
   }
 }
 
+function formatCost(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return "—";
+  }
+  return number.toFixed(2);
+}
+
+function summarizeServiceHealth(rows) {
+  const running = rows.filter((row) => row.state === "running").length;
+  const needsAttention = rows.length - running;
+  return { running, needsAttention };
+}
+
+function summarizeWorkloads(rows) {
+  const sorted = [...rows].sort((left, right) => Number(right.est_monthly_cost || 0) - Number(left.est_monthly_cost || 0));
+  const totalEstimatedCost = rows.reduce((sum, row) => sum + Number(row.est_monthly_cost || 0), 0);
+  return {
+    sorted,
+    totalEstimatedCost,
+    topWorkloads: sorted.slice(0, 5),
+  };
+}
+
 const CLASS_LABELS = {
   sensor: "Sensor",
   binary_sensor: "Binary Sensor",
@@ -36,7 +71,7 @@ const CLASS_LABELS = {
 };
 
 export default async function HomelabPage({ searchParams }) {
-  const [user, discovery, entities, bridge, mqtt, policies, actions, actionsStatus, proposals] = await Promise.all([
+  const [user, discovery, entities, bridge, mqtt, policies, actions, actionsStatus, proposals, services, workloads] = await Promise.all([
     getCurrentUser(),
     getWebRendererDiscovery(),
     getHaEntities(),
@@ -46,10 +81,14 @@ export default async function HomelabPage({ searchParams }) {
     getHaActions(),
     getHaActionsStatus(),
     getHaActionProposals(),
+    getHomelabServices(),
+    getHomelabWorkloads(),
   ]);
   const pendingProposals = proposals.filter((proposal) => proposal.status === "pending");
   const canManageApprovals = user.role !== "reader";
   const notice = noticeCopy(searchParams?.notice, searchParams?.action_id);
+  const serviceSummary = summarizeServiceHealth(services);
+  const workloadSummary = summarizeWorkloads(workloads);
 
   return (
     <AppShell
@@ -316,6 +355,58 @@ export default async function HomelabPage({ searchParams }) {
                           </div>
                         </td>
                       ) : null}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
+
+        <article className="panel section" id="value-loop">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Value Loop</div>
+              <h2>Service cost and operational value</h2>
+            </div>
+            <span className={`statusPill ${serviceSummary.needsAttention > 0 ? "warning" : "positive"}`}>
+              {services.length} services
+            </span>
+          </div>
+          <dl className="kvGrid">
+            <dt>Healthy services</dt>
+            <dd>{serviceSummary.running}</dd>
+            <dt>Needs attention</dt>
+            <dd>{serviceSummary.needsAttention}</dd>
+            <dt>Tracked workloads</dt>
+            <dd>{workloads.length}</dd>
+            <dt>Estimated monthly workload cost</dt>
+            <dd>{formatCost(workloadSummary.totalEstimatedCost)}</dd>
+          </dl>
+          {workloadSummary.topWorkloads.length === 0 ? (
+            <div className="empty">No published workload cost rows yet.</div>
+          ) : (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Workload</th>
+                    <th>Host</th>
+                    <th>Avg CPU</th>
+                    <th>Avg Memory</th>
+                    <th>Readings</th>
+                    <th>Estimated monthly cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {workloadSummary.topWorkloads.map((row) => (
+                    <tr key={row.workload_id}>
+                      <td>{row.display_name || row.workload_id}</td>
+                      <td>{row.host || "—"}</td>
+                      <td>{row.avg_cpu_pct_7d ?? "—"}</td>
+                      <td>{row.avg_mem_gb_7d ?? "—"}</td>
+                      <td>{row.reading_count_7d}</td>
+                      <td>{formatCost(row.est_monthly_cost)}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -740,6 +740,16 @@ export async function getHaActionProposals() {
   return getResponseArray(payload, "proposals");
 }
 
+export async function getHomelabServices() {
+  const payload = await backendGet("/api/homelab/services");
+  return getResponseArray(payload, "rows");
+}
+
+export async function getHomelabWorkloads() {
+  const payload = await backendGet("/api/homelab/workloads");
+  return getResponseArray(payload, "rows");
+}
+
 export async function getTransformationPackages({ includeArchived = false } = {}) {
   const payload = await backendGet("/config/transformation-packages", {
     params: { query: { include_archived: includeArchived } }

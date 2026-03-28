@@ -559,6 +559,8 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getPublicationContracts" in backend_source
     assert "getUiDescriptors" in backend_source
     assert "getHaActionProposals" in backend_source
+    assert "getHomelabServices" in backend_source
+    assert "getHomelabWorkloads" in backend_source
     assert "getPublicationContracts()" in renderer_discovery_source
     assert "getUiDescriptors()" in renderer_discovery_source
     assert "renderer_hints.web_surface" in renderer_discovery_source
@@ -573,6 +575,9 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getWebRendererDiscovery" in homelab_source
     assert "RendererDiscovery" in homelab_source
     assert "getHaActionProposals" in homelab_source
+    assert "getHomelabServices" in homelab_source
+    assert "getHomelabWorkloads" in homelab_source
+    assert "Value Loop" in homelab_source
     assert "Approval queue" in homelab_source
     assert "Approve" in homelab_source
     assert "Dismiss" in homelab_source
