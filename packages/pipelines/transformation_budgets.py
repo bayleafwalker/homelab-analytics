@@ -7,6 +7,8 @@ from typing import Any
 from packages.pipelines.budget_models import (
     FACT_BUDGET_TARGET_COLUMNS,
     FACT_BUDGET_TARGET_TABLE,
+    MART_BUDGET_ENVELOPE_DRIFT_COLUMNS,
+    MART_BUDGET_ENVELOPE_DRIFT_TABLE,
     MART_BUDGET_PROGRESS_CURRENT_COLUMNS,
     MART_BUDGET_PROGRESS_CURRENT_TABLE,
     MART_BUDGET_VARIANCE_COLUMNS,
@@ -25,6 +27,10 @@ def ensure_budget_storage(store: DuckDBStore) -> None:
     store.ensure_table(MART_BUDGET_VARIANCE_TABLE, MART_BUDGET_VARIANCE_COLUMNS)
     store.ensure_table(
         MART_BUDGET_PROGRESS_CURRENT_TABLE, MART_BUDGET_PROGRESS_CURRENT_COLUMNS,
+    )
+    store.ensure_table(
+        MART_BUDGET_ENVELOPE_DRIFT_TABLE,
+        MART_BUDGET_ENVELOPE_DRIFT_COLUMNS,
     )
 
 
@@ -203,6 +209,69 @@ def refresh_budget_progress_current(store: DuckDBStore) -> int:
     return store.fetchall(
         f"SELECT COUNT(*) FROM {MART_BUDGET_PROGRESS_CURRENT_TABLE}"
     )[0][0]
+
+
+def refresh_budget_envelope_drift(store: DuckDBStore) -> int:
+    store.execute(f"DELETE FROM {MART_BUDGET_ENVELOPE_DRIFT_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_BUDGET_ENVELOPE_DRIFT_TABLE} (
+            budget_name, category_id, period_label, envelope_amount,
+            actual_amount, drift_amount, drift_pct, drift_state, currency
+        )
+        SELECT
+            budget_name,
+            category_id,
+            period_label,
+            target_amount AS envelope_amount,
+            actual_amount,
+            actual_amount - target_amount AS drift_amount,
+            CASE
+                WHEN target_amount = 0 THEN NULL
+                ELSE ROUND(
+                    (actual_amount - target_amount) * 100.0 / target_amount,
+                    2
+                )
+            END AS drift_pct,
+            CASE
+                WHEN actual_amount <= target_amount * 0.9 THEN 'under_target'
+                WHEN actual_amount <= target_amount THEN 'on_target'
+                ELSE 'over_target'
+            END AS drift_state,
+            currency
+        FROM {MART_BUDGET_VARIANCE_TABLE}
+        ORDER BY budget_name, period_label
+        """
+    )
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_BUDGET_ENVELOPE_DRIFT_TABLE}"
+    )[0][0]
+
+
+def get_budget_envelope_drift(
+    store: DuckDBStore,
+    *,
+    budget_name: str | None = None,
+    category_id: str | None = None,
+    period_label: str | None = None,
+) -> list[dict[str, Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if budget_name is not None:
+        clauses.append("budget_name = ?")
+        params.append(budget_name)
+    if category_id is not None:
+        clauses.append("category_id = ?")
+        params.append(category_id)
+    if period_label is not None:
+        clauses.append("period_label = ?")
+        params.append(period_label)
+    where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_BUDGET_ENVELOPE_DRIFT_TABLE}"
+        f" {where_sql} ORDER BY budget_name, period_label",
+        params,
+    )
 
 
 def get_budget_progress_current(

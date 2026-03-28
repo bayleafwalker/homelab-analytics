@@ -101,9 +101,11 @@ from packages.pipelines.transformation_assets import (
 from packages.pipelines.transformation_budgets import (
     count_budget_targets,
     ensure_budget_storage,
+    get_budget_envelope_drift,
     get_budget_progress_current,
     get_budget_variance,
     load_budget_targets,
+    refresh_budget_envelope_drift,
     refresh_budget_progress_current,
     refresh_budget_variance,
 )
@@ -708,8 +710,25 @@ class TransformationService:
     def refresh_budget_progress_current(self) -> int:
         return refresh_budget_progress_current(self._store)
 
+    def refresh_budget_envelope_drift(self) -> int:
+        return refresh_budget_envelope_drift(self._store)
+
     def get_budget_progress_current(self) -> list[dict[str, Any]]:
         return get_budget_progress_current(self._store)
+
+    def get_budget_envelope_drift(
+        self,
+        *,
+        budget_name: str | None = None,
+        category_id: str | None = None,
+        period_label: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_budget_envelope_drift(
+            self._store,
+            budget_name=budget_name,
+            category_id=category_id,
+            period_label=period_label,
+        )
 
     # ------------------------------------------------------------------
     # Loan repayments

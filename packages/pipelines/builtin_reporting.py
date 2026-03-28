@@ -9,6 +9,8 @@ from packages.pipelines.asset_models import (
 from packages.pipelines.budget_models import (
     CURRENT_DIM_BUDGET_VIEW,
     DIM_BUDGET,
+    MART_BUDGET_ENVELOPE_DRIFT_COLUMNS,
+    MART_BUDGET_ENVELOPE_DRIFT_TABLE,
     MART_BUDGET_PROGRESS_CURRENT_COLUMNS,
     MART_BUDGET_PROGRESS_CURRENT_TABLE,
     MART_BUDGET_VARIANCE_COLUMNS,
@@ -259,6 +261,11 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
     MART_BUDGET_VARIANCE_TABLE: PublicationRelation(
         relation_name=MART_BUDGET_VARIANCE_TABLE,
         columns=MART_BUDGET_VARIANCE_COLUMNS,
+        order_by="budget_name, period_label",
+    ),
+    MART_BUDGET_ENVELOPE_DRIFT_TABLE: PublicationRelation(
+        relation_name=MART_BUDGET_ENVELOPE_DRIFT_TABLE,
+        columns=MART_BUDGET_ENVELOPE_DRIFT_COLUMNS,
         order_by="budget_name, period_label",
     ),
     MART_BUDGET_PROGRESS_CURRENT_TABLE: PublicationRelation(

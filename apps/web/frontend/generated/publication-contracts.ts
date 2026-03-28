@@ -2141,6 +2141,143 @@ export const publicationContractMap = {
     "ui_descriptor_keys": [],
     "visibility": "public"
   },
+  "mart_budget_envelope_drift": {
+    "columns": [
+      {
+        "aggregation": null,
+        "description": "Budget name",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "budget_name",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Category id",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "category_id",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Period label",
+        "filterable": true,
+        "grain": "month",
+        "json_type": "string",
+        "name": "period_label",
+        "nullable": false,
+        "semantic_role": "time",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": "none",
+        "description": "Envelope amount",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "envelope_amount",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "none",
+        "description": "Actual amount",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "actual_amount",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "none",
+        "description": "Drift amount",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "drift_amount",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": null,
+        "description": "Drift state",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "drift_state",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": "pct_change",
+        "description": "Drift pct",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "drift_pct",
+        "nullable": true,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4)",
+        "unit": "percent"
+      },
+      {
+        "aggregation": null,
+        "description": "Currency",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "currency",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      }
+    ],
+    "description": null,
+    "display_name": "Mart Budget Envelope Drift",
+    "lineage_required": true,
+    "pack_name": null,
+    "pack_version": null,
+    "publication_key": "mart_budget_envelope_drift",
+    "relation_name": "mart_budget_envelope_drift",
+    "renderer_hints": {},
+    "retention_policy": "indefinite",
+    "schema_name": "mart_budget_envelope_drift",
+    "schema_version": "1.0.0",
+    "supported_renderers": [
+      "web"
+    ],
+    "ui_descriptor_keys": [],
+    "visibility": "public"
+  },
   "mart_budget_progress_current": {
     "columns": [
       {

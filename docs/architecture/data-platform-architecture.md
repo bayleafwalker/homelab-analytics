@@ -383,6 +383,7 @@ Planning responsibilities:
 
 - persist budget targets, goal definitions, and obligation records as first-class entities separate from operational reporting state
 - compute variance between planned and actual outcomes across configurable time windows
+- materialize category-based budget envelopes with drift visibility so operators can see allocation, spend, and over/under state at a glance
 - track recurring commitments, renewal dates, and expiry conditions
 - produce structured state indicators (on track, warning, needs action) for budgets, debt, and cost envelopes
 

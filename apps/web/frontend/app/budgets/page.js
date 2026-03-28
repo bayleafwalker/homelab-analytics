@@ -1,9 +1,20 @@
 import { AppShell } from "@/components/app-shell";
-import { getBudgetProgress, getBudgetVariance, getCurrentUser } from "@/lib/backend";
+import {
+  getBudgetEnvelopes,
+  getBudgetProgress,
+  getBudgetVariance,
+  getCurrentUser,
+} from "@/lib/backend";
 
 function statusBadge(status) {
   if (status === "over_budget") return { label: "Over", color: "var(--error)" };
   if (status === "on_budget") return { label: "On track", color: "var(--ok)" };
+  return { label: "Under", color: "var(--accent)" };
+}
+
+function envelopeBadge(state) {
+  if (state === "over_target") return { label: "Over", color: "var(--error)" };
+  if (state === "on_target") return { label: "On track", color: "var(--ok)" };
   return { label: "Under", color: "var(--accent)" };
 }
 
@@ -13,8 +24,9 @@ export default async function BudgetsPage({ searchParams }) {
   const category = searchParams?.category || "";
   const periodLabel = searchParams?.period_label || "";
 
-  const [progress, variance] = await Promise.all([
+  const [progress, envelopes, variance] = await Promise.all([
     getBudgetProgress(),
+    getBudgetEnvelopes(budgetName || undefined, category || undefined, periodLabel || undefined),
     getBudgetVariance(budgetName || undefined, category || undefined, periodLabel || undefined),
   ]);
 
@@ -101,6 +113,61 @@ export default async function BudgetsPage({ searchParams }) {
             </div>
           </article>
         )}
+
+        {/* Envelope drift */}
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Envelope drift</div>
+              <h2>Category cost envelopes</h2>
+            </div>
+          </div>
+          <div className="tableWrap">
+            {envelopes.length === 0 ? (
+              <p className="muted">No budget envelope data for the selected filters.</p>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Budget</th>
+                    <th>Category</th>
+                    <th>Period</th>
+                    <th>Envelope</th>
+                    <th>Actual</th>
+                    <th>Drift</th>
+                    <th>Drift %</th>
+                    <th>State</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {envelopes.map((row, i) => {
+                    const driftAmt = Number(row.drift_amount);
+                    const badge = envelopeBadge(row.drift_state);
+                    return (
+                      <tr key={i}>
+                        <td>{row.budget_name}</td>
+                        <td>{row.category_id}</td>
+                        <td>{row.period_label}</td>
+                        <td>{Number(row.envelope_amount).toFixed(2)} {row.currency}</td>
+                        <td>{Number(row.actual_amount).toFixed(2)} {row.currency}</td>
+                        <td style={{ color: driftAmt <= 0 ? "var(--ok)" : "var(--error)" }}>
+                          {driftAmt <= 0 ? "" : "+"}
+                          {driftAmt.toFixed(2)} {row.currency}
+                        </td>
+                        <td>
+                          {row.drift_pct != null ? `${Number(row.drift_pct).toFixed(1)}%` : "—"}
+                        </td>
+                        <td>
+                          <span style={{ color: badge.color }}>{badge.label}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </article>
 
         {/* Variance filters */}
         <article className="panel section">

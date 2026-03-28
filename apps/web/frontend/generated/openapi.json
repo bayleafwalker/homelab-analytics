@@ -176,6 +176,81 @@
         "title": "AttentionItemsResponse",
         "type": "object"
       },
+      "BudgetEnvelopeDriftResponse": {
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/BudgetEnvelopeDriftRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows"
+        ],
+        "title": "BudgetEnvelopeDriftResponse",
+        "type": "object"
+      },
+      "BudgetEnvelopeDriftRow": {
+        "properties": {
+          "actual_amount": {
+            "title": "Actual Amount",
+            "type": "string"
+          },
+          "budget_name": {
+            "title": "Budget Name",
+            "type": "string"
+          },
+          "category_id": {
+            "title": "Category Id",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "drift_amount": {
+            "title": "Drift Amount",
+            "type": "string"
+          },
+          "drift_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drift Pct"
+          },
+          "drift_state": {
+            "title": "Drift State",
+            "type": "string"
+          },
+          "envelope_amount": {
+            "title": "Envelope Amount",
+            "type": "string"
+          },
+          "period_label": {
+            "title": "Period Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "budget_name",
+          "category_id",
+          "period_label",
+          "envelope_amount",
+          "actual_amount",
+          "drift_amount",
+          "drift_state",
+          "currency"
+        ],
+        "title": "BudgetEnvelopeDriftRow",
+        "type": "object"
+      },
       "BudgetProgressCurrentRow": {
         "properties": {
           "budget_name": {
@@ -10114,6 +10189,84 @@
           }
         },
         "summary": "Get Attention Items"
+      }
+    },
+    "/reports/budget-envelopes": {
+      "get": {
+        "operationId": "get_budget_envelopes_reports_budget_envelopes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "budget_name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Budget Name"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period_label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period Label"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetEnvelopeDriftResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Budget Envelopes"
       }
     },
     "/reports/budget-progress": {

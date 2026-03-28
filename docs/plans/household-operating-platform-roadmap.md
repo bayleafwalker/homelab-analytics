@@ -148,7 +148,7 @@ Requirements ANA-02, ANA-03, ANA-04, and ANA-06 are already defined in `requirem
 
 ### Status
 
-Partially complete. Budget definitions and variance tracking, affordability ratios, household cost model, and recurring cost baseline are shipped. Category-based cost envelopes with drift visibility and structured state indicators remain.
+Partially complete. Budget definitions, variance tracking, category-based cost envelopes with drift visibility, affordability ratios, household cost model, and recurring cost baseline are shipped. Structured state indicators remain.
 
 ---
 

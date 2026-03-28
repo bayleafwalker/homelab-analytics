@@ -920,6 +920,23 @@ export async function getBudgetVariance(
   return getResponseArray(payload, "rows");
 }
 
+export async function getBudgetEnvelopes(
+  budgetName?: string,
+  category?: string,
+  periodLabel?: string
+) {
+  const payload = await backendGet("/reports/budget-envelopes", {
+    params: {
+      query: definedValues({
+        budget_name: budgetName,
+        category_id: category,
+        period_label: periodLabel
+      })
+    }
+  });
+  return getResponseArray(payload, "rows");
+}
+
 export async function getBudgetProgress() {
   const payload = await backendGet("/reports/budget-progress");
   return getResponseArray(payload, "rows");

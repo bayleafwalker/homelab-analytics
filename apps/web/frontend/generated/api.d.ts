@@ -1788,6 +1788,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reports/budget-envelopes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Budget Envelopes */
+        get: operations["get_budget_envelopes_reports_budget_envelopes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reports/budget-progress": {
         parameters: {
             query?: never;
@@ -2417,6 +2434,32 @@ export interface components {
         AttentionItemsResponse: {
             /** Rows */
             rows: components["schemas"]["AttentionItemRow"][];
+        };
+        /** BudgetEnvelopeDriftResponse */
+        BudgetEnvelopeDriftResponse: {
+            /** Rows */
+            rows: components["schemas"]["BudgetEnvelopeDriftRow"][];
+        };
+        /** BudgetEnvelopeDriftRow */
+        BudgetEnvelopeDriftRow: {
+            /** Actual Amount */
+            actual_amount: string;
+            /** Budget Name */
+            budget_name: string;
+            /** Category Id */
+            category_id: string;
+            /** Currency */
+            currency: string;
+            /** Drift Amount */
+            drift_amount: string;
+            /** Drift Pct */
+            drift_pct: string | null;
+            /** Drift State */
+            drift_state: string;
+            /** Envelope Amount */
+            envelope_amount: string;
+            /** Period Label */
+            period_label: string;
         };
         /** BudgetProgressCurrentRow */
         BudgetProgressCurrentRow: {
@@ -7869,6 +7912,39 @@ export interface operations {
             };
         };
     };
+    get_budget_envelopes_reports_budget_envelopes_get: {
+        parameters: {
+            query?: {
+                budget_name?: string | null;
+                category_id?: string | null;
+                period_label?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetEnvelopeDriftResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_budget_progress_reports_budget_progress_get: {
         parameters: {
             query?: never;
@@ -8771,4 +8847,3 @@ export interface operations {
         };
     };
 }
-

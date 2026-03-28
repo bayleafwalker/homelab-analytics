@@ -291,6 +291,11 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 name="Budget variance mart",
             ),
             BuiltinPublicationSpec(
+                publication_definition_id="pub_budgets_envelope_drift",
+                publication_key="mart_budget_envelope_drift",
+                name="Budget envelope drift mart",
+            ),
+            BuiltinPublicationSpec(
                 publication_definition_id="pub_budgets_progress_current",
                 publication_key="mart_budget_progress_current",
                 name="Budget progress current mart",
@@ -303,6 +308,7 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
         ),
         refresh_publication_keys=(
             "mart_budget_variance",
+            "mart_budget_envelope_drift",
             "mart_budget_progress_current",
             # Overview compositions depend on budget marts
             "mart_household_overview",

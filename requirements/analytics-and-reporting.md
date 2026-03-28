@@ -56,12 +56,13 @@ The platform derives household and homelab analytics from normalized canonical m
 **Rationale:** Budget vs. actual tracking is the most requested household finance feature after cash-flow.
 
 **Phase:** 3
-**Status:** implemented (budget ingestion now populates `dim_budget` plus budget-target facts; `mart_budget_variance` and `mart_budget_progress_current` are materialised; API exposes `GET /reports/budget-variance` and `GET /reports/budget-progress`; the web budget surface renders progress and variance views from reporting-layer models)
+**Status:** implemented (budget ingestion now populates `dim_budget` plus budget-target facts; `mart_budget_variance`, `mart_budget_envelope_drift`, and `mart_budget_progress_current` are materialised; API exposes `GET /reports/budget-variance`, `GET /reports/budget-envelopes`, and `GET /reports/budget-progress`; the web budget surface renders progress, envelope drift, and variance views from reporting-layer models)
 
 **Acceptance criteria:**
 - Budget definitions specify: category, period (monthly/quarterly/annual), and target amount.
 - Actual spending is classified by matching `dim_category` assignments.
 - Variance mart shows: budget, actual, variance (absolute and percentage) per category and period.
+- Envelope mart shows drift visibility with a state indicator and percentage drift alongside target vs. actual spend.
 - API exposes budget status and variance data.
 - Dashboard displays budget progress bars or gauges.
 - Tests verify variance calculation from fixture budgets and transactions.

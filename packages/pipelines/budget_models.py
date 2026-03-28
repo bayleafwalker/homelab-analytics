@@ -5,6 +5,7 @@ Provides:
 - ``fact_budget_target``   — one row per budget target per period
 - ``mart_budget_variance`` — budget vs actual by category and period
 - ``mart_budget_progress_current`` — current month budget progress
+- ``mart_budget_envelope_drift`` — category envelope drift with visual state
 """
 
 from __future__ import annotations
@@ -81,6 +82,24 @@ MART_BUDGET_PROGRESS_CURRENT_COLUMNS: list[tuple[str, str]] = [
     ("spent_amount", "DECIMAL(18,4) NOT NULL"),
     ("remaining", "DECIMAL(18,4) NOT NULL"),
     ("utilization_pct", "DECIMAL(18,4) NOT NULL"),
+    ("currency", "VARCHAR NOT NULL"),
+]
+
+# ---------------------------------------------------------------------------
+# Mart: mart_budget_envelope_drift
+# ---------------------------------------------------------------------------
+
+MART_BUDGET_ENVELOPE_DRIFT_TABLE = "mart_budget_envelope_drift"
+
+MART_BUDGET_ENVELOPE_DRIFT_COLUMNS: list[tuple[str, str]] = [
+    ("budget_name", "VARCHAR NOT NULL"),
+    ("category_id", "VARCHAR NOT NULL"),
+    ("period_label", "VARCHAR NOT NULL"),
+    ("envelope_amount", "DECIMAL(18,4) NOT NULL"),
+    ("actual_amount", "DECIMAL(18,4) NOT NULL"),
+    ("drift_amount", "DECIMAL(18,4) NOT NULL"),
+    ("drift_pct", "DECIMAL(18,4)"),
+    ("drift_state", "VARCHAR NOT NULL"),  # under_target | on_target | over_target
     ("currency", "VARCHAR NOT NULL"),
 ]
 

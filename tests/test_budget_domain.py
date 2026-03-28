@@ -217,6 +217,21 @@ class BudgetTransformationTests(unittest.TestCase):
         count = svc.refresh_budget_progress_current()
         self.assertIsInstance(count, int)
 
+    def test_refresh_budget_envelope_drift(self) -> None:
+        svc = TransformationService(DuckDBStore.memory())
+        svc.load_budget_targets(self._make_rows(), run_id="run-001")
+        svc.refresh_budget_variance()
+        count = svc.refresh_budget_envelope_drift()
+        self.assertEqual(3, count)
+
+        rows = svc.get_budget_envelope_drift(category_id="groceries", period_label="2026-01")
+        self.assertEqual(1, len(rows))
+        row = rows[0]
+        self.assertEqual("under_target", row["drift_state"])
+        self.assertEqual(Decimal("400.0000"), Decimal(str(row["envelope_amount"])))
+        self.assertEqual(Decimal("0"), Decimal(str(row["actual_amount"])))
+        self.assertEqual(Decimal("-400.0000"), Decimal(str(row["drift_amount"])))
+
     def test_budget_variance_variance_calculation(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_budget_targets(self._make_rows(), run_id="run-001")
@@ -252,6 +267,7 @@ class PromoteBudgetRunTests(unittest.TestCase):
             self.assertFalse(result.skipped)
             self.assertEqual(4, result.facts_loaded)
             self.assertIn("mart_budget_variance", result.marts_refreshed)
+            self.assertIn("mart_budget_envelope_drift", result.marts_refreshed)
             self.assertIn("mart_budget_progress_current", result.marts_refreshed)
             self.assertEqual(4, ts.count_budget_targets())
 

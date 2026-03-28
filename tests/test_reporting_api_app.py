@@ -115,6 +115,22 @@ class NewReportingEndpointTests(unittest.TestCase):
         )
         ts.refresh_subscription_summary()
         ts.refresh_upcoming_fixed_costs_30d()
+        ts.load_budget_targets(
+            [
+                {
+                    "budget_id": "bgt-001",
+                    "budget_name": "Monthly Budget",
+                    "category_id": "groceries",
+                    "period_type": "monthly",
+                    "period_label": "2026-01",
+                    "target_amount": "400.00",
+                    "currency": "EUR",
+                }
+            ],
+            run_id="run-003",
+        )
+        ts.refresh_budget_variance()
+        ts.refresh_budget_envelope_drift()
 
         # Refresh overview
         ts.refresh_household_overview()
@@ -160,6 +176,15 @@ class NewReportingEndpointTests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         self.assertIn("rows", response.json())
 
+    def test_budget_envelopes_endpoint(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app_with_data(temp_dir)
+            response = client.get("/reports/budget-envelopes")
+        self.assertEqual(200, response.status_code)
+        rows = response.json()["rows"]
+        self.assertEqual(1, len(rows))
+        self.assertEqual("under_target", rows[0]["drift_state"])
+
     def test_household_overview_endpoint(self) -> None:
         with TemporaryDirectory() as temp_dir:
             client = self._make_app_with_data(temp_dir)
@@ -203,6 +228,7 @@ class NewReportingEndpointTests(unittest.TestCase):
                 "/reports/account-balance-trend",
                 "/reports/transaction-anomalies",
                 "/reports/upcoming-fixed-costs",
+                "/reports/budget-envelopes",
                 "/reports/household-overview",
                 "/reports/attention-items",
                 "/reports/recent-changes",

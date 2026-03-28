@@ -44,6 +44,9 @@ BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
         lambda service: service.refresh_contract_renewal_watchlist()
     ),
     "mart_budget_variance": (lambda service: service.refresh_budget_variance()),
+    "mart_budget_envelope_drift": (
+        lambda service: service.refresh_budget_envelope_drift()
+    ),
     "mart_budget_progress_current": (
         lambda service: service.refresh_budget_progress_current()
     ),
