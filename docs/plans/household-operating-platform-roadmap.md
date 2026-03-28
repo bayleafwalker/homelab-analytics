@@ -65,11 +65,10 @@ Move from "several useful domain-specific transforms" to a stable, versioned, cr
 
 ### Key deliverables
 
-- Remaining canonical dimensions: `dim_budget`, `dim_loan`, `dim_asset`, `dim_household_member`, cross-domain `dim_category` governance
-- Remaining canonical facts: `fact_loan_repayment`, `fact_balance_snapshot`, `fact_asset_event`, `fact_power_consumption`, `fact_cluster_metric`
+- Remaining canonical dimensions and facts narrowed to the real carryover: `dim_household_member`, `fact_balance_snapshot`, and infrastructure follow-up that has not yet received explicit landing/reporting contracts
 - Home automation state foundation (`dim_entity`, `fact_sensor_reading`, `fact_automation_event`) now exists in the transformation layer and remains separate from the HA bridge tables
-- Cross-domain dimension registry ensuring shared dimensions (category, counterparty, provider, household member) are defined once and referenced by surrogate key from all consuming facts
-- Semantic typing for publications — meaning-bearing metadata beyond table names
+- Cross-domain semantic-governance rules ensuring shared dimensions such as `dim_category` and `dim_counterparty` are defined once and promoted deliberately when new platform-level identities emerge
+- Semantic typing for publications so renderer consumers can rely on meaning-bearing metadata beyond table names
 
 ### Relationship to existing work
 
@@ -77,20 +76,19 @@ The architecture doc already names most of these dimensions and facts in the tra
 
 ### Remaining gaps
 
-- Budget dimension and its binding to transaction categories
-- Loan models (dimension, fact, amortization)
-- Home automation state models (`dim_entity`, `fact_sensor_reading`, `fact_automation_event`)
+- `dim_household_member`
+- `fact_balance_snapshot`
 - Landing contracts and reporting starters that complete the remaining infrastructure foundations
-- Cross-domain dimension governance (ensuring `dim_category` and `dim_counterparty` are shared, not duplicated per domain)
+- Explicit promotion rules for future shared dimensions instead of treating repeated provider-style fields as a registry by default
 
 ### Planned documentation
 
 - `docs/architecture/domain-model.md` — canonical household ontology
-- `docs/architecture/semantic-contracts.md` — rules for extending the model without wrecking compatibility
+- `docs/architecture/semantic-contracts.md` — rules for extending the shared semantic layer without creating duplicate platform identities
 
 ### Status
 
-Partially complete. Sprint I finance ingestion is effectively complete, and the worktree now includes internal-platform ingestion, utilities automation foundations, infrastructure metrics dimensions/facts, and the completed asset inventory foundation. Remaining Stage 1 work is to finish explicit home-automation models, add the missing landing/reporting contracts around the remaining infrastructure foundations, and complete the remaining finance planning models.
+Mostly complete. Sprint I finance ingestion is complete, and the worktree now includes internal-platform ingestion, utilities automation foundations, loan and budget planning models, infrastructure metrics dimensions/facts, home-automation state foundations, and the completed asset inventory foundation. Remaining Stage 1 work is the true carryover: semantic-governance cleanup, explicit infrastructure contracts, `dim_household_member`, and `fact_balance_snapshot`.
 
 ---
 

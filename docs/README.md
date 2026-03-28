@@ -11,6 +11,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 - `architecture/sqlite-control-plane-capability-matrix.md` — explicit Postgres-vs-SQLite control-plane capability boundaries: guaranteed vs best-effort support posture.
 - `architecture/contract-governance.md` — stale-artifact checks, contract compatibility policy, and CI/release contract bundle workflow.
 - `architecture/publication-contracts.md` — backend-owned publication and UI descriptor contract model, semantic field metadata, renderer expectations, and generated frontend publication types.
+- `architecture/semantic-contracts.md` — shared-dimension promotion rules, publication semantic-contract expectations, and Stage 1 cross-domain governance guidance.
 - `architecture/homeassistant-integration-hub.md` — six-layer integration hub architecture: entity normalization bridge, bidirectional event/command fabric, synthetic entity publication model, and resilience model.
 - `architecture/simulation-engine.md` — scenario storage schema, compute model, assumption tracking, and planned scenario types.
 

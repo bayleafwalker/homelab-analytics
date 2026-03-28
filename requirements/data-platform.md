@@ -104,7 +104,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Canonical facts decouple source-specific formats from downstream analytics and enable cross-source joining.
 
 **Phase:** 1–3
-**Status:** in-progress (`fact_transaction`, `fact_subscription_charge`, `fact_contract_price`, `fact_utility_usage`, `fact_bill`, `fact_cluster_metric`, `fact_power_consumption`, `fact_asset_event`, `fact_sensor_reading`, and `fact_automation_event` are persisted in DuckDB via `TransformationService`; `fact_asset_event` now also has a reporting starter via `rpt_current_dim_asset`; balance and loan facts are not started)
+**Status:** in-progress (`fact_transaction`, `fact_subscription_charge`, `fact_contract_price`, `fact_utility_usage`, `fact_bill`, `fact_loan_repayment`, `fact_cluster_metric`, `fact_power_consumption`, `fact_asset_event`, `fact_sensor_reading`, and `fact_automation_event` are persisted in DuckDB via `TransformationService`; loan and asset domains now also feed reporting-layer starters and marts, while `fact_balance_snapshot` is still not started)
 
 **Acceptance criteria:**
 - Each fact table is persisted in DuckDB/Parquet with documented schema.
@@ -137,7 +137,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Canonical dimensions enable consistent attribution across all facts and support SCD-based historical analysis.
 
 **Phase:** 1–3
-**Status:** in-progress (`dim_account` and `dim_counterparty` are implemented with SCD-2 in DuckDB; `dim_contract` supports subscriptions and temporal contract-pricing domains; `dim_category` is implemented for shared category use; `dim_meter` now supports utility usage and billing domains; `dim_node`, `dim_device`, and `dim_asset` now support infrastructure and asset domains, with `rpt_current_dim_asset` published as the current snapshot; `dim_entity` now supports home automation state; remaining dimensions are not started)
+**Status:** in-progress (`dim_account` and `dim_counterparty` are implemented with SCD-2 in DuckDB; `dim_contract` supports subscriptions and temporal contract-pricing domains; `dim_category` is implemented for shared category use; `dim_meter` now supports utility usage and billing domains; `dim_node`, `dim_device`, and `dim_asset` now support infrastructure and asset domains; `dim_budget`, `dim_loan`, and `dim_entity` are implemented with reporting-layer current snapshots; remaining dimension work is concentrated in `dim_household_member` and future shared-dimension promotions)
 
 **Acceptance criteria:**
 - Each dimension is persisted with SCD Type 2 handling (see PLT-07).
@@ -229,7 +229,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Dashboard and API consumers need simple, current-state views without knowing SCD mechanics.
 
 **Phase:** 1
-**Status:** in-progress (reporting views now publish current snapshots for `dim_account`, `dim_counterparty`, `dim_contract`, `dim_category`, and `dim_meter`; FastAPI exposes them via `GET /reports/current-dimensions/{dimension_name}`, and the Postgres publication path mirrors the implemented current-dimension relations for the shared app-facing contract when configured)
+**Status:** in-progress (reporting views now publish current snapshots for `dim_account`, `dim_counterparty`, `dim_contract`, `dim_category`, `dim_meter`, `dim_budget`, `dim_loan`, `dim_asset`, and `dim_entity`; FastAPI exposes them via `GET /reports/current-dimensions/{dimension_name}`, and the Postgres publication path mirrors the implemented current-dimension relations for the shared app-facing contract when configured)
 
 **Acceptance criteria:**
 - Each SCD dimension has a corresponding current-view in the reporting layer.
