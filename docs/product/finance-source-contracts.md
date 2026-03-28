@@ -8,6 +8,8 @@ This document describes the contracts available for personal finance ingestion, 
 
 **Architecture reference:** `docs/architecture/finance-ingestion-model.md`
 
+The implementation exposes the shared vocabulary in `packages/domains/finance/contracts/base.py` so the parser protocol, the canonical dataset types, and the ingestion lanes stay aligned across new contracts.
+
 ---
 
 ## Available contracts
@@ -62,6 +64,8 @@ These contracts parse point-in-time exports from external authorities into a sna
 3. Upload to the platform
 4. The parser extracts report metadata, per-credit records, and income rows
 5. Results are available for reconciliation against internal loan/account data
+
+The parser emits a snapshot record, one record per registered credit, and one record per income row. All records carry the same `snapshot_id` so downstream reconciliation can join them safely.
 
 ---
 

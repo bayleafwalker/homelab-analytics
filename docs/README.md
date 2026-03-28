@@ -24,6 +24,11 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 - `product/core-product-design-workflow.md` — product design intake process and workflow.
 - `product/product-slice-template.md` — template for new product slices.
 
+## Examples
+
+- `examples/finance-source-contracts/op-account-csv.md` — OP account CSV contract guide, canonical output fields, and operator validation notes.
+- `examples/finance-source-contracts/credit-registry-snapshot.md` — Finnish positive credit registry contract guide, record types, and reconciliation notes.
+
 ## Sprints
 
 - `sprints/finance-ingestion-subsystem.md` — Sprint I plan for the finance ingestion subsystem, including the brief ordering and implementation stop points.
