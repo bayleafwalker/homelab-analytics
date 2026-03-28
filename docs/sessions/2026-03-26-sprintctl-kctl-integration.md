@@ -18,6 +18,12 @@
 **Request 4** (follow-up updates):
 > Update the tools again, check for any needed changes to align with new tooling, and define a canonical committed `kctl` render path.
 
+**Request 5** (follow-up refresh):
+> Update sprintctl and kctl again, then check for any repo changes needed to align with the new tooling.
+
+**Request 6** (repo refactor):
+> Refactor the guidance and consider the high-level utilization of sprintctl and kctl in the repo.
+
 ---
 
 ## Request 1 — Integrate sprintctl and kctl
@@ -165,3 +171,79 @@
 | `.gitignore` | Ignores default `sprint-*.json` and `handoff-*.json` local artifacts |
 | `kctl-extract` skill | Added JSON-output guidance for agent/script consumption |
 | Knowledge base render | Refreshed at `docs/knowledge/knowledge-base.md` |
+
+---
+
+## Request 5 — Refresh tooling again and align only what changed
+
+### Considered
+
+- `sprintctl` advanced from `54ff569` to `6259425`.
+  - New repo-relevant behavior: more JSON-capable state surfaces are now available (`item list --json`, `item show --json`, `claim list-sprint --json`), and claim records now carry richer workspace metadata fields.
+  - Observed regression: `sprintctl sprint show --detail --json` crashes with `UnboundLocalError` on the current install, so the repo should not recommend that path yet.
+- `kctl` did not advance from `dceba4a` during this refresh. Existing `review list --json` and `status --json` guidance still matches the live CLI.
+- The safest alignment change was to document the JSON surfaces that work today and explicitly avoid adopting the broken one.
+
+### Steps taken
+
+1. Ran `uv tool upgrade sprintctl kctl`.
+2. Verified installed revisions:
+   - `sprintctl`: `54ff569` → `6259425`
+   - `kctl`: unchanged at `dceba4a`
+3. Inspected and exercised the updated CLIs:
+   - `sprintctl item list --json`
+   - `sprintctl claim list-sprint --json`
+   - `sprintctl handoff --sprint-id 2 --output /tmp/sprintctl-handoff.json`
+   - `kctl review list --json`
+   - `kctl status --json --sprint-id 2`
+4. Verified live behavior:
+   - `kctl preflight` returned `Preflight OK.`
+   - `sprintctl item list --json` and `claim list-sprint --json` worked
+   - `sprintctl handoff` wrote a bundle with `active_claims`
+   - `sprintctl sprint show --detail --json` failed with `UnboundLocalError`
+5. Updated `AGENTS.md` to:
+   - recommend the working structured-state JSON commands
+   - encourage workspace metadata on claims
+   - avoid recommending the broken sprint-detail JSON path
+
+### Outputs
+
+| Output | Detail |
+|--------|--------|
+| `sprintctl` upgraded | `54ff569` → `6259425` |
+| `kctl` status | unchanged at `dceba4a` |
+| AGENTS.md | Added safe `sprintctl` JSON guidance and richer claim metadata guidance |
+| Upstream bug note | `sprintctl sprint show --detail --json` currently crashes and is not adopted in repo guidance |
+
+---
+
+## Request 6 — Refactor to a higher-level repo operating model
+
+### Considered
+
+- The repo's `sprintctl`/`kctl` guidance had grown across `AGENTS.md`, skills, tests, and this session note. The top-level agent file was becoming a command catalog rather than a stable rule set.
+- The right split is:
+  - `AGENTS.md` keeps the few rules that are costly to forget
+  - skills keep task-specific execution details
+  - a dedicated runbook owns the repo-level operating model
+- The repo already has two committed artifacts with different responsibilities:
+  - `docs/sprint-snapshots/sprint-current.txt` for shared sprint execution state
+  - `docs/knowledge/knowledge-base.md` for published durable knowledge
+- The refactor should make those roles explicit and keep local DB/export/handoff files clearly out of the repo truth path.
+
+### Steps taken
+
+1. Added `docs/runbooks/sprint-and-knowledge-operations.md` as the repo-level operating model for `sprintctl` and `kctl`.
+2. Refactored `AGENTS.md` to point at that runbook instead of carrying the full command-level workflow inline.
+3. Kept the task-level details in the existing sprint skills rather than duplicating them in the new runbook.
+4. Updated `docs/README.md` to index the new runbook.
+5. Updated guidance tests to validate the new high-level doc reference instead of the previous long inline command list.
+
+### Outputs
+
+| Output | Detail |
+|--------|--------|
+| New runbook | `docs/runbooks/sprint-and-knowledge-operations.md` |
+| AGENTS.md | Slimmed to durable top-level rules plus pointers to the runbook and skills |
+| Docs index | Lists the new sprint/knowledge operations runbook |
+| Tests | Updated to match the refactored guidance contract |

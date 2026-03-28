@@ -9,6 +9,7 @@ Minimum acceptance (from sprint docs):
 from __future__ import annotations
 
 import unittest
+from datetime import datetime, timedelta
 
 from packages.domains.homelab.manifest import HOMELAB_PACK
 from packages.pipelines.transformation_service import TransformationService
@@ -159,6 +160,7 @@ def _ok_storage_row() -> dict:
 
 
 def _workload_rows() -> list[dict]:
+    base = datetime.now().replace(microsecond=0, second=0, minute=0)
     return [
         {
             "workload_id": "wl_homeassistant",
@@ -166,7 +168,7 @@ def _workload_rows() -> list[dict]:
             "display_name": "Home Assistant",
             "host": "homeserver",
             "workload_type": "addon",
-            "recorded_at": "2026-03-20T08:00:00",
+            "recorded_at": (base - timedelta(days=1)).isoformat(),
             "cpu_pct": "12.5",
             "mem_bytes": "536870912",
         },
@@ -176,7 +178,7 @@ def _workload_rows() -> list[dict]:
             "display_name": "Home Assistant",
             "host": "homeserver",
             "workload_type": "addon",
-            "recorded_at": "2026-03-20T07:00:00",
+            "recorded_at": (base - timedelta(days=1, hours=1)).isoformat(),
             "cpu_pct": "15.2",
             "mem_bytes": "524288000",
         },
@@ -186,7 +188,7 @@ def _workload_rows() -> list[dict]:
             "display_name": "PostgreSQL",
             "host": "homeserver",
             "workload_type": "container",
-            "recorded_at": "2026-03-20T08:00:00",
+            "recorded_at": (base - timedelta(days=1)).isoformat(),
             "cpu_pct": "5.1",
             "mem_bytes": "268435456",
         },

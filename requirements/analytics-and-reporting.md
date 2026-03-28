@@ -15,7 +15,7 @@ The platform derives household and homelab analytics from normalized canonical m
 **Rationale:** Cash-flow overview is the primary household financial dashboard.
 
 **Phase:** 1
-**Status:** in-progress (`mart_monthly_cashflow` persisted in DuckDB with `from_month`/`to_month` date-range filtering; `mart_monthly_cashflow_by_counterparty` now materialised with `counterparty_name` breakdowns per month; API exposes both via `GET /reports/monthly-cashflow` and `GET /reports/monthly-cashflow-by-counterparty`; `dim_category` and dashboard trend chart are still pending)
+**Status:** implemented (`mart_monthly_cashflow`, `mart_monthly_cashflow_by_counterparty`, and `mart_spend_by_category_monthly` are materialised; API exposes `GET /reports/monthly-cashflow`, `GET /reports/monthly-cashflow-by-counterparty`, and `GET /reports/spend-by-category-monthly`; the Next.js dashboard and reports surfaces now render summary cards, trend charts, and category/counterparty detail from reporting-layer models)
 
 **Acceptance criteria:**
 - Mart contains: month, total income, total expense, net, transaction count.
@@ -35,7 +35,7 @@ The platform derives household and homelab analytics from normalized canonical m
 **Rationale:** Loan tracking is a core household financial planning need. Projection vs. actual comparison reveals early/late repayment impact.
 
 **Phase:** 3
-**Status:** not-started
+**Status:** implemented (loan-repayment ingestion now populates `dim_loan` and `fact_loan_repayment`; `mart_loan_schedule_projected`, `mart_loan_repayment_variance`, and `mart_loan_overview` are materialised; API exposes `GET /reports/loan-overview`, `GET /reports/loan-schedule/{loan_id}`, and `GET /reports/loan-variance`, and scenario APIs reuse the same amortization foundation for loan what-if calculations)
 
 **Acceptance criteria:**
 - Amortization engine produces a schedule from loan parameters (principal, rate, term, frequency).
@@ -56,7 +56,7 @@ The platform derives household and homelab analytics from normalized canonical m
 **Rationale:** Budget vs. actual tracking is the most requested household finance feature after cash-flow.
 
 **Phase:** 3
-**Status:** not-started
+**Status:** implemented (budget ingestion now populates `dim_budget` plus budget-target facts; `mart_budget_variance` and `mart_budget_progress_current` are materialised; API exposes `GET /reports/budget-variance` and `GET /reports/budget-progress`; the web budget surface renders progress and variance views from reporting-layer models)
 
 **Acceptance criteria:**
 - Budget definitions specify: category, period (monthly/quarterly/annual), and target amount.
@@ -77,7 +77,7 @@ The platform derives household and homelab analytics from normalized canonical m
 **Rationale:** Total cost of living is difficult to derive from scattered source data. A unified model enables trend analysis and affordability assessment.
 
 **Phase:** 3
-**Status:** not-started
+**Status:** implemented (`mart_household_cost_model` and 12-month cost-trend outputs aggregate finance, utilities, subscriptions, and loans; API exposes `GET /reports/household-cost-model` and `GET /reports/cost-trend`; the web costs surface renders cost-type breakdowns and trend views from those reporting models)
 
 **Acceptance criteria:**
 - Cost summary mart aggregates by cost type (housing, utilities, transport, food, subscriptions, other).
@@ -97,7 +97,7 @@ The platform derives household and homelab analytics from normalized canonical m
 **Rationale:** Electricity is typically the most variable household cost. Correlating metered usage with billed amounts enables anomaly detection and efficiency tracking.
 
 **Phase:** 3
-**Status:** in-progress (`fact_utility_usage`, `fact_bill`, and `mart_utility_cost_summary` are persisted in DuckDB; `GET /reports/utility-cost-summary` and `report-utility-cost-summary` expose the mart with meter/type/period/granularity filters; dashboard trend visualizations are still pending)
+**Status:** implemented (`fact_utility_usage`, `fact_bill`, `mart_utility_cost_summary`, and `utility_cost_trend_monthly` are materialised; API exposes `GET /reports/utility-cost-summary` and `GET /reports/utility-cost-trend`; dashboard and utility-report surfaces now render cost and usage trend views from reporting-layer models)
 
 **Acceptance criteria:**
 - Utility mart joins `fact_utility_usage` and `fact_bill` by meter and billing period.
@@ -117,7 +117,7 @@ The platform derives household and homelab analytics from normalized canonical m
 **Rationale:** These models help household operators make informed decisions about infrastructure spending and living arrangements.
 
 **Phase:** 3
-**Status:** not-started
+**Status:** in-progress (`mart_affordability_ratios` and `mart_recurring_cost_baseline` are materialised from finance, utility, subscription, and loan data; API exposes `GET /reports/affordability-ratios` and `GET /reports/recurring-cost-baseline`; the dashboard renders affordability cards and recurring-baseline views, but explicit homelab value-versus-cost comparison remains pending)
 
 **Acceptance criteria:**
 - At least two profitability models are implemented: homelab infrastructure cost/benefit and housing affordability ratio.
@@ -155,7 +155,7 @@ The platform derives household and homelab analytics from normalized canonical m
 **Rationale:** Home Assistant is the most common homelab automation platform. Direct metric exposure enables dashboard integration and automation triggers.
 
 **Phase:** 3
-**Status:** not-started
+**Status:** in-progress (HA state ingest/query routes, contract-based HA renderer metadata, and MQTT synthetic-entity publication are implemented; reporting-backed HA summary states can be rendered through `HaContractRenderer`, but dedicated REST-sensor `{\"value\", \"unit\"}` endpoints for household finance measures are still pending)
 
 **Acceptance criteria:**
 - API endpoints return simple JSON key-value responses (e.g. `{"value": 1234.56, "unit": "EUR"}`).
@@ -190,12 +190,12 @@ The platform derives household and homelab analytics from normalized canonical m
 
 | Requirement | Architecture doc section | Implementation module | Test file |
 |---|---|---|---|
-| ANA-01 | Reporting | `packages/pipelines/transformation_service.py`, `packages/pipelines/transaction_models.py` | `tests/test_transformation_service.py`, `tests/test_api_app.py` |
-| ANA-02 | Reporting | — | — |
-| ANA-03 | Reporting | — | — |
-| ANA-04 | Reporting | — | — |
-| ANA-05 | Reporting | `packages/pipelines/utility_models.py`, `packages/pipelines/transformation_service.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py` |
-| ANA-06 | Reporting | — | — |
+| ANA-01 | Reporting | `packages/pipelines/transformation_transactions.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py`, `apps/api/routes/report_routes.py`, `apps/web/frontend/app/page.js`, `apps/web/frontend/app/reports/page.js` | `tests/test_transformation_service.py`, `tests/test_reporting_api_app.py`, `tests/test_api_app.py` |
+| ANA-02 | Reporting | `packages/pipelines/loan_service.py`, `packages/pipelines/transformation_loans.py`, `packages/pipelines/transformation_service.py`, `apps/api/routes/report_routes.py`, `apps/api/routes/scenario_routes.py` | `tests/test_loan_domain.py`, `tests/test_scenario_service.py`, `tests/test_scenario_api.py`, `tests/test_household_complete_integration.py` |
+| ANA-03 | Reporting | `packages/pipelines/budget_service.py`, `packages/pipelines/transformation_budgets.py`, `packages/pipelines/transformation_service.py`, `apps/api/routes/report_routes.py`, `apps/web/frontend/app/budgets/page.js` | `tests/test_budget_domain.py`, `tests/test_household_complete_integration.py`, `tests/test_reporting_api_app.py` |
+| ANA-04 | Reporting | `packages/pipelines/transformation_overview.py`, `packages/pipelines/transformation_service.py`, `apps/api/routes/report_routes.py`, `apps/web/frontend/app/costs/page.js` | `tests/test_transformation_overview.py`, `tests/test_household_complete_integration.py` |
+| ANA-05 | Reporting | `packages/pipelines/utility_models.py`, `packages/pipelines/transformation_utilities.py`, `packages/pipelines/transformation_service.py`, `apps/api/routes/report_routes.py`, `apps/web/frontend/app/utilities/page.js` | `tests/test_utility_domain.py`, `tests/test_sprint1_dashboard.py`, `tests/test_reporting_api_app.py` |
+| ANA-06 | Reporting | `packages/pipelines/transformation_overview.py`, `packages/pipelines/transformation_service.py`, `apps/api/routes/report_routes.py`, `apps/web/frontend/app/page.js` | `tests/test_household_complete_integration.py` |
 | ANA-07 | Reporting | `packages/pipelines/subscription_models.py`, `packages/pipelines/transformation_service.py` | `tests/test_subscription_domain.py` |
-| ANA-08 | API and dashboard publication | — | — |
+| ANA-08 | API and dashboard publication | `packages/pipelines/ha_contract_renderer.py`, `packages/pipelines/ha_mqtt_publisher.py`, `apps/api/routes/ha_routes.py`, `apps/api/main.py` | `tests/test_ha_contract_renderer.py`, `tests/test_ha_mqtt_publisher.py`, `tests/test_ha_api.py` |
 | ANA-09 | Reporting | `packages/pipelines/contract_price_models.py`, `packages/pipelines/transformation_service.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_contract_price_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py` |

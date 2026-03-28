@@ -53,10 +53,8 @@ def test_top_level_agents_doc_references_mode_docs_and_repo_rules() -> None:
         "Behavior changes must update or add tests",
         "App-facing reporting paths must use reporting-layer models",
         ".envrc",
-        "sprintctl claim",
-        "sprintctl handoff",
-        "kctl preflight",
-        "kctl status --json",
+        "docs/runbooks/sprint-and-knowledge-operations.md",
+        "docs/sprint-snapshots/sprint-current.txt",
         "docs/knowledge/knowledge-base.md",
     ]:
         assert rule in content

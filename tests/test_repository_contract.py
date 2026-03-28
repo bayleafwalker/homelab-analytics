@@ -59,6 +59,7 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/notes/appservice-cluster-integration-notes.md",
             "docs/runbooks/operations.md",
             "docs/runbooks/backup-and-restore.md",
+            "docs/runbooks/sprint-and-knowledge-operations.md",
         ]
 
         missing = [path for path in expected if not (ROOT / path).is_file()]
