@@ -21,7 +21,7 @@ These contracts parse bank account CSV exports into a canonical transaction even
 | Contract | Provider | Format | Key features |
 |----------|----------|--------|--------------|
 | `op_account_transactions_csv_v1` | OP (Osuuspankki) | Semicolon-delimited CSV, Finnish headers, decimal comma | Archive ID dedupe, repayment message enrichment |
-| `revolut_personal_account_statement_v1` | Revolut | Comma-delimited CSV, English headers | Provider state/type preservation, fee tracking |
+| `revolut_personal_account_statement_v1` | Revolut | Comma-delimited CSV, English headers | Provider state/type preservation, fee tracking, stable source account id |
 
 **When to use:** These are the primary truth for cash movement. Use them to answer "what money moved, when, and between whom."
 
@@ -146,6 +146,8 @@ The platform tracks expected acquisition schedules through the source freshness 
 | `provider_state` | STRING | Provider-specific status |
 
 Plus provider-specific fields retained in metadata columns (archive ID, BIC, reference, fee, balance-after-transaction, etc.).
+
+For Revolut personal account exports, the parser derives a stable source account identifier for the personal statement feed so the canonical transaction stream still carries `account_id` even though the raw export does not.
 
 ### Statement snapshot (OP Gold invoice)
 

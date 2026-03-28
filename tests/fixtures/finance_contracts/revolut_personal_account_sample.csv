@@ -1,0 +1,4 @@
+Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
+Deposit,Current,2025-01-05 09:07:00,2025-01-05 09:10:00,Google Pay deposit by *8221,159.35,0.00,EUR,COMPLETED,159.35
+Card Payment,Current,2025-01-15 10:14:00,2025-01-15 10:17:00,Netflix Inc.,-15.99,0.00,EUR,COMPLETED,143.36
+Card Payment,Current,2025-01-17 11:21:00,2025-01-17 11:24:00,Pharmacy Central,-20.75,0.25,EUR,COMPLETED,122.61

@@ -4,6 +4,7 @@ from packages.domains.finance.contracts import (
     FINNISH_POSITIVE_CREDIT_REGISTRY_CONTRACT_ID,
     OP_ACCOUNT_TRANSACTION_CONTRACT_ID,
     OP_GOLD_CREDIT_CARD_INVOICE_CONTRACT_ID,
+    REVOLUT_PERSONAL_ACCOUNT_STATEMENT_CONTRACT_ID,
     STANDARD_FINANCE_CONTRACT_TAXONOMIES,
     FinanceContractTaxonomy,
     FinanceDatasetType,
@@ -18,12 +19,15 @@ from packages.domains.finance.contracts import (
     PositiveCreditRegistryIncomeRecord,
     PositiveCreditRegistrySnapshotParser,
     PositiveCreditRegistrySnapshotRecord,
+    RevolutPersonalAccountStatementCsvParser,
+    RevolutPersonalAccountStatementRecord,
     SourceContractParser,
     ValidationIssue,
     ValidationResult,
     load_op_account_transactions_bytes,
     load_op_gold_credit_card_invoice_bytes,
     load_positive_credit_registry_snapshot_bytes,
+    load_revolut_personal_account_transactions_bytes,
 )
 
 __all__ = [
@@ -32,6 +36,7 @@ __all__ = [
     "FinanceIngestionLane",
     "FINNISH_POSITIVE_CREDIT_REGISTRY_CONTRACT_ID",
     "OP_GOLD_CREDIT_CARD_INVOICE_CONTRACT_ID",
+    "REVOLUT_PERSONAL_ACCOUNT_STATEMENT_CONTRACT_ID",
     "PositiveCreditRegistryCreditRecord",
     "PositiveCreditRegistryIncomeRecord",
     "PositiveCreditRegistrySnapshotParser",
@@ -42,6 +47,8 @@ __all__ = [
     "OP_ACCOUNT_TRANSACTION_CONTRACT_ID",
     "OPAccountTransactionCsvParser",
     "OPAccountTransactionRecord",
+    "RevolutPersonalAccountStatementCsvParser",
+    "RevolutPersonalAccountStatementRecord",
     "ParseResult",
     "SourceContractParser",
     "STANDARD_FINANCE_CONTRACT_TAXONOMIES",
@@ -50,4 +57,5 @@ __all__ = [
     "load_positive_credit_registry_snapshot_bytes",
     "load_op_gold_credit_card_invoice_bytes",
     "load_op_account_transactions_bytes",
+    "load_revolut_personal_account_transactions_bytes",
 ]
