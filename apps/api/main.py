@@ -28,12 +28,12 @@ from packages.platform.auth.machine_jwt_provider import build_machine_jwt_provid
 from packages.platform.auth.oidc_provider import build_oidc_provider
 from packages.platform.auth.proxy_provider import build_proxy_provider
 from packages.platform.auth.session_manager import build_session_manager
+import packages.platform.runtime.builder as platform_runtime_builder
 from packages.platform.runtime.builder import build_container
 from packages.platform.runtime.builder import (
     build_function_registry as _platform_build_function_registry,
     build_reporting_service as _platform_build_reporting_service,
     build_account_transaction_service as _platform_build_service,
-    build_reporting_store,
     build_transformation_service as _platform_build_transformation_service,
 )
 from packages.shared.logging import configure_logging
@@ -85,7 +85,7 @@ def build_reporting_service(
     return _platform_build_reporting_service(
         settings,
         transformation_service,
-        publication_store=build_reporting_store(settings),
+        publication_store=platform_runtime_builder.build_reporting_store(settings),
         extension_registry=extension_registry,
         control_plane_store=control_plane_store,
         access_mode=(
