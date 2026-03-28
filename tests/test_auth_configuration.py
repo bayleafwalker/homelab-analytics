@@ -15,11 +15,24 @@ def test_validate_auth_configuration_warns_on_legacy_auth_mode_fallback() -> Non
         )
         validate_auth_configuration(settings)
 
-    assert any(
-        "HOMELAB_ANALYTICS_AUTH_MODE is a legacy compatibility input"
-        in str(warning.message)
+    warning_messages = [
+        str(warning.message)
         for warning in caught
         if warning.category is DeprecationWarning
+    ]
+    assert any(
+        "HOMELAB_ANALYTICS_AUTH_MODE is a legacy compatibility input"
+        in message
+        for message in warning_messages
+    )
+    assert any(
+        "warning window=v0.1.x" in message for message in warning_messages
+    )
+    assert any(
+        "error window=v0.2.x" in message for message in warning_messages
+    )
+    assert any(
+        "removal target=v0.3.0" in message for message in warning_messages
     )
 
 
@@ -56,7 +69,11 @@ def test_validate_auth_configuration_rejects_legacy_auth_mode_fallback_when_stri
     try:
         validate_auth_configuration(settings)
     except ValueError as exc:
-        assert "HOMELAB_ANALYTICS_AUTH_MODE_LEGACY_STRICT=true" in str(exc)
+        message = str(exc)
+        assert "HOMELAB_ANALYTICS_AUTH_MODE_LEGACY_STRICT=true" in message
+        assert "warning window=v0.1.x" in message
+        assert "error window=v0.2.x" in message
+        assert "removal target=v0.3.0" in message
     else:
         raise AssertionError("Expected strict legacy auth-mode guard to raise ValueError.")
 

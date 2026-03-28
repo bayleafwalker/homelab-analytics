@@ -1,18 +1,10 @@
-SPRINT: Sprint K — Household Decision Surfaces  [active]
-Goal:   Finish the Stage 3 and Stage 4 operator-facing decision loop: cost envelopes, structured state indicators, homelab value, and scenario comparison.
-Dates:  2026-04-12 to 2026-04-25
-ID:     5
+SPRINT: Sprint H — Auth Migration Completion + Machine Federation  [active]
+Goal:   Finish auth migration sequencing and machine federation as a dedicated Stage 9 hardening sprint instead of leaving it inside the cross-stage backlog.
+Dates:  2026-05-24 to 2026-06-06
+ID:     8
 
---- Track: stage-3 ---
-  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #29  Stage 3 — Category-based cost envelopes with drift visibility  (assignee: -)
-  [done    ] #30  Stage 3 — Structured state indicators (good/warning/needs-action)  (assignee: -)
-  [done    ] #58  Stage 3 — Homelab value loop (cost/benefit model, reporting mart, operator surface)  (assignee: -)
+--- Track: stage-9 ---
+  health: 1 items — 0 done (0%), 1 active, 0 pending, 0 blocked (0%)
+  [active  ] #41  Stage 9 — Sprint H: auth migration completion + machine federation  (assignee: -)
 
---- Track: stage-4 ---
-  health: 3 items — 2 done (66%), 0 active, 1 pending, 0 blocked (0%)
-  [done    ] #27  Stage 4 — Homelab cost/benefit scenario  (assignee: -)
-  [done    ] #28  Stage 4 — Scenario comparison view  (assignee: -)
-  [pending ] #65  Stage 4 — Shared compare-set management (rename, archived visibility, restore)  (assignee: -)
-
-Rendered: 2026-03-28T19:26:23Z
+Rendered: 2026-03-28T19:41:16Z
