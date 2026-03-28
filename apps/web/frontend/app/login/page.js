@@ -1,6 +1,6 @@
 const IDENTITY_MODE = process.env.HOMELAB_ANALYTICS_IDENTITY_MODE || "disabled";
 
-function errorMessageFor(error, authMode) {
+function errorMessageFor(error, identityMode) {
   if (error === "locked-out") {
     return "Too many failed login attempts. Try again later.";
   }
@@ -13,7 +13,7 @@ function errorMessageFor(error, authMode) {
   if (error === "oidc-failed") {
     return "Single sign-on failed. Try again or contact an administrator.";
   }
-  if (error && authMode === "oidc") {
+  if (error && identityMode === "oidc") {
     return "Single sign-on failed. Try again or contact an administrator.";
   }
   if (error) {
