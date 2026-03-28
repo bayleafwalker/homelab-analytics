@@ -1,10 +1,15 @@
-SPRINT: Sprint H — Auth Migration Completion + Machine Federation  [closed]
-Goal:   Finish auth migration sequencing and machine federation as a dedicated Stage 9 hardening sprint instead of leaving it inside the cross-stage backlog.
-Dates:  2026-05-24 to 2026-06-06
-ID:     8
+SPRINT: Sprint M — Integration Boundary Hardening  [active]
+Goal:   Make the composition-root and HA boundary story honest across API and worker startup, then extract the Stage 6 adapter layer from the proven HA implementation.
+Dates:  2026-03-28 to 2026-04-11
+ID:     9
 
---- Track: stage-9 ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #41  Stage 9 — Sprint H: auth migration completion + machine federation  (assignee: -)
+--- Track: stage-5 ---
+  health: 1 items — 0 done (0%), 1 active, 0 pending, 0 blocked (0%)
+  [active  ] #66  Runtime-boundary cleanup packet: HA startup extraction and builder consolidation  (assignee: -)
 
-Rendered: 2026-03-28T20:05:22Z
+--- Track: stage-6 ---
+  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
+  [pending ] #67  Health/reporting packet: coherent integration runtime status model  (assignee: -)
+  [pending ] #68  Stage 6 adapter packet: AdapterManifest and integration contract boundaries  (assignee: -)
+
+Rendered: 2026-03-28T20:32:07Z
