@@ -1021,6 +1021,9 @@
                   "$ref": "#/components/schemas/DimLoanRow"
                 },
                 {
+                  "$ref": "#/components/schemas/DimAssetRow"
+                },
+                {
                   "$ref": "#/components/schemas/DimEntityRow"
                 }
               ]
@@ -1154,6 +1157,90 @@
           "account_id"
         ],
         "title": "DimAccountRow",
+        "type": "object"
+      },
+      "DimAssetRow": {
+        "properties": {
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "asset_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Name"
+          },
+          "asset_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Type"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "purchase_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purchase Date"
+          },
+          "purchase_price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purchase Price"
+          },
+          "sk": {
+            "title": "Sk",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sk",
+          "asset_id"
+        ],
+        "title": "DimAssetRow",
         "type": "object"
       },
       "DimBudgetRow": {

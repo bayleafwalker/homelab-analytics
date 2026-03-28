@@ -21,7 +21,7 @@ The external verdict is directionally correct but stale against the local worktr
 | Overview | Do not add a new domain item now | Overview is still a reporting-only composition pack. Existing Stage 3 items already cover the next cross-domain composition work. | Finance, utilities, and homelab decision signals must mature first. |
 | Infrastructure metrics | Go foundation-complete, then stop | `dim_node`, `dim_device`, `fact_cluster_metric`, and `fact_power_consumption` now exist in the worktree. | Add landing/reporting contracts only when the next sprint takes them explicitly. |
 | Home automation state | Go foundation-next | Internal HA state landing exists, but there is still no separate canonical home-automation model and reporting starter. | Keep the semantic boundary from homelab operations explicit. |
-| Asset inventory | Go foundation-next | The transformation-layer `dim_asset` and `fact_asset_event` spine now exists in the worktree. | Finish the manual register landing contract and choose the first reporting surface. |
+| Asset inventory | Go foundation complete | The landing contract, transformation-layer `dim_asset` and `fact_asset_event` spine, and `rpt_current_dim_asset` starter now exist in the worktree. | Decide whether depreciation becomes a first-class mart now or stays deferred. |
 
 ## Layer Impact
 
@@ -30,14 +30,14 @@ The external verdict is directionally correct but stale against the local worktr
 - Utilities automation needs provider/API or download contracts plus Home Assistant energy-sensor contracts while keeping raw payloads immutable.
 - Infrastructure metrics need explicit landing contracts for Prometheus and/or Kubernetes metrics plus a clear power-sample source whenever the reporting layer is ready to consume them.
 - Home automation state needs explicit HA state/history landing contracts rather than reusing the homelab operational feeds.
-- Asset inventory needs a manual register contract that can support CSV upload first and web entry later.
+- Asset inventory now has a manual register contract and current-dimension snapshot; the next slice needs to decide how much depreciation and valuation belongs in Stage 1 versus later marts.
 
 ### Transformation
 
 - Utilities can reuse the existing `fact_utility_usage`, `fact_bill`, and `dim_meter` spine; the missing work is source onboarding and normalization breadth.
 - Infrastructure metrics already have `dim_node`, `dim_device`, `fact_cluster_metric`, and `fact_power_consumption`; the remaining work is how far the next sprint pushes them toward reporting.
 - Home automation state still needs the canonical `dim_entity`, `fact_sensor_reading`, and `fact_automation_event` slice to stand on its own boundary.
-- Asset inventory has `dim_asset` plus `fact_asset_event`; the next slice still needs to decide whether depreciation stays in scope or is deferred.
+- Asset inventory now has the landing contract, `dim_asset`, `fact_asset_event`, and `rpt_current_dim_asset`; the next slice still needs to decide whether depreciation stays in scope or is deferred.
 
 ### Reporting And App Surface
 

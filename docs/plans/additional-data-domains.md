@@ -173,7 +173,7 @@ loan_id, payment_date, principal_paid, interest_paid, total_paid, remaining_bala
 - `mart_asset_value` — current estimated value of tracked assets.
 - `mart_depreciation_schedule` — annual depreciation by asset class.
 
-Foundation note: the transformation-layer `dim_asset` and `fact_asset_event` spine exists now; the landing contract and reporting marts are still next steps.
+Foundation note: the landing contract, transformation-layer `dim_asset` and `fact_asset_event` spine, and `rpt_current_dim_asset` reporting starter now exist; the deeper mart layer is still next steps.
 
 ### Landing contract sketch
 ```

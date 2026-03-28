@@ -2700,7 +2700,7 @@ export interface components {
             /** Dimension */
             dimension: string;
             /** Rows */
-            rows: (components["schemas"]["DimAccountRow"] | components["schemas"]["DimCounterpartyRow"] | components["schemas"]["DimContractRow"] | components["schemas"]["DimCategoryRow"] | components["schemas"]["DimMeterRow"] | components["schemas"]["DimBudgetRow"] | components["schemas"]["DimLoanRow"] | components["schemas"]["DimEntityRow"])[];
+            rows: (components["schemas"]["DimAccountRow"] | components["schemas"]["DimCounterpartyRow"] | components["schemas"]["DimContractRow"] | components["schemas"]["DimCategoryRow"] | components["schemas"]["DimMeterRow"] | components["schemas"]["DimBudgetRow"] | components["schemas"]["DimLoanRow"] | components["schemas"]["DimAssetRow"] | components["schemas"]["DimEntityRow"])[];
         };
         /** CurrentOperatingBaselineRow */
         CurrentOperatingBaselineRow: {
@@ -2745,6 +2745,25 @@ export interface components {
             account_id: string;
             /** Currency */
             currency?: string | null;
+            /** Sk */
+            sk: string;
+        };
+        /** DimAssetRow */
+        DimAssetRow: {
+            /** Asset Id */
+            asset_id: string;
+            /** Asset Name */
+            asset_name?: string | null;
+            /** Asset Type */
+            asset_type?: string | null;
+            /** Currency */
+            currency?: string | null;
+            /** Location */
+            location?: string | null;
+            /** Purchase Date */
+            purchase_date?: string | null;
+            /** Purchase Price */
+            purchase_price?: string | null;
             /** Sk */
             sk: string;
         };

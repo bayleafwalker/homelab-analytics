@@ -87,6 +87,21 @@ def test_reporting_service_reads_published_marts_and_dimensions_from_postgres() 
         run_id="run-002",
         source_system="home_assistant",
     )
+    transformation_service.load_domain_rows(
+        "asset_register",
+        [
+            {
+                "asset_name": "UPS Rack A",
+                "asset_type": "ups",
+                "purchase_date": "2024-01-15",
+                "purchase_price": "1200.00",
+                "currency": "EUR",
+                "location": "rack-a",
+            }
+        ],
+        run_id="run-003",
+        source_system="manual-upload",
+    )
 
     with running_postgres_container() as dsn:
         publisher = ReportingService(
@@ -98,6 +113,7 @@ def test_reporting_service_reads_published_marts_and_dimensions_from_postgres() 
                 "mart_monthly_cashflow",
                 "rpt_current_dim_account",
                 "rpt_current_dim_entity",
+                "rpt_current_dim_asset",
             ]
         )
 
@@ -108,11 +124,13 @@ def test_reporting_service_reads_published_marts_and_dimensions_from_postgres() 
         monthly_rows = reporting_service.get_monthly_cashflow()
         account_rows = reporting_service.get_current_dimension_rows("dim_account")
         entity_rows = reporting_service.get_current_dimension_rows("dim_entity")
+        asset_rows = reporting_service.get_current_dimension_rows("dim_asset")
 
     assert published == [
         "mart_monthly_cashflow",
         "rpt_current_dim_account",
         "rpt_current_dim_entity",
+        "rpt_current_dim_asset",
     ]
     assert monthly_rows == [
         {
@@ -129,6 +147,9 @@ def test_reporting_service_reads_published_marts_and_dimensions_from_postgres() 
     assert len(entity_rows) == 1
     assert entity_rows[0]["entity_id"] == "sensor.living_room_temperature"
     assert entity_rows[0]["entity_name"] == "Living Room Temperature"
+    assert len(asset_rows) == 1
+    assert asset_rows[0]["asset_name"] == "UPS Rack A"
+    assert asset_rows[0]["location"] == "rack-a"
 
 
 def test_reporting_service_reads_published_transformation_audit_from_postgres() -> None:

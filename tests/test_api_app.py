@@ -1815,6 +1815,30 @@ class ApiAppTests(unittest.TestCase):
                 entity_body["rows"][0]["entity_name"],
             )
 
+            transformation_service.load_domain_rows(
+                "asset_register",
+                [
+                    {
+                        "asset_name": "UPS Rack A",
+                        "asset_type": "ups",
+                        "purchase_date": "2024-01-15",
+                        "purchase_price": "1200.00",
+                        "currency": "EUR",
+                        "location": "rack-a",
+                    }
+                ],
+                run_id="run-003",
+                source_system="manual-upload",
+            )
+
+            asset_response = client.get("/reports/current-dimensions/dim_asset")
+            self.assertEqual(200, asset_response.status_code)
+            asset_body = asset_response.json()
+            self.assertEqual("dim_asset", asset_body["dimension"])
+            self.assertEqual(1, len(asset_body["rows"]))
+            self.assertEqual("UPS Rack A", asset_body["rows"][0]["asset_name"])
+            self.assertEqual("rack-a", asset_body["rows"][0]["location"])
+
 
     def test_runs_endpoint_exposes_pagination_envelope_and_supports_filtering(
         self,

@@ -799,6 +799,130 @@ export const publicationContractMap = {
     "ui_descriptor_keys": [],
     "visibility": "public"
   },
+  "dim_asset": {
+    "columns": [
+      {
+        "aggregation": null,
+        "description": "Sk",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "sk",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Asset id",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "asset_id",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Asset name",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "asset_name",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Asset type",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "asset_type",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Purchase date",
+        "filterable": true,
+        "grain": "day",
+        "json_type": "string",
+        "name": "purchase_date",
+        "nullable": true,
+        "semantic_role": "time",
+        "sortable": true,
+        "storage_type": "DATE",
+        "unit": null
+      },
+      {
+        "aggregation": "none",
+        "description": "Purchase price",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "purchase_price",
+        "nullable": true,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4)",
+        "unit": "currency"
+      },
+      {
+        "aggregation": null,
+        "description": "Currency",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "currency",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Location",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "location",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      }
+    ],
+    "description": null,
+    "display_name": "Rpt Current Dim Asset",
+    "lineage_required": true,
+    "pack_name": null,
+    "pack_version": null,
+    "publication_key": "dim_asset",
+    "relation_name": "rpt_current_dim_asset",
+    "renderer_hints": {},
+    "retention_policy": "indefinite",
+    "schema_name": "rpt_current_dim_asset",
+    "schema_version": "1.0.0",
+    "supported_renderers": [
+      "web"
+    ],
+    "ui_descriptor_keys": [],
+    "visibility": "public"
+  },
   "dim_budget": {
     "columns": [
       {

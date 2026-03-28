@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from packages.pipelines.asset_models import (
+    CURRENT_DIM_ASSET_VIEW,
+    DIM_ASSET,
+)
 from packages.pipelines.budget_models import (
     CURRENT_DIM_BUDGET_VIEW,
     DIM_BUDGET,
@@ -242,6 +246,11 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         columns=_current_dimension_columns(DIM_LOAN),
         order_by="loan_id",
     ),
+    CURRENT_DIM_ASSET_VIEW: PublicationRelation(
+        relation_name=CURRENT_DIM_ASSET_VIEW,
+        columns=_current_dimension_columns(DIM_ASSET),
+        order_by="asset_id",
+    ),
     CURRENT_DIM_ENTITY_VIEW: PublicationRelation(
         relation_name=CURRENT_DIM_ENTITY_VIEW,
         columns=_current_dimension_columns(DIM_ENTITY),
@@ -338,5 +347,6 @@ CURRENT_DIMENSION_RELATIONS = {
     "dim_meter": CURRENT_DIM_METER_VIEW,
     "dim_budget": CURRENT_DIM_BUDGET_VIEW,
     "dim_loan": CURRENT_DIM_LOAN_VIEW,
+    "dim_asset": CURRENT_DIM_ASSET_VIEW,
     "dim_entity": CURRENT_DIM_ENTITY_VIEW,
 }

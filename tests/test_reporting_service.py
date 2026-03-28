@@ -88,6 +88,31 @@ def test_reporting_service_falls_back_to_transformation_service_for_home_automat
     ) == transformation_service.get_current_dimension_rows("dim_entity")
 
 
+def test_reporting_service_falls_back_to_transformation_service_for_assets() -> None:
+    transformation_service = TransformationService(DuckDBStore.memory())
+    transformation_service.load_domain_rows(
+        "asset_register",
+        [
+            {
+                "asset_name": "UPS Rack A",
+                "asset_type": "ups",
+                "purchase_date": "2024-01-15",
+                "purchase_price": "1200.00",
+                "currency": "EUR",
+                "location": "rack-a",
+            }
+        ],
+        run_id="run-001",
+        source_system="manual-upload",
+    )
+
+    reporting_service = ReportingService(transformation_service)
+
+    assert reporting_service.get_current_dimension_rows(
+        "dim_asset"
+    ) == transformation_service.get_current_dimension_rows("dim_asset")
+
+
 def test_reporting_service_falls_back_to_transformation_service_for_audit() -> None:
     transformation_service = TransformationService(DuckDBStore.memory())
     transformation_service.load_transactions(

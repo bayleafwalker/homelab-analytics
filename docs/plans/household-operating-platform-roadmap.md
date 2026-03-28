@@ -73,14 +73,14 @@ Move from "several useful domain-specific transforms" to a stable, versioned, cr
 
 ### Relationship to existing work
 
-The architecture doc already names most of these dimensions and facts in the transformation section. Three domain packs already implement subsets: finance owns `dim_account`, `dim_counterparty`, `fact_transaction`, `fact_subscription`; utilities owns `dim_meter`, `fact_utility_usage`, `fact_bill`, `fact_contract_price`. The additional-data-domains plan (`docs/plans/additional-data-domains.md`) specifies sources, canonical models, and marts for seven domains including loans, assets, infrastructure, and home automation.
+The architecture doc already names most of these dimensions and facts in the transformation section. Three domain packs already implement subsets: finance owns `dim_account`, `dim_counterparty`, `fact_transaction`, `fact_subscription`; utilities owns `dim_meter`, `fact_utility_usage`, `fact_bill`, `fact_contract_price`. The additional-data-domains plan (`docs/plans/additional-data-domains.md`) specifies sources, canonical models, and marts for seven domains including loans, infrastructure, and home automation, with the asset foundation now landed.
 
 ### Remaining gaps
 
 - Budget dimension and its binding to transaction categories
 - Loan models (dimension, fact, amortization)
 - Home automation state models (`dim_entity`, `fact_sensor_reading`, `fact_automation_event`)
-- Landing contracts and reporting starters that complete the new asset and infrastructure foundations
+- Landing contracts and reporting starters that complete the remaining infrastructure foundations
 - Cross-domain dimension governance (ensuring `dim_category` and `dim_counterparty` are shared, not duplicated per domain)
 
 ### Planned documentation
@@ -90,7 +90,7 @@ The architecture doc already names most of these dimensions and facts in the tra
 
 ### Status
 
-Partially complete. Sprint I finance ingestion is effectively complete, and the worktree now includes internal-platform ingestion, utilities automation foundations, infrastructure metrics dimensions/facts, and the first asset inventory spine. Remaining Stage 1 work is to finish explicit home-automation models, add the missing landing/reporting contracts around the new asset and infrastructure foundations, and complete the remaining finance planning models.
+Partially complete. Sprint I finance ingestion is effectively complete, and the worktree now includes internal-platform ingestion, utilities automation foundations, infrastructure metrics dimensions/facts, and the completed asset inventory foundation. Remaining Stage 1 work is to finish explicit home-automation models, add the missing landing/reporting contracts around the remaining infrastructure foundations, and complete the remaining finance planning models.
 
 ---
 

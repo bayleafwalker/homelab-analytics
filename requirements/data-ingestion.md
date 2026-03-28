@@ -255,6 +255,26 @@ The platform must accept data from heterogeneous sources — manual file uploads
 
 ---
 
+### ING-13: Asset register ingestion
+
+**Description:** Support manual asset-register uploads and later UI edits for physical and digital assets. The register captures `asset_name`, `asset_type`, `purchase_date`, `purchase_price`, `currency`, and `location`, and feeds `dim_asset` plus `fact_asset_event`.
+
+**Rationale:** Asset inventory needs a simple operator-maintained landing path before richer acquisition, disposal, and depreciation workflows are added.
+
+**Phase:** 3
+**Status:** in-progress (CSV landing contract, canonical loader, `AssetRegisterService`, `builtin_asset_register`, `promote_source_asset_run`, and `rpt_current_dim_asset` are in place; web form and depreciation workflow decisions remain)
+
+**Acceptance criteria:**
+- A dataset contract defines asset-register column types and required fields.
+- Ingestion rejects invalid decimal values or invalid purchase dates.
+- Canonical loading preserves acquisition rows and current asset state.
+- Promotion publishes current asset rows without duplicating events on rerun.
+- Tests verify landing validation, canonical loading, current-dimension publication, and API reporting access.
+
+**Dependencies:** PLT-05, PLT-06, ING-07
+
+---
+
 ## Traceability
 
 | Requirement | Architecture doc section | Implementation module | Test file |
@@ -271,3 +291,4 @@ The platform must accept data from heterogeneous sources — manual file uploads
 | ING-10 | Source classes | `packages/pipelines/subscription_service.py`, `packages/pipelines/subscriptions.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/promotion.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_subscription_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py` |
 | ING-11 | Source classes | `packages/pipelines/contract_price_service.py`, `packages/pipelines/contract_prices.py`, `packages/pipelines/contract_price_models.py`, `packages/pipelines/promotion.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_contract_price_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py` |
 | ING-12 | Source classes | `packages/storage/ingestion_catalog.py`, `packages/storage/sqlite_reference_fact_catalog.py`, `packages/storage/postgres_reference_fact_catalog.py`, `packages/storage/control_plane_snapshot.py`, `packages/storage/ingestion_config.py`, `packages/storage/postgres_ingestion_config.py` | `tests/test_ingestion_config_repository.py`, `tests/control_plane_test_support.py` |
+| ING-13 | Source classes | `packages/pipelines/asset_register.py`, `packages/pipelines/asset_register_service.py`, `packages/pipelines/asset_models.py`, `packages/pipelines/builtin_packages.py`, `packages/pipelines/builtin_promotion_handlers.py`, `packages/pipelines/builtin_reporting.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py`, `apps/api/app.py` | `tests/test_asset_domain.py`, `tests/test_ingestion_config_repository.py`, `tests/test_promotion.py`, `tests/test_reporting_service.py`, `tests/test_postgres_reporting_integration.py`, `tests/test_api_app.py` |

@@ -538,6 +538,7 @@ class IngestionConfigRepositoryTests(unittest.TestCase):
             self.assertIn("builtin_contract_prices", builtin_ids)
             self.assertIn("builtin_utility_usage", builtin_ids)
             self.assertIn("builtin_utility_bills", builtin_ids)
+            self.assertIn("builtin_asset_register", builtin_ids)
 
             custom_package = repository.create_transformation_package(
                 TransformationPackageCreate(

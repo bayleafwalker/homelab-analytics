@@ -359,6 +359,20 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
         ),
     ),
     BuiltinTransformationPackageSpec(
+        transformation_package_id="builtin_asset_register",
+        handler_key="asset_register",
+        name="Built-in asset register",
+        description="Manual asset register transformation and current asset publication.",
+        version=1,
+        publications=(
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_asset_register_current_assets",
+                publication_key="rpt_current_dim_asset",
+                name="Current asset view",
+            ),
+        ),
+    ),
+    BuiltinTransformationPackageSpec(
         transformation_package_id="builtin_homelab",
         handler_key="homelab",
         name="Built-in homelab",

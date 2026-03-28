@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.pipelines.asset_register_service import AssetRegisterService
 from packages.pipelines.budget_service import BudgetService
 from packages.pipelines.builtin_packages import (
     BuiltinTransformationPackageSpec,
@@ -285,6 +286,39 @@ _LOAN_REPAYMENT_SPEC = BuiltinPromotionSpec(
     ),
 )
 
+_ASSET_REGISTER_SPEC = BuiltinPromotionSpec(
+    package_spec=get_builtin_transformation_package_spec("builtin_asset_register"),
+    processor=build_domain_canonical_promotion_processor(
+        domain_key="asset_register",
+        build_runtime_service=lambda runtime: AssetRegisterService(
+            landing_root=runtime.landing_root,
+            metadata_repository=runtime.metadata_repository,
+            blob_store=runtime.blob_store,
+        ),
+        get_run=lambda service, run_id: service.get_run(run_id),
+        get_canonical_rows=lambda service, run_id: service.get_canonical_asset_register(
+            run_id
+        ),
+        serialize_row=lambda row: {
+            "asset_name": row.asset_name,
+            "asset_type": row.asset_type,
+            "purchase_date": str(row.purchase_date),
+            "purchase_price": str(row.purchase_price),
+            "currency": row.currency,
+            "location": row.location,
+        },
+        required_header={
+            "asset_name",
+            "asset_type",
+            "purchase_date",
+            "purchase_price",
+            "currency",
+            "location",
+        },
+        contract_mismatch_reason="run does not match the asset-register canonical contract",
+    ),
+)
+
 _BUILTIN_PROMOTION_SPECS = (
     _ACCOUNT_TRANSACTION_SPEC,
     _SUBSCRIPTION_SPEC,
@@ -293,6 +327,7 @@ _BUILTIN_PROMOTION_SPECS = (
     _UTILITY_BILL_SPEC,
     _BUDGET_SPEC,
     _LOAN_REPAYMENT_SPEC,
+    _ASSET_REGISTER_SPEC,
 )
 
 

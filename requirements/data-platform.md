@@ -104,7 +104,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Canonical facts decouple source-specific formats from downstream analytics and enable cross-source joining.
 
 **Phase:** 1–3
-**Status:** in-progress (`fact_transaction`, `fact_subscription_charge`, `fact_contract_price`, `fact_utility_usage`, `fact_bill`, `fact_cluster_metric`, `fact_power_consumption`, `fact_asset_event`, `fact_sensor_reading`, and `fact_automation_event` are persisted in DuckDB via `TransformationService`; balance and loan facts are not started)
+**Status:** in-progress (`fact_transaction`, `fact_subscription_charge`, `fact_contract_price`, `fact_utility_usage`, `fact_bill`, `fact_cluster_metric`, `fact_power_consumption`, `fact_asset_event`, `fact_sensor_reading`, and `fact_automation_event` are persisted in DuckDB via `TransformationService`; `fact_asset_event` now also has a reporting starter via `rpt_current_dim_asset`; balance and loan facts are not started)
 
 **Acceptance criteria:**
 - Each fact table is persisted in DuckDB/Parquet with documented schema.
@@ -137,7 +137,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Canonical dimensions enable consistent attribution across all facts and support SCD-based historical analysis.
 
 **Phase:** 1–3
-**Status:** in-progress (`dim_account` and `dim_counterparty` are implemented with SCD-2 in DuckDB; `dim_contract` supports subscriptions and temporal contract-pricing domains; `dim_category` is implemented for shared category use; `dim_meter` now supports utility usage and billing domains; `dim_node`, `dim_device`, and `dim_asset` now support infrastructure and asset domains; `dim_entity` now supports home automation state; remaining dimensions are not started)
+**Status:** in-progress (`dim_account` and `dim_counterparty` are implemented with SCD-2 in DuckDB; `dim_contract` supports subscriptions and temporal contract-pricing domains; `dim_category` is implemented for shared category use; `dim_meter` now supports utility usage and billing domains; `dim_node`, `dim_device`, and `dim_asset` now support infrastructure and asset domains, with `rpt_current_dim_asset` published as the current snapshot; `dim_entity` now supports home automation state; remaining dimensions are not started)
 
 **Acceptance criteria:**
 - Each dimension is persisted with SCD Type 2 handling (see PLT-07).
@@ -261,7 +261,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Marts provide the stable query surfaces that dashboards and APIs consume.
 
 **Phase:** 1–3
-**Status:** in-progress (`TransformationService` materialises `mart_monthly_cashflow`, `mart_subscription_summary`, `mart_contract_price_current`, `mart_electricity_price_current`, and `mart_utility_cost_summary` in DuckDB; a Postgres publication path now mirrors the implemented marts and current-dimension snapshots, including `rpt_current_dim_entity`, for shared app-facing reads when configured, and remaining marts are still not implemented)
+**Status:** in-progress (`TransformationService` materialises `mart_monthly_cashflow`, `mart_subscription_summary`, `mart_contract_price_current`, `mart_electricity_price_current`, and `mart_utility_cost_summary` in DuckDB; a Postgres publication path now mirrors the implemented marts and current-dimension snapshots, including `rpt_current_dim_entity` and `rpt_current_dim_asset`, for shared app-facing reads when configured, and remaining marts are still not implemented)
 
 **Acceptance criteria:**
 - Each application-facing mart is materialized in Postgres with a documented schema.
