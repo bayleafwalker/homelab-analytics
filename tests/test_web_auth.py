@@ -369,6 +369,9 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert "Sign In with OIDC" in login_page
     assert "Proxy-Managed Sign-In" in login_page
     assert "authMode" not in login_page
+    assert 'if (error && identityMode === "oidc")' not in login_page
+    assert "Single sign-on failed. Try again or contact an administrator." in login_page
+    assert "Your OIDC identity is valid but not mapped to an application role." in login_page
     assert 'process.env.HOMELAB_ANALYTICS_IDENTITY_MODE' in login_page
     assert "getLocalUsers" in control_page
     assert "getAuthAuditEvents" in control_page

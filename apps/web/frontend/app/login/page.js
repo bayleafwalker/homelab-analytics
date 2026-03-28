@@ -1,6 +1,6 @@
 const IDENTITY_MODE = process.env.HOMELAB_ANALYTICS_IDENTITY_MODE || "disabled";
 
-function errorMessageFor(error, identityMode) {
+function errorMessageFor(error) {
   if (error === "locked-out") {
     return "Too many failed login attempts. Try again later.";
   }
@@ -11,9 +11,6 @@ function errorMessageFor(error, identityMode) {
     return "Your OIDC identity is valid but not mapped to an application role.";
   }
   if (error === "oidc-failed") {
-    return "Single sign-on failed. Try again or contact an administrator.";
-  }
-  if (error && identityMode === "oidc") {
     return "Single sign-on failed. Try again or contact an administrator.";
   }
   if (error) {
@@ -27,7 +24,7 @@ export default function LoginPage({ searchParams }) {
   const identityMode = IDENTITY_MODE.toLowerCase();
   const isOidc = identityMode === "oidc";
   const isProxy = identityMode === "proxy";
-  const errorMessage = errorMessageFor(error, identityMode);
+  const errorMessage = errorMessageFor(error);
 
   return (
     <main className="loginPage">
