@@ -1,6 +1,7 @@
 import warnings
 
 from packages.platform.auth.configuration import validate_auth_configuration
+from packages.shared.metrics import metrics_registry
 from packages.shared.settings import AppSettings
 
 
@@ -34,6 +35,25 @@ def test_validate_auth_configuration_warns_on_legacy_auth_mode_fallback() -> Non
     assert any(
         "removal target=v0.3.0" in message for message in warning_messages
     )
+
+
+def test_validate_auth_configuration_records_legacy_fallback_metric() -> None:
+    metrics_registry.clear()
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            settings = AppSettings.from_env(
+                {
+                    "HOMELAB_ANALYTICS_AUTH_MODE": "local",
+                    "HOMELAB_ANALYTICS_SESSION_SECRET": "session-secret",
+                }
+            )
+            validate_auth_configuration(settings)
+
+        metrics_text = metrics_registry.render_prometheus_text()
+        assert "auth_legacy_mode_fallback_startups_total 1" in metrics_text
+    finally:
+        metrics_registry.clear()
 
 
 def test_validate_auth_configuration_uses_identity_mode_without_legacy_warning() -> None:
