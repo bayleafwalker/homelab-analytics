@@ -1,8 +1,10 @@
-"""API tests for scenario routes — POST/GET/DELETE loan what-if scenarios."""
+"""API tests for scenario routes — loan and homelab cost/benefit scenarios."""
 
 from __future__ import annotations
 
 import unittest
+from copy import deepcopy
+from datetime import datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -12,6 +14,7 @@ from apps.api.app import create_app
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository
+from tests.test_homelab_domain import _service_rows, _workload_rows
 
 
 def _build_client(temp_dir: str) -> tuple[TestClient, TransformationService]:
@@ -48,6 +51,33 @@ def _build_client(temp_dir: str) -> tuple[TestClient, TransformationService]:
     ts.refresh_loan_schedule_projected()
     app = create_app(service, transformation_service=ts)
     return TestClient(app), ts
+
+
+def _build_homelab_client(temp_dir: str) -> tuple[TestClient, TransformationService]:
+    from packages.pipelines.account_transaction_service import AccountTransactionService
+
+    service = AccountTransactionService(
+        landing_root=Path(temp_dir) / "landing",
+        metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+    )
+    ts = TransformationService(DuckDBStore.memory())
+    ts.load_service_health(_service_rows(), run_id="run-homelab-services")
+    ts.refresh_service_health_current()
+    ts.load_workload_sensors(_workload_rows(), run_id="run-homelab-workloads")
+    ts.refresh_workload_cost_7d()
+    app = create_app(service, transformation_service=ts)
+    return TestClient(app), ts
+
+
+def _shift_homelab_rows(rows: list[dict], *, hours: int = 1) -> list[dict]:
+    shifted = deepcopy(rows)
+    for index, row in enumerate(shifted):
+        recorded_at = datetime.fromisoformat(row["recorded_at"]) + timedelta(hours=hours)
+        row["recorded_at"] = recorded_at.replace(minute=index, second=0, microsecond=0).isoformat()
+        if "last_state_change" in row:
+            last_state_change = datetime.fromisoformat(row["last_state_change"]) + timedelta(hours=hours)
+            row["last_state_change"] = last_state_change.replace(minute=index, second=0, microsecond=0).isoformat()
+    return shifted
 
 
 class ScenarioCreateAPITests(unittest.TestCase):
@@ -189,6 +219,71 @@ class ScenarioDeleteAPITests(unittest.TestCase):
             comp_resp = client.get(f"/api/scenarios/{scenario_id}/comparison")
             self.assertEqual(200, comp_resp.status_code)
             self.assertGreater(len(comp_resp.json()["scenario_rows"]), 0)
+
+
+class HomelabCostBenefitScenarioAPITests(unittest.TestCase):
+    def test_post_creates_homelab_cost_benefit_scenario(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _ = _build_homelab_client(tmp)
+            resp = client.post(
+                "/api/scenarios/homelab-cost-benefit",
+                json={"monthly_cost_delta": "-1.00"},
+            )
+            self.assertEqual(200, resp.status_code)
+            data = resp.json()
+            self.assertIn("scenario_id", data)
+            self.assertLess(float(data["new_monthly_cost"]), float(data["baseline_monthly_cost"]))
+
+    def test_get_homelab_comparison_returns_summary_rows(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _ = _build_homelab_client(tmp)
+            create_resp = client.post(
+                "/api/scenarios/homelab-cost-benefit",
+                json={"monthly_cost_delta": "15.00"},
+            )
+            scenario_id = create_resp.json()["scenario_id"]
+            resp = client.get(f"/api/scenarios/{scenario_id}/comparison")
+            self.assertEqual(200, resp.status_code)
+            data = resp.json()
+            self.assertIn("summary_rows", data)
+            self.assertNotIn("baseline_rows", data)
+            self.assertGreater(len(data["summary_rows"]), 0)
+
+    def test_get_cashflow_returns_summary_rows_for_homelab_scenario(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _ = _build_homelab_client(tmp)
+            create_resp = client.post(
+                "/api/scenarios/homelab-cost-benefit",
+                json={"monthly_cost_delta": "15.00"},
+            )
+            scenario_id = create_resp.json()["scenario_id"]
+            resp = client.get(f"/api/scenarios/{scenario_id}/cashflow")
+            self.assertEqual(200, resp.status_code)
+            data = resp.json()
+            self.assertIn("summary_rows", data)
+            self.assertGreater(len(data["summary_rows"]), 0)
+            self.assertTrue(all("metric_key" in row for row in data["summary_rows"]))
+
+    def test_homelab_cost_benefit_becomes_stale_after_new_fact_run(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, ts = _build_homelab_client(tmp)
+            create_resp = client.post(
+                "/api/scenarios/homelab-cost-benefit",
+                json={"monthly_cost_delta": "10.00"},
+            )
+            scenario_id = create_resp.json()["scenario_id"]
+            ts.load_service_health(
+                _shift_homelab_rows(_service_rows()),
+                run_id="run-homelab-services-v2",
+            )
+            ts.refresh_service_health_current()
+            ts.load_workload_sensors(
+                _shift_homelab_rows(_workload_rows()),
+                run_id="run-homelab-workloads-v2",
+            )
+            ts.refresh_workload_cost_7d()
+            resp = client.get(f"/api/scenarios/{scenario_id}/comparison")
+            self.assertTrue(resp.json()["is_stale"])
 
 
 if __name__ == "__main__":

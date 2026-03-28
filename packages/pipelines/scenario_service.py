@@ -1,7 +1,9 @@
-"""Scenario service — create and retrieve loan what-if scenarios.
+"""Scenario service — create and retrieve scenario comparisons.
 
-Delegates compute to the canonical amortization engine (compute_amortization_schedule).
-Never reimplements amortization logic.
+Delegates loan projections to the canonical amortization engine
+(compute_amortization_schedule). Homelab cost/benefit scenarios derive summary
+rows from the current homelab marts instead of reimplementing a simulation
+engine.
 """
 from __future__ import annotations
 
@@ -12,6 +14,12 @@ from decimal import Decimal
 from typing import Any
 
 from packages.pipelines.amortization import LoanParameters, compute_amortization_schedule
+from packages.pipelines.homelab_models import (
+    FACT_SERVICE_HEALTH_TABLE,
+    FACT_WORKLOAD_SENSOR_TABLE,
+    MART_SERVICE_HEALTH_CURRENT_TABLE,
+    MART_WORKLOAD_COST_7D_TABLE,
+)
 from packages.pipelines.loan_models import (
     CURRENT_DIM_LOAN_VIEW,
     FACT_LOAN_REPAYMENT_TABLE,
@@ -22,6 +30,8 @@ from packages.pipelines.scenario_models import (
     DIM_SCENARIO_TABLE,
     FACT_SCENARIO_ASSUMPTION_COLUMNS,
     FACT_SCENARIO_ASSUMPTION_TABLE,
+    PROJ_HOMELAB_COST_BENEFIT_SUMMARY_COLUMNS,
+    PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE,
     PROJ_INCOME_CASHFLOW_COLUMNS,
     PROJ_INCOME_CASHFLOW_TABLE,
     PROJ_LOAN_REPAYMENT_VARIANCE_COLUMNS,
@@ -107,12 +117,36 @@ class ComparisonResult:
     is_stale: bool
 
 
+@dataclass
+class HomelabCostBenefitResult:
+    scenario_id: str
+    label: str
+    monthly_cost_delta: Decimal
+    baseline_monthly_cost: Decimal
+    new_monthly_cost: Decimal
+    annual_cost_delta: Decimal
+    is_stale: bool
+
+
+@dataclass
+class HomelabCostBenefitComparison:
+    scenario_id: str
+    label: str
+    assumptions: list[dict[str, Any]]
+    summary_rows: list[dict[str, Any]]
+    is_stale: bool
+
+
 def ensure_scenario_storage(store: DuckDBStore) -> None:
     store.ensure_table(DIM_SCENARIO_TABLE, DIM_SCENARIO_COLUMNS)
     store.ensure_table(FACT_SCENARIO_ASSUMPTION_TABLE, FACT_SCENARIO_ASSUMPTION_COLUMNS)
     store.ensure_table(PROJ_LOAN_SCHEDULE_TABLE, PROJ_LOAN_SCHEDULE_COLUMNS)
     store.ensure_table(PROJ_LOAN_REPAYMENT_VARIANCE_TABLE, PROJ_LOAN_REPAYMENT_VARIANCE_COLUMNS)
     store.ensure_table(PROJ_INCOME_CASHFLOW_TABLE, PROJ_INCOME_CASHFLOW_COLUMNS)
+    store.ensure_table(
+        PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE,
+        PROJ_HOMELAB_COST_BENEFIT_SUMMARY_COLUMNS,
+    )
 
 
 def _get_loan(store: DuckDBStore, loan_id: str) -> dict[str, Any] | None:
@@ -440,6 +474,297 @@ def archive_scenario(store: DuckDBStore, scenario_id: str) -> bool:
         [scenario_id],
     )
     return True
+
+
+# ---------------------------------------------------------------------------
+# Homelab cost/benefit scenarios
+# ---------------------------------------------------------------------------
+
+
+def _get_latest_fact_run_id(store: DuckDBStore, table_name: str) -> str | None:
+    rows = store.fetchall_dicts(
+        f"SELECT run_id FROM {table_name}"
+        " WHERE run_id IS NOT NULL ORDER BY run_id DESC LIMIT 1"
+    )
+    return str(rows[0]["run_id"]) if rows else None
+
+
+def _get_latest_homelab_run_signature(store: DuckDBStore) -> str | None:
+    service_run_id = _get_latest_fact_run_id(store, FACT_SERVICE_HEALTH_TABLE)
+    workload_run_id = _get_latest_fact_run_id(store, FACT_WORKLOAD_SENSOR_TABLE)
+    if service_run_id is None and workload_run_id is None:
+        return None
+    return f"services:{service_run_id or 'none'}|workloads:{workload_run_id or 'none'}"
+
+
+def _get_homelab_current_summary(store: DuckDBStore) -> dict[str, Any]:
+    service_rows = store.fetchall_dicts(
+        f"SELECT * FROM {MART_SERVICE_HEALTH_CURRENT_TABLE} ORDER BY service_id"
+    )
+    workload_rows = store.fetchall_dicts(
+        f"SELECT * FROM {MART_WORKLOAD_COST_7D_TABLE} ORDER BY est_monthly_cost DESC NULLS LAST"
+    )
+    if not service_rows and not workload_rows:
+        raise ValueError(
+            "No homelab service or workload rows are available. "
+            "Refresh homelab marts before creating a cost/benefit scenario."
+        )
+
+    running_services = sum(1 for row in service_rows if row.get("state") == "running")
+    needs_attention = len(service_rows) - running_services
+    monthly_cost = sum(
+        Decimal(str(row.get("est_monthly_cost") or 0)) for row in workload_rows
+    )
+    workload_count = len(workload_rows)
+    top_workload_cost = (
+        max((Decimal(str(row.get("est_monthly_cost") or 0)) for row in workload_rows), default=Decimal("0"))
+        if workload_rows
+        else Decimal("0")
+    )
+
+    healthy_service_ratio = (
+        Decimal(running_services) / Decimal(len(service_rows))
+        if service_rows
+        else None
+    )
+    cost_per_healthy_service = (
+        monthly_cost / Decimal(running_services) if running_services > 0 else None
+    )
+    cost_per_tracked_workload = (
+        monthly_cost / Decimal(workload_count) if workload_count > 0 else None
+    )
+    largest_workload_share = (
+        top_workload_cost / monthly_cost if monthly_cost > 0 else None
+    )
+
+    return {
+        "running_services": running_services,
+        "needs_attention": needs_attention,
+        "monthly_cost": monthly_cost,
+        "workload_count": workload_count,
+        "top_workload_cost": top_workload_cost,
+        "healthy_service_ratio": healthy_service_ratio,
+        "cost_per_healthy_service": cost_per_healthy_service,
+        "cost_per_tracked_workload": cost_per_tracked_workload,
+        "largest_workload_share": largest_workload_share,
+    }
+
+
+def _is_homelab_cost_benefit_stale(store: DuckDBStore, scenario_id: str) -> bool:
+    scenario_rows = store.fetchall_dicts(
+        f"SELECT baseline_run_id FROM {DIM_SCENARIO_TABLE} WHERE scenario_id = ?",
+        [scenario_id],
+    )
+    if not scenario_rows:
+        return False
+    baseline_run_id = scenario_rows[0]["baseline_run_id"]
+    current_run_id = _get_latest_homelab_run_signature(store)
+    if baseline_run_id is None or current_run_id is None:
+        return False
+    return str(baseline_run_id) != current_run_id
+
+
+def _homelab_summary_rows(
+    scenario_id: str,
+    summary: dict[str, Any],
+    *,
+    monthly_cost_delta: Decimal,
+    new_monthly_cost: Decimal,
+) -> list[dict[str, Any]]:
+    q = Decimal("0.01")
+    ratio_q = Decimal("0.0001")
+    running_services = summary["running_services"]
+    workload_count = summary["workload_count"]
+    top_workload_cost = summary["top_workload_cost"]
+    healthy_service_ratio = summary["healthy_service_ratio"]
+    cost_per_healthy_service = summary["cost_per_healthy_service"]
+    cost_per_tracked_workload = summary["cost_per_tracked_workload"]
+    largest_workload_share = summary["largest_workload_share"]
+
+    scenario_cost_per_healthy_service = (
+        new_monthly_cost / Decimal(running_services) if running_services > 0 else None
+    )
+    scenario_cost_per_tracked_workload = (
+        new_monthly_cost / Decimal(workload_count) if workload_count > 0 else None
+    )
+    scenario_largest_workload_share = (
+        top_workload_cost / new_monthly_cost if new_monthly_cost > 0 else None
+    )
+
+    def _q(value: Decimal | None, quantizer: Decimal) -> str | None:
+        if value is None:
+            return None
+        return str(value.quantize(quantizer))
+
+    return [
+        {
+            "scenario_id": scenario_id,
+            "metric_key": "monthly_workload_cost",
+            "baseline_value": str(summary["monthly_cost"].quantize(q)),
+            "scenario_value": str(new_monthly_cost.quantize(q)),
+            "delta_value": str(monthly_cost_delta.quantize(q)),
+            "unit": "currency",
+        },
+        {
+            "scenario_id": scenario_id,
+            "metric_key": "healthy_service_count",
+            "baseline_value": str(running_services),
+            "scenario_value": str(running_services),
+            "delta_value": "0",
+            "unit": "count",
+        },
+        {
+            "scenario_id": scenario_id,
+            "metric_key": "needs_attention_count",
+            "baseline_value": str(summary["needs_attention"]),
+            "scenario_value": str(summary["needs_attention"]),
+            "delta_value": "0",
+            "unit": "count",
+        },
+        {
+            "scenario_id": scenario_id,
+            "metric_key": "service_health_ratio",
+            "baseline_value": _q(healthy_service_ratio, ratio_q),
+            "scenario_value": _q(healthy_service_ratio, ratio_q),
+            "delta_value": "0",
+            "unit": "ratio",
+        },
+        {
+            "scenario_id": scenario_id,
+            "metric_key": "cost_per_healthy_service",
+            "baseline_value": _q(cost_per_healthy_service, q),
+            "scenario_value": _q(scenario_cost_per_healthy_service, q),
+            "delta_value": (
+                _q(scenario_cost_per_healthy_service - cost_per_healthy_service, q)
+                if scenario_cost_per_healthy_service is not None
+                and cost_per_healthy_service is not None
+                else None
+            ),
+            "unit": "currency",
+        },
+        {
+            "scenario_id": scenario_id,
+            "metric_key": "cost_per_tracked_workload",
+            "baseline_value": _q(cost_per_tracked_workload, q),
+            "scenario_value": _q(scenario_cost_per_tracked_workload, q),
+            "delta_value": (
+                _q(scenario_cost_per_tracked_workload - cost_per_tracked_workload, q)
+                if scenario_cost_per_tracked_workload is not None
+                and cost_per_tracked_workload is not None
+                else None
+            ),
+            "unit": "currency",
+        },
+        {
+            "scenario_id": scenario_id,
+            "metric_key": "largest_workload_share",
+            "baseline_value": _q(largest_workload_share, ratio_q),
+            "scenario_value": _q(scenario_largest_workload_share, ratio_q),
+            "delta_value": (
+                _q(scenario_largest_workload_share - largest_workload_share, ratio_q)
+                if scenario_largest_workload_share is not None
+                and largest_workload_share is not None
+                else None
+            ),
+            "unit": "ratio",
+        },
+    ]
+
+
+def create_homelab_cost_benefit_scenario(
+    store: DuckDBStore,
+    *,
+    monthly_cost_delta: Decimal,
+    label: str | None = None,
+) -> HomelabCostBenefitResult:
+    """Create a homelab cost/benefit scenario from current homelab marts."""
+    ensure_scenario_storage(store)
+
+    summary = _get_homelab_current_summary(store)
+    baseline_run_id = _get_latest_homelab_run_signature(store)
+    new_monthly_cost = summary["monthly_cost"] + monthly_cost_delta
+    if new_monthly_cost < Decimal("0"):
+        raise ValueError("monthly_cost_delta would make the projected homelab cost negative.")
+
+    scenario_id = str(uuid.uuid4())
+    sign = "+" if monthly_cost_delta >= 0 else ""
+    auto_label = label or f"Homelab cost/benefit: {sign}{monthly_cost_delta.quantize(Decimal('0.01'))}"
+
+    store.insert_rows(
+        DIM_SCENARIO_TABLE,
+        [
+            {
+                "scenario_id": scenario_id,
+                "scenario_type": "homelab_cost_benefit",
+                "subject_id": "homelab",
+                "label": auto_label,
+                "status": "active",
+                "baseline_run_id": baseline_run_id,
+                "created_at": datetime.now(UTC).isoformat(),
+            }
+        ],
+    )
+
+    q = Decimal("0.01")
+    store.insert_rows(
+        FACT_SCENARIO_ASSUMPTION_TABLE,
+        [
+            {
+                "scenario_id": scenario_id,
+                "assumption_key": "monthly_cost_delta",
+                "baseline_value": "0",
+                "override_value": str(monthly_cost_delta.quantize(q)),
+                "unit": "currency",
+            }
+        ],
+    )
+
+    summary_rows = _homelab_summary_rows(
+        scenario_id,
+        summary,
+        monthly_cost_delta=monthly_cost_delta,
+        new_monthly_cost=new_monthly_cost,
+    )
+    store.insert_rows(PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE, summary_rows)
+
+    return HomelabCostBenefitResult(
+        scenario_id=scenario_id,
+        label=auto_label,
+        monthly_cost_delta=monthly_cost_delta,
+        baseline_monthly_cost=summary["monthly_cost"],
+        new_monthly_cost=new_monthly_cost,
+        annual_cost_delta=(monthly_cost_delta * 12).quantize(q),
+        is_stale=False,
+    )
+
+
+def get_homelab_cost_benefit_comparison(
+    store: DuckDBStore,
+    scenario_id: str,
+) -> HomelabCostBenefitComparison | None:
+    ensure_scenario_storage(store)
+
+    scenario = get_scenario(store, scenario_id)
+    if scenario is None or scenario["scenario_type"] != "homelab_cost_benefit":
+        return None
+
+    assumptions = store.fetchall_dicts(
+        f"SELECT * FROM {FACT_SCENARIO_ASSUMPTION_TABLE} WHERE scenario_id = ?",
+        [scenario_id],
+    )
+    summary_rows = store.fetchall_dicts(
+        f"SELECT * FROM {PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE} WHERE scenario_id = ?"
+        " ORDER BY metric_key",
+        [scenario_id],
+    )
+
+    return HomelabCostBenefitComparison(
+        scenario_id=scenario_id,
+        label=scenario["label"],
+        assumptions=assumptions,
+        summary_rows=summary_rows,
+        is_stale=_is_homelab_cost_benefit_stale(store, scenario_id),
+    )
 
 
 # ---------------------------------------------------------------------------

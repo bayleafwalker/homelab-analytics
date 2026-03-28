@@ -55,17 +55,21 @@ from packages.pipelines.reconciliation import reconcile_batch
 from packages.pipelines.scenario_service import (
     ComparisonResult,
     ExpenseShockResult,
+    HomelabCostBenefitComparison,
+    HomelabCostBenefitResult,
     IncomeCashflowComparison,
     IncomeScenarioResult,
     ScenarioResult,
     TariffShockResult,
     archive_scenario,
     create_expense_shock_scenario,
+    create_homelab_cost_benefit_scenario,
     create_income_change_scenario,
     create_loan_what_if_scenario,
     create_tariff_shock_scenario,
     ensure_scenario_storage,
     get_expense_shock_comparison,
+    get_homelab_cost_benefit_comparison,
     get_income_scenario_comparison,
     get_scenario,
     get_scenario_assumptions,
@@ -1281,6 +1285,23 @@ class TransformationService:
         self, scenario_id: str
     ) -> IncomeCashflowComparison | None:
         return get_expense_shock_comparison(self._store, scenario_id)
+
+    def create_homelab_cost_benefit_scenario(
+        self,
+        *,
+        monthly_cost_delta: Decimal,
+        label: str | None = None,
+    ) -> HomelabCostBenefitResult:
+        return create_homelab_cost_benefit_scenario(
+            self._store,
+            monthly_cost_delta=monthly_cost_delta,
+            label=label,
+        )
+
+    def get_homelab_cost_benefit_comparison(
+        self, scenario_id: str
+    ) -> HomelabCostBenefitComparison | None:
+        return get_homelab_cost_benefit_comparison(self._store, scenario_id)
 
     def create_tariff_shock_scenario(
         self,

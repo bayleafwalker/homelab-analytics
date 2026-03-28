@@ -1,7 +1,9 @@
-"""Scenario API routes — loan what-if and income change scenarios.
+"""Scenario API routes — loan, income, and homelab what-if scenarios.
 
   POST /api/scenarios/loan-what-if      → create loan scenario, return scenario_id + headline deltas
   POST /api/scenarios/income-change     → create income scenario, return scenario_id + headline deltas
+  POST /api/scenarios/homelab-cost-benefit
+                                        → create homelab scenario, return summary deltas
   GET  /api/scenarios/{id}              → scenario metadata + status
   GET  /api/scenarios/{id}/comparison   → baseline vs projected rows + variance + staleness
   GET  /api/scenarios/{id}/cashflow     → projected cashflow rows for income_change scenario
@@ -44,6 +46,11 @@ class TariffShockRequest(BaseModel):
     utility_type: str | None = None
     label: str | None = None
     projection_months: int | None = None  # default 12
+
+
+class HomelabCostBenefitRequest(BaseModel):
+    monthly_cost_delta: str
+    label: str | None = None
 
 
 def register_scenario_routes(
@@ -100,17 +107,31 @@ def register_scenario_routes(
     @app.get("/api/scenarios/{scenario_id}/comparison")
     async def get_scenario_comparison(scenario_id: str) -> dict[str, Any]:
         svc = _svc()
-        comparison = svc.get_scenario_comparison(scenario_id)
-        if comparison is None:
+        scenario = svc.get_scenario(scenario_id)
+        if scenario is None:
+            raise HTTPException(status_code=404, detail="Scenario not found.")
+        if scenario["scenario_type"] == "homelab_cost_benefit":
+            homelab_comparison = svc.get_homelab_cost_benefit_comparison(scenario_id)
+            if homelab_comparison is None:
+                raise HTTPException(status_code=404, detail="Scenario not found.")
+            return {
+                "scenario_id": homelab_comparison.scenario_id,
+                "label": homelab_comparison.label,
+                "is_stale": homelab_comparison.is_stale,
+                "assumptions": to_jsonable(homelab_comparison.assumptions),
+                "summary_rows": to_jsonable(homelab_comparison.summary_rows),
+            }
+        income_comparison = svc.get_scenario_comparison(scenario_id)
+        if income_comparison is None:
             raise HTTPException(status_code=404, detail="Scenario not found.")
         return {
-            "scenario_id": comparison.scenario_id,
-            "label": comparison.label,
-            "is_stale": comparison.is_stale,
-            "assumptions": to_jsonable(comparison.assumptions),
-            "baseline_rows": to_jsonable(comparison.baseline_rows),
-            "scenario_rows": to_jsonable(comparison.scenario_rows),
-            "variance_rows": to_jsonable(comparison.variance_rows),
+            "scenario_id": income_comparison.scenario_id,
+            "label": income_comparison.label,
+            "is_stale": income_comparison.is_stale,
+            "assumptions": to_jsonable(income_comparison.assumptions),
+            "baseline_rows": to_jsonable(income_comparison.baseline_rows),
+            "scenario_rows": to_jsonable(income_comparison.scenario_rows),
+            "variance_rows": to_jsonable(income_comparison.variance_rows),
         }
 
     @app.post("/api/scenarios/income-change")
@@ -201,18 +222,59 @@ def register_scenario_routes(
             "is_stale": result.is_stale,
         }
 
+    @app.post("/api/scenarios/homelab-cost-benefit")
+    async def create_homelab_cost_benefit(body: HomelabCostBenefitRequest) -> dict[str, Any]:
+        svc = _svc()
+        try:
+            monthly_cost_delta = Decimal(body.monthly_cost_delta)
+        except InvalidOperation as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid monthly_cost_delta: {body.monthly_cost_delta!r}",
+            ) from exc
+        try:
+            result = svc.create_homelab_cost_benefit_scenario(
+                monthly_cost_delta=monthly_cost_delta,
+                label=body.label,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "scenario_id": result.scenario_id,
+            "label": result.label,
+            "monthly_cost_delta": str(result.monthly_cost_delta),
+            "baseline_monthly_cost": str(result.baseline_monthly_cost),
+            "new_monthly_cost": str(result.new_monthly_cost),
+            "annual_cost_delta": str(result.annual_cost_delta),
+            "is_stale": result.is_stale,
+        }
+
     @app.get("/api/scenarios/{scenario_id}/cashflow")
     async def get_income_scenario_cashflow(scenario_id: str) -> dict[str, Any]:
         svc = _svc()
-        comparison = svc.get_income_scenario_comparison(scenario_id)
-        if comparison is None:
+        scenario = svc.get_scenario(scenario_id)
+        if scenario is None:
+            raise HTTPException(status_code=404, detail="Scenario not found.")
+        if scenario["scenario_type"] == "homelab_cost_benefit":
+            homelab_comparison = svc.get_homelab_cost_benefit_comparison(scenario_id)
+            if homelab_comparison is None:
+                raise HTTPException(status_code=404, detail="Scenario not found.")
+            return {
+                "scenario_id": homelab_comparison.scenario_id,
+                "label": homelab_comparison.label,
+                "is_stale": homelab_comparison.is_stale,
+                "assumptions": to_jsonable(homelab_comparison.assumptions),
+                "summary_rows": to_jsonable(homelab_comparison.summary_rows),
+            }
+        income_comparison = svc.get_income_scenario_comparison(scenario_id)
+        if income_comparison is None:
             raise HTTPException(status_code=404, detail="Scenario not found.")
         return {
-            "scenario_id": comparison.scenario_id,
-            "label": comparison.label,
-            "is_stale": comparison.is_stale,
-            "assumptions": to_jsonable(comparison.assumptions),
-            "cashflow_rows": to_jsonable(comparison.cashflow_rows),
+            "scenario_id": income_comparison.scenario_id,
+            "label": income_comparison.label,
+            "is_stale": income_comparison.is_stale,
+            "assumptions": to_jsonable(income_comparison.assumptions),
+            "cashflow_rows": to_jsonable(income_comparison.cashflow_rows),
         }
 
     @app.get("/api/scenarios/{scenario_id}/assumptions")

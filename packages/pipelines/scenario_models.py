@@ -4,6 +4,7 @@ Covers:
   - loan_what_if scenarios: proj_loan_schedule, proj_loan_repayment_variance
   - income_change scenarios: proj_income_cashflow
   - expense_shock / tariff_shock scenarios: proj_income_cashflow
+  - homelab_cost_benefit scenarios: proj_homelab_cost_benefit_summary
 """
 from __future__ import annotations
 
@@ -95,4 +96,19 @@ PROJ_INCOME_CASHFLOW_COLUMNS: list[tuple[str, str]] = [
     ("baseline_net", "DECIMAL(18,4) NOT NULL"),
     ("scenario_net", "DECIMAL(18,4) NOT NULL"),
     ("net_delta", "DECIMAL(18,4) NOT NULL"),
+]
+
+# ---------------------------------------------------------------------------
+# Projection summary: proj_homelab_cost_benefit_summary
+# ---------------------------------------------------------------------------
+
+PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE = "proj_homelab_cost_benefit_summary"
+
+PROJ_HOMELAB_COST_BENEFIT_SUMMARY_COLUMNS: list[tuple[str, str]] = [
+    ("scenario_id", "VARCHAR NOT NULL"),
+    ("metric_key", "VARCHAR NOT NULL"),
+    ("baseline_value", "DECIMAL(18,4)"),
+    ("scenario_value", "DECIMAL(18,4)"),
+    ("delta_value", "DECIMAL(18,4)"),
+    ("unit", "VARCHAR"),
 ]

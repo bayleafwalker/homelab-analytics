@@ -1,6 +1,6 @@
 # Simulation Engine — Architecture
 
-**Status:** Active — scenario storage and three compute types shipped
+**Status:** Active — scenario storage and four compute types shipped
 **Stage:** 4 (see platform roadmap)
 **First scenario type:** Loan what-if (reuses `packages/pipelines/amortization.py`)
 
@@ -31,7 +31,7 @@ The engine is intentionally narrow: it overlays parameters onto existing compute
 ### `dim_scenario`
 ```sql
 scenario_id     TEXT PK          -- ulid or uuid
-scenario_type   TEXT             -- 'loan_what_if' | 'income_change' | 'tariff_shock'
+scenario_type   TEXT             -- 'loan_what_if' | 'income_change' | 'tariff_shock' | 'homelab_cost_benefit'
 label           TEXT             -- operator display name
 description     TEXT
 created_at      TIMESTAMP
@@ -63,6 +63,9 @@ Mirrors `mart_loan_repayment_variance`, plus `scenario_id`.
 ### `proj_affordability_ratios`
 Mirrors `mart_affordability_ratios`, plus `scenario_id`.
 
+### `proj_homelab_cost_benefit_summary`
+Summary-style homelab comparison rows for cost/value reporting, plus `scenario_id`.
+
 ---
 
 ## Compute model
@@ -82,7 +85,7 @@ Scenarios are computed on-demand (not on the background worker schedule) and cac
    → delta = proj_value - canonical_value
 ```
 
-For larger scenarios (income change affecting affordability + cost model), computation is deferred to the worker via a `scenario_compute` task type. The API returns 202 and a poll URL.
+For larger scenarios (income change affecting affordability + cost model), computation is deferred to the worker via a `scenario_compute` task type. The API returns 202 and a poll URL. Homelab cost/benefit scenarios stay synchronous but store summary-style comparison rows instead of a full time-series projection.
 
 ---
 
@@ -118,6 +121,12 @@ Parameters: `electricity_unit_rate`, `standing_charge`
 Compute: re-derives `mart_household_cost_model` and `mart_cost_trend_12m` with overridden tariff
 Output: `proj_cost_model`, `proj_cost_trend_12m`
 Comparison: monthly delta, annual impact
+
+### `homelab_cost_benefit`
+Parameters: `monthly_cost_delta`
+Compute: snapshots current homelab service-health and workload-cost marts, then applies the operator-supplied monthly cost delta
+Output: `proj_homelab_cost_benefit_summary`
+Comparison: workload-cost delta, healthy-service ratio, cost per healthy service, concentration share
 
 ---
 

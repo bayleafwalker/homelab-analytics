@@ -1,6 +1,6 @@
 # Scenarios and What-If Analysis — Product Design
 
-**Status:** Active — three scenario types shipped (loan what-if, income change, expense shock)
+**Status:** Active — four scenario types shipped (loan what-if, income change, expense shock, homelab cost/benefit)
 **Architecture:** See [docs/architecture/simulation-engine.md](../architecture/simulation-engine.md)
 **Sprint plan:** See [docs/sprints/simulation-engine-sprint.md](../sprints/simulation-engine-sprint.md)
 
@@ -69,6 +69,27 @@ The highest-value scenario type. The amortization engine already exists; this wr
 
 ---
 
+### 4. Homelab cost/benefit
+
+**Questions it answers:**
+- "If I change the monthly cost of the homelab stack, how does the value loop shift?"
+- "How expensive is each healthy service under the current cost profile?"
+- "What does the current workload mix imply about concentration risk?"
+
+**Operator workflow:**
+1. Navigate to `/scenarios` or the homelab operator panel
+2. Create a homelab cost/benefit scenario from the current homelab snapshot
+3. Enter a monthly cost delta to model scale up/down, migration, or refresh impact
+4. View the summary comparison: workload cost, healthy service count, cost per healthy service, and concentration share
+
+**What changes:**
+- Monthly workload cost: applies an operator-supplied delta to the current homelab workload cost baseline
+- Summary metrics: recomputes cost per healthy service and cost per tracked workload from the projected cost
+
+**What doesn't change:** actual homelab service or workload facts, canonical non-homelab data, or the underlying reporting marts.
+
+---
+
 ## Comparison UX principles
 
 Every scenario comparison view must show:
@@ -92,7 +113,7 @@ If the baseline has been updated since the scenario was computed, the UI must sh
 
 ---
 
-## Acceptance criteria for v1 (loan what-if only)
+## Acceptance criteria for v1
 
 - Operator can create a loan what-if scenario from the `/loans` page.
 - Extra repayment scenario shows: months saved, interest saved, new payoff date.

@@ -4,17 +4,22 @@ Covers:
 - create_loan_what_if_scenario: extra repayment, rate change, staleness
 - get_scenario_comparison: baseline vs projected rows, assumption list
 - archive_scenario: soft delete
+- create_homelab_cost_benefit_scenario: summary comparison over homelab marts
 """
 
 from __future__ import annotations
 
 import unittest
+from copy import deepcopy
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from packages.pipelines.scenario_service import (
     archive_scenario,
+    create_homelab_cost_benefit_scenario,
     create_loan_what_if_scenario,
     ensure_scenario_storage,
+    get_homelab_cost_benefit_comparison,
     get_scenario,
     get_scenario_assumptions,
     get_scenario_comparison,
@@ -22,6 +27,7 @@ from packages.pipelines.scenario_service import (
 )
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
+from tests.test_homelab_domain import _service_rows, _workload_rows
 
 
 def _load_fixture_loan(svc: TransformationService, run_id: str = "run-001") -> None:
@@ -49,6 +55,29 @@ def _load_fixture_loan(svc: TransformationService, run_id: str = "run-001") -> N
         run_id=run_id,
     )
     svc.refresh_loan_schedule_projected()
+
+
+def _load_fixture_homelab(
+    svc: TransformationService,
+    *,
+    service_run_id: str = "run-homelab-services",
+    workload_run_id: str = "run-homelab-workloads",
+) -> None:
+    svc.load_service_health(_service_rows(), run_id=service_run_id)
+    svc.refresh_service_health_current()
+    svc.load_workload_sensors(_workload_rows(), run_id=workload_run_id)
+    svc.refresh_workload_cost_7d()
+
+
+def _shift_homelab_rows(rows: list[dict], *, hours: int = 1) -> list[dict]:
+    shifted = deepcopy(rows)
+    for index, row in enumerate(shifted):
+        recorded_at = datetime.fromisoformat(row["recorded_at"]) + timedelta(hours=hours)
+        row["recorded_at"] = recorded_at.replace(minute=index, second=0, microsecond=0).isoformat()
+        if "last_state_change" in row:
+            last_state_change = datetime.fromisoformat(row["last_state_change"]) + timedelta(hours=hours)
+            row["last_state_change"] = last_state_change.replace(minute=index, second=0, microsecond=0).isoformat()
+    return shifted
 
 
 class ScenarioExtraRepaymentTests(unittest.TestCase):
@@ -276,6 +305,53 @@ class ScenarioListTests(unittest.TestCase):
         ensure_scenario_storage(self.store)
         rows = list_scenarios(self.store)
         self.assertEqual(rows, [])
+
+
+class HomelabCostBenefitScenarioTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.store = DuckDBStore.memory()
+        self.svc = TransformationService(self.store)
+        _load_fixture_homelab(self.svc)
+
+    def test_create_homelab_cost_benefit_returns_summary(self) -> None:
+        result = create_homelab_cost_benefit_scenario(
+            self.store,
+            monthly_cost_delta=Decimal("-1.00"),
+        )
+        self.assertLess(result.new_monthly_cost, result.baseline_monthly_cost)
+        self.assertFalse(result.is_stale)
+
+        comparison = get_homelab_cost_benefit_comparison(self.store, result.scenario_id)
+        self.assertIsNotNone(comparison)
+        self.assertFalse(comparison.is_stale)
+
+        metric_map = {row["metric_key"]: row for row in comparison.summary_rows}
+        self.assertIn("monthly_workload_cost", metric_map)
+        self.assertIn("cost_per_healthy_service", metric_map)
+        self.assertEqual(
+            Decimal(metric_map["monthly_workload_cost"]["scenario_value"]),
+            Decimal(metric_map["monthly_workload_cost"]["baseline_value"]) - Decimal("1.00"),
+        )
+
+    def test_homelab_cost_benefit_scenario_becomes_stale_on_new_run(self) -> None:
+        result = create_homelab_cost_benefit_scenario(
+            self.store,
+            monthly_cost_delta=Decimal("15.00"),
+        )
+        self.svc.load_service_health(
+            _shift_homelab_rows(_service_rows()),
+            run_id="run-homelab-services-v2",
+        )
+        self.svc.refresh_service_health_current()
+        self.svc.load_workload_sensors(
+            _shift_homelab_rows(_workload_rows()),
+            run_id="run-homelab-workloads-v2",
+        )
+        self.svc.refresh_workload_cost_7d()
+
+        comparison = get_homelab_cost_benefit_comparison(self.store, result.scenario_id)
+        self.assertIsNotNone(comparison)
+        self.assertTrue(comparison.is_stale)
 
 
 if __name__ == "__main__":

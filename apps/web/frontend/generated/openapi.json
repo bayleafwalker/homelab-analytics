@@ -2405,6 +2405,30 @@
         "title": "HaStateObject",
         "type": "object"
       },
+      "HomelabCostBenefitRequest": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "monthly_cost_delta": {
+            "title": "Monthly Cost Delta",
+            "type": "string"
+          }
+        },
+        "required": [
+          "monthly_cost_delta"
+        ],
+        "title": "HomelabCostBenefitRequest",
+        "type": "object"
+      },
       "HouseholdCostModelResponse": {
         "properties": {
           "cost_type": {
@@ -6144,6 +6168,46 @@
           }
         },
         "summary": "Create Expense Shock"
+      }
+    },
+    "/api/scenarios/homelab-cost-benefit": {
+      "post": {
+        "operationId": "create_homelab_cost_benefit_api_scenarios_homelab_cost_benefit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HomelabCostBenefitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Homelab Cost Benefit Api Scenarios Homelab Cost Benefit Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Homelab Cost Benefit"
       }
     },
     "/api/scenarios/income-change": {

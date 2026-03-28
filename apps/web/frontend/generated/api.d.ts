@@ -340,6 +340,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scenarios/homelab-cost-benefit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Homelab Cost Benefit */
+        post: operations["create_homelab_cost_benefit_api_scenarios_homelab_cost_benefit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scenarios/income-change": {
         parameters: {
             query?: never;
@@ -3128,6 +3145,13 @@ export interface components {
             /** State */
             state: string;
         };
+        /** HomelabCostBenefitRequest */
+        HomelabCostBenefitRequest: {
+            /** Label */
+            label?: string | null;
+            /** Monthly Cost Delta */
+            monthly_cost_delta: string;
+        };
         /** HouseholdCostModelResponse */
         HouseholdCostModelResponse: {
             /** Cost Type */
@@ -4667,6 +4691,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ExpenseShockRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_homelab_cost_benefit_api_scenarios_homelab_cost_benefit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HomelabCostBenefitRequest"];
             };
         };
         responses: {

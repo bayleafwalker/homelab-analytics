@@ -216,6 +216,31 @@ class ApiAppTests(unittest.TestCase):
                 ]["responses"]["201"]["content"]["application/json"]["schema"]["$ref"],
             )
 
+    def test_openapi_schema_exposes_homelab_cost_benefit_scenario_route(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs.db"
+                        ),
+                    ),
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            response = client.get("/openapi.json")
+
+            self.assertEqual(200, response.status_code)
+            schema = response.json()
+            self.assertEqual(
+                "#/components/schemas/HomelabCostBenefitRequest",
+                schema["paths"]["/api/scenarios/homelab-cost-benefit"]["post"][
+                    "requestBody"
+                ]["content"]["application/json"]["schema"]["$ref"],
+            )
+
     def test_openapi_schema_exposes_control_terminal_models(self) -> None:
         with TemporaryDirectory() as temp_dir:
             client = TestClient(

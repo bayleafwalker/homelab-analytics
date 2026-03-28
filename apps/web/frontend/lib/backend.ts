@@ -1035,3 +1035,25 @@ export async function getScenarioCashflow(
     params: { path: { scenario_id: scenarioId } }
   });
 }
+
+export async function createHomelabCostBenefitScenario({
+  monthlyCostDelta,
+  label
+}: {
+  monthlyCostDelta: string;
+  label?: string;
+}) {
+  const payload = await backendJsonRequest("post", "/api/scenarios/homelab-cost-benefit", {
+    body: {
+      monthly_cost_delta: monthlyCostDelta,
+      label: label ?? null
+    }
+  });
+  return payload.data;
+}
+
+export async function getHomelabCostBenefitComparison(
+  scenarioId: PathValue<"/api/scenarios/{scenario_id}/comparison", "scenario_id">
+) {
+  return getScenarioComparison(scenarioId);
+}
