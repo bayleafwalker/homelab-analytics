@@ -114,13 +114,12 @@ Prefer JSON output when another agent or script needs machine-readable state.
 Recommended structured-state commands:
 - `sprintctl item list --json`
 - `sprintctl item show --json`
+- `sprintctl sprint show --detail --json`
 - `sprintctl claim list-sprint --json`
 - `sprintctl claim resume --json`
 - `sprintctl handoff --output <path>`
 - `kctl review list --json`
 - `kctl status --json`
-
-Do not rely on `sprintctl sprint show --detail --json` until the current upstream crash is fixed.
 
 ## Recovery And Portability
 
