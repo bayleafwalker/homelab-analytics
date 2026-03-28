@@ -118,7 +118,7 @@ The platform derives household and homelab analytics from normalized canonical m
 **Rationale:** These models help household operators make informed decisions about infrastructure spending and living arrangements.
 
 **Phase:** 3
-**Status:** in-progress (`mart_affordability_ratios` and `mart_recurring_cost_baseline` are materialised from finance, utility, subscription, and loan data; API exposes `GET /reports/affordability-ratios` and `GET /reports/recurring-cost-baseline`; the dashboard renders affordability cards and recurring-baseline views; the homelab value-loop operator panel now surfaces reporting-layer service-health, workload-cost summaries, a derived value-versus-cost comparison signal, and a saved homelab cost/benefit scenario summary, but formal homelab ROI modeling remains pending)
+**Status:** in-progress (`mart_affordability_ratios` and `mart_recurring_cost_baseline` are materialised from finance, utility, subscription, and loan data; API exposes `GET /reports/affordability-ratios` and `GET /reports/recurring-cost-baseline`; the dashboard renders affordability cards and recurring-baseline views; the homelab value-loop operator panel now surfaces reporting-layer service-health, workload-cost summaries, a derived value-versus-cost comparison signal, a saved homelab cost/benefit scenario summary, and a saved-scenario compare page, but formal homelab ROI modeling and richer saved scenario sets remain pending)
 
 **Acceptance criteria:**
 - At least two profitability models are implemented: homelab infrastructure cost/benefit and housing affordability ratio.

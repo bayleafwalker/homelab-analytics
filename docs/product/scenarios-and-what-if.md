@@ -1,6 +1,6 @@
 # Scenarios and What-If Analysis — Product Design
 
-**Status:** Active — four scenario types shipped (loan what-if, income change, expense shock, homelab cost/benefit)
+**Status:** Active — five scenario types shipped (loan what-if, income change, expense shock, utility tariff shock, homelab cost/benefit) plus a saved-scenario comparison workflow
 **Architecture:** See [docs/architecture/simulation-engine.md](../architecture/simulation-engine.md)
 **Sprint plan:** See [docs/sprints/simulation-engine-sprint.md](../sprints/simulation-engine-sprint.md)
 
@@ -88,6 +88,16 @@ The highest-value scenario type. The amortization engine already exists; this wr
 
 **What doesn't change:** actual homelab service or workload facts, canonical non-homelab data, or the underlying reporting marts.
 
+### Saved scenario comparison
+
+Operators can compare any two saved scenarios from `/scenarios/compare`.
+
+**Operator workflow:**
+1. Navigate to `/scenarios/compare`
+2. Pick two saved scenarios from the dropdowns
+3. Review the assumptions and computed outputs side by side
+4. Open the individual scenario detail pages if a single baseline or projection needs deeper inspection
+
 ---
 
 ## Comparison UX principles
@@ -99,6 +109,7 @@ Every scenario comparison view must show:
 3. **Projected column** — the scenario-computed value.
 4. **Delta column** — projected minus baseline, formatted as signed value.
 5. **Scenario metadata** — label, date created, which baseline run_id it was computed against.
+6. **Saved-scenario comparison** — the scenarios page can compare two saved scenarios side by side when the operator wants to inspect them together.
 
 If the baseline has been updated since the scenario was computed, the UI must show a staleness banner: "Canonical data has changed — recompute to refresh this scenario."
 
@@ -119,5 +130,6 @@ If the baseline has been updated since the scenario was computed, the UI must sh
 - Extra repayment scenario shows: months saved, interest saved, new payoff date.
 - Rate change scenario shows: new monthly payment, total interest delta.
 - Comparison view is readable without the operator needing to understand the underlying amortization model.
+- Saved scenarios can be compared side by side without mutating canonical data.
 - Creating a scenario does not mutate any canonical mart data.
 - Stale scenario banner appears when canonical data has been refreshed after scenario creation.

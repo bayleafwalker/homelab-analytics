@@ -500,6 +500,9 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
         FRONTEND_ROOT / "components" / "tariff-shock-panel.js"
     ).read_text()
     scenarios_source = (FRONTEND_ROOT / "app" / "scenarios" / "page.js").read_text()
+    scenarios_compare_source = (
+        FRONTEND_ROOT / "app" / "scenarios" / "compare" / "page.js"
+    ).read_text()
     scenario_detail_source = (
         FRONTEND_ROOT / "app" / "scenarios" / "[scenarioId]" / "page.js"
     ).read_text()
@@ -599,6 +602,12 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "Tariff shock what-if" in tariff_shock_panel_source
     assert "homelab_cost_benefit" in scenarios_source
     assert "Homelab cost/benefit" in scenarios_source
+    assert "/scenarios/compare" in scenarios_source
+    assert "Compare saved scenarios" in scenarios_source
+    assert "Compare scenarios" in scenarios_compare_source
+    assert "Pick two different scenarios to compare" in scenarios_compare_source
+    assert 'name="left"' in scenarios_compare_source
+    assert 'name="right"' in scenarios_compare_source
     assert "summary_rows" in scenario_detail_source
     assert "Cost/value summary" in scenario_detail_source
     assert "/api/ha/actions/proposals/{action_id}/approve" in homelab_approve_route

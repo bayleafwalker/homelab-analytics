@@ -1,6 +1,6 @@
 # Simulation Engine — Architecture
 
-**Status:** Active — scenario storage and four compute types shipped
+**Status:** Active — scenario storage and five compute types shipped
 **Stage:** 4 (see platform roadmap)
 **First scenario type:** Loan what-if (reuses `packages/pipelines/amortization.py`)
 
@@ -85,7 +85,7 @@ Scenarios are computed on-demand (not on the background worker schedule) and cac
    → delta = proj_value - canonical_value
 ```
 
-For larger scenarios (income change affecting affordability + cost model), computation is deferred to the worker via a `scenario_compute` task type. The API returns 202 and a poll URL. Homelab cost/benefit scenarios stay synchronous but store summary-style comparison rows instead of a full time-series projection.
+For larger scenarios (income change affecting affordability + cost model), computation is deferred to the worker via a `scenario_compute` task type. The API returns 202 and a poll URL. Homelab cost/benefit scenarios stay synchronous but store summary-style comparison rows instead of a full time-series projection. The frontend compare page can place two saved scenarios side by side without needing a new projection format.
 
 ---
 

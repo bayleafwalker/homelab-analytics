@@ -53,6 +53,21 @@ export default async function ScenariosPage() {
     >
       <section className="stack">
         <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Workflow</div>
+              <h2>Compare saved scenarios</h2>
+            </div>
+          </div>
+          <p className="muted">
+            Open the side-by-side comparison view to inspect assumptions and outputs for two saved scenarios.
+          </p>
+          <Link href="/scenarios/compare" style={{ color: "var(--accent)" }}>
+            Compare scenarios
+          </Link>
+        </article>
+
+        <article className="panel section">
           <div className="tableWrap">
             {scenarios.length === 0 ? (
               <p className="muted">

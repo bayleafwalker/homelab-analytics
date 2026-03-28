@@ -185,7 +185,7 @@ Stage 3 planning models provide the baseline targets and obligation structures t
 
 ### Status
 
-Partially complete. Five scenario types shipped (loan what-if, income change, expense shock, utility tariff shock, homelab cost/benefit) with scenario storage, assumption tracking, staleness detection, and scenarios list page. The homelab value-loop operator panel now surfaces reporting-layer service-health and workload-cost summaries plus a derived comparison and saved scenario summary; saved scenario sets remain.
+Partially complete. Five scenario types shipped (loan what-if, income change, expense shock, utility tariff shock, homelab cost/benefit) with scenario storage, assumption tracking, staleness detection, a scenarios list page, and a saved-scenario comparison view. The homelab value-loop operator panel now surfaces reporting-layer service-health and workload-cost summaries plus a derived comparison and saved scenario summary; richer saved scenario sets remain.
 
 ---
 
