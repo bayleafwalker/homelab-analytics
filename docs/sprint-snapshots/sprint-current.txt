@@ -7,4 +7,4 @@ ID:     8
   health: 1 items — 0 done (0%), 1 active, 0 pending, 0 blocked (0%)
   [active  ] #41  Stage 9 — Sprint H: auth migration completion + machine federation  (assignee: -)
 
-Rendered: 2026-03-28T19:41:16Z
+Rendered: 2026-03-28T19:53:36Z
