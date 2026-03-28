@@ -530,6 +530,24 @@ def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> Non
         required_service_token_scope_for_request("/api/scenarios/compare-sets", "POST")
         == "ingest:write"
     )
+    assert required_role_for_request("/api/scenarios/compare-sets/cs-001", "PATCH") == UserRole.OPERATOR
+    assert (
+        required_permission_for_request("/api/scenarios/compare-sets/cs-001", method="PATCH")
+        == "ingest.write"
+    )
+    assert (
+        required_service_token_scope_for_request("/api/scenarios/compare-sets/cs-001", "PATCH")
+        == "ingest:write"
+    )
+    assert required_role_for_request("/api/scenarios/compare-sets/cs-001/restore", "POST") == UserRole.OPERATOR
+    assert (
+        required_permission_for_request("/api/scenarios/compare-sets/cs-001/restore", method="POST")
+        == "ingest.write"
+    )
+    assert (
+        required_service_token_scope_for_request("/api/scenarios/compare-sets/cs-001/restore", "POST")
+        == "ingest:write"
+    )
 
     assert required_role_for_request("/api/scenarios/income-change", "POST") == UserRole.OPERATOR
     assert (

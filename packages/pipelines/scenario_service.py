@@ -494,6 +494,32 @@ def _get_active_compare_set_by_pair(
     return rows[0] if rows else None
 
 
+def _get_compare_set_by_id(
+    store: DuckDBStore,
+    compare_set_id: str,
+) -> dict[str, Any] | None:
+    rows = store.fetchall_dicts(
+        f"SELECT * FROM {DIM_SCENARIO_COMPARE_SET_TABLE}"
+        " WHERE compare_set_id = ?",
+        [compare_set_id],
+    )
+    return rows[0] if rows else None
+
+
+def _scenario_compare_set_result(row: dict[str, Any]) -> ScenarioCompareSetResult:
+    return ScenarioCompareSetResult(
+        compare_set_id=str(row["compare_set_id"]),
+        label=row["label"],
+        left_scenario_id=row["left_scenario_id"],
+        right_scenario_id=row["right_scenario_id"],
+        left_scenario_label=row["left_scenario_label"],
+        right_scenario_label=row["right_scenario_label"],
+        status=row["status"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
 def list_scenario_compare_sets(
     store: DuckDBStore,
     *,
@@ -597,14 +623,37 @@ def create_scenario_compare_set(
     )
 
 
+def update_scenario_compare_set_label(
+    store: DuckDBStore,
+    compare_set_id: str,
+    *,
+    label: str,
+) -> ScenarioCompareSetResult | None:
+    ensure_scenario_storage(store)
+    new_label = label.strip()
+    if not new_label:
+        raise ValueError("Compare set label cannot be empty.")
+
+    existing = _get_compare_set_by_id(store, compare_set_id)
+    if existing is None:
+        return None
+
+    updated_at = datetime.now(UTC).isoformat()
+    store.execute(
+        f"UPDATE {DIM_SCENARIO_COMPARE_SET_TABLE}"
+        " SET label = ?, updated_at = ? WHERE compare_set_id = ?",
+        [new_label, updated_at, compare_set_id],
+    )
+    row = _get_compare_set_by_id(store, compare_set_id)
+    if row is None:
+        return None
+    return _scenario_compare_set_result(row)
+
+
 def archive_scenario_compare_set(store: DuckDBStore, compare_set_id: str) -> bool:
     ensure_scenario_storage(store)
-    existing = store.fetchall_dicts(
-        f"SELECT compare_set_id FROM {DIM_SCENARIO_COMPARE_SET_TABLE}"
-        " WHERE compare_set_id = ? AND status = 'active'",
-        [compare_set_id],
-    )
-    if not existing:
+    existing = _get_compare_set_by_id(store, compare_set_id)
+    if existing is None or existing["status"] != "active":
         return False
     store.execute(
         f"UPDATE {DIM_SCENARIO_COMPARE_SET_TABLE}"
@@ -612,6 +661,31 @@ def archive_scenario_compare_set(store: DuckDBStore, compare_set_id: str) -> boo
         [datetime.now(UTC).isoformat(), compare_set_id],
     )
     return True
+
+
+def restore_scenario_compare_set(
+    store: DuckDBStore,
+    compare_set_id: str,
+) -> ScenarioCompareSetResult | None:
+    ensure_scenario_storage(store)
+    existing = _get_compare_set_by_id(store, compare_set_id)
+    if existing is None:
+        return None
+    if existing["status"] == "archived":
+        active_pair = _get_active_compare_set_by_pair(
+            store,
+            left_scenario_id=str(existing["left_scenario_id"]),
+            right_scenario_id=str(existing["right_scenario_id"]),
+        )
+        if active_pair is not None and str(active_pair["compare_set_id"]) != compare_set_id:
+            raise ValueError("An active compare set already exists for this scenario pair.")
+        store.execute(
+            f"UPDATE {DIM_SCENARIO_COMPARE_SET_TABLE}"
+            " SET status = 'active', updated_at = ? WHERE compare_set_id = ?",
+            [datetime.now(UTC).isoformat(), compare_set_id],
+        )
+    row = _get_compare_set_by_id(store, compare_set_id)
+    return _scenario_compare_set_result(row) if row is not None else None
 
 
 def archive_scenario(store: DuckDBStore, scenario_id: str) -> bool:

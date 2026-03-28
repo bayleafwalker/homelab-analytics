@@ -80,6 +80,8 @@ from packages.pipelines.scenario_service import (
     get_tariff_shock_comparison,
     list_scenario_compare_sets,
     list_scenarios,
+    restore_scenario_compare_set,
+    update_scenario_compare_set_label,
 )
 from packages.pipelines.subscription_models import (
     CURRENT_DIM_CATEGORY_VIEW,
@@ -1273,8 +1275,23 @@ class TransformationService:
             label=label,
         )
 
+    def update_scenario_compare_set_label(
+        self,
+        compare_set_id: str,
+        *,
+        label: str,
+    ) -> ScenarioCompareSetResult | None:
+        return update_scenario_compare_set_label(
+            self._store,
+            compare_set_id,
+            label=label,
+        )
+
     def archive_scenario_compare_set(self, compare_set_id: str) -> bool:
         return archive_scenario_compare_set(self._store, compare_set_id)
+
+    def restore_scenario_compare_set(self, compare_set_id: str) -> ScenarioCompareSetResult | None:
+        return restore_scenario_compare_set(self._store, compare_set_id)
 
     def ensure_scenario_storage(self) -> None:
         ensure_scenario_storage(self._store)

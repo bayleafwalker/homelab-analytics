@@ -28,6 +28,8 @@ from packages.pipelines.scenario_service import (
     get_scenario_comparison,
     list_scenario_compare_sets,
     list_scenarios,
+    restore_scenario_compare_set,
+    update_scenario_compare_set_label,
 )
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
@@ -367,6 +369,69 @@ class ScenarioCompareSetTests(unittest.TestCase):
         )
         self.assertTrue(archive_scenario_compare_set(self.store, result.compare_set_id))
         self.assertEqual([], list_scenario_compare_sets(self.store))
+
+    def test_include_archived_returns_archived_rows(self) -> None:
+        result = create_scenario_compare_set(
+            self.store,
+            left_scenario_id=self.left,
+            right_scenario_id=self.right,
+        )
+        self.assertTrue(archive_scenario_compare_set(self.store, result.compare_set_id))
+        rows = list_scenario_compare_sets(self.store, include_archived=True)
+        self.assertEqual(1, len(rows))
+        self.assertEqual("archived", rows[0]["status"])
+
+    def test_rename_compare_set_updates_label(self) -> None:
+        result = create_scenario_compare_set(
+            self.store,
+            left_scenario_id=self.left,
+            right_scenario_id=self.right,
+            label="Original label",
+        )
+        updated = update_scenario_compare_set_label(
+            self.store,
+            result.compare_set_id,
+            label="Renamed label",
+        )
+        assert updated is not None
+        self.assertEqual(result.compare_set_id, updated.compare_set_id)
+        self.assertEqual("Renamed label", updated.label)
+        self.assertEqual("Original label", result.label)
+
+    def test_restore_compare_set_reactivates_archived_row(self) -> None:
+        result = create_scenario_compare_set(
+            self.store,
+            left_scenario_id=self.left,
+            right_scenario_id=self.right,
+        )
+        self.assertTrue(archive_scenario_compare_set(self.store, result.compare_set_id))
+        self.assertTrue(restore_scenario_compare_set(self.store, result.compare_set_id))
+        rows = list_scenario_compare_sets(self.store)
+        self.assertEqual(1, len(rows))
+        self.assertEqual("active", rows[0]["status"])
+
+    def test_restore_compare_set_rejects_duplicate_active_pair(self) -> None:
+        original = create_scenario_compare_set(
+            self.store,
+            left_scenario_id=self.left,
+            right_scenario_id=self.right,
+            label="Original label",
+        )
+        self.assertTrue(archive_scenario_compare_set(self.store, original.compare_set_id))
+        replacement = create_scenario_compare_set(
+            self.store,
+            left_scenario_id=self.left,
+            right_scenario_id=self.right,
+            label="Replacement label",
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "active compare set already exists",
+        ):
+            restore_scenario_compare_set(self.store, original.compare_set_id)
+        rows = list_scenario_compare_sets(self.store)
+        self.assertEqual(1, len(rows))
+        self.assertEqual(replacement.compare_set_id, rows[0]["compare_set_id"])
 
     def test_compare_set_requires_two_different_scenarios(self) -> None:
         with self.assertRaises(ValueError):

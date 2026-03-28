@@ -607,13 +607,17 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "Homelab cost/benefit" in scenarios_source
     assert "/scenarios/compare" in scenarios_source
     assert "Compare saved scenarios" in scenarios_source
-    assert "getScenarioCompareSets" in scenarios_compare_source
+    assert "getScenarioCompareSets({ includeArchived: true })" in scenarios_compare_source
     assert "Compare scenarios" in scenarios_compare_source
     assert "Saved compare shortcuts" in scenario_compare_sets_source
     assert "Shared compare sets" in scenario_compare_sets_source
-    assert "Save compare set" in scenario_compare_sets_source
+    assert "Show archived compare sets" in scenario_compare_sets_source
+    assert "Rename compare set" in scenario_compare_sets_source
+    assert "Restore compare set" in scenario_compare_sets_source
+    assert "Archive compare set" in scenario_compare_sets_source
     assert "Open compare set" in scenario_compare_sets_source
     assert "/api/scenarios/compare-sets" in scenario_compare_sets_source
+    assert "/restore" in scenario_compare_sets_source
     assert "Pick two different scenarios to compare" in scenarios_compare_source
     assert 'name="left"' in scenarios_compare_source
     assert 'name="right"' in scenarios_compare_source

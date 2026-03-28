@@ -355,6 +355,24 @@ export interface paths {
         delete: operations["archive_scenario_compare_set_api_scenarios_compare_sets__compare_set_id__delete"];
         options?: never;
         head?: never;
+        /** Update Scenario Compare Set Route */
+        patch: operations["update_scenario_compare_set_route_api_scenarios_compare_sets__compare_set_id__patch"];
+        trace?: never;
+    };
+    "/api/scenarios/compare-sets/{compare_set_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Scenario Compare Set */
+        post: operations["restore_scenario_compare_set_api_scenarios_compare_sets__compare_set_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -3719,6 +3737,11 @@ export interface components {
             /** Right Scenario Id */
             right_scenario_id: string;
         };
+        /** ScenarioCompareSetUpdateRequest */
+        ScenarioCompareSetUpdateRequest: {
+            /** Label */
+            label: string;
+        };
         /** ScheduleDispatchModel */
         ScheduleDispatchModel: {
             /** Claim Expires At */
@@ -4794,6 +4817,76 @@ export interface operations {
         };
     };
     archive_scenario_compare_set_api_scenarios_compare_sets__compare_set_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                compare_set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_scenario_compare_set_route_api_scenarios_compare_sets__compare_set_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                compare_set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScenarioCompareSetUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_scenario_compare_set_api_scenarios_compare_sets__compare_set_id__restore_post: {
         parameters: {
             query?: never;
             header?: never;

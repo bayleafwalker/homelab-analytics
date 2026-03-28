@@ -173,7 +173,11 @@ def required_permission_for_request(
                 else PERMISSION_INGEST_WRITE
             )
         if path.startswith("/api/scenarios/compare-sets/"):
-            return PERMISSION_INGEST_WRITE if request_method == "DELETE" else PERMISSION_REPORTS_READ
+            return (
+                PERMISSION_INGEST_WRITE
+                if request_method in {"DELETE", "PATCH", "POST", "PUT"}
+                else PERMISSION_REPORTS_READ
+            )
         if path in {
             "/api/scenarios/loan-what-if",
             "/api/scenarios/income-change",
@@ -244,7 +248,7 @@ def required_role_for_request(
         if path == "/api/scenarios/compare-sets":
             return UserRole.READER if request_method == "GET" else UserRole.OPERATOR
         if path.startswith("/api/scenarios/compare-sets/"):
-            return UserRole.OPERATOR if request_method == "DELETE" else UserRole.READER
+            return UserRole.OPERATOR if request_method in {"DELETE", "PATCH", "POST", "PUT"} else UserRole.READER
         if path in {
             "/api/scenarios/loan-what-if",
             "/api/scenarios/income-change",
@@ -312,7 +316,7 @@ def required_service_token_scope_for_request(
         if path.startswith("/api/scenarios/compare-sets/"):
             return (
                 SERVICE_TOKEN_SCOPE_INGEST_WRITE
-                if request_method == "DELETE"
+                if request_method in {"DELETE", "PATCH", "POST", "PUT"}
                 else SERVICE_TOKEN_SCOPE_REPORTS_READ
             )
         if path in {

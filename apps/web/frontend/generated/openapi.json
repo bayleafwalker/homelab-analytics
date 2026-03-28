@@ -4084,6 +4084,19 @@
         "title": "ScenarioCompareSetRequest",
         "type": "object"
       },
+      "ScenarioCompareSetUpdateRequest": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "ScenarioCompareSetUpdateRequest",
+        "type": "object"
+      },
       "ScheduleDispatchModel": {
         "additionalProperties": false,
         "properties": {
@@ -6278,6 +6291,96 @@
           }
         },
         "summary": "Archive Scenario Compare Set"
+      },
+      "patch": {
+        "operationId": "update_scenario_compare_set_route_api_scenarios_compare_sets__compare_set_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "compare_set_id",
+            "required": true,
+            "schema": {
+              "title": "Compare Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioCompareSetUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Scenario Compare Set Route Api Scenarios Compare Sets  Compare Set Id  Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Scenario Compare Set Route"
+      }
+    },
+    "/api/scenarios/compare-sets/{compare_set_id}/restore": {
+      "post": {
+        "operationId": "restore_scenario_compare_set_api_scenarios_compare_sets__compare_set_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "compare_set_id",
+            "required": true,
+            "schema": {
+              "title": "Compare Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Restore Scenario Compare Set Api Scenarios Compare Sets  Compare Set Id  Restore Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Scenario Compare Set"
       }
     },
     "/api/scenarios/expense-shock": {

@@ -313,7 +313,7 @@ function ComparisonPanel({ snapshot, title }) {
 export default async function ScenariosComparePage({ searchParams }) {
   const user = await getCurrentUser();
   const scenarios = await getScenarios();
-  const compareSets = await getScenarioCompareSets();
+  const compareSets = await getScenarioCompareSets({ includeArchived: true });
   const scenarioIdSet = new Set(scenarios.map((row) => row.scenario_id));
 
   const fallbackLeft = scenarios[0]?.scenario_id || "";
@@ -346,7 +346,7 @@ export default async function ScenariosComparePage({ searchParams }) {
       user={user}
       title="Compare scenarios"
       eyebrow="Simulation History"
-      lede="Pick two saved scenarios and view their assumptions and outcomes side by side."
+      lede="Pick two saved scenarios, manage shared compare sets, and view their assumptions and outcomes side by side."
     >
       <section className="stack">
         <div>

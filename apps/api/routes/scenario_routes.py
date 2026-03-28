@@ -59,6 +59,10 @@ class ScenarioCompareSetRequest(BaseModel):
     label: str | None = None
 
 
+class ScenarioCompareSetUpdateRequest(BaseModel):
+    label: str
+
+
 def register_scenario_routes(
     app: FastAPI,
     *,
@@ -119,6 +123,23 @@ def register_scenario_routes(
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return to_jsonable(result)
+
+    @app.patch("/api/scenarios/compare-sets/{compare_set_id}")
+    async def update_scenario_compare_set_route(
+        compare_set_id: str,
+        body: ScenarioCompareSetUpdateRequest,
+    ) -> dict[str, Any]:
+        svc = _svc()
+        try:
+            result = svc.update_scenario_compare_set_label(
+                compare_set_id,
+                label=body.label,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if result is None:
+            raise HTTPException(status_code=404, detail="Scenario compare set not found.")
         return to_jsonable(result)
 
     @app.get("/api/scenarios/{scenario_id}")
@@ -281,6 +302,18 @@ def register_scenario_routes(
         if not archived:
             raise HTTPException(status_code=404, detail="Scenario compare set not found.")
         return {"compare_set_id": compare_set_id, "status": "archived"}
+
+    @app.post("/api/scenarios/compare-sets/{compare_set_id}/restore")
+    async def restore_scenario_compare_set(compare_set_id: str) -> dict[str, Any]:
+        svc = _svc()
+        try:
+            result = svc.restore_scenario_compare_set(compare_set_id)
+        except ValueError as exc:
+            status_code = 409 if "active compare set already exists" in str(exc) else 422
+            raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+        if result is None:
+            raise HTTPException(status_code=404, detail="Scenario compare set not found.")
+        return to_jsonable(result)
 
     @app.get("/api/scenarios/{scenario_id}/cashflow")
     async def get_income_scenario_cashflow(scenario_id: str) -> dict[str, Any]:

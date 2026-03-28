@@ -265,6 +265,16 @@ class ApiAppTests(unittest.TestCase):
                     "content"
                 ]["application/json"]["schema"]["$ref"],
             )
+            self.assertEqual(
+                "#/components/schemas/ScenarioCompareSetUpdateRequest",
+                schema["paths"]["/api/scenarios/compare-sets/{compare_set_id}"]["patch"][
+                    "requestBody"
+                ]["content"]["application/json"]["schema"]["$ref"],
+            )
+            self.assertIn(
+                "/api/scenarios/compare-sets/{compare_set_id}/restore",
+                schema["paths"],
+            )
 
     def test_openapi_schema_exposes_control_terminal_models(self) -> None:
         with TemporaryDirectory() as temp_dir:

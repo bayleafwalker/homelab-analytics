@@ -272,6 +272,38 @@ class ScenarioCompareSetAPITests(unittest.TestCase):
             self.assertEqual(1, len(data["rows"]))
             self.assertEqual(left, data["rows"][0]["left_scenario_id"])
 
+    def test_patch_renames_compare_set(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _ = _build_client(tmp)
+            left, right = self._create_two_scenarios(client)
+            create_resp = client.post(
+                "/api/scenarios/compare-sets",
+                json={"left_scenario_id": left, "right_scenario_id": right},
+            )
+            compare_set_id = create_resp.json()["compare_set_id"]
+            patch_resp = client.patch(
+                f"/api/scenarios/compare-sets/{compare_set_id}",
+                json={"label": "Renamed pair"},
+            )
+            self.assertEqual(200, patch_resp.status_code)
+            self.assertEqual("Renamed pair", patch_resp.json()["label"])
+
+    def test_get_compare_sets_can_include_archived_rows(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _ = _build_client(tmp)
+            left, right = self._create_two_scenarios(client)
+            create_resp = client.post(
+                "/api/scenarios/compare-sets",
+                json={"left_scenario_id": left, "right_scenario_id": right},
+            )
+            compare_set_id = create_resp.json()["compare_set_id"]
+            client.delete(f"/api/scenarios/compare-sets/{compare_set_id}")
+            resp = client.get("/api/scenarios/compare-sets?include_archived=true")
+            self.assertEqual(200, resp.status_code)
+            data = resp.json()
+            self.assertEqual(1, len(data["rows"]))
+            self.assertEqual("archived", data["rows"][0]["status"])
+
     def test_delete_compare_set_archives_saved_row(self) -> None:
         with TemporaryDirectory() as tmp:
             client, _ = _build_client(tmp)
@@ -285,6 +317,53 @@ class ScenarioCompareSetAPITests(unittest.TestCase):
             self.assertEqual(200, delete_resp.status_code)
             self.assertEqual("archived", delete_resp.json()["status"])
             self.assertEqual(0, len(client.get("/api/scenarios/compare-sets").json()["rows"]))
+
+    def test_post_restore_compare_set_reactivates_archived_row(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _ = _build_client(tmp)
+            left, right = self._create_two_scenarios(client)
+            create_resp = client.post(
+                "/api/scenarios/compare-sets",
+                json={"left_scenario_id": left, "right_scenario_id": right},
+            )
+            compare_set_id = create_resp.json()["compare_set_id"]
+            client.delete(f"/api/scenarios/compare-sets/{compare_set_id}")
+            restore_resp = client.post(f"/api/scenarios/compare-sets/{compare_set_id}/restore")
+            self.assertEqual(200, restore_resp.status_code)
+            self.assertEqual("active", restore_resp.json()["status"])
+            self.assertEqual(1, len(client.get("/api/scenarios/compare-sets").json()["rows"]))
+
+    def test_post_restore_compare_set_rejects_duplicate_active_pair(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _ = _build_client(tmp)
+            left, right = self._create_two_scenarios(client)
+            original_resp = client.post(
+                "/api/scenarios/compare-sets",
+                json={
+                    "left_scenario_id": left,
+                    "right_scenario_id": right,
+                    "label": "Original pair",
+                },
+            )
+            original_compare_set_id = original_resp.json()["compare_set_id"]
+            client.delete(f"/api/scenarios/compare-sets/{original_compare_set_id}")
+            replacement_resp = client.post(
+                "/api/scenarios/compare-sets",
+                json={
+                    "left_scenario_id": left,
+                    "right_scenario_id": right,
+                    "label": "Replacement pair",
+                },
+            )
+            replacement_compare_set_id = replacement_resp.json()["compare_set_id"]
+            restore_resp = client.post(
+                f"/api/scenarios/compare-sets/{original_compare_set_id}/restore"
+            )
+            self.assertEqual(409, restore_resp.status_code)
+            self.assertIn("active compare set already exists", restore_resp.json()["detail"])
+            rows = client.get("/api/scenarios/compare-sets").json()["rows"]
+            self.assertEqual(1, len(rows))
+            self.assertEqual(replacement_compare_set_id, rows[0]["compare_set_id"])
 
     def test_post_rejects_same_scenario(self) -> None:
         with TemporaryDirectory() as tmp:
