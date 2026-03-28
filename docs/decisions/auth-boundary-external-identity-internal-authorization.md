@@ -13,7 +13,7 @@ The platform boundary is:
 
 - authentication identity proof belongs to an upstream identity provider by default
 - authorization policy belongs to homelab-analytics because permission semantics are app-specific
-- machine access uses app-managed permission scopes now, with a path to upstream machine JWTs later
+- machine access uses app-managed permission scopes now, with an optional upstream machine JWT bearer path that reuses the same permission kernel
 - local username/password is a narrow fallback mode, not a parallel multi-user identity system
 
 This keeps identity lifecycle complexity outside the app while preserving strict control over app actions.
@@ -58,7 +58,7 @@ The policy model should evolve from role-only checks toward role bundles over ex
 
 Service tokens remain a first-class path for automation and bootstrap environments.
 
-Service-token scopes should map to the same internal permission registry used for human principals. Upstream-issued machine JWTs are an optional future alternative, not a blocker for current operation.
+Service-token scopes should map to the same internal permission registry used for human principals. Upstream-issued machine JWTs are an implemented optional upstream bearer path, not a separate authorization model.
 
 ### 3.4 Local auth posture
 
@@ -133,7 +133,7 @@ Compatibility mapping during migration:
 4. Add a trusted proxy identity mode without weakening authorization checks.
 5. Narrow local auth paths to single-user/break-glass operational semantics.
 
-Implementation status (2026-03-22): sequence complete. Remaining future-facing work is optional machine-JWT federation patterns and eventual retirement timing for compatibility env aliases.
+Implementation status (2026-03-22): sequence complete. Remaining follow-up is retirement timing for compatibility env aliases; optional machine-JWT federation is already implemented and remains part of the runtime.
 
 ---
 
@@ -159,3 +159,4 @@ Tradeoffs:
 
 - local auth ergonomics become intentionally narrower in production use
 - `HOMELAB_ANALYTICS_AUTH_MODE` remains as a compatibility input during migration; deployments should use `HOMELAB_ANALYTICS_IDENTITY_MODE`
+- machine-JWT bearer authentication is implemented as an optional upstream path and reuses the same in-app authorization kernel as service tokens
