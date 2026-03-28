@@ -99,8 +99,27 @@ def test_publication_contract_catalog_maps_columns_and_scalar_types() -> None:
 
     dim_category = publication_contracts["dim_category"]
     assert dim_category.relation_name == "rpt_current_dim_category"
+    assert dim_category.schema_name == "dim_category"
+    assert dim_category.display_name == "Current Categories"
+    assert dim_category.description == "Current snapshot of the shared cross-domain category registry."
     dim_category_columns = {column.name: column for column in dim_category.columns}
+    assert dim_category_columns["sk"].semantic_role == "identifier"
     assert dim_category_columns["category_id"].semantic_role == "identifier"
+    assert (
+        dim_category_columns["is_budget_eligible"].description
+        == "Whether the category can be targeted by budget definitions."
+    )
+
+    dim_counterparty = publication_contracts["dim_counterparty"]
+    assert dim_counterparty.schema_name == "dim_counterparty"
+    assert dim_counterparty.display_name == "Current Counterparties"
+    assert dim_counterparty.columns[0].name == "sk"
+    assert dim_counterparty.columns[0].semantic_role == "identifier"
+    counterparty_columns = {column.name: column for column in dim_counterparty.columns}
+    assert (
+        counterparty_columns["category"].description
+        == "Current category slug assigned to the counterparty; this remains a free-text bridge until category_id governance lands in finance."
+    )
 
     balance_descriptor = ui_descriptors["balance-trend"]
     assert balance_descriptor.supported_renderers == ("web",)

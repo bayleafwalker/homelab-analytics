@@ -13,6 +13,10 @@ from packages.platform.capability_types import (
     PublicationDefinition,
     PublicationFieldDefinition,
 )
+from packages.platform.current_dimension_contracts import (
+    CURRENT_DIMENSION_CONTRACTS,
+    CurrentDimensionContractDefinition,
+)
 from packages.shared.extensions import ExtensionRegistry
 
 
@@ -355,6 +359,25 @@ def _publication_field_definitions(
     }
 
 
+def _current_dimension_field_definitions(
+    relation: PublicationRelation,
+    *,
+    definition: CurrentDimensionContractDefinition,
+) -> dict[str, PublicationFieldDefinition]:
+    field_definitions = {
+        name: _default_field_definition(name, storage_type)
+        for name, storage_type in relation.columns
+    }
+    unknown_override_keys = sorted(set(definition.field_overrides) - set(field_definitions))
+    if unknown_override_keys:
+        raise ValueError(
+            "Current dimension contract declares field semantics for unknown columns: "
+            f"{', '.join(unknown_override_keys)}"
+        )
+    field_definitions.update(definition.field_overrides)
+    return field_definitions
+
+
 def build_publication_relation_map(
     *,
     base_relations: Mapping[str, PublicationRelation] | None = None,
@@ -409,6 +432,7 @@ def build_publication_contracts(
             relation_name,
         )
         pack_metadata = pack_publications.get(relation_name)
+        current_dimension_definition = CURRENT_DIMENSION_CONTRACTS.get(publication_key)
         if pack_metadata is not None:
             pack, publication = pack_metadata
             publication_key = publication.key
@@ -434,11 +458,30 @@ def build_publication_contracts(
             visibility = "public"
             retention_policy = "indefinite"
             lineage_required = True
+            if current_dimension_definition is not None:
+                schema_name = current_dimension_definition.schema_name
+                schema_version = current_dimension_definition.schema_version
+                display_name = current_dimension_definition.display_name
+                description = current_dimension_definition.description
+                visibility = current_dimension_definition.visibility
+                retention_policy = current_dimension_definition.retention_policy
+                lineage_required = current_dimension_definition.lineage_required
 
-        field_definitions = _publication_field_definitions(
-            relation,
-            publication=publication,
-        )
+        if publication is not None:
+            field_definitions = _publication_field_definitions(
+                relation,
+                publication=publication,
+            )
+        elif current_dimension_definition is not None:
+            field_definitions = _current_dimension_field_definitions(
+                relation,
+                definition=current_dimension_definition,
+            )
+        else:
+            field_definitions = _publication_field_definitions(
+                relation,
+                publication=None,
+            )
         ui_descriptor_keys, supported_renderers = ui_descriptor_index.get(
             publication_key,
             ((), ("web",)),

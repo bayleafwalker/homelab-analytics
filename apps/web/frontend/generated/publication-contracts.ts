@@ -744,20 +744,20 @@ export const publicationContractMap = {
     "columns": [
       {
         "aggregation": null,
-        "description": "Sk",
+        "description": "Stable surrogate key for the current account row.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
         "name": "sk",
         "nullable": false,
-        "semantic_role": "dimension",
+        "semantic_role": "identifier",
         "sortable": true,
         "storage_type": "VARCHAR NOT NULL",
         "unit": null
       },
       {
         "aggregation": null,
-        "description": "Account id",
+        "description": "Stable account identifier across promoted runs.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -770,7 +770,7 @@ export const publicationContractMap = {
       },
       {
         "aggregation": null,
-        "description": "Currency",
+        "description": "ISO currency code associated with the account.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -782,8 +782,8 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
-    "description": null,
-    "display_name": "Rpt Current Dim Account",
+    "description": "Current snapshot of canonical household account records.",
+    "display_name": "Current Accounts",
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -791,7 +791,7 @@ export const publicationContractMap = {
     "relation_name": "rpt_current_dim_account",
     "renderer_hints": {},
     "retention_policy": "indefinite",
-    "schema_name": "rpt_current_dim_account",
+    "schema_name": "dim_account",
     "schema_version": "1.0.0",
     "supported_renderers": [
       "web"
@@ -803,20 +803,20 @@ export const publicationContractMap = {
     "columns": [
       {
         "aggregation": null,
-        "description": "Sk",
+        "description": "Stable surrogate key for the current asset row.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
         "name": "sk",
         "nullable": false,
-        "semantic_role": "dimension",
+        "semantic_role": "identifier",
         "sortable": true,
         "storage_type": "VARCHAR NOT NULL",
         "unit": null
       },
       {
         "aggregation": null,
-        "description": "Asset id",
+        "description": "Stable asset identifier across inventory updates.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -867,8 +867,8 @@ export const publicationContractMap = {
         "unit": null
       },
       {
-        "aggregation": "none",
-        "description": "Purchase price",
+        "aggregation": "latest",
+        "description": "Recorded purchase price for the asset.",
         "filterable": false,
         "grain": null,
         "json_type": "string",
@@ -906,8 +906,8 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
-    "description": null,
-    "display_name": "Rpt Current Dim Asset",
+    "description": "Current snapshot of tracked household and homelab assets.",
+    "display_name": "Current Assets",
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -915,7 +915,7 @@ export const publicationContractMap = {
     "relation_name": "rpt_current_dim_asset",
     "renderer_hints": {},
     "retention_policy": "indefinite",
-    "schema_name": "rpt_current_dim_asset",
+    "schema_name": "dim_asset",
     "schema_version": "1.0.0",
     "supported_renderers": [
       "web"
@@ -927,20 +927,20 @@ export const publicationContractMap = {
     "columns": [
       {
         "aggregation": null,
-        "description": "Sk",
+        "description": "Stable surrogate key for the current budget row.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
         "name": "sk",
         "nullable": false,
-        "semantic_role": "dimension",
+        "semantic_role": "identifier",
         "sortable": true,
         "storage_type": "VARCHAR NOT NULL",
         "unit": null
       },
       {
         "aggregation": null,
-        "description": "Budget id",
+        "description": "Stable budget identifier across promoted runs.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -966,7 +966,7 @@ export const publicationContractMap = {
       },
       {
         "aggregation": null,
-        "description": "Category id",
+        "description": "Canonical category identifier targeted by the budget.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -1004,8 +1004,8 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
-    "description": null,
-    "display_name": "Rpt Current Dim Budget",
+    "description": "Current snapshot of budget definitions keyed to canonical categories.",
+    "display_name": "Current Budgets",
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -1013,7 +1013,7 @@ export const publicationContractMap = {
     "relation_name": "rpt_current_dim_budget",
     "renderer_hints": {},
     "retention_policy": "indefinite",
-    "schema_name": "rpt_current_dim_budget",
+    "schema_name": "dim_budget",
     "schema_version": "1.0.0",
     "supported_renderers": [
       "web"
@@ -1025,20 +1025,20 @@ export const publicationContractMap = {
     "columns": [
       {
         "aggregation": null,
-        "description": "Sk",
+        "description": "Stable surrogate key for the current category row.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
         "name": "sk",
         "nullable": false,
-        "semantic_role": "dimension",
+        "semantic_role": "identifier",
         "sortable": true,
         "storage_type": "VARCHAR NOT NULL",
         "unit": null
       },
       {
         "aggregation": null,
-        "description": "Category id",
+        "description": "Stable category slug used across domains.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -1051,7 +1051,7 @@ export const publicationContractMap = {
       },
       {
         "aggregation": null,
-        "description": "Display name",
+        "description": "Human-readable category label.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -1064,7 +1064,7 @@ export const publicationContractMap = {
       },
       {
         "aggregation": null,
-        "description": "Parent id",
+        "description": "Optional parent category identifier for the category hierarchy.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -1077,7 +1077,7 @@ export const publicationContractMap = {
       },
       {
         "aggregation": null,
-        "description": "Domain",
+        "description": "Owning domain for the category or 'shared'.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -1090,7 +1090,7 @@ export const publicationContractMap = {
       },
       {
         "aggregation": null,
-        "description": "Is budget eligible",
+        "description": "Whether the category can be targeted by budget definitions.",
         "filterable": true,
         "grain": null,
         "json_type": "boolean",
@@ -1103,7 +1103,7 @@ export const publicationContractMap = {
       },
       {
         "aggregation": null,
-        "description": "Is system",
+        "description": "Whether the category is seeded by the platform rather than operator-defined.",
         "filterable": true,
         "grain": null,
         "json_type": "boolean",
@@ -1115,8 +1115,8 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
-    "description": null,
-    "display_name": "Rpt Current Dim Category",
+    "description": "Current snapshot of the shared cross-domain category registry.",
+    "display_name": "Current Categories",
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -1124,7 +1124,7 @@ export const publicationContractMap = {
     "relation_name": "rpt_current_dim_category",
     "renderer_hints": {},
     "retention_policy": "indefinite",
-    "schema_name": "rpt_current_dim_category",
+    "schema_name": "dim_category",
     "schema_version": "1.0.0",
     "supported_renderers": [
       "web"
@@ -1136,20 +1136,20 @@ export const publicationContractMap = {
     "columns": [
       {
         "aggregation": null,
-        "description": "Sk",
+        "description": "Stable surrogate key for the current contract row.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
         "name": "sk",
         "nullable": false,
-        "semantic_role": "dimension",
+        "semantic_role": "identifier",
         "sortable": true,
         "storage_type": "VARCHAR NOT NULL",
         "unit": null
       },
       {
         "aggregation": null,
-        "description": "Contract id",
+        "description": "Stable contract identifier across domains.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -1162,7 +1162,7 @@ export const publicationContractMap = {
       },
       {
         "aggregation": null,
-        "description": "Contract name",
+        "description": "Human-readable contract or subscription name.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -1175,7 +1175,7 @@ export const publicationContractMap = {
       },
       {
         "aggregation": null,
-        "description": "Provider",
+        "description": "Provider name captured on the shared contract dimension.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -1239,8 +1239,8 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
-    "description": null,
-    "display_name": "Rpt Current Dim Contract",
+    "description": "Current snapshot of shared contract definitions used by subscriptions and utility-pricing workflows.",
+    "display_name": "Current Contracts",
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -1248,7 +1248,7 @@ export const publicationContractMap = {
     "relation_name": "rpt_current_dim_contract",
     "renderer_hints": {},
     "retention_policy": "indefinite",
-    "schema_name": "rpt_current_dim_contract",
+    "schema_name": "dim_contract",
     "schema_version": "1.0.0",
     "supported_renderers": [
       "web"
@@ -1260,11 +1260,24 @@ export const publicationContractMap = {
     "columns": [
       {
         "aggregation": null,
-        "description": "Sk",
+        "description": "Stable surrogate key for the current counterparty row.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
         "name": "sk",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Canonical merchant or counterparty name used across finance facts.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "counterparty_name",
         "nullable": false,
         "semantic_role": "dimension",
         "sortable": true,
@@ -1272,21 +1285,8 @@ export const publicationContractMap = {
         "unit": null
       },
       {
-        "aggregation": "count",
-        "description": "Counterparty name",
-        "filterable": false,
-        "grain": null,
-        "json_type": "string",
-        "name": "counterparty_name",
-        "nullable": false,
-        "semantic_role": "measure",
-        "sortable": true,
-        "storage_type": "VARCHAR NOT NULL",
-        "unit": "count"
-      },
-      {
         "aggregation": null,
-        "description": "Category",
+        "description": "Current category slug assigned to the counterparty; this remains a free-text bridge until category_id governance lands in finance.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -1298,8 +1298,8 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
-    "description": null,
-    "display_name": "Rpt Current Dim Counterparty",
+    "description": "Current snapshot of canonical counterparties shared by transaction-facing finance reporting.",
+    "display_name": "Current Counterparties",
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -1307,7 +1307,7 @@ export const publicationContractMap = {
     "relation_name": "rpt_current_dim_counterparty",
     "renderer_hints": {},
     "retention_policy": "indefinite",
-    "schema_name": "rpt_current_dim_counterparty",
+    "schema_name": "dim_counterparty",
     "schema_version": "1.0.0",
     "supported_renderers": [
       "web"
@@ -1319,20 +1319,20 @@ export const publicationContractMap = {
     "columns": [
       {
         "aggregation": null,
-        "description": "Sk",
+        "description": "Stable surrogate key for the current entity row.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
         "name": "sk",
         "nullable": false,
-        "semantic_role": "dimension",
+        "semantic_role": "identifier",
         "sortable": true,
         "storage_type": "VARCHAR NOT NULL",
         "unit": null
       },
       {
         "aggregation": null,
-        "description": "Entity id",
+        "description": "Stable Home Assistant entity identifier.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -1358,7 +1358,7 @@ export const publicationContractMap = {
       },
       {
         "aggregation": null,
-        "description": "Entity domain",
+        "description": "Entity domain such as sensor or light.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -1371,7 +1371,7 @@ export const publicationContractMap = {
       },
       {
         "aggregation": null,
-        "description": "Entity class",
+        "description": "Normalized entity class derived from the entity id.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -1435,8 +1435,8 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
-    "description": null,
-    "display_name": "Rpt Current Dim Entity",
+    "description": "Current snapshot of canonical Home Assistant entities kept separate from homelab operational models.",
+    "display_name": "Current Home Automation Entities",
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -1444,7 +1444,7 @@ export const publicationContractMap = {
     "relation_name": "rpt_current_dim_entity",
     "renderer_hints": {},
     "retention_policy": "indefinite",
-    "schema_name": "rpt_current_dim_entity",
+    "schema_name": "dim_entity",
     "schema_version": "1.0.0",
     "supported_renderers": [
       "web"
@@ -1456,20 +1456,20 @@ export const publicationContractMap = {
     "columns": [
       {
         "aggregation": null,
-        "description": "Sk",
+        "description": "Stable surrogate key for the current loan row.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
         "name": "sk",
         "nullable": false,
-        "semantic_role": "dimension",
+        "semantic_role": "identifier",
         "sortable": true,
         "storage_type": "VARCHAR NOT NULL",
         "unit": null
       },
       {
         "aggregation": null,
-        "description": "Loan id",
+        "description": "Stable loan identifier across repayment runs.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -1533,17 +1533,17 @@ export const publicationContractMap = {
         "unit": null
       },
       {
-        "aggregation": null,
-        "description": "Principal",
-        "filterable": true,
+        "aggregation": "latest",
+        "description": "Original principal amount captured on the loan dimension.",
+        "filterable": false,
         "grain": null,
         "json_type": "string",
         "name": "principal",
         "nullable": true,
-        "semantic_role": "dimension",
+        "semantic_role": "measure",
         "sortable": true,
         "storage_type": "DECIMAL(18,4)",
-        "unit": null
+        "unit": "currency"
       },
       {
         "aggregation": null,
@@ -1598,8 +1598,8 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
-    "description": null,
-    "display_name": "Rpt Current Dim Loan",
+    "description": "Current snapshot of canonical household loan definitions and terms.",
+    "display_name": "Current Loans",
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -1607,7 +1607,7 @@ export const publicationContractMap = {
     "relation_name": "rpt_current_dim_loan",
     "renderer_hints": {},
     "retention_policy": "indefinite",
-    "schema_name": "rpt_current_dim_loan",
+    "schema_name": "dim_loan",
     "schema_version": "1.0.0",
     "supported_renderers": [
       "web"
@@ -1619,20 +1619,20 @@ export const publicationContractMap = {
     "columns": [
       {
         "aggregation": null,
-        "description": "Sk",
+        "description": "Stable surrogate key for the current meter row.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
         "name": "sk",
         "nullable": false,
-        "semantic_role": "dimension",
+        "semantic_role": "identifier",
         "sortable": true,
         "storage_type": "VARCHAR NOT NULL",
         "unit": null
       },
       {
         "aggregation": null,
-        "description": "Meter id",
+        "description": "Stable meter identifier across utility runs.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -1696,8 +1696,8 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
-    "description": null,
-    "display_name": "Rpt Current Dim Meter",
+    "description": "Current snapshot of canonical utility meters and their source metadata.",
+    "display_name": "Current Meters",
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -1705,7 +1705,7 @@ export const publicationContractMap = {
     "relation_name": "rpt_current_dim_meter",
     "renderer_hints": {},
     "retention_policy": "indefinite",
-    "schema_name": "rpt_current_dim_meter",
+    "schema_name": "dim_meter",
     "schema_version": "1.0.0",
     "supported_renderers": [
       "web"
