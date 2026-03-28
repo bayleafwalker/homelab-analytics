@@ -34,6 +34,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ha/actions/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Action Proposals */
+        get: operations["get_action_proposals_api_ha_actions_proposals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ha/actions/proposals/{action_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Action Proposal */
+        get: operations["get_action_proposal_api_ha_actions_proposals__action_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ha/actions/proposals/{action_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Action Proposal */
+        post: operations["approve_action_proposal_api_ha_actions_proposals__action_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ha/actions/proposals/{action_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss Action Proposal */
+        post: operations["dismiss_action_proposal_api_ha_actions_proposals__action_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ha/actions/status": {
         parameters: {
             query?: never;
@@ -300,6 +368,23 @@ export interface paths {
         put?: never;
         /** Create Loan What If */
         post: operations["create_loan_what_if_api_scenarios_loan_what_if_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scenarios/tariff-shock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Tariff Shock */
+        post: operations["create_tariff_shock_api_scenarios_tariff_shock_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2877,6 +2962,38 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HaApprovalProposalListModel */
+        HaApprovalProposalListModel: {
+            /** Proposals */
+            proposals: components["schemas"]["HaApprovalProposalModel"][];
+        };
+        /** HaApprovalProposalModel */
+        HaApprovalProposalModel: {
+            /** Action Id */
+            action_id: string;
+            /** Approved At */
+            approved_at?: string | null;
+            /** Created At */
+            created_at: string;
+            /** Dismissed At */
+            dismissed_at?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Notification Id */
+            notification_id: string;
+            /** Policy Id */
+            policy_id: string;
+            /** Policy Name */
+            policy_name: string;
+            /** Status */
+            status: string;
+            /** Value */
+            value?: string | null;
+            /** Verdict */
+            verdict: string;
+        };
         /** HaIngestRequest */
         HaIngestRequest: {
             /** Run Id */
@@ -3622,6 +3739,17 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** TariffShockRequest */
+        TariffShockRequest: {
+            /** Label */
+            label?: string | null;
+            /** Projection Months */
+            projection_months?: number | null;
+            /** Tariff Pct Delta */
+            tariff_pct_delta: string;
+            /** Utility Type */
+            utility_type?: string | null;
+        };
         /** TerminalCommandModel */
         TerminalCommandModel: {
             /** Description */
@@ -3980,6 +4108,119 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_action_proposals_api_ha_actions_proposals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HaApprovalProposalListModel"];
+                };
+            };
+        };
+    };
+    get_action_proposal_api_ha_actions_proposals__action_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HaApprovalProposalModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_action_proposal_api_ha_actions_proposals__action_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HaApprovalProposalModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_action_proposal_api_ha_actions_proposals__action_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HaApprovalProposalModel"];
                 };
             };
             /** @description Validation Error */
@@ -4405,6 +4646,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["LoanWhatIfRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_tariff_shock_api_scenarios_tariff_shock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TariffShockRequest"];
             };
         };
         responses: {

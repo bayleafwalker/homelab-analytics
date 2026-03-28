@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from packages.storage.auth_store import AuthStore
@@ -26,8 +26,12 @@ if TYPE_CHECKING:
         IngestionDefinitionRecord,
         PublicationDefinitionCreate,
         PublicationDefinitionRecord,
+        ReferenceFactCreate,
+        ReferenceFactRecord,
         SourceAssetCreate,
         SourceAssetRecord,
+        SourceFreshnessConfigCreate,
+        SourceFreshnessConfigRecord,
         SourceSystemCreate,
         SourceSystemRecord,
         TransformationPackageCreate,
@@ -194,6 +198,8 @@ class ControlPlaneSnapshot:
     publication_definitions: tuple["PublicationDefinitionRecord", ...]
     source_assets: tuple["SourceAssetRecord", ...]
     ingestion_definitions: tuple["IngestionDefinitionRecord", ...]
+    source_freshness_configs: tuple["SourceFreshnessConfigRecord", ...] = ()
+    reference_facts: tuple["ReferenceFactRecord", ...] = ()
     extension_registry_sources: tuple["ExtensionRegistrySourceRecord", ...] = ()
     extension_registry_revisions: tuple["ExtensionRegistryRevisionRecord", ...] = ()
     extension_registry_activations: tuple["ExtensionRegistryActivationRecord", ...] = ()
@@ -373,6 +379,30 @@ class AssetCatalogStore(Protocol):
         ...
 
     def delete_source_asset(self, source_asset_id: str) -> None:
+        ...
+
+    def create_source_freshness_config(
+        self,
+        freshness_config: "SourceFreshnessConfigCreate",
+    ) -> "SourceFreshnessConfigRecord":
+        ...
+
+    def update_source_freshness_config(
+        self,
+        freshness_config: "SourceFreshnessConfigCreate",
+    ) -> "SourceFreshnessConfigRecord":
+        ...
+
+    def get_source_freshness_config(
+        self,
+        source_asset_id: str,
+    ) -> "SourceFreshnessConfigRecord":
+        ...
+
+    def list_source_freshness_configs(self) -> list["SourceFreshnessConfigRecord"]:
+        ...
+
+    def delete_source_freshness_config(self, source_asset_id: str) -> None:
         ...
 
     def find_source_asset_by_binding(
@@ -707,6 +737,35 @@ class ConfigCatalogStore(
     ExternalRegistryStore,
     Protocol,
 ):
+    def create_reference_fact(
+        self,
+        reference_fact: "ReferenceFactCreate",
+    ) -> "ReferenceFactRecord":
+        ...
+
+    def close_reference_fact(
+        self,
+        fact_id: str,
+        *,
+        effective_to: date | None = None,
+        closed_by: str | None = None,
+        closed_at: datetime | None = None,
+    ) -> "ReferenceFactRecord":
+        ...
+
+    def get_reference_fact(self, fact_id: str) -> "ReferenceFactRecord":
+        ...
+
+    def list_reference_facts(
+        self,
+        *,
+        entity_type: str | None = None,
+        entity_key: str | None = None,
+        attribute: str | None = None,
+        include_closed: bool = True,
+    ) -> list["ReferenceFactRecord"]:
+        ...
+
     ...
 
 

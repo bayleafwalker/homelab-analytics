@@ -66,7 +66,8 @@ Move from "several useful domain-specific transforms" to a stable, versioned, cr
 ### Key deliverables
 
 - Remaining canonical dimensions: `dim_budget`, `dim_loan`, `dim_asset`, `dim_household_member`, cross-domain `dim_category` governance
-- Remaining canonical facts: `fact_loan_repayment`, `fact_balance_snapshot`, `fact_asset_event`, `fact_sensor_reading`, `fact_power_consumption`, `fact_cluster_metric`
+- Remaining canonical facts: `fact_loan_repayment`, `fact_balance_snapshot`, `fact_asset_event`, `fact_power_consumption`, `fact_cluster_metric`
+- Home automation state foundation (`dim_entity`, `fact_sensor_reading`, `fact_automation_event`) now exists in the transformation layer and remains separate from the HA bridge tables
 - Cross-domain dimension registry ensuring shared dimensions (category, counterparty, provider, household member) are defined once and referenced by surrogate key from all consuming facts
 - Semantic typing for publications — meaning-bearing metadata beyond table names
 
@@ -78,14 +79,18 @@ The architecture doc already names most of these dimensions and facts in the tra
 
 - Budget dimension and its binding to transaction categories
 - Loan models (dimension, fact, amortization)
-- Asset inventory models
-- Homelab/infrastructure models (cluster metrics, power consumption, sensor readings)
+- Home automation state models (`dim_entity`, `fact_sensor_reading`, `fact_automation_event`)
+- Landing contracts and reporting starters that complete the new asset and infrastructure foundations
 - Cross-domain dimension governance (ensuring `dim_category` and `dim_counterparty` are shared, not duplicated per domain)
 
 ### Planned documentation
 
 - `docs/architecture/domain-model.md` — canonical household ontology
 - `docs/architecture/semantic-contracts.md` — rules for extending the model without wrecking compatibility
+
+### Status
+
+Partially complete. Sprint I finance ingestion is effectively complete, and the worktree now includes internal-platform ingestion, utilities automation foundations, infrastructure metrics dimensions/facts, and the first asset inventory spine. Remaining Stage 1 work is to finish explicit home-automation models, add the missing landing/reporting contracts around the new asset and infrastructure foundations, and complete the remaining finance planning models.
 
 ---
 
@@ -183,7 +188,7 @@ Stage 3 planning models provide the baseline targets and obligation structures t
 
 ### Status
 
-Partially complete. Three scenario types shipped (loan what-if, income change, expense shock) with scenario storage, assumption tracking, staleness detection, and scenarios list page. Utility tariff shock, homelab cost/benefit, and scenario comparison remain.
+Partially complete. Four scenario types shipped (loan what-if, income change, expense shock, utility tariff shock) with scenario storage, assumption tracking, staleness detection, and scenarios list page. Homelab cost/benefit and scenario comparison remain.
 
 ---
 
@@ -203,7 +208,10 @@ Make the platform able to act on observed state, not just report it. Home Assist
 - Bidirectional HA integration: HA as state source (WebSocket/REST ingest) and HA as action consumer (service calls, scene triggers, notifications)
 - Synthetic entity publication: platform outputs materialized as HA sensor, binary_sensor, and helper entities via MQTT discovery
 - Energy and tariff policy loop: platform models load, prices, battery/EV/heat-pump behavior; HA executes and visualizes; operator can override
-- Approval-aware action dispatch: recommendation → alerting → automated → approval-gated safety model
+- Approval-aware action dispatch: recommendation → alerting → automated → approval-gated safety model, with approval resolution clearing the HA gate notification, optionally executing a service target, and logging the release event
+- Helper-driven approval requests: HA helper entities can surface operator intent that becomes an approval-gated proposal with an HA service target
+- Synthetic approval queue sensors: approval proposal counts are published back into HA so operators can monitor pending approvals alongside other platform state
+- Approval queue UI controls: homelab and retro operations pages can approve or dismiss pending proposals directly from the web app
 - Webhook and job-based integrations for non-HA external systems
 
 ### Relationship to existing work
@@ -213,7 +221,7 @@ The platform already has the infrastructure substrate: APIs, service tokens, aut
 ### Architectural additions
 
 - Policy definition model: thresholds, rules, conditions, trigger actions
-- Action dispatch model: notification channels, integration endpoints, report generation
+- Action dispatch model: notification channels, integration endpoints, report generation, approval-gated policy results, proposal tracking, and approval resolution logging
 - HA integration hub (Layer 2–5): normalization bridge, event bus, action/approval layer, synthetic entity publication
 - Clear boundary between recommendation (safe), alerting (notify), and automation (act)
 
@@ -237,7 +245,7 @@ Stage 2 operating views provide the observed state that policies evaluate. Stage
 
 ### Status
 
-Substantially underway. HA Phases 1–5 complete: batch entity ingest, WebSocket live subscription, MQTT synthetic entity publication, policy/automation evaluation engine, and outbound action dispatcher. Phase 6 (approval-gated device control) and synthetic entity expansion remain.
+Substantially complete in the worktree. HA Phases 1–6 are complete: batch entity ingest, WebSocket live subscription, MQTT synthetic entity publication, policy/automation evaluation engine, outbound action dispatcher, approval-gated device control, approval queue publication/UI controls, and expanded tariff/cost/maintenance synthetic entities. The next step is boundary hardening and adapter extraction rather than another round of HA feature sprawl.
 
 ---
 

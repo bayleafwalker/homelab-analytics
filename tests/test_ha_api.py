@@ -8,12 +8,18 @@ from tempfile import TemporaryDirectory
 from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
+from packages.pipelines.ha_action_proposals import ApprovalActionRegistry
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository
 
 
-def _build_client(temp_dir: str) -> TestClient:
+def _build_client(
+    temp_dir: str,
+    *,
+    proposal_registry: ApprovalActionRegistry | None = None,
+    action_dispatcher: object | None = None,
+) -> TestClient:
     from packages.pipelines.account_transaction_service import AccountTransactionService
 
     service = AccountTransactionService(
@@ -21,7 +27,12 @@ def _build_client(temp_dir: str) -> TestClient:
         metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
     )
     ts = TransformationService(DuckDBStore.memory())
-    app = create_app(service, transformation_service=ts)
+    app = create_app(
+        service,
+        transformation_service=ts,
+        ha_action_dispatcher=action_dispatcher,
+        ha_action_proposal_registry=proposal_registry or ApprovalActionRegistry(),
+    )
     return TestClient(app)
 
 
@@ -126,6 +137,66 @@ class HaEntitiesAPITests(unittest.TestCase):
                 )
             resp = client.get("/api/ha/entities/sensor.temp/history?limit=2")
             self.assertEqual(2, len(resp.json()["rows"]))
+
+
+class HaApprovalProposalAPITests(unittest.TestCase):
+    def test_list_and_mutate_action_proposals(self) -> None:
+        with TemporaryDirectory() as tmp:
+            class _FakeDispatcher:
+                def __init__(self) -> None:
+                    self.calls: list[tuple[str, str]] = []
+
+                async def resolve_approval(self, proposal, resolution: str):
+                    self.calls.append((proposal.action_id, resolution))
+                    return type(
+                        "Record",
+                        (),
+                        {"result": resolution},
+                    )()
+
+            registry = ApprovalActionRegistry()
+            registry.register(
+                policy_id="device_control",
+                policy_name="Device Control",
+                verdict="warning",
+                value="needs approval",
+                notification_id="homelab_analytics_approval_device_control",
+                action_id="homelab_analytics_approval_device_control",
+            )
+            dispatcher = _FakeDispatcher()
+            client = _build_client(tmp, proposal_registry=registry, action_dispatcher=dispatcher)
+
+            list_resp = client.get("/api/ha/actions/proposals")
+            self.assertEqual(200, list_resp.status_code)
+            self.assertEqual(1, len(list_resp.json()["proposals"]))
+
+            get_resp = client.get("/api/ha/actions/proposals/homelab_analytics_approval_device_control")
+            self.assertEqual(200, get_resp.status_code)
+            self.assertEqual("pending", get_resp.json()["status"])
+
+            approve_resp = client.post(
+                "/api/ha/actions/proposals/homelab_analytics_approval_device_control/approve"
+            )
+            self.assertEqual(200, approve_resp.status_code)
+            self.assertEqual("approved", approve_resp.json()["status"])
+            self.assertEqual(
+                [("homelab_analytics_approval_device_control", "approved")],
+                dispatcher.calls,
+            )
+
+            registry.register(
+                policy_id="device_control_2",
+                policy_name="Device Control 2",
+                verdict="warning",
+                value=None,
+                notification_id="homelab_analytics_approval_device_control_2",
+                action_id="homelab_analytics_approval_device_control_2",
+            )
+            dismiss_resp = client.post(
+                "/api/ha/actions/proposals/homelab_analytics_approval_device_control_2/dismiss"
+            )
+            self.assertEqual(200, dismiss_resp.status_code)
+            self.assertEqual("dismissed", dismiss_resp.json()["status"])
 
 
 if __name__ == "__main__":

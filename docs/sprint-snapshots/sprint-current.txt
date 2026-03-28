@@ -1,16 +1,17 @@
-SPRINT: Sprint I — Finance Ingestion Subsystem  [active]
-Goal:   Introduce a durable ingestion model for personal-finance sources — structured CSV contracts, document parsers, manual reference inputs, and source freshness tracking.
-Dates:  2026-03-28 to 2026-04-11
-ID:     3
+SPRINT: Sprint J — Non-Finance Canonical Foundations  [active]
+Goal:   Finish the real Stage 1 carryover after Sprint I by turning the worktree's non-finance domain foundations into explicit landing, transformation, and reporting scope.
+Dates:  2026-03-29 to 2026-04-11
+ID:     4
 
 --- Track: stage-1 ---
-  health: 7 items — 0 done (0%), 1 active, 6 pending, 0 blocked (0%)
-  [active  ] #42  Stage 1 — Finance ingestion: Brief 1 (ingestion architecture + contract taxonomy)  (assignee: -)
-  [pending ] #43  Stage 1 — Finance ingestion: Brief 3 (OP account transaction CSV contract)  (assignee: -)
-  [pending ] #44  Stage 1 — Finance ingestion: Brief 4 (positive credit registry snapshot)  (assignee: -)
-  [pending ] #45  Stage 1 — Finance ingestion: Brief 5 (OP Gold credit card invoice PDF parser)  (assignee: -)
-  [pending ] #46  Stage 1 — Finance ingestion: Brief 7 (source freshness + reminders)  (assignee: -)
-  [pending ] #47  Stage 1 — Finance ingestion: Brief 2 (Revolut personal account CSV contract)  (assignee: -)
-  [pending ] #48  Stage 1 — Finance ingestion: Brief 6 (manual reference inputs)  (assignee: -)
+  health: 8 items — 3 done (37%), 0 active, 5 pending, 0 blocked (0%)
+  [pending ] #38  Stage 1 — Remaining canonical dimensions (dim_budget, dim_loan, dim_asset, etc.)  (assignee: -)
+  [pending ] #39  Stage 1 — Remaining canonical facts (fact_loan_repayment, fact_balance_snapshot, etc.)  (assignee: -)
+  [done    ] #53  Stage 1 — Internal platform ingestion foundation (Prometheus + Home Assistant landing contracts)  (assignee: -)
+  [done    ] #54  Stage 1 — Utilities automation slice (provider pulls, HA energy telemetry, freshness policy)  (assignee: -)
+  [done    ] #55  Stage 1 — Infrastructure metrics foundation (dim_node, dim_device, fact_cluster_metric, fact_power_consumption)  (assignee: -)
+  [pending ] #56  Stage 1 — Home automation state foundation (dim_entity, fact_sensor_reading, fact_automation_event)  (assignee: -)
+  [pending ] #57  Stage 1 — Asset inventory foundation (manual register, dim_asset, fact_asset_event)  (assignee: -)
+  [pending ] #59  Stage 1 — Cross-domain dimension governance and semantic contracts  (assignee: -)
 
-Rendered: 2026-03-28T07:21:34Z
+Rendered: 2026-03-28T12:25:04Z

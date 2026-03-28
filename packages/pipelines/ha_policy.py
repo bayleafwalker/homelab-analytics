@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import calendar
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Callable, Literal
 
@@ -40,6 +40,8 @@ class PolicyResult:
     verdict: PolicyVerdict
     value: str | None
     evaluated_at: str
+    approval_required: bool = False
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -49,6 +51,8 @@ class PolicyResult:
             "verdict": self.verdict,
             "value": self.value,
             "evaluated_at": self.evaluated_at,
+            "approval_required": self.approval_required,
+            "metadata": dict(self.metadata),
         }
 
 
@@ -117,6 +121,26 @@ def _evaluate_bridge_health(
     return "ok", value
 
 
+def _evaluate_kitchen_light_request(
+    context: dict[str, Any], now: datetime
+) -> tuple[PolicyVerdict, str | None]:
+    """Operator-requested kitchen light control via HA helper state."""
+    entities = context.get("ha_entities") or []
+    helper = next(
+        (
+            entity
+            for entity in entities
+            if entity.get("entity_id") == "input_boolean.hla_kitchen_light_request"
+        ),
+        None,
+    )
+    if helper is None:
+        return "unavailable", None
+    if str(helper.get("last_state") or "").lower() != "on":
+        return "ok", "Kitchen light request helper is off."
+    return "warning", "Kitchen light request helper is on."
+
+
 # ---------------------------------------------------------------------------
 # Policy registry
 # ---------------------------------------------------------------------------
@@ -127,6 +151,8 @@ class _PolicyDef:
     name: str
     description: str
     evaluate_fn: Callable[[dict[str, Any], datetime], tuple[PolicyVerdict, str | None]]
+    approval_required: bool = False
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 _POLICIES: list[_PolicyDef] = [
@@ -147,6 +173,20 @@ _POLICIES: list[_PolicyDef] = [
         name="Bridge Health",
         description="WebSocket bridge freshness — last sync within 5 minutes.",
         evaluate_fn=_evaluate_bridge_health,
+    ),
+    _PolicyDef(
+        id="kitchen_light_request",
+        name="Kitchen Light Request",
+        description="Approval-gated kitchen light request surfaced from a HA helper.",
+        evaluate_fn=_evaluate_kitchen_light_request,
+        approval_required=True,
+        metadata={
+            "approval_action": {
+                "domain": "light",
+                "service": "turn_on",
+                "data": {"entity_id": "light.kitchen"},
+            }
+        },
     ),
 ]
 
@@ -197,6 +237,8 @@ class HaPolicyEvaluator:
                 verdict=verdict,
                 value=value,
                 evaluated_at=now.isoformat(),
+                approval_required=policy.approval_required,
+                metadata=dict(policy.metadata),
             ))
 
         self._last_results = results

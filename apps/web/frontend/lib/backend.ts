@@ -735,6 +735,11 @@ export async function getHaActionsStatus() {
   return backendGet("/api/ha/actions/status");
 }
 
+export async function getHaActionProposals() {
+  const payload = await backendGet("/api/ha/actions/proposals");
+  return getResponseArray(payload, "proposals");
+}
+
 export async function getTransformationPackages({ includeArchived = false } = {}) {
   const payload = await backendGet("/config/transformation-packages", {
     params: { query: { include_archived: includeArchived } }

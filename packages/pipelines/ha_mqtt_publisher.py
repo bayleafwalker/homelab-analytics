@@ -9,6 +9,12 @@ Entities published:
     sensor.homelab_analytics_budget_status      — budget utilization verdict
     sensor.homelab_analytics_monthly_spend_rate — spending pace verdict
     sensor.homelab_analytics_bridge_health      — bridge freshness verdict
+    sensor.homelab_analytics_approval_pending_count
+                                              — number of pending approval proposals
+    sensor.homelab_analytics_peak_tariff_active  — current tariff band state
+    sensor.homelab_analytics_electricity_cost_forecast_today
+                                              — today’s electricity cost estimate
+    sensor.homelab_analytics_maintenance_due    — maintenance pressure indicator
     sensor.homelab_analytics_*                  — contract-backed publication summaries
 
 Discovery protocol:
@@ -71,6 +77,48 @@ _STATIC_ENTITIES: tuple[HaMqttEntityDefinition, ...] = (
         name="Homelab Analytics Bridge Health",
         state_key="policy_bridge_health",
         icon="mdi:lan-connect",
+    ),
+    HaMqttEntityDefinition(
+        object_id="homelab_analytics_approval_pending_count",
+        name="Homelab Analytics Approval Pending Count",
+        state_key="approval_pending_count",
+        icon="mdi:shield-alert",
+    ),
+    HaMqttEntityDefinition(
+        object_id="homelab_analytics_approval_tracked_count",
+        name="Homelab Analytics Approval Tracked Count",
+        state_key="approval_tracked_count",
+        icon="mdi:shield-account",
+    ),
+    HaMqttEntityDefinition(
+        object_id="homelab_analytics_peak_tariff_active",
+        name="Homelab Analytics Peak Tariff Active",
+        state_key="peak_tariff_active",
+        icon="mdi:flash",
+    ),
+    HaMqttEntityDefinition(
+        object_id="homelab_analytics_electricity_cost_forecast_today",
+        name="Homelab Analytics Electricity Cost Forecast Today",
+        state_key="electricity_cost_forecast_today",
+        icon="mdi:currency-eur",
+    ),
+    HaMqttEntityDefinition(
+        object_id="homelab_analytics_maintenance_due",
+        name="Homelab Analytics Maintenance Due",
+        state_key="maintenance_due",
+        icon="mdi:wrench",
+    ),
+    HaMqttEntityDefinition(
+        object_id="homelab_analytics_maintenance_issue_count",
+        name="Homelab Analytics Maintenance Issue Count",
+        state_key="maintenance_issue_count",
+        icon="mdi:wrench-clock",
+    ),
+    HaMqttEntityDefinition(
+        object_id="homelab_analytics_contract_renewal_due_count",
+        name="Homelab Analytics Contract Renewal Due Count",
+        state_key="contract_renewal_due_count",
+        icon="mdi:calendar-alert",
     ),
 )
 

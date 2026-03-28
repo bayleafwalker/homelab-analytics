@@ -24,6 +24,7 @@ Use `docs/runbooks/project-working-practices.md` for startup order, change-class
 - Keep landing, transformation, reporting, and application logic in their intended layers.
 - Follow the implementation loop and the applicable change-class checklist from `docs/runbooks/project-working-practices.md`.
 - Use live `sprintctl` state to decide which existing sprint item is being executed; do not derive active task selection from sprint docs alone when the DB is available.
+- Confirm that any existing exclusive claim either belongs to the current live claim identity or has been handed off before editing repo files.
 - Record material item-state changes in `sprintctl` and refresh the shared sprint snapshot when that state changes.
 - Update requirements or architecture docs when behavior or scope changes.
 - Add or update focused tests and at least one integration path for new behavior.
@@ -38,4 +39,5 @@ Use `docs/runbooks/project-working-practices.md` for startup order, change-class
 
 - Stop if the required design choice is not decided by code, docs, or user instruction.
 - Stop if the implementation would rely on route-specific heuristics instead of source-asset configuration.
+- Stop if a sprint-scoped item has an exclusive claim that does not clearly belong to the current live claim identity and no handoff has been produced.
 - Stop if a necessary change conflicts with unexpected user edits.

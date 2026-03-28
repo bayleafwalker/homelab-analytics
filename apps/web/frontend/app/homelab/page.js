@@ -1,12 +1,25 @@
 import { AppShell } from "@/components/app-shell";
 import { RendererDiscovery } from "@/components/renderer-discovery";
-import { getCurrentUser, getHaEntities, getHaBridgeStatus, getHaMqttStatus, getHaPolicies, getHaActions, getHaActionsStatus } from "@/lib/backend";
+import { getCurrentUser, getHaActionProposals, getHaEntities, getHaBridgeStatus, getHaMqttStatus, getHaPolicies, getHaActions, getHaActionsStatus } from "@/lib/backend";
 import { getWebRendererDiscovery } from "@/lib/renderer-discovery";
 
 function formatTimestamp(ts) {
   if (!ts) return "—";
   const d = new Date(ts);
   return isNaN(d) ? ts : d.toLocaleString("en-IE", { dateStyle: "short", timeStyle: "short" });
+}
+
+function noticeCopy(notice, actionId) {
+  switch (notice) {
+    case "approval-approved":
+      return actionId ? `Approval ${actionId} approved.` : "Approval approved.";
+    case "approval-dismissed":
+      return actionId ? `Approval ${actionId} dismissed.` : "Approval dismissed.";
+    case "approval-resolution-failed":
+      return "Could not resolve the approval request.";
+    default:
+      return "";
+  }
 }
 
 const CLASS_LABELS = {
@@ -22,8 +35,8 @@ const CLASS_LABELS = {
   other: "Other",
 };
 
-export default async function HomelabPage() {
-  const [user, discovery, entities, bridge, mqtt, policies, actions, actionsStatus] = await Promise.all([
+export default async function HomelabPage({ searchParams }) {
+  const [user, discovery, entities, bridge, mqtt, policies, actions, actionsStatus, proposals] = await Promise.all([
     getCurrentUser(),
     getWebRendererDiscovery(),
     getHaEntities(),
@@ -32,7 +45,11 @@ export default async function HomelabPage() {
     getHaPolicies(),
     getHaActions(),
     getHaActionsStatus(),
+    getHaActionProposals(),
   ]);
+  const pendingProposals = proposals.filter((proposal) => proposal.status === "pending");
+  const canManageApprovals = user.role !== "reader";
+  const notice = noticeCopy(searchParams?.notice, searchParams?.action_id);
 
   return (
     <AppShell
@@ -43,6 +60,7 @@ export default async function HomelabPage() {
       lede="Live entity state from Home Assistant via WebSocket subscription."
     >
       <section className="stack">
+        {notice ? <div className={searchParams?.notice === "approval-resolution-failed" ? "errorBanner" : "successBanner"}>{notice}</div> : null}
         <RendererDiscovery
           title="Published homelab views"
           eyebrow="Web renderer discovery"
@@ -197,6 +215,10 @@ export default async function HomelabPage() {
               <>
                 <dt>Errors</dt>
                 <dd>{actionsStatus.error_count}</dd>
+                <dt>Approval queue</dt>
+                <dd>
+                  {actionsStatus.approval_pending_count} pending / {actionsStatus.approval_tracked_count} tracked
+                </dd>
               </>
             )}
           </dl>
@@ -232,13 +254,68 @@ export default async function HomelabPage() {
                       </td>
                       <td>
                         <span className={`statusPill ${
-                          action.result === "success" || action.result === "dismissed" ? "positive"
+                          action.result === "success" || action.result === "dismissed" || action.result === "approved" ? "positive"
                           : action.result === "failure" ? "negative"
                           : ""
                         }`}>
                           {action.result}
                         </span>
                       </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {pendingProposals.length > 0 && (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Policy</th>
+                    <th>Verdict</th>
+                    <th>Status</th>
+                    <th>Target</th>
+                    {canManageApprovals ? <th>Actions</th> : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingProposals.map((proposal) => (
+                    <tr key={proposal.action_id}>
+                      <td>{formatTimestamp(proposal.created_at)}</td>
+                      <td>{proposal.policy_name}</td>
+                      <td>
+                        <span className="statusPill warning">{proposal.verdict}</span>
+                      </td>
+                      <td>
+                        <span className={`statusPill ${proposal.status === "pending" ? "warning" : "positive"}`}>
+                          {proposal.status}
+                        </span>
+                      </td>
+                      <td>
+                        <code className="mono">
+                          {proposal.metadata?.approval_action
+                            ? `${proposal.metadata.approval_action.domain}.${proposal.metadata.approval_action.service}`
+                            : "—"}
+                        </code>
+                      </td>
+                      {canManageApprovals ? (
+                        <td>
+                          <div className="buttonRow">
+                            <form action={`/homelab/actions/proposals/${proposal.action_id}/approve`} method="post">
+                              <button className="primaryButton inlineButton" type="submit">
+                                Approve
+                              </button>
+                            </form>
+                            <form action={`/homelab/actions/proposals/${proposal.action_id}/dismiss`} method="post">
+                              <button className="ghostButton inlineButton" type="submit">
+                                Dismiss
+                              </button>
+                            </form>
+                          </div>
+                        </td>
+                      ) : null}
                     </tr>
                   ))}
                 </tbody>

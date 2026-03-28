@@ -9,15 +9,20 @@
   POST /api/ha/policies/evaluate             → force re-evaluate policies (Phase 4)
   GET  /api/ha/actions                       → recent outbound action dispatch log (Phase 5)
   GET  /api/ha/actions/status                → action dispatcher health (Phase 5)
+  GET  /api/ha/actions/proposals             → approval-gated action proposals (Phase 6)
+  GET  /api/ha/actions/proposals/{id}         → one approval proposal
+  POST /api/ha/actions/proposals/{id}/approve → approve a pending proposal
+  POST /api/ha/actions/proposals/{id}/dismiss → dismiss a pending proposal
 """
 from __future__ import annotations
 
 from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from apps.api.response_models import HaMqttStatusModel
+from packages.pipelines.ha_action_proposals import ApprovalActionRegistry
 from packages.pipelines.transformation_service import TransformationService
 
 
@@ -35,6 +40,24 @@ class HaIngestRequest(BaseModel):
     source_system: str | None = None
 
 
+class HaApprovalProposalModel(BaseModel):
+    action_id: str
+    policy_id: str
+    policy_name: str
+    verdict: str
+    value: str | None = None
+    notification_id: str
+    status: str
+    created_at: str
+    approved_at: str | None = None
+    dismissed_at: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class HaApprovalProposalListModel(BaseModel):
+    proposals: list[HaApprovalProposalModel]
+
+
 def register_ha_routes(
     app: FastAPI,
     *,
@@ -43,6 +66,7 @@ def register_ha_routes(
     ha_mqtt_publisher: Any | None = None,
     ha_policy_evaluator: Any | None = None,
     ha_action_dispatcher: Any | None = None,
+    ha_action_proposal_registry: ApprovalActionRegistry | None = None,
     to_jsonable: Callable[[Any], Any],
 ) -> None:
     def _svc() -> TransformationService:
@@ -138,3 +162,61 @@ def register_ha_routes(
                 "tracked_policies": 0,
             }
         return ha_action_dispatcher.get_status()
+
+    def _proposal_registry() -> ApprovalActionRegistry:
+        if ha_action_proposal_registry is None:
+            raise HTTPException(
+                status_code=503,
+                detail="HA approval proposal registry is unavailable.",
+            )
+        return ha_action_proposal_registry
+
+    @app.get("/api/ha/actions/proposals", response_model=HaApprovalProposalListModel)
+    async def get_action_proposals() -> HaApprovalProposalListModel:
+        registry = _proposal_registry()
+        return HaApprovalProposalListModel(
+            proposals=[
+                HaApprovalProposalModel.model_validate(proposal.to_dict())
+                for proposal in registry.list_all()
+            ]
+        )
+
+    @app.get("/api/ha/actions/proposals/{action_id}", response_model=HaApprovalProposalModel)
+    async def get_action_proposal(action_id: str) -> HaApprovalProposalModel:
+        registry = _proposal_registry()
+        proposal = registry.get(action_id)
+        if proposal is None:
+            raise HTTPException(status_code=404, detail="Unknown approval action.")
+        return HaApprovalProposalModel.model_validate(proposal.to_dict())
+
+    @app.post("/api/ha/actions/proposals/{action_id}/approve", response_model=HaApprovalProposalModel)
+    async def approve_action_proposal(action_id: str) -> HaApprovalProposalModel:
+        registry = _proposal_registry()
+        proposal = registry.get(action_id)
+        if proposal is None:
+            raise HTTPException(status_code=404, detail="Unknown approval action.")
+        if ha_action_dispatcher is not None:
+            record = await ha_action_dispatcher.resolve_approval(proposal, "approved")
+            if record.result == "failure":
+                raise HTTPException(status_code=502, detail="Failed to release approval notification.")
+        try:
+            proposal = registry.approve(action_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return HaApprovalProposalModel.model_validate(proposal.to_dict())
+
+    @app.post("/api/ha/actions/proposals/{action_id}/dismiss", response_model=HaApprovalProposalModel)
+    async def dismiss_action_proposal(action_id: str) -> HaApprovalProposalModel:
+        registry = _proposal_registry()
+        proposal = registry.get(action_id)
+        if proposal is None:
+            raise HTTPException(status_code=404, detail="Unknown approval action.")
+        if ha_action_dispatcher is not None:
+            record = await ha_action_dispatcher.resolve_approval(proposal, "dismissed")
+            if record.result == "failure":
+                raise HTTPException(status_code=502, detail="Failed to release approval notification.")
+        try:
+            proposal = registry.dismiss(action_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return HaApprovalProposalModel.model_validate(proposal.to_dict())

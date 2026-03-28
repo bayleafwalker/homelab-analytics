@@ -96,11 +96,15 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 | `fact_bill` | Invoiced charges from providers | 3 |
 | `fact_loan_repayment` | Actual and planned repayment events | 3 |
 | `fact_cluster_metric` | Homelab infrastructure metrics | 3 |
+| `fact_power_consumption` | Sampled device power draw | 3 |
+| `fact_asset_event` | Acquisition, disposal, and depreciation events for tracked assets | 3 |
+| `fact_sensor_reading` | Home automation state snapshots | 3 |
+| `fact_automation_event` | Home automation automation events | 3 |
 
 **Rationale:** Canonical facts decouple source-specific formats from downstream analytics and enable cross-source joining.
 
 **Phase:** 1–3
-**Status:** in-progress (`fact_transaction`, `fact_subscription_charge`, `fact_contract_price`, `fact_utility_usage`, and `fact_bill` are persisted in DuckDB via `TransformationService`; balance, loan, and infrastructure facts are not started)
+**Status:** in-progress (`fact_transaction`, `fact_subscription_charge`, `fact_contract_price`, `fact_utility_usage`, `fact_bill`, `fact_cluster_metric`, `fact_power_consumption`, `fact_asset_event`, `fact_sensor_reading`, and `fact_automation_event` are persisted in DuckDB via `TransformationService`; balance and loan facts are not started)
 
 **Acceptance criteria:**
 - Each fact table is persisted in DuckDB/Parquet with documented schema.
@@ -121,8 +125,11 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 | `dim_counterparty` | Payees, merchants, transfer targets | 1 |
 | `dim_contract` | Service contracts, subscriptions, and temporal tariffs | 2–3 |
 | `dim_meter` | Utility meters | 3 |
+| `dim_node` | Cluster nodes | 3 |
+| `dim_device` | Physical infrastructure devices | 3 |
 | `dim_loan` | Loan instruments with terms | 3 |
 | `dim_asset` | Physical and digital assets | 3 |
+| `dim_entity` | Home automation entities | 3 |
 | `dim_household_member` | Household members for attribution | 2 |
 | `dim_category` | Transaction/cost categories | 2 |
 | `dim_budget` | Budget definitions and periods | 3 |
@@ -130,7 +137,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Canonical dimensions enable consistent attribution across all facts and support SCD-based historical analysis.
 
 **Phase:** 1–3
-**Status:** in-progress (`dim_account` and `dim_counterparty` are implemented with SCD-2 in DuckDB; `dim_contract` supports subscriptions and temporal contract-pricing domains; `dim_category` is implemented for shared category use; `dim_meter` now supports utility usage and billing domains; remaining dimensions are not started)
+**Status:** in-progress (`dim_account` and `dim_counterparty` are implemented with SCD-2 in DuckDB; `dim_contract` supports subscriptions and temporal contract-pricing domains; `dim_category` is implemented for shared category use; `dim_meter` now supports utility usage and billing domains; `dim_node`, `dim_device`, and `dim_asset` now support infrastructure and asset domains; `dim_entity` now supports home automation state; remaining dimensions are not started)
 
 **Acceptance criteria:**
 - Each dimension is persisted with SCD Type 2 handling (see PLT-07).
@@ -407,8 +414,8 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 | PLT-02 | Input and landing | `packages/storage/run_metadata.py`, `packages/storage/postgres_run_metadata.py` | `tests/test_run_metadata_repository.py`, `tests/test_postgres_run_metadata_integration.py` |
 | PLT-03 | Input and landing, Typical landing checks | `packages/pipelines/csv_validation.py` | `tests/test_csv_landing_validation.py` |
 | PLT-04 | Input and landing | `packages/storage/landing_service.py` | `tests/test_landing_service.py` |
-| PLT-05 | Transformation | `packages/pipelines/transaction_models.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/contract_price_models.py`, `packages/pipelines/utility_models.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_service.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py`, `tests/test_utility_domain.py` |
-| PLT-06 | Transformation | `packages/pipelines/transaction_models.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/contract_price_models.py`, `packages/pipelines/utility_models.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_service.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py`, `tests/test_utility_domain.py` |
+| PLT-05 | Transformation | `packages/pipelines/transaction_models.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/contract_price_models.py`, `packages/pipelines/utility_models.py`, `packages/pipelines/infrastructure_models.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_service.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py`, `tests/test_utility_domain.py`, `tests/test_infrastructure_domain.py` |
+| PLT-06 | Transformation | `packages/pipelines/transaction_models.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/contract_price_models.py`, `packages/pipelines/utility_models.py`, `packages/pipelines/infrastructure_models.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_service.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py`, `tests/test_utility_domain.py`, `tests/test_infrastructure_domain.py` |
 | PLT-07 | SCD handling | `packages/storage/duckdb_store.py`, `packages/pipelines/transformation_service.py` | `tests/test_scd_dimension.py`, `tests/test_subscription_domain.py`, `tests/test_contract_price_domain.py` |
 | PLT-08 | Transformation | `packages/pipelines/normalization.py`, `packages/pipelines/transformation_service.py` | `tests/test_transformation_normalization.py` |
 | PLT-09 | Transformation | `packages/pipelines/transformation_service.py`, `packages/pipelines/transformation_domain_registry.py`, `packages/pipelines/transformation_refresh_registry.py`, `packages/pipelines/builtin_transformation_refresh.py`, `packages/pipelines/transformation_transactions.py`, `packages/pipelines/transformation_subscriptions.py`, `packages/pipelines/transformation_contract_prices.py`, `packages/pipelines/transformation_utilities.py`, `packages/pipelines/transaction_models.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/contract_price_models.py` | `tests/test_architecture_contract.py`, `tests/test_transformation_service.py` |

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from threading import Barrier, Lock, Thread
 from typing import Any
 
@@ -44,6 +44,7 @@ from packages.storage.ingestion_config import (
     DatasetContractConfigCreate,
     IngestionDefinitionCreate,
     PublicationDefinitionCreate,
+    ReferenceFactCreate,
     SourceAssetCreate,
     SourceSystemCreate,
     TransformationPackageCreate,
@@ -206,6 +207,43 @@ def seed_source_asset_graph(
     }
 
 
+def seed_reference_fact_graph(store: ControlPlaneStore) -> dict[str, Any]:
+    store.create_reference_fact(
+        ReferenceFactCreate(
+            fact_id="ref-fact-001",
+            entity_type="loan_policy",
+            entity_key="mortgage-001",
+            attribute="interest_margin",
+            value="0.75",
+            effective_from=date(2025, 1, 1),
+            source="operator",
+            created_by="user-admin-001",
+            note="Initial manual entry.",
+            created_at=FIXED_CREATED_AT,
+        )
+    )
+    second_fact = store.create_reference_fact(
+        ReferenceFactCreate(
+            fact_id="ref-fact-002",
+            entity_type="loan_policy",
+            entity_key="mortgage-001",
+            attribute="interest_margin",
+            value="0.80",
+            effective_from=date(2026, 1, 1),
+            source="operator",
+            created_by="user-admin-001",
+            note="Updated margin after repricing.",
+            created_at=FIXED_CREATED_AT + timedelta(days=1),
+        )
+    )
+    first_fact_closed = store.get_reference_fact("ref-fact-001")
+
+    return {
+        "first_fact": first_fact_closed,
+        "second_fact": second_fact,
+    }
+
+
 def seed_extension_registry_graph(store: ControlPlaneStore) -> dict[str, Any]:
     source = store.create_extension_registry_source(
         ExtensionRegistrySourceCreate(
@@ -250,6 +288,7 @@ def seed_extension_registry_graph(store: ControlPlaneStore) -> dict[str, Any]:
 def assert_control_plane_store_round_trip(store: ControlPlaneStore) -> None:
     seeded = seed_source_asset_graph(store)
     registry_seeded = seed_extension_registry_graph(store)
+    reference_seeded = seed_reference_fact_graph(store)
 
     assert (
         store.get_source_system(seeded["source_system"].source_system_id)
@@ -310,6 +349,17 @@ def assert_control_plane_store_round_trip(store: ControlPlaneStore) -> None:
         )
         == registry_seeded["extension_registry_activation"]
     )
+    assert (
+        store.get_reference_fact(reference_seeded["first_fact"].fact_id)
+        == reference_seeded["first_fact"]
+    )
+    assert (
+        store.get_reference_fact(reference_seeded["second_fact"].fact_id)
+        == reference_seeded["second_fact"]
+    )
+    assert [fact.fact_id for fact in store.list_reference_facts(include_closed=False)] == [
+        "ref-fact-002"
+    ]
     assert [
         record.schedule_id for record in store.list_execution_schedules(enabled_only=True)
     ] == ["bank_partner_poll"]
@@ -334,6 +384,8 @@ def assert_control_plane_store_round_trip(store: ControlPlaneStore) -> None:
         == registry_seeded["extension_registry_activation"].extension_registry_source_id
         for record in snapshot.extension_registry_activations
     )
+    assert any(record.fact_id == "ref-fact-001" for record in snapshot.reference_facts)
+    assert any(record.fact_id == "ref-fact-002" for record in snapshot.reference_facts)
     assert any(record.schedule_id == "bank_partner_poll" for record in snapshot.execution_schedules)
     assert any(record.lineage_id == "lineage-001" for record in snapshot.source_lineage)
     assert any(

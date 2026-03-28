@@ -8,6 +8,10 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from apps.api.main import (
+    _compute_contract_renewal_due_count,
+    _compute_electricity_cost_forecast_today,
+    _compute_maintenance_state,
+    _compute_peak_tariff_active,
     build_app,
     build_function_registry,
     build_lazy_transformation_service,
@@ -864,6 +868,61 @@ class ApiMainTests(unittest.TestCase):
             self.assertEqual(200, electricity_response.status_code)
             self.assertEqual(3, len(contract_response.json()["rows"]))
             self.assertEqual(2, len(electricity_response.json()["rows"]))
+
+
+class MqttSyntheticStateTests(unittest.TestCase):
+    def test_peak_tariff_active_uses_weekday_window(self) -> None:
+        from datetime import datetime
+
+        self.assertEqual(
+            "peak",
+            _compute_peak_tariff_active(
+                [{"contract_id": "electricity"}],
+                now=datetime(2026, 3, 24, 12, 0, 0),
+            ),
+        )
+
+    def test_peak_tariff_active_returns_unavailable_without_rows(self) -> None:
+        self.assertEqual("unavailable", _compute_peak_tariff_active([], now=None))
+
+    def test_electricity_cost_forecast_today_prefers_latest_day_total(self) -> None:
+        class _Reporting:
+            def get_utility_cost_summary(self, **kwargs):
+                return [
+                    {"period_day": "2026-03-24", "billed_amount": "4.50"},
+                    {"period_day": "2026-03-25", "billed_amount": "3.25"},
+                    {"period_day": "2026-03-25", "billed_amount": "1.75"},
+                ]
+
+            def get_utility_cost_trend_monthly(self, **kwargs):
+                raise AssertionError("fallback should not be used when day rows exist")
+
+        self.assertEqual(
+            "5",
+            _compute_electricity_cost_forecast_today(
+                _Reporting(),
+                now=None,
+            ),
+        )
+
+    def test_maintenance_state_uses_service_and_storage_pressure(self) -> None:
+        class _Reporting:
+            def get_service_health_current(self):
+                return [{"state": "running"}, {"state": "degraded"}]
+
+            def get_storage_risk(self):
+                return [{"risk_tier": "ok"}, {"risk_tier": "crit"}]
+
+        due_state, issue_count = _compute_maintenance_state(_Reporting())
+        self.assertEqual("on", due_state)
+        self.assertEqual("2", issue_count)
+
+    def test_contract_renewal_due_count_uses_watchlist_size(self) -> None:
+        class _Reporting:
+            def get_contract_renewal_watchlist(self):
+                return [{"contract_id": "a"}, {"contract_id": "b"}]
+
+        self.assertEqual("2", _compute_contract_renewal_due_count(_Reporting()))
 
 
 if __name__ == "__main__":

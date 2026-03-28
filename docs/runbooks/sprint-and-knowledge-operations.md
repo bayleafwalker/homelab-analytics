@@ -67,9 +67,18 @@ During implementation:
 - follow the resume existing sprint item and implementation loops in `runbooks/project-working-practices.md`
 - load `.envrc` before using either CLI
 - move items through `pending`, `active`, `done`, or `blocked`
-- use claims when multiple agents may touch the same sprint DB
+- use claims when multiple agents may touch the same sprint DB, with a strong live identity per agent or worktree: `runtime_session_id`, `instance_id`, and `claim_token`
+- for Codex, prefer `CODEX_THREAD_ID` as `runtime_session_id` when it is available and mint a separate `instance_id` once per live client or process start
 - include workspace metadata on claims when available: branch, worktree, commit SHA, PR reference
-- add `sprintctl event` records when decisions, resolved blockers, or lessons happen
+- treat workspace metadata as advisory context, not as claim ownership proof
+- if an exclusive claim already exists and its identity does not clearly match the current live claim identity, do not heartbeat or reuse it; hand off the work or choose a different item first
+- add `sprintctl event` records when decisions, resolved blockers, or lessons happen, including reusable process corrections and coordination rules discovered during the sprint
+
+For kctl-ready event capture during execution:
+- use `decision` for durable design or workflow choices that should survive the sprint
+- use `lesson-learned` for process corrections, coordination failures, or heuristics you want future agents to avoid repeating
+- use `blocker-resolved`, `pattern-noted`, or `risk-accepted` when they better fit the event
+- include `summary`, `detail`, `tags`, and `confidence` so sprint-close extraction yields useful candidates instead of noise
 
 ### 3. Keep shared sprint state current
 
@@ -123,5 +132,6 @@ Use the runbook for repo-wide operating rules.
 
 Use skills for task-specific execution:
 - `sprint-packet` for turning accepted but not-yet-registered scope into tracked sprint work
+- `sprint-resume` for safely resuming an already-registered sprint item, including claim identity checks and handoff behavior
 - `sprint-snapshot` for refreshing the committed sprint snapshot after live sprint state changes
 - `kctl-extract` for sprint-close extraction and knowledge publication

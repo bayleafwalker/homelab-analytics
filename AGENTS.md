@@ -22,8 +22,10 @@ Sprint state is managed via `sprintctl` and knowledge extraction via `kctl`. Bot
 - `SPRINTCTL_DB` and `KCTL_DB` point to `.sprintctl/sprintctl.db` and `.kctl/kctl.db` respectively — both gitignored.
 - For sprint-scoped work, consult live `sprintctl` state before docs when choosing or resuming work.
 - For existing sprint items, inspect item state and claims, then claim or activate the item before editing repo files.
+- Use a strong live claim identity per agent or worktree when claiming or heartbeating sprint work: a runtime session id when available, a generated per-instance id, and the claim token returned at claim creation. Shared labels and workspace metadata are advisory only. Do not heartbeat or reuse an existing exclusive claim unless that identity clearly matches the current session; otherwise require a handoff or choose different work.
 - Record material sprint state in `sprintctl` first and refresh `docs/sprint-snapshots/sprint-current.txt` afterward.
+- Log reusable process corrections, coordination decisions, and lessons as structured `sprintctl` events when they happen so `kctl` can extract them at sprint close.
 - Repo-level operating model: `docs/runbooks/sprint-and-knowledge-operations.md`.
 - The committed sprint artifact is `docs/sprint-snapshots/sprint-current.txt`.
 - The committed knowledge artifact is `docs/knowledge/knowledge-base.md`.
-- Use `sprint-packet` to register accepted scope, `sprint-snapshot` to refresh shared sprint state, and `kctl-extract` at sprint close.
+- Use `sprint-packet` to register accepted scope, `sprint-resume` to pick up existing scoped work safely, `sprint-snapshot` to refresh shared sprint state, and `kctl-extract` at sprint close.

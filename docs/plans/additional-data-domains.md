@@ -173,6 +173,8 @@ loan_id, payment_date, principal_paid, interest_paid, total_paid, remaining_bala
 - `mart_asset_value` — current estimated value of tracked assets.
 - `mart_depreciation_schedule` — annual depreciation by asset class.
 
+Foundation note: the transformation-layer `dim_asset` and `fact_asset_event` spine exists now; the landing contract and reporting marts are still next steps.
+
 ### Landing contract sketch
 ```
 asset_name, asset_type, purchase_date, purchase_price, currency, location
@@ -200,6 +202,8 @@ asset_name, asset_type, purchase_date, purchase_price, currency, location
 - `mart_climate_summary` — daily/monthly indoor temperature and humidity averages.
 - `mart_automation_reliability` — automation success/failure rates.
 - `mart_device_battery` — battery levels and replacement predictions.
+
+Foundation note: the transformation-layer `dim_entity`, `fact_sensor_reading`, and `fact_automation_event` spine exists now; the landing contract and reporting marts are still next steps.
 
 ### Landing contract sketch
 ```

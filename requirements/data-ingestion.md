@@ -65,7 +65,7 @@ The platform must accept data from heterogeneous sources — manual file uploads
 - Tests use a mock HTTP server to verify connector behavior.
 
 **Dependencies:** ING-07, ING-08
-**Notes:** Current implementation supports configured HTTP requests with secret-referenced headers, timeout, and CSV landing. Raw response bytes are preserved unchanged in landing, while a mapped canonical CSV projection can be generated for validation and downstream promotion. Elisa Kotiakku and Helen API availability still needs to be confirmed. Default to CSV import if APIs are undocumented.
+**Notes:** Current implementation supports configured HTTP requests with secret-referenced headers, timeout, and CSV landing. Raw response bytes are preserved unchanged in landing, while a mapped canonical CSV projection can be generated for validation and downstream promotion. The utilities automation slice now exercises this path for provider-backed pulls, and source freshness configs can mark those assets as `api_pull` with `continuous` coverage. Elisa Kotiakku and Helen API availability still needs to be confirmed. Default to CSV import if APIs are undocumented.
 
 ---
 
@@ -96,7 +96,7 @@ The platform must accept data from heterogeneous sources — manual file uploads
 **Rationale:** Financial data is the primary household analytics use case and requires precise type handling (decimals, dates, currencies).
 
 **Phase:** 1–3
-**Status:** in-progress (account transactions CSV implemented)
+**Status:** in-progress (account transactions CSV, OP Gold invoice PDF parser, and source freshness config implemented)
 
 **Acceptance criteria:**
 - Each financial dataset type has a registered dataset contract with typed column definitions.
@@ -116,7 +116,7 @@ The platform must accept data from heterogeneous sources — manual file uploads
 **Rationale:** Homelab infrastructure data enables cluster cost modeling, energy monitoring integration, and automation-driven analytics.
 
 **Phase:** 3
-**Status:** not-started
+**Status:** implemented (Prometheus query, Home Assistant states, and Kubernetes resource metrics connectors now land raw JSON bytes unchanged through validated CSV projections)
 
 **Acceptance criteria:**
 - Prometheus connector executes a PromQL query and writes the result matrix to landing as JSON or CSV.
@@ -234,6 +234,27 @@ The platform must accept data from heterogeneous sources — manual file uploads
 
 ---
 
+### ING-12: Manual reference inputs
+
+**Description:** Persist sparse operator-entered finance facts with effective dating, audit metadata, and versioned history. Manual reference facts cover data that does not originate from a file export, such as loan policy terms, account ownership, portfolio labels, and transaction overrides.
+
+**Rationale:** Some household finance knowledge exists only as operator judgment or contract metadata. It must be auditable and versioned without being mixed into file-based ingestion.
+
+**Phase:** 3
+**Status:** implemented (versioned `reference_facts` control-plane storage, snapshot round-trip, and product/example docs are in place; UI form work remains deferred)
+
+**Acceptance criteria:**
+- Manual facts are stored as versioned records with `entity_type`, `entity_key`, `attribute`, `value`, `effective_from`, and `effective_to`.
+- Updating a fact creates a new version and closes the previous active version.
+- The control-plane snapshot can export and import manual facts without losing history.
+- Tests cover create, close, list, and snapshot round-trip semantics.
+
+**Dependencies:** ING-07
+
+**Notes:** Manual reference inputs are deliberately sparse. Bulk data entry still belongs in file-based ingestion lanes.
+
+---
+
 ## Traceability
 
 | Requirement | Architecture doc section | Implementation module | Test file |
@@ -243,9 +264,10 @@ The platform must accept data from heterogeneous sources — manual file uploads
 | ING-03 | Source classes, Direct provider API | `packages/storage/ingestion_catalog.py`, `packages/storage/sqlite_source_contract_catalog.py`, `packages/storage/postgres_source_contract_catalog.py`, `packages/storage/sqlite_asset_definition_catalog.py`, `packages/storage/postgres_asset_definition_catalog.py`, `packages/storage/ingestion_config.py`, `packages/pipelines/configured_csv_ingestion.py`, `packages/pipelines/configured_ingestion_definition.py`, `apps/api/app.py` | `tests/test_ingestion_config_repository.py`, `tests/test_configured_ingestion_definition.py`, `tests/test_api_app.py` |
 | ING-04 | Source classes, Batch extract | `packages/storage/ingestion_catalog.py`, `packages/storage/sqlite_source_contract_catalog.py`, `packages/storage/postgres_source_contract_catalog.py`, `packages/storage/sqlite_asset_definition_catalog.py`, `packages/storage/postgres_asset_definition_catalog.py`, `packages/storage/ingestion_config.py`, `packages/pipelines/configured_csv_ingestion.py`, `packages/pipelines/configured_ingestion_definition.py` | `tests/test_ingestion_config_repository.py`, `tests/test_configured_ingestion_definition.py` |
 | ING-05 | Source classes | `packages/pipelines/csv_validation.py`, `packages/pipelines/account_transactions.py` | `tests/test_csv_landing_validation.py`, `tests/test_account_transaction_transform.py` |
-| ING-06 | Source classes, Internal platform | — | — |
+| ING-06 | Source classes, Internal platform | `packages/pipelines/internal_platform_ingestion.py`, `packages/storage/landing_service.py` | `tests/test_internal_platform_ingestion.py`, `tests/test_landing_service.py` |
 | ING-07 | Mapping and ingestion config model | `packages/storage/ingestion_catalog.py`, `packages/storage/sqlite_source_contract_catalog.py`, `packages/storage/postgres_source_contract_catalog.py`, `packages/storage/sqlite_asset_definition_catalog.py`, `packages/storage/postgres_asset_definition_catalog.py`, `packages/storage/ingestion_config.py`, `packages/pipelines/configured_csv_ingestion.py`, `packages/pipelines/configured_ingestion_definition.py`, `packages/pipelines/promotion.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_ingestion_config_repository.py`, `tests/test_configured_csv_ingestion.py`, `tests/test_configured_ingestion_definition.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py` |
 | ING-08 | Mapping and ingestion config model | `packages/storage/ingestion_catalog.py`, `packages/storage/ingestion_config.py`, `packages/pipelines/configured_csv_ingestion.py`, `packages/pipelines/promotion.py` | `tests/test_configured_csv_ingestion.py`, `tests/test_api_app.py`, `tests/test_promotion.py` |
 | ING-09 | Source classes, Synced folder | — | — |
 | ING-10 | Source classes | `packages/pipelines/subscription_service.py`, `packages/pipelines/subscriptions.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/promotion.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_subscription_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py` |
 | ING-11 | Source classes | `packages/pipelines/contract_price_service.py`, `packages/pipelines/contract_prices.py`, `packages/pipelines/contract_price_models.py`, `packages/pipelines/promotion.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_contract_price_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py` |
+| ING-12 | Source classes | `packages/storage/ingestion_catalog.py`, `packages/storage/sqlite_reference_fact_catalog.py`, `packages/storage/postgres_reference_fact_catalog.py`, `packages/storage/control_plane_snapshot.py`, `packages/storage/ingestion_config.py`, `packages/storage/postgres_ingestion_config.py` | `tests/test_ingestion_config_repository.py`, `tests/control_plane_test_support.py` |

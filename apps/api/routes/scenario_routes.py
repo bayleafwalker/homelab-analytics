@@ -39,6 +39,13 @@ class ExpenseShockRequest(BaseModel):
     projection_months: int | None = None  # default 12
 
 
+class TariffShockRequest(BaseModel):
+    tariff_pct_delta: str                # decimal fraction, e.g. "0.10" = 10% increase
+    utility_type: str | None = None
+    label: str | None = None
+    projection_months: int | None = None  # default 12
+
+
 def register_scenario_routes(
     app: FastAPI,
     *,
@@ -159,6 +166,36 @@ def register_scenario_routes(
             "expense_pct_delta": str(result.expense_pct_delta),
             "new_monthly_expense": str(result.new_monthly_expense),
             "baseline_monthly_expense": str(result.baseline_monthly_expense),
+            "annual_additional_cost": str(result.annual_additional_cost),
+            "months_until_deficit": result.months_until_deficit,
+            "is_stale": result.is_stale,
+        }
+
+    @app.post("/api/scenarios/tariff-shock")
+    async def create_tariff_shock(body: TariffShockRequest) -> dict[str, Any]:
+        svc = _svc()
+        try:
+            pct = Decimal(body.tariff_pct_delta)
+        except InvalidOperation as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid tariff_pct_delta: {body.tariff_pct_delta!r}",
+            ) from exc
+        try:
+            result = svc.create_tariff_shock_scenario(
+                tariff_pct_delta=pct,
+                utility_type=body.utility_type or "electricity",
+                label=body.label,
+                projection_months=body.projection_months or 12,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "scenario_id": result.scenario_id,
+            "label": result.label,
+            "tariff_pct_delta": str(result.tariff_pct_delta),
+            "baseline_monthly_utility_cost": str(result.baseline_monthly_utility_cost),
+            "new_monthly_utility_cost": str(result.new_monthly_utility_cost),
             "annual_additional_cost": str(result.annual_additional_cost),
             "months_until_deficit": result.months_until_deficit,
             "is_stale": result.is_stale,

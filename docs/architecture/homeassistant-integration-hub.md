@@ -82,6 +82,11 @@ Action safety model:
 | Approval-gated action | Device or service state change | Explicit operator approval in HA or platform UI |
 
 Automated and approval-gated actions must be traceable to the policy or publication state that triggered them. The bridge records the action dispatch, the HA service call made, and the result. This is part of the trust and governance layer's audit contract.
+Approval-gated policy outputs are surfaced as explicit approval notifications so the operator can approve or dismiss the actuation path without losing lineage back to the originating policy result.
+Phase 6 tracks those approval-gated outputs as concrete proposal records in the action layer so the approval state can be updated independently of the original policy verdict. When a proposal is approved or dismissed, the platform clears the pending HA notification and writes a resolution record into the action log. Approval proposals may also carry an optional HA service target in metadata, allowing the dispatcher to execute a real service call before clearing the gate and preserving the audit trail for both the actuation and the approval boundary.
+One concrete pattern is a HA helper entity that represents an operator request, such as `input_boolean.hla_kitchen_light_request`; when that helper is on, the platform can emit an approval-gated proposal with a service target like `light.turn_on`.
+The bridge also publishes approval queue state back into HA as synthetic sensors, such as a pending-approval count, so operators can see unresolved approval work in dashboards without opening the API.
+The homelab and retro operations views also expose the pending approval proposals directly, with approve and dismiss controls that call the platform approval endpoints and return the operator to the same view with a status notice.
 
 ### Layer 6 — External ecosystem federation
 
@@ -97,11 +102,14 @@ Platform publications can be materialized as HA entities so they appear in dashb
 |---|---|---|
 | Budget state indicator | `sensor` | `sensor.monthly_budget_status` → on_track / warning / over |
 | Cost forecast | `sensor` | `sensor.electricity_cost_forecast_today` |
-| Tariff band | `binary_sensor` | `binary_sensor.peak_tariff_active` |
-| Maintenance flag | `binary_sensor` | `binary_sensor.dishwasher_maintenance_due` |
+| Tariff band | `sensor` | `sensor.homelab_analytics_peak_tariff_active` |
+| Maintenance flag | `sensor` | `sensor.homelab_analytics_maintenance_due` |
+| Maintenance pressure count | `sensor` | `sensor.homelab_analytics_maintenance_issue_count` |
+| Contract renewal count | `sensor` | `sensor.homelab_analytics_contract_renewal_due_count` |
 | Policy state | `input_boolean` | `input_boolean.battery_discharge_policy_active` |
 | Recommended action | `sensor` + attribute payload | `sensor.recommended_action_ev_charging` |
 | Platform health | `sensor` | `sensor.homelab_analytics_freshness` |
+| Approval queue | `sensor` | `sensor.homelab_analytics_approval_pending_count` |
 
 MQTT discovery is the preferred mechanism for synthetic entities. The bridge publishes a discovery configuration payload to `homeassistant/<component>/<object_id>/config` and sends state updates to the matching state topic. HA picks up the entity without requiring any modification to the HA instance. When an entity is retired or the bridge is reset, the bridge sends a discovery payload with an empty config to deregister the entity.
 

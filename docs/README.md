@@ -24,8 +24,14 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 - `product/core-product-design-workflow.md` — product design intake process and workflow.
 - `product/product-slice-template.md` — template for new product slices.
 
+## Examples
+
+- `examples/finance-source-contracts/op-account-csv.md` — OP account CSV contract guide, canonical output fields, and operator validation notes.
+- `examples/finance-source-contracts/credit-registry-snapshot.md` — Finnish positive credit registry contract guide, record types, and reconciliation notes.
+
 ## Sprints
 
+- `sprints/auth-identity-cutover-and-machine-federation.md` — Sprint H: auth migration completion and machine federation foundation.
 - `sprints/finance-ingestion-subsystem.md` — Sprint I plan for the finance ingestion subsystem, including the brief ordering and implementation stop points.
 - `sprints/household-operator-product-loop.md` — 4-sprint product delivery plan: Weekly Money View, Budget vs Reality, Debt and Cost Truth, Household Control Panel.
 - `sprints/product-sprint-scope.md` — initial product sprint scope and deliverables.
@@ -81,6 +87,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 - `plans/ha-addon-and-integration-design.md` — design plan for the HA add-on (outbound bridge) and HA integration (inbound semantic surface): architecture, entity model, update model, API contracts, security model, and documentation outputs.
 - `plans/homelab-analytics-platform-plan.md` — strategic decisions and rationale from the bootstrap phase. Detailed requirements now live in `requirements/` at the repository root.
 - `plans/additional-data-domains.md` — planned data domains beyond account transactions, with source systems, canonical models, and marts for each.
+- `plans/non-finance-domain-backlog.md` — assessment and backlog recommendation for non-finance domains while the finance sprint remains active.
 - `plans/external-registry-inclusion.md` — control-plane plan and implementation direction for GitHub or custom-folder extension sources and custom-function registration.
 
 ## Notes

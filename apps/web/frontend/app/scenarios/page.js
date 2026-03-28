@@ -8,12 +8,14 @@ const TYPE_LABELS = {
   loan_what_if: "Loan what-if",
   income_change: "Income change",
   expense_shock: "Expense shock",
+  tariff_shock: "Tariff shock",
 };
 
 const TYPE_COLORS = {
   loan_what_if: "var(--accent)",
   income_change: "var(--ok)",
   expense_shock: "var(--warning)",
+  tariff_shock: "var(--warning)",
 };
 
 function typeBadge(type) {

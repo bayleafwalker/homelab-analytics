@@ -1,4 +1,5 @@
 import unittest
+from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -13,8 +14,10 @@ from packages.storage.ingestion_config import (
     IngestionConfigRepository,
     IngestionDefinitionCreate,
     PublicationDefinitionCreate,
+    ReferenceFactCreate,
     RequestHeaderSecretRef,
     SourceAssetCreate,
+    SourceFreshnessConfigCreate,
     SourceSystemCreate,
     TransformationPackageCreate,
     allowed_publication_keys,
@@ -312,6 +315,215 @@ class IngestionConfigRepositoryTests(unittest.TestCase):
             )
             self.assertEqual("csv", ingestion_definition.response_format)
             self.assertEqual("usage.csv", ingestion_definition.output_file_name)
+
+    def test_repository_persists_utility_api_freshness_config(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+            repository.create_source_system(
+                SourceSystemCreate(
+                    source_system_id="utility_api",
+                    name="Utility API",
+                    source_type="api",
+                    transport="http",
+                    schedule_mode="scheduled",
+                )
+            )
+            repository.create_dataset_contract(
+                DatasetContractConfigCreate(
+                    dataset_contract_id="utility_usage_v1",
+                    dataset_name="utility_usage",
+                    version=1,
+                    allow_extra_columns=False,
+                    columns=(
+                        DatasetColumnConfig("booked_at", ColumnType.DATE),
+                        DatasetColumnConfig("account_id", ColumnType.STRING),
+                        DatasetColumnConfig("counterparty_name", ColumnType.STRING),
+                        DatasetColumnConfig("amount", ColumnType.DECIMAL),
+                        DatasetColumnConfig("currency", ColumnType.STRING),
+                    ),
+                )
+            )
+            repository.create_column_mapping(
+                ColumnMappingCreate(
+                    column_mapping_id="utility_api_v1",
+                    source_system_id="utility_api",
+                    dataset_contract_id="utility_usage_v1",
+                    version=1,
+                    rules=(
+                        ColumnMappingRule("booked_at", source_column="booking_date"),
+                        ColumnMappingRule("account_id", source_column="account_number"),
+                        ColumnMappingRule("counterparty_name", source_column="payee"),
+                        ColumnMappingRule("amount", source_column="amount_eur"),
+                        ColumnMappingRule("currency", default_value="EUR"),
+                    ),
+                )
+            )
+            repository.create_source_asset(
+                SourceAssetCreate(
+                    source_asset_id="utility_api_asset",
+                    source_system_id="utility_api",
+                    dataset_contract_id="utility_usage_v1",
+                    column_mapping_id="utility_api_v1",
+                    name="Utility Usage API Asset",
+                    asset_type="dataset",
+                    transformation_package_id="builtin_account_transactions",
+                )
+            )
+
+            freshness_config = repository.create_source_freshness_config(
+                SourceFreshnessConfigCreate(
+                    source_asset_id="utility_api_asset",
+                    acquisition_mode="api_pull",
+                    expected_frequency="monthly",
+                    coverage_kind="continuous",
+                    due_day_of_month=None,
+                    expected_window_days=2,
+                    freshness_sla_days=10,
+                    sensitivity_class="utility",
+                    reminder_channel="dashboard",
+                    requires_human_action=False,
+                )
+            )
+
+            self.assertEqual(
+                freshness_config,
+                repository.get_source_freshness_config("utility_api_asset"),
+            )
+            self.assertEqual(1, len(repository.list_source_freshness_configs()))
+
+            snapshot = repository.export_snapshot()
+            target_repository = IngestionConfigRepository(Path(temp_dir) / "target.db")
+            target_repository.import_snapshot(snapshot)
+
+            self.assertEqual(
+                freshness_config,
+                target_repository.get_source_freshness_config("utility_api_asset"),
+            )
+
+    def test_repository_persists_source_freshness_configs_and_snapshot_round_trip(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+            repository.create_source_system(
+                SourceSystemCreate(
+                    source_system_id="finance_uploads",
+                    name="Finance Uploads",
+                    source_type="file-drop",
+                    transport="filesystem",
+                    schedule_mode="manual",
+                )
+            )
+            repository.create_dataset_contract(
+                DatasetContractConfigCreate(
+                    dataset_contract_id="finance_uploads_v1",
+                    dataset_name="finance_uploads",
+                    version=1,
+                    allow_extra_columns=False,
+                    columns=(DatasetColumnConfig("booked_at", ColumnType.DATE),),
+                )
+            )
+            repository.create_column_mapping(
+                ColumnMappingCreate(
+                    column_mapping_id="finance_uploads_mapping_v1",
+                    source_system_id="finance_uploads",
+                    dataset_contract_id="finance_uploads_v1",
+                    version=1,
+                    rules=(ColumnMappingRule("booked_at", source_column="date"),),
+                )
+            )
+            repository.create_source_asset(
+                SourceAssetCreate(
+                    source_asset_id="finance_uploads_asset",
+                    source_system_id="finance_uploads",
+                    dataset_contract_id="finance_uploads_v1",
+                    column_mapping_id="finance_uploads_mapping_v1",
+                    name="Finance Uploads Asset",
+                    asset_type="dataset",
+                )
+            )
+
+            freshness_config = repository.create_source_freshness_config(
+                SourceFreshnessConfigCreate(
+                    source_asset_id="finance_uploads_asset",
+                    acquisition_mode="manual_export",
+                    expected_frequency="monthly",
+                    coverage_kind="rolling_period",
+                    due_day_of_month=5,
+                    expected_window_days=5,
+                    freshness_sla_days=40,
+                    sensitivity_class="financial",
+                    reminder_channel="dashboard",
+                    requires_human_action=True,
+                )
+            )
+
+            self.assertEqual(
+                freshness_config,
+                repository.get_source_freshness_config("finance_uploads_asset"),
+            )
+            self.assertEqual(1, len(repository.list_source_freshness_configs()))
+
+            snapshot = repository.export_snapshot()
+            target_repository = IngestionConfigRepository(Path(temp_dir) / "target.db")
+            target_repository.import_snapshot(snapshot)
+
+            self.assertEqual(
+                freshness_config,
+                target_repository.get_source_freshness_config("finance_uploads_asset"),
+            )
+
+    def test_repository_persists_reference_facts_with_versioning(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+
+            repository.create_reference_fact(
+                ReferenceFactCreate(
+                    fact_id="fact-001",
+                    entity_type="loan_policy",
+                    entity_key="mortgage-001",
+                    attribute="interest_margin",
+                    value="0.75",
+                    effective_from=date(2025, 1, 1),
+                    source="operator",
+                    created_by="user-admin-001",
+                    note="Initial margin.",
+                )
+            )
+            second_fact = repository.create_reference_fact(
+                ReferenceFactCreate(
+                    fact_id="fact-002",
+                    entity_type="loan_policy",
+                    entity_key="mortgage-001",
+                    attribute="interest_margin",
+                    value="0.80",
+                    effective_from=date(2026, 1, 1),
+                    source="operator",
+                    created_by="user-admin-001",
+                    note="Updated margin.",
+                )
+            )
+
+            self.assertIsNone(second_fact.effective_to)
+            first_fact_closed = repository.get_reference_fact("fact-001")
+            self.assertEqual(date(2025, 12, 31), first_fact_closed.effective_to)
+            self.assertEqual(
+                ["fact-002"],
+                [
+                    fact.fact_id
+                    for fact in repository.list_reference_facts(include_closed=False)
+                ],
+            )
+
+            closed = repository.close_reference_fact(
+                "fact-002",
+                effective_to=date(2026, 6, 30),
+                closed_by="user-admin-001",
+            )
+
+            self.assertEqual(date(2026, 6, 30), closed.effective_to)
+            self.assertEqual("user-admin-001", closed.closed_by)
+            self.assertEqual(2, len(repository.list_reference_facts()))
 
     def test_repository_exposes_transformation_packages_and_publications(self) -> None:
         with TemporaryDirectory() as temp_dir:

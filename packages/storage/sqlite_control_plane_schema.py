@@ -89,6 +89,42 @@ def initialize_sqlite_control_plane_schema(connection: sqlite3.Connection) -> No
             FOREIGN KEY (transformation_package_id) REFERENCES transformation_packages (transformation_package_id)
         );
 
+        CREATE TABLE IF NOT EXISTS source_freshness_configs (
+            source_asset_id TEXT PRIMARY KEY,
+            acquisition_mode TEXT NOT NULL,
+            expected_frequency TEXT NOT NULL,
+            coverage_kind TEXT NOT NULL,
+            due_day_of_month INTEGER,
+            expected_window_days INTEGER NOT NULL,
+            freshness_sla_days INTEGER NOT NULL,
+            sensitivity_class TEXT NOT NULL,
+            reminder_channel TEXT NOT NULL,
+            requires_human_action INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (source_asset_id) REFERENCES source_assets (source_asset_id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS reference_facts (
+            fact_id TEXT PRIMARY KEY,
+            entity_type TEXT NOT NULL,
+            entity_key TEXT NOT NULL,
+            attribute TEXT NOT NULL,
+            value TEXT NOT NULL,
+            effective_from TEXT NOT NULL,
+            effective_to TEXT,
+            source TEXT NOT NULL,
+            created_by TEXT NOT NULL,
+            note TEXT,
+            created_at TEXT NOT NULL,
+            closed_by TEXT,
+            closed_at TEXT,
+            UNIQUE (entity_type, entity_key, attribute, effective_from)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_reference_facts_entity_version
+            ON reference_facts (entity_type, entity_key, attribute, effective_from);
+
         CREATE TABLE IF NOT EXISTS ingestion_definitions (
             ingestion_definition_id TEXT PRIMARY KEY,
             source_asset_id TEXT NOT NULL,

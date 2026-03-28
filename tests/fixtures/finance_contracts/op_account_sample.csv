@@ -1,0 +1,4 @@
+Kirjauspäivä;Arvopäivä;Tilinumero;Saaja/Maksaja;Summa;Valuutta;Viesti;Arkistotunnus;Tapahtuman tila;Tapahtumalaji
+2026-01-02;2026-01-02;CHK-001;Electric Utility;-84,15;EUR;Monthly bill;OP-ARCH-001;Booked;Debit
+2026-01-03;2026-01-03;CHK-001;Loan Servicer;-120,00;EUR;Lyhennys pääoma 100,00 korko 15,00 kulut 5,00 jäljellä 900,00;OP-ARCH-002;Booked;Debit
+2026-01-03;2026-01-03;CHK-001;Employer;2450,00;EUR;Salary;OP-ARCH-003;Booked;Credit

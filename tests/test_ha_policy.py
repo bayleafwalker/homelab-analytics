@@ -12,9 +12,11 @@ from datetime import UTC, datetime, timedelta
 from packages.pipelines.ha_policy import (
     _POLICIES,
     HaPolicyEvaluator,
+    PolicyResult,
     _evaluate_bridge_health,
     _evaluate_budget_status,
     _evaluate_monthly_spend_rate,
+    _PolicyDef,
 )
 
 # ---------------------------------------------------------------------------
@@ -157,17 +159,28 @@ class PolicyEvaluatorTests(unittest.TestCase):
     def test_evaluate_returns_three_results(self) -> None:
         evaluator = self._evaluator()
         results = evaluator.evaluate()
-        self.assertEqual(3, len(results))
+        self.assertEqual(4, len(results))
 
     def test_evaluate_result_ids(self) -> None:
         evaluator = self._evaluator()
         ids = {r.id for r in evaluator.evaluate()}
-        self.assertEqual({"budget_status", "monthly_spend_rate", "bridge_health"}, ids)
+        self.assertEqual(
+            {"budget_status", "monthly_spend_rate", "bridge_health", "kitchen_light_request"},
+            ids,
+        )
 
     def test_result_to_dict_keys(self) -> None:
         evaluator = self._evaluator()
         d = evaluator.evaluate()[0].to_dict()
-        for key in ("id", "name", "description", "verdict", "value", "evaluated_at"):
+        for key in (
+            "id",
+            "name",
+            "description",
+            "verdict",
+            "value",
+            "evaluated_at",
+            "approval_required",
+        ):
             self.assertIn(key, d)
 
     def test_get_results_empty_before_evaluate(self) -> None:
@@ -194,3 +207,50 @@ class PolicyEvaluatorTests(unittest.TestCase):
     def test_policy_count_matches_registry(self) -> None:
         evaluator = self._evaluator()
         self.assertEqual(len(_POLICIES), len(evaluator.evaluate()))
+
+    def test_policy_registry_propagates_approval_required(self) -> None:
+        def eval_ok(context: dict, now: datetime) -> tuple[str, str | None]:
+            return "warning", "123.4%"
+
+        sentinel = _PolicyDef(
+            id="device_control",
+            name="Device Control",
+            description="Approval-gated device control proposal.",
+            evaluate_fn=eval_ok,
+            approval_required=True,
+        )
+        original = list(_POLICIES)
+        try:
+            _POLICIES.append(sentinel)
+            results = self._evaluator({}).evaluate()
+        finally:
+            _POLICIES[:] = original
+
+        match = next(r for r in results if r.id == "device_control")
+        self.assertIsInstance(match, PolicyResult)
+        self.assertTrue(match.approval_required)
+        self.assertEqual(match.to_dict()["approval_required"], True)
+
+    def test_kitchen_light_request_policy_uses_helper_entity(self) -> None:
+        evaluator = self._evaluator(
+            {
+                "ha_entities": [
+                    {
+                        "entity_id": "input_boolean.hla_kitchen_light_request",
+                        "last_state": "on",
+                    }
+                ]
+            }
+        )
+        result = next(r for r in evaluator.evaluate() if r.id == "kitchen_light_request")
+        self.assertEqual("warning", result.verdict)
+        self.assertTrue(result.approval_required)
+        self.assertIn("approval_action", result.metadata)
+        self.assertEqual(
+            result.metadata["approval_action"]["service"],
+            "turn_on",
+        )
+        self.assertEqual(
+            result.to_dict()["metadata"]["approval_action"]["domain"],
+            "light",
+        )

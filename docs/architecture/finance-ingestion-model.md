@@ -77,7 +77,19 @@ For sparse operator-entered facts that do not come from file-based sources. Thes
 
 Lane C does not use `SourceContractParser`. Manual inputs enter through the API or dashboard and are stored as versioned reference facts with effective dating and audit metadata.
 
+In the current implementation, those facts live in the control-plane `reference_facts` table and round-trip through the control-plane snapshot export/import path.
+
 Lane C is explicitly limited to sparse facts. Bulk data entry belongs in Lane A (structured import) or the existing configured CSV pipeline.
+
+The code-level taxonomy in `packages/domains/finance/contracts/base.py` uses:
+
+- `FinanceIngestionLane.STRUCTURED_CONTRACT`
+- `FinanceIngestionLane.DOCUMENT_PARSER`
+- `FinanceIngestionLane.MANUAL_REFERENCE`
+- `FinanceDatasetType.TRANSACTION_EVENT_STREAM`
+- `FinanceDatasetType.STATEMENT_SNAPSHOT`
+- `FinanceDatasetType.EXTERNAL_RECONCILIATION_SNAPSHOT`
+- `FinanceDatasetType.MANUAL_REFERENCE_DATASET`
 
 ---
 
@@ -156,9 +168,28 @@ Fields: `entity_type`, `entity_key`, `attribute`, `value`, `effective_from`, `ef
 The `SourceContractParser` protocol is the shared interface for Lane A and Lane B parsers. It lives in `packages/domains/finance/contracts/base.py`.
 
 ```python
+class FinanceIngestionLane(StrEnum):
+    STRUCTURED_CONTRACT = "structured_contract"
+    DOCUMENT_PARSER = "document_parser"
+    MANUAL_REFERENCE = "manual_reference"
+
+class FinanceDatasetType(StrEnum):
+    TRANSACTION_EVENT_STREAM = "transaction_event_stream"
+    STATEMENT_SNAPSHOT = "statement_snapshot"
+    EXTERNAL_RECONCILIATION_SNAPSHOT = "external_reconciliation_snapshot"
+    MANUAL_REFERENCE_DATASET = "manual_reference_dataset"
+
+@dataclass(frozen=True)
+class FinanceContractTaxonomy:
+    dataset_type: FinanceDatasetType
+    lane: FinanceIngestionLane
+    description: str
+    dedupe_strategy: str
+    lineage_model: str
+
 @dataclass(frozen=True)
 class ParseResult:
-    dataset_type: str                      # canonical dataset type identifier
+    dataset_type: FinanceDatasetType       # canonical dataset type identifier
     records: list[dict[str, Any]]          # normalized output rows
     warnings: list[ValidationIssue]        # parser warnings / confidence flags
     metadata: dict[str, Any]              # parser-specific metadata
@@ -166,7 +197,7 @@ class ParseResult:
 
 class SourceContractParser(Protocol):
     contract_id: str                       # unique parser identifier
-    dataset_type: str                      # canonical dataset type
+    dataset_type: FinanceDatasetType        # canonical dataset type
 
     def detect(self, file_name: str, header_bytes: bytes) -> bool:
         """Return True if the file matches this parser's expected format."""

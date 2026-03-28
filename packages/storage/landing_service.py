@@ -69,14 +69,35 @@ class LandingService:
         canonical_source_bytes: bytes | None = None,
         run_context: RunControlContext | None = None,
     ) -> LandingRunResult:
-        # Normalize for validation/parsing but keep originals for archiving.
-        # raw_path and sha256 always reflect the original upload so that
-        # retrying a run re-reads the same bytes and re-normalises correctly.
-        normalized_bytes = normalize_to_csv_bytes(source_bytes, file_name)
-        validated_bytes = (
-            normalized_bytes if validation_source_bytes is None else validation_source_bytes
+        normalized_bytes = (
+            normalize_to_csv_bytes(source_bytes, file_name)
+            if validation_source_bytes is None
+            else validation_source_bytes
         )
-        source_text = validated_bytes.decode("utf-8")
+        return self.ingest_raw_bytes(
+            source_bytes=source_bytes,
+            file_name=file_name,
+            source_name=source_name,
+            contract=contract,
+            validation_source_bytes=normalized_bytes,
+            canonical_source_bytes=canonical_source_bytes,
+            run_context=run_context,
+        )
+
+    def ingest_raw_bytes(
+        self,
+        source_bytes: bytes,
+        file_name: str,
+        source_name: str,
+        contract: DatasetContract,
+        validation_source_bytes: bytes,
+        canonical_source_bytes: bytes | None = None,
+        run_context: RunControlContext | None = None,
+    ) -> LandingRunResult:
+        # Keep the original bytes for archiving while validating a normalized
+        # projection. This is used by JSON-backed connectors that still land
+        # immutable raw evidence.
+        source_text = validation_source_bytes.decode("utf-8")
         validation = validate_csv_text(source_text, contract)
 
         run_id = uuid4().hex

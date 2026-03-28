@@ -8,6 +8,8 @@ Manual reference inputs are the platform's pathway for this kind of sparse factu
 
 **Architecture reference:** `docs/architecture/finance-ingestion-model.md`
 
+The control plane stores these facts in a `reference_facts` table. Each record is a versioned fact row, not a mutable blob, so the history of each operator decision remains queryable.
+
 ---
 
 ## The boundary
@@ -46,6 +48,8 @@ Each manual fact is an immutable versioned record:
 | `created_by` | STRING | Principal ID of the creator |
 | `created_at` | DATETIME | When this version was created |
 | `note` | STRING \| NULL | Optional operator note explaining the fact |
+
+The storage layer also tracks `closed_by` and `closed_at` when an older version is superseded or closed.
 
 ### Versioning
 

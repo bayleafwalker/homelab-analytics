@@ -8,6 +8,8 @@ This document describes the contracts available for personal finance ingestion, 
 
 **Architecture reference:** `docs/architecture/finance-ingestion-model.md`
 
+The implementation exposes the shared vocabulary in `packages/domains/finance/contracts/base.py` so the parser protocol, the canonical dataset types, and the ingestion lanes stay aligned across new contracts.
+
 ---
 
 ## Available contracts
@@ -19,7 +21,7 @@ These contracts parse bank account CSV exports into a canonical transaction even
 | Contract | Provider | Format | Key features |
 |----------|----------|--------|--------------|
 | `op_account_transactions_csv_v1` | OP (Osuuspankki) | Semicolon-delimited CSV, Finnish headers, decimal comma | Archive ID dedupe, repayment message enrichment |
-| `revolut_personal_account_statement_v1` | Revolut | Comma-delimited CSV, English headers | Provider state/type preservation, fee tracking |
+| `revolut_personal_account_statement_v1` | Revolut | Comma-delimited CSV, English headers | Provider state/type preservation, fee tracking, stable source account id |
 
 **When to use:** These are the primary truth for cash movement. Use them to answer "what money moved, when, and between whom."
 
@@ -62,6 +64,8 @@ These contracts parse point-in-time exports from external authorities into a sna
 3. Upload to the platform
 4. The parser extracts report metadata, per-credit records, and income rows
 5. Results are available for reconciliation against internal loan/account data
+
+The parser emits a snapshot record, one record per registered credit, and one record per income row. All records carry the same `snapshot_id` so downstream reconciliation can join them safely.
 
 ---
 
@@ -142,6 +146,8 @@ The platform tracks expected acquisition schedules through the source freshness 
 | `provider_state` | STRING | Provider-specific status |
 
 Plus provider-specific fields retained in metadata columns (archive ID, BIC, reference, fee, balance-after-transaction, etc.).
+
+For Revolut personal account exports, the parser derives a stable source account identifier for the personal statement feed so the canonical transaction stream still carries `account_id` even though the raw export does not.
 
 ### Statement snapshot (OP Gold invoice)
 

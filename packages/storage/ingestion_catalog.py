@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from packages.pipelines.builtin_packages import BUILTIN_TRANSFORMATION_PACKAGE_SPECS
 from packages.pipelines.csv_validation import ColumnContract, ColumnType, DatasetContract
@@ -123,6 +124,72 @@ class SourceAssetRecord:
 
 
 @dataclass(frozen=True)
+class SourceFreshnessConfigCreate:
+    source_asset_id: str
+    acquisition_mode: str
+    expected_frequency: str
+    coverage_kind: str
+    due_day_of_month: int | None
+    expected_window_days: int
+    freshness_sla_days: int
+    sensitivity_class: str
+    reminder_channel: str
+    requires_human_action: bool
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass(frozen=True)
+class SourceFreshnessConfigRecord:
+    source_asset_id: str
+    acquisition_mode: str
+    expected_frequency: str
+    coverage_kind: str
+    due_day_of_month: int | None
+    expected_window_days: int
+    freshness_sla_days: int
+    sensitivity_class: str
+    reminder_channel: str
+    requires_human_action: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True)
+class ReferenceFactCreate:
+    entity_type: str
+    entity_key: str
+    attribute: str
+    value: str
+    effective_from: date
+    fact_id: str | None = None
+    effective_to: date | None = None
+    source: str = "operator"
+    created_by: str = ""
+    note: str | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    closed_by: str | None = None
+    closed_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class ReferenceFactRecord:
+    fact_id: str
+    entity_type: str
+    entity_key: str
+    attribute: str
+    value: str
+    effective_from: date
+    effective_to: date | None
+    source: str
+    created_by: str
+    note: str | None
+    created_at: datetime
+    closed_by: str | None
+    closed_at: datetime | None
+
+
+@dataclass(frozen=True)
 class TransformationPackageCreate:
     transformation_package_id: str
     name: str
@@ -234,6 +301,10 @@ def resolve_dataset_contract(
         ),
         allow_extra_columns=dataset_contract.allow_extra_columns,
     )
+
+
+def generate_reference_fact_id() -> str:
+    return uuid.uuid4().hex
 
 
 def _deserialize_columns(value: str) -> tuple[DatasetColumnConfig, ...]:
