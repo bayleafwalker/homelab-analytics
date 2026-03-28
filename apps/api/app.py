@@ -341,6 +341,11 @@ def create_app(
         resolved_identity_mode = container.settings.resolved_identity_mode
         resolved_auth_mode = container.settings.resolved_auth_mode
     else:
+        if identity_mode is None and auth_mode.strip().lower() != "disabled":
+            raise ValueError(
+                "Legacy auth_mode-only create_app calls are no longer supported; "
+                "pass identity_mode explicitly."
+            )
         service = service_or_container
         container = _build_container_from_legacy_args(
             service,
@@ -351,9 +356,7 @@ def create_app(
             subscription_service=subscription_service,
             contract_price_service=contract_price_service,
         )
-        resolved_identity_mode = normalize_identity_mode(
-            identity_mode or auth_mode
-        )
+        resolved_identity_mode = normalize_identity_mode(identity_mode or "disabled")
         resolved_auth_mode = normalize_auth_mode(resolved_identity_mode)
 
     # Auto-build a reporting service from transformation_service when reporting_service

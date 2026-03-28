@@ -45,6 +45,22 @@ FIXTURES = ROOT / "tests" / "fixtures"
 
 
 class ApiAppTests(unittest.TestCase):
+    def test_create_app_rejects_legacy_auth_mode_only_bootstrap(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(
+                ValueError,
+                "identity_mode explicitly",
+            ):
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs.db"
+                        ),
+                    ),
+                    auth_mode="local",
+                )
+
     def test_create_app_requires_configured_proxy_provider_for_proxy_mode(self) -> None:
         with TemporaryDirectory() as temp_dir:
             with self.assertRaisesRegex(
