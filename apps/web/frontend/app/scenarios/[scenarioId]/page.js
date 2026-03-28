@@ -47,6 +47,7 @@ export default async function ScenarioDetailPage({ params }) {
 
   const isStale = comparison?.is_stale || cashflow?.is_stale;
   const assumptions = comparison?.assumptions || cashflow?.assumptions || [];
+  const summaryRows = cashflow?.summary_rows || [];
 
   return (
     <AppShell
@@ -155,6 +156,49 @@ export default async function ScenarioDetailPage({ params }) {
                         >
                           {netDelta >= 0 ? "+" : ""}
                           {fmt(row.net_delta)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </article>
+        )}
+
+        {/* Homelab cost/benefit: summary-style comparison */}
+        {summaryRows.length > 0 && (
+          <article className="panel section">
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">Cost/value summary</div>
+                <h2>Baseline vs scenario</h2>
+              </div>
+            </div>
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Metric</th>
+                    <th>Baseline</th>
+                    <th>Scenario</th>
+                    <th>Delta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summaryRows.map((row, i) => {
+                    const metric = row.metric || row.metric_name || row.summary_key || row.label || `metric_${i + 1}`;
+                    const baselineValue = row.baseline_value ?? row.baseline ?? row.baseline_metric;
+                    const scenarioValue = row.scenario_value ?? row.projected_value ?? row.scenario ?? row.projected_metric;
+                    const deltaValue = row.delta_value ?? row.delta ?? row.metric_delta;
+                    const unit = row.unit || row.currency || "";
+                    return (
+                      <tr key={`${metric}-${i}`}>
+                        <td>{metric}</td>
+                        <td>{baselineValue == null ? "—" : `${fmt(baselineValue)} ${unit}`.trim()}</td>
+                        <td>{scenarioValue == null ? "—" : `${fmt(scenarioValue)} ${unit}`.trim()}</td>
+                        <td style={deltaStyle(deltaValue)}>
+                          {deltaValue == null ? "—" : `${sign(deltaValue)} ${unit}`.trim()}
                         </td>
                       </tr>
                     );

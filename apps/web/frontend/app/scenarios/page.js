@@ -9,6 +9,7 @@ const TYPE_LABELS = {
   income_change: "Income change",
   expense_shock: "Expense shock",
   tariff_shock: "Tariff shock",
+  homelab_cost_benefit: "Homelab cost/benefit",
 };
 
 const TYPE_COLORS = {
@@ -16,6 +17,7 @@ const TYPE_COLORS = {
   income_change: "var(--ok)",
   expense_shock: "var(--warning)",
   tariff_shock: "var(--warning)",
+  homelab_cost_benefit: "var(--accent-2)",
 };
 
 function typeBadge(type) {
