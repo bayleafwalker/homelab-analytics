@@ -41,6 +41,14 @@ function formatCost(value) {
   return number.toFixed(2);
 }
 
+function formatPercent(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return "—";
+  }
+  return `${(number * 100).toFixed(1)}%`;
+}
+
 function summarizeServiceHealth(rows) {
   const running = rows.filter((row) => row.state === "running").length;
   const needsAttention = rows.length - running;
@@ -54,6 +62,26 @@ function summarizeWorkloads(rows) {
     sorted,
     totalEstimatedCost,
     topWorkloads: sorted.slice(0, 5),
+  };
+}
+
+function summarizeValueLoop(services, workloads) {
+  const serviceSummary = summarizeServiceHealth(services);
+  const workloadSummary = summarizeWorkloads(workloads);
+  const healthyServiceShare = services.length > 0 ? serviceSummary.running / services.length : null;
+  const costPerHealthyService =
+    serviceSummary.running > 0 ? workloadSummary.totalEstimatedCost / serviceSummary.running : null;
+  const topWorkload = workloadSummary.topWorkloads[0] || null;
+  const topWorkloadShare =
+    topWorkload && workloadSummary.totalEstimatedCost > 0
+      ? Number(topWorkload.est_monthly_cost || 0) / workloadSummary.totalEstimatedCost
+      : null;
+
+  return {
+    healthyServiceShare,
+    costPerHealthyService,
+    topWorkload,
+    topWorkloadShare,
   };
 }
 
@@ -89,6 +117,7 @@ export default async function HomelabPage({ searchParams }) {
   const notice = noticeCopy(searchParams?.notice, searchParams?.action_id);
   const serviceSummary = summarizeServiceHealth(services);
   const workloadSummary = summarizeWorkloads(workloads);
+  const valueLoopSummary = summarizeValueLoop(services, workloads);
 
   return (
     <AppShell
@@ -373,6 +402,10 @@ export default async function HomelabPage({ searchParams }) {
               {services.length} services
             </span>
           </div>
+          <p className="muted">
+            Comparing the published service-health and workload-cost marts as a directional
+            value-vs-cost signal, not a formal ROI model.
+          </p>
           <dl className="kvGrid">
             <dt>Healthy services</dt>
             <dd>{serviceSummary.running}</dd>
@@ -382,6 +415,20 @@ export default async function HomelabPage({ searchParams }) {
             <dd>{workloads.length}</dd>
             <dt>Estimated monthly workload cost</dt>
             <dd>{formatCost(workloadSummary.totalEstimatedCost)}</dd>
+          </dl>
+          <dl className="kvGrid">
+            <dt>Healthy service share</dt>
+            <dd>{formatPercent(valueLoopSummary.healthyServiceShare)}</dd>
+            <dt>Cost per healthy service</dt>
+            <dd>{formatCost(valueLoopSummary.costPerHealthyService)}</dd>
+            <dt>Highest-cost workload</dt>
+            <dd>
+              {valueLoopSummary.topWorkload
+                ? `${valueLoopSummary.topWorkload.display_name || valueLoopSummary.topWorkload.workload_id} (${formatCost(valueLoopSummary.topWorkload.est_monthly_cost)})`
+                : "—"}
+            </dd>
+            <dt>Highest-cost share</dt>
+            <dd>{formatPercent(valueLoopSummary.topWorkloadShare)}</dd>
           </dl>
           {workloadSummary.topWorkloads.length === 0 ? (
             <div className="empty">No published workload cost rows yet.</div>
