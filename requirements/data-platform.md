@@ -104,7 +104,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Canonical facts decouple source-specific formats from downstream analytics and enable cross-source joining.
 
 **Phase:** 1–3
-**Status:** in-progress (`fact_transaction`, `fact_subscription_charge`, `fact_contract_price`, `fact_utility_usage`, `fact_bill`, `fact_loan_repayment`, `fact_cluster_metric`, `fact_power_consumption`, `fact_asset_event`, `fact_sensor_reading`, and `fact_automation_event` are persisted in DuckDB via `TransformationService`; loan and asset domains now also feed reporting-layer starters and marts, while the remaining Stage 1 balance carryover is still `fact_balance_snapshot`)
+**Status:** in-progress (`fact_transaction`, `fact_subscription_charge`, `fact_contract_price`, `fact_balance_snapshot`, `fact_utility_usage`, `fact_bill`, `fact_loan_repayment`, `fact_cluster_metric`, `fact_power_consumption`, `fact_asset_event`, `fact_sensor_reading`, and `fact_automation_event` are persisted in DuckDB via `TransformationService`; loan and asset domains now also feed reporting-layer starters and marts, while the remaining Stage 1 dimension work is concentrated in `dim_household_member`)
 
 **Acceptance criteria:**
 - Each fact table is persisted in DuckDB/Parquet with documented schema.

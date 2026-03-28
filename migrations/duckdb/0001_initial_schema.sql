@@ -200,6 +200,17 @@ CREATE TABLE IF NOT EXISTS fact_transaction_current (
     reconciled_at TIMESTAMPTZ NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS fact_balance_snapshot (
+    snapshot_id VARCHAR PRIMARY KEY,
+    snapshot_date DATE NOT NULL,
+    balance_kind VARCHAR NOT NULL,
+    entity_id VARCHAR NOT NULL,
+    entity_label VARCHAR,
+    balance_amount DECIMAL(18,4) NOT NULL,
+    currency VARCHAR NOT NULL,
+    run_id VARCHAR
+);
+
 
 -- Transaction domain
 CREATE TABLE IF NOT EXISTS fact_transaction (

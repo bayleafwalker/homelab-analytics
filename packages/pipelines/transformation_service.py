@@ -47,6 +47,11 @@ from packages.pipelines.loan_models import (
     CURRENT_DIM_LOAN_VIEW,
     DIM_LOAN,
 )
+from packages.pipelines.transformation_balances import (
+    ensure_balance_storage,
+    get_balance_snapshot,
+    refresh_balance_snapshot,
+)
 from packages.pipelines.normalization import (
     normalize_currency_code,
     normalize_timestamp_utc,
@@ -294,6 +299,7 @@ class TransformationService:
         self._store.ensure_dimension(DIM_LOAN)
         self._store.ensure_current_dimension_view(DIM_LOAN, CURRENT_DIM_LOAN_VIEW)
         ensure_loan_storage(self._store)
+        ensure_balance_storage(self._store)
 
         ensure_overview_storage(self._store)
         ensure_category_storage(self._store)
@@ -739,6 +745,9 @@ class TransformationService:
     def refresh_loan_overview(self) -> int:
         return refresh_loan_overview(self._store)
 
+    def refresh_balance_snapshot(self) -> int:
+        return refresh_balance_snapshot(self._store)
+
     def get_loan_schedule_projected(
         self, loan_id: str | None = None,
     ) -> list[dict[str, Any]]:
@@ -751,6 +760,9 @@ class TransformationService:
 
     def get_loan_overview(self) -> list[dict[str, Any]]:
         return get_loan_overview(self._store)
+
+    def get_balance_snapshot(self, balance_kind: str | None = None) -> list[dict[str, Any]]:
+        return get_balance_snapshot(self._store, balance_kind=balance_kind)
 
     def load_contract_prices(
         self,

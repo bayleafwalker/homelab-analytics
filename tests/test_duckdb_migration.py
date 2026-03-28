@@ -19,6 +19,7 @@ _EXPECTED_TABLES = {
     # Entity + current projection
     "transaction_entity",
     "fact_transaction_current",
+    "fact_balance_snapshot",
     # Core fact
     "fact_transaction",
     # Dimensions (SCD2)

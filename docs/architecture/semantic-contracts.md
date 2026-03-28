@@ -45,7 +45,7 @@ Domain-local does not mean ad hoc. Each still needs reporting-layer publication 
 ## Known governance gaps
 
 - `dim_household_member` is still planned and not implemented.
-- `fact_balance_snapshot` is still planned and not implemented; it is the remaining Stage 1 point-in-time balance fact alongside `dim_household_member`.
+- `fact_balance_snapshot` is implemented as the Stage 1 point-in-time balance fact across account and loan balances.
 - Finance still stores `dim_counterparty.category` as a free-text bridge instead of a canonical `category_id`.
 - Provider semantics still live inside domain-local string columns such as `dim_contract.provider`; there is no shared provider dimension yet.
 - Infrastructure and homelab current dimensions (`dim_node`, `dim_device`, `dim_service`, `dim_workload`) exist in transformation but are not yet published through the same app-facing current-dimension contract path as the earlier Stage 1 dimensions.

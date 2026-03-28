@@ -65,7 +65,7 @@ Move from "several useful domain-specific transforms" to a stable, versioned, cr
 
 ### Key deliverables
 
-- Remaining canonical dimensions and facts narrowed to the real carryover: `dim_household_member`, `fact_balance_snapshot`, and infrastructure follow-up that has not yet received explicit landing/reporting contracts
+- Remaining canonical dimensions and facts narrowed to the real carryover: `dim_household_member` and infrastructure follow-up that has not yet received explicit landing/reporting contracts; `fact_balance_snapshot` is now implemented as the Stage 1 point-in-time balance fact
 - Home automation state foundation (`dim_entity`, `fact_sensor_reading`, `fact_automation_event`) now exists in the transformation layer and remains separate from the HA bridge tables
 - Cross-domain semantic-governance rules ensuring shared dimensions such as `dim_category` and `dim_counterparty` are defined once and promoted deliberately when new platform-level identities emerge
 - Semantic typing for publications so renderer consumers can rely on meaning-bearing metadata beyond table names
@@ -77,7 +77,6 @@ The architecture doc already names most of these dimensions and facts in the tra
 ### Remaining gaps
 
 - `dim_household_member`
-- `fact_balance_snapshot`
 - Landing contracts and reporting starters that complete the remaining infrastructure foundations
 - Explicit promotion rules for future shared dimensions instead of treating repeated provider-style fields as a registry by default
 
@@ -88,7 +87,7 @@ The architecture doc already names most of these dimensions and facts in the tra
 
 ### Status
 
-Mostly complete. Sprint I finance ingestion is complete, and the worktree now includes internal-platform ingestion, utilities automation foundations, loan and budget planning models, infrastructure metrics dimensions/facts, home-automation state foundations, and the completed asset inventory foundation. Remaining Stage 1 work is the true carryover: semantic-governance cleanup, explicit infrastructure contracts, `dim_household_member`, and `fact_balance_snapshot`.
+Mostly complete. Sprint I finance ingestion is complete, and the worktree now includes internal-platform ingestion, utilities automation foundations, loan and budget planning models, infrastructure metrics dimensions/facts, home-automation state foundations, and the completed asset inventory foundation. Remaining Stage 1 work is the true carryover: semantic-governance cleanup, explicit infrastructure contracts, and `dim_household_member`.
 
 ---
 
