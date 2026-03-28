@@ -165,6 +165,35 @@ class ProjectMetadataTests(unittest.TestCase):
                     f"{path} should advertise the blessed profile fragment: {fragment}",
                 )
 
+    def test_blessed_startup_profiles_are_documented_consistently(self) -> None:
+        expected_fragments = {
+            ROOT / "README.md": [
+                "three blessed startup stories",
+                "Local demo/dev",
+                "Single-user homelab",
+                "Shared OIDC deployment",
+            ],
+            ROOT / "docs" / "runbooks" / "configuration.md": [
+                "Blessed deployment profiles",
+                "Local demo/dev",
+                "Single-user homelab",
+                "Shared OIDC deployment",
+            ],
+            ROOT / "docs" / "runbooks" / "operations.md": [
+                "Blessed startup stories",
+                "shared OIDC profile",
+            ],
+        }
+
+        for path, fragments in expected_fragments.items():
+            content = path.read_text()
+            for fragment in fragments:
+                self.assertIn(
+                    fragment,
+                    content,
+                    f"{path} should document the blessed startup profile surface: {fragment}",
+                )
+
     def test_examples_do_not_use_legacy_local_auth_mode_value(self) -> None:
         files = [
             ROOT / ".env.example",
