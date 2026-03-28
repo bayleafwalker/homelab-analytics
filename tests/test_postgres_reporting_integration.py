@@ -70,6 +70,23 @@ def test_reporting_service_reads_published_marts_and_dimensions_from_postgres() 
         run_id="run-001",
     )
     transformation_service.refresh_monthly_cashflow()
+    transformation_service.load_home_automation_state(
+        [
+            {
+                "entity_id": "sensor.living_room_temperature",
+                "state": "21.3",
+                "attributes": {
+                    "friendly_name": "Living Room Temperature",
+                    "unit_of_measurement": "°C",
+                    "area_id": "living-room",
+                    "integration": "home_assistant",
+                },
+                "last_changed": "2026-03-28T10:00:00+00:00",
+            }
+        ],
+        run_id="run-002",
+        source_system="home_assistant",
+    )
 
     with running_postgres_container() as dsn:
         publisher = ReportingService(
@@ -77,7 +94,11 @@ def test_reporting_service_reads_published_marts_and_dimensions_from_postgres() 
             publication_store=PostgresReportingStore(dsn),
         )
         published = publisher.publish_publications(
-            ["mart_monthly_cashflow", "rpt_current_dim_account"]
+            [
+                "mart_monthly_cashflow",
+                "rpt_current_dim_account",
+                "rpt_current_dim_entity",
+            ]
         )
 
         reporting_service = ReportingService(
@@ -86,8 +107,13 @@ def test_reporting_service_reads_published_marts_and_dimensions_from_postgres() 
         )
         monthly_rows = reporting_service.get_monthly_cashflow()
         account_rows = reporting_service.get_current_dimension_rows("dim_account")
+        entity_rows = reporting_service.get_current_dimension_rows("dim_entity")
 
-    assert published == ["mart_monthly_cashflow", "rpt_current_dim_account"]
+    assert published == [
+        "mart_monthly_cashflow",
+        "rpt_current_dim_account",
+        "rpt_current_dim_entity",
+    ]
     assert monthly_rows == [
         {
             "booking_month": "2026-01",
@@ -100,6 +126,9 @@ def test_reporting_service_reads_published_marts_and_dimensions_from_postgres() 
     assert len(account_rows) == 1
     assert account_rows[0]["account_id"] == "checking"
     assert account_rows[0]["currency"] == "EUR"
+    assert len(entity_rows) == 1
+    assert entity_rows[0]["entity_id"] == "sensor.living_room_temperature"
+    assert entity_rows[0]["entity_name"] == "Living Room Temperature"
 
 
 def test_reporting_service_reads_published_transformation_audit_from_postgres() -> None:

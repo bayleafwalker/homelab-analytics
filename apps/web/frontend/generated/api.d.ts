@@ -2700,7 +2700,7 @@ export interface components {
             /** Dimension */
             dimension: string;
             /** Rows */
-            rows: (components["schemas"]["DimAccountRow"] | components["schemas"]["DimCounterpartyRow"] | components["schemas"]["DimContractRow"] | components["schemas"]["DimCategoryRow"] | components["schemas"]["DimMeterRow"] | components["schemas"]["DimBudgetRow"] | components["schemas"]["DimLoanRow"])[];
+            rows: (components["schemas"]["DimAccountRow"] | components["schemas"]["DimCounterpartyRow"] | components["schemas"]["DimContractRow"] | components["schemas"]["DimCategoryRow"] | components["schemas"]["DimMeterRow"] | components["schemas"]["DimBudgetRow"] | components["schemas"]["DimLoanRow"] | components["schemas"]["DimEntityRow"])[];
         };
         /** CurrentOperatingBaselineRow */
         CurrentOperatingBaselineRow: {
@@ -2807,6 +2807,27 @@ export interface components {
             counterparty_name: string;
             /** Sk */
             sk: string;
+        };
+        /** DimEntityRow */
+        DimEntityRow: {
+            /** Area */
+            area?: string | null;
+            /** Device Name */
+            device_name?: string | null;
+            /** Entity Class */
+            entity_class?: string | null;
+            /** Entity Domain */
+            entity_domain?: string | null;
+            /** Entity Id */
+            entity_id: string;
+            /** Entity Name */
+            entity_name?: string | null;
+            /** Integration */
+            integration?: string | null;
+            /** Sk */
+            sk: string;
+            /** Unit */
+            unit?: string | null;
         };
         /** DimLoanRow */
         DimLoanRow: {

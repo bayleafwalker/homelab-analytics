@@ -1191,6 +1191,143 @@ export const publicationContractMap = {
     "ui_descriptor_keys": [],
     "visibility": "public"
   },
+  "dim_entity": {
+    "columns": [
+      {
+        "aggregation": null,
+        "description": "Sk",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "sk",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Entity id",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "entity_id",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Entity name",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "entity_name",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Entity domain",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "entity_domain",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Entity class",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "entity_class",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Device name",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "device_name",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Area",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "area",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": "none",
+        "description": "Integration",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "integration",
+        "nullable": true,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": "ratio"
+      },
+      {
+        "aggregation": null,
+        "description": "Unit",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "unit",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      }
+    ],
+    "description": null,
+    "display_name": "Rpt Current Dim Entity",
+    "lineage_required": true,
+    "pack_name": null,
+    "pack_version": null,
+    "publication_key": "dim_entity",
+    "relation_name": "rpt_current_dim_entity",
+    "renderer_hints": {},
+    "retention_policy": "indefinite",
+    "schema_name": "rpt_current_dim_entity",
+    "schema_version": "1.0.0",
+    "supported_renderers": [
+      "web"
+    ],
+    "ui_descriptor_keys": [],
+    "visibility": "public"
+  },
   "dim_loan": {
     "columns": [
       {

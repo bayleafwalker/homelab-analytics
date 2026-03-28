@@ -16,6 +16,10 @@ from packages.pipelines.contract_price_models import (
     MART_ELECTRICITY_PRICE_CURRENT_COLUMNS,
     MART_ELECTRICITY_PRICE_CURRENT_TABLE,
 )
+from packages.pipelines.home_automation_models import (
+    CURRENT_DIM_ENTITY_VIEW,
+    DIM_ENTITY,
+)
 from packages.pipelines.homelab_models import (
     MART_BACKUP_FRESHNESS_COLUMNS,
     MART_BACKUP_FRESHNESS_TABLE,
@@ -238,6 +242,11 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         columns=_current_dimension_columns(DIM_LOAN),
         order_by="loan_id",
     ),
+    CURRENT_DIM_ENTITY_VIEW: PublicationRelation(
+        relation_name=CURRENT_DIM_ENTITY_VIEW,
+        columns=_current_dimension_columns(DIM_ENTITY),
+        order_by="entity_id",
+    ),
     MART_BUDGET_VARIANCE_TABLE: PublicationRelation(
         relation_name=MART_BUDGET_VARIANCE_TABLE,
         columns=MART_BUDGET_VARIANCE_COLUMNS,
@@ -329,4 +338,5 @@ CURRENT_DIMENSION_RELATIONS = {
     "dim_meter": CURRENT_DIM_METER_VIEW,
     "dim_budget": CURRENT_DIM_BUDGET_VIEW,
     "dim_loan": CURRENT_DIM_LOAN_VIEW,
+    "dim_entity": CURRENT_DIM_ENTITY_VIEW,
 }

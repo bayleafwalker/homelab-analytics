@@ -203,7 +203,7 @@ asset_name, asset_type, purchase_date, purchase_price, currency, location
 - `mart_automation_reliability` — automation success/failure rates.
 - `mart_device_battery` — battery levels and replacement predictions.
 
-Foundation note: the transformation-layer `dim_entity`, `fact_sensor_reading`, and `fact_automation_event` spine exists now; the landing contract and reporting marts are still next steps.
+Foundation note: the transformation-layer `dim_entity`, `fact_sensor_reading`, and `fact_automation_event` spine exists now; the landing contract is in place and `rpt_current_dim_entity` provides the first reporting starter for the domain.
 
 ### Landing contract sketch
 ```

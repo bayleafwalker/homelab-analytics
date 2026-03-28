@@ -10,7 +10,7 @@ Recover durable knowledge from sprint events before the sprint goes stale. This 
 ## Inputs
 
 - A closed or nearly-closed sprint with events logged via `sprintctl event add`.
-- Event types that carry extractable knowledge: `decision`, `blocker-resolved`, `pattern-noted`, `risk-accepted`, `lesson-learned`.
+- Event types that carry extractable knowledge: `decision`, `blocker-resolved`, `pattern-noted`, `risk-accepted`, `lesson-learned`, `claim-handoff`, `claim-ownership-corrected`, `claim-ambiguity-detected`, `coordination-failure`.
 - Process, coordination, or workflow corrections that were logged during the sprint when they were discovered, even if extraction itself waits until sprint close.
 
 ## Event payload quality
@@ -46,12 +46,13 @@ This includes coordination corrections such as claim misuse, handoff rules, or o
 3. Confirm the sprint has meaningful events logged. If none, note that extraction will yield no candidates.
 4. Run `kctl extract --sprint-id <id>` to scan events and insert candidates.
 5. Run `kctl review list` to see the extracted candidates. Use `--json` if the result is being consumed by another agent or script.
-6. For each candidate:
+6. Use `kctl review show --id <n>` for handoff or coordination candidates when you need the preserved source payload and actor context before deciding whether to keep them.
+7. For each candidate:
    - `kctl review approve --id <n> --title "<concise title>" --tags '["<tag1>","<tag2>"]'` for decisions/patterns worth keeping.
    - `kctl review reject --id <n> --reason "<reason>"` for duplicates, noise, or low-signal entries.
-7. Run `kctl review list --status approved` to confirm the promoted set.
-8. Run `kctl status --sprint-id <id>` to confirm there are no unexpected leftovers in the pipeline. Use `--json` if the result needs to be machine-consumable.
-9. If the task explicitly includes promoting approved knowledge into published entries:
+8. Run `kctl review list --status approved` to confirm the promoted set.
+9. Run `kctl status --sprint-id <id>` to confirm there are no unexpected leftovers in the pipeline. Use `--json` if the result needs to be machine-consumable.
+10. If the task explicitly includes promoting approved knowledge into published entries:
    - Use `kctl publish` for the approved entries that should become durable repo knowledge.
    - Render the committed artifact to `docs/knowledge/knowledge-base.md` via `kctl render --output docs/knowledge/knowledge-base.md`.
    - Keep the knowledge-base update separate from unrelated feature work.

@@ -17,7 +17,7 @@ Resume an already-registered sprint item from live `sprintctl` state without dup
 
 1. Confirm the work already exists in `sprintctl`. If it does not, stop and use `sprint-packet` instead.
 2. Load the project DB first via `.envrc` or exported `SPRINTCTL_DB`.
-3. Inspect the live sprint, item, claim, and recent event state before touching repo files. Prefer JSON output where another agent or script may consume the result.
+3. Inspect the live sprint, item, claim, and recent event state before touching repo files. Prefer JSON output where another agent or script may consume the result. If you are recovering after context loss, use `sprintctl claim resume --instance-id <id>` or `--runtime-session-id <id>` to locate claims that still belong to the current live identity.
 4. Check whether an active exclusive claim already exists:
    - If no claim exists, create one before repo edits when ownership would otherwise be ambiguous and record a strong identity: `claim_token`, `runtime_session_id`, `instance_id`, actor, and workspace metadata.
    - If the current session already holds the active claim's `claim_token` and the live identity plus workspace metadata clearly match, refresh the heartbeat and continue.
@@ -26,7 +26,7 @@ Resume an already-registered sprint item from live `sprintctl` state without dup
 6. Move the item to `active` before implementation when appropriate.
 7. Use sprint docs, requirements, and architecture docs only as implementation context for the selected item; they do not override live ownership or status.
 8. Record structured `sprintctl` events when decisions, resolved blockers, or reusable lessons happen. Use `decision` or `lesson-learned` for process corrections that should feed `kctl` later.
-9. If work pauses or changes hands, produce a handoff bundle with `sprintctl handoff --output <path>` and keep it local unless a tracked artifact was explicitly requested.
+9. If work pauses or changes hands, use `sprintctl claim handoff` to transfer or rotate any active claim, then produce `sprintctl handoff --output <path>` when the next session also needs broader sprint context. Keep handoff artifacts local unless a tracked artifact was explicitly requested.
 10. After material sprint-state changes, refresh the shared snapshot with `sprint-snapshot`.
 
 ## Output contract

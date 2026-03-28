@@ -61,6 +61,33 @@ def test_reporting_service_falls_back_to_transformation_service_for_current_dime
     ) == transformation_service.get_current_dimension_rows("dim_account")
 
 
+def test_reporting_service_falls_back_to_transformation_service_for_home_automation_entities() -> None:
+    transformation_service = TransformationService(DuckDBStore.memory())
+    transformation_service.load_home_automation_state(
+        [
+            {
+                "entity_id": "sensor.living_room_temperature",
+                "state": "21.3",
+                "attributes": {
+                    "friendly_name": "Living Room Temperature",
+                    "unit_of_measurement": "°C",
+                    "area_id": "living-room",
+                    "integration": "home_assistant",
+                },
+                "last_changed": "2026-03-28T10:00:00+00:00",
+            }
+        ],
+        run_id="run-001",
+        source_system="home_assistant",
+    )
+
+    reporting_service = ReportingService(transformation_service)
+
+    assert reporting_service.get_current_dimension_rows(
+        "dim_entity"
+    ) == transformation_service.get_current_dimension_rows("dim_entity")
+
+
 def test_reporting_service_falls_back_to_transformation_service_for_audit() -> None:
     transformation_service = TransformationService(DuckDBStore.memory())
     transformation_service.load_transactions(

@@ -63,6 +63,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 - `../.agents/skills/README.md` — short index of repo skills and when to use them.
 - `../.agents/skills/domain-impact-scan/SKILL.md` — impact scan for cross-layer, contract, architecture, and requirements changes.
 - `../.agents/skills/sprint-packet/SKILL.md` — build an execution-ready sprint or work packet from roadmap or requirements material when the scope is accepted but not yet registered in `sprintctl`.
+- `../.agents/skills/sprint-resume/SKILL.md` — safely resume an already-registered sprint item from live `sprintctl` state, including claim identity checks and handoff behavior.
 - `../.agents/skills/code-change-verification/SKILL.md` — select, run, and report the right local verification.
 - `../.agents/skills/pr-handoff-summary/SKILL.md` — produce a concise reviewer or handoff summary after the change shape is stable.
 - `../.agents/skills/sprint-snapshot/SKILL.md` — render the active sprint state from sprintctl into the committed plaintext snapshot after live status changes.
@@ -98,6 +99,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 ## Runbooks
 
 - `runbooks/project-working-practices.md` — repo-wide working loops, source-of-truth precedence, change-class done criteria, multi-agent coordination rules, and session-note policy.
+- `runbooks/release-governance.md` — branch lifetime, tag types, GitHub Release policy, and minimum release checklist.
 - `runbooks/operations.md` — deployment, ingress, readiness, and alert-response guidance for shared environments.
 - `runbooks/backup-and-restore.md` — backup and restore guidance for Postgres control-plane state, landed object storage, and DuckDB artifacts.
 - `runbooks/configuration.md` — environment variable reference for API, worker, web, auth, storage, and extension configuration.

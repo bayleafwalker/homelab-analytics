@@ -5,6 +5,7 @@
 Prepare work for repeatable local verification, CI validation, and deployment-oriented handoff.
 
 Use `docs/runbooks/project-working-practices.md` for the release/push loop and handoff expectations.
+Use `docs/runbooks/release-governance.md` for branch, tag, and GitHub Release policy.
 
 ## Allowed actions
 

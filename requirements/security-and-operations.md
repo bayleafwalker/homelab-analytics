@@ -193,7 +193,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** The stated end goal is a generalizable product available for community use.
 
 **Phase:** 4
-**Status:** not-started
+**Status:** in-progress (README and release-facing docs now cover the public delivery posture; a dedicated release-governance runbook defines branch, tag, and GitHub Release policy; merged-branch auto-delete is enabled on GitHub; and the `v0.1.0` tag now carries a matching GitHub Release. LICENSE, CONTRIBUTING, and publishable image/chart release automation remain pending.)
 
 **Acceptance criteria:**
 - README is sufficient for a new user to understand, install, and configure the platform.
@@ -315,7 +315,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 | OPS-01 | `infra/docker/Dockerfile` | `tests/test_project_metadata.py` |
 | OPS-02 | `infra/examples/compose.yaml` | `tests/test_project_metadata.py` |
 | OPS-03 | `charts/homelab-analytics/` | `tests/test_helm_chart.py` |
-| OPS-04 | — | — |
+| OPS-04 | `apps/api/contract_artifacts.py`, `docs/runbooks/release-ops.md`, `charts/homelab-analytics/` | `tests/test_repository_contract.py`, `tests/test_helm_chart.py`, `tests/test_contract_artifacts.py` |
 | OPS-05 | `.github/workflows/verify.yaml`, `Makefile` | `tests/test_verification_tooling.py` |
 | OPS-06 | `apps/api/app.py`, `apps/api/routes/auth_routes.py`, `apps/api/routes/control_routes.py`, `apps/web/app.py`, `apps/worker/main.py`, `packages/shared/metrics.py` | `tests/test_control_plane_api_app.py`, `tests/test_control_plane_worker_cli.py`, `tests/test_web_app.py` |
 | OPS-07 | `packages/shared/logging.py`, `apps/api/main.py`, `apps/web/main.py`, `apps/worker/main.py` | `tests/test_logging.py` |

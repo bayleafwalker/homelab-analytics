@@ -609,6 +609,8 @@ class TransformationService:
             return self.get_current_budgets()
         if dimension_name == "dim_loan":
             return self.get_current_loans()
+        if dimension_name == "dim_entity":
+            return self.get_current_entities()
         raise KeyError(f"Unknown current dimension: {dimension_name}")
 
     @property

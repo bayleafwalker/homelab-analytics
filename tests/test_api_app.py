@@ -1767,6 +1767,23 @@ class ApiAppTests(unittest.TestCase):
                 [{"account_id": "CHK-001", "currency": "USD"}],
                 effective_date=date(2025, 2, 1),
             )
+            transformation_service.load_home_automation_state(
+                [
+                    {
+                        "entity_id": "sensor.living_room_temperature",
+                        "state": "21.3",
+                        "attributes": {
+                            "friendly_name": "Living Room Temperature",
+                            "unit_of_measurement": "°C",
+                            "area_id": "living-room",
+                            "integration": "home_assistant",
+                        },
+                        "last_changed": "2026-03-28T10:00:00+00:00",
+                    }
+                ],
+                run_id="run-002",
+                source_system="home_assistant",
+            )
 
             client = TestClient(
                 create_app(
@@ -1783,6 +1800,20 @@ class ApiAppTests(unittest.TestCase):
             self.assertEqual(1, len(body["rows"]))
             self.assertEqual("CHK-001", body["rows"][0]["account_id"])
             self.assertEqual("USD", body["rows"][0]["currency"])
+
+            entity_response = client.get("/reports/current-dimensions/dim_entity")
+            self.assertEqual(200, entity_response.status_code)
+            entity_body = entity_response.json()
+            self.assertEqual("dim_entity", entity_body["dimension"])
+            self.assertEqual(1, len(entity_body["rows"]))
+            self.assertEqual(
+                "sensor.living_room_temperature",
+                entity_body["rows"][0]["entity_id"],
+            )
+            self.assertEqual(
+                "Living Room Temperature",
+                entity_body["rows"][0]["entity_name"],
+            )
 
 
     def test_runs_endpoint_exposes_pagination_envelope_and_supports_filtering(

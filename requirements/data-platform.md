@@ -261,7 +261,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Marts provide the stable query surfaces that dashboards and APIs consume.
 
 **Phase:** 1–3
-**Status:** in-progress (`TransformationService` materialises `mart_monthly_cashflow`, `mart_subscription_summary`, `mart_contract_price_current`, `mart_electricity_price_current`, and `mart_utility_cost_summary` in DuckDB; a Postgres publication path now mirrors the implemented marts for shared app-facing reads when configured, and remaining marts are still not implemented)
+**Status:** in-progress (`TransformationService` materialises `mart_monthly_cashflow`, `mart_subscription_summary`, `mart_contract_price_current`, `mart_electricity_price_current`, and `mart_utility_cost_summary` in DuckDB; a Postgres publication path now mirrors the implemented marts and current-dimension snapshots, including `rpt_current_dim_entity`, for shared app-facing reads when configured, and remaining marts are still not implemented)
 
 **Acceptance criteria:**
 - Each application-facing mart is materialized in Postgres with a documented schema.

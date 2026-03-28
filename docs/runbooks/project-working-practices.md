@@ -54,6 +54,7 @@ Interpretation rules:
 - for Codex, prefer `CODEX_THREAD_ID` as `runtime_session_id` when it is available; otherwise mint a local session id at startup and keep it stable for the life of that session
 - claim the item before repo edits when parallel overlap is possible
 - if an exclusive claim already exists, only continue under that claim when the current session already holds its `claim_token` or a handoff explicitly transfers it, and the live identity plus workspace metadata clearly match; otherwise stop repo edits and resolve a handoff or pick different work
+- when active claim ownership itself changes hands, use `sprintctl claim handoff`; use `sprintctl handoff --output <path>` for broader sprint context because it does not transfer `claim_token`
 - move the item to `active` before implementation when appropriate
 - log `decision` or `lesson-learned` events when process, coordination, or design rules are clarified during execution; do not wait until sprint close to capture them
 - use sprint docs, requirements, and architecture docs only as implementation context for the selected item
@@ -98,7 +99,7 @@ Interpretation rules:
 
 **Start trigger:** work is about to move to PR, branch push, CI, or release-oriented handoff.
 
-**Consult first:** the verification path and release/ops docs affected by the change.
+**Consult first:** the verification path plus the release-governance and release/ops docs affected by the change.
 
 **While in progress:**
 - run the smallest useful checks first, then broader repo gates
@@ -108,7 +109,7 @@ Interpretation rules:
 
 **Close-out artifacts:** verification summary with commands actually run, updated release assumptions, and any handoff material required for the next engineer or reviewer.
 
-**Primary references:** `AGENTS.md`, `docs/agents/release-ops.md`, `.agents/skills/code-change-verification/SKILL.md`
+**Primary references:** `AGENTS.md`, `docs/runbooks/release-governance.md`, `docs/agents/release-ops.md`, `.agents/skills/code-change-verification/SKILL.md`
 
 ### 6. Sprint close
 
@@ -156,6 +157,7 @@ Minimum done criteria:
 
 Minimum done criteria:
 - update workflow, release, or ops docs along with the change
+- keep branch, tag, and release behavior aligned with `docs/runbooks/release-governance.md`
 - verify the changed local and CI path as far as the environment allows
 - run `make verify-fast` before PR or CI-triggering push
 - state clearly which checks are blocking and which remain advisory or unrun
@@ -196,7 +198,8 @@ Coordination rules:
 - if an exclusive claim already exists and the identity is missing, ambiguous, or points to another live workspace, do not heartbeat it and do not edit repo files until a handoff is produced or a different item is selected
 - add `sprintctl event` records when decisions are made or blockers are resolved, not only at close-out
 - log reusable workflow corrections and coordination lessons as `decision` or `lesson-learned` events with summary, detail, tags, and confidence at the moment they are discovered
-- use `sprintctl handoff --output <path>` when work changes hands, pauses materially, or needs machine-readable transfer context
+- use `sprintctl claim handoff` when ownership of an active claim moves to another live session
+- use `sprintctl handoff --output <path>` when work pauses materially or the next session needs broader machine-readable sprint context
 - keep handoff bundles local unless the task explicitly asks for a committed artifact
 
 ## Session Notes Boundary

@@ -1019,6 +1019,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/DimLoanRow"
+                },
+                {
+                  "$ref": "#/components/schemas/DimEntityRow"
                 }
               ]
             },
@@ -1399,6 +1402,101 @@
           "counterparty_name"
         ],
         "title": "DimCounterpartyRow",
+        "type": "object"
+      },
+      "DimEntityRow": {
+        "properties": {
+          "area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area"
+          },
+          "device_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Name"
+          },
+          "entity_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Class"
+          },
+          "entity_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Domain"
+          },
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "entity_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Name"
+          },
+          "integration": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Integration"
+          },
+          "sk": {
+            "title": "Sk",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "sk",
+          "entity_id"
+        ],
+        "title": "DimEntityRow",
         "type": "object"
       },
       "DimLoanRow": {

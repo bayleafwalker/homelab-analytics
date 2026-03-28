@@ -72,12 +72,14 @@ During implementation:
 - include workspace metadata on claims when available: branch, worktree, commit SHA, PR reference
 - treat workspace metadata as advisory context, not as claim ownership proof
 - if an exclusive claim already exists and its identity does not clearly match the current live claim identity, do not heartbeat or reuse it; hand off the work or choose a different item first
+- use `sprintctl claim handoff` when an active claim's ownership itself changes; use `sprintctl handoff` only for broader sprint context because it does not move `claim_token`
 - add `sprintctl event` records when decisions, resolved blockers, or lessons happen, including reusable process corrections and coordination rules discovered during the sprint
 
 For kctl-ready event capture during execution:
 - use `decision` for durable design or workflow choices that should survive the sprint
 - use `lesson-learned` for process corrections, coordination failures, or heuristics you want future agents to avoid repeating
 - use `blocker-resolved`, `pattern-noted`, or `risk-accepted` when they better fit the event
+- treat system-emitted `claim-handoff`, `claim-ownership-corrected`, `claim-ambiguity-detected`, and `coordination-failure` events as extractable coordination history when ownership behavior itself matters later
 - include `summary`, `detail`, `tags`, and `confidence` so sprint-close extraction yields useful candidates instead of noise
 
 ### 3. Keep shared sprint state current
@@ -113,6 +115,7 @@ Recommended structured-state commands:
 - `sprintctl item list --json`
 - `sprintctl item show --json`
 - `sprintctl claim list-sprint --json`
+- `sprintctl claim resume --json`
 - `sprintctl handoff --output <path>`
 - `kctl review list --json`
 - `kctl status --json`
