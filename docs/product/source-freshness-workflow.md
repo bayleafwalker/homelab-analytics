@@ -10,6 +10,18 @@ This document defines the freshness model, operator workflow, and integration po
 
 ---
 
+## Startup stories
+
+The freshness workflow sits on top of three blessed deployment profiles:
+
+- Local demo/dev: seed the demo bundle, use disposable fixture sources, and validate the freshness UI without wiring real operational sources first.
+- Single-user homelab: use the manual export and watched-folder paths, then rely on freshness badges, upload actions, and run-history remediation when a source goes stale or fails.
+- Shared OIDC deployment: keep the same freshness model and operator actions, but enter the admin and upload surfaces through the shared OIDC identity path.
+
+The model is the same in all three cases; only the startup path and operator posture change.
+
+---
+
 ## The problem
 
 Without freshness tracking, the operator must remember:
@@ -120,11 +132,11 @@ The `parse_failed` state takes priority over schedule-based states — a failed 
 
 ### Setting up a recurring source
 
-1. Create the source asset binding (source system → dataset contract → column mapping) through the admin surface
+1. Create the source asset binding (source system → dataset contract → column mapping) through the admin surface for the selected deployment profile
 2. Attach a freshness config specifying frequency, due date, and SLA
 3. The platform begins tracking freshness from the first successful ingest
 
-### Monthly export cycle (example: OP account CSV)
+### Monthly export cycle (single-user homelab example: OP account CSV)
 
 ```
 Day 1–5:   Operator exports last month's CSV from OP web banking
