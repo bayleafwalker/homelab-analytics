@@ -11,7 +11,7 @@ class EntrypointImportTests(unittest.TestCase):
         command = [
             sys.executable,
             "-c",
-            "import apps.api.main; import apps.web.main; import apps.worker.main",
+            "import apps.api.ha_startup; import apps.api.main; import apps.web.main; import apps.worker.main",
         ]
         completed = subprocess.run(
             command,

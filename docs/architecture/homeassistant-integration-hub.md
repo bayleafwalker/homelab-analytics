@@ -145,4 +145,6 @@ The HA integration hub is the reference implementation for the generic integrati
 
 This means HA-specific protocol choices — WebSocket subscription format, MQTT discovery envelope, REST service call schema — are implementation details of the HA adapter, not platform-wide assumptions. New adapters (Prometheus scrape, generic MQTT, Kubernetes API) implement the same adapter contracts with their own protocol logic.
 
+In the codebase, API startup assembly now delegates the HA-specific runtime wiring to `apps/api/ha_startup.py`, keeping `apps/api/main.py` focused on orchestration and shared composition-root rules.
+
 See `docs/plans/household-operating-platform-roadmap.md` Stage 6 for the adapter contract definitions and extension point documentation plan.

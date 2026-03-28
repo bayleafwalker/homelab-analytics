@@ -1,17 +1,21 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 from uuid import uuid4
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from apps.api.main import (
+from apps.api.ha_startup import (
     _compute_contract_renewal_due_count,
     _compute_electricity_cost_forecast_today,
     _compute_maintenance_state,
     _compute_peak_tariff_active,
+    build_ha_startup_runtime,
+)
+from apps.api.main import (
     build_app,
     build_function_registry,
     build_lazy_transformation_service,
@@ -19,6 +23,10 @@ from apps.api.main import (
     build_service,
     build_transformation_service,
 )
+from packages.domains.finance.manifest import FINANCE_PACK
+from packages.domains.homelab.manifest import HOMELAB_PACK
+from packages.domains.overview.manifest import OVERVIEW_PACK
+from packages.domains.utilities.manifest import UTILITIES_PACK
 from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.reporting_service import ReportingAccessMode
 from packages.shared.external_registry import sync_extension_registry_source
@@ -115,6 +123,84 @@ class ApiMainTests(unittest.TestCase):
             app = build_app(settings)
 
             self.assertIsInstance(app, FastAPI)
+
+    def test_build_app_delegates_ha_startup_wiring(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+            )
+            container = SimpleNamespace(
+                extension_registry="extension-registry",
+                control_plane_store="control-plane-store",
+            )
+            ha_runtime = SimpleNamespace(
+                bridge="bridge",
+                policy_evaluator="policy-evaluator",
+                action_proposal_registry="proposal-registry",
+                action_dispatcher="action-dispatcher",
+                mqtt_publisher="mqtt-publisher",
+            )
+            with (
+                patch("apps.api.main.validate_auth_configuration"),
+                patch("apps.api.main.build_container", return_value=container),
+                patch(
+                    "apps.api.main.build_lazy_transformation_service",
+                    return_value="transformation-service",
+                ),
+                patch(
+                    "apps.api.main.build_reporting_service",
+                    return_value="reporting-service",
+                ),
+                patch("apps.api.main.build_session_manager", return_value="session"),
+                patch("apps.api.main.build_oidc_provider", return_value="oidc"),
+                patch(
+                    "apps.api.main.build_machine_jwt_provider",
+                    return_value="machine-jwt",
+                ),
+                patch("apps.api.main.build_proxy_provider", return_value="proxy"),
+                patch(
+                    "apps.api.main.build_ha_startup_runtime",
+                    return_value=ha_runtime,
+                ) as mock_build_ha_startup_runtime,
+                patch("apps.api.main.create_app", return_value=FastAPI()) as mock_create_app,
+            ):
+                app = build_app(settings)
+
+            mock_build_ha_startup_runtime.assert_called_once_with(
+                settings,
+                transformation_service="transformation-service",
+                reporting_service="reporting-service",
+                capability_packs=[
+                    FINANCE_PACK,
+                    UTILITIES_PACK,
+                    OVERVIEW_PACK,
+                    HOMELAB_PACK,
+                ],
+            )
+            self.assertIsInstance(app, FastAPI)
+            create_kwargs = mock_create_app.call_args.kwargs
+            self.assertEqual("bridge", create_kwargs["ha_bridge"])
+            self.assertEqual("policy-evaluator", create_kwargs["ha_policy_evaluator"])
+            self.assertEqual(
+                "proposal-registry",
+                create_kwargs["ha_action_proposal_registry"],
+            )
+            self.assertEqual("action-dispatcher", create_kwargs["ha_action_dispatcher"])
+            self.assertEqual("mqtt-publisher", create_kwargs["ha_mqtt_publisher"])
 
     def test_build_function_registry_loads_active_external_functions(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -868,6 +954,45 @@ class ApiMainTests(unittest.TestCase):
             self.assertEqual(200, electricity_response.status_code)
             self.assertEqual(3, len(contract_response.json()["rows"]))
             self.assertEqual(2, len(electricity_response.json()["rows"]))
+
+    def test_build_ha_startup_runtime_wires_optional_components_when_configured(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            settings = AppSettings(
+                data_dir=temp_root,
+                landing_root=temp_root / "landing",
+                metadata_database_path=temp_root / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    temp_root / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    temp_root / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    temp_root / "failed" / "account-transactions"
+                ),
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+                ha_url="http://ha.local:8123",
+                ha_token="test-token",
+                ha_mqtt_broker_url="mqtt://broker.local:1883",
+            )
+
+            runtime = build_ha_startup_runtime(
+                settings,
+                transformation_service=Mock(),
+                reporting_service=Mock(),
+                capability_packs=(),
+            )
+
+            self.assertIsNotNone(runtime.bridge)
+            self.assertIsNotNone(runtime.action_dispatcher)
+            self.assertIsNotNone(runtime.mqtt_publisher)
+            self.assertIsNotNone(runtime.policy_evaluator)
+            self.assertIsNotNone(runtime.action_proposal_registry)
 
 
 class MqttSyntheticStateTests(unittest.TestCase):
