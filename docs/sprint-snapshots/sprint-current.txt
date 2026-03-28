@@ -1,4 +1,4 @@
-SPRINT: Sprint M — Integration Boundary Hardening  [active]
+SPRINT: Sprint M — Integration Boundary Hardening  [closed]
 Goal:   Make the composition-root and HA boundary story honest across API and worker startup, then extract the Stage 6 adapter layer from the proven HA implementation.
 Dates:  2026-03-28 to 2026-04-11
 ID:     9
@@ -12,4 +12,4 @@ ID:     9
   [done    ] #67  Health/reporting packet: coherent integration runtime status model  (assignee: -)
   [done    ] #68  Stage 6 adapter packet: AdapterManifest and integration contract boundaries  (assignee: -)
 
-Rendered: 2026-03-28T20:56:36Z
+Rendered: 2026-03-28T20:57:08Z
