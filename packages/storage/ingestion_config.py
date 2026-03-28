@@ -36,6 +36,8 @@ from packages.storage.ingestion_catalog import (
     RequestHeaderSecretRef,
     SourceAssetCreate,
     SourceAssetRecord,
+    SourceFreshnessConfigCreate,
+    SourceFreshnessConfigRecord,
     SourceSystemCreate,
     SourceSystemRecord,
     TransformationPackageCreate,
@@ -66,6 +68,9 @@ from packages.storage.sqlite_provenance_control_plane import (
 from packages.storage.sqlite_source_contract_catalog import (
     SQLiteSourceContractCatalogMixin,
 )
+from packages.storage.sqlite_source_freshness_catalog import (
+    SQLiteSourceFreshnessCatalogMixin,
+)
 
 __all__ = [
     "ColumnMappingCreate",
@@ -87,6 +92,8 @@ __all__ = [
     "RequestHeaderSecretRef",
     "SourceAssetCreate",
     "SourceAssetRecord",
+    "SourceFreshnessConfigCreate",
+    "SourceFreshnessConfigRecord",
     "SourceSystemCreate",
     "SourceSystemRecord",
     "TransformationPackageCreate",
@@ -105,6 +112,7 @@ __all__ = [
 class IngestionConfigRepository(
     SQLiteSourceContractCatalogMixin,
     SQLiteAssetDefinitionCatalogMixin,
+    SQLiteSourceFreshnessCatalogMixin,
     SQLiteExternalRegistryCatalogMixin,
     SQLiteExecutionControlPlaneMixin,
     SQLiteProvenanceControlPlaneMixin,

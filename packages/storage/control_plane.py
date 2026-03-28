@@ -28,6 +28,8 @@ if TYPE_CHECKING:
         PublicationDefinitionRecord,
         SourceAssetCreate,
         SourceAssetRecord,
+        SourceFreshnessConfigCreate,
+        SourceFreshnessConfigRecord,
         SourceSystemCreate,
         SourceSystemRecord,
         TransformationPackageCreate,
@@ -194,6 +196,7 @@ class ControlPlaneSnapshot:
     publication_definitions: tuple["PublicationDefinitionRecord", ...]
     source_assets: tuple["SourceAssetRecord", ...]
     ingestion_definitions: tuple["IngestionDefinitionRecord", ...]
+    source_freshness_configs: tuple["SourceFreshnessConfigRecord", ...] = ()
     extension_registry_sources: tuple["ExtensionRegistrySourceRecord", ...] = ()
     extension_registry_revisions: tuple["ExtensionRegistryRevisionRecord", ...] = ()
     extension_registry_activations: tuple["ExtensionRegistryActivationRecord", ...] = ()
@@ -373,6 +376,30 @@ class AssetCatalogStore(Protocol):
         ...
 
     def delete_source_asset(self, source_asset_id: str) -> None:
+        ...
+
+    def create_source_freshness_config(
+        self,
+        freshness_config: "SourceFreshnessConfigCreate",
+    ) -> "SourceFreshnessConfigRecord":
+        ...
+
+    def update_source_freshness_config(
+        self,
+        freshness_config: "SourceFreshnessConfigCreate",
+    ) -> "SourceFreshnessConfigRecord":
+        ...
+
+    def get_source_freshness_config(
+        self,
+        source_asset_id: str,
+    ) -> "SourceFreshnessConfigRecord":
+        ...
+
+    def list_source_freshness_configs(self) -> list["SourceFreshnessConfigRecord"]:
+        ...
+
+    def delete_source_freshness_config(self, source_asset_id: str) -> None:
         ...
 
     def find_source_asset_by_binding(

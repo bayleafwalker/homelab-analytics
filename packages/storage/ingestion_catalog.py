@@ -123,6 +123,38 @@ class SourceAssetRecord:
 
 
 @dataclass(frozen=True)
+class SourceFreshnessConfigCreate:
+    source_asset_id: str
+    acquisition_mode: str
+    expected_frequency: str
+    coverage_kind: str
+    due_day_of_month: int | None
+    expected_window_days: int
+    freshness_sla_days: int
+    sensitivity_class: str
+    reminder_channel: str
+    requires_human_action: bool
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass(frozen=True)
+class SourceFreshnessConfigRecord:
+    source_asset_id: str
+    acquisition_mode: str
+    expected_frequency: str
+    coverage_kind: str
+    due_day_of_month: int | None
+    expected_window_days: int
+    freshness_sla_days: int
+    sensitivity_class: str
+    reminder_channel: str
+    requires_human_action: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True)
 class TransformationPackageCreate:
     transformation_package_id: str
     name: str

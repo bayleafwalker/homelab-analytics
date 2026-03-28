@@ -31,6 +31,7 @@ from packages.storage.ingestion_catalog import (
     IngestionDefinitionCreate,
     PublicationDefinitionCreate,
     SourceAssetCreate,
+    SourceFreshnessConfigCreate,
     SourceSystemCreate,
     TransformationPackageCreate,
 )
@@ -48,6 +49,7 @@ def export_control_plane_snapshot(store: ControlPlaneStore) -> ControlPlaneSnaps
             store.list_publication_definitions(include_archived=True)
         ),
         source_assets=tuple(store.list_source_assets(include_archived=True)),
+        source_freshness_configs=tuple(store.list_source_freshness_configs()),
         ingestion_definitions=tuple(
             store.list_ingestion_definitions(include_archived=True)
         ),
@@ -160,6 +162,25 @@ def import_control_plane_snapshot(
             ),
             duplicate_exceptions=duplicate_exceptions,
         )
+    for freshness_config_record in snapshot.source_freshness_configs:
+        _ignore_duplicate(
+            store.create_source_freshness_config,
+            SourceFreshnessConfigCreate(
+                source_asset_id=freshness_config_record.source_asset_id,
+                acquisition_mode=freshness_config_record.acquisition_mode,
+                expected_frequency=freshness_config_record.expected_frequency,
+                coverage_kind=freshness_config_record.coverage_kind,
+                due_day_of_month=freshness_config_record.due_day_of_month,
+                expected_window_days=freshness_config_record.expected_window_days,
+                freshness_sla_days=freshness_config_record.freshness_sla_days,
+                sensitivity_class=freshness_config_record.sensitivity_class,
+                reminder_channel=freshness_config_record.reminder_channel,
+                requires_human_action=freshness_config_record.requires_human_action,
+                created_at=freshness_config_record.created_at,
+                updated_at=freshness_config_record.updated_at,
+            ),
+            duplicate_exceptions=duplicate_exceptions,
+        )
     for ingestion_definition_record in snapshot.ingestion_definitions:
         _ignore_duplicate(
             store.create_ingestion_definition,
@@ -259,6 +280,24 @@ def import_control_plane_snapshot(
             store.set_source_asset_archived_state(
                 source_asset_record.source_asset_id,
                 archived=True,
+            )
+    for freshness_config_record in snapshot.source_freshness_configs:
+        if freshness_config_record.source_asset_id:
+            store.update_source_freshness_config(
+                SourceFreshnessConfigCreate(
+                    source_asset_id=freshness_config_record.source_asset_id,
+                    acquisition_mode=freshness_config_record.acquisition_mode,
+                    expected_frequency=freshness_config_record.expected_frequency,
+                    coverage_kind=freshness_config_record.coverage_kind,
+                    due_day_of_month=freshness_config_record.due_day_of_month,
+                    expected_window_days=freshness_config_record.expected_window_days,
+                    freshness_sla_days=freshness_config_record.freshness_sla_days,
+                    sensitivity_class=freshness_config_record.sensitivity_class,
+                    reminder_channel=freshness_config_record.reminder_channel,
+                    requires_human_action=freshness_config_record.requires_human_action,
+                    created_at=freshness_config_record.created_at,
+                    updated_at=freshness_config_record.updated_at,
+                )
             )
     for publication_definition_record in snapshot.publication_definitions:
         if publication_definition_record.archived:

@@ -35,6 +35,9 @@ from packages.storage.postgres_provenance_control_plane import (
 from packages.storage.postgres_source_contract_catalog import (
     PostgresSourceContractCatalogMixin,
 )
+from packages.storage.postgres_source_freshness_catalog import (
+    PostgresSourceFreshnessCatalogMixin,
+)
 from packages.storage.postgres_support import (
     configure_search_path,
     connect_with_retry,
@@ -45,6 +48,7 @@ from packages.storage.postgres_support import (
 class PostgresIngestionConfigRepository(
     PostgresSourceContractCatalogMixin,
     PostgresAssetDefinitionCatalogMixin,
+    PostgresSourceFreshnessCatalogMixin,
     PostgresExternalRegistryCatalogMixin,
     PostgresExecutionControlPlaneMixin,
     PostgresProvenanceControlPlaneMixin,

@@ -15,6 +15,7 @@ from packages.storage.ingestion_config import (
     PublicationDefinitionCreate,
     RequestHeaderSecretRef,
     SourceAssetCreate,
+    SourceFreshnessConfigCreate,
     SourceSystemCreate,
     TransformationPackageCreate,
     allowed_publication_keys,
@@ -312,6 +313,79 @@ class IngestionConfigRepositoryTests(unittest.TestCase):
             )
             self.assertEqual("csv", ingestion_definition.response_format)
             self.assertEqual("usage.csv", ingestion_definition.output_file_name)
+
+    def test_repository_persists_source_freshness_configs_and_snapshot_round_trip(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+            repository.create_source_system(
+                SourceSystemCreate(
+                    source_system_id="finance_uploads",
+                    name="Finance Uploads",
+                    source_type="file-drop",
+                    transport="filesystem",
+                    schedule_mode="manual",
+                )
+            )
+            repository.create_dataset_contract(
+                DatasetContractConfigCreate(
+                    dataset_contract_id="finance_uploads_v1",
+                    dataset_name="finance_uploads",
+                    version=1,
+                    allow_extra_columns=False,
+                    columns=(DatasetColumnConfig("booked_at", ColumnType.DATE),),
+                )
+            )
+            repository.create_column_mapping(
+                ColumnMappingCreate(
+                    column_mapping_id="finance_uploads_mapping_v1",
+                    source_system_id="finance_uploads",
+                    dataset_contract_id="finance_uploads_v1",
+                    version=1,
+                    rules=(ColumnMappingRule("booked_at", source_column="date"),),
+                )
+            )
+            repository.create_source_asset(
+                SourceAssetCreate(
+                    source_asset_id="finance_uploads_asset",
+                    source_system_id="finance_uploads",
+                    dataset_contract_id="finance_uploads_v1",
+                    column_mapping_id="finance_uploads_mapping_v1",
+                    name="Finance Uploads Asset",
+                    asset_type="dataset",
+                )
+            )
+
+            freshness_config = repository.create_source_freshness_config(
+                SourceFreshnessConfigCreate(
+                    source_asset_id="finance_uploads_asset",
+                    acquisition_mode="manual_export",
+                    expected_frequency="monthly",
+                    coverage_kind="rolling_period",
+                    due_day_of_month=5,
+                    expected_window_days=5,
+                    freshness_sla_days=40,
+                    sensitivity_class="financial",
+                    reminder_channel="dashboard",
+                    requires_human_action=True,
+                )
+            )
+
+            self.assertEqual(
+                freshness_config,
+                repository.get_source_freshness_config("finance_uploads_asset"),
+            )
+            self.assertEqual(1, len(repository.list_source_freshness_configs()))
+
+            snapshot = repository.export_snapshot()
+            target_repository = IngestionConfigRepository(Path(temp_dir) / "target.db")
+            target_repository.import_snapshot(snapshot)
+
+            self.assertEqual(
+                freshness_config,
+                target_repository.get_source_freshness_config("finance_uploads_asset"),
+            )
 
     def test_repository_exposes_transformation_packages_and_publications(self) -> None:
         with TemporaryDirectory() as temp_dir:
