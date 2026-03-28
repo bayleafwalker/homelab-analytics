@@ -98,31 +98,42 @@ def build_reporting_service(
     )
 
 
-def build_app(settings: AppSettings | None = None):
-    resolved_settings = settings or AppSettings.from_env()
-    validate_auth_configuration(resolved_settings)
-
+def _build_api_startup_components(
+    settings: AppSettings,
+):
     capability_packs = [FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK, HOMELAB_PACK]
     container = build_container(
-        resolved_settings,
+        settings,
         capability_packs=capability_packs,
     )
-
     transformation_service = build_lazy_transformation_service(
-        resolved_settings, container=container
+        settings, container=container
     )
     reporting_service = build_reporting_service(
-        resolved_settings,
+        settings,
         transformation_service,
         container.extension_registry,
         container.control_plane_store,
     )
     ha_runtime = build_ha_startup_runtime(
-        resolved_settings,
+        settings,
         transformation_service=transformation_service,
         reporting_service=reporting_service,
         capability_packs=capability_packs,
     )
+    return container, transformation_service, reporting_service, ha_runtime
+
+
+def build_app(settings: AppSettings | None = None):
+    resolved_settings = settings or AppSettings.from_env()
+    validate_auth_configuration(resolved_settings)
+
+    (
+        container,
+        transformation_service,
+        reporting_service,
+        ha_runtime,
+    ) = _build_api_startup_components(resolved_settings)
 
     return create_app(
         container,

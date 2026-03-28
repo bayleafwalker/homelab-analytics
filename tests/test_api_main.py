@@ -16,6 +16,7 @@ from apps.api.ha_startup import (
     build_ha_startup_runtime,
 )
 from apps.api.main import (
+    _build_api_startup_components,
     build_app,
     build_function_registry,
     build_lazy_transformation_service,
@@ -162,6 +163,76 @@ class ApiMainTests(unittest.TestCase):
                 mock_logger.error.call_args.kwargs["extra"]["identity_mode"],
             )
 
+    def test_build_api_startup_components_wires_ha_startup(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+            )
+            container = SimpleNamespace(
+                extension_registry="extension-registry",
+                control_plane_store="control-plane-store",
+            )
+            ha_runtime = SimpleNamespace(
+                bridge="bridge",
+                policy_evaluator="policy-evaluator",
+                action_proposal_registry="proposal-registry",
+                action_dispatcher="action-dispatcher",
+                mqtt_publisher="mqtt-publisher",
+            )
+            with (
+                patch("apps.api.main.build_container", return_value=container),
+                patch(
+                    "apps.api.main.build_lazy_transformation_service",
+                    return_value="transformation-service",
+                ),
+                patch(
+                    "apps.api.main.build_reporting_service",
+                    return_value="reporting-service",
+                ),
+                patch("apps.api.main.build_session_manager", return_value="session"),
+                patch("apps.api.main.build_oidc_provider", return_value="oidc"),
+                patch(
+                    "apps.api.main.build_machine_jwt_provider",
+                    return_value="machine-jwt",
+                ),
+                patch("apps.api.main.build_proxy_provider", return_value="proxy"),
+                patch(
+                    "apps.api.main.build_ha_startup_runtime",
+                    return_value=ha_runtime,
+                ) as mock_build_ha_startup_runtime,
+            ):
+                runtime = _build_api_startup_components(settings)
+
+            mock_build_ha_startup_runtime.assert_called_once_with(
+                settings,
+                transformation_service="transformation-service",
+                reporting_service="reporting-service",
+                capability_packs=[
+                    FINANCE_PACK,
+                    UTILITIES_PACK,
+                    OVERVIEW_PACK,
+                    HOMELAB_PACK,
+                ],
+            )
+            self.assertEqual(container, runtime[0])
+            self.assertEqual("transformation-service", runtime[1])
+            self.assertEqual("reporting-service", runtime[2])
+            self.assertEqual(ha_runtime, runtime[3])
+
     def test_build_app_delegates_ha_startup_wiring(self) -> None:
         with TemporaryDirectory() as temp_dir:
             settings = AppSettings(
@@ -194,15 +265,15 @@ class ApiMainTests(unittest.TestCase):
             )
             with (
                 patch("apps.api.main.validate_auth_configuration"),
-                patch("apps.api.main.build_container", return_value=container),
                 patch(
-                    "apps.api.main.build_lazy_transformation_service",
-                    return_value="transformation-service",
-                ),
-                patch(
-                    "apps.api.main.build_reporting_service",
-                    return_value="reporting-service",
-                ),
+                    "apps.api.main._build_api_startup_components",
+                    return_value=(
+                        container,
+                        "transformation-service",
+                        "reporting-service",
+                        ha_runtime,
+                    ),
+                ) as mock_build_api_startup_components,
                 patch("apps.api.main.build_session_manager", return_value="session"),
                 patch("apps.api.main.build_oidc_provider", return_value="oidc"),
                 patch(
@@ -210,25 +281,11 @@ class ApiMainTests(unittest.TestCase):
                     return_value="machine-jwt",
                 ),
                 patch("apps.api.main.build_proxy_provider", return_value="proxy"),
-                patch(
-                    "apps.api.main.build_ha_startup_runtime",
-                    return_value=ha_runtime,
-                ) as mock_build_ha_startup_runtime,
                 patch("apps.api.main.create_app", return_value=FastAPI()) as mock_create_app,
             ):
                 app = build_app(settings)
 
-            mock_build_ha_startup_runtime.assert_called_once_with(
-                settings,
-                transformation_service="transformation-service",
-                reporting_service="reporting-service",
-                capability_packs=[
-                    FINANCE_PACK,
-                    UTILITIES_PACK,
-                    OVERVIEW_PACK,
-                    HOMELAB_PACK,
-                ],
-            )
+            mock_build_api_startup_components.assert_called_once_with(settings)
             self.assertIsInstance(app, FastAPI)
             create_kwargs = mock_create_app.call_args.kwargs
             self.assertEqual("bridge", create_kwargs["ha_bridge"])
