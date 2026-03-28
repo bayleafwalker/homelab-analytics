@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
 import { SparklineChart } from "@/components/sparkline-chart";
+import { stateIndicatorBadge } from "@/lib/state-indicators";
 import {
   getAffordabilityRatios,
   getAttentionItems,
@@ -149,12 +150,7 @@ export default async function DashboardPage() {
       {affordabilityRatios.length > 0 && (
         <section className="cards">
           {affordabilityRatios.map((r) => {
-            const color =
-              r.assessment === "healthy"
-                ? "var(--ok)"
-                : r.assessment === "caution"
-                ? "var(--warning)"
-                : "var(--error)";
+            const state = stateIndicatorBadge(r.state ?? r.assessment);
             const label = {
               housing_to_income: "Housing / income",
               total_cost_to_income: "Total cost / income",
@@ -163,10 +159,11 @@ export default async function DashboardPage() {
             return (
               <article key={r.ratio_name} className="panel metricCard">
                 <div className="metricLabel">{label}</div>
-                <div className="metricValue" style={{ color }}>
+                <div className="metricValue" style={{ color: state.color }}>
                   {(Number(r.ratio) * 100).toFixed(1)}%
                 </div>
-                <div className="muted" style={{ color }}>{r.assessment}</div>
+                <div className="muted" style={{ color: state.color }}>{state.label}</div>
+                <div className="muted" style={{ fontSize: "0.82rem" }}>{r.assessment}</div>
               </article>
             );
           })}

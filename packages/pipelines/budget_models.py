@@ -66,6 +66,7 @@ MART_BUDGET_VARIANCE_COLUMNS: list[tuple[str, str]] = [
     ("variance", "DECIMAL(18,4) NOT NULL"),
     ("variance_pct", "DECIMAL(18,4)"),
     ("status", "VARCHAR NOT NULL"),  # under_budget | on_budget | over_budget
+    ("state", "VARCHAR NOT NULL"),   # good | warning | needs_action
     ("currency", "VARCHAR NOT NULL"),
 ]
 
@@ -82,6 +83,7 @@ MART_BUDGET_PROGRESS_CURRENT_COLUMNS: list[tuple[str, str]] = [
     ("spent_amount", "DECIMAL(18,4) NOT NULL"),
     ("remaining", "DECIMAL(18,4) NOT NULL"),
     ("utilization_pct", "DECIMAL(18,4) NOT NULL"),
+    ("state", "VARCHAR NOT NULL"),  # good | warning | needs_action
     ("currency", "VARCHAR NOT NULL"),
 ]
 
@@ -100,6 +102,7 @@ MART_BUDGET_ENVELOPE_DRIFT_COLUMNS: list[tuple[str, str]] = [
     ("drift_amount", "DECIMAL(18,4) NOT NULL"),
     ("drift_pct", "DECIMAL(18,4)"),
     ("drift_state", "VARCHAR NOT NULL"),  # under_target | on_target | over_target
+    ("state", "VARCHAR NOT NULL"),        # good | warning | needs_action
     ("currency", "VARCHAR NOT NULL"),
 ]
 

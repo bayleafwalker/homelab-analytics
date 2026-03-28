@@ -22,6 +22,23 @@ from packages.storage.duckdb_store import DuckDBStore
 RecordLineage = Callable[..., None]
 
 
+def _ensure_column(
+    store: DuckDBStore,
+    table_name: str,
+    column_name: str,
+    column_type: str,
+) -> None:
+    existing_columns = {
+        row[1] for row in store.connection.execute(
+            f"PRAGMA table_info('{table_name}')"
+        ).fetchall()
+    }
+    if column_name not in existing_columns:
+        store.connection.execute(
+            f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
+        )
+
+
 def ensure_budget_storage(store: DuckDBStore) -> None:
     store.ensure_table(FACT_BUDGET_TARGET_TABLE, FACT_BUDGET_TARGET_COLUMNS)
     store.ensure_table(MART_BUDGET_VARIANCE_TABLE, MART_BUDGET_VARIANCE_COLUMNS)
@@ -32,6 +49,9 @@ def ensure_budget_storage(store: DuckDBStore) -> None:
         MART_BUDGET_ENVELOPE_DRIFT_TABLE,
         MART_BUDGET_ENVELOPE_DRIFT_COLUMNS,
     )
+    _ensure_column(store, MART_BUDGET_VARIANCE_TABLE, "state", "VARCHAR")
+    _ensure_column(store, MART_BUDGET_PROGRESS_CURRENT_TABLE, "state", "VARCHAR")
+    _ensure_column(store, MART_BUDGET_ENVELOPE_DRIFT_TABLE, "state", "VARCHAR")
 
 
 def load_budget_targets(
@@ -113,7 +133,7 @@ def refresh_budget_variance(store: DuckDBStore) -> int:
         f"""
         INSERT INTO {MART_BUDGET_VARIANCE_TABLE} (
             budget_name, category_id, period_label, target_amount,
-            actual_amount, variance, variance_pct, status, currency
+            actual_amount, variance, variance_pct, status, state, currency
         )
         SELECT
             b.budget_name,
@@ -137,6 +157,13 @@ def refresh_budget_variance(store: DuckDBStore) -> int:
                     THEN 'on_budget'
                 ELSE 'over_budget'
             END AS status,
+            CASE
+                WHEN COALESCE(s.total_expense, 0) <= b.target_amount * 0.9
+                    THEN 'good'
+                WHEN COALESCE(s.total_expense, 0) <= b.target_amount
+                    THEN 'warning'
+                ELSE 'needs_action'
+            END AS state,
             b.currency
         FROM {FACT_BUDGET_TARGET_TABLE} b
         LEFT JOIN (
@@ -188,7 +215,7 @@ def refresh_budget_progress_current(store: DuckDBStore) -> int:
         f"""
         INSERT INTO {MART_BUDGET_PROGRESS_CURRENT_TABLE} (
             budget_name, category_id, target_amount, spent_amount,
-            remaining, utilization_pct, currency
+            remaining, utilization_pct, state, currency
         )
         SELECT
             budget_name,
@@ -200,6 +227,12 @@ def refresh_budget_progress_current(store: DuckDBStore) -> int:
                 WHEN target_amount = 0 THEN 0
                 ELSE ROUND(actual_amount * 100.0 / target_amount, 2)
             END AS utilization_pct,
+            CASE
+                WHEN target_amount = 0 THEN 'warning'
+                WHEN actual_amount <= target_amount * 0.9 THEN 'good'
+                WHEN actual_amount <= target_amount THEN 'warning'
+                ELSE 'needs_action'
+            END AS state,
             currency
         FROM {MART_BUDGET_VARIANCE_TABLE}
         WHERE period_label = STRFTIME(CURRENT_DATE, '%Y-%m')
@@ -217,7 +250,7 @@ def refresh_budget_envelope_drift(store: DuckDBStore) -> int:
         f"""
         INSERT INTO {MART_BUDGET_ENVELOPE_DRIFT_TABLE} (
             budget_name, category_id, period_label, envelope_amount,
-            actual_amount, drift_amount, drift_pct, drift_state, currency
+            actual_amount, drift_amount, drift_pct, drift_state, state, currency
         )
         SELECT
             budget_name,
@@ -238,6 +271,11 @@ def refresh_budget_envelope_drift(store: DuckDBStore) -> int:
                 WHEN actual_amount <= target_amount THEN 'on_target'
                 ELSE 'over_target'
             END AS drift_state,
+            CASE
+                WHEN actual_amount <= target_amount * 0.9 THEN 'good'
+                WHEN actual_amount <= target_amount THEN 'warning'
+                ELSE 'needs_action'
+            END AS state,
             currency
         FROM {MART_BUDGET_VARIANCE_TABLE}
         ORDER BY budget_name, period_label

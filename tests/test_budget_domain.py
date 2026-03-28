@@ -186,6 +186,7 @@ class BudgetTransformationTests(unittest.TestCase):
         rows = svc.get_budget_variance()
         for row in rows:
             self.assertEqual("under_budget", row["status"])
+            self.assertEqual("good", row["state"])
             self.assertEqual(str(row["target_amount"]), str(row["target_amount"]))
 
     def test_get_budget_variance_filter_by_category(self) -> None:
@@ -228,6 +229,7 @@ class BudgetTransformationTests(unittest.TestCase):
         self.assertEqual(1, len(rows))
         row = rows[0]
         self.assertEqual("under_target", row["drift_state"])
+        self.assertEqual("good", row["state"])
         self.assertEqual(Decimal("400.0000"), Decimal(str(row["envelope_amount"])))
         self.assertEqual(Decimal("0"), Decimal(str(row["actual_amount"])))
         self.assertEqual(Decimal("-400.0000"), Decimal(str(row["drift_amount"])))

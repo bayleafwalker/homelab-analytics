@@ -2409,6 +2409,8 @@ export interface components {
             ratio: string;
             /** Ratio Name */
             ratio_name: string;
+            /** State */
+            state: string;
         };
         /** ArchivedStateRequest */
         ArchivedStateRequest: {
@@ -2453,13 +2455,15 @@ export interface components {
             /** Drift Amount */
             drift_amount: string;
             /** Drift Pct */
-            drift_pct: string | null;
+            drift_pct?: string | null;
             /** Drift State */
             drift_state: string;
             /** Envelope Amount */
             envelope_amount: string;
             /** Period Label */
             period_label: string;
+            /** State */
+            state: string;
         };
         /** BudgetProgressCurrentRow */
         BudgetProgressCurrentRow: {
@@ -2473,6 +2477,8 @@ export interface components {
             remaining: string;
             /** Spent Amount */
             spent_amount: string;
+            /** State */
+            state: string;
             /** Target Amount */
             target_amount: string;
             /** Utilization Pct */
@@ -2500,6 +2506,8 @@ export interface components {
             currency: string;
             /** Period Label */
             period_label: string;
+            /** State */
+            state: string;
             /** Status */
             status: string;
             /** Target Amount */
@@ -8847,3 +8855,4 @@ export interface operations {
         };
     };
 }
+

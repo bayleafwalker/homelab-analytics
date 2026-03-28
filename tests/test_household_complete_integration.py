@@ -227,6 +227,12 @@ class BudgetVarianceAlignmentTests(unittest.TestCase):
         for row in rows:
             self.assertIn(row.get("status"), valid_statuses)
 
+    def test_budget_variance_state_values_are_valid(self) -> None:
+        rows = self.ts.get_budget_variance()
+        valid_states = {"good", "warning", "needs_action"}
+        for row in rows:
+            self.assertIn(row.get("state"), valid_states)
+
 
 class AffordabilityRatiosEndToEndTests(unittest.TestCase):
     """Affordability ratios compute from live income and cost data."""
@@ -258,6 +264,12 @@ class AffordabilityRatiosEndToEndTests(unittest.TestCase):
         for row in rows:
             if row.get("assessment") is not None:
                 self.assertIn(row["assessment"], valid)
+
+    def test_affordability_state_values_are_valid(self) -> None:
+        rows = self.ts.get_affordability_ratios()
+        valid_states = {"good", "warning", "needs_action"}
+        for row in rows:
+            self.assertIn(row.get("state"), valid_states)
 
     def test_total_cost_to_income_ratio_is_positive(self) -> None:
         rows = self.ts.get_affordability_ratios()

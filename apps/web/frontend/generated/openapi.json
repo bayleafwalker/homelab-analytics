@@ -95,6 +95,10 @@
           "ratio_name": {
             "title": "Ratio Name",
             "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
           }
         },
         "required": [
@@ -104,6 +108,7 @@
           "ratio",
           "period_label",
           "assessment",
+          "state",
           "currency"
         ],
         "title": "AffordabilityRatiosRow",
@@ -236,6 +241,10 @@
           "period_label": {
             "title": "Period Label",
             "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
           }
         },
         "required": [
@@ -246,6 +255,7 @@
           "actual_amount",
           "drift_amount",
           "drift_state",
+          "state",
           "currency"
         ],
         "title": "BudgetEnvelopeDriftRow",
@@ -273,6 +283,10 @@
             "title": "Spent Amount",
             "type": "string"
           },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
           "target_amount": {
             "title": "Target Amount",
             "type": "string"
@@ -289,6 +303,7 @@
           "spent_amount",
           "remaining",
           "utilization_pct",
+          "state",
           "currency"
         ],
         "title": "BudgetProgressCurrentRow",
@@ -348,6 +363,10 @@
             "title": "Period Label",
             "type": "string"
           },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -380,6 +399,7 @@
           "actual_amount",
           "variance",
           "status",
+          "state",
           "currency"
         ],
         "title": "BudgetVarianceRow",

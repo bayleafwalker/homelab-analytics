@@ -184,6 +184,17 @@ class NewReportingEndpointTests(unittest.TestCase):
         rows = response.json()["rows"]
         self.assertEqual(1, len(rows))
         self.assertEqual("under_target", rows[0]["drift_state"])
+        self.assertEqual("good", rows[0]["state"])
+
+    def test_budget_variance_endpoint_exposes_normalized_state(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app_with_data(temp_dir)
+            response = client.get("/reports/budget-variance")
+        self.assertEqual(200, response.status_code)
+        rows = response.json()["rows"]
+        self.assertEqual(1, len(rows))
+        self.assertEqual("under_budget", rows[0]["status"])
+        self.assertEqual("good", rows[0]["state"])
 
     def test_household_overview_endpoint(self) -> None:
         with TemporaryDirectory() as temp_dir:

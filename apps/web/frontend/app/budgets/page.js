@@ -5,18 +5,7 @@ import {
   getBudgetVariance,
   getCurrentUser,
 } from "@/lib/backend";
-
-function statusBadge(status) {
-  if (status === "over_budget") return { label: "Over", color: "var(--error)" };
-  if (status === "on_budget") return { label: "On track", color: "var(--ok)" };
-  return { label: "Under", color: "var(--accent)" };
-}
-
-function envelopeBadge(state) {
-  if (state === "over_target") return { label: "Over", color: "var(--error)" };
-  if (state === "on_target") return { label: "On track", color: "var(--ok)" };
-  return { label: "Under", color: "var(--accent)" };
-}
+import { stateIndicatorBadge } from "@/lib/state-indicators";
 
 export default async function BudgetsPage({ searchParams }) {
   const user = await getCurrentUser();
@@ -66,12 +55,7 @@ export default async function BudgetsPage({ searchParams }) {
                 <tbody>
                   {progress.map((row, i) => {
                     const pct = Number(row.utilization_pct);
-                    const badge =
-                      pct > 100
-                        ? statusBadge("over_budget")
-                        : pct > 90
-                        ? statusBadge("on_budget")
-                        : statusBadge("under_budget");
+                    const badge = stateIndicatorBadge(row.state ?? row.status);
                     return (
                       <tr key={i}>
                         <td>{row.budget_name}</td>
@@ -142,7 +126,7 @@ export default async function BudgetsPage({ searchParams }) {
                 <tbody>
                   {envelopes.map((row, i) => {
                     const driftAmt = Number(row.drift_amount);
-                    const badge = envelopeBadge(row.drift_state);
+                    const badge = stateIndicatorBadge(row.state ?? row.drift_state);
                     return (
                       <tr key={i}>
                         <td>{row.budget_name}</td>
@@ -159,6 +143,9 @@ export default async function BudgetsPage({ searchParams }) {
                         </td>
                         <td>
                           <span style={{ color: badge.color }}>{badge.label}</span>
+                          <div className="muted" style={{ fontSize: "0.8rem" }}>
+                            {row.drift_state}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -243,7 +230,7 @@ export default async function BudgetsPage({ searchParams }) {
                 </thead>
                 <tbody>
                   {variance.map((row, i) => {
-                    const badge = statusBadge(row.status);
+                    const badge = stateIndicatorBadge(row.state ?? row.status);
                     const varianceAmt = Number(row.variance);
                     return (
                       <tr key={i}>
@@ -263,6 +250,9 @@ export default async function BudgetsPage({ searchParams }) {
                         </td>
                         <td>
                           <span style={{ color: badge.color }}>{badge.label}</span>
+                          <div className="muted" style={{ fontSize: "0.8rem" }}>
+                            {row.status}
+                          </div>
                         </td>
                       </tr>
                     );

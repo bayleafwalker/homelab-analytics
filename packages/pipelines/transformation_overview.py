@@ -45,6 +45,23 @@ from packages.storage.duckdb_store import DuckDBStore
 _ = MART_RECENT_LARGE_TRANSACTIONS_TABLE
 
 
+def _ensure_column(
+    store: DuckDBStore,
+    table_name: str,
+    column_name: str,
+    column_type: str,
+) -> None:
+    existing_columns = {
+        row[1] for row in store.connection.execute(
+            f"PRAGMA table_info('{table_name}')"
+        ).fetchall()
+    }
+    if column_name not in existing_columns:
+        store.connection.execute(
+            f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
+        )
+
+
 def ensure_overview_storage(store: DuckDBStore) -> None:
     store.ensure_table(MART_HOUSEHOLD_OVERVIEW_TABLE, MART_HOUSEHOLD_OVERVIEW_COLUMNS)
     store.ensure_table(MART_OPEN_ATTENTION_ITEMS_TABLE, MART_OPEN_ATTENTION_ITEMS_COLUMNS)
@@ -60,6 +77,7 @@ def ensure_overview_storage(store: DuckDBStore) -> None:
     store.ensure_table(
         MART_RECURRING_COST_BASELINE_TABLE, MART_RECURRING_COST_BASELINE_COLUMNS
     )
+    _ensure_column(store, MART_AFFORDABILITY_RATIOS_TABLE, "state", "VARCHAR")
 
 
 def refresh_household_overview(store: DuckDBStore) -> int:
@@ -544,7 +562,7 @@ def refresh_affordability_ratios(store: DuckDBStore) -> int:
     store.execute(
         f"""
         INSERT INTO {MART_AFFORDABILITY_RATIOS_TABLE}
-            (ratio_name, numerator, denominator, ratio, period_label, assessment, currency)
+            (ratio_name, numerator, denominator, ratio, period_label, assessment, state, currency)
         WITH
         latest_cashflow AS (
             SELECT income, booking_month, 'EUR' AS currency
@@ -594,6 +612,14 @@ def refresh_affordability_ratios(store: DuckDBStore) -> int:
                      NULLIF((SELECT income FROM latest_cashflow), 0) <= 0.40 THEN 'caution'
                 ELSE 'critical'
             END                                                        AS assessment,
+            CASE
+                WHEN COALESCE((SELECT income FROM latest_cashflow), 0) = 0 THEN 'warning'
+                WHEN COALESCE((SELECT amount FROM housing_cost), 0) /
+                     NULLIF((SELECT income FROM latest_cashflow), 0) <= 0.30 THEN 'good'
+                WHEN COALESCE((SELECT amount FROM housing_cost), 0) /
+                     NULLIF((SELECT income FROM latest_cashflow), 0) <= 0.40 THEN 'warning'
+                ELSE 'needs_action'
+            END                                                        AS state,
             COALESCE((SELECT currency FROM latest_cashflow), '')       AS currency
         UNION ALL
         SELECT
@@ -616,6 +642,14 @@ def refresh_affordability_ratios(store: DuckDBStore) -> int:
                      NULLIF((SELECT income FROM latest_cashflow), 0) <= 0.80 THEN 'caution'
                 ELSE 'critical'
             END,
+            CASE
+                WHEN COALESCE((SELECT income FROM latest_cashflow), 0) = 0 THEN 'warning'
+                WHEN COALESCE((SELECT amount FROM total_cost), 0) /
+                     NULLIF((SELECT income FROM latest_cashflow), 0) <= 0.60 THEN 'good'
+                WHEN COALESCE((SELECT amount FROM total_cost), 0) /
+                     NULLIF((SELECT income FROM latest_cashflow), 0) <= 0.80 THEN 'warning'
+                ELSE 'needs_action'
+            END,
             COALESCE((SELECT currency FROM latest_cashflow), '')
         UNION ALL
         SELECT
@@ -637,6 +671,14 @@ def refresh_affordability_ratios(store: DuckDBStore) -> int:
                 WHEN COALESCE((SELECT amount FROM debt_cost), 0) /
                      NULLIF((SELECT income FROM latest_cashflow), 0) <= 0.50 THEN 'caution'
                 ELSE 'critical'
+            END,
+            CASE
+                WHEN COALESCE((SELECT income FROM latest_cashflow), 0) = 0 THEN 'warning'
+                WHEN COALESCE((SELECT amount FROM debt_cost), 0) /
+                     NULLIF((SELECT income FROM latest_cashflow), 0) <= 0.36 THEN 'good'
+                WHEN COALESCE((SELECT amount FROM debt_cost), 0) /
+                     NULLIF((SELECT income FROM latest_cashflow), 0) <= 0.50 THEN 'warning'
+                ELSE 'needs_action'
             END,
             COALESCE((SELECT currency FROM latest_cashflow), '')
         """

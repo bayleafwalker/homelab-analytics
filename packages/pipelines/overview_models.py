@@ -78,6 +78,7 @@ MART_AFFORDABILITY_RATIOS_COLUMNS: list[tuple[str, str]] = [
     ("ratio", "DECIMAL(18,6) NOT NULL"),
     ("period_label", "VARCHAR NOT NULL"),
     ("assessment", "VARCHAR NOT NULL"),    # healthy | caution | critical
+    ("state", "VARCHAR NOT NULL"),         # good | warning | needs_action
     ("currency", "VARCHAR NOT NULL"),
 ]
 

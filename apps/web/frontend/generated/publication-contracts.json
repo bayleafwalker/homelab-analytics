@@ -169,6 +169,19 @@
         },
         {
           "aggregation": null,
+          "description": "State",
+          "filterable": true,
+          "grain": null,
+          "json_type": "string",
+          "name": "state",
+          "nullable": false,
+          "semantic_role": "status",
+          "sortable": true,
+          "storage_type": "VARCHAR NOT NULL",
+          "unit": null
+        },
+        {
+          "aggregation": null,
           "description": "Currency",
           "filterable": true,
           "grain": null,
@@ -427,6 +440,19 @@
         },
         {
           "aggregation": null,
+          "description": "State",
+          "filterable": true,
+          "grain": null,
+          "json_type": "string",
+          "name": "state",
+          "nullable": false,
+          "semantic_role": "status",
+          "sortable": true,
+          "storage_type": "VARCHAR NOT NULL",
+          "unit": null
+        },
+        {
+          "aggregation": null,
           "description": "Currency",
           "filterable": true,
           "grain": null,
@@ -535,6 +561,19 @@
           "sortable": true,
           "storage_type": "DECIMAL(18,4) NOT NULL",
           "unit": "percent"
+        },
+        {
+          "aggregation": null,
+          "description": "State",
+          "filterable": true,
+          "grain": null,
+          "json_type": "string",
+          "name": "state",
+          "nullable": false,
+          "semantic_role": "status",
+          "sortable": true,
+          "storage_type": "VARCHAR NOT NULL",
+          "unit": null
         },
         {
           "aggregation": null,
@@ -667,6 +706,19 @@
           "grain": null,
           "json_type": "string",
           "name": "status",
+          "nullable": false,
+          "semantic_role": "status",
+          "sortable": true,
+          "storage_type": "VARCHAR NOT NULL",
+          "unit": null
+        },
+        {
+          "aggregation": null,
+          "description": "State",
+          "filterable": true,
+          "grain": null,
+          "json_type": "string",
+          "name": "state",
           "nullable": false,
           "semantic_role": "status",
           "sortable": true,

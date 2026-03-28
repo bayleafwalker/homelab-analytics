@@ -2112,6 +2112,19 @@ export const publicationContractMap = {
       },
       {
         "aggregation": null,
+        "description": "State",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "state",
+        "nullable": false,
+        "semantic_role": "status",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
         "description": "Currency",
         "filterable": true,
         "grain": null,
@@ -2222,6 +2235,19 @@ export const publicationContractMap = {
         "unit": "currency"
       },
       {
+        "aggregation": "pct_change",
+        "description": "Drift pct",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "drift_pct",
+        "nullable": true,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4)",
+        "unit": "percent"
+      },
+      {
         "aggregation": null,
         "description": "Drift state",
         "filterable": true,
@@ -2235,17 +2261,17 @@ export const publicationContractMap = {
         "unit": null
       },
       {
-        "aggregation": "pct_change",
-        "description": "Drift pct",
-        "filterable": false,
+        "aggregation": null,
+        "description": "State",
+        "filterable": true,
         "grain": null,
         "json_type": "string",
-        "name": "drift_pct",
-        "nullable": true,
-        "semantic_role": "measure",
+        "name": "state",
+        "nullable": false,
+        "semantic_role": "status",
         "sortable": true,
-        "storage_type": "DECIMAL(18,4)",
-        "unit": "percent"
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
       },
       {
         "aggregation": null,
@@ -2357,6 +2383,19 @@ export const publicationContractMap = {
         "sortable": true,
         "storage_type": "DECIMAL(18,4) NOT NULL",
         "unit": "percent"
+      },
+      {
+        "aggregation": null,
+        "description": "State",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "state",
+        "nullable": false,
+        "semantic_role": "status",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
       },
       {
         "aggregation": null,
@@ -2489,6 +2528,19 @@ export const publicationContractMap = {
         "grain": null,
         "json_type": "string",
         "name": "status",
+        "nullable": false,
+        "semantic_role": "status",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "State",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "state",
         "nullable": false,
         "semantic_role": "status",
         "sortable": true,
