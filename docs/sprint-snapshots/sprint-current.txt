@@ -1,17 +1,18 @@
-SPRINT: Sprint J — Non-Finance Canonical Foundations  [active]
-Goal:   Finish the real Stage 1 carryover after Sprint I by turning the worktree's non-finance domain foundations into explicit landing, transformation, and reporting scope.
-Dates:  2026-03-29 to 2026-04-11
-ID:     4
+SPRINT: Sprint K — Household Decision Surfaces  [active]
+Goal:   Finish the Stage 3 and Stage 4 operator-facing decision loop: cost envelopes, structured state indicators, homelab value, and scenario comparison.
+Dates:  2026-04-12 to 2026-04-25
+ID:     5
 
---- Track: stage-1 ---
-  health: 8 items — 8 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #38  Stage 1 — Remaining canonical dimensions (dim_budget, dim_loan, dim_asset, etc.)  (assignee: -)
-  [done    ] #39  Stage 1 — Remaining canonical facts (fact_loan_repayment, fact_balance_snapshot, etc.)  (assignee: -)
-  [done    ] #53  Stage 1 — Internal platform ingestion foundation (Prometheus + Home Assistant landing contracts)  (assignee: -)
-  [done    ] #54  Stage 1 — Utilities automation slice (provider pulls, HA energy telemetry, freshness policy)  (assignee: -)
-  [done    ] #55  Stage 1 — Infrastructure metrics foundation (dim_node, dim_device, fact_cluster_metric, fact_power_consumption)  (assignee: -)
-  [done    ] #56  Stage 1 — Home automation state foundation (dim_entity, fact_sensor_reading, fact_automation_event)  (assignee: -)
-  [done    ] #57  Stage 1 — Asset inventory foundation (manual register, dim_asset, fact_asset_event)  (assignee: -)
-  [done    ] #59  Stage 1 — Cross-domain dimension governance and semantic contracts  (assignee: -)
+--- Track: stage-3 ---
+  health: 3 items — 2 done (66%), 1 active, 0 pending, 0 blocked (0%)
+  [done    ] #29  Stage 3 — Category-based cost envelopes with drift visibility  (assignee: -)
+  [done    ] #30  Stage 3 — Structured state indicators (good/warning/needs-action)  (assignee: -)
+  [active  ] #58  Stage 3 — Homelab value loop (cost/benefit model, reporting mart, operator surface)  (assignee: -)
 
-Rendered: 2026-03-28T18:56:19Z
+--- Track: stage-4 ---
+  health: 3 items — 2 done (66%), 0 active, 1 pending, 0 blocked (0%)
+  [done    ] #27  Stage 4 — Homelab cost/benefit scenario  (assignee: -)
+  [done    ] #28  Stage 4 — Scenario comparison view  (assignee: -)
+  [pending ] #65  Stage 4 — Shared compare-set management (rename, archived visibility, restore)  (assignee: -)
+
+Rendered: 2026-03-28T19:18:34Z
