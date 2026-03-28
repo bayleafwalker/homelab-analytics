@@ -654,7 +654,10 @@ class ApiMainTests(unittest.TestCase):
             )
 
             transformation_service = build_transformation_service(settings)
-            with patch("apps.api.main.build_reporting_store", return_value=object()):
+            with patch(
+                "packages.platform.runtime.builder.build_reporting_store",
+                return_value=object(),
+            ):
                 reporting_service = build_reporting_service(
                     settings,
                     transformation_service,

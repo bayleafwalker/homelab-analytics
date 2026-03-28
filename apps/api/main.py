@@ -17,9 +17,11 @@ from packages.domains.finance.manifest import FINANCE_PACK
 from packages.domains.homelab.manifest import HOMELAB_PACK
 from packages.domains.overview.manifest import OVERVIEW_PACK
 from packages.domains.utilities.manifest import UTILITIES_PACK
-from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.lazy_transformation_service import LazyTransformationService
-from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
+from packages.pipelines.reporting_service import (
+    ReportingAccessMode,
+    ReportingService,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.platform.auth.configuration import validate_auth_configuration
 from packages.platform.auth.machine_jwt_provider import build_machine_jwt_provider
@@ -29,28 +31,21 @@ from packages.platform.auth.session_manager import build_session_manager
 from packages.platform.runtime.builder import build_container
 from packages.platform.runtime.builder import (
     build_function_registry as _platform_build_function_registry,
+    build_reporting_service as _platform_build_reporting_service,
+    build_account_transaction_service as _platform_build_service,
+    build_reporting_store,
+    build_transformation_service as _platform_build_transformation_service,
 )
 from packages.shared.logging import configure_logging
 from packages.shared.settings import AppSettings
-from packages.storage.duckdb_store import DuckDBStore
-from packages.storage.runtime import (
-    build_blob_store,
-    build_config_store,
-    build_reporting_store,
-    build_run_metadata_store,
-)
 
 
 def build_function_registry(settings: AppSettings, *, config_repository=None):
     return _platform_build_function_registry(settings, config_repository=config_repository)
 
 
-def build_service(settings: AppSettings) -> AccountTransactionService:
-    return AccountTransactionService(
-        landing_root=settings.landing_root,
-        metadata_repository=build_run_metadata_store(settings),
-        blob_store=build_blob_store(settings),
-    )
+def build_service(settings: AppSettings):
+    return _platform_build_service(settings)
 
 
 def build_transformation_service(
@@ -58,11 +53,9 @@ def build_transformation_service(
     *,
     container=None,
 ) -> TransformationService:
-    analytics_path = settings.resolved_analytics_database_path
-    analytics_path.parent.mkdir(parents=True, exist_ok=True)
     resolved_container = container or build_container(settings)
-    return TransformationService(
-        DuckDBStore.open(str(analytics_path)),
+    return _platform_build_transformation_service(
+        settings,
         control_plane_store=resolved_container.control_plane_store,
         publication_refresh_registry=resolved_container.publication_refresh_registry,
         domain_registry=resolved_container.transformation_domain_registry,
@@ -89,16 +82,17 @@ def build_reporting_service(
     extension_registry=None,
     control_plane_store=None,
 ) -> ReportingService:
-    return ReportingService(
+    return _platform_build_reporting_service(
+        settings,
         transformation_service,
         publication_store=build_reporting_store(settings),
         extension_registry=extension_registry,
+        control_plane_store=control_plane_store,
         access_mode=(
             ReportingAccessMode.PUBLISHED
             if settings.reporting_backend.lower() == "postgres"
             else ReportingAccessMode.WAREHOUSE
         ),
-        control_plane_store=control_plane_store or build_config_store(settings),
     )
 
 

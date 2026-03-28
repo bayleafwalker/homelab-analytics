@@ -232,6 +232,7 @@ Binding rules:
 - control-plane transformation-package creation should validate `handler_key` values against the loaded promotion-handler registry so invalid runtime wiring is rejected before it is persisted
 - control-plane publication-definition creation and `verify-config` should validate built-in publication keys against the selected package handler, while still allowing extension-declared publication relations
 - API and worker startup may sync extension-declared transformation packages and publication definitions into the control plane so source assets can bind to registered external packages without manual catalog bootstrapping
+- shared runtime service factories live in `packages/platform/runtime/builder.py`; API and worker entrypoints wrap those helpers instead of duplicating constructor bodies
 
 For folder-like external systems, prefer sync-to-folder first:
 

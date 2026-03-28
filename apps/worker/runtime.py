@@ -8,32 +8,26 @@ from packages.domains.finance.manifest import FINANCE_PACK
 from packages.domains.overview.manifest import OVERVIEW_PACK
 from packages.domains.utilities.manifest import UTILITIES_PACK
 from packages.pipelines.account_transaction_service import AccountTransactionService
-from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.extension_registries import PipelineRegistries
 from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
-from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_domain_registry import TransformationDomainRegistry
 from packages.pipelines.transformation_refresh_registry import PublicationRefreshRegistry
 from packages.pipelines.transformation_service import TransformationService
 from packages.platform.runtime.builder import (
     build_container,
-)
-from packages.platform.runtime.builder import (
     build_extension_registry as _platform_build_extension_registry,
+    build_pipeline_registries as _platform_build_pipeline_registries,
 )
 from packages.platform.runtime.builder import (
-    build_pipeline_registries as _platform_build_pipeline_registries,
+    build_contract_price_service as _platform_build_contract_price_service,
+    build_account_transaction_service as _platform_build_service,
+    build_reporting_service as _platform_build_reporting_service,
+    build_subscription_service as _platform_build_subscription_service,
+    build_transformation_service as _platform_build_transformation_service,
 )
 from packages.platform.runtime.container import AppContainer
 from packages.shared.extensions import ExtensionRegistry
 from packages.shared.settings import AppSettings
-from packages.storage.duckdb_store import DuckDBStore
-from packages.storage.runtime import (
-    build_blob_store,
-    build_config_store,
-    build_reporting_store,
-    build_run_metadata_store,
-)
 
 
 @dataclass(frozen=True)
@@ -114,27 +108,15 @@ def build_worker_runtime(
 
 
 def build_service(settings: AppSettings) -> AccountTransactionService:
-    return AccountTransactionService(
-        landing_root=settings.landing_root,
-        metadata_repository=build_run_metadata_store(settings),
-        blob_store=build_blob_store(settings),
-    )
+    return _platform_build_service(settings)
 
 
-def build_subscription_service(settings: AppSettings) -> SubscriptionService:
-    return SubscriptionService(
-        landing_root=settings.landing_root,
-        metadata_repository=build_run_metadata_store(settings),
-        blob_store=build_blob_store(settings),
-    )
+def build_subscription_service(settings: AppSettings):
+    return _platform_build_subscription_service(settings)
 
 
-def build_contract_price_service(settings: AppSettings) -> ContractPriceService:
-    return ContractPriceService(
-        landing_root=settings.landing_root,
-        metadata_repository=build_run_metadata_store(settings),
-        blob_store=build_blob_store(settings),
-    )
+def build_contract_price_service(settings: AppSettings):
+    return _platform_build_contract_price_service(settings)
 
 
 def build_extension_registry(
@@ -159,11 +141,8 @@ def build_transformation_service(
     publication_refresh_registry: PublicationRefreshRegistry | None = None,
     domain_registry: TransformationDomainRegistry | None = None,
 ) -> TransformationService:
-    analytics_path = settings.resolved_analytics_database_path
-    analytics_path.parent.mkdir(parents=True, exist_ok=True)
-    return TransformationService(
-        DuckDBStore.open(str(analytics_path)),
-        control_plane_store=build_config_store(settings),
+    return _platform_build_transformation_service(
+        settings,
         publication_refresh_registry=publication_refresh_registry,
         domain_registry=domain_registry,
     )
@@ -174,10 +153,9 @@ def build_reporting_service(
     transformation_service: TransformationService,
     extension_registry: ExtensionRegistry | None = None,
 ) -> ReportingService:
-    return ReportingService(
+    return _platform_build_reporting_service(
+        settings,
         transformation_service,
-        publication_store=build_reporting_store(settings),
         extension_registry=extension_registry,
         access_mode=ReportingAccessMode.WAREHOUSE,
-        control_plane_store=build_config_store(settings),
     )

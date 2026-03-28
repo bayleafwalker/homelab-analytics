@@ -94,6 +94,8 @@ def test_runtime_builders_preserve_published_vs_warehouse_reporting_boundary() -
     assert "build_pipeline_registries(" in platform_builder_source
     assert "sync_pipeline_catalog(" in platform_builder_source
     assert "domain_registry=pipeline_registries.transformation_domain_registry" in platform_builder_source
+    assert "build_transformation_service(" in platform_builder_source
+    assert "build_reporting_service(" in platform_builder_source
     # Worker always uses WAREHOUSE mode
     assert "access_mode=ReportingAccessMode.WAREHOUSE" in worker_runtime_source
     assert "build_web_environment" in web_main_source

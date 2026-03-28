@@ -10,7 +10,11 @@ from packages.pipelines.configured_ingestion_definition import (
 from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.extension_registries import PipelineRegistries, load_pipeline_registries
 from packages.pipelines.pipeline_catalog import sync_pipeline_catalog
+from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
 from packages.pipelines.subscription_service import SubscriptionService
+from packages.pipelines.transformation_domain_registry import TransformationDomainRegistry
+from packages.pipelines.transformation_refresh_registry import PublicationRefreshRegistry
+from packages.pipelines.transformation_service import TransformationService
 from packages.platform.auth.configuration import maybe_bootstrap_local_admin
 from packages.platform.capability_registry import load_capability_packs
 from packages.platform.capability_types import CapabilityPack
@@ -23,10 +27,12 @@ from packages.shared.external_registry import (
 from packages.shared.function_registry import FunctionRegistry, load_function_registry
 from packages.shared.settings import AppSettings
 from packages.storage.control_plane import ControlPlaneStore
+from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.runtime import (
     build_blob_store,
     build_config_store,
     build_run_metadata_store,
+    build_reporting_store,
 )
 
 
@@ -115,6 +121,80 @@ def build_capability_packs(
     )
 
 
+def build_account_transaction_service(
+    settings: AppSettings,
+    *,
+    metadata_repository: ControlPlaneStore | None = None,
+    blob_store=None,
+) -> AccountTransactionService:
+    return AccountTransactionService(
+        landing_root=settings.landing_root,
+        metadata_repository=metadata_repository or build_run_metadata_store(settings),
+        blob_store=blob_store or build_blob_store(settings),
+    )
+
+
+def build_subscription_service(
+    settings: AppSettings,
+    *,
+    metadata_repository: ControlPlaneStore | None = None,
+    blob_store=None,
+) -> SubscriptionService:
+    return SubscriptionService(
+        landing_root=settings.landing_root,
+        metadata_repository=metadata_repository or build_run_metadata_store(settings),
+        blob_store=blob_store or build_blob_store(settings),
+    )
+
+
+def build_contract_price_service(
+    settings: AppSettings,
+    *,
+    metadata_repository: ControlPlaneStore | None = None,
+    blob_store=None,
+) -> ContractPriceService:
+    return ContractPriceService(
+        landing_root=settings.landing_root,
+        metadata_repository=metadata_repository or build_run_metadata_store(settings),
+        blob_store=blob_store or build_blob_store(settings),
+    )
+
+
+def build_transformation_service(
+    settings: AppSettings,
+    *,
+    control_plane_store: ControlPlaneStore | None = None,
+    publication_refresh_registry: PublicationRefreshRegistry | None = None,
+    domain_registry: TransformationDomainRegistry | None = None,
+) -> TransformationService:
+    analytics_path = settings.resolved_analytics_database_path
+    analytics_path.parent.mkdir(parents=True, exist_ok=True)
+    return TransformationService(
+        DuckDBStore.open(str(analytics_path)),
+        control_plane_store=control_plane_store or build_config_store(settings),
+        publication_refresh_registry=publication_refresh_registry,
+        domain_registry=domain_registry,
+    )
+
+
+def build_reporting_service(
+    settings: AppSettings,
+    transformation_service: TransformationService,
+    *,
+    publication_store=None,
+    extension_registry: ExtensionRegistry | None = None,
+    control_plane_store: ControlPlaneStore | None = None,
+    access_mode: ReportingAccessMode = ReportingAccessMode.WAREHOUSE,
+) -> ReportingService:
+    return ReportingService(
+        transformation_service,
+        publication_store=publication_store or build_reporting_store(settings),
+        extension_registry=extension_registry,
+        access_mode=access_mode,
+        control_plane_store=control_plane_store or build_config_store(settings),
+    )
+
+
 def build_container(
     settings: AppSettings,
     *,
@@ -169,8 +249,8 @@ def build_container(
 
     finance_pack = next((p for p in resolved_capability_packs if p.name == "finance"), None)
 
-    service = AccountTransactionService(
-        landing_root=settings.landing_root,
+    service = build_account_transaction_service(
+        settings,
         metadata_repository=run_metadata_store,
         blob_store=blob_store,
     )
@@ -187,13 +267,13 @@ def build_container(
         publication_refresh_registry=pipeline_registries.publication_refresh_registry,
         pipeline_catalog_registry=pipeline_registries.pipeline_catalog_registry,
         service=service,
-        subscription_service=SubscriptionService(
-            landing_root=settings.landing_root,
+        subscription_service=build_subscription_service(
+            settings,
             metadata_repository=run_metadata_store,
             blob_store=blob_store,
         ),
-        contract_price_service=ContractPriceService(
-            landing_root=settings.landing_root,
+        contract_price_service=build_contract_price_service(
+            settings,
             metadata_repository=run_metadata_store,
             blob_store=blob_store,
         ),
