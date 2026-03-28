@@ -255,7 +255,7 @@ Extract the integration contracts proven in Stage 5 (HA-first) into a generic ad
 ### Key capabilities
 
 - Three adapter contracts: ingest (state stream or poll), publish (entity or metric publication), action (command dispatch)
-- Adapter registration and lifecycle model: discovery, connection, health, teardown
+- Adapter registration and lifecycle model: discovery, connection, typed health/status, teardown
 - Entity normalization contract per adapter: source entities mapped to canonical platform entities
 - Connection and credential management abstraction
 - HA implementation positioned as the reference adapter
@@ -283,7 +283,7 @@ The adapter model should account for these integration categories without necess
 - `IngestAdapter` contract: connect, stream or poll, normalize to canonical entity model, disconnect
 - `PublishAdapter` contract: connect, format platform state to target entity model, publish, disconnect
 - `ActionAdapter` contract: validate action against target capabilities, dispatch, report result
-- Adapter health and status reporting generalizing the existing `/api/ha/*/status` pattern
+- Adapter health and status reporting generalizing the existing `/api/ha/*/status` pattern through a shared typed runtime snapshot
 - Multi-adapter entity correlation strategy for deduplicating or correlating entities that appear through multiple adapters
 
 ### Relationship to existing work

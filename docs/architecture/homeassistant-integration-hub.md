@@ -147,4 +147,6 @@ This means HA-specific protocol choices — WebSocket subscription format, MQTT 
 
 In the codebase, API startup assembly now delegates the HA-specific runtime wiring to `apps/api/ha_startup.py`, keeping `apps/api/main.py` focused on orchestration and shared composition-root rules.
 
+The platform-facing HA health endpoints use typed status models for bridge and action surfaces so the adapter boundary stays explicit rather than leaking raw transport dictionaries into the API. That runtime snapshot is distinct from the static adapter manifest described in `docs/architecture/integration-adapters.md`.
+
 See `docs/architecture/integration-adapters.md` for the Stage 6 adapter contract packet and the HA-as-reference mapping.

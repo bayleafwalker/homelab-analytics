@@ -150,7 +150,7 @@ The evaluation gate in `docs/plans/household-operating-platform-roadmap.md` codi
 ### Stage 6 — Integration adapter layer
 
 - Generic adapter contracts: ingest, publish, action
-- Adapter registration, lifecycle, and health model
+- Adapter registration, lifecycle, and typed health/status model
 - Entity normalization contract per adapter
 - HA integration hub positioned as the reference adapter
 - Extension points for future adapters (Prometheus, Kubernetes API, generic MQTT, notification services)

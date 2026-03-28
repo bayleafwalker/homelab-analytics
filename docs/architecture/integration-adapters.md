@@ -36,6 +36,23 @@ more directions, but the contract shape stays the same.
 The manifest is a contract surface, not a runtime convenience object. It should be sufficient
 to validate whether an adapter can be activated before any live connection is opened.
 
+### Runtime status
+
+Runtime status is separate from the manifest. The manifest answers "can this adapter be
+activated?" The runtime status snapshot answers "what is the adapter doing right now?" and
+should stay typed so API consumers do not need to interpret ad hoc dictionaries.
+
+At minimum, a shared runtime status shape should distinguish:
+
+- activation state: whether the adapter was enabled or left dormant by configuration
+- connection state: whether the live transport is currently attached
+- freshness state: when the adapter last synchronized successfully
+- operational counters: reconnects, dispatches, or other adapter-specific health counts
+
+Adapters may expose extra fields for their own operational domain, but the snapshot should stay
+stable enough for the UI, API, and operators to reason about health the same way across adapter
+types.
+
 ### `IngestAdapter`
 
 `IngestAdapter` handles state coming into the platform from an external system.

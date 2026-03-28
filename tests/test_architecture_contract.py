@@ -118,6 +118,27 @@ def test_stage1_carryover_docs_name_remaining_dimension_and_completed_fact() -> 
     assert "remaining Stage 1 dimension work is concentrated in `dim_household_member`" in requirements
 
 
+def test_stage6_adapter_docs_pin_typed_runtime_status_boundaries() -> None:
+    integration_adapters = (
+        ROOT / "docs" / "architecture" / "integration-adapters.md"
+    ).read_text()
+    homeassistant_hub = (
+        ROOT / "docs" / "architecture" / "homeassistant-integration-hub.md"
+    ).read_text()
+    roadmap = (ROOT / "docs" / "plans" / "household-operating-platform-roadmap.md").read_text()
+    decisions = (
+        ROOT / "docs" / "decisions" / "household-operating-platform-direction.md"
+    ).read_text()
+
+    assert "### Runtime status" in integration_adapters
+    assert "should stay typed" in integration_adapters
+    assert "activation state" in integration_adapters
+    assert "shared typed runtime snapshot" in roadmap
+    assert "typed health/status" in roadmap
+    assert "typed health/status model" in decisions
+    assert "typed status models for bridge and action surfaces" in homeassistant_hub
+
+
 def test_worker_main_delegates_to_runtime_and_command_handlers() -> None:
     worker_main_source = (ROOT / "apps" / "worker" / "main.py").read_text()
     worker_handler_init_source = (
