@@ -53,6 +53,12 @@ class HomelabCostBenefitRequest(BaseModel):
     label: str | None = None
 
 
+class ScenarioCompareSetRequest(BaseModel):
+    left_scenario_id: str
+    right_scenario_id: str
+    label: str | None = None
+
+
 def register_scenario_routes(
     app: FastAPI,
     *,
@@ -95,6 +101,25 @@ def register_scenario_routes(
         svc = _svc()
         rows = svc.list_scenarios(include_archived=include_archived)
         return {"rows": to_jsonable(rows)}
+
+    @app.get("/api/scenarios/compare-sets")
+    async def list_scenario_compare_sets_route(include_archived: bool = False) -> dict[str, Any]:
+        svc = _svc()
+        rows = svc.list_scenario_compare_sets(include_archived=include_archived)
+        return {"rows": to_jsonable(rows)}
+
+    @app.post("/api/scenarios/compare-sets")
+    async def create_scenario_compare_set_route(body: ScenarioCompareSetRequest) -> dict[str, Any]:
+        svc = _svc()
+        try:
+            result = svc.create_scenario_compare_set(
+                left_scenario_id=body.left_scenario_id,
+                right_scenario_id=body.right_scenario_id,
+                label=body.label,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return to_jsonable(result)
 
     @app.get("/api/scenarios/{scenario_id}")
     async def get_scenario_metadata(scenario_id: str) -> dict[str, Any]:
@@ -248,6 +273,14 @@ def register_scenario_routes(
             "annual_cost_delta": str(result.annual_cost_delta),
             "is_stale": result.is_stale,
         }
+
+    @app.delete("/api/scenarios/compare-sets/{compare_set_id}")
+    async def archive_scenario_compare_set(compare_set_id: str) -> dict[str, Any]:
+        svc = _svc()
+        archived = svc.archive_scenario_compare_set(compare_set_id)
+        if not archived:
+            raise HTTPException(status_code=404, detail="Scenario compare set not found.")
+        return {"compare_set_id": compare_set_id, "status": "archived"}
 
     @app.get("/api/scenarios/{scenario_id}/cashflow")
     async def get_income_scenario_cashflow(scenario_id: str) -> dict[str, Any]:

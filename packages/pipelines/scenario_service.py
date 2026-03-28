@@ -27,6 +27,8 @@ from packages.pipelines.loan_models import (
 )
 from packages.pipelines.scenario_models import (
     DIM_SCENARIO_COLUMNS,
+    DIM_SCENARIO_COMPARE_SET_COLUMNS,
+    DIM_SCENARIO_COMPARE_SET_TABLE,
     DIM_SCENARIO_TABLE,
     FACT_SCENARIO_ASSUMPTION_COLUMNS,
     FACT_SCENARIO_ASSUMPTION_TABLE,
@@ -137,8 +139,22 @@ class HomelabCostBenefitComparison:
     is_stale: bool
 
 
+@dataclass
+class ScenarioCompareSetResult:
+    compare_set_id: str
+    label: str
+    left_scenario_id: str
+    right_scenario_id: str
+    left_scenario_label: str
+    right_scenario_label: str
+    status: str
+    created_at: str
+    updated_at: str
+
+
 def ensure_scenario_storage(store: DuckDBStore) -> None:
     store.ensure_table(DIM_SCENARIO_TABLE, DIM_SCENARIO_COLUMNS)
+    store.ensure_table(DIM_SCENARIO_COMPARE_SET_TABLE, DIM_SCENARIO_COMPARE_SET_COLUMNS)
     store.ensure_table(FACT_SCENARIO_ASSUMPTION_TABLE, FACT_SCENARIO_ASSUMPTION_COLUMNS)
     store.ensure_table(PROJ_LOAN_SCHEDULE_TABLE, PROJ_LOAN_SCHEDULE_COLUMNS)
     store.ensure_table(PROJ_LOAN_REPAYMENT_VARIANCE_TABLE, PROJ_LOAN_REPAYMENT_VARIANCE_COLUMNS)
@@ -461,6 +477,141 @@ def get_scenario_assumptions(store: DuckDBStore, scenario_id: str) -> list[dict[
         f"SELECT * FROM {FACT_SCENARIO_ASSUMPTION_TABLE} WHERE scenario_id = ?",
         [scenario_id],
     )
+
+
+def _get_active_compare_set_by_pair(
+    store: DuckDBStore,
+    *,
+    left_scenario_id: str,
+    right_scenario_id: str,
+) -> dict[str, Any] | None:
+    rows = store.fetchall_dicts(
+        f"SELECT * FROM {DIM_SCENARIO_COMPARE_SET_TABLE}"
+        " WHERE left_scenario_id = ? AND right_scenario_id = ? AND status = 'active'"
+        " ORDER BY updated_at DESC LIMIT 1",
+        [left_scenario_id, right_scenario_id],
+    )
+    return rows[0] if rows else None
+
+
+def list_scenario_compare_sets(
+    store: DuckDBStore,
+    *,
+    include_archived: bool = False,
+) -> list[dict[str, Any]]:
+    ensure_scenario_storage(store)
+    if include_archived:
+        return store.fetchall_dicts(
+            f"SELECT * FROM {DIM_SCENARIO_COMPARE_SET_TABLE} ORDER BY created_at DESC"
+        )
+    return store.fetchall_dicts(
+        f"SELECT * FROM {DIM_SCENARIO_COMPARE_SET_TABLE}"
+        " WHERE status = 'active' ORDER BY created_at DESC"
+    )
+
+
+def create_scenario_compare_set(
+    store: DuckDBStore,
+    *,
+    left_scenario_id: str,
+    right_scenario_id: str,
+    label: str | None = None,
+) -> ScenarioCompareSetResult:
+    ensure_scenario_storage(store)
+
+    if left_scenario_id == right_scenario_id:
+        raise ValueError("Compare sets require two different scenarios.")
+
+    left_scenario = get_scenario(store, left_scenario_id)
+    right_scenario = get_scenario(store, right_scenario_id)
+    if left_scenario is None:
+        raise ValueError(f"Scenario not found: {left_scenario_id!r}")
+    if right_scenario is None:
+        raise ValueError(f"Scenario not found: {right_scenario_id!r}")
+
+    created_at = datetime.now(UTC).isoformat()
+    auto_label = label or (
+        f"Compare: {left_scenario['label']} vs {right_scenario['label']}"
+    )
+    left_label = left_scenario["label"]
+    right_label = right_scenario["label"]
+    existing = _get_active_compare_set_by_pair(
+        store,
+        left_scenario_id=left_scenario_id,
+        right_scenario_id=right_scenario_id,
+    )
+
+    if existing is not None:
+        compare_set_id = str(existing["compare_set_id"])
+        store.execute(
+            f"UPDATE {DIM_SCENARIO_COMPARE_SET_TABLE}"
+            " SET label = ?, left_scenario_label = ?, right_scenario_label = ?, updated_at = ?"
+            " WHERE compare_set_id = ?",
+            [auto_label, left_label, right_label, created_at, compare_set_id],
+        )
+        rows = store.fetchall_dicts(
+            f"SELECT * FROM {DIM_SCENARIO_COMPARE_SET_TABLE} WHERE compare_set_id = ?",
+            [compare_set_id],
+        )
+        row = rows[0]
+    else:
+        compare_set_id = str(uuid.uuid4())
+        store.insert_rows(
+            DIM_SCENARIO_COMPARE_SET_TABLE,
+            [
+                {
+                    "compare_set_id": compare_set_id,
+                    "label": auto_label,
+                    "left_scenario_id": left_scenario_id,
+                    "right_scenario_id": right_scenario_id,
+                    "left_scenario_label": left_label,
+                    "right_scenario_label": right_label,
+                    "status": "active",
+                    "created_at": created_at,
+                    "updated_at": created_at,
+                }
+            ],
+        )
+        row = {
+            "compare_set_id": compare_set_id,
+            "label": auto_label,
+            "left_scenario_id": left_scenario_id,
+            "right_scenario_id": right_scenario_id,
+            "left_scenario_label": left_label,
+            "right_scenario_label": right_label,
+            "status": "active",
+            "created_at": created_at,
+            "updated_at": created_at,
+        }
+
+    return ScenarioCompareSetResult(
+        compare_set_id=str(row["compare_set_id"]),
+        label=row["label"],
+        left_scenario_id=row["left_scenario_id"],
+        right_scenario_id=row["right_scenario_id"],
+        left_scenario_label=row["left_scenario_label"],
+        right_scenario_label=row["right_scenario_label"],
+        status=row["status"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def archive_scenario_compare_set(store: DuckDBStore, compare_set_id: str) -> bool:
+    ensure_scenario_storage(store)
+    existing = store.fetchall_dicts(
+        f"SELECT compare_set_id FROM {DIM_SCENARIO_COMPARE_SET_TABLE}"
+        " WHERE compare_set_id = ? AND status = 'active'",
+        [compare_set_id],
+    )
+    if not existing:
+        return False
+    store.execute(
+        f"UPDATE {DIM_SCENARIO_COMPARE_SET_TABLE}"
+        " SET status = 'archived', updated_at = ? WHERE compare_set_id = ?",
+        [datetime.now(UTC).isoformat(), compare_set_id],
+    )
+    return True
 
 
 def archive_scenario(store: DuckDBStore, scenario_id: str) -> bool:

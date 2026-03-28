@@ -3,42 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-const STORAGE_KEY = "homelab_scenario_compare_sets_v1";
-
-function readSavedSets() {
-  if (typeof window === "undefined") {
-    return [];
-  }
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeSavedSets(savedSets) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSets));
-  } catch {
-    // Ignore storage quota and privacy-mode failures.
-  }
-}
-
-function makeSetId() {
-  if (globalThis.crypto?.randomUUID) {
-    return globalThis.crypto.randomUUID();
-  }
-  return `compare-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
 function scenarioLabel(snapshot, fallbackId) {
   if (!snapshot) {
     return fallbackId || "Unknown scenario";
@@ -47,18 +11,25 @@ function scenarioLabel(snapshot, fallbackId) {
   return `${snapshot.label || fallbackId || "Unknown scenario"}${type}`;
 }
 
+async function readErrorMessage(response, fallback) {
+  try {
+    const payload = await response.json();
+    return payload?.detail || payload?.error || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export function SavedScenarioCompareSets({
   scenarios,
+  initialSavedSets = [],
   leftScenarioId,
   rightScenarioId,
 }) {
-  const [savedSets, setSavedSets] = useState([]);
+  const [savedSets, setSavedSets] = useState(() => initialSavedSets);
   const [setLabel, setSetLabel] = useState("");
-
-  useEffect(() => {
-    const nextSavedSets = readSavedSets();
-    setSavedSets(nextSavedSets);
-  }, []);
+  const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   const scenarioById = useMemo(() => {
     return new Map(scenarios.map((row) => [row.scenario_id, row]));
@@ -74,72 +45,111 @@ export function SavedScenarioCompareSets({
   }, [leftScenario, leftScenarioId, rightScenario, rightScenarioId]);
 
   useEffect(() => {
+    setSavedSets(initialSavedSets);
+  }, [initialSavedSets]);
+
+  useEffect(() => {
     setSetLabel(defaultLabel);
+    setError("");
   }, [defaultLabel]);
 
-  const currentPairReady = Boolean(leftScenarioId && rightScenarioId);
+  const currentPairReady = Boolean(
+    leftScenarioId && rightScenarioId && leftScenarioId !== rightScenarioId,
+  );
+  const sameScenarioSelected = Boolean(
+    leftScenarioId && rightScenarioId && leftScenarioId === rightScenarioId,
+  );
   const currentPairDescription = currentPairReady
     ? `${scenarioLabel(leftScenario, leftScenarioId)} and ${scenarioLabel(
         rightScenario,
         rightScenarioId,
       )}`
-    : "Pick two scenarios before saving a compare set.";
+    : sameScenarioSelected
+      ? "Pick two different scenarios before saving a shared compare set."
+      : "Pick two scenarios before saving a shared compare set.";
 
   function persistSavedSets(nextSavedSets) {
-    setSavedSets(nextSavedSets);
-    writeSavedSets(nextSavedSets);
+    setSavedSets((currentSavedSets) =>
+      typeof nextSavedSets === "function" ? nextSavedSets(currentSavedSets) : nextSavedSets,
+    );
   }
 
-  function saveCurrentPair(event) {
+  async function saveCurrentPair(event) {
     event.preventDefault();
-    if (!currentPairReady) {
+    if (!currentPairReady || isSaving) {
       return;
     }
-    const trimmedLabel = setLabel.trim() || defaultLabel;
-    const nextSavedSet = {
-      id: makeSetId(),
-      label: trimmedLabel,
-      leftScenarioId,
-      rightScenarioId,
-      leftScenarioLabel: leftScenario?.label || leftScenarioId,
-      rightScenarioLabel: rightScenario?.label || rightScenarioId,
-      createdAt: new Date().toISOString(),
-    };
-    const nextSavedSets = [
-      nextSavedSet,
-      ...savedSets.filter(
-        (savedSet) =>
-          !(
-            savedSet.leftScenarioId === leftScenarioId &&
-            savedSet.rightScenarioId === rightScenarioId
-          ),
-      ),
-    ];
-    persistSavedSets(nextSavedSets);
-    setSetLabel(trimmedLabel);
+    setIsSaving(true);
+    setError("");
+    const label = setLabel.trim() || defaultLabel;
+
+    try {
+      const response = await fetch("/api/scenarios/compare-sets", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          left_scenario_id: leftScenarioId,
+          right_scenario_id: rightScenarioId,
+          label,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          await readErrorMessage(response, "Could not save the compare set."),
+        );
+      }
+
+      const savedSet = await response.json();
+      persistSavedSets((currentSavedSets) => [
+        savedSet,
+        ...currentSavedSets.filter(
+          (row) => row.compare_set_id !== savedSet.compare_set_id,
+        ),
+      ]);
+      setSetLabel(savedSet.label || label);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Could not save the compare set.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
-  function removeSavedSet(id) {
-    const nextSavedSets = savedSets.filter((savedSet) => savedSet.id !== id);
-    persistSavedSets(nextSavedSets);
-  }
-
-  function clearSavedSets() {
-    persistSavedSets([]);
+  async function removeSavedSet(compareSetId) {
+    setError("");
+    try {
+      const response = await fetch(`/api/scenarios/compare-sets/${compareSetId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        throw new Error(
+          await readErrorMessage(response, "Could not remove the compare set."),
+        );
+      }
+      persistSavedSets((currentSavedSets) =>
+        currentSavedSets.filter((row) => row.compare_set_id !== compareSetId),
+      );
+    } catch (removeError) {
+      setError(
+        removeError instanceof Error ? removeError.message : "Could not remove the compare set.",
+      );
+    }
   }
 
   return (
     <article className="panel section">
       <div className="sectionHeader">
         <div>
-          <div className="eyebrow">Saved compare sets</div>
-          <h2>Browser-local compare shortcuts</h2>
+          <div className="eyebrow">Shared compare sets</div>
+          <h2>Saved compare shortcuts</h2>
         </div>
       </div>
 
       <div className="stack">
         <p className="muted">
-          Save common scenario pairs in this browser so you can reopen them without reselecting the two sides.
+          Save a recurring pair once and reopen it later from this deployment, not just this browser.
         </p>
 
         <form className="stack" onSubmit={saveCurrentPair} style={{ gap: "0.85rem" }}>
@@ -163,33 +173,44 @@ export function SavedScenarioCompareSets({
             </div>
           </div>
 
+          {error ? (
+            <p className="muted" style={{ color: "var(--warn)" }}>
+              {error}
+            </p>
+          ) : null}
+
           <div className="buttonRow">
-            <button className="primaryButton inlineButton" type="submit" disabled={!currentPairReady}>
-              Save current pair
-            </button>
-            <button className="ghostButton inlineButton" type="button" onClick={clearSavedSets}>
-              Clear saved sets
+            <button
+              className="primaryButton inlineButton"
+              type="submit"
+              disabled={!currentPairReady || isSaving}
+            >
+              {isSaving ? "Saving..." : "Save compare set"}
             </button>
           </div>
         </form>
 
         {savedSets.length === 0 ? (
-          <p className="muted">No saved compare sets yet.</p>
+          <p className="muted">No shared compare sets yet.</p>
         ) : (
           <div className="stack">
             {savedSets.map((savedSet) => {
               const leftLabel =
-                scenarioById.get(savedSet.leftScenarioId)?.label || savedSet.leftScenarioLabel || savedSet.leftScenarioId;
+                scenarioById.get(savedSet.left_scenario_id)?.label ||
+                savedSet.left_scenario_label ||
+                savedSet.left_scenario_id;
               const rightLabel =
-                scenarioById.get(savedSet.rightScenarioId)?.label || savedSet.rightScenarioLabel || savedSet.rightScenarioId;
+                scenarioById.get(savedSet.right_scenario_id)?.label ||
+                savedSet.right_scenario_label ||
+                savedSet.right_scenario_id;
               const compareHref = `/scenarios/compare?left=${encodeURIComponent(
-                savedSet.leftScenarioId,
-              )}&right=${encodeURIComponent(savedSet.rightScenarioId)}`;
+                savedSet.left_scenario_id,
+              )}&right=${encodeURIComponent(savedSet.right_scenario_id)}`;
 
               return (
                 <article
                   className="panel"
-                  key={savedSet.id}
+                  key={savedSet.compare_set_id}
                   style={{ padding: "0.9rem 1rem", display: "grid", gap: "0.65rem" }}
                 >
                   <div className="buttonRow" style={{ justifyContent: "space-between" }}>
@@ -200,7 +221,7 @@ export function SavedScenarioCompareSets({
                       </div>
                     </div>
                     <span className="muted" style={{ alignSelf: "center", fontSize: "0.82rem" }}>
-                      {savedSet.createdAt ? savedSet.createdAt.slice(0, 10) : "—"}
+                      {savedSet.created_at ? savedSet.created_at.slice(0, 10) : "—"}
                     </span>
                   </div>
 
@@ -211,7 +232,7 @@ export function SavedScenarioCompareSets({
                     <button
                       className="ghostButton inlineButton"
                       type="button"
-                      onClick={() => removeSavedSet(savedSet.id)}
+                      onClick={() => removeSavedSet(savedSet.compare_set_id)}
                     >
                       Remove
                     </button>

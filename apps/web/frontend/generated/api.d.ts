@@ -323,6 +323,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scenarios/compare-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Scenario Compare Sets Route */
+        get: operations["list_scenario_compare_sets_route_api_scenarios_compare_sets_get"];
+        put?: never;
+        /** Create Scenario Compare Set Route */
+        post: operations["create_scenario_compare_set_route_api_scenarios_compare_sets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scenarios/compare-sets/{compare_set_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Archive Scenario Compare Set */
+        delete: operations["archive_scenario_compare_set_api_scenarios_compare_sets__compare_set_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scenarios/expense-shock": {
         parameters: {
             query?: never;
@@ -3675,6 +3710,15 @@ export interface components {
             promotion?: components["schemas"]["PromotionResultModel"] | null;
             run: components["schemas"]["RunModel"];
         };
+        /** ScenarioCompareSetRequest */
+        ScenarioCompareSetRequest: {
+            /** Label */
+            label?: string | null;
+            /** Left Scenario Id */
+            left_scenario_id: string;
+            /** Right Scenario Id */
+            right_scenario_id: string;
+        };
         /** ScheduleDispatchModel */
         ScheduleDispatchModel: {
             /** Claim Expires At */
@@ -4655,6 +4699,107 @@ export interface operations {
             };
             header?: never;
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_scenario_compare_sets_route_api_scenarios_compare_sets_get: {
+        parameters: {
+            query?: {
+                include_archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_scenario_compare_set_route_api_scenarios_compare_sets_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScenarioCompareSetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_scenario_compare_set_api_scenarios_compare_sets__compare_set_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                compare_set_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;

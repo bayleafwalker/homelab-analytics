@@ -5,6 +5,7 @@ Covers:
 - get_scenario_comparison: baseline vs projected rows, assumption list
 - archive_scenario: soft delete
 - create_homelab_cost_benefit_scenario: summary comparison over homelab marts
+- create_scenario_compare_set: shared saved compare set management
 """
 
 from __future__ import annotations
@@ -16,13 +17,16 @@ from decimal import Decimal
 
 from packages.pipelines.scenario_service import (
     archive_scenario,
+    archive_scenario_compare_set,
     create_homelab_cost_benefit_scenario,
     create_loan_what_if_scenario,
+    create_scenario_compare_set,
     ensure_scenario_storage,
     get_homelab_cost_benefit_comparison,
     get_scenario,
     get_scenario_assumptions,
     get_scenario_comparison,
+    list_scenario_compare_sets,
     list_scenarios,
 )
 from packages.pipelines.transformation_service import TransformationService
@@ -305,6 +309,72 @@ class ScenarioListTests(unittest.TestCase):
         ensure_scenario_storage(self.store)
         rows = list_scenarios(self.store)
         self.assertEqual(rows, [])
+
+
+class ScenarioCompareSetTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.store = DuckDBStore.memory()
+        self.svc = TransformationService(self.store)
+        _load_fixture_loan(self.svc)
+        self.left = create_loan_what_if_scenario(
+            self.store,
+            loan_id="loan-001",
+            extra_repayment=Decimal("100"),
+            label="Baseline savings",
+        ).scenario_id
+        self.right = create_loan_what_if_scenario(
+            self.store,
+            loan_id="loan-001",
+            extra_repayment=Decimal("250"),
+            label="Aggressive savings",
+        ).scenario_id
+
+    def test_create_compare_set_writes_listable_row(self) -> None:
+        result = create_scenario_compare_set(
+            self.store,
+            left_scenario_id=self.left,
+            right_scenario_id=self.right,
+            label="Loan comparison",
+        )
+        rows = list_scenario_compare_sets(self.store)
+        self.assertEqual(1, len(rows))
+        self.assertEqual(result.compare_set_id, rows[0]["compare_set_id"])
+        self.assertEqual("Loan comparison", rows[0]["label"])
+
+    def test_create_compare_set_updates_existing_pair(self) -> None:
+        first = create_scenario_compare_set(
+            self.store,
+            left_scenario_id=self.left,
+            right_scenario_id=self.right,
+            label="Original label",
+        )
+        second = create_scenario_compare_set(
+            self.store,
+            left_scenario_id=self.left,
+            right_scenario_id=self.right,
+            label="Updated label",
+        )
+        rows = list_scenario_compare_sets(self.store)
+        self.assertEqual(1, len(rows))
+        self.assertEqual(first.compare_set_id, second.compare_set_id)
+        self.assertEqual("Updated label", rows[0]["label"])
+
+    def test_archive_compare_set_hides_it_from_active_list(self) -> None:
+        result = create_scenario_compare_set(
+            self.store,
+            left_scenario_id=self.left,
+            right_scenario_id=self.right,
+        )
+        self.assertTrue(archive_scenario_compare_set(self.store, result.compare_set_id))
+        self.assertEqual([], list_scenario_compare_sets(self.store))
+
+    def test_compare_set_requires_two_different_scenarios(self) -> None:
+        with self.assertRaises(ValueError):
+            create_scenario_compare_set(
+                self.store,
+                left_scenario_id=self.left,
+                right_scenario_id=self.left,
+            )
 
 
 class HomelabCostBenefitScenarioTests(unittest.TestCase):

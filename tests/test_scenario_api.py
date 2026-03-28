@@ -221,6 +221,85 @@ class ScenarioDeleteAPITests(unittest.TestCase):
             self.assertGreater(len(comp_resp.json()["scenario_rows"]), 0)
 
 
+class ScenarioCompareSetAPITests(unittest.TestCase):
+    def _create_scenario(self, client: TestClient) -> str:
+        return client.post(
+            "/api/scenarios/loan-what-if",
+            json={"loan_id": "loan-001", "extra_repayment": "150.00"},
+        ).json()["scenario_id"]
+
+    def _create_two_scenarios(self, client: TestClient) -> tuple[str, str]:
+        left = client.post(
+            "/api/scenarios/loan-what-if",
+            json={"loan_id": "loan-001", "extra_repayment": "100.00"},
+        ).json()["scenario_id"]
+        right = client.post(
+            "/api/scenarios/loan-what-if",
+            json={"loan_id": "loan-001", "extra_repayment": "250.00"},
+        ).json()["scenario_id"]
+        return left, right
+
+    def test_post_creates_compare_set(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _ = _build_client(tmp)
+            left, right = self._create_two_scenarios(client)
+            resp = client.post(
+                "/api/scenarios/compare-sets",
+                json={
+                    "left_scenario_id": left,
+                    "right_scenario_id": right,
+                    "label": "Loan pair",
+                },
+            )
+            self.assertEqual(200, resp.status_code)
+            data = resp.json()
+            self.assertIn("compare_set_id", data)
+            self.assertEqual("Loan pair", data["label"])
+            self.assertEqual(left, data["left_scenario_id"])
+            self.assertEqual(right, data["right_scenario_id"])
+
+    def test_get_compare_sets_returns_saved_rows(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _ = _build_client(tmp)
+            left, right = self._create_two_scenarios(client)
+            client.post(
+                "/api/scenarios/compare-sets",
+                json={"left_scenario_id": left, "right_scenario_id": right},
+            )
+            resp = client.get("/api/scenarios/compare-sets")
+            self.assertEqual(200, resp.status_code)
+            data = resp.json()
+            self.assertEqual(1, len(data["rows"]))
+            self.assertEqual(left, data["rows"][0]["left_scenario_id"])
+
+    def test_delete_compare_set_archives_saved_row(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _ = _build_client(tmp)
+            left, right = self._create_two_scenarios(client)
+            create_resp = client.post(
+                "/api/scenarios/compare-sets",
+                json={"left_scenario_id": left, "right_scenario_id": right},
+            )
+            compare_set_id = create_resp.json()["compare_set_id"]
+            delete_resp = client.delete(f"/api/scenarios/compare-sets/{compare_set_id}")
+            self.assertEqual(200, delete_resp.status_code)
+            self.assertEqual("archived", delete_resp.json()["status"])
+            self.assertEqual(0, len(client.get("/api/scenarios/compare-sets").json()["rows"]))
+
+    def test_post_rejects_same_scenario(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _ = _build_client(tmp)
+            scenario_id = self._create_scenario(client)
+            resp = client.post(
+                "/api/scenarios/compare-sets",
+                json={
+                    "left_scenario_id": scenario_id,
+                    "right_scenario_id": scenario_id,
+                },
+            )
+            self.assertEqual(422, resp.status_code)
+
+
 class HomelabCostBenefitScenarioAPITests(unittest.TestCase):
     def test_post_creates_homelab_cost_benefit_scenario(self) -> None:
         with TemporaryDirectory() as tmp:

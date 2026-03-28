@@ -59,13 +59,16 @@ from packages.pipelines.scenario_service import (
     HomelabCostBenefitResult,
     IncomeCashflowComparison,
     IncomeScenarioResult,
+    ScenarioCompareSetResult,
     ScenarioResult,
     TariffShockResult,
     archive_scenario,
+    archive_scenario_compare_set,
     create_expense_shock_scenario,
     create_homelab_cost_benefit_scenario,
     create_income_change_scenario,
     create_loan_what_if_scenario,
+    create_scenario_compare_set,
     create_tariff_shock_scenario,
     ensure_scenario_storage,
     get_expense_shock_comparison,
@@ -75,6 +78,7 @@ from packages.pipelines.scenario_service import (
     get_scenario_assumptions,
     get_scenario_comparison,
     get_tariff_shock_comparison,
+    list_scenario_compare_sets,
     list_scenarios,
 )
 from packages.pipelines.subscription_models import (
@@ -1233,6 +1237,16 @@ class TransformationService:
     def list_scenarios(self, *, include_archived: bool = False) -> list[dict[str, Any]]:
         return list_scenarios(self._store, include_archived=include_archived)
 
+    def list_scenario_compare_sets(
+        self,
+        *,
+        include_archived: bool = False,
+    ) -> list[dict[str, Any]]:
+        return list_scenario_compare_sets(
+            self._store,
+            include_archived=include_archived,
+        )
+
     def get_scenario(self, scenario_id: str) -> dict[str, Any] | None:
         return get_scenario(self._store, scenario_id)
 
@@ -1244,6 +1258,23 @@ class TransformationService:
 
     def archive_scenario(self, scenario_id: str) -> bool:
         return archive_scenario(self._store, scenario_id)
+
+    def create_scenario_compare_set(
+        self,
+        *,
+        left_scenario_id: str,
+        right_scenario_id: str,
+        label: str | None = None,
+    ) -> ScenarioCompareSetResult:
+        return create_scenario_compare_set(
+            self._store,
+            left_scenario_id=left_scenario_id,
+            right_scenario_id=right_scenario_id,
+            label=label,
+        )
+
+    def archive_scenario_compare_set(self, compare_set_id: str) -> bool:
+        return archive_scenario_compare_set(self._store, compare_set_id)
 
     def ensure_scenario_storage(self) -> None:
         ensure_scenario_storage(self._store)

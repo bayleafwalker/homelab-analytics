@@ -1,10 +1,11 @@
-"""Scenario storage table schemas — dim_scenario, fact_scenario_assumption, proj tables.
+"""Scenario storage table schemas — dim_scenario, compare sets, fact_scenario_assumption, proj tables.
 
 Covers:
   - loan_what_if scenarios: proj_loan_schedule, proj_loan_repayment_variance
   - income_change scenarios: proj_income_cashflow
   - expense_shock / tariff_shock scenarios: proj_income_cashflow
   - homelab_cost_benefit scenarios: proj_homelab_cost_benefit_summary
+  - scenario compare sets: dim_scenario_compare_set
 """
 from __future__ import annotations
 
@@ -22,6 +23,24 @@ DIM_SCENARIO_COLUMNS: list[tuple[str, str]] = [
     ("status", "VARCHAR NOT NULL"),          # active | archived
     ("baseline_run_id", "VARCHAR"),          # run_id when scenario was computed
     ("created_at", "VARCHAR NOT NULL"),      # ISO timestamp
+]
+
+# ---------------------------------------------------------------------------
+# Dimension: dim_scenario_compare_set
+# ---------------------------------------------------------------------------
+
+DIM_SCENARIO_COMPARE_SET_TABLE = "dim_scenario_compare_set"
+
+DIM_SCENARIO_COMPARE_SET_COLUMNS: list[tuple[str, str]] = [
+    ("compare_set_id", "VARCHAR NOT NULL"),
+    ("label", "VARCHAR NOT NULL"),
+    ("left_scenario_id", "VARCHAR NOT NULL"),
+    ("right_scenario_id", "VARCHAR NOT NULL"),
+    ("left_scenario_label", "VARCHAR NOT NULL"),
+    ("right_scenario_label", "VARCHAR NOT NULL"),
+    ("status", "VARCHAR NOT NULL"),          # active | archived
+    ("created_at", "VARCHAR NOT NULL"),      # ISO timestamp
+    ("updated_at", "VARCHAR NOT NULL"),      # ISO timestamp
 ]
 
 # ---------------------------------------------------------------------------

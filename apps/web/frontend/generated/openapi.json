@@ -4055,6 +4055,35 @@
         "title": "RunMutationResponseModel",
         "type": "object"
       },
+      "ScenarioCompareSetRequest": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "left_scenario_id": {
+            "title": "Left Scenario Id",
+            "type": "string"
+          },
+          "right_scenario_id": {
+            "title": "Right Scenario Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "left_scenario_id",
+          "right_scenario_id"
+        ],
+        "title": "ScenarioCompareSetRequest",
+        "type": "object"
+      },
       "ScheduleDispatchModel": {
         "additionalProperties": false,
         "properties": {
@@ -6128,6 +6157,127 @@
           }
         },
         "summary": "List Scenarios Route"
+      }
+    },
+    "/api/scenarios/compare-sets": {
+      "get": {
+        "operationId": "list_scenario_compare_sets_route_api_scenarios_compare_sets_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Scenario Compare Sets Route Api Scenarios Compare Sets Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Scenario Compare Sets Route"
+      },
+      "post": {
+        "operationId": "create_scenario_compare_set_route_api_scenarios_compare_sets_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioCompareSetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Scenario Compare Set Route Api Scenarios Compare Sets Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Scenario Compare Set Route"
+      }
+    },
+    "/api/scenarios/compare-sets/{compare_set_id}": {
+      "delete": {
+        "operationId": "archive_scenario_compare_set_api_scenarios_compare_sets__compare_set_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "compare_set_id",
+            "required": true,
+            "schema": {
+              "title": "Compare Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Archive Scenario Compare Set Api Scenarios Compare Sets  Compare Set Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Scenario Compare Set"
       }
     },
     "/api/scenarios/expense-shock": {

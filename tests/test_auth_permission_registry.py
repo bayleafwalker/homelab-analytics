@@ -515,6 +515,22 @@ def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> Non
         == "reports:read"
     )
 
+    assert required_role_for_request("/api/scenarios/compare-sets", "GET") == UserRole.READER
+    assert required_permission_for_request("/api/scenarios/compare-sets", method="GET") == "reports.read"
+    assert (
+        required_service_token_scope_for_request("/api/scenarios/compare-sets", "GET")
+        == "reports:read"
+    )
+    assert required_role_for_request("/api/scenarios/compare-sets", "POST") == UserRole.OPERATOR
+    assert (
+        required_permission_for_request("/api/scenarios/compare-sets", method="POST")
+        == "ingest.write"
+    )
+    assert (
+        required_service_token_scope_for_request("/api/scenarios/compare-sets", "POST")
+        == "ingest:write"
+    )
+
     assert required_role_for_request("/api/scenarios/income-change", "POST") == UserRole.OPERATOR
     assert (
         required_permission_for_request("/api/scenarios/income-change", method="POST")
@@ -529,6 +545,16 @@ def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> Non
     assert (
         required_permission_for_request("/api/scenarios/scn-001", method="DELETE")
         == "ingest.write"
+    )
+
+    assert required_role_for_request("/api/scenarios/compare-sets/cs-001", "DELETE") == UserRole.OPERATOR
+    assert (
+        required_permission_for_request("/api/scenarios/compare-sets/cs-001", method="DELETE")
+        == "ingest.write"
+    )
+    assert (
+        required_service_token_scope_for_request("/api/scenarios/compare-sets/cs-001", "DELETE")
+        == "ingest:write"
     )
 
     assert required_role_for_request("/api/ha/entities", "GET") == UserRole.READER

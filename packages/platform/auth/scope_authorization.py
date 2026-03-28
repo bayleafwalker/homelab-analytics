@@ -166,6 +166,14 @@ def required_permission_for_request(
     if path.startswith("/categories/overrides/"):
         return PERMISSION_ADMIN_WRITE
     if path.startswith("/api/scenarios"):
+        if path == "/api/scenarios/compare-sets":
+            return (
+                PERMISSION_REPORTS_READ
+                if request_method == "GET"
+                else PERMISSION_INGEST_WRITE
+            )
+        if path.startswith("/api/scenarios/compare-sets/"):
+            return PERMISSION_INGEST_WRITE if request_method == "DELETE" else PERMISSION_REPORTS_READ
         if path in {
             "/api/scenarios/loan-what-if",
             "/api/scenarios/income-change",
@@ -233,6 +241,10 @@ def required_role_for_request(
     if path.startswith("/categories/overrides/"):
         return UserRole.ADMIN
     if path.startswith("/api/scenarios"):
+        if path == "/api/scenarios/compare-sets":
+            return UserRole.READER if request_method == "GET" else UserRole.OPERATOR
+        if path.startswith("/api/scenarios/compare-sets/"):
+            return UserRole.OPERATOR if request_method == "DELETE" else UserRole.READER
         if path in {
             "/api/scenarios/loan-what-if",
             "/api/scenarios/income-change",
@@ -291,6 +303,18 @@ def required_service_token_scope_for_request(
     if path.startswith("/categories/overrides/"):
         return SERVICE_TOKEN_SCOPE_ADMIN_WRITE
     if path.startswith("/api/scenarios"):
+        if path == "/api/scenarios/compare-sets":
+            return (
+                SERVICE_TOKEN_SCOPE_REPORTS_READ
+                if request_method == "GET"
+                else SERVICE_TOKEN_SCOPE_INGEST_WRITE
+            )
+        if path.startswith("/api/scenarios/compare-sets/"):
+            return (
+                SERVICE_TOKEN_SCOPE_INGEST_WRITE
+                if request_method == "DELETE"
+                else SERVICE_TOKEN_SCOPE_REPORTS_READ
+            )
         if path in {
             "/api/scenarios/loan-what-if",
             "/api/scenarios/income-change",

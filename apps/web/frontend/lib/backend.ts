@@ -1012,6 +1012,13 @@ export async function getScenarios({ includeArchived = false } = {}) {
   return getResponseArray(payload, "rows");
 }
 
+export async function getScenarioCompareSets({ includeArchived = false } = {}) {
+  const payload = await backendGet("/api/scenarios/compare-sets", {
+    params: { query: { include_archived: includeArchived } }
+  });
+  return getResponseArray(payload, "rows");
+}
+
 export async function getScenarioMetadata(
   scenarioId: PathValue<"/api/scenarios/{scenario_id}", "scenario_id">
 ) {

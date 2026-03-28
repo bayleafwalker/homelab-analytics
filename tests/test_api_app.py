@@ -241,6 +241,31 @@ class ApiAppTests(unittest.TestCase):
                 ]["content"]["application/json"]["schema"]["$ref"],
             )
 
+    def test_openapi_schema_exposes_scenario_compare_set_routes(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs.db"
+                        ),
+                    ),
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            response = client.get("/openapi.json")
+
+            self.assertEqual(200, response.status_code)
+            schema = response.json()
+            self.assertEqual(
+                "#/components/schemas/ScenarioCompareSetRequest",
+                schema["paths"]["/api/scenarios/compare-sets"]["post"]["requestBody"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+
     def test_openapi_schema_exposes_control_terminal_models(self) -> None:
         with TemporaryDirectory() as temp_dir:
             client = TestClient(

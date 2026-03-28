@@ -7,6 +7,7 @@ import {
   getScenarioCashflow,
   getScenarioComparison,
   getScenarioMetadata,
+  getScenarioCompareSets,
   getScenarios,
 } from "@/lib/backend";
 
@@ -312,6 +313,7 @@ function ComparisonPanel({ snapshot, title }) {
 export default async function ScenariosComparePage({ searchParams }) {
   const user = await getCurrentUser();
   const scenarios = await getScenarios();
+  const compareSets = await getScenarioCompareSets();
   const scenarioIdSet = new Set(scenarios.map((row) => row.scenario_id));
 
   const fallbackLeft = scenarios[0]?.scenario_id || "";
@@ -399,6 +401,7 @@ export default async function ScenariosComparePage({ searchParams }) {
 
         <SavedScenarioCompareSets
           scenarios={scenarios}
+          initialSavedSets={compareSets}
           leftScenarioId={leftScenarioId}
           rightScenarioId={rightScenarioId}
         />
