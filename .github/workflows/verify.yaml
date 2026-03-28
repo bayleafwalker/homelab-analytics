@@ -2,10 +2,6 @@ name: Verify
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
 
 jobs:
   verify-fast:
@@ -36,21 +32,7 @@ jobs:
         run: make verify-fast
 
       - name: Build contract artifact bundle for pull requests
-        if: github.event_name == 'pull_request'
         run: make contract-release-artifacts CONTRACT_BASE_REF=origin/${{ github.base_ref }}
-
-      - name: Build contract artifact bundle for main pushes
-        if: github.event_name == 'push'
-        run: |
-          if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
-            make contract-release-artifacts CONTRACT_BASE_REF=${{ github.event.before }}
-          else
-            make contract-release-artifacts
-          fi
-
-      - name: Build contract artifact bundle for manual runs
-        if: github.event_name == 'workflow_dispatch'
-        run: make contract-release-artifacts
 
       - uses: actions/upload-artifact@v4
         if: success()

@@ -4,6 +4,8 @@
 
 Review code with a bias toward bugs, regressions, missing tests, and architectural drift.
 
+Use `docs/runbooks/project-working-practices.md` for the review loop and the applicable change-class done checklist.
+
 ## Allowed actions
 
 - Read code, tests, requirements, and docs.
@@ -21,6 +23,7 @@ Review code with a bias toward bugs, regressions, missing tests, and architectur
 - Check that requirements and implementation traceability still align.
 - Check that tests cover the behavior that changed.
 - Check that app-facing reporting does not bypass reporting-layer models.
+- Check that the change satisfies the relevant done criteria for its change class.
 
 ## Required output shape
 

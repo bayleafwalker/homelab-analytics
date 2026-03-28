@@ -1,6 +1,6 @@
 ---
 name: sprint-packet
-description: Use when accepted scope needs to become an implementation-ready sprint doc or work packet. Do not use for open-ended brainstorming, narrow code edits, or requests that are still missing scope decisions.
+description: Use when accepted scope needs to become an implementation-ready sprint doc or work packet. Do not use for open-ended brainstorming, narrow code edits, requests that are still missing scope decisions, or resuming an item that already exists in sprintctl.
 ---
 
 ## Goal
@@ -16,12 +16,13 @@ Convert accepted scope into a concise sprint packet with clear deliverables, dep
 ## Steps
 
 1. Confirm the scope is already decided enough to plan without inventing product direction.
-2. Pull the requirements, architecture docs, and prior sprint material that define the work.
-3. Draft the packet in this order:
+2. Confirm the work is not already represented as an active or pending `sprintctl` item. If it already exists, stop here and resume execution from live sprint state instead of drafting a new packet.
+3. Pull the requirements, architecture docs, and prior sprint material that define the work.
+4. Draft the packet in this order:
    goal, scope, out-of-scope, dependencies, deliverables, acceptance checks, verification path.
-4. Slice work by repo contracts and layers rather than by vague task buckets.
-5. Call out any required doc, requirement, fixture, or contract updates needed for the sprint to be complete.
-6. After the packet is agreed, register the sprint in sprintctl:
+5. Slice work by repo contracts and layers rather than by vague task buckets.
+6. Call out any required doc, requirement, fixture, or contract updates needed for the sprint to be complete.
+7. After the packet is agreed, register the sprint in sprintctl:
    - Load the project DB first via `.envrc` or exported `SPRINTCTL_DB`.
    - `sprintctl sprint create --name "<Sprint ID> — <name>" --start <YYYY-MM-DD> --end <YYYY-MM-DD> --status active --kind active_sprint`
    - Add each deliverable as a work item: `sprintctl item add --sprint-id <id> --track <stage-N> --title "<title>"`
@@ -40,3 +41,4 @@ Convert accepted scope into a concise sprint packet with clear deliverables, dep
 - Do not turn unresolved product questions into fake implementation tasks.
 - Do not hide architecture or contract work inside generic backlog bullets.
 - Do not use this skill for direct implementation when no planning artifact is needed.
+- Do not use this skill to pick the next task from docs when the relevant sprint item already exists in live `sprintctl` state.

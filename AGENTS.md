@@ -11,13 +11,18 @@
 
 Mode guides: `docs/agents/planning.md`, `docs/agents/implementation.md`, `docs/agents/review.md`, `docs/agents/release-ops.md`.
 Workflow skills: `.agents/skills/`.
+Working practices: `docs/runbooks/project-working-practices.md`.
 
 ## Sprint and knowledge tooling
 
 Sprint state is managed via `sprintctl` and knowledge extraction via `kctl`. Both are installed as user tools (`uv tool`) and scoped to this project via `.envrc` (loaded by direnv).
 
 - Load `.envrc` before using either CLI (`direnv allow`, `source .envrc`, or export the variables manually). Unscoped home-directory DBs are not project state and may drift from the committed snapshot.
+- For repo-wide startup order, source-of-truth precedence, working loops, change-class done criteria, and session-note boundaries, use `docs/runbooks/project-working-practices.md`.
 - `SPRINTCTL_DB` and `KCTL_DB` point to `.sprintctl/sprintctl.db` and `.kctl/kctl.db` respectively — both gitignored.
+- For sprint-scoped work, consult live `sprintctl` state before docs when choosing or resuming work.
+- For existing sprint items, inspect item state and claims, then claim or activate the item before editing repo files.
+- Record material sprint state in `sprintctl` first and refresh `docs/sprint-snapshots/sprint-current.txt` afterward.
 - Repo-level operating model: `docs/runbooks/sprint-and-knowledge-operations.md`.
 - The committed sprint artifact is `docs/sprint-snapshots/sprint-current.txt`.
 - The committed knowledge artifact is `docs/knowledge/knowledge-base.md`.

@@ -17,5 +17,5 @@
 ## Why the final structure is better
 
 - `AGENTS.md` now keeps only rules that are short, broadly applicable, and costly to forget.
-- Workflow-specific behavior moved into mode docs and skills, so agents only load that guidance when the task needs it.
+- Workflow-specific behavior moved into mode docs, runbooks, and skills, so agents only load that guidance when the task needs it.
 - Repo steering stays anchored in architecture docs, requirements, and tests instead of duplicated prose in the top-level agent file.

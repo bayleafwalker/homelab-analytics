@@ -6,6 +6,8 @@ This runbook defines how the repository uses `sprintctl` for live sprint state a
 
 The goal is to keep the operational database local, the shared repo artifacts explicit, and the workflow consistent across planning, implementation, handoff, and sprint close.
 
+For repo-wide startup order, source-of-truth precedence, done criteria, and session-note policy, use `runbooks/project-working-practices.md`.
+
 ## System Roles
 
 ### `sprintctl`
@@ -54,6 +56,7 @@ Treat these files as the canonical shared view. Do not treat the SQLite database
 ### 1. Scope accepted work
 
 When scope is accepted and needs execution tracking:
+- follow the new scope registration loop in `runbooks/project-working-practices.md`
 - use the `sprint-packet` skill
 - create or update the sprint in `sprintctl`
 - register work items by meaningful repo slices or stage tracks
@@ -61,6 +64,7 @@ When scope is accepted and needs execution tracking:
 ### 2. Execute work
 
 During implementation:
+- follow the resume existing sprint item and implementation loops in `runbooks/project-working-practices.md`
 - load `.envrc` before using either CLI
 - move items through `pending`, `active`, `done`, or `blocked`
 - use claims when multiple agents may touch the same sprint DB
@@ -70,6 +74,7 @@ During implementation:
 ### 3. Keep shared sprint state current
 
 When sprint state materially changes:
+- refresh the snapshot only after the live state change exists in `sprintctl`
 - run `sprintctl render`
 - write the output to `docs/sprint-snapshots/sprint-current.txt`
 - keep snapshot commits separate from unrelated feature work when committed
@@ -77,6 +82,7 @@ When sprint state materially changes:
 ### 4. Close the sprint cleanly
 
 At sprint close:
+- follow the sprint close loop in `runbooks/project-working-practices.md`
 - run `sprintctl maintain check`
 - use `carryover` for unfinished items that belong in the next sprint
 - close the sprint when the execution state is correct
@@ -116,6 +122,6 @@ If a local DB is lost:
 Use the runbook for repo-wide operating rules.
 
 Use skills for task-specific execution:
-- `sprint-packet` for turning accepted scope into tracked sprint work
-- `sprint-snapshot` for refreshing the committed sprint snapshot
+- `sprint-packet` for turning accepted but not-yet-registered scope into tracked sprint work
+- `sprint-snapshot` for refreshing the committed sprint snapshot after live sprint state changes
 - `kctl-extract` for sprint-close extraction and knowledge publication

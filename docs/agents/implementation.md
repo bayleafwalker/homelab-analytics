@@ -4,6 +4,8 @@
 
 Execute an approved plan while preserving architectural boundaries and keeping verification close to the code change.
 
+Use `docs/runbooks/project-working-practices.md` for startup order, change-class done criteria, and close-out expectations.
+
 ## Allowed actions
 
 - Edit repo-tracked files.
@@ -13,12 +15,16 @@ Execute an approved plan while preserving architectural boundaries and keeping v
 ## Required inputs
 
 - The approved plan or a request with clear local intent.
+- The live `sprintctl` item and claim state when the request is sprint-scoped.
 - The existing contracts, fixtures, and extension points for the target layer.
 - The local verification targets that must pass before close-out.
 
 ## Required verification
 
 - Keep landing, transformation, reporting, and application logic in their intended layers.
+- Follow the implementation loop and the applicable change-class checklist from `docs/runbooks/project-working-practices.md`.
+- Use live `sprintctl` state to decide which existing sprint item is being executed; do not derive active task selection from sprint docs alone when the DB is available.
+- Record material item-state changes in `sprintctl` and refresh the shared sprint snapshot when that state changes.
 - Update requirements or architecture docs when behavior or scope changes.
 - Add or update focused tests and at least one integration path for new behavior.
 

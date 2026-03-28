@@ -4,6 +4,8 @@
 
 Prepare work for repeatable local verification, CI validation, and deployment-oriented handoff.
 
+Use `docs/runbooks/project-working-practices.md` for the release/push loop and handoff expectations.
+
 ## Allowed actions
 
 - Edit local runner targets, CI workflows, and deployment scaffolding.
@@ -19,6 +21,7 @@ Prepare work for repeatable local verification, CI validation, and deployment-or
 ## Required verification
 
 - Ensure blocking local and CI gates are updated with the new behavior.
+- Ensure the change satisfies the CI/release checklist in `docs/runbooks/project-working-practices.md`.
 - Keep secret handling reference-based; do not introduce checked-in secrets.
 - Verify Docker and Helm paths when release or runtime behavior changes.
 
