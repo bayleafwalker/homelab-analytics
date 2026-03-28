@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
+import { SavedScenarioCompareSets } from "@/components/saved-scenario-compare-sets";
 import {
   getCurrentUser,
   getScenarioCashflow,
@@ -395,6 +396,12 @@ export default async function ScenariosComparePage({ searchParams }) {
             </div>
           </form>
         </article>
+
+        <SavedScenarioCompareSets
+          scenarios={scenarios}
+          leftScenarioId={leftScenarioId}
+          rightScenarioId={rightScenarioId}
+        />
 
         {!hasSelection && (
           <article className="panel section">

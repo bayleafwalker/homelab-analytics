@@ -98,6 +98,8 @@ Operators can compare any two saved scenarios from `/scenarios/compare`.
 3. Review the assumptions and computed outputs side by side
 4. Open the individual scenario detail pages if a single baseline or projection needs deeper inspection
 
+The compare page also lets operators save common pairs locally in the browser so recurring comparisons can be reopened without reselecting both sides.
+
 ---
 
 ## Comparison UX principles

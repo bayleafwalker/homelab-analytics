@@ -503,6 +503,9 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     scenarios_compare_source = (
         FRONTEND_ROOT / "app" / "scenarios" / "compare" / "page.js"
     ).read_text()
+    scenario_compare_sets_source = (
+        FRONTEND_ROOT / "components" / "saved-scenario-compare-sets.js"
+    ).read_text()
     scenario_detail_source = (
         FRONTEND_ROOT / "app" / "scenarios" / "[scenarioId]" / "page.js"
     ).read_text()
@@ -608,6 +611,10 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "Pick two different scenarios to compare" in scenarios_compare_source
     assert 'name="left"' in scenarios_compare_source
     assert 'name="right"' in scenarios_compare_source
+    assert "Browser-local compare shortcuts" in scenario_compare_sets_source
+    assert "Saved compare sets" in scenario_compare_sets_source
+    assert "Save current pair" in scenario_compare_sets_source
+    assert "Open compare set" in scenario_compare_sets_source
     assert "summary_rows" in scenario_detail_source
     assert "Cost/value summary" in scenario_detail_source
     assert "/api/ha/actions/proposals/{action_id}/approve" in homelab_approve_route

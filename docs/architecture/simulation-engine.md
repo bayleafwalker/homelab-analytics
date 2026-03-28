@@ -1,6 +1,6 @@
 # Simulation Engine — Architecture
 
-**Status:** Active — scenario storage and five compute types shipped
+**Status:** Active — scenario storage and five compute types shipped, plus browser-local saved compare sets
 **Stage:** 4 (see platform roadmap)
 **First scenario type:** Loan what-if (reuses `packages/pipelines/amortization.py`)
 
@@ -98,7 +98,7 @@ GET /api/scenarios/{id}/assumptions
 → list of {parameter_key, baseline_value, override_value, unit, applies_to_id}
 ```
 
-The frontend renders this as an "Assumption summary" panel beside every scenario comparison view. No computed result is shown without its assumptions.
+The frontend renders this as an "Assumption summary" panel beside every scenario comparison view. No computed result is shown without its assumptions. The compare surface also allows browser-local saved compare sets so operators can reopen recurring comparisons without reselecting both sides.
 
 ---
 
