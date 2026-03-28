@@ -50,6 +50,7 @@ from packages.domains.finance.manifest import FINANCE_PACK
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
 from packages.pipelines.contract_price_service import ContractPriceService
+from packages.pipelines.ha_action_proposals import ApprovalActionRegistry
 from packages.pipelines.promotion import (
     PromotionResult,
 )
@@ -331,6 +332,7 @@ def create_app(
     ha_mqtt_publisher: Any = None,
     ha_policy_evaluator: Any = None,
     ha_action_dispatcher: Any = None,
+    ha_action_proposal_registry: ApprovalActionRegistry | None = None,
 ) -> FastAPI:
     # Support both the new AppContainer-first call and the legacy
     # AccountTransactionService-first call from existing tests.
@@ -606,6 +608,7 @@ def create_app(
         ha_mqtt_publisher=ha_mqtt_publisher,
         ha_policy_evaluator=ha_policy_evaluator,
         ha_action_dispatcher=ha_action_dispatcher,
+        ha_action_proposal_registry=ha_action_proposal_registry,
         to_jsonable=to_jsonable,
     )
 

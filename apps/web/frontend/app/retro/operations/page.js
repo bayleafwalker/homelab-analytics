@@ -3,6 +3,7 @@ import Link from "next/link";
 import { RetroShell } from "@/components/retro-shell";
 import {
   getCurrentUser,
+  getHaActionProposals,
   getHaActions,
   getHaActionsStatus,
   getHaBridgeStatus,
@@ -22,6 +23,19 @@ function formatTimestamp(value) {
     : parsed.toLocaleString("en-IE", { dateStyle: "short", timeStyle: "short" });
 }
 
+function noticeCopy(notice, actionId) {
+  switch (notice) {
+    case "approval-approved":
+      return actionId ? `Approval ${actionId} approved.` : "Approval approved.";
+    case "approval-dismissed":
+      return actionId ? `Approval ${actionId} dismissed.` : "Approval dismissed.";
+    case "approval-resolution-failed":
+      return "Could not resolve the approval request.";
+    default:
+      return "";
+  }
+}
+
 const CLASS_LABELS = {
   sensor: "Sensor",
   binary_sensor: "Binary Sensor",
@@ -35,8 +49,8 @@ const CLASS_LABELS = {
   other: "Other",
 };
 
-export default async function RetroOperationsPage() {
-  const [user, discovery, entities, bridge, mqtt, policies, actions, actionsStatus] =
+export default async function RetroOperationsPage({ searchParams }) {
+  const [user, discovery, entities, bridge, mqtt, policies, actions, actionsStatus, proposals] =
     await Promise.all([
       getCurrentUser(),
       getWebRendererDiscovery(),
@@ -46,8 +60,12 @@ export default async function RetroOperationsPage() {
       getHaPolicies(),
       getHaActions(),
       getHaActionsStatus(),
-    ]);
+      getHaActionProposals(),
+  ]);
   const operationDescriptors = discovery.homelab;
+  const pendingProposals = proposals.filter((proposal) => proposal.status === "pending");
+  const canManageApprovals = user.role === "admin";
+  const notice = noticeCopy(searchParams?.notice, searchParams?.action_id);
 
   return (
     <RetroShell
@@ -57,6 +75,7 @@ export default async function RetroOperationsPage() {
       eyebrow="Retro Detail View"
       lede="Homelab and Home Assistant operational signals rendered inside the retro shell over the existing HA bridge and action-status APIs."
     >
+      {notice ? <div className={searchParams?.notice === "approval-resolution-failed" ? "errorBanner" : "successBanner"}>{notice}</div> : null}
       <section className="retroMetricGrid">
         <article className="retroMetricBox retroPanel">
           <span className="retroMetricLabel">Entities</span>
@@ -81,6 +100,10 @@ export default async function RetroOperationsPage() {
         <article className="retroMetricBox retroPanel">
           <span className="retroMetricLabel">Published Views</span>
           <strong>{operationDescriptors.length}</strong>
+        </article>
+        <article className="retroMetricBox retroPanel">
+          <span className="retroMetricLabel">Approval Queue</span>
+          <strong>{actionsStatus.approval_pending_count || 0}</strong>
         </article>
       </section>
 
@@ -146,6 +169,68 @@ export default async function RetroOperationsPage() {
           </div>
         </article>
       </section>
+
+      <article className="retroPanel">
+        <div className="retroSectionHeader">
+          <div>
+            <div className="retroEyebrow">Approval Queue</div>
+            <h2>Pending approvals</h2>
+          </div>
+        </div>
+        <div className="retroListBlock">
+          <div className="retroListRow">
+            Pending proposals: {actionsStatus.approval_pending_count || 0}
+          </div>
+          <div className="retroListRow">
+            Tracked proposals: {actionsStatus.approval_tracked_count || 0}
+          </div>
+        </div>
+        {pendingProposals.length === 0 ? (
+          <div className="retroEmptyState">No pending approval-gated proposals.</div>
+        ) : (
+          <div className="retroTableWrap">
+            <table className="retroTable">
+              <thead>
+                <tr>
+                  <th>Policy</th>
+                  <th>Verdict</th>
+                  <th>Target</th>
+                  {canManageApprovals ? <th>Actions</th> : null}
+                </tr>
+              </thead>
+              <tbody>
+                {pendingProposals.slice(0, 10).map((proposal) => (
+                  <tr key={proposal.action_id}>
+                    <td>{proposal.policy_name}</td>
+                    <td>{proposal.verdict}</td>
+                    <td>
+                      {proposal.metadata?.approval_action
+                        ? `${proposal.metadata.approval_action.domain}.${proposal.metadata.approval_action.service}`
+                        : "—"}
+                    </td>
+                    {canManageApprovals ? (
+                      <td>
+                        <div className="buttonRow">
+                          <form action={`/retro/operations/actions/proposals/${proposal.action_id}/approve`} method="post">
+                            <button className="primaryButton inlineButton" type="submit">
+                              Approve
+                            </button>
+                          </form>
+                          <form action={`/retro/operations/actions/proposals/${proposal.action_id}/dismiss`} method="post">
+                            <button className="ghostButton inlineButton" type="submit">
+                              Dismiss
+                            </button>
+                          </form>
+                        </div>
+                      </td>
+                    ) : null}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </article>
 
       <section className="retroSplit">
         <article className="retroPanel">

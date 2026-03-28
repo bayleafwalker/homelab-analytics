@@ -34,6 +34,9 @@ from packages.pipelines.transaction_models import (
     MART_MONTHLY_CASHFLOW_COLUMNS,
     MART_MONTHLY_CASHFLOW_TABLE,
 )
+from packages.pipelines.utility_models import (
+    MART_UTILITY_COST_TREND_MONTHLY_TABLE,
+)
 from packages.storage.duckdb_store import DuckDBStore
 
 
@@ -67,6 +70,18 @@ class ExpenseShockResult:
     expense_pct_delta: Decimal
     new_monthly_expense: Decimal
     baseline_monthly_expense: Decimal
+    annual_additional_cost: Decimal
+    months_until_deficit: int | None
+    is_stale: bool
+
+
+@dataclass
+class TariffShockResult:
+    scenario_id: str
+    label: str
+    tariff_pct_delta: Decimal
+    baseline_monthly_utility_cost: Decimal
+    new_monthly_utility_cost: Decimal
     annual_additional_cost: Decimal
     months_until_deficit: int | None
     is_stale: bool
@@ -130,6 +145,27 @@ def _is_stale(store: DuckDBStore, scenario_id: str, loan_id: str) -> bool:
     if baseline_run_id is None or current_run_id is None:
         return False
     return baseline_run_id != current_run_id
+
+
+def _is_tariff_scenario_stale(
+    store: DuckDBStore,
+    scenario_id: str,
+    utility_type: str,
+) -> bool:
+    scenario_rows = store.fetchall_dicts(
+        f"SELECT baseline_run_id FROM {DIM_SCENARIO_TABLE} WHERE scenario_id = ?",
+        [scenario_id],
+    )
+    if not scenario_rows:
+        return False
+    baseline_run_id = scenario_rows[0]["baseline_run_id"]
+    current_signature = (
+        f"transactions:{_get_latest_transaction_run_id(store) or 'none'}|"
+        f"utility:{_get_latest_utility_snapshot_signature(store, utility_type=utility_type) or 'none'}"
+    )
+    if baseline_run_id is None:
+        return False
+    return str(baseline_run_id) != current_signature
 
 
 def create_loan_what_if_scenario(
@@ -423,6 +459,45 @@ def _get_latest_transaction_run_id(store: DuckDBStore) -> str | None:
     return str(rows[0]["run_id"]) if rows else None
 
 
+def _get_latest_utility_snapshot_signature(
+    store: DuckDBStore,
+    *,
+    utility_type: str,
+) -> str | None:
+    rows = store.fetchall_dicts(
+        f"SELECT billing_month, total_cost, usage_amount, meter_count"
+        f" FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}"
+        " WHERE utility_type = ?"
+        " ORDER BY billing_month DESC LIMIT 1",
+        [utility_type],
+    )
+    if not rows:
+        return None
+    row = rows[0]
+    return (
+        f"{row.get('billing_month')}|{row.get('total_cost')}|"
+        f"{row.get('usage_amount')}|{row.get('meter_count')}"
+    )
+
+
+def _get_latest_utility_monthly_cost(
+    store: DuckDBStore,
+    *,
+    utility_type: str,
+) -> Decimal:
+    rows = store.fetchall_dicts(
+        f"SELECT total_cost FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}"
+        " WHERE utility_type = ?"
+        " ORDER BY billing_month DESC LIMIT 1",
+        [utility_type],
+    )
+    if not rows:
+        raise ValueError(
+            f"No utility trend data available for utility_type={utility_type!r}."
+        )
+    return Decimal(str(rows[0]["total_cost"]))
+
+
 def _is_income_scenario_stale(store: DuckDBStore, scenario_id: str) -> bool:
     """True if the latest transaction run_id has advanced since the scenario was computed."""
     scenario_rows = store.fetchall_dicts(
@@ -631,6 +706,108 @@ def create_expense_shock_scenario(
     )
 
 
+def create_tariff_shock_scenario(
+    store: DuckDBStore,
+    *,
+    tariff_pct_delta: Decimal,
+    utility_type: str = "electricity",
+    label: str | None = None,
+    projection_months: int = _DEFAULT_PROJECTION_MONTHS,
+) -> TariffShockResult:
+    """Create a utility tariff-shock scenario.
+
+    Projects household cashflow over *projection_months* months assuming the selected
+    utility cost moves by *tariff_pct_delta* as a fraction (e.g. Decimal("0.10") = 10%
+    increase).  Income stays flat at the baseline average; the expense delta flows
+    through the current household expense total.
+    """
+    ensure_scenario_storage(store)
+
+    baseline_income, baseline_expense = _get_baseline_cashflow(store)
+    baseline_utility_cost = _get_latest_utility_monthly_cost(
+        store,
+        utility_type=utility_type,
+    )
+    new_monthly_utility_cost = baseline_utility_cost * (1 + tariff_pct_delta)
+    utility_delta = new_monthly_utility_cost - baseline_utility_cost
+    new_monthly_expense = baseline_expense + utility_delta
+    baseline_run_id = (
+        f"transactions:{_get_latest_transaction_run_id(store) or 'none'}|"
+        f"utility:{_get_latest_utility_snapshot_signature(store, utility_type=utility_type) or 'none'}"
+    )
+
+    scenario_id = str(uuid.uuid4())
+    pct_display = tariff_pct_delta * 100
+    sign = "+" if tariff_pct_delta >= 0 else ""
+    auto_label = label or f"Tariff shock: {sign}{pct_display:.1f}% {utility_type}"
+
+    store.insert_rows(DIM_SCENARIO_TABLE, [{
+        "scenario_id": scenario_id,
+        "scenario_type": "tariff_shock",
+        "subject_id": utility_type,
+        "label": auto_label,
+        "status": "active",
+        "baseline_run_id": baseline_run_id,
+        "created_at": datetime.now(UTC).isoformat(),
+    }])
+
+    q = Decimal("0.01")
+    store.insert_rows(FACT_SCENARIO_ASSUMPTION_TABLE, [
+        {
+            "scenario_id": scenario_id,
+            "assumption_key": "tariff_pct_delta",
+            "baseline_value": "0",
+            "override_value": str(tariff_pct_delta.quantize(q)),
+            "unit": "%",
+        },
+        {
+            "scenario_id": scenario_id,
+            "assumption_key": "baseline_utility_cost",
+            "baseline_value": str(baseline_utility_cost.quantize(q)),
+            "override_value": str(new_monthly_utility_cost.quantize(q)),
+            "unit": "currency",
+        },
+    ])
+
+    today = date.today()
+    proj_rows: list[dict[str, Any]] = []
+    months_until_deficit: int | None = None
+    for i in range(1, projection_months + 1):
+        projected_month = _add_months(today, i).strftime("%Y-%m")
+        baseline_net = baseline_income - baseline_expense
+        scenario_net = baseline_income - new_monthly_expense
+        net_delta = scenario_net - baseline_net
+
+        if scenario_net < Decimal("0") and months_until_deficit is None:
+            months_until_deficit = i
+
+        proj_rows.append({
+            "scenario_id": scenario_id,
+            "period": i,
+            "projected_month": projected_month,
+            "baseline_income": str(baseline_income.quantize(q)),
+            "scenario_income": str(baseline_income.quantize(q)),
+            "baseline_expense": str(baseline_expense.quantize(q)),
+            "scenario_expense": str(new_monthly_expense.quantize(q)),
+            "baseline_net": str(baseline_net.quantize(q)),
+            "scenario_net": str(scenario_net.quantize(q)),
+            "net_delta": str(net_delta.quantize(q)),
+        })
+
+    store.insert_rows(PROJ_INCOME_CASHFLOW_TABLE, proj_rows)
+
+    return TariffShockResult(
+        scenario_id=scenario_id,
+        label=auto_label,
+        tariff_pct_delta=tariff_pct_delta,
+        baseline_monthly_utility_cost=baseline_utility_cost,
+        new_monthly_utility_cost=new_monthly_utility_cost,
+        annual_additional_cost=(utility_delta * 12).quantize(q),
+        months_until_deficit=months_until_deficit,
+        is_stale=False,
+    )
+
+
 def get_expense_shock_comparison(
     store: DuckDBStore, scenario_id: str
 ) -> IncomeCashflowComparison | None:
@@ -640,6 +817,36 @@ def get_expense_shock_comparison(
     since both types use proj_income_cashflow.
     """
     return get_income_scenario_comparison(store, scenario_id)
+
+
+def get_tariff_shock_comparison(
+    store: DuckDBStore,
+    scenario_id: str,
+) -> IncomeCashflowComparison | None:
+    """Return projected cashflow rows + assumptions for a tariff_shock scenario."""
+    ensure_scenario_storage(store)
+
+    scenario = get_scenario(store, scenario_id)
+    if scenario is None:
+        return None
+
+    assumptions = store.fetchall_dicts(
+        f"SELECT * FROM {FACT_SCENARIO_ASSUMPTION_TABLE} WHERE scenario_id = ?",
+        [scenario_id],
+    )
+    cashflow_rows = store.fetchall_dicts(
+        f"SELECT * FROM {PROJ_INCOME_CASHFLOW_TABLE} WHERE scenario_id = ?"
+        " ORDER BY period",
+        [scenario_id],
+    )
+
+    return IncomeCashflowComparison(
+        scenario_id=scenario_id,
+        label=scenario["label"],
+        assumptions=assumptions,
+        cashflow_rows=cashflow_rows,
+        is_stale=_is_tariff_scenario_stale(store, scenario_id, scenario["subject_id"]),
+    )
 
 
 def get_income_scenario_comparison(

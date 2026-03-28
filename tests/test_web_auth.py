@@ -475,6 +475,30 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
 def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     dashboard_source = (FRONTEND_ROOT / "app" / "page.js").read_text()
     homelab_source = (FRONTEND_ROOT / "app" / "homelab" / "page.js").read_text()
+    homelab_approve_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "homelab"
+        / "actions"
+        / "proposals"
+        / "[actionId]"
+        / "approve"
+        / "route.js"
+    ).read_text()
+    homelab_dismiss_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "homelab"
+        / "actions"
+        / "proposals"
+        / "[actionId]"
+        / "dismiss"
+        / "route.js"
+    ).read_text()
+    costs_source = (FRONTEND_ROOT / "app" / "costs" / "page.js").read_text()
+    tariff_shock_panel_source = (
+        FRONTEND_ROOT / "components" / "tariff-shock-panel.js"
+    ).read_text()
     runs_source = (FRONTEND_ROOT / "app" / "runs" / "page.js").read_text()
     reports_source = (FRONTEND_ROOT / "app" / "reports" / "page.js").read_text()
     control_source = (FRONTEND_ROOT / "app" / "control" / "page.js").read_text()
@@ -531,6 +555,7 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getTransformationAudit" in backend_source
     assert "getPublicationContracts" in backend_source
     assert "getUiDescriptors" in backend_source
+    assert "getHaActionProposals" in backend_source
     assert "getPublicationContracts()" in renderer_discovery_source
     assert "getUiDescriptors()" in renderer_discovery_source
     assert "renderer_hints.web_surface" in renderer_discovery_source
@@ -541,8 +566,20 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "getMonthlyCashflow" in reports_source
     assert "getWebRendererDiscovery" in reports_source
     assert "RendererDiscovery" in reports_source
+    assert "TariffShockPanel" in costs_source
     assert "getWebRendererDiscovery" in homelab_source
     assert "RendererDiscovery" in homelab_source
+    assert "getHaActionProposals" in homelab_source
+    assert "Approval queue" in homelab_source
+    assert "Approve" in homelab_source
+    assert "Dismiss" in homelab_source
+    assert "approval-approved" in homelab_source
+    assert "approval-dismissed" in homelab_source
+    assert "/api/scenarios/tariff-shock" in tariff_shock_panel_source
+    assert "tariff_pct_delta" in tariff_shock_panel_source
+    assert "Tariff shock what-if" in tariff_shock_panel_source
+    assert "/api/ha/actions/proposals/{action_id}/approve" in homelab_approve_route
+    assert "/api/ha/actions/proposals/{action_id}/dismiss" in homelab_dismiss_route
     assert "getLocalUsers" in control_source
     assert "getSourceSystems" in control_catalog_source
     assert "getDatasetContracts({ includeArchived: true })" in control_catalog_source
@@ -641,6 +678,28 @@ def test_nextjs_frontend_exposes_parallel_retro_shell_and_terminal_boundary() ->
     retro_operations_source = (
         FRONTEND_ROOT / "app" / "retro" / "operations" / "page.js"
     ).read_text()
+    retro_approve_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "retro"
+        / "operations"
+        / "actions"
+        / "proposals"
+        / "[actionId]"
+        / "approve"
+        / "route.js"
+    ).read_text()
+    retro_dismiss_route = (
+        FRONTEND_ROOT
+        / "app"
+        / "retro"
+        / "operations"
+        / "actions"
+        / "proposals"
+        / "[actionId]"
+        / "dismiss"
+        / "route.js"
+    ).read_text()
     retro_schedule_dispatch_route = (
         FRONTEND_ROOT
         / "app"
@@ -706,6 +765,15 @@ def test_nextjs_frontend_exposes_parallel_retro_shell_and_terminal_boundary() ->
     assert "id={descriptor.anchor}" in retro_utilities_source
     assert "getHaBridgeStatus()" in retro_operations_source
     assert "getHaEntities()" in retro_operations_source
+    assert "getHaActionProposals()" in retro_operations_source
+    assert "Approval Queue" in retro_operations_source
+    assert "Approve" in retro_operations_source
+    assert "Dismiss" in retro_operations_source
+    assert 'const canManageApprovals = user.role === "admin";' in retro_operations_source
+    assert "approval-approved" in retro_operations_source
+    assert "approval-dismissed" in retro_operations_source
+    assert "/api/ha/actions/proposals/{action_id}/approve" in retro_approve_route
+    assert "/api/ha/actions/proposals/{action_id}/dismiss" in retro_dismiss_route
     assert "id={descriptor.anchor}" in retro_operations_source
     assert 'backendRequest("post", "/control/schedule-dispatches"' in retro_schedule_dispatch_route
     assert "/control/schedule-dispatches/{dispatch_id}/retry" in retro_retry_route

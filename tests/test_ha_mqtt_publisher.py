@@ -80,6 +80,16 @@ class PublisherStatusTests(unittest.TestCase):
         self.assertIn("contract_entity_count", status)
         self.assertIn("publication_keys", status)
 
+    def test_static_entities_include_approval_queue_sensors(self) -> None:
+        object_ids = {entity.object_id for entity in _STATIC_ENTITIES}
+        self.assertIn("homelab_analytics_approval_pending_count", object_ids)
+        self.assertIn("homelab_analytics_approval_tracked_count", object_ids)
+        self.assertIn("homelab_analytics_peak_tariff_active", object_ids)
+        self.assertIn("homelab_analytics_electricity_cost_forecast_today", object_ids)
+        self.assertIn("homelab_analytics_maintenance_due", object_ids)
+        self.assertIn("homelab_analytics_maintenance_issue_count", object_ids)
+        self.assertIn("homelab_analytics_contract_renewal_due_count", object_ids)
+
     def test_entity_count_matches_static_entities(self) -> None:
         pub = _publisher()
         self.assertEqual(len(_STATIC_ENTITIES), pub.get_status()["entity_count"])

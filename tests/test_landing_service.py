@@ -170,6 +170,37 @@ class LandingServiceTests(unittest.TestCase):
             manifest = json.loads(Path(second.manifest_path).read_text())
             self.assertEqual(first.run_id, manifest["context"]["retry_of_run_id"])
 
+    def test_ingest_raw_bytes_preserves_original_payload(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            blob_store = FilesystemBlobStore(temp_root / "landing")
+            metadata_repository = RunMetadataRepository(temp_root / "runs.db")
+            service = LandingService(blob_store, metadata_repository)
+
+            result = service.ingest_raw_bytes(
+                source_bytes=b'{"source":"home-assistant"}',
+                file_name="home-assistant.json",
+                source_name="raw-json-upload",
+                contract=ACCOUNT_TRANSACTION_CONTRACT,
+                validation_source_bytes=(
+                    b"booked_at,account_id,counterparty_name,amount,currency,description\n"
+                    b"2026-01-02,CHK-001,Electric Utility,-84.15,EUR,Monthly bill\n"
+                    b"2026-01-03,CHK-001,Employer,2450.00,EUR,Salary\n"
+                ),
+                canonical_source_bytes=(
+                    b"booked_at,account_id,counterparty_name,amount,currency,description\n"
+                    b"2026-01-02,CHK-001,Electric Utility,-84.15,EUR,Monthly bill\n"
+                    b"2026-01-03,CHK-001,Employer,2450.00,EUR,Salary\n"
+                ),
+            )
+
+            self.assertEqual(
+                b'{"source":"home-assistant"}',
+                blob_store.read_bytes(result.raw_path),
+            )
+            self.assertTrue(Path(result.canonical_path).is_file())
+            self.assertTrue(result.validation.passed)
+
 
 if __name__ == "__main__":
     unittest.main()

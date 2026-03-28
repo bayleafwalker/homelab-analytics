@@ -169,6 +169,36 @@ def build_builtin_transformation_domain_registry() -> TransformationDomainRegist
             count_rows=lambda service, run_id: service.count_budget_targets(run_id=run_id),
         )
     )
+    registry.register(
+        TransformationDomainHandler(
+            domain_key="asset_register",
+            load_rows=lambda service, rows, run_id, effective_date, source_system: (
+                service.load_asset_register(
+                    rows,
+                    run_id=run_id,
+                    effective_date=effective_date,
+                    source_system=source_system,
+                )
+            ),
+            count_rows=lambda service, run_id: service.count_asset_event_rows(run_id=run_id),
+        )
+    )
+    registry.register(
+        TransformationDomainHandler(
+            domain_key="home_automation_state",
+            load_rows=lambda service, rows, run_id, effective_date, source_system: (
+                service.load_home_automation_state(
+                    rows,
+                    run_id=run_id,
+                    effective_date=effective_date,
+                    source_system=source_system,
+                )
+            ),
+            count_rows=lambda service, run_id: service.count_home_automation_state_rows(
+                run_id=run_id
+            ),
+        )
+    )
     return registry
 
 

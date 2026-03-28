@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell";
+import { TariffShockPanel } from "@/components/tariff-shock-panel";
 import { getCostTrend, getCurrentUser, getHouseholdCostModel } from "@/lib/backend";
 
 const COST_TYPE_LABELS = {
@@ -203,6 +204,7 @@ export default async function CostsPage({ searchParams }) {
             )}
           </div>
         </article>
+        <TariffShockPanel />
       </section>
     </AppShell>
   );

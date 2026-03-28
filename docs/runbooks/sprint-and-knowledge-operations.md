@@ -67,9 +67,11 @@ During implementation:
 - follow the resume existing sprint item and implementation loops in `runbooks/project-working-practices.md`
 - load `.envrc` before using either CLI
 - move items through `pending`, `active`, `done`, or `blocked`
-- use claims when multiple agents may touch the same sprint DB, with a distinct actor or session identifier per live agent or worktree
+- use claims when multiple agents may touch the same sprint DB, with a strong live identity per agent or worktree: `runtime_session_id`, `instance_id`, and `claim_token`
+- for Codex, prefer `CODEX_THREAD_ID` as `runtime_session_id` when it is available and mint a separate `instance_id` once per live client or process start
 - include workspace metadata on claims when available: branch, worktree, commit SHA, PR reference
-- if an exclusive claim already exists and its identity does not clearly match the current workspace, do not heartbeat or reuse it; hand off the work or choose a different item first
+- treat workspace metadata as advisory context, not as claim ownership proof
+- if an exclusive claim already exists and its identity does not clearly match the current live claim identity, do not heartbeat or reuse it; hand off the work or choose a different item first
 - add `sprintctl event` records when decisions, resolved blockers, or lessons happen, including reusable process corrections and coordination rules discovered during the sprint
 
 For kctl-ready event capture during execution:

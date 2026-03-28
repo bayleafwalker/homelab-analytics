@@ -3,6 +3,7 @@
 Covers:
   - loan_what_if scenarios: proj_loan_schedule, proj_loan_repayment_variance
   - income_change scenarios: proj_income_cashflow
+  - expense_shock / tariff_shock scenarios: proj_income_cashflow
 """
 from __future__ import annotations
 
@@ -14,7 +15,7 @@ DIM_SCENARIO_TABLE = "dim_scenario"
 
 DIM_SCENARIO_COLUMNS: list[tuple[str, str]] = [
     ("scenario_id", "VARCHAR NOT NULL"),
-    ("scenario_type", "VARCHAR NOT NULL"),   # loan_what_if | future types
+    ("scenario_type", "VARCHAR NOT NULL"),   # loan_what_if | income_change | expense_shock | tariff_shock
     ("subject_id", "VARCHAR NOT NULL"),      # loan_id (or other entity id)
     ("label", "VARCHAR NOT NULL"),
     ("status", "VARCHAR NOT NULL"),          # active | archived

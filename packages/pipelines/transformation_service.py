@@ -7,6 +7,10 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from packages.pipelines.asset_models import (
+    CURRENT_DIM_ASSET_VIEW,
+    DIM_ASSET,
+)
 from packages.pipelines.budget_models import (
     CURRENT_DIM_BUDGET_VIEW,
     DIM_BUDGET,
@@ -29,6 +33,10 @@ from packages.pipelines.ha_service import (
     get_ha_entity_history,
     ingest_ha_states,
 )
+from packages.pipelines.home_automation_models import (
+    CURRENT_DIM_ENTITY_VIEW,
+    DIM_ENTITY,
+)
 from packages.pipelines.homelab_models import (
     CURRENT_DIM_SERVICE_VIEW,
     CURRENT_DIM_WORKLOAD_VIEW,
@@ -50,16 +58,19 @@ from packages.pipelines.scenario_service import (
     IncomeCashflowComparison,
     IncomeScenarioResult,
     ScenarioResult,
+    TariffShockResult,
     archive_scenario,
     create_expense_shock_scenario,
     create_income_change_scenario,
     create_loan_what_if_scenario,
+    create_tariff_shock_scenario,
     ensure_scenario_storage,
     get_expense_shock_comparison,
     get_income_scenario_comparison,
     get_scenario,
     get_scenario_assumptions,
     get_scenario_comparison,
+    get_tariff_shock_comparison,
     list_scenarios,
 )
 from packages.pipelines.subscription_models import (
@@ -74,6 +85,13 @@ from packages.pipelines.transaction_models import (
     DIM_ACCOUNT,
     DIM_COUNTERPARTY,
     TRANSFORMATION_AUDIT_TABLE,
+)
+from packages.pipelines.transformation_assets import (
+    count_asset_event_rows,
+    ensure_asset_storage,
+    get_current_assets,
+    load_asset_event_rows,
+    load_asset_register_rows,
 )
 from packages.pipelines.transformation_budgets import (
     count_budget_targets,
@@ -96,6 +114,16 @@ from packages.pipelines.transformation_domain_registry import (
     TransformationDomainRegistry,
     get_default_transformation_domain_registry,
 )
+from packages.pipelines.transformation_home_automation import (
+    count_automation_event_rows,
+    count_home_automation_state_rows,
+    count_sensor_reading_rows,
+    ensure_home_automation_storage,
+    get_current_entities,
+    load_automation_events,
+    load_home_automation_state_rows,
+    load_sensor_readings,
+)
 from packages.pipelines.transformation_homelab import (
     count_backup_run_rows,
     count_service_health_rows,
@@ -114,6 +142,15 @@ from packages.pipelines.transformation_homelab import (
     refresh_service_health_current,
     refresh_storage_risk,
     refresh_workload_cost_7d,
+)
+from packages.pipelines.transformation_infrastructure import (
+    count_cluster_metric_rows,
+    count_power_consumption_rows,
+    ensure_infrastructure_storage,
+    get_current_devices,
+    get_current_nodes,
+    load_cluster_metric_rows,
+    load_power_consumption_rows,
 )
 from packages.pipelines.transformation_loans import (
     count_loan_repayments,
@@ -242,6 +279,14 @@ class TransformationService:
         self._store.ensure_current_dimension_view(DIM_METER, CURRENT_DIM_METER_VIEW)
         ensure_utility_storage(self._store)
 
+        self._store.ensure_dimension(DIM_ASSET)
+        self._store.ensure_current_dimension_view(DIM_ASSET, CURRENT_DIM_ASSET_VIEW)
+        ensure_asset_storage(self._store)
+
+        self._store.ensure_dimension(DIM_ENTITY)
+        self._store.ensure_current_dimension_view(DIM_ENTITY, CURRENT_DIM_ENTITY_VIEW)
+        ensure_home_automation_storage(self._store)
+
         self._store.ensure_dimension(DIM_BUDGET)
         self._store.ensure_current_dimension_view(DIM_BUDGET, CURRENT_DIM_BUDGET_VIEW)
         ensure_budget_storage(self._store)
@@ -258,6 +303,7 @@ class TransformationService:
         self._store.ensure_dimension(DIM_WORKLOAD)
         self._store.ensure_current_dimension_view(DIM_WORKLOAD, CURRENT_DIM_WORKLOAD_VIEW)
         ensure_homelab_storage(self._store)
+        ensure_infrastructure_storage(self._store)
         ensure_ha_storage(self._store)
 
     @staticmethod
@@ -968,6 +1014,149 @@ class TransformationService:
     def get_workload_cost_7d(self) -> list[dict[str, Any]]:
         return get_workload_cost_7d(self._store)
 
+    def load_cluster_metrics(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        run_id: str | None = None,
+        source_system: str | None = None,
+    ) -> int:
+        return load_cluster_metric_rows(
+            self._store,
+            rows=rows,
+            record_lineage=self._record_lineage,
+            run_id=run_id,
+            source_system=source_system,
+        )
+
+    def load_power_consumption(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        run_id: str | None = None,
+        source_system: str | None = None,
+    ) -> int:
+        return load_power_consumption_rows(
+            self._store,
+            rows=rows,
+            record_lineage=self._record_lineage,
+            run_id=run_id,
+            source_system=source_system,
+        )
+
+    def load_asset_register(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        run_id: str | None = None,
+        effective_date: date | None = None,
+        source_system: str | None = None,
+    ) -> int:
+        return load_asset_register_rows(
+            self._store,
+            rows=rows,
+            record_lineage=self._record_lineage,
+            run_id=run_id,
+            effective_date=effective_date,
+            source_system=source_system,
+        )
+
+    def load_asset_events(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        run_id: str | None = None,
+        source_system: str | None = None,
+    ) -> int:
+        return load_asset_event_rows(
+            self._store,
+            rows=rows,
+            record_lineage=self._record_lineage,
+            run_id=run_id,
+            source_system=source_system,
+        )
+
+    def load_home_automation_state(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        run_id: str | None = None,
+        effective_date: date | None = None,
+        source_system: str | None = None,
+    ) -> int:
+        return load_home_automation_state_rows(
+            self._store,
+            rows=rows,
+            record_lineage=self._record_lineage,
+            run_id=run_id,
+            effective_date=effective_date,
+            source_system=source_system,
+        )
+
+    def load_sensor_readings(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        run_id: str | None = None,
+        effective_date: date | None = None,
+        source_system: str | None = None,
+    ) -> int:
+        return load_sensor_readings(
+            self._store,
+            rows=rows,
+            record_lineage=self._record_lineage,
+            run_id=run_id,
+            effective_date=effective_date,
+            source_system=source_system,
+        )
+
+    def load_automation_events(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        run_id: str | None = None,
+        effective_date: date | None = None,
+        source_system: str | None = None,
+    ) -> int:
+        return load_automation_events(
+            self._store,
+            rows=rows,
+            record_lineage=self._record_lineage,
+            run_id=run_id,
+            effective_date=effective_date,
+            source_system=source_system,
+        )
+
+    def get_current_nodes(self) -> list[dict[str, Any]]:
+        return get_current_nodes(self._store)
+
+    def get_current_devices(self) -> list[dict[str, Any]]:
+        return get_current_devices(self._store)
+
+    def get_current_assets(self) -> list[dict[str, Any]]:
+        return get_current_assets(self._store)
+
+    def count_cluster_metric_rows(self, run_id: str | None = None) -> int:
+        return count_cluster_metric_rows(self._store, run_id=run_id)
+
+    def count_power_consumption_rows(self, run_id: str | None = None) -> int:
+        return count_power_consumption_rows(self._store, run_id=run_id)
+
+    def count_asset_event_rows(self, run_id: str | None = None) -> int:
+        return count_asset_event_rows(self._store, run_id=run_id)
+
+    def get_current_entities(self) -> list[dict[str, Any]]:
+        return get_current_entities(self._store)
+
+    def count_sensor_reading_rows(self, run_id: str | None = None) -> int:
+        return count_sensor_reading_rows(self._store, run_id=run_id)
+
+    def count_automation_event_rows(self, run_id: str | None = None) -> int:
+        return count_automation_event_rows(self._store, run_id=run_id)
+
+    def count_home_automation_state_rows(self, run_id: str | None = None) -> int:
+        return count_home_automation_state_rows(self._store, run_id=run_id)
+
     def count_service_health_rows(self, run_id: str | None = None) -> int:
         return count_service_health_rows(self._store, run_id=run_id)
 
@@ -1057,6 +1246,27 @@ class TransformationService:
         self, scenario_id: str
     ) -> IncomeCashflowComparison | None:
         return get_expense_shock_comparison(self._store, scenario_id)
+
+    def create_tariff_shock_scenario(
+        self,
+        *,
+        tariff_pct_delta: Decimal,
+        utility_type: str = "electricity",
+        label: str | None = None,
+        projection_months: int = 12,
+    ) -> TariffShockResult:
+        return create_tariff_shock_scenario(
+            self._store,
+            tariff_pct_delta=tariff_pct_delta,
+            utility_type=utility_type,
+            label=label,
+            projection_months=projection_months,
+        )
+
+    def get_tariff_shock_comparison(
+        self, scenario_id: str
+    ) -> IncomeCashflowComparison | None:
+        return get_tariff_shock_comparison(self._store, scenario_id)
 
     # ------------------------------------------------------------------
     # HA integration service

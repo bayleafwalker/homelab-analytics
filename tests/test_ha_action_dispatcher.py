@@ -6,9 +6,13 @@ covered through the pure-function layer and status/state tests here.
 """
 from __future__ import annotations
 
+import asyncio
+import sys
 import unittest
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from packages.pipelines.ha_action_dispatcher import (
     _ACTION_LOG_MAX_SIZE,
@@ -19,6 +23,7 @@ from packages.pipelines.ha_action_dispatcher import (
     build_notification_dismiss_payload,
     determine_actions,
 )
+from packages.pipelines.ha_action_proposals import ApprovalActionRegistry
 
 _NOW = datetime(2026, 3, 21, 12, 0, 0, tzinfo=UTC)
 
@@ -36,6 +41,8 @@ class _PolicyResult:
     verdict: str
     value: str | None
     evaluated_at: str
+    approval_required: bool = False
+    metadata: dict[str, object] | None = None
 
 
 class _FakeEvaluator:
@@ -48,11 +55,34 @@ class _FakeEvaluator:
         return self._results
 
 
+class _FakeResponse:
+    status_code = 200
+
+
+class _FakeAsyncClient:
+    calls: list[tuple[str, dict[str, object], dict[str, str]]] = []
+
+    def __init__(self, *args, **kwargs) -> None:
+        return None
+
+    async def __aenter__(self) -> "_FakeAsyncClient":
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        return None
+
+    async def post(self, url: str, json: dict[str, object], headers: dict[str, str]) -> _FakeResponse:
+        type(self).calls.append((url, json, headers))
+        return _FakeResponse()
+
+
 def _make_result(
     policy_id: str = "budget_status",
     policy_name: str = "Budget Status",
     verdict: str = "ok",
     value: str | None = None,
+    approval_required: bool = False,
+    metadata: dict[str, object] | None = None,
 ) -> _PolicyResult:
     return _PolicyResult(
         id=policy_id,
@@ -61,6 +91,8 @@ def _make_result(
         verdict=verdict,
         value=value,
         evaluated_at=_NOW.isoformat(),
+        approval_required=approval_required,
+        metadata=metadata,
     )
 
 
@@ -103,6 +135,15 @@ class DetermineActionsTests(unittest.TestCase):
         self.assertIn("recommendation", classes)
         self.assertTrue(all(t == "create" for t in types))
 
+    def test_ok_to_warning_with_approval_required_returns_three_creates(self) -> None:
+        actions = determine_actions("p1", "P1", "warning", "ok", approval_required=True)
+        self.assertEqual(len(actions), 3)
+        self.assertEqual(
+            [a["action_class"] for a in actions],
+            ["alert", "recommendation", "approval"],
+        )
+        self.assertTrue(all(a["type"] == "create" for a in actions))
+
     def test_ok_to_breach_returns_two_creates(self) -> None:
         actions = determine_actions("p1", "P1", "breach", "ok")
         self.assertEqual(len(actions), 2)
@@ -127,6 +168,15 @@ class DetermineActionsTests(unittest.TestCase):
     def test_warning_to_ok_returns_two_dismissals(self) -> None:
         actions = determine_actions("p1", "P1", "ok", "warning")
         self.assertEqual(len(actions), 2)
+        self.assertTrue(all(a["type"] == "dismiss" for a in actions))
+
+    def test_warning_to_ok_with_approval_required_returns_three_dismissals(self) -> None:
+        actions = determine_actions("p1", "P1", "ok", "warning", approval_required=True)
+        self.assertEqual(len(actions), 3)
+        self.assertEqual(
+            [a["action_class"] for a in actions],
+            ["alert", "recommendation", "approval"],
+        )
         self.assertTrue(all(a["type"] == "dismiss" for a in actions))
 
     def test_first_evaluation_warning_dispatches(self) -> None:
@@ -157,6 +207,10 @@ class NotificationPayloadTests(unittest.TestCase):
         nid = _notification_id("budget_status", "recommendation")
         self.assertEqual(nid, "homelab_analytics_recommendation_budget_status")
 
+    def test_notification_id_format_approval(self) -> None:
+        nid = _notification_id("budget_status", "approval")
+        self.assertEqual(nid, "homelab_analytics_approval_budget_status")
+
     def test_create_payload_has_required_keys(self) -> None:
         payload = build_notification_create_payload(
             "budget_status", "Budget Status", "warning", "85.0%", "alert"
@@ -176,6 +230,19 @@ class NotificationPayloadTests(unittest.TestCase):
             "budget_status", "Budget Status", "warning", None, "recommendation"
         )
         self.assertIn("Recommendation:", payload["title"])
+
+    def test_approval_title_contains_approval_prefix(self) -> None:
+        payload = build_notification_create_payload(
+            "budget_status", "Budget Status", "warning", None, "approval"
+        )
+        self.assertIn("Approval needed:", payload["title"])
+
+    def test_approval_message_mentions_approval(self) -> None:
+        payload = build_notification_create_payload(
+            "budget_status", "Budget Status", "warning", "92.5%", "approval"
+        )
+        self.assertIn("needs operator approval", payload["message"])
+        self.assertIn("92.5%", payload["message"])
 
     def test_value_included_in_message_when_present(self) -> None:
         payload = build_notification_create_payload(
@@ -251,6 +318,21 @@ class ActionRecordTests(unittest.TestCase):
         self.assertEqual(record.error, "Connection refused")
         self.assertEqual(record.result, "failure")
 
+    def test_construction_with_approval_action_class(self) -> None:
+        record = ActionRecord(
+            timestamp=_NOW.isoformat(),
+            policy_id="device_control",
+            policy_name="Device Control",
+            verdict="warning",
+            previous_verdict="ok",
+            action_class="approval",
+            action_type="persistent_notification_create",
+            target="homelab_analytics_approval_device_control",
+            result="success",
+            error=None,
+        )
+        self.assertEqual(record.action_class, "approval")
+
 
 # ---------------------------------------------------------------------------
 # HaActionDispatcher — state and status tests (synchronous)
@@ -264,6 +346,8 @@ class HaActionDispatcherTests(unittest.TestCase):
         expected_keys = {
             "enabled", "last_dispatch_at", "dispatch_count",
             "error_count", "action_log_size", "tracked_policies",
+            "approval_tracked_count", "approval_pending_count",
+            "approval_approved_count", "approval_dismissed_count",
         }
         self.assertEqual(set(status.keys()), expected_keys)
 
@@ -346,6 +430,28 @@ class HaActionDispatcherTests(unittest.TestCase):
         d._previous_verdicts["bridge_health"] = "ok"
         self.assertEqual(d.get_status()["tracked_policies"], 2)
 
+    def test_approval_registry_counts_surface_in_status(self) -> None:
+        registry = ApprovalActionRegistry()
+        registry.register(
+            policy_id="device_control",
+            policy_name="Device Control",
+            verdict="warning",
+            value="needs approval",
+            notification_id="homelab_analytics_approval_device_control",
+            action_id="approval_device_control",
+        )
+        dispatcher = HaActionDispatcher(
+            ha_url="http://ha.local:8123",
+            ha_token="test_token",
+            evaluator=_FakeEvaluator([]),  # type: ignore[arg-type]
+            proposal_registry=registry,
+        )
+        status = dispatcher.get_status()
+        self.assertEqual(status["approval_tracked_count"], 1)
+        self.assertEqual(status["approval_pending_count"], 1)
+        self.assertEqual(status["approval_approved_count"], 0)
+        self.assertEqual(status["approval_dismissed_count"], 0)
+
     def test_action_log_size_in_status(self) -> None:
         d = _make_dispatcher()
         for i in range(5):
@@ -362,6 +468,110 @@ class HaActionDispatcherTests(unittest.TestCase):
                 error=None,
             ))
         self.assertEqual(d.get_status()["action_log_size"], 5)
+
+    def test_dispatch_registers_approval_proposal(self) -> None:
+        result = _make_result(
+            policy_id="device_control",
+            policy_name="Device Control",
+            verdict="warning",
+            approval_required=True,
+            metadata={
+                "approval_action": {
+                    "domain": "light",
+                    "service": "turn_on",
+                    "data": {"entity_id": "light.kitchen"},
+                }
+            },
+        )
+        registry = ApprovalActionRegistry()
+        dispatcher = HaActionDispatcher(
+            ha_url="http://ha.local:8123",
+            ha_token="test_token",
+            evaluator=_FakeEvaluator([result]),  # type: ignore[arg-type]
+            proposal_registry=registry,
+        )
+
+        fake_httpx = SimpleNamespace(AsyncClient=lambda timeout: _FakeAsyncClient())
+        with patch.dict(sys.modules, {"httpx": fake_httpx}):
+            records = asyncio.run(dispatcher.dispatch([result]))
+
+        self.assertEqual(len(records), 3)
+        proposal = registry.get("homelab_analytics_approval_device_control")
+        self.assertIsNotNone(proposal)
+        self.assertEqual(proposal.status, "pending")
+        self.assertEqual(registry.get_status()["pending"], 1)
+        self.assertEqual(proposal.metadata["approval_action"]["service"], "turn_on")
+
+    def test_resolve_approval_dismisses_notification_and_logs_resolution(self) -> None:
+        registry = ApprovalActionRegistry()
+        proposal = registry.register(
+            policy_id="device_control",
+            policy_name="Device Control",
+            verdict="warning",
+            value="needs approval",
+            notification_id="homelab_analytics_approval_device_control",
+            action_id="homelab_analytics_approval_device_control",
+            metadata={"previous_verdict": "ok"},
+        )
+        dispatcher = HaActionDispatcher(
+            ha_url="http://ha.local:8123",
+            ha_token="test_token",
+            evaluator=_FakeEvaluator([]),  # type: ignore[arg-type]
+        )
+
+        fake_httpx = SimpleNamespace(AsyncClient=lambda timeout: _FakeAsyncClient())
+        with patch.dict(sys.modules, {"httpx": fake_httpx}):
+            record = asyncio.run(dispatcher.resolve_approval(proposal, "approved"))
+
+        self.assertEqual(record.action_class, "approval")
+        self.assertEqual(record.action_type, "persistent_notification_dismiss")
+        self.assertEqual(record.result, "approved")
+        self.assertEqual(record.target, "homelab_analytics_approval_device_control")
+        self.assertEqual(dispatcher.get_status()["dispatch_count"], 1)
+        self.assertEqual(dispatcher.get_status()["action_log_size"], 1)
+
+    def test_resolve_approval_executes_service_call_before_dismiss(self) -> None:
+        registry = ApprovalActionRegistry()
+        proposal = registry.register(
+            policy_id="device_control",
+            policy_name="Device Control",
+            verdict="warning",
+            value="needs approval",
+            notification_id="homelab_analytics_approval_device_control",
+            action_id="homelab_analytics_approval_device_control",
+            metadata={
+                "previous_verdict": "ok",
+                "approval_action": {
+                    "domain": "light",
+                    "service": "turn_on",
+                    "data": {"entity_id": "light.kitchen"},
+                },
+            },
+        )
+        dispatcher = HaActionDispatcher(
+            ha_url="http://ha.local:8123",
+            ha_token="test_token",
+            evaluator=_FakeEvaluator([]),  # type: ignore[arg-type]
+        )
+
+        _FakeAsyncClient.calls = []
+        fake_httpx = SimpleNamespace(AsyncClient=lambda timeout: _FakeAsyncClient())
+        with patch.dict(sys.modules, {"httpx": fake_httpx}):
+            record = asyncio.run(dispatcher.resolve_approval(proposal, "approved"))
+
+        self.assertEqual(record.action_class, "approval")
+        self.assertEqual(record.action_type, "ha_service_call")
+        self.assertEqual(record.result, "approved")
+        self.assertEqual(record.target, "light.turn_on")
+        self.assertEqual(len(_FakeAsyncClient.calls), 2)
+        self.assertEqual(
+            _FakeAsyncClient.calls[0][0],
+            "http://ha.local:8123/api/services/light/turn_on",
+        )
+        self.assertEqual(
+            _FakeAsyncClient.calls[1][0],
+            "http://ha.local:8123/api/services/persistent_notification/dismiss",
+        )
 
 
 if __name__ == "__main__":

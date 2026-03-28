@@ -1880,6 +1880,103 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HaApprovalProposalListModel": {
+        "properties": {
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/HaApprovalProposalModel"
+            },
+            "title": "Proposals",
+            "type": "array"
+          }
+        },
+        "required": [
+          "proposals"
+        ],
+        "title": "HaApprovalProposalListModel",
+        "type": "object"
+      },
+      "HaApprovalProposalModel": {
+        "properties": {
+          "action_id": {
+            "title": "Action Id",
+            "type": "string"
+          },
+          "approved_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "dismissed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dismissed At"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "notification_id": {
+            "title": "Notification Id",
+            "type": "string"
+          },
+          "policy_id": {
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "policy_name": {
+            "title": "Policy Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action_id",
+          "policy_id",
+          "policy_name",
+          "verdict",
+          "notification_id",
+          "status",
+          "created_at"
+        ],
+        "title": "HaApprovalProposalModel",
+        "type": "object"
+      },
       "HaIngestRequest": {
         "properties": {
           "run_id": {
@@ -4238,6 +4335,52 @@
         "title": "SubscriptionSummaryRow",
         "type": "object"
       },
+      "TariffShockRequest": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "projection_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Projection Months"
+          },
+          "tariff_pct_delta": {
+            "title": "Tariff Pct Delta",
+            "type": "string"
+          },
+          "utility_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Utility Type"
+          }
+        },
+        "required": [
+          "tariff_pct_delta"
+        ],
+        "title": "TariffShockRequest",
+        "type": "object"
+      },
       "TerminalCommandModel": {
         "additionalProperties": false,
         "properties": {
@@ -5187,6 +5330,141 @@
         "summary": "Get Actions"
       }
     },
+    "/api/ha/actions/proposals": {
+      "get": {
+        "operationId": "get_action_proposals_api_ha_actions_proposals_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HaApprovalProposalListModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Action Proposals"
+      }
+    },
+    "/api/ha/actions/proposals/{action_id}": {
+      "get": {
+        "operationId": "get_action_proposal_api_ha_actions_proposals__action_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HaApprovalProposalModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Action Proposal"
+      }
+    },
+    "/api/ha/actions/proposals/{action_id}/approve": {
+      "post": {
+        "operationId": "approve_action_proposal_api_ha_actions_proposals__action_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HaApprovalProposalModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Action Proposal"
+      }
+    },
+    "/api/ha/actions/proposals/{action_id}/dismiss": {
+      "post": {
+        "operationId": "dismiss_action_proposal_api_ha_actions_proposals__action_id__dismiss_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HaApprovalProposalModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dismiss Action Proposal"
+      }
+    },
     "/api/ha/actions/status": {
       "get": {
         "operationId": "get_actions_status_api_ha_actions_status_get",
@@ -5666,6 +5944,46 @@
           }
         },
         "summary": "Create Loan What If"
+      }
+    },
+    "/api/scenarios/tariff-shock": {
+      "post": {
+        "operationId": "create_tariff_shock_api_scenarios_tariff_shock_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TariffShockRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Tariff Shock Api Scenarios Tariff Shock Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Tariff Shock"
       }
     },
     "/api/scenarios/{scenario_id}": {
