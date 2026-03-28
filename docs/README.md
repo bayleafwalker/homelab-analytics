@@ -13,6 +13,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 - `architecture/publication-contracts.md` — backend-owned publication and UI descriptor contract model, semantic field metadata, renderer expectations, and generated frontend publication types.
 - `architecture/semantic-contracts.md` — shared-dimension promotion rules, publication semantic-contract expectations, and Stage 1 cross-domain governance guidance.
 - `architecture/homeassistant-integration-hub.md` — six-layer integration hub architecture: entity normalization bridge, bidirectional event/command fabric, synthetic entity publication model, and resilience model.
+- `architecture/integration-adapters.md` — Stage 6 adapter contract packet: `AdapterManifest`, ingest/publish/action contracts, lifecycle model, HA-as-reference mapping, and candidate external integration surfaces.
 - `architecture/simulation-engine.md` — scenario storage schema, compute model, assumption tracking, and planned scenario types.
 
 ## Product
