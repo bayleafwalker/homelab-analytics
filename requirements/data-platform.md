@@ -229,7 +229,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Dashboard and API consumers need simple, current-state views without knowing SCD mechanics.
 
 **Phase:** 1
-**Status:** in-progress (reporting views now publish current snapshots for `dim_account`, `dim_counterparty`, `dim_contract`, `dim_category`, `dim_meter`, `dim_budget`, `dim_loan`, `dim_asset`, and `dim_entity`; FastAPI exposes them via `GET /reports/current-dimensions/{dimension_name}`, and the Postgres publication path mirrors the implemented current-dimension relations for the shared app-facing contract when configured)
+**Status:** in-progress (reporting views now publish current snapshots for `dim_account`, `dim_counterparty`, `dim_contract`, `dim_category`, `dim_meter`, `dim_budget`, `dim_loan`, `dim_asset`, and `dim_entity`; FastAPI exposes them via `GET /reports/current-dimensions/{dimension_name}`; the Postgres publication path mirrors the implemented current-dimension relations for the shared app-facing contract when configured; and the published current-dimension relations now carry explicit semantic contract metadata rather than inferred-only defaults)
 
 **Acceptance criteria:**
 - Each SCD dimension has a corresponding current-view in the reporting layer.

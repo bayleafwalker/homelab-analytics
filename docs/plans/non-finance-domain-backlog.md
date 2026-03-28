@@ -20,7 +20,7 @@ The external verdict is directionally correct but stale against the local worktr
 | Homelab value loop | Go now, but narrow | The homelab pack already owns sources, marts, API routes, web surfaces, and HA publication. The missing piece is value-vs-cost decision support. | Keep it tied to Stage 3/4 decision surfaces, not another foundation rewrite. |
 | Overview | Do not add a new domain item now | Overview is still a reporting-only composition pack. Existing Stage 3 items already cover the next cross-domain composition work. | Finance, utilities, and homelab decision signals must mature first. |
 | Infrastructure metrics | Go foundation-complete, then stop | `dim_node`, `dim_device`, `fact_cluster_metric`, and `fact_power_consumption` now exist in the worktree. | Add landing/reporting contracts only when the next sprint takes them explicitly. |
-| Home automation state | Go foundation-next | Internal HA state landing exists, but there is still no separate canonical home-automation model and reporting starter. | Keep the semantic boundary from homelab operations explicit. |
+| Home automation state | Go foundation-complete, then pause | Internal HA state landing, canonical `dim_entity`/`fact_sensor_reading`/`fact_automation_event`, and `rpt_current_dim_entity` now exist in the worktree. | Keep the semantic boundary from homelab operations explicit and avoid reopening Stage 1 foundation work without a reporting/product need. |
 | Asset inventory | Go foundation complete | The landing contract, transformation-layer `dim_asset` and `fact_asset_event` spine, and `rpt_current_dim_asset` starter now exist in the worktree. | Decide whether depreciation becomes a first-class mart now or stays deferred. |
 
 ## Layer Impact
@@ -36,7 +36,7 @@ The external verdict is directionally correct but stale against the local worktr
 
 - Utilities can reuse the existing `fact_utility_usage`, `fact_bill`, and `dim_meter` spine; the missing work is source onboarding and normalization breadth.
 - Infrastructure metrics already have `dim_node`, `dim_device`, `fact_cluster_metric`, and `fact_power_consumption`; the remaining work is how far the next sprint pushes them toward reporting.
-- Home automation state still needs the canonical `dim_entity`, `fact_sensor_reading`, and `fact_automation_event` slice to stand on its own boundary.
+- Home automation state now has the canonical `dim_entity`, `fact_sensor_reading`, and `fact_automation_event` slice; the remaining work is whether later sprints expose additional reporting or operator surfaces on top of it.
 - Asset inventory now has the landing contract, `dim_asset`, `fact_asset_event`, and `rpt_current_dim_asset`; the next slice still needs to decide whether depreciation stays in scope or is deferred.
 
 ### Reporting And App Surface
@@ -60,7 +60,7 @@ The external verdict is directionally correct but stale against the local worktr
 The old catch-all backlog should be split into focused sprint packets:
 
 1. `Sprint J — Non-Finance Canonical Foundations`
-   Carries the genuine Stage 1 follow-up: remaining canonical dimensions/facts, home automation state foundation, and completion of the asset foundation around a real landing contract and reporting starter.
+   Carries the genuine Stage 1 follow-up: cross-domain semantic-contract cleanup, the remaining canonical-dimension/fact follow-up (`dim_household_member`, `fact_balance_snapshot`), and any carefully scoped reporting/publication completion still needed around infrastructure and homelab foundations.
 2. `Sprint K — Household Decision Surfaces`
    Carries the Stage 3 and Stage 4 value work already queued in backlog: cost envelopes, structured state indicators, homelab cost/benefit, scenario comparison, and the homelab value loop.
 3. `Sprint L — Runtime Profiles And Operator Onboarding`
