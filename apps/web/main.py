@@ -28,7 +28,7 @@ def main() -> int:
         logger.error(
             "web startup configuration invalid",
             extra={
-                "identity_mode": settings.identity_mode or settings.auth_mode,
+                "identity_mode": settings.resolved_identity_mode,
                 "error": str(exc),
             },
         )

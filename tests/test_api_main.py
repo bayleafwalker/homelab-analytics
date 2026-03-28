@@ -21,6 +21,7 @@ from apps.api.main import (
     build_lazy_transformation_service,
     build_reporting_service,
     build_service,
+    main,
     build_transformation_service,
 )
 from packages.domains.finance.manifest import FINANCE_PACK
@@ -123,6 +124,43 @@ class ApiMainTests(unittest.TestCase):
             app = build_app(settings)
 
             self.assertIsInstance(app, FastAPI)
+
+    def test_main_logs_resolved_identity_mode_on_startup_failure(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(
+                    Path(temp_dir) / "inbox" / "account-transactions"
+                ),
+                processed_files_dir=(
+                    Path(temp_dir) / "processed" / "account-transactions"
+                ),
+                failed_files_dir=(
+                    Path(temp_dir) / "failed" / "account-transactions"
+                ),
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+                identity_mode=" local_single_user ",
+            )
+
+            mock_logger = Mock()
+            with patch("apps.api.main.AppSettings.from_env", return_value=settings), patch(
+                "apps.api.main.logging.getLogger",
+                return_value=mock_logger,
+            ), patch("apps.api.main.build_app", side_effect=ValueError("boom")):
+                exit_code = main()
+
+            self.assertEqual(1, exit_code)
+            mock_logger.error.assert_called_once()
+            self.assertEqual(
+                "local_single_user",
+                mock_logger.error.call_args.kwargs["extra"]["identity_mode"],
+            )
 
     def test_build_app_delegates_ha_startup_wiring(self) -> None:
         with TemporaryDirectory() as temp_dir:
