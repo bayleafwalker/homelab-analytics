@@ -60,7 +60,7 @@ helm upgrade --install homelab-analytics charts/homelab-analytics \
 
 ## Auth identity-mode migration rollout
 
-Canonical deployment input is `HOMELAB_ANALYTICS_IDENTITY_MODE`. Legacy `HOMELAB_ANALYTICS_AUTH_MODE` fallback remains temporary compatibility only.
+Canonical deployment input is `HOMELAB_ANALYTICS_IDENTITY_MODE`. Legacy `HOMELAB_ANALYTICS_AUTH_MODE` fallback remains temporary compatibility only, with a warning window in `v0.1.x`, a strict-gate window in `v0.2.x`, and a removal target no earlier than `v0.3.0`.
 
 Before (legacy fallback, tolerated during migration):
 
