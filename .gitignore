@@ -25,3 +25,4 @@ handoff-*.json
 docs/knowledge/*
 !docs/knowledge/README.md
 !docs/knowledge/knowledge-base.md
+docs/sessions/*
