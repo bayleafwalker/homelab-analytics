@@ -4,7 +4,7 @@ Dates:  2026-03-29 to 2026-04-11
 ID:     4
 
 --- Track: stage-1 ---
-  health: 8 items — 5 done (62%), 1 active, 2 pending, 0 blocked (0%)
+  health: 8 items — 6 done (75%), 0 active, 2 pending, 0 blocked (0%)
   [pending ] #38  Stage 1 — Remaining canonical dimensions (dim_budget, dim_loan, dim_asset, etc.)  (assignee: -)
   [pending ] #39  Stage 1 — Remaining canonical facts (fact_loan_repayment, fact_balance_snapshot, etc.)  (assignee: -)
   [done    ] #53  Stage 1 — Internal platform ingestion foundation (Prometheus + Home Assistant landing contracts)  (assignee: -)
@@ -12,6 +12,6 @@ ID:     4
   [done    ] #55  Stage 1 — Infrastructure metrics foundation (dim_node, dim_device, fact_cluster_metric, fact_power_consumption)  (assignee: -)
   [done    ] #56  Stage 1 — Home automation state foundation (dim_entity, fact_sensor_reading, fact_automation_event)  (assignee: -)
   [done    ] #57  Stage 1 — Asset inventory foundation (manual register, dim_asset, fact_asset_event)  (assignee: -)
-  [active  ] #59  Stage 1 — Cross-domain dimension governance and semantic contracts  (assignee: -)
+  [done    ] #59  Stage 1 — Cross-domain dimension governance and semantic contracts  (assignee: -)
 
-Rendered: 2026-03-28T13:36:52Z
+Rendered: 2026-03-28T13:46:47Z
