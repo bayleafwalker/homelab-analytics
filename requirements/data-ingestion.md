@@ -96,7 +96,7 @@ The platform must accept data from heterogeneous sources — manual file uploads
 **Rationale:** Financial data is the primary household analytics use case and requires precise type handling (decimals, dates, currencies).
 
 **Phase:** 1–3
-**Status:** in-progress (account transactions CSV implemented)
+**Status:** in-progress (account transactions CSV and OP Gold invoice PDF parser implemented)
 
 **Acceptance criteria:**
 - Each financial dataset type has a registered dataset contract with typed column definitions.

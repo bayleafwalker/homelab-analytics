@@ -1,0 +1,17 @@
+%PDF-1.4
+OP Gold credit card invoice
+Statement date: 2026-02-28
+Billing period: 2026-02-01 - 2026-02-28
+Due date: 2026-03-15
+Previous balance: 1,200.00 EUR
+Payments total: -500.00 EUR
+Purchases total: 845.30 EUR
+Interest amount: 12.34 EUR
+Service fee: 3.50 EUR
+Minimum due: 200.00 EUR
+Ending balance: 1,561.14 EUR
+Line items
+2026-02-03 | Grocery Mart | 84.15 EUR | confidence=high
+2026-02-06 | Taxi Co | 24.10 EUR | confidence=medium
+2026-02-12 | Unclear merchant | 9.90 EUR | confidence=low
+%%EOF
