@@ -77,6 +77,8 @@ For sparse operator-entered facts that do not come from file-based sources. Thes
 
 Lane C does not use `SourceContractParser`. Manual inputs enter through the API or dashboard and are stored as versioned reference facts with effective dating and audit metadata.
 
+In the current implementation, those facts live in the control-plane `reference_facts` table and round-trip through the control-plane snapshot export/import path.
+
 Lane C is explicitly limited to sparse facts. Bulk data entry belongs in Lane A (structured import) or the existing configured CSV pipeline.
 
 The code-level taxonomy in `packages/domains/finance/contracts/base.py` uses:

@@ -234,6 +234,27 @@ The platform must accept data from heterogeneous sources — manual file uploads
 
 ---
 
+### ING-12: Manual reference inputs
+
+**Description:** Persist sparse operator-entered finance facts with effective dating, audit metadata, and versioned history. Manual reference facts cover data that does not originate from a file export, such as loan policy terms, account ownership, portfolio labels, and transaction overrides.
+
+**Rationale:** Some household finance knowledge exists only as operator judgment or contract metadata. It must be auditable and versioned without being mixed into file-based ingestion.
+
+**Phase:** 3
+**Status:** implemented (versioned `reference_facts` control-plane storage, snapshot round-trip, and product/example docs are in place; UI form work remains deferred)
+
+**Acceptance criteria:**
+- Manual facts are stored as versioned records with `entity_type`, `entity_key`, `attribute`, `value`, `effective_from`, and `effective_to`.
+- Updating a fact creates a new version and closes the previous active version.
+- The control-plane snapshot can export and import manual facts without losing history.
+- Tests cover create, close, list, and snapshot round-trip semantics.
+
+**Dependencies:** ING-07
+
+**Notes:** Manual reference inputs are deliberately sparse. Bulk data entry still belongs in file-based ingestion lanes.
+
+---
+
 ## Traceability
 
 | Requirement | Architecture doc section | Implementation module | Test file |
@@ -249,3 +270,4 @@ The platform must accept data from heterogeneous sources — manual file uploads
 | ING-09 | Source classes, Synced folder | — | — |
 | ING-10 | Source classes | `packages/pipelines/subscription_service.py`, `packages/pipelines/subscriptions.py`, `packages/pipelines/subscription_models.py`, `packages/pipelines/promotion.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_subscription_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py` |
 | ING-11 | Source classes | `packages/pipelines/contract_price_service.py`, `packages/pipelines/contract_prices.py`, `packages/pipelines/contract_price_models.py`, `packages/pipelines/promotion.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_contract_price_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py` |
+| ING-12 | Source classes | `packages/storage/ingestion_catalog.py`, `packages/storage/sqlite_reference_fact_catalog.py`, `packages/storage/postgres_reference_fact_catalog.py`, `packages/storage/control_plane_snapshot.py`, `packages/storage/ingestion_config.py`, `packages/storage/postgres_ingestion_config.py` | `tests/test_ingestion_config_repository.py`, `tests/control_plane_test_support.py` |

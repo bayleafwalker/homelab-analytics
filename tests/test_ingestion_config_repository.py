@@ -1,4 +1,5 @@
 import unittest
+from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -13,6 +14,7 @@ from packages.storage.ingestion_config import (
     IngestionConfigRepository,
     IngestionDefinitionCreate,
     PublicationDefinitionCreate,
+    ReferenceFactCreate,
     RequestHeaderSecretRef,
     SourceAssetCreate,
     SourceFreshnessConfigCreate,
@@ -386,6 +388,58 @@ class IngestionConfigRepositoryTests(unittest.TestCase):
                 freshness_config,
                 target_repository.get_source_freshness_config("finance_uploads_asset"),
             )
+
+    def test_repository_persists_reference_facts_with_versioning(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+
+            repository.create_reference_fact(
+                ReferenceFactCreate(
+                    fact_id="fact-001",
+                    entity_type="loan_policy",
+                    entity_key="mortgage-001",
+                    attribute="interest_margin",
+                    value="0.75",
+                    effective_from=date(2025, 1, 1),
+                    source="operator",
+                    created_by="user-admin-001",
+                    note="Initial margin.",
+                )
+            )
+            second_fact = repository.create_reference_fact(
+                ReferenceFactCreate(
+                    fact_id="fact-002",
+                    entity_type="loan_policy",
+                    entity_key="mortgage-001",
+                    attribute="interest_margin",
+                    value="0.80",
+                    effective_from=date(2026, 1, 1),
+                    source="operator",
+                    created_by="user-admin-001",
+                    note="Updated margin.",
+                )
+            )
+
+            self.assertIsNone(second_fact.effective_to)
+            first_fact_closed = repository.get_reference_fact("fact-001")
+            self.assertEqual(date(2025, 12, 31), first_fact_closed.effective_to)
+            self.assertEqual(
+                ["fact-002"],
+                [
+                    fact.fact_id
+                    for fact in repository.list_reference_facts(include_closed=False)
+                ],
+            )
+
+            closed = repository.close_reference_fact(
+                "fact-002",
+                effective_to=date(2026, 6, 30),
+                closed_by="user-admin-001",
+            )
+
+            self.assertEqual(date(2026, 6, 30), closed.effective_to)
+            self.assertEqual("user-admin-001", closed.closed_by)
+            self.assertEqual(2, len(repository.list_reference_facts()))
 
     def test_repository_exposes_transformation_packages_and_publications(self) -> None:
         with TemporaryDirectory() as temp_dir:

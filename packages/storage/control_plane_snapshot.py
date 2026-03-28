@@ -30,6 +30,7 @@ from packages.storage.ingestion_catalog import (
     DatasetContractConfigCreate,
     IngestionDefinitionCreate,
     PublicationDefinitionCreate,
+    ReferenceFactCreate,
     SourceAssetCreate,
     SourceFreshnessConfigCreate,
     SourceSystemCreate,
@@ -50,6 +51,7 @@ def export_control_plane_snapshot(store: ControlPlaneStore) -> ControlPlaneSnaps
         ),
         source_assets=tuple(store.list_source_assets(include_archived=True)),
         source_freshness_configs=tuple(store.list_source_freshness_configs()),
+        reference_facts=tuple(store.list_reference_facts(include_closed=True)),
         ingestion_definitions=tuple(
             store.list_ingestion_definitions(include_archived=True)
         ),
@@ -178,6 +180,26 @@ def import_control_plane_snapshot(
                 requires_human_action=freshness_config_record.requires_human_action,
                 created_at=freshness_config_record.created_at,
                 updated_at=freshness_config_record.updated_at,
+            ),
+            duplicate_exceptions=duplicate_exceptions,
+        )
+    for reference_fact_record in snapshot.reference_facts:
+        _ignore_duplicate(
+            store.create_reference_fact,
+            ReferenceFactCreate(
+                fact_id=reference_fact_record.fact_id,
+                entity_type=reference_fact_record.entity_type,
+                entity_key=reference_fact_record.entity_key,
+                attribute=reference_fact_record.attribute,
+                value=reference_fact_record.value,
+                effective_from=reference_fact_record.effective_from,
+                effective_to=reference_fact_record.effective_to,
+                source=reference_fact_record.source,
+                created_by=reference_fact_record.created_by,
+                note=reference_fact_record.note,
+                created_at=reference_fact_record.created_at,
+                closed_by=reference_fact_record.closed_by,
+                closed_at=reference_fact_record.closed_at,
             ),
             duplicate_exceptions=duplicate_exceptions,
         )

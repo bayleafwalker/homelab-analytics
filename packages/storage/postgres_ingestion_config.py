@@ -32,6 +32,9 @@ from packages.storage.postgres_external_registry_catalog import (
 from packages.storage.postgres_provenance_control_plane import (
     PostgresProvenanceControlPlaneMixin,
 )
+from packages.storage.postgres_reference_fact_catalog import (
+    PostgresReferenceFactCatalogMixin,
+)
 from packages.storage.postgres_source_contract_catalog import (
     PostgresSourceContractCatalogMixin,
 )
@@ -48,6 +51,7 @@ from packages.storage.postgres_support import (
 class PostgresIngestionConfigRepository(
     PostgresSourceContractCatalogMixin,
     PostgresAssetDefinitionCatalogMixin,
+    PostgresReferenceFactCatalogMixin,
     PostgresSourceFreshnessCatalogMixin,
     PostgresExternalRegistryCatalogMixin,
     PostgresExecutionControlPlaneMixin,

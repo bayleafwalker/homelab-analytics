@@ -33,6 +33,8 @@ from packages.storage.ingestion_catalog import (
     IngestionDefinitionRecord,
     PublicationDefinitionCreate,
     PublicationDefinitionRecord,
+    ReferenceFactCreate,
+    ReferenceFactRecord,
     RequestHeaderSecretRef,
     SourceAssetCreate,
     SourceAssetRecord,
@@ -65,6 +67,9 @@ from packages.storage.sqlite_external_registry_catalog import (
 from packages.storage.sqlite_provenance_control_plane import (
     SQLiteProvenanceControlPlaneMixin,
 )
+from packages.storage.sqlite_reference_fact_catalog import (
+    SQLiteReferenceFactCatalogMixin,
+)
 from packages.storage.sqlite_source_contract_catalog import (
     SQLiteSourceContractCatalogMixin,
 )
@@ -89,6 +94,8 @@ __all__ = [
     "IngestionDefinitionRecord",
     "PublicationDefinitionCreate",
     "PublicationDefinitionRecord",
+    "ReferenceFactCreate",
+    "ReferenceFactRecord",
     "RequestHeaderSecretRef",
     "SourceAssetCreate",
     "SourceAssetRecord",
@@ -112,6 +119,7 @@ __all__ = [
 class IngestionConfigRepository(
     SQLiteSourceContractCatalogMixin,
     SQLiteAssetDefinitionCatalogMixin,
+    SQLiteReferenceFactCatalogMixin,
     SQLiteSourceFreshnessCatalogMixin,
     SQLiteExternalRegistryCatalogMixin,
     SQLiteExecutionControlPlaneMixin,
