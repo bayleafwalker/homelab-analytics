@@ -102,6 +102,22 @@ def test_runtime_builders_preserve_published_vs_warehouse_reporting_boundary() -
     assert "HOMELAB_ANALYTICS_API_BASE_URL" in web_app_source
 
 
+def test_stage1_carryover_docs_name_remaining_dimension_and_fact() -> None:
+    roadmap = (ROOT / "docs" / "plans" / "household-operating-platform-roadmap.md").read_text()
+    backlog = (ROOT / "docs" / "plans" / "non-finance-domain-backlog.md").read_text()
+    semantic_contracts = (ROOT / "docs" / "architecture" / "semantic-contracts.md").read_text()
+    requirements = (ROOT / "requirements" / "data-platform.md").read_text()
+
+    assert "`dim_household_member`" in roadmap
+    assert "`fact_balance_snapshot`" in roadmap
+    assert "`dim_household_member`" in backlog
+    assert "`fact_balance_snapshot`" in backlog
+    assert "`dim_household_member` is still planned and not implemented." in semantic_contracts
+    assert "remaining Stage 1 point-in-time balance fact" in semantic_contracts
+    assert "remaining Stage 1 balance carryover is still `fact_balance_snapshot`" in requirements
+    assert "remaining Stage 1 dimension work is concentrated in `dim_household_member`" in requirements
+
+
 def test_worker_main_delegates_to_runtime_and_command_handlers() -> None:
     worker_main_source = (ROOT / "apps" / "worker" / "main.py").read_text()
     worker_handler_init_source = (
