@@ -4,9 +4,9 @@ Dates:  2026-03-29 to 2026-04-12
 ID:     16
 
 --- Track: stage-10 ---
-  health: 3 items — 1 done (33%), 0 active, 2 pending, 0 blocked (0%)
+  health: 3 items — 2 done (66%), 0 active, 1 pending, 0 blocked (0%)
   [done    ] #87  Semantic publication index and retrieval API  (assignee: -)
-  [pending ] #88  Auditable action proposal and approval gating  (assignee: -)
+  [done    ] #88  Auditable action proposal and approval gating  (assignee: -)
   [pending ] #89  Domain assistant entrypoint for finance, utilities, and operations  (assignee: -)
 
-Rendered: 2026-03-29T16:00:19Z
+Rendered: 2026-03-29T16:22:12Z
