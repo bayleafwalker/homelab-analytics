@@ -1,13 +1,10 @@
-SPRINT: Sprint K — Household Decision Surfaces  [active]
-Goal:   Keep the shipped homelab decision surface aligned by closing the remaining reporting-boundary, knowledge-publication, and sprint-state cleanup gaps.
-Dates:  2026-03-29 to 2026-04-12
-ID:     12
+SPRINT: Sprint J — Non-Finance Canonical Foundations  [active]
+Goal:   Turn the worktrees partial non-finance domain foundation into explicit, finishable scope so internal-platform ingestion, infrastructure metrics, home-automation state, and asset inventory stop living as half-registered side work.
+ID:     13
 
---- Track: stage-4 ---
-  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #75  Homelab ROI reporting mart and operator surface  (assignee: -)
-  [done    ] #76  Align homelab scenario baseline with reporting contract  (assignee: -)
-  [done    ] #77  Publish Sprint K homelab value-loop knowledge  (assignee: -)
-  [done    ] #78  Normalize Sprint K duplicate sprint state and snapshot  (assignee: -)
+--- Track: stage-1 ---
+  health: 2 items — 0 done (0%), 1 active, 1 pending, 0 blocked (0%)
+  [active  ] #79  Stage 1 carryover cleanup: dim_household_member and remaining Stage 1 reporting/publication follow-up  (assignee: -)
+  [pending ] #80  Semantic-contract guidance: shared-dimension governance and publication-semantic rules  (assignee: -)
 
-Rendered: 2026-03-29T09:26:13Z
+Rendered: 2026-03-29T11:03:11Z
