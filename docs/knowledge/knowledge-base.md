@@ -1,7 +1,39 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-03-29T11:50:52Z
+Generated: 2026-03-29T14:15:42Z
 
 ## Decisions
+
+### Sprint M starts with runtime-boundary cleanup and adapter honesty
+Source: track: stage-5, sprint: 15
+Tags: runtime-boundary, adapter-boundary, ha, composition-root
+
+Sprint L closed with a strong profile/onboarding/configuration lesson set. Sprint M should start by making API and worker startup honest about the shared runtime container, then extract the Stage 6 adapter boundary from the proven HA implementation.
+
+---
+
+### Shared runtime helper preserves worker kwargs while API owns postgres override
+Source: track: stage-5, sprint: 15
+Tags: runtime-boundary, helper-contract, reporting-mode
+
+apps/runtime_support.py centralizes the shared builder logic, but it preserves the worker/control-plane keyword contract for transformation service construction. apps/api/main.py layers the postgres-specific ReportingAccessMode.PUBLISHED choice on top so API callers retain published reporting behavior while worker callers continue to use the shared warehouse default.
+
+---
+
+### Sprint M advances to Stage 6 adapter packet
+Source: track: stage-6, sprint: 15
+Tags: stage-6, adapter-boundary, ha-reference
+
+With runtime-boundary cleanup closed, Sprint M moved to the adapter contract boundary work: codifying AdapterManifest, separating ingest/publish/action expectations, and using the HA integration as the reference mapping for the generic adapter layer.
+
+---
+
+### Stage 6 health packet uses one shared runtime-health vocabulary
+Source: track: stage-6, sprint: 15
+Tags: stage-6, health-model, typed-status, reporting
+
+The adapter packet and HA hub docs now describe health/reporting as a shared vocabulary rather than three separate one-off payloads: enabled for participation, connected for live transport, last_*_at for the newest successful sync/publish/dispatch, and role-specific counters for operational health. Bridge, MQTT, and action surfaces keep their own typed fields, but the reporting shape stays coherent across the API.
+
+---
 
 ### Make onboarding demo-first and action-oriented
 Source: track: stage-0, sprint: 14
