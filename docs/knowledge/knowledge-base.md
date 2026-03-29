@@ -1,7 +1,15 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-03-29T09:22:58Z
+Generated: 2026-03-29T10:53:51Z
 
 ## Decisions
+
+### Normalize duplicate Sprint K packets into the delivered record
+Source: track: stage-3, sprint: 11
+Tags: sprint-k, backlog-cleanup, sprintctl, documentation
+
+Sprint K is delivered in sprint #12, so the older duplicate Sprint K records remain archival noise instead of open work. The active duplicate items were normalized to done, and the pending duplicate packets stay as historical placeholders in closed sprints because sprintctl does not allow pending -> done transitions directly. Keep duplicate Sprint K packets out of future backlog selection unless a dedicated cleanup sprint is created to reconcile sprint history.
+
+---
 
 ### Keep homelab ROI decisions on a reporting-backed mart
 Source: track: stage-4, sprint: 12
