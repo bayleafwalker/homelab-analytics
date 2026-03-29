@@ -104,7 +104,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Canonical facts decouple source-specific formats from downstream analytics and enable cross-source joining.
 
 **Phase:** 1–3
-**Status:** in-progress (`fact_transaction`, `fact_subscription_charge`, `fact_contract_price`, `fact_balance_snapshot`, `fact_utility_usage`, `fact_bill`, `fact_loan_repayment`, `fact_cluster_metric`, `fact_power_consumption`, `fact_asset_event`, `fact_sensor_reading`, and `fact_automation_event` are persisted in DuckDB via `TransformationService`; loan and asset domains now also feed reporting-layer starters and marts, while the remaining Stage 1 dimension work is concentrated in `dim_household_member` and the publication-semantic follow-up is tracked in `docs/architecture/semantic-contracts.md`)
+**Status:** in-progress (`fact_transaction`, `fact_subscription_charge`, `fact_contract_price`, `fact_balance_snapshot`, `fact_utility_usage`, `fact_bill`, `fact_loan_repayment`, `fact_cluster_metric`, `fact_power_consumption`, `fact_asset_event`, `fact_sensor_reading`, and `fact_automation_event` are persisted in DuckDB via `TransformationService`; loan and asset domains also feed reporting-layer starters and marts; `dim_household_member` shipped in Sprint Q closing the last Stage 1 dimension gap; publication-semantic follow-up is tracked in `docs/architecture/semantic-contracts.md`)
 
 **Acceptance criteria:**
 - Each fact table is persisted in DuckDB/Parquet with documented schema.
@@ -137,7 +137,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Canonical dimensions enable consistent attribution across all facts and support SCD-based historical analysis.
 
 **Phase:** 1–3
-**Status:** in-progress (`dim_account` and `dim_counterparty` are implemented with SCD-2 in DuckDB; `dim_contract` supports subscriptions and temporal contract-pricing domains; `dim_category` is implemented for shared category use; `dim_meter` now supports utility usage and billing domains; `dim_node`, `dim_device`, and `dim_asset` now support infrastructure and asset domains; `dim_budget`, `dim_loan`, and `dim_entity` are implemented with reporting-layer current snapshots; remaining Stage 1 dimension work is concentrated in `dim_household_member`, and future shared-dimension promotions continue to follow the semantic-contract rules)
+**Status:** in-progress (`dim_account`, `dim_counterparty` with `category_id` FK, `dim_contract`, `dim_category`, `dim_meter`, `dim_node`, `dim_device`, `dim_asset`, `dim_budget`, `dim_loan`, `dim_entity`, and `dim_household_member` all implemented with SCD-2 and reporting-layer current snapshots; all Stage 1 canonical dimensions now shipped; future shared-dimension promotions continue to follow the semantic-contract rules in `docs/architecture/semantic-contracts.md`)
 
 **Acceptance criteria:**
 - Each dimension is persisted with SCD Type 2 handling (see PLT-07).

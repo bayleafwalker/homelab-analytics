@@ -159,7 +159,7 @@ def backfill_counterparty_categories(store: DuckDBStore) -> int:
     # Use SCD2 upsert so that category changes create a new version row
     # rather than rewriting the existing row's history in place.
     upsert_rows = [
-        {"counterparty_name": name, "category": category}
+        {"counterparty_name": name, "category": category, "category_id": None}
         for name, category in resolved.items()
     ]
     store.upsert_dimension_rows(DIM_COUNTERPARTY, upsert_rows)

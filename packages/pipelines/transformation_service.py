@@ -131,6 +131,12 @@ from packages.pipelines.transformation_domain_registry import (
     TransformationDomainRegistry,
     get_default_transformation_domain_registry,
 )
+from packages.pipelines.transformation_household import (
+    ensure_household_member_storage,
+    get_household_members,
+    seed_default_household_member,
+    upsert_household_member,
+)
 from packages.pipelines.transformation_home_automation import (
     count_automation_event_rows,
     count_home_automation_state_rows,
@@ -217,6 +223,7 @@ from packages.pipelines.transformation_subscriptions import (
 from packages.pipelines.transformation_transactions import (
     count_transactions,
     ensure_transaction_storage,
+    populate_counterparty_category_ids,
     get_account_balance_trend,
     get_monthly_cashflow,
     get_monthly_cashflow_by_counterparty,
@@ -325,6 +332,10 @@ class TransformationService:
         ensure_homelab_storage(self._store)
         ensure_infrastructure_storage(self._store)
         ensure_ha_storage(self._store)
+
+        ensure_household_member_storage(self._store)
+        seed_default_household_member(self._store)
+        populate_counterparty_category_ids(self._store)
 
     @staticmethod
     def _normalize_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -1418,3 +1429,29 @@ class TransformationService:
         self, entity_id: str, *, limit: int = 50
     ) -> list[dict[str, Any]]:
         return get_ha_entity_history(self._store, entity_id, limit=limit)
+
+    # ------------------------------------------------------------------
+    # Household member dimension
+    # ------------------------------------------------------------------
+
+    def populate_counterparty_category_ids(self) -> int:
+        return populate_counterparty_category_ids(self._store)
+
+    def get_household_members(self) -> list[dict[str, Any]]:
+        return get_household_members(self._store)
+
+    def upsert_household_member(
+        self,
+        *,
+        member_id: str,
+        display_name: str,
+        role: str,
+        active: bool = True,
+    ) -> None:
+        upsert_household_member(
+            self._store,
+            member_id=member_id,
+            display_name=display_name,
+            role=role,
+            active=active,
+        )

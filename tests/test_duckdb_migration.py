@@ -40,6 +40,8 @@ _EXPECTED_TABLES = {
     # Category governance
     "category_rule",
     "category_override",
+    # Household member dimension (Sprint Q)
+    "dim_household_member",
     # Migration tracking itself
     "schema_migrations",
 }
@@ -56,7 +58,9 @@ def _table_names(con: duckdb.DuckDBPyConnection) -> set[str]:
 
 def test_apply_baseline_migration(con: duckdb.DuckDBPyConnection) -> None:
     applied = apply_pending_duckdb_migrations(con, MIGRATIONS_DIR)
-    assert applied == ["0001_initial_schema"]
+    assert "0001_initial_schema" in applied
+    assert "0007_dim_household_member" in applied
+    assert "0008_counterparty_category_id" in applied
 
 
 def test_all_expected_tables_created(con: duckdb.DuckDBPyConnection) -> None:
@@ -77,7 +81,8 @@ def test_idempotent_rerun(con: duckdb.DuckDBPyConnection) -> None:
     """Applying the same migrations twice must be a no-op on the second call."""
     applied1 = apply_pending_duckdb_migrations(con, MIGRATIONS_DIR)
     applied2 = apply_pending_duckdb_migrations(con, MIGRATIONS_DIR)
-    assert applied1 == ["0001_initial_schema"]
+    assert "0001_initial_schema" in applied1
+    assert "0007_dim_household_member" in applied1
     assert applied2 == []
 
 

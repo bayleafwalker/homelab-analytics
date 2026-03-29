@@ -31,6 +31,10 @@ DIM_COUNTERPARTY = DimensionDefinition(
     natural_key_columns=("counterparty_name",),
     attribute_columns=(
         DimensionColumn("category", "VARCHAR"),
+        # category_id is a FK into dim_category.category_id.
+        # Nullable; populated via backfill from the free-text category bridge.
+        # The free-text category column is retained for backward compatibility.
+        DimensionColumn("category_id", "VARCHAR"),
     ),
 )
 
@@ -273,5 +277,5 @@ def extract_counterparties(
         name = row["counterparty_name"]
         if name not in seen:
             category = (category_resolver or {}).get(name)
-            seen[name] = {"counterparty_name": name, "category": category}
+            seen[name] = {"counterparty_name": name, "category": category, "category_id": None}
     return list(seen.values())

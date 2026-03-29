@@ -610,6 +610,31 @@ def _observation_id(batch_id: str, row_ordinal: int, normalized_row_json: str) -
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
+def populate_counterparty_category_ids(store: DuckDBStore) -> int:
+    """Backfill category_id on current dim_counterparty rows by joining dim_category.
+
+    Matches ``dim_counterparty.category`` (free-text bridge) against
+    ``dim_category.display_name``. Only updates rows where ``category_id``
+    is NULL, so it is idempotent and safe to call repeatedly.
+
+    Returns the number of rows updated.
+    """
+    result = store.connection.execute(
+        """
+        UPDATE dim_counterparty AS cp
+        SET category_id = dc.category_id
+        FROM dim_category AS dc
+        WHERE cp.is_current = TRUE
+          AND dc.is_current = TRUE
+          AND cp.category IS NOT NULL
+          AND cp.category = dc.display_name
+          AND cp.category_id IS NULL
+        """
+    )
+    row = result.fetchone()
+    return int(row[0]) if row else 0
+
+
 def _normalized_observation_json(row: dict[str, Any]) -> str:
     """Stable, canonical JSON encoding of the business fields of a row."""
     return json.dumps(

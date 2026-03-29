@@ -23,9 +23,10 @@ They sit between the transformation-layer model and the reporting/publication su
 | Dimension | Role | Notes |
 |---|---|---|
 | `dim_category` | Shared category registry | Used across budgets and cost attribution; publication contract is explicit. |
-| `dim_counterparty` | Shared finance-facing counterparty dimension | Still carries a free-text `category` bridge; `category_id` governance is a remaining follow-up. |
+| `dim_counterparty` | Shared finance-facing counterparty dimension | `category_id` FK added (Sprint Q); populated by backfill from `dim_category`. Free-text `category` bridge retained for backward compat — full removal deferred. |
 | `dim_contract` | Shared contract/provider spine | Reused by subscriptions and contract-pricing flows; provider is still embedded as text, not a separate shared dimension. |
 | `dim_meter` | Shared utility metering spine | Reused across utility usage and billing domains. |
+| `dim_household_member` | Shared household-member dimension | Implemented Sprint Q. Default `household` member seeded at startup. Natural key: `member_id`. |
 
 ## Current domain-local dimensions
 
@@ -45,9 +46,8 @@ Domain-local does not mean ad hoc. Each still needs reporting-layer publication 
 
 ## Known governance gaps
 
-- `dim_household_member` is still planned and not implemented; it is the only remaining Stage 1 dimension gap.
 - `fact_balance_snapshot` is implemented as the Stage 1 point-in-time balance fact across account and loan balances.
-- Finance still stores `dim_counterparty.category` as a free-text bridge instead of a canonical `category_id`.
+- `dim_counterparty.category` free-text bridge is retained for backward compat; `category_id` is now populated by backfill but full bridge-column removal is deferred.
 - Provider semantics still live inside domain-local string columns such as `dim_contract.provider`; there is no shared provider dimension yet.
 - Infrastructure and homelab current dimensions (`dim_node`, `dim_device`, `dim_service`, `dim_workload`) exist in transformation but are not yet published through the same app-facing current-dimension contract path as the earlier Stage 1 dimensions.
 

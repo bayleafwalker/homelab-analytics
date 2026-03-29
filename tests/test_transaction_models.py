@@ -103,12 +103,12 @@ def test_dim_counterparty_category_update_creates_version(store: DuckDBStore) ->
     """When a counterparty gets categorised, a new SCD version is created."""
     store.upsert_dimension_rows(
         DIM_COUNTERPARTY,
-        [{"counterparty_name": "Electric Utility", "category": None}],
+        [{"counterparty_name": "Electric Utility", "category": None, "category_id": None}],
         effective_date=date(2025, 1, 1),
     )
     store.upsert_dimension_rows(
         DIM_COUNTERPARTY,
-        [{"counterparty_name": "Electric Utility", "category": "Utilities"}],
+        [{"counterparty_name": "Electric Utility", "category": "Utilities", "category_id": None}],
         effective_date=date(2025, 3, 1),
     )
     current = store.query_current(DIM_COUNTERPARTY)
