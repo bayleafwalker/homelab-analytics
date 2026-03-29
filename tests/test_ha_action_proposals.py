@@ -20,6 +20,9 @@ class ApprovalActionRegistryTests(unittest.TestCase):
 
         self.assertEqual(proposal.status, "pending")
         self.assertEqual(proposal.action_id, "homelab_analytics_approval_device_control")
+        self.assertEqual(proposal.source_kind, "policy")
+        self.assertIsNone(proposal.source_key)
+        self.assertIsNone(proposal.created_by)
         self.assertEqual(len(registry.list_pending()), 1)
         self.assertEqual(registry.get_status()["pending"], 1)
 
@@ -64,14 +67,22 @@ class ApprovalActionRegistryTests(unittest.TestCase):
             policy_name="Device Control",
             verdict="warning",
             value=None,
-            notification_id="homelab_analytics_approval_device_control",
+            notification_id=None,
             action_id="homelab_analytics_approval_device_control",
             metadata={"source": "test"},
+            source_kind="assistant",
+            source_key="publication.monthly-cashflow",
+            source_summary="Draft approval to review monthly cash flow.",
+            created_by="assistant",
         )
 
         payload = proposal.to_dict()
         self.assertEqual(payload["metadata"]["source"], "test")
         self.assertEqual(payload["notification_id"], "homelab_analytics_approval_device_control")
+        self.assertEqual(payload["source_kind"], "assistant")
+        self.assertEqual(payload["source_key"], "publication.monthly-cashflow")
+        self.assertEqual(payload["source_summary"], "Draft approval to review monthly cash flow.")
+        self.assertEqual(payload["created_by"], "assistant")
 
 
 if __name__ == "__main__":

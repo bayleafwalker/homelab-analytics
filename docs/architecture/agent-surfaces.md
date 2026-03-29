@@ -33,6 +33,8 @@ Required properties:
 - proposals are auditable and traceable
 - proposals do not bypass approval, policy, or authentication checks
 - execution remains owned by the platform's existing action engine
+- proposal drafts capture their source kind, source key, and creator before approval
+- the approval and dismissal paths remain the only state transitions that release a proposal
 
 The assistant layer may suggest, summarize, or draft proposals. It may not directly mutate canonical state or dispatch external actions without the approval path.
 
@@ -52,4 +54,3 @@ The assistant should return explainable responses with pointers back to publicat
 - Propose actions, do not execute them.
 - Prefer existing policy and approval rails.
 - Keep the semantic layer reusable by dashboards, APIs, and future agents.
-

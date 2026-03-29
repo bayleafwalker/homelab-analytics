@@ -142,6 +142,42 @@ class HaEntitiesAPITests(unittest.TestCase):
 
 
 class HaApprovalProposalAPITests(unittest.TestCase):
+    def test_create_action_proposal_registers_pending_proposal(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+
+            create_resp = client.post(
+                "/api/ha/actions/proposals",
+                json={
+                    "policy_id": "monthly_cashflow_review",
+                    "policy_name": "Monthly Cashflow Review",
+                    "verdict": "warning",
+                    "value": "Needs operator review",
+                    "source_kind": "assistant",
+                    "source_key": "publication.monthly-cashflow",
+                    "source_summary": "Review the monthly cashflow publication before executing anything.",
+                    "created_by": "assistant",
+                    "metadata": {
+                        "approval_action": {
+                            "domain": "light",
+                            "service": "turn_on",
+                            "data": {"entity_id": "light.kitchen"},
+                        }
+                    },
+                },
+            )
+            self.assertEqual(200, create_resp.status_code)
+            created = create_resp.json()
+            self.assertEqual("pending", created["status"])
+            self.assertEqual("assistant", created["source_kind"])
+            self.assertEqual("publication.monthly-cashflow", created["source_key"])
+            self.assertEqual(
+                "Review the monthly cashflow publication before executing anything.",
+                created["source_summary"],
+            )
+            self.assertEqual("assistant", created["created_by"])
+            self.assertTrue(created["notification_id"].startswith("approval_"))
+
     def test_list_and_mutate_action_proposals(self) -> None:
         with TemporaryDirectory() as tmp:
             class _FakeDispatcher:

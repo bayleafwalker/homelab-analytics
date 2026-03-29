@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from packages.platform.auth.permission_registry import (
     PERMISSION_ADMIN_WRITE,
+    PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE,
     PERMISSION_CONTROL_CONFIG_READ,
     PERMISSION_CONTROL_CONFIG_READ_RESOURCE_WILDCARD,
     PERMISSION_CONTROL_CONFIG_WRITE,
@@ -62,6 +63,7 @@ def test_role_permission_bundles_follow_reader_operator_admin_hierarchy() -> Non
     assert PERMISSION_REPORTS_READ in reader
     assert PERMISSION_INGEST_WRITE not in reader
     assert PERMISSION_INGEST_WRITE in operator
+    assert PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE in operator
     assert PERMISSION_ADMIN_WRITE in admin
 
 
@@ -371,6 +373,10 @@ def test_admin_role_implies_control_config_resource_permissions() -> None:
         admin_ctx,
         PERMISSION_CONTROL_CONFIG_WRITE_RESOURCE_WILDCARD,
     )
+    assert has_required_permission(
+        admin_ctx,
+        PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE,
+    )
 
 
 def test_path_permission_mapping_matches_current_auth_surfaces() -> None:
@@ -584,6 +590,48 @@ def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> Non
     assert (
         required_service_token_scope_for_request("/api/ha/entities", "GET")
         == "runs:read"
+    )
+
+    assert required_role_for_request("/api/ha/actions/proposals", "GET") == UserRole.READER
+    assert (
+        required_permission_for_request("/api/ha/actions/proposals", method="GET")
+        == "runs.read"
+    )
+    assert (
+        required_service_token_scope_for_request("/api/ha/actions/proposals", "GET")
+        == "runs:read"
+    )
+
+    assert required_role_for_request("/api/ha/actions/proposals", "POST") == UserRole.OPERATOR
+    assert (
+        required_permission_for_request("/api/ha/actions/proposals", method="POST")
+        == PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE
+    )
+    assert (
+        required_service_token_scope_for_request("/api/ha/actions/proposals", "POST")
+        == "admin:write"
+    )
+
+    assert (
+        required_role_for_request(
+            "/api/ha/actions/proposals/approval_device_control/approve",
+            "POST",
+        )
+        == UserRole.OPERATOR
+    )
+    assert (
+        required_permission_for_request(
+            "/api/ha/actions/proposals/approval_device_control/approve",
+            method="POST",
+        )
+        == PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE
+    )
+    assert (
+        required_service_token_scope_for_request(
+            "/api/ha/actions/proposals/approval_device_control/approve",
+            "POST",
+        )
+        == "admin:write"
     )
 
     assert required_role_for_request("/api/ha/ingest", "POST") == UserRole.OPERATOR

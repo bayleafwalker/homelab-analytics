@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 
 ProposalStatus = Literal["pending", "approved", "dismissed"]
+ProposalSourceKind = Literal["policy", "assistant", "operator"]
 
 
 @dataclass
@@ -26,6 +27,10 @@ class ApprovalActionProposal:
     verdict: str
     value: str | None
     notification_id: str
+    source_kind: ProposalSourceKind = "policy"
+    source_key: str | None = None
+    source_summary: str | None = None
+    created_by: str | None = None
     status: ProposalStatus = "pending"
     created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     approved_at: str | None = None
@@ -40,6 +45,10 @@ class ApprovalActionProposal:
             "verdict": self.verdict,
             "value": self.value,
             "notification_id": self.notification_id,
+            "source_kind": self.source_kind,
+            "source_key": self.source_key,
+            "source_summary": self.source_summary,
+            "created_by": self.created_by,
             "status": self.status,
             "created_at": self.created_at,
             "approved_at": self.approved_at,
@@ -61,18 +70,27 @@ class ApprovalActionRegistry:
         policy_name: str,
         verdict: str,
         value: str | None,
-        notification_id: str,
+        notification_id: str | None,
+        source_kind: ProposalSourceKind = "policy",
+        source_key: str | None = None,
+        source_summary: str | None = None,
+        created_by: str | None = None,
         metadata: dict[str, Any] | None = None,
         action_id: str | None = None,
     ) -> ApprovalActionProposal:
         resolved_action_id = action_id or f"approval_{uuid.uuid4().hex[:12]}"
+        resolved_notification_id = notification_id or resolved_action_id
         proposal = ApprovalActionProposal(
             action_id=resolved_action_id,
             policy_id=policy_id,
             policy_name=policy_name,
             verdict=verdict,
             value=value,
-            notification_id=notification_id,
+            notification_id=resolved_notification_id,
+            source_kind=source_kind,
+            source_key=source_key,
+            source_summary=source_summary,
+            created_by=created_by,
             metadata=dict(metadata or {}),
         )
         self._proposals[resolved_action_id] = proposal

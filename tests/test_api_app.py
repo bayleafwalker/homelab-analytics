@@ -276,6 +276,18 @@ class ApiAppTests(unittest.TestCase):
                     "post"
                 ]["responses"]["201"]["content"]["application/json"]["schema"]["$ref"],
             )
+            self.assertEqual(
+                "#/components/schemas/HaApprovalProposalModel",
+                schema["paths"]["/api/ha/actions/proposals"]["post"]["responses"]["200"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+            self.assertEqual(
+                "#/components/schemas/HaApprovalProposalCreateModel",
+                schema["paths"]["/api/ha/actions/proposals"]["post"]["requestBody"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
 
     def test_openapi_schema_exposes_homelab_cost_benefit_scenario_route(self) -> None:
         with TemporaryDirectory() as temp_dir:

@@ -452,9 +452,12 @@ class HaActionDispatcher:
                         verdict=result.verdict,
                         value=result.value,
                         notification_id=target,
+                        source_kind="policy",
+                        source_key=result.id,
+                        source_summary=result.description,
+                        created_by="ha_action_dispatcher",
                         metadata={
                             "previous_verdict": prev,
-                            "source": "ha_action_dispatcher",
                             **dict(getattr(result, "metadata", {}) or {}),
                         },
                         action_id=target,

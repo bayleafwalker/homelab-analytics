@@ -2230,6 +2230,110 @@
         "title": "HaActionsStatusModel",
         "type": "object"
       },
+      "HaApprovalProposalCreateModel": {
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "notification_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notification Id"
+          },
+          "policy_id": {
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "policy_name": {
+            "title": "Policy Name",
+            "type": "string"
+          },
+          "source_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Key"
+          },
+          "source_kind": {
+            "default": "assistant",
+            "enum": [
+              "policy",
+              "assistant",
+              "operator"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Summary"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy_id",
+          "policy_name",
+          "verdict"
+        ],
+        "title": "HaApprovalProposalCreateModel",
+        "type": "object"
+      },
       "HaApprovalProposalListModel": {
         "properties": {
           "proposals": {
@@ -2267,6 +2371,17 @@
             "title": "Created At",
             "type": "string"
           },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
           "dismissed_at": {
             "anyOf": [
               {
@@ -2294,6 +2409,38 @@
           "policy_name": {
             "title": "Policy Name",
             "type": "string"
+          },
+          "source_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Key"
+          },
+          "source_kind": {
+            "default": "policy",
+            "enum": [
+              "policy",
+              "assistant",
+              "operator"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Summary"
           },
           "status": {
             "title": "Status",
@@ -6003,6 +6150,42 @@
           }
         },
         "summary": "Get Action Proposals"
+      },
+      "post": {
+        "operationId": "create_action_proposal_api_ha_actions_proposals_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HaApprovalProposalCreateModel"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HaApprovalProposalModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Action Proposal"
       }
     },
     "/api/ha/actions/proposals/{action_id}": {

@@ -5,6 +5,7 @@ from collections.abc import Mapping
 
 from packages.platform.auth.permission_registry import (
     PERMISSION_ADMIN_WRITE,
+    PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE,
     PERMISSION_CONTROL_CONFIG_READ,
     PERMISSION_CONTROL_CONFIG_WRITE,
     PERMISSION_CONTROL_PUBLICATION_AUDIT_READ,
@@ -191,6 +192,18 @@ def required_permission_for_request(
     if path.startswith("/api/ha"):
         if path in {"/api/ha/ingest", "/api/ha/policies/evaluate"}:
             return PERMISSION_INGEST_WRITE
+        if path == "/api/ha/actions/proposals":
+            return (
+                PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE
+                if request_method != "GET"
+                else PERMISSION_RUNS_READ
+            )
+        if path.startswith("/api/ha/actions/proposals/"):
+            return (
+                PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE
+                if request_method != "GET"
+                else PERMISSION_RUNS_READ
+            )
         return PERMISSION_RUNS_READ
     if path.startswith("/api/homelab/"):
         return PERMISSION_REPORTS_READ
@@ -262,6 +275,10 @@ def required_role_for_request(
     if path.startswith("/api/ha"):
         if path in {"/api/ha/ingest", "/api/ha/policies/evaluate"}:
             return UserRole.OPERATOR
+        if path == "/api/ha/actions/proposals":
+            return UserRole.OPERATOR if request_method != "GET" else UserRole.READER
+        if path.startswith("/api/ha/actions/proposals/"):
+            return UserRole.OPERATOR if request_method != "GET" else UserRole.READER
         return UserRole.READER
     if path.startswith("/api/homelab/"):
         return UserRole.READER
@@ -332,6 +349,18 @@ def required_service_token_scope_for_request(
     if path.startswith("/api/ha"):
         if path in {"/api/ha/ingest", "/api/ha/policies/evaluate"}:
             return SERVICE_TOKEN_SCOPE_INGEST_WRITE
+        if path == "/api/ha/actions/proposals":
+            return (
+                SERVICE_TOKEN_SCOPE_ADMIN_WRITE
+                if request_method != "GET"
+                else SERVICE_TOKEN_SCOPE_RUNS_READ
+            )
+        if path.startswith("/api/ha/actions/proposals/"):
+            return (
+                SERVICE_TOKEN_SCOPE_ADMIN_WRITE
+                if request_method != "GET"
+                else SERVICE_TOKEN_SCOPE_RUNS_READ
+            )
         return SERVICE_TOKEN_SCOPE_RUNS_READ
     if path.startswith("/api/homelab/"):
         return SERVICE_TOKEN_SCOPE_REPORTS_READ

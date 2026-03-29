@@ -87,6 +87,7 @@ Phase 6 tracks those approval-gated outputs as concrete proposal records in the 
 One concrete pattern is a HA helper entity that represents an operator request, such as `input_boolean.hla_kitchen_light_request`; when that helper is on, the platform can emit an approval-gated proposal with a service target like `light.turn_on`.
 The bridge also publishes approval queue state back into HA as synthetic sensors, such as a pending-approval count, so operators can see unresolved approval work in dashboards without opening the API.
 The homelab and retro operations views also expose the pending approval proposals directly, with approve and dismiss controls that call the platform approval endpoints and return the operator to the same view with a status notice.
+Proposal drafts are auditable records, not execution shortcuts: a draft stores its source kind, source key, and creator metadata before it can be approved or dismissed, and the approval write path is separately permission-gated from the read path.
 
 ### Layer 6 — External ecosystem federation
 

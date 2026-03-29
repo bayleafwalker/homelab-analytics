@@ -44,7 +44,8 @@ export interface paths {
         /** Get Action Proposals */
         get: operations["get_action_proposals_api_ha_actions_proposals_get"];
         put?: never;
-        post?: never;
+        /** Create Action Proposal */
+        post: operations["create_action_proposal_api_ha_actions_proposals_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3211,6 +3212,37 @@ export interface components {
             /** Tracked Policies */
             tracked_policies: number;
         };
+        /** HaApprovalProposalCreateModel */
+        HaApprovalProposalCreateModel: {
+            /** Action Id */
+            action_id?: string | null;
+            /** Created By */
+            created_by?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Notification Id */
+            notification_id?: string | null;
+            /** Policy Id */
+            policy_id: string;
+            /** Policy Name */
+            policy_name: string;
+            /** Source Key */
+            source_key?: string | null;
+            /**
+             * Source Kind
+             * @default assistant
+             * @enum {string}
+             */
+            source_kind: "policy" | "assistant" | "operator";
+            /** Source Summary */
+            source_summary?: string | null;
+            /** Value */
+            value?: string | null;
+            /** Verdict */
+            verdict: string;
+        };
         /** HaApprovalProposalListModel */
         HaApprovalProposalListModel: {
             /** Proposals */
@@ -3224,6 +3256,8 @@ export interface components {
             approved_at?: string | null;
             /** Created At */
             created_at: string;
+            /** Created By */
+            created_by?: string | null;
             /** Dismissed At */
             dismissed_at?: string | null;
             /** Metadata */
@@ -3236,6 +3270,16 @@ export interface components {
             policy_id: string;
             /** Policy Name */
             policy_name: string;
+            /** Source Key */
+            source_key?: string | null;
+            /**
+             * Source Kind
+             * @default policy
+             * @enum {string}
+             */
+            source_kind: "policy" | "assistant" | "operator";
+            /** Source Summary */
+            source_summary?: string | null;
             /** Status */
             status: string;
             /** Value */
@@ -4473,6 +4517,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HaApprovalProposalListModel"];
+                };
+            };
+        };
+    };
+    create_action_proposal_api_ha_actions_proposals_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HaApprovalProposalCreateModel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HaApprovalProposalModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

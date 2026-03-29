@@ -10,15 +10,16 @@
   GET  /api/ha/actions                       → recent outbound action dispatch log (Phase 5)
   GET  /api/ha/actions/status                → action dispatcher health (Phase 5)
   GET  /api/ha/actions/proposals             → approval-gated action proposals (Phase 6)
+  POST /api/ha/actions/proposals             → draft a pending approval proposal
   GET  /api/ha/actions/proposals/{id}         → one approval proposal
   POST /api/ha/actions/proposals/{id}/approve → approve a pending proposal
   POST /api/ha/actions/proposals/{id}/dismiss → dismiss a pending proposal
 """
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, Literal, cast
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from apps.api.response_models import (
@@ -51,10 +52,28 @@ class HaApprovalProposalModel(BaseModel):
     verdict: str
     value: str | None = None
     notification_id: str
+    source_kind: Literal["policy", "assistant", "operator"] = "policy"
+    source_key: str | None = None
+    source_summary: str | None = None
+    created_by: str | None = None
     status: str
     created_at: str
     approved_at: str | None = None
     dismissed_at: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class HaApprovalProposalCreateModel(BaseModel):
+    policy_id: str
+    policy_name: str
+    verdict: str
+    value: str | None = None
+    notification_id: str | None = None
+    source_kind: Literal["policy", "assistant", "operator"] = "assistant"
+    source_key: str | None = None
+    source_summary: str | None = None
+    created_by: str | None = None
+    action_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -190,6 +209,33 @@ def register_ha_routes(
                 for proposal in registry.list_all()
             ]
         )
+
+    @app.post("/api/ha/actions/proposals", response_model=HaApprovalProposalModel)
+    async def create_action_proposal(
+        body: HaApprovalProposalCreateModel,
+        request: Request,
+    ) -> HaApprovalProposalModel:
+        registry = _proposal_registry()
+        principal = cast(Any, getattr(request.state, "principal", None))
+        created_by = (
+            getattr(principal, "username", None)
+            or body.created_by
+            or body.source_kind
+        )
+        proposal = registry.register(
+            policy_id=body.policy_id,
+            policy_name=body.policy_name,
+            verdict=body.verdict,
+            value=body.value,
+            notification_id=body.notification_id,
+            source_kind=body.source_kind,
+            source_key=body.source_key,
+            source_summary=body.source_summary,
+            created_by=created_by,
+            metadata=dict(body.metadata),
+            action_id=body.action_id,
+        )
+        return HaApprovalProposalModel.model_validate(proposal.to_dict())
 
     @app.get("/api/ha/actions/proposals/{action_id}", response_model=HaApprovalProposalModel)
     async def get_action_proposal(action_id: str) -> HaApprovalProposalModel:

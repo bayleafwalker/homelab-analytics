@@ -503,6 +503,9 @@ class HaActionDispatcherTests(unittest.TestCase):
         proposal = registry.get("homelab_analytics_approval_device_control")
         self.assertIsNotNone(proposal)
         self.assertEqual(proposal.status, "pending")
+        self.assertEqual(proposal.source_kind, "policy")
+        self.assertEqual(proposal.source_key, "device_control")
+        self.assertEqual(proposal.created_by, "ha_action_dispatcher")
         self.assertEqual(registry.get_status()["pending"], 1)
         self.assertEqual(proposal.metadata["approval_action"]["service"], "turn_on")
 

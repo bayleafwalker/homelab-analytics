@@ -203,6 +203,24 @@ def test_api_local_auth_enforces_newly_mapped_api_surfaces() -> None:
         )
         assert denied_ha_ingest.status_code == 403
 
+        denied_ha_proposal_create = client.post(
+            "/api/ha/actions/proposals",
+            json={
+                "policy_id": "monthly_cashflow_review",
+                "policy_name": "Monthly Cashflow Review",
+                "verdict": "warning",
+                "value": "Needs operator review",
+            },
+            headers=_csrf_headers(client),
+        )
+        assert denied_ha_proposal_create.status_code == 403
+
+        denied_ha_proposal_approve = client.post(
+            "/api/ha/actions/proposals/approval_device_control/approve",
+            headers=_csrf_headers(client),
+        )
+        assert denied_ha_proposal_approve.status_code == 403
+
         denied_functions = client.get("/functions")
         assert denied_functions.status_code == 403
 

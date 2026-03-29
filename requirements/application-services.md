@@ -252,6 +252,26 @@ The platform exposes its capabilities through three application workloads: a JSO
 
 ---
 
+### APP-14: REST API - auditable action proposals
+
+**Description:** The API exposes a proposal draft surface for approval-gated actions, with read-only listing and detail views, explicit provenance fields, and permission-gated create/approve/dismiss operations.
+
+**Rationale:** Agent- and operator-suggested actions must remain auditable drafts until the existing approval gate resolves them, and the mutate paths need an explicit write permission rather than the generic HA read fallback.
+
+**Phase:** 10
+**Status:** in-progress (`POST /api/ha/actions/proposals` now drafts a pending proposal record with source and creator metadata; `GET` read paths remain read-only; approval and dismissal are permission-gated separately from reads; the proposal model is being pinned in API and auth tests)
+
+**Acceptance criteria:**
+- `GET /api/ha/actions/proposals` and `GET /api/ha/actions/proposals/{action_id}` remain read-only proposal views.
+- `POST /api/ha/actions/proposals` creates a pending proposal without dispatching HA service calls.
+- `POST /api/ha/actions/proposals/{action_id}/approve` and `/dismiss` require the proposal write permission and update the stored proposal state.
+- Proposal records retain source kind, source key, creator, and metadata fields for auditability.
+- Tests verify the proposal draft flow and the permission mapping for create and resolution paths.
+
+**Dependencies:** APP-04, APP-11
+
+---
+
 ## Traceability
 
 | Requirement | Implementation module | Test file |
@@ -269,3 +289,4 @@ The platform exposes its capabilities through three application workloads: a JSO
 | APP-11 | `apps/worker/main.py`, `apps/worker/runtime.py`, `apps/worker/command_handlers.py`, `apps/worker/control_plane.py`, `apps/worker/serialization.py`, `packages/pipelines/config_preflight.py` | `tests/test_worker_cli.py`, `tests/test_control_plane_worker_cli.py`, `tests/test_config_preflight.py`, `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py` |
 | APP-12 | `apps/api/app.py`, `apps/api/support.py`, `apps/api/runtime_state.py`, `apps/web/frontend/app/health/route.js` | `tests/test_api_app.py`, `tests/test_web_app.py` |
 | APP-13 | `apps/api/app.py`, `apps/api/models.py`, `apps/api/routes/config_routes.py`, `apps/worker/runtime.py`, `apps/worker/command_parser.py`, `apps/worker/command_handlers.py`, `packages/shared/function_registry.py`, `packages/pipelines/configured_csv_ingestion.py`, `packages/pipelines/promotion_registry.py`, `apps/web/frontend/app/control/catalog/page.js`, `apps/web/frontend/app/control/catalog/transformation-packages/route.js`, `apps/web/frontend/app/control/catalog/publication-definitions/route.js`, `apps/web/frontend/components/external-registry-panel.js`, `apps/web/frontend/components/function-catalog-panel.js`, `apps/web/frontend/components/transformation-catalog-panel.js`, `apps/web/frontend/lib/config-spec.js`, `apps/web/frontend/lib/backend.ts` | `tests/test_api_app.py`, `tests/test_api_main.py`, `tests/test_worker_cli.py`, `tests/test_configured_csv_ingestion.py`, `tests/test_control_plane_worker_cli.py`, `tests/test_web_auth.py` |
+| APP-14 | `apps/api/routes/ha_routes.py`, `packages/pipelines/ha_action_proposals.py`, `packages/platform/auth/permission_registry.py`, `packages/platform/auth/scope_authorization.py` | `tests/test_api_app.py`, `tests/test_api_auth.py`, `tests/test_auth_permission_registry.py`, `tests/test_ha_action_proposals.py`, `tests/test_ha_api.py`, `tests/test_ha_action_dispatcher.py` |
