@@ -608,6 +608,8 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "monthly_cost_delta" in homelab_cost_benefit_panel_source
     assert "Homelab cost/benefit" in homelab_cost_benefit_panel_source
     assert "View scenario" in homelab_cost_benefit_panel_source
+    assert "Compare scenarios" in homelab_cost_benefit_panel_source
+    assert "/scenarios/compare?left=" in homelab_cost_benefit_panel_source
     assert "Cost/value summary" in homelab_cost_benefit_panel_source
     assert "comparison?.summary_rows?.length > 0" in homelab_cost_benefit_panel_source
     assert "Assumptions" in homelab_cost_benefit_panel_source

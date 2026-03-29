@@ -181,6 +181,12 @@ export function HomelabCostBenefitPanel() {
                 <Link className="primaryButton inlineButton" href={`/scenarios/${result.scenario_id}`}>
                   View scenario
                 </Link>
+                <Link
+                  className="ghostButton inlineButton"
+                  href={`/scenarios/compare?left=${encodeURIComponent(result.scenario_id)}`}
+                >
+                  Compare scenarios
+                </Link>
                 <button className="ghostButton inlineButton" type="button" onClick={reset}>
                   Run another
                 </button>
