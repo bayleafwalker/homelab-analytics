@@ -71,3 +71,9 @@ The old catch-all backlog should be split into focused sprint packets:
    Stays as a dedicated Stage 9 backlog sprint rather than being buried in a generic cross-stage bucket.
 
 Do not register a separate overview-domain sprint in this pass because the existing Stage 3 backlog already covers the next cross-domain composition work.
+
+## Backlog Hygiene
+
+- Sprint `#12` is the delivered Sprint K record and remains the only active Sprint K sprint.
+- Duplicate closed Sprint K records `#10` and `#11` still contain historical packet items `#69`, `#70`, `#72`, and `#73`.
+- Treat those duplicate packet items as archival placeholders. Do not turn them into new active work unless a future cleanup sprint explicitly exists to reconcile sprint history.
