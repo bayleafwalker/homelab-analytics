@@ -274,6 +274,23 @@ class HaMqttPublisher:
             "publication_keys": publication_keys,
         }
 
+    def get_runtime_status(self) -> "AdapterRuntimeStatus":
+        """Return a typed runtime status snapshot for the adapter layer."""
+        from packages.adapters.contracts import AdapterRuntimeStatus
+
+        raw = self.get_status()
+        return AdapterRuntimeStatus(
+            enabled=True,
+            connected=raw["connected"],
+            last_activity_at=raw["last_publish_at"],
+            error_count=0,
+            extra={
+                "publish_count": raw["publish_count"],
+                "entity_count": raw["entity_count"],
+                "publication_keys": raw["publication_keys"],
+            },
+        )
+
     # ------------------------------------------------------------------
     # Internal loop
     # ------------------------------------------------------------------

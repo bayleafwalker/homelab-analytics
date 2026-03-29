@@ -379,6 +379,26 @@ class HaActionDispatcher:
             "approval_dismissed_count": approval_status.get("dismissed", 0),
         }
 
+    def get_runtime_status(self) -> "AdapterRuntimeStatus":
+        """Return a typed runtime status snapshot for the adapter layer."""
+        from packages.adapters.contracts import AdapterRuntimeStatus
+
+        raw = self.get_status()
+        return AdapterRuntimeStatus(
+            enabled=raw["enabled"],
+            connected=raw["connected"],
+            last_activity_at=raw["last_dispatch_at"],
+            error_count=raw["error_count"],
+            extra={
+                "dispatch_count": raw["dispatch_count"],
+                "action_log_size": raw["action_log_size"],
+                "tracked_policies": raw["tracked_policies"],
+                "approval_pending_count": raw["approval_pending_count"],
+                "approval_approved_count": raw["approval_approved_count"],
+                "approval_dismissed_count": raw["approval_dismissed_count"],
+            },
+        )
+
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------

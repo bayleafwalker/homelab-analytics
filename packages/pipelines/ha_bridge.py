@@ -107,6 +107,18 @@ class HaBridgeWorker:
             "reconnect_count": self.reconnect_count,
         }
 
+    def get_runtime_status(self) -> "AdapterRuntimeStatus":
+        """Return a typed runtime status snapshot for the adapter layer."""
+        from packages.adapters.contracts import AdapterRuntimeStatus
+
+        return AdapterRuntimeStatus(
+            enabled=True,
+            connected=self.connected,
+            last_activity_at=self.last_sync_at,
+            error_count=0,
+            extra={"reconnect_count": self.reconnect_count},
+        )
+
     # ------------------------------------------------------------------
     # Internal loop
     # ------------------------------------------------------------------
