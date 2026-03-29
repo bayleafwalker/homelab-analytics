@@ -3,12 +3,12 @@ Goal:   Collapse the current runtime/config/auth matrix into three blessed deplo
 ID:     14
 
 --- Track: stage-0 ---
-  health: 2 items — 0 done (0%), 1 active, 1 pending, 0 blocked (0%)
-  [active  ] #81  Deployment profile packet: one golden-path configuration story per blessed profile  (assignee: -)
-  [pending ] #82  Operator onboarding packet: demo-first path, guided import/remediation, and freshness next-action flow  (assignee: -)
+  health: 2 items — 1 done (50%), 1 active, 0 pending, 0 blocked (0%)
+  [done    ] #81  Deployment profile packet: one golden-path configuration story per blessed profile  (assignee: -)
+  [active  ] #82  Operator onboarding packet: demo-first path, guided import/remediation, and freshness next-action flow  (assignee: -)
 
 --- Track: stage-9 ---
   health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
   [pending ] #83  Config-surface cleanup packet: clearly separate supported defaults from power-user overrides  (assignee: -)
 
-Rendered: 2026-03-29T11:24:34Z
+Rendered: 2026-03-29T11:33:09Z
