@@ -11,4 +11,4 @@ ID:     14
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
   [done    ] #83  Config-surface cleanup packet: clearly separate supported defaults from power-user overrides  (assignee: -)
 
-Rendered: 2026-03-29T11:43:16Z
+Rendered: 2026-03-29T11:43:30Z
