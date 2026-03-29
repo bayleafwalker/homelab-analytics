@@ -1,14 +1,15 @@
-SPRINT: HA Phase 6 — Approval-Gated Device Control  [active]
-Goal:   Extend the outbound action dispatcher with HA entity write-back capability and add an operator approval flow so agents can propose device control actions that require explicit approval before execution.
+SPRINT: Sprint Q — Stage 1 Canonical Dimension Carryover  [active]
+Goal:   Implement dim_household_member as the last unshipped Stage 1 canonical dimension, tighten the dim_counterparty category_id governance gap, and create the domain-model architecture doc that closes the Stage 1 semantic foundation.
 Dates:  2026-03-29 to 2026-04-12
-ID:     18
+ID:     19
 
---- Track: ha-phase6 ---
-  health: 5 items — 0 done (0%), 0 active, 5 pending, 0 blocked (0%)
-  [pending ] #96  HA device control write-back: POST /api/ha/actions/execute with HA REST service call  (assignee: -)
-  [pending ] #97  ApprovalGatedAction class: pending/approved/rejected state machine in HaActionDispatcher  (assignee: -)
-  [pending ] #98  Approval queue API: GET /api/ha/actions/pending + POST /api/ha/actions/{id}/approve + reject  (assignee: -)
-  [pending ] #99  Operator approval UI panel on /homelab: pending action cards with approve/reject buttons  (assignee: -)
-  [pending ] #100  Phase 6 tests: write-back safety guards, approval state transitions, HA REST mock round-trip  (assignee: -)
+--- Track: stage-1-carryover ---
+  health: 6 items — 0 done (0%), 0 active, 6 pending, 0 blocked (0%)
+  [pending ] #101  dim_household_member: schema, DuckDB/Postgres migrations, and canonical model registration  (assignee: -)
+  [pending ] #102  dim_household_member: transformation layer seeding (default 'household' member) and SCD-1 update path  (assignee: -)
+  [pending ] #103  dim_counterparty category_id governance: populate category_id FK from dim_category and remove free-text bridge  (assignee: -)
+  [pending ] #104  docs/architecture/domain-model.md: canonical household ontology covering all shipped dimensions and their domain ownership  (assignee: -)
+  [pending ] #105  Update semantic-contracts.md to remove the dim_household_member gap note and document category_id resolution  (assignee: -)
+  [pending ] #106  Tests: dim_household_member schema, seeding, and FK validation; dim_counterparty category_id round-trip  (assignee: -)
 
-Rendered: 2026-03-29T18:48:28Z
+Rendered: 2026-03-29T19:13:07Z
