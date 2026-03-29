@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Realign the non-finance backlog against the actual worktree and live sprint state. Sprint I is effectively complete, while the local worktree already contains domain-foundation code that the older backlog write-up still described as future work.
+Realign the non-finance backlog against the actual worktree and live sprint state. Sprint I is effectively complete, Sprint K has now been delivered and normalized, and the remaining cleanup is about keeping the live sprint records and backlog mapping honest.
 
 ## Assessment Of The Public-Branch Guidance
 
@@ -10,7 +10,7 @@ The external verdict is directionally correct but stale against the local worktr
 
 - The warning about surface-area inflation still holds, especially around runtime/config/auth posture and HA wiring density.
 - The recommended sequence needs to account for work already landed locally: utility tariff shock, approval-gated HA control, synthetic entity expansion, internal-platform ingestion, utilities automation foundation, infrastructure metrics foundation, and the first asset-inventory spine are no longer hypothetical.
-- The main planning problem is now sprint shape, not roadmap direction. Live `sprintctl` still shows an active finance sprint that is complete and a catch-all backlog sprint that mixes delivered work, genuine carryover, and future-stage planning.
+- The main planning problem is now sprint shape, not roadmap direction. The active Sprint K record is clean, but older duplicate Sprint K records still carry stale active or pending items and should be treated as archival noise rather than open work.
 
 ## Stop/Go Summary
 
@@ -62,7 +62,7 @@ The old catch-all backlog should be split into focused sprint packets:
 1. `Sprint J — Non-Finance Canonical Foundations`
    Carries the genuine Stage 1 follow-up: cross-domain semantic-contract cleanup, the remaining canonical-dimension follow-up (`dim_household_member`), the now-implemented `fact_balance_snapshot`, and any carefully scoped reporting/publication completion still needed around infrastructure and homelab foundations.
 2. `Sprint K — Household Decision Surfaces`
-   Carries the Stage 3 and Stage 4 value work already queued in backlog: cost envelopes, structured state indicators, homelab cost/benefit, scenario comparison, and the homelab value loop.
+   Delivered as Sprint `#12`. Keep it as the historical record for the homelab decision-surface work, but do not treat it as queued backlog.
 3. `Sprint L — Runtime Profiles And Operator Onboarding`
    Converts the support matrix into three blessed deployment profiles and makes import/freshness/remediation flows coherent for real operators.
 4. `Sprint M — Integration Boundary Hardening`
