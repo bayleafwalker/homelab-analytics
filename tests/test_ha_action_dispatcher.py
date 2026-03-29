@@ -344,7 +344,7 @@ class HaActionDispatcherTests(unittest.TestCase):
         d = _make_dispatcher()
         status = d.get_status()
         expected_keys = {
-            "enabled", "last_dispatch_at", "dispatch_count",
+            "enabled", "connected", "last_dispatch_at", "dispatch_count",
             "error_count", "action_log_size", "tracked_policies",
             "approval_tracked_count", "approval_pending_count",
             "approval_approved_count", "approval_dismissed_count",
@@ -354,6 +354,10 @@ class HaActionDispatcherTests(unittest.TestCase):
     def test_enabled_defaults_true(self) -> None:
         d = _make_dispatcher()
         self.assertTrue(d.get_status()["enabled"])
+
+    def test_connected_defaults_true(self) -> None:
+        d = _make_dispatcher()
+        self.assertTrue(d.get_status()["connected"])
 
     def test_initial_dispatch_count_zero(self) -> None:
         d = _make_dispatcher()

@@ -75,11 +75,14 @@ class UiDescriptorsResponse(BaseModel):
     ui_descriptors: list[UiDescriptorContractModel]
 
 
-class HaMqttStatusModel(BaseModel):
+class HaRuntimeStatusModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool
     connected: bool
+
+
+class HaMqttStatusModel(HaRuntimeStatusModel):
     last_publish_at: str | None = None
     publish_count: int
     entity_count: int
@@ -88,19 +91,12 @@ class HaMqttStatusModel(BaseModel):
     publication_keys: list[str]
 
 
-class HaBridgeStatusModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    enabled: bool
-    connected: bool
+class HaBridgeStatusModel(HaRuntimeStatusModel):
     last_sync_at: str | None = None
     reconnect_count: int
 
 
-class HaActionsStatusModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    enabled: bool
+class HaActionsStatusModel(HaRuntimeStatusModel):
     last_dispatch_at: str | None = None
     dispatch_count: int
     error_count: int

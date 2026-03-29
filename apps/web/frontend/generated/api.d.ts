@@ -3164,6 +3164,8 @@ export interface components {
              * @default 0
              */
             approval_tracked_count: number;
+            /** Connected */
+            connected: boolean;
             /** Dispatch Count */
             dispatch_count: number;
             /** Enabled */

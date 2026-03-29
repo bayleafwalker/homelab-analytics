@@ -2187,6 +2187,10 @@
             "title": "Approval Tracked Count",
             "type": "integer"
           },
+          "connected": {
+            "title": "Connected",
+            "type": "boolean"
+          },
           "dispatch_count": {
             "title": "Dispatch Count",
             "type": "integer"
@@ -2217,6 +2221,7 @@
         },
         "required": [
           "enabled",
+          "connected",
           "dispatch_count",
           "error_count",
           "action_log_size",

@@ -215,6 +215,7 @@ class HaStatusAPITests(unittest.TestCase):
             class _FakeDispatcher:
                 def get_status(self) -> dict[str, object]:
                     return {
+                        "connected": True,
                         "last_dispatch_at": "2026-03-21T10:05:00+00:00",
                         "dispatch_count": 7,
                         "error_count": 1,
@@ -249,6 +250,7 @@ class HaStatusAPITests(unittest.TestCase):
             self.assertEqual(
                 {
                     "enabled": True,
+                    "connected": True,
                     "last_dispatch_at": "2026-03-21T10:05:00+00:00",
                     "dispatch_count": 7,
                     "error_count": 1,

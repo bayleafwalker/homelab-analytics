@@ -367,6 +367,7 @@ class HaActionDispatcher:
             approval_status = self._proposal_registry.get_status()
         return {
             "enabled": True,
+            "connected": True,
             "last_dispatch_at": self.last_dispatch_at,
             "dispatch_count": self.dispatch_count,
             "error_count": self.error_count,

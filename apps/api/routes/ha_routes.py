@@ -164,6 +164,7 @@ def register_ha_routes(
         if ha_action_dispatcher is None:
             return HaActionsStatusModel(
                 enabled=False,
+                connected=False,
                 last_dispatch_at=None,
                 dispatch_count=0,
                 error_count=0,
