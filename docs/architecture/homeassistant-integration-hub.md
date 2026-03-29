@@ -151,4 +151,6 @@ The shared container-backed service builders now live in `apps/runtime_support.p
 
 The platform-facing HA health endpoints use typed status models for bridge and action surfaces so the adapter boundary stays explicit rather than leaking raw transport dictionaries into the API. That runtime snapshot is distinct from the static adapter manifest described in `docs/architecture/integration-adapters.md`.
 
+Those typed status models share one health vocabulary: `enabled` for participation, `connected` for live transport, `last_*_at` for the newest successful sync or dispatch, and role-specific counters for reconnects, publishes, dispatches, and approval tracking. The field names vary by surface, but the reporting shape stays coherent across bridge, MQTT, and action endpoints.
+
 See `docs/architecture/integration-adapters.md` for the Stage 6 adapter contract packet and the HA-as-reference mapping.

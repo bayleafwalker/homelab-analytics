@@ -224,11 +224,18 @@ def test_stage6_adapter_docs_pin_typed_runtime_status_boundaries() -> None:
     assert "### Runtime status" in integration_adapters
     assert "should stay typed" in integration_adapters
     assert "activation state" in integration_adapters
+    assert "### Health and reporting model" in integration_adapters
+    assert "enabled" in integration_adapters
+    assert "connected" in integration_adapters
+    assert "last_*_at" in integration_adapters
+    assert "*_count" in integration_adapters
     assert "### Lifecycle expectations" in integration_adapters
     assert "live handles, counters, or last-seen timestamps" in integration_adapters
     assert "checkpoint recovery" in integration_adapters
     assert "approval gates" in integration_adapters
     assert "The reference mapping is intentionally narrow" in integration_adapters
+    assert "one health vocabulary" in homeassistant_hub
+    assert "bridge, MQTT, and action endpoints" in homeassistant_hub
     assert "shared typed runtime snapshot" in roadmap
     assert "typed health/status" in roadmap
     assert "typed health/status model" in decisions

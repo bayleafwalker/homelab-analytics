@@ -55,6 +55,19 @@ Adapters may expose extra fields for their own operational domain, but the snaps
 stable enough for the UI, API, and operators to reason about health the same way across adapter
 types.
 
+### Health and reporting model
+
+One coherent health model should be reused across adapter-facing runtime endpoints:
+
+- `enabled`: whether the subsystem is configured and participating
+- `connected`: whether the live transport or dispatch loop is attached
+- `last_*_at`: the most recent successful sync, publish, or dispatch timestamp
+- `*_count`: operational counters such as reconnects, publishes, dispatches, or errors
+
+The concrete field names stay role-specific, but the vocabulary stays consistent. A bridge
+status surface, a publisher status surface, and an action status surface should all read like
+variations on the same typed runtime snapshot rather than unrelated ad hoc payloads.
+
 ### Lifecycle expectations
 
 All adapter directions follow the same high-level lifecycle:
