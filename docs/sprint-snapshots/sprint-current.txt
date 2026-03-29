@@ -1,15 +1,14 @@
-SPRINT: Sprint O — Stage 6 Integration Adapter Contracts  [closed]
-Goal:   Implement the Stage 6 adapter contract layer: typed AdapterManifest, shared runtime status model, IngestAdapter/PublishAdapter/ActionAdapter protocols, and HA-as-reference-adapter wiring that maps the existing bridge, MQTT publisher, and action dispatcher onto the generic contracts.
+SPRINT: HA Phase 6 — Approval-Gated Device Control  [active]
+Goal:   Extend the outbound action dispatcher with HA entity write-back capability and add an operator approval flow so agents can propose device control actions that require explicit approval before execution.
 Dates:  2026-03-29 to 2026-04-12
-ID:     17
+ID:     18
 
---- Track: stage-6 ---
-  health: 6 items — 6 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #90  AdapterManifest, AdapterRuntimeStatus, and direction protocol types  (assignee: -)
-  [done    ] #91  HA IngestAdapter wrapping HaBridgeWorker  (assignee: -)
-  [done    ] #92  HA PublishAdapter wrapping HaMqttPublisher  (assignee: -)
-  [done    ] #93  HA ActionAdapter wrapping HaActionDispatcher  (assignee: -)
-  [done    ] #94  Unified typed get_status() across all HA workers and adapter wrappers  (assignee: -)
-  [done    ] #95  Contract and protocol tests for adapter conformance  (assignee: -)
+--- Track: ha-phase6 ---
+  health: 5 items — 0 done (0%), 0 active, 5 pending, 0 blocked (0%)
+  [pending ] #96  HA device control write-back: POST /api/ha/actions/execute with HA REST service call  (assignee: -)
+  [pending ] #97  ApprovalGatedAction class: pending/approved/rejected state machine in HaActionDispatcher  (assignee: -)
+  [pending ] #98  Approval queue API: GET /api/ha/actions/pending + POST /api/ha/actions/{id}/approve + reject  (assignee: -)
+  [pending ] #99  Operator approval UI panel on /homelab: pending action cards with approve/reject buttons  (assignee: -)
+  [pending ] #100  Phase 6 tests: write-back safety guards, approval state transitions, HA REST mock round-trip  (assignee: -)
 
-Rendered: 2026-03-29T18:35:33Z
+Rendered: 2026-03-29T18:48:28Z
