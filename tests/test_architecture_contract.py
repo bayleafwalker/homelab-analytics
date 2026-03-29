@@ -124,6 +124,24 @@ def test_stage1_carryover_docs_name_remaining_dimension_and_completed_fact() -> 
     assert "remaining Stage 1 dimension work is concentrated in `dim_household_member`" in requirements
 
 
+def test_blessed_deployment_profiles_are_consistent_across_operator_docs() -> None:
+    config = (ROOT / "docs" / "runbooks" / "configuration.md").read_text()
+    freshness = (ROOT / "docs" / "product" / "source-freshness-workflow.md").read_text()
+
+    for profile in [
+        "Local demo/dev",
+        "Single-user homelab",
+        "Shared OIDC deployment",
+    ]:
+        assert profile in config
+        assert profile in freshness
+
+    assert "SQLite control plane, DuckDB warehouse, filesystem landing" in config
+    assert "Postgres control plane/reporting, DuckDB warehouse, S3 or MinIO landing" in config
+    assert "Postgres control plane/reporting, DuckDB warehouse, S3 landing" in config
+    assert "Profile choice determines how the operator authenticates, where landing payloads live" in freshness
+
+
 def test_stage6_adapter_docs_pin_typed_runtime_status_boundaries() -> None:
     integration_adapters = (
         ROOT / "docs" / "architecture" / "integration-adapters.md"

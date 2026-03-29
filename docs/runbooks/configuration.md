@@ -18,6 +18,31 @@ These profiles are the supported startup stories the rest of the docs should poi
 | Single-user homelab | Postgres control plane/reporting, DuckDB warehouse, S3 or MinIO landing | `local_single_user` with `HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED=true` and a session secret | `docker compose -f infra/examples/compose.yaml up` or the equivalent single-node bootstrap path with the local auth example env file |
 | Shared OIDC deployment | Postgres control plane/reporting, DuckDB warehouse, S3 landing | `oidc` with external identity provider secrets and no local bootstrap admin by default | Helm chart or cluster deployment using the OIDC ingress example values and secret-backed runtime config |
 
+### Profile playbooks
+
+Use the profile that matches the operator posture you want to support. The freshness workflow, import actions, and admin surfaces should stay aligned with these stories.
+
+#### Local demo/dev
+
+- Prefer SQLite for control-plane bootstrap, DuckDB for the warehouse, and filesystem landing storage.
+- Keep identity disabled unless a specific doc or test needs to exercise auth behavior.
+- Seed the demo bundle, use disposable fixture sources, and treat freshness state as a validation aid rather than an operational obligation.
+- This is the fastest path for local development, docs checks, and UI smoke tests.
+
+#### Single-user homelab
+
+- Prefer Postgres for control-plane and published-reporting state, DuckDB for the warehouse, and S3 or MinIO for landed payloads.
+- Use `local_single_user` plus break-glass and a session secret as the default operator posture.
+- Use manual exports, watched folders, and freshness badges to drive the next action when a source goes stale.
+- This is the profile for a real operator on one machine or one household deployment.
+
+#### Shared OIDC deployment
+
+- Prefer Postgres for control-plane and published-reporting state, DuckDB for the warehouse, and S3 for landed payloads.
+- Use `oidc` with secret-backed provider configuration and no local bootstrap admin by default.
+- Keep the same freshness model and remediation actions, but enter the admin and upload flows through shared identity.
+- This is the profile for shared deployments where multiple operators need the same governed workflow.
+
 ---
 
 ## Data and storage

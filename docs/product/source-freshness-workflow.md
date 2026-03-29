@@ -12,13 +12,13 @@ This document defines the freshness model, operator workflow, and integration po
 
 ## Startup stories
 
-The freshness workflow sits on top of three blessed deployment profiles:
+The freshness workflow sits on top of the three blessed deployment profiles defined in `docs/runbooks/configuration.md`:
 
 - Local demo/dev: seed the demo bundle, use disposable fixture sources, and validate the freshness UI without wiring real operational sources first.
 - Single-user homelab: use the manual export and watched-folder paths, then rely on freshness badges, upload actions, and run-history remediation when a source goes stale or fails.
 - Shared OIDC deployment: keep the same freshness model and operator actions, but enter the admin and upload surfaces through the shared OIDC identity path.
 
-The model is the same in all three cases; only the startup path and operator posture change.
+The model is the same in all three cases; only the startup path and operator posture change. Profile choice determines how the operator authenticates, where landing payloads live, and which bootstrap path is safest, not how freshness itself is computed.
 
 ---
 
