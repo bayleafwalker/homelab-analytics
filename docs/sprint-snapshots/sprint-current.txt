@@ -1,10 +1,14 @@
-SPRINT: Sprint J — Non-Finance Canonical Foundations  [closed]
-Goal:   Turn the worktrees partial non-finance domain foundation into explicit, finishable scope so internal-platform ingestion, infrastructure metrics, home-automation state, and asset inventory stop living as half-registered side work.
-ID:     13
+SPRINT: Sprint L — Runtime Profiles And Operator Onboarding  [active]
+Goal:   Collapse the current runtime/config/auth matrix into three blessed deployment stories and turn ingestion/freshness into an opinionated operator workflow.
+ID:     14
 
---- Track: stage-1 ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #79  Stage 1 carryover cleanup: dim_household_member and remaining Stage 1 reporting/publication follow-up  (assignee: -)
-  [done    ] #80  Semantic-contract guidance: shared-dimension governance and publication-semantic rules  (assignee: -)
+--- Track: stage-0 ---
+  health: 2 items — 0 done (0%), 1 active, 1 pending, 0 blocked (0%)
+  [active  ] #81  Deployment profile packet: one golden-path configuration story per blessed profile  (assignee: -)
+  [pending ] #82  Operator onboarding packet: demo-first path, guided import/remediation, and freshness next-action flow  (assignee: -)
 
-Rendered: 2026-03-29T11:20:09Z
+--- Track: stage-9 ---
+  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
+  [pending ] #83  Config-surface cleanup packet: clearly separate supported defaults from power-user overrides  (assignee: -)
+
+Rendered: 2026-03-29T11:24:34Z
