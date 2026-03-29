@@ -22,6 +22,8 @@ The model is the same in all three cases; only the startup path and operator pos
 
 That makes the onboarding loop demo-first: validate the disposable bundle, then move one real source at a time through the same import, freshness, and remediation flow.
 
+The disposable bundle lives in `docs/examples/finance-source-contracts/README.md` and gives a concrete first pass for the operator before any real source is wired.
+
 ---
 
 ## The problem

@@ -145,10 +145,19 @@ def test_blessed_deployment_profiles_are_consistent_across_operator_docs() -> No
 def test_operator_onboarding_docs_pin_demo_first_and_next_action_flow() -> None:
     contracts = (ROOT / "docs" / "product" / "finance-source-contracts.md").read_text()
     freshness = (ROOT / "docs" / "product" / "source-freshness-workflow.md").read_text()
+    examples_readme = (
+        ROOT / "docs" / "examples" / "finance-source-contracts" / "README.md"
+    ).read_text()
+    docs_readme = (ROOT / "docs" / "README.md").read_text()
+    product_readme = (ROOT / "docs" / "product" / "README.md").read_text()
 
     assert "demo-first" in contracts
     assert "seed the demo bundle" in contracts
-    assert "example CSV and PDF files under `docs/examples/finance-source-contracts/`" in contracts
+    assert "example bundle index in `docs/examples/finance-source-contracts/README.md`" in contracts
+    assert "OP account CSV" in contracts
+    assert "OP Gold invoice" in contracts
+    assert "Revolut personal account CSV" in contracts
+    assert "credit registry snapshot" in contracts
     assert "fix the source file and re-upload" in contracts
     assert "open the failed run" in contracts
     assert "repair the source binding" in contracts
@@ -158,6 +167,32 @@ def test_operator_onboarding_docs_pin_demo_first_and_next_action_flow() -> None:
     assert "upload the missing export" in freshness
     assert "open the failed run" in freshness
     assert "repair the source binding" in freshness
+    assert "docs/examples/finance-source-contracts/README.md" in freshness
+    assert "op-account-csv.md" in examples_readme
+    assert "op-gold-invoice.md" in examples_readme
+    assert "revolut-personal-account-csv.md" in examples_readme
+    assert "credit-registry-snapshot.md" in examples_readme
+    assert "source-freshness-workflow.md" in product_readme
+    assert "manual-reference-inputs.md" in product_readme
+    assert "product/source-freshness-workflow.md" in docs_readme
+    assert "examples/finance-source-contracts/README.md" in docs_readme
+
+
+def test_configuration_doc_separates_supported_defaults_from_overrides() -> None:
+    config = (ROOT / "docs" / "runbooks" / "configuration.md").read_text()
+
+    assert "The supported path is the three blessed deployment profiles above." in config
+    assert "## Supported defaults: data and storage" in config
+    assert "## Supported defaults: backend selection" in config
+    assert "## Supported defaults: authentication" in config
+    assert "## Supported defaults: oidc" in config
+    assert "### Compatibility overrides" in config
+    assert "The following settings are escape hatches or compatibility shims" in config
+    assert "Legacy auth-mode migration policy:" in config
+    assert "### Power-user override: trusted proxy mode" in config
+    assert "### Power-user override: machine jwt federation" in config
+    assert "### Power-user override: extensions" in config
+    assert "### Secret references" in config
 
 
 def test_stage6_adapter_docs_pin_typed_runtime_status_boundaries() -> None:

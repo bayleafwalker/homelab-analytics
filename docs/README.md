@@ -20,6 +20,8 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 
 - `product/README.md` — product documentation index and the boundary between architecture decisions and product decisions.
 - `product/finance-source-contracts.md` — operator-facing guidance for personal-finance source contracts, reconciliation roles, acquisition flow, validation behavior, and canonical output fields.
+- `product/source-freshness-workflow.md` — source freshness model, operator workflow, and next-action remediation guidance for manual sources.
+- `product/manual-reference-inputs.md` — operator-maintained sparse-fact pathway for loan policy, account metadata, and transaction overrides.
 - `product/homeassistant-and-smart-home-hub.md` — Home Assistant as edge runtime and actuation layer, platform's role beyond HA, integration principle, and roadmap alignment.
 - `product/core-household-operating-picture.md` — core product definition: the Household Operating Picture, four core views (Overview, Money, Utilities, Operations), product principles, and acceptance criteria.
 - `product/initial-capability-packs-and-publications.md` — domain pack definitions, publication sets, insight types, and priority ordering for finance, utilities, homelab, and overview.
@@ -29,6 +31,9 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 ## Examples
 
 - `examples/finance-source-contracts/op-account-csv.md` — OP account CSV contract guide, canonical output fields, and operator validation notes.
+- `examples/finance-source-contracts/README.md` — entrypoint for the finance source contract demo bundle and walkthrough order.
+- `examples/finance-source-contracts/op-gold-invoice.md` — OP Gold invoice example and statement snapshot notes.
+- `examples/finance-source-contracts/revolut-personal-account-csv.md` — Revolut personal account example and canonical transaction notes.
 - `examples/finance-source-contracts/credit-registry-snapshot.md` — Finnish positive credit registry contract guide, record types, and reconciliation notes.
 
 ## Sprints

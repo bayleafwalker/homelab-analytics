@@ -48,6 +48,9 @@ The current product direction is defined by these documents:
 - `initial-capability-packs-and-publications.md`
 - `core-product-design-workflow.md`
 - `product-slice-template.md`
+- `finance-source-contracts.md`
+- `source-freshness-workflow.md`
+- `manual-reference-inputs.md`
 
 ## Rules of use
 

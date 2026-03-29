@@ -106,12 +106,14 @@ The platform tracks expected acquisition schedules through the source freshness 
 
 The onboarding path should be demo-first and progressively more realistic. A first-time operator should validate the contract flow in a disposable bundle before moving to live sources.
 
-1. Local demo/dev: seed the demo bundle, then use the example CSV and PDF files under `docs/examples/finance-source-contracts/` to verify parsing, landing, and publication end to end.
+1. Local demo/dev: seed the demo bundle, then use the example bundle index in `docs/examples/finance-source-contracts/README.md` to walk through parsing, landing, and publication end to end.
 2. Single-user homelab: onboard one real source at a time through the file upload surface or watched folder, then confirm the first successful ingest before adding the next source.
 3. Shared OIDC deployment: follow the same import and freshness path, but enter the upload and admin surfaces through the shared identity path.
 4. If validation fails, keep the raw file available for inspection and point the operator to one clear next action: fix the source file and re-upload, open the failed run, or repair the source binding if the contract itself was wrong.
 
 The freshness system remains the reminder surface for scheduled manual exports. When a source is overdue, the operator should be prompted to fetch the missing export rather than infer whether the parser or the source changed.
+
+The example bundle should be exercised in this order: OP account CSV, OP Gold invoice, Revolut personal account CSV, then the credit registry snapshot.
 
 ---
 

@@ -8,6 +8,8 @@ Operational support model:
 - SQLite is retained only for local bootstrap and smoke-test convenience.
 - DuckDB remains the worker/local-development warehouse engine.
 
+The supported path is the three blessed deployment profiles above. Everything below is either a canonical default for those profiles or an explicit override / compatibility surface for advanced operators.
+
 ## Blessed deployment profiles
 
 These profiles are the supported startup stories the rest of the docs should point to.
@@ -45,7 +47,7 @@ Use the profile that matches the operator posture you want to support. The fresh
 
 ---
 
-## Data and storage
+## Supported defaults: data and storage
 
 | Variable | Default | Description |
 |---|---|---|
@@ -53,7 +55,7 @@ Use the profile that matches the operator posture you want to support. The fresh
 | `HOMELAB_ANALYTICS_CONFIG_DATABASE_PATH` | `<data_dir>/config.db` | SQLite local control-plane database path override for bootstrap/dev fallback |
 | `HOMELAB_ANALYTICS_ANALYTICS_DATABASE_PATH` | `<data_dir>/analytics/warehouse.duckdb` | DuckDB warehouse path override for worker and local analytical runs |
 
-## Backend selection
+## Supported defaults: backend selection
 
 | Variable | Default | Description |
 |---|---|---|
@@ -72,7 +74,7 @@ Schema-evolution contract:
 - SQLite remains a local/bootstrap fallback path and is not a long-term feature-parity guarantee for control-plane schema evolution.
 - DuckDB schema lifecycle remains separate for worker/reporting-store concerns.
 
-## Postgres
+## Supported defaults: postgres
 
 | Variable | Default | Description |
 |---|---|---|
@@ -99,7 +101,7 @@ Deprecation rollout:
 | `HOMELAB_ANALYTICS_S3_SECRET_ACCESS_KEY` | — | S3 secret key |
 | `HOMELAB_ANALYTICS_S3_PREFIX` | — | Key prefix within the bucket |
 
-## API
+## Supported defaults: api
 
 | Variable | Default | Description |
 |---|---|---|
@@ -107,14 +109,14 @@ Deprecation rollout:
 | `HOMELAB_ANALYTICS_API_PORT` | `8080` | API listen port |
 | `HOMELAB_ANALYTICS_API_BASE_URL` | `http://127.0.0.1:<api_port>` | Backend API origin used by the Next.js web workload |
 
-## Worker
+## Supported defaults: worker
 
 | Variable | Default | Description |
 |---|---|---|
 | `HOMELAB_ANALYTICS_WORKER_ID` | `<hostname>-<pid>` | Stable worker identifier for queue claims and heartbeat records |
 | `HOMELAB_ANALYTICS_DISPATCH_LEASE_SECONDS` | `300` | Running-dispatch claim window for stale-dispatch detection |
 
-## Authentication
+## Supported defaults: authentication
 
 | Variable | Default | Description |
 |---|---|---|
@@ -134,13 +136,7 @@ Deprecation rollout:
 | `HOMELAB_ANALYTICS_AUTH_LOCKOUT_SECONDS` | — | Local-auth login lockout: lockout duration |
 | `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` | `false` | Temporary dev-only bypass for unauthenticated admin routes (not for shared deployments) |
 
-Legacy auth-mode migration policy:
-- warning window: `v0.1.x` (fallback allowed but emits `DeprecationWarning`)
-- error window: `v0.2.x` (enable `HOMELAB_ANALYTICS_AUTH_MODE_LEGACY_STRICT=true` during rollout to pre-flight this posture now)
-- removal target: no earlier than `v0.3.0`
-- observability: API metrics expose `auth_legacy_mode_fallback_startups_total`
-
-### Trusted proxy mode
+### Power-user override: trusted proxy mode
 
 | Variable | Default | Description |
 |---|---|---|
@@ -153,7 +149,17 @@ The architecture direction is external identity by default and in-app authorizat
 
 Web workloads only propagate `HOMELAB_ANALYTICS_IDENTITY_MODE` into the Next.js runtime. Legacy `HOMELAB_ANALYTICS_AUTH_MODE` is stripped before launch so the frontend contract stays on the canonical identity-mode input.
 
-## OIDC
+### Compatibility overrides
+
+The following settings are escape hatches or compatibility shims, not required for the blessed deployment profiles.
+
+Legacy auth-mode migration policy:
+- warning window: `v0.1.x` (fallback allowed but emits `DeprecationWarning`)
+- error window: `v0.2.x` (enable `HOMELAB_ANALYTICS_AUTH_MODE_LEGACY_STRICT=true` during rollout to pre-flight this posture now)
+- removal target: no earlier than `v0.3.0`
+- observability: API metrics expose `auth_legacy_mode_fallback_startups_total`
+
+## Supported defaults: oidc
 
 | Variable | Default | Description |
 |---|---|---|
@@ -173,7 +179,7 @@ Web workloads only propagate `HOMELAB_ANALYTICS_IDENTITY_MODE` into the Next.js 
 
 OIDC and trusted-proxy permission grants support canonical static permissions (for example `ingest.write`, `runs.read`) plus asset-scoped grants: `reports.read.publication.<publication_key>`, `runs.read.run.<run_id>`, `runs.retry.run.<run_id>`, `control.source_lineage.read.run.<run_id>`, and `control.publication_audit.read.publication.<publication_key>`. Wildcards are supported as `reports.read.publication.*`, `runs.read.run.*`, `runs.retry.run.*`, `control.source_lineage.read.run.*`, `control.publication_audit.read.publication.*`, and prefix wildcards such as `reports.read.publication.finance.*`.
 
-## Machine JWT federation (optional)
+### Power-user override: machine jwt federation
 
 | Variable | Default | Description |
 |---|---|---|
@@ -189,14 +195,14 @@ OIDC and trusted-proxy permission grants support canonical static permissions (f
 
 Machine JWT tokens are evaluated by the existing in-app authorization kernel. Scope grants are enforced with the same policy semantics as service tokens for equivalent role/scope combinations. API metrics expose `auth_machine_jwt_authenticated_requests_total` and `auth_machine_jwt_failed_requests_total`, and auth-audit captures `machine_jwt_auth_succeeded`/`machine_jwt_auth_failed` events.
 
-## Extensions
+### Power-user override: extensions
 
 | Variable | Default | Description |
 |---|---|---|
 | `HOMELAB_ANALYTICS_EXTENSION_PATHS` | — | Custom import roots for external extension repositories or mounted code paths |
 | `HOMELAB_ANALYTICS_EXTENSION_MODULES` | — | Python modules to import and register into the layer extension registry |
 
-## Secrets
+### Secret references
 
 | Variable | Default | Description |
 |---|---|---|
