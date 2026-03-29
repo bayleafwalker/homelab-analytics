@@ -14,6 +14,7 @@ import pytest
 
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
+from tests.test_homelab_domain import _service_rows, _workload_rows
 
 # ---------------------------------------------------------------------------
 # Fixture data — seed all three feeder domains
@@ -252,4 +253,42 @@ class TestCurrentOperatingBaseline:
     def test_idempotent(self, svc: TransformationService) -> None:
         count1 = svc.refresh_current_operating_baseline()
         count2 = svc.refresh_current_operating_baseline()
+        assert count1 == count2
+
+
+# ---------------------------------------------------------------------------
+# homelab_roi
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def homelab_svc() -> TransformationService:
+    store = DuckDBStore.memory()
+    svc = TransformationService(store)
+    svc.load_service_health(_service_rows(), run_id="run-homelab-services")
+    svc.refresh_service_health_current()
+    svc.load_workload_sensors(_workload_rows(), run_id="run-homelab-workloads")
+    svc.refresh_workload_cost_7d()
+    return svc
+
+
+class TestHomelabRoi:
+    def test_refresh_returns_one_row(self, homelab_svc: TransformationService) -> None:
+        count = homelab_svc.refresh_homelab_roi()
+        assert count == 1
+
+    def test_roi_fields_populated(self, homelab_svc: TransformationService) -> None:
+        homelab_svc.refresh_homelab_roi()
+        rows = homelab_svc.get_homelab_roi()
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["roi_state"] in {"good", "warning", "needs_action", "empty"}
+        assert row["decision_cue"]
+        assert row["healthy_service_count"] > 0
+        assert row["tracked_workload_count"] > 0
+        assert row["monthly_workload_cost"] > 0
+
+    def test_idempotent(self, homelab_svc: TransformationService) -> None:
+        count1 = homelab_svc.refresh_homelab_roi()
+        count2 = homelab_svc.refresh_homelab_roi()
         assert count1 == count2

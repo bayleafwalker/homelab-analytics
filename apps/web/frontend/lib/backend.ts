@@ -1000,6 +1000,11 @@ export async function getAffordabilityRatios() {
   return getResponseArray(payload, "rows");
 }
 
+export async function getHomelabRoi() {
+  const payload = await backendGet("/reports/homelab-roi");
+  return getResponseArray(payload, "rows");
+}
+
 export async function getRecurringCostBaseline() {
   const payload = await backendGet("/reports/recurring-cost-baseline");
   return getResponseArray(payload, "rows");

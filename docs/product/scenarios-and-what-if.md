@@ -1,6 +1,6 @@
 # Scenarios and What-If Analysis — Product Design
 
-**Status:** Active — five scenario types shipped (loan what-if, income change, expense shock, utility tariff shock, homelab cost/benefit) plus a saved-scenario comparison workflow
+**Status:** Active — five scenario types shipped (loan what-if, income change, expense shock, utility tariff shock, homelab cost/benefit), a saved-scenario comparison workflow, and a reporting-backed homelab ROI surface
 **Architecture:** See [docs/architecture/simulation-engine.md](../architecture/simulation-engine.md)
 **Sprint plan:** See [docs/sprints/simulation-engine-sprint.md](../sprints/simulation-engine-sprint.md)
 
@@ -80,11 +80,11 @@ The highest-value scenario type. The amortization engine already exists; this wr
 1. Navigate to `/scenarios` or the homelab operator panel
 2. Create a homelab cost/benefit scenario from the current homelab snapshot
 3. Enter a monthly cost delta to model scale up/down, migration, or refresh impact
-4. View the summary comparison: workload cost, healthy service count, cost per healthy service, and concentration share
+4. View the summary comparison: workload cost, healthy service count, ROI score, cost per healthy service, healthy services per cost unit, and concentration share
 
 **What changes:**
 - Monthly workload cost: applies an operator-supplied delta to the current homelab workload cost baseline
-- Summary metrics: recomputes cost per healthy service and cost per tracked workload from the projected cost
+- Summary metrics: recomputes cost per healthy service, healthy services per cost unit, cost per tracked workload, and ROI score from the projected cost
 
 **What doesn't change:** actual homelab service or workload facts, canonical non-homelab data, or the underlying reporting marts.
 

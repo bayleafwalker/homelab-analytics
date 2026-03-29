@@ -112,6 +112,7 @@ HOUSEHOLD_COST_MODEL_ROW_MODEL = _row_model(
 )
 COST_TREND_ROW_MODEL = _row_model("CostTrend12MRow", "mart_cost_trend_12m")
 HOUSEHOLD_OVERVIEW_ROW_MODEL = _row_model("HouseholdOverviewRow", "mart_household_overview")
+HOMELAB_ROI_ROW_MODEL = _row_model("HomelabRoiRow", "mart_homelab_roi")
 ATTENTION_ITEMS_ROW_MODEL = _row_model("AttentionItemRow", "mart_open_attention_items")
 RECENT_CHANGES_ROW_MODEL = _row_model(
     "RecentSignificantChangeRow",
@@ -277,6 +278,10 @@ COST_TREND_RESPONSE_MODEL = build_rows_response_model(
 HOUSEHOLD_OVERVIEW_RESPONSE_MODEL = build_rows_response_model(
     "HouseholdOverviewResponse",
     HOUSEHOLD_OVERVIEW_ROW_MODEL,
+)
+HOMELAB_ROI_RESPONSE_MODEL = build_rows_response_model(
+    "HomelabRoiResponse",
+    HOMELAB_ROI_ROW_MODEL,
 )
 ATTENTION_ITEMS_RESPONSE_MODEL = build_rows_response_model(
     "AttentionItemsResponse",
@@ -708,6 +713,12 @@ def register_report_routes(
         if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
         return {"rows": to_jsonable(resolved_reporting_service.get_household_overview())}
+
+    @app.get("/reports/homelab-roi", response_model=HOMELAB_ROI_RESPONSE_MODEL)
+    async def get_homelab_roi() -> dict[str, Any]:
+        if resolved_reporting_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        return {"rows": to_jsonable(resolved_reporting_service.get_homelab_roi())}
 
     @app.get("/reports/attention-items", response_model=ATTENTION_ITEMS_RESPONSE_MODEL)
     async def get_attention_items() -> dict[str, Any]:

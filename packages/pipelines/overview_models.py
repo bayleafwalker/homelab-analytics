@@ -69,6 +69,23 @@ MART_COST_TREND_12M_COLUMNS: list[tuple[str, str]] = [
     ("currency", "VARCHAR NOT NULL"),
 ]
 
+MART_HOMELAB_ROI_TABLE = "mart_homelab_roi"
+
+MART_HOMELAB_ROI_COLUMNS: list[tuple[str, str]] = [
+    ("service_count", "INTEGER NOT NULL"),
+    ("healthy_service_count", "INTEGER NOT NULL"),
+    ("needs_attention_count", "INTEGER NOT NULL"),
+    ("tracked_workload_count", "INTEGER NOT NULL"),
+    ("healthy_service_share", "DECIMAL(18,4)"),
+    ("monthly_workload_cost", "DECIMAL(18,4) NOT NULL"),
+    ("cost_per_healthy_service", "DECIMAL(18,4)"),
+    ("cost_per_tracked_workload", "DECIMAL(18,4)"),
+    ("largest_workload_share", "DECIMAL(18,4)"),
+    ("roi_score", "DECIMAL(18,6)"),
+    ("roi_state", "VARCHAR NOT NULL"),      # empty | good | warning | needs_action
+    ("decision_cue", "VARCHAR NOT NULL"),
+]
+
 MART_AFFORDABILITY_RATIOS_TABLE = "mart_affordability_ratios"
 
 MART_AFFORDABILITY_RATIOS_COLUMNS: list[tuple[str, str]] = [

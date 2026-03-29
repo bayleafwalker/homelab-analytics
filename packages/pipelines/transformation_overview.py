@@ -3,6 +3,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from packages.pipelines.homelab_models import (
+    MART_SERVICE_HEALTH_CURRENT_TABLE,
+    MART_WORKLOAD_COST_7D_TABLE,
+)
 from packages.pipelines.loan_models import MART_LOAN_OVERVIEW_TABLE
 from packages.pipelines.overview_models import (
     MART_AFFORDABILITY_RATIOS_COLUMNS,
@@ -11,6 +15,8 @@ from packages.pipelines.overview_models import (
     MART_COST_TREND_12M_TABLE,
     MART_CURRENT_OPERATING_BASELINE_COLUMNS,
     MART_CURRENT_OPERATING_BASELINE_TABLE,
+    MART_HOMELAB_ROI_COLUMNS,
+    MART_HOMELAB_ROI_TABLE,
     MART_HOUSEHOLD_COST_MODEL_COLUMNS,
     MART_HOUSEHOLD_COST_MODEL_TABLE,
     MART_HOUSEHOLD_OVERVIEW_COLUMNS,
@@ -64,6 +70,7 @@ def _ensure_column(
 
 def ensure_overview_storage(store: DuckDBStore) -> None:
     store.ensure_table(MART_HOUSEHOLD_OVERVIEW_TABLE, MART_HOUSEHOLD_OVERVIEW_COLUMNS)
+    store.ensure_table(MART_HOMELAB_ROI_TABLE, MART_HOMELAB_ROI_COLUMNS)
     store.ensure_table(MART_OPEN_ATTENTION_ITEMS_TABLE, MART_OPEN_ATTENTION_ITEMS_COLUMNS)
     store.ensure_table(
         MART_RECENT_SIGNIFICANT_CHANGES_TABLE, MART_RECENT_SIGNIFICANT_CHANGES_COLUMNS
@@ -139,6 +146,136 @@ def refresh_household_overview(store: DuckDBStore) -> int:
 
 def get_household_overview(store: DuckDBStore) -> list[dict[str, Any]]:
     return store.fetchall_dicts(f"SELECT * FROM {MART_HOUSEHOLD_OVERVIEW_TABLE}")
+
+
+def refresh_homelab_roi(store: DuckDBStore) -> int:
+    """Summarize homelab service value against workload cost as a reporting mart."""
+    store.execute(f"DELETE FROM {MART_HOMELAB_ROI_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_HOMELAB_ROI_TABLE} (
+            service_count,
+            healthy_service_count,
+            needs_attention_count,
+            tracked_workload_count,
+            healthy_service_share,
+            monthly_workload_cost,
+            cost_per_healthy_service,
+            cost_per_tracked_workload,
+            largest_workload_share,
+            roi_score,
+            roi_state,
+            decision_cue
+        )
+        WITH
+        service_summary AS (
+            SELECT
+                COUNT(*) AS service_count,
+                SUM(CASE WHEN state = 'running' THEN 1 ELSE 0 END) AS healthy_service_count,
+                SUM(CASE WHEN state <> 'running' THEN 1 ELSE 0 END) AS needs_attention_count
+            FROM {MART_SERVICE_HEALTH_CURRENT_TABLE}
+        ),
+        workload_summary AS (
+            SELECT
+                COUNT(*) AS tracked_workload_count,
+                COALESCE(SUM(est_monthly_cost), 0) AS monthly_workload_cost,
+                COALESCE(MAX(est_monthly_cost), 0) AS top_workload_cost
+            FROM {MART_WORKLOAD_COST_7D_TABLE}
+        ),
+        derived AS (
+            SELECT
+                COALESCE(s.service_count, 0) AS service_count,
+                COALESCE(s.healthy_service_count, 0) AS healthy_service_count,
+                COALESCE(s.needs_attention_count, 0) AS needs_attention_count,
+                COALESCE(w.tracked_workload_count, 0) AS tracked_workload_count,
+                CASE
+                    WHEN COALESCE(s.service_count, 0) > 0 THEN ROUND(
+                        CAST(COALESCE(s.healthy_service_count, 0) AS DECIMAL)
+                        / COALESCE(s.service_count, 0),
+                        4
+                    )
+                    ELSE NULL
+                END AS healthy_service_share,
+                COALESCE(w.monthly_workload_cost, 0) AS monthly_workload_cost,
+                CASE
+                    WHEN COALESCE(s.healthy_service_count, 0) > 0 THEN ROUND(
+                        COALESCE(w.monthly_workload_cost, 0)
+                        / COALESCE(s.healthy_service_count, 0),
+                        4
+                    )
+                    ELSE NULL
+                END AS cost_per_healthy_service,
+                CASE
+                    WHEN COALESCE(w.tracked_workload_count, 0) > 0 THEN ROUND(
+                        COALESCE(w.monthly_workload_cost, 0)
+                        / COALESCE(w.tracked_workload_count, 0),
+                        4
+                    )
+                    ELSE NULL
+                END AS cost_per_tracked_workload,
+                CASE
+                    WHEN COALESCE(w.monthly_workload_cost, 0) > 0 THEN ROUND(
+                        COALESCE(w.top_workload_cost, 0)
+                        / COALESCE(w.monthly_workload_cost, 0),
+                        4
+                    )
+                    ELSE NULL
+                END AS largest_workload_share,
+                CASE
+                    WHEN COALESCE(w.monthly_workload_cost, 0) > 0 THEN ROUND(
+                        CAST(COALESCE(s.healthy_service_count, 0) AS DECIMAL)
+                        / COALESCE(w.monthly_workload_cost, 0),
+                        6
+                    )
+                    ELSE NULL
+                END AS roi_score
+            FROM service_summary s
+            CROSS JOIN workload_summary w
+        )
+        SELECT
+            service_count,
+            healthy_service_count,
+            needs_attention_count,
+            tracked_workload_count,
+            healthy_service_share,
+            monthly_workload_cost,
+            cost_per_healthy_service,
+            cost_per_tracked_workload,
+            largest_workload_share,
+            roi_score,
+            CASE
+                WHEN service_count = 0 AND tracked_workload_count = 0 THEN 'empty'
+                WHEN service_count = 0 THEN 'needs_action'
+                WHEN tracked_workload_count = 0 THEN 'warning'
+                WHEN needs_attention_count > 0 THEN 'needs_action'
+                WHEN largest_workload_share >= 0.5 THEN 'warning'
+                WHEN healthy_service_share IS NOT NULL AND healthy_service_share < 0.8 THEN 'warning'
+                ELSE 'good'
+            END AS roi_state,
+            CASE
+                WHEN service_count = 0 AND tracked_workload_count = 0 THEN
+                    'No homelab service or workload rows are published yet.'
+                WHEN service_count = 0 THEN
+                    'No homelab services are published yet.'
+                WHEN tracked_workload_count = 0 THEN
+                    'No workload cost rows are published yet.'
+                WHEN needs_attention_count > 0 THEN
+                    'Healthy services are outnumbered by services needing attention.'
+                WHEN largest_workload_share >= 0.5 THEN
+                    'One workload dominates the current cost profile.'
+                WHEN healthy_service_share IS NOT NULL AND healthy_service_share < 0.8 THEN
+                    'Most services are healthy, but the overall value ratio is still soft.'
+                ELSE
+                    'Operational value is broadly aligned with the current workload cost base.'
+            END AS decision_cue
+        FROM derived
+        """
+    )
+    return store.fetchall(f"SELECT COUNT(*) FROM {MART_HOMELAB_ROI_TABLE}")[0][0]
+
+
+def get_homelab_roi(store: DuckDBStore) -> list[dict[str, Any]]:
+    return store.fetchall_dicts(f"SELECT * FROM {MART_HOMELAB_ROI_TABLE}")
 
 
 def refresh_open_attention_items(store: DuckDBStore) -> int:

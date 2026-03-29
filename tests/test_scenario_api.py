@@ -406,6 +406,11 @@ class HomelabCostBenefitScenarioAPITests(unittest.TestCase):
             self.assertIn("summary_rows", data)
             self.assertNotIn("baseline_rows", data)
             self.assertGreater(len(data["summary_rows"]), 0)
+            self.assertTrue(all("metric_key" in row and "metric" in row for row in data["summary_rows"]))
+            self.assertIn(
+                "healthy_services_per_cost_unit",
+                {row["metric_key"] for row in data["summary_rows"]},
+            )
 
     def test_get_cashflow_returns_summary_rows_for_homelab_scenario(self) -> None:
         with TemporaryDirectory() as tmp:

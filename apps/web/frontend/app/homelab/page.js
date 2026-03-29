@@ -9,7 +9,7 @@ import {
   getHaEntities,
   getHaMqttStatus,
   getHaPolicies,
-  getHomelabServices,
+  getHomelabRoi,
   getHomelabWorkloads,
 } from "@/lib/backend";
 import { getWebRendererDiscovery } from "@/lib/renderer-discovery";
@@ -49,10 +49,12 @@ function formatPercent(value) {
   return `${(number * 100).toFixed(1)}%`;
 }
 
-function summarizeServiceHealth(rows) {
-  const running = rows.filter((row) => row.state === "running").length;
-  const needsAttention = rows.length - running;
-  return { running, needsAttention };
+function formatRatio(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return "—";
+  }
+  return number.toFixed(4);
 }
 
 function summarizeWorkloads(rows) {
@@ -62,42 +64,6 @@ function summarizeWorkloads(rows) {
     sorted,
     totalEstimatedCost,
     topWorkloads: sorted.slice(0, 5),
-  };
-}
-
-function summarizeValueLoop(services, workloads) {
-  const serviceSummary = summarizeServiceHealth(services);
-  const workloadSummary = summarizeWorkloads(workloads);
-  const healthyServiceShare = services.length > 0 ? serviceSummary.running / services.length : null;
-  const costPerHealthyService =
-    serviceSummary.running > 0 ? workloadSummary.totalEstimatedCost / serviceSummary.running : null;
-  const costPerTrackedWorkload =
-    workloads.length > 0 ? workloadSummary.totalEstimatedCost / workloads.length : null;
-  const topWorkload = workloadSummary.topWorkloads[0] || null;
-  const topWorkloadShare =
-    topWorkload && workloadSummary.totalEstimatedCost > 0
-      ? Number(topWorkload.est_monthly_cost || 0) / workloadSummary.totalEstimatedCost
-      : null;
-  let decisionCue = "No homelab service or workload rows are published yet.";
-  if (services.length > 0 || workloads.length > 0) {
-    if (serviceSummary.needsAttention > 0) {
-      decisionCue = "Healthy services are outnumbered by services needing attention.";
-    } else if (topWorkloadShare !== null && topWorkloadShare >= 0.5) {
-      decisionCue = "One workload dominates the current cost profile.";
-    } else if (healthyServiceShare !== null && healthyServiceShare < 0.8) {
-      decisionCue = "Most services are healthy, but the overall value ratio is still soft.";
-    } else {
-      decisionCue = "Operational value is broadly aligned with the current workload cost base.";
-    }
-  }
-
-  return {
-    healthyServiceShare,
-    costPerHealthyService,
-    costPerTrackedWorkload,
-    topWorkload,
-    topWorkloadShare,
-    decisionCue,
   };
 }
 
@@ -115,7 +81,19 @@ const CLASS_LABELS = {
 };
 
 export default async function HomelabPage({ searchParams }) {
-  const [user, discovery, entities, bridge, mqtt, policies, actions, actionsStatus, proposals, services, workloads] = await Promise.all([
+  const [
+    user,
+    discovery,
+    entities,
+    bridge,
+    mqtt,
+    policies,
+    actions,
+    actionsStatus,
+    proposals,
+    homelabRoiRows,
+    workloads,
+  ] = await Promise.all([
     getCurrentUser(),
     getWebRendererDiscovery(),
     getHaEntities(),
@@ -125,15 +103,14 @@ export default async function HomelabPage({ searchParams }) {
     getHaActions(),
     getHaActionsStatus(),
     getHaActionProposals(),
-    getHomelabServices(),
+    getHomelabRoi(),
     getHomelabWorkloads(),
   ]);
   const pendingProposals = proposals.filter((proposal) => proposal.status === "pending");
   const canManageApprovals = user.role !== "reader";
   const notice = noticeCopy(searchParams?.notice, searchParams?.action_id);
-  const serviceSummary = summarizeServiceHealth(services);
+  const homelabRoi = homelabRoiRows[0] || null;
   const workloadSummary = summarizeWorkloads(workloads);
-  const valueLoopSummary = summarizeValueLoop(services, workloads);
 
   return (
     <AppShell
@@ -412,38 +389,44 @@ export default async function HomelabPage({ searchParams }) {
           <div className="sectionHeader">
             <div>
               <div className="eyebrow">Value Loop</div>
-              <h2>Service cost and operational value</h2>
+              <h2>Homelab ROI</h2>
             </div>
-            <span className={`statusPill ${serviceSummary.needsAttention > 0 ? "warning" : "positive"}`}>
-              {services.length} services
+            <span
+              className={`statusPill ${
+                homelabRoi?.roi_state === "needs_action"
+                  ? "negative"
+                  : homelabRoi?.roi_state === "warning"
+                    ? "warning"
+                    : homelabRoi?.roi_state === "good"
+                      ? "positive"
+                      : ""
+              }`}
+            >
+              {homelabRoi?.roi_state || "No data"}
             </span>
           </div>
-          <p className="muted">{valueLoopSummary.decisionCue}</p>
+          <p className="muted">{homelabRoi?.decision_cue || "No homelab ROI rows are published yet."}</p>
           <dl className="kvGrid">
             <dt>Healthy services</dt>
-            <dd>{serviceSummary.running}</dd>
+            <dd>{homelabRoi?.healthy_service_count ?? "—"}</dd>
             <dt>Needs attention</dt>
-            <dd>{serviceSummary.needsAttention}</dd>
+            <dd>{homelabRoi?.needs_attention_count ?? "—"}</dd>
             <dt>Tracked workloads</dt>
-            <dd>{workloads.length}</dd>
+            <dd>{homelabRoi?.tracked_workload_count ?? workloads.length}</dd>
             <dt>Estimated monthly workload cost</dt>
-            <dd>{formatCost(workloadSummary.totalEstimatedCost)}</dd>
+            <dd>{formatCost(homelabRoi?.monthly_workload_cost ?? workloadSummary.totalEstimatedCost)}</dd>
           </dl>
           <dl className="kvGrid">
             <dt>Healthy service share</dt>
-            <dd>{formatPercent(valueLoopSummary.healthyServiceShare)}</dd>
+            <dd>{formatPercent(homelabRoi?.healthy_service_share)}</dd>
             <dt>Cost per healthy service</dt>
-            <dd>{formatCost(valueLoopSummary.costPerHealthyService)}</dd>
+            <dd>{formatCost(homelabRoi?.cost_per_healthy_service)}</dd>
             <dt>Cost per tracked workload</dt>
-            <dd>{formatCost(valueLoopSummary.costPerTrackedWorkload)}</dd>
-            <dt>Highest-cost workload</dt>
-            <dd>
-              {valueLoopSummary.topWorkload
-                ? `${valueLoopSummary.topWorkload.display_name || valueLoopSummary.topWorkload.workload_id} (${formatCost(valueLoopSummary.topWorkload.est_monthly_cost)})`
-                : "—"}
-            </dd>
+            <dd>{formatCost(homelabRoi?.cost_per_tracked_workload)}</dd>
+            <dt>ROI score</dt>
+            <dd>{formatRatio(homelabRoi?.roi_score)}</dd>
             <dt>Highest-cost share</dt>
-            <dd>{formatPercent(valueLoopSummary.topWorkloadShare)}</dd>
+            <dd>{formatPercent(homelabRoi?.largest_workload_share)}</dd>
           </dl>
           {workloadSummary.topWorkloads.length === 0 ? (
             <div className="empty">No published workload cost rows yet.</div>

@@ -2529,6 +2529,120 @@
         "title": "HomelabCostBenefitRequest",
         "type": "object"
       },
+      "HomelabRoiResponse": {
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/HomelabRoiRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows"
+        ],
+        "title": "HomelabRoiResponse",
+        "type": "object"
+      },
+      "HomelabRoiRow": {
+        "properties": {
+          "cost_per_healthy_service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Per Healthy Service"
+          },
+          "cost_per_tracked_workload": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Per Tracked Workload"
+          },
+          "decision_cue": {
+            "title": "Decision Cue",
+            "type": "string"
+          },
+          "healthy_service_count": {
+            "title": "Healthy Service Count",
+            "type": "integer"
+          },
+          "healthy_service_share": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Healthy Service Share"
+          },
+          "largest_workload_share": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Largest Workload Share"
+          },
+          "monthly_workload_cost": {
+            "title": "Monthly Workload Cost",
+            "type": "string"
+          },
+          "needs_attention_count": {
+            "title": "Needs Attention Count",
+            "type": "integer"
+          },
+          "roi_score": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roi Score"
+          },
+          "roi_state": {
+            "title": "Roi State",
+            "type": "string"
+          },
+          "service_count": {
+            "title": "Service Count",
+            "type": "integer"
+          },
+          "tracked_workload_count": {
+            "title": "Tracked Workload Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "service_count",
+          "healthy_service_count",
+          "needs_attention_count",
+          "tracked_workload_count",
+          "monthly_workload_cost",
+          "roi_state",
+          "decision_cue"
+        ],
+        "title": "HomelabRoiRow",
+        "type": "object"
+      },
       "HouseholdCostModelResponse": {
         "properties": {
           "cost_type": {
@@ -10969,6 +11083,24 @@
           }
         },
         "summary": "Get Electricity Price Current"
+      }
+    },
+    "/reports/homelab-roi": {
+      "get": {
+        "operationId": "get_homelab_roi_reports_homelab_roi_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomelabRoiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Homelab Roi"
       }
     },
     "/reports/household-cost-model": {

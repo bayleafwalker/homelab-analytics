@@ -185,6 +185,7 @@ from packages.pipelines.transformation_overview import (
     get_affordability_ratios,
     get_cost_trend_12m,
     get_current_operating_baseline,
+    get_homelab_roi,
     get_household_cost_model,
     get_household_overview,
     get_open_attention_items,
@@ -193,6 +194,7 @@ from packages.pipelines.transformation_overview import (
     refresh_affordability_ratios,
     refresh_cost_trend_12m,
     refresh_current_operating_baseline,
+    refresh_homelab_roi,
     refresh_household_cost_model,
     refresh_household_overview,
     refresh_open_attention_items,
@@ -921,6 +923,12 @@ class TransformationService:
 
     def get_household_overview(self) -> list[dict[str, Any]]:
         return get_household_overview(self._store)
+
+    def refresh_homelab_roi(self) -> int:
+        return refresh_homelab_roi(self._store)
+
+    def get_homelab_roi(self) -> list[dict[str, Any]]:
+        return get_homelab_roi(self._store)
 
     def refresh_open_attention_items(self) -> int:
         return refresh_open_attention_items(self._store)

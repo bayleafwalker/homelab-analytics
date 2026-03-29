@@ -805,6 +805,11 @@ def _homelab_summary_rows(
     cost_per_healthy_service = summary["cost_per_healthy_service"]
     cost_per_tracked_workload = summary["cost_per_tracked_workload"]
     largest_workload_share = summary["largest_workload_share"]
+    healthy_services_per_cost_unit = (
+        Decimal(running_services) / summary["monthly_cost"]
+        if summary["monthly_cost"] > 0
+        else None
+    )
 
     scenario_cost_per_healthy_service = (
         new_monthly_cost / Decimal(running_services) if running_services > 0 else None
@@ -815,6 +820,9 @@ def _homelab_summary_rows(
     scenario_largest_workload_share = (
         top_workload_cost / new_monthly_cost if new_monthly_cost > 0 else None
     )
+    scenario_healthy_services_per_cost_unit = (
+        Decimal(running_services) / new_monthly_cost if new_monthly_cost > 0 else None
+    )
 
     def _q(value: Decimal | None, quantizer: Decimal) -> str | None:
         if value is None:
@@ -824,6 +832,7 @@ def _homelab_summary_rows(
     return [
         {
             "scenario_id": scenario_id,
+            "metric": "Monthly workload cost",
             "metric_key": "monthly_workload_cost",
             "baseline_value": str(summary["monthly_cost"].quantize(q)),
             "scenario_value": str(new_monthly_cost.quantize(q)),
@@ -832,6 +841,7 @@ def _homelab_summary_rows(
         },
         {
             "scenario_id": scenario_id,
+            "metric": "Healthy service count",
             "metric_key": "healthy_service_count",
             "baseline_value": str(running_services),
             "scenario_value": str(running_services),
@@ -840,6 +850,7 @@ def _homelab_summary_rows(
         },
         {
             "scenario_id": scenario_id,
+            "metric": "Needs attention count",
             "metric_key": "needs_attention_count",
             "baseline_value": str(summary["needs_attention"]),
             "scenario_value": str(summary["needs_attention"]),
@@ -848,6 +859,7 @@ def _homelab_summary_rows(
         },
         {
             "scenario_id": scenario_id,
+            "metric": "Service health ratio",
             "metric_key": "service_health_ratio",
             "baseline_value": _q(healthy_service_ratio, ratio_q),
             "scenario_value": _q(healthy_service_ratio, ratio_q),
@@ -856,6 +868,7 @@ def _homelab_summary_rows(
         },
         {
             "scenario_id": scenario_id,
+            "metric": "Cost per healthy service",
             "metric_key": "cost_per_healthy_service",
             "baseline_value": _q(cost_per_healthy_service, q),
             "scenario_value": _q(scenario_cost_per_healthy_service, q),
@@ -869,6 +882,24 @@ def _homelab_summary_rows(
         },
         {
             "scenario_id": scenario_id,
+            "metric": "Healthy services per cost unit",
+            "metric_key": "healthy_services_per_cost_unit",
+            "baseline_value": _q(healthy_services_per_cost_unit, ratio_q),
+            "scenario_value": _q(scenario_healthy_services_per_cost_unit, ratio_q),
+            "delta_value": (
+                _q(
+                    scenario_healthy_services_per_cost_unit - healthy_services_per_cost_unit,
+                    ratio_q,
+                )
+                if scenario_healthy_services_per_cost_unit is not None
+                and healthy_services_per_cost_unit is not None
+                else None
+            ),
+            "unit": "ratio",
+        },
+        {
+            "scenario_id": scenario_id,
+            "metric": "Cost per tracked workload",
             "metric_key": "cost_per_tracked_workload",
             "baseline_value": _q(cost_per_tracked_workload, q),
             "scenario_value": _q(scenario_cost_per_tracked_workload, q),
@@ -882,6 +913,7 @@ def _homelab_summary_rows(
         },
         {
             "scenario_id": scenario_id,
+            "metric": "Largest workload share",
             "metric_key": "largest_workload_share",
             "baseline_value": _q(largest_workload_share, ratio_q),
             "scenario_value": _q(scenario_largest_workload_share, ratio_q),

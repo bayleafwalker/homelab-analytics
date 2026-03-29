@@ -2011,6 +2011,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reports/homelab-roi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Homelab Roi */
+        get: operations["get_homelab_roi_reports_homelab_roi_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reports/household-cost-model": {
         parameters: {
             query?: never;
@@ -3250,6 +3267,38 @@ export interface components {
             label?: string | null;
             /** Monthly Cost Delta */
             monthly_cost_delta: string;
+        };
+        /** HomelabRoiResponse */
+        HomelabRoiResponse: {
+            /** Rows */
+            rows: components["schemas"]["HomelabRoiRow"][];
+        };
+        /** HomelabRoiRow */
+        HomelabRoiRow: {
+            /** Cost Per Healthy Service */
+            cost_per_healthy_service?: string | null;
+            /** Cost Per Tracked Workload */
+            cost_per_tracked_workload?: string | null;
+            /** Decision Cue */
+            decision_cue: string;
+            /** Healthy Service Count */
+            healthy_service_count: number;
+            /** Healthy Service Share */
+            healthy_service_share?: string | null;
+            /** Largest Workload Share */
+            largest_workload_share?: string | null;
+            /** Monthly Workload Cost */
+            monthly_workload_cost: string;
+            /** Needs Attention Count */
+            needs_attention_count: number;
+            /** Roi Score */
+            roi_score?: string | null;
+            /** Roi State */
+            roi_state: string;
+            /** Service Count */
+            service_count: number;
+            /** Tracked Workload Count */
+            tracked_workload_count: number;
         };
         /** HouseholdCostModelResponse */
         HouseholdCostModelResponse: {
@@ -8484,6 +8533,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ElectricityPriceCurrentResponse"];
+                };
+            };
+        };
+    };
+    get_homelab_roi_reports_homelab_roi_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomelabRoiResponse"];
                 };
             };
         };

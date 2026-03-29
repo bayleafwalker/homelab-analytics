@@ -125,6 +125,7 @@ PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE = "proj_homelab_cost_benefit_summary"
 
 PROJ_HOMELAB_COST_BENEFIT_SUMMARY_COLUMNS: list[tuple[str, str]] = [
     ("scenario_id", "VARCHAR NOT NULL"),
+    ("metric", "VARCHAR"),
     ("metric_key", "VARCHAR NOT NULL"),
     ("baseline_value", "DECIMAL(18,4)"),
     ("scenario_value", "DECIMAL(18,4)"),

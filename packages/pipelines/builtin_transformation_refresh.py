@@ -58,6 +58,7 @@ BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
     ),
     "mart_loan_overview": (lambda service: service.refresh_loan_overview()),
     "mart_household_overview": (lambda service: service.refresh_household_overview()),
+    "mart_homelab_roi": (lambda service: service.refresh_homelab_roi()),
     "mart_open_attention_items": (lambda service: service.refresh_open_attention_items()),
     "mart_recent_significant_changes": (
         lambda service: service.refresh_recent_significant_changes()

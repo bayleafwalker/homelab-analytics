@@ -138,6 +138,7 @@ class NewReportingEndpointTests(unittest.TestCase):
         ts.refresh_service_health_current()
         ts.load_workload_sensors(_workload_rows(), run_id="run-hl-workloads")
         ts.refresh_workload_cost_7d()
+        ts.refresh_homelab_roi()
 
         # Refresh overview
         ts.refresh_household_overview()
@@ -210,6 +211,15 @@ class NewReportingEndpointTests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         rows = response.json()["rows"]
         self.assertEqual(1, len(rows))
+
+    def test_homelab_roi_endpoint(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_app_with_data(temp_dir)
+            response = client.get("/reports/homelab-roi")
+        self.assertEqual(200, response.status_code)
+        rows = response.json()["rows"]
+        self.assertEqual(1, len(rows))
+        self.assertIn(rows[0]["roi_state"], {"good", "warning", "needs_action", "empty"})
 
     def test_attention_items_endpoint(self) -> None:
         with TemporaryDirectory() as temp_dir:

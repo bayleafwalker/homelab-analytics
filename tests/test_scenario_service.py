@@ -463,6 +463,17 @@ class HomelabCostBenefitScenarioTests(unittest.TestCase):
         metric_map = {row["metric_key"]: row for row in comparison.summary_rows}
         self.assertIn("monthly_workload_cost", metric_map)
         self.assertIn("cost_per_healthy_service", metric_map)
+        self.assertIn("healthy_services_per_cost_unit", metric_map)
+        self.assertEqual("Healthy services per cost unit", metric_map["healthy_services_per_cost_unit"]["metric"])
+        ratio_q = Decimal("0.0001")
+        self.assertEqual(
+            Decimal(metric_map["healthy_services_per_cost_unit"]["baseline_value"]),
+            (Decimal("3") / result.baseline_monthly_cost).quantize(ratio_q),
+        )
+        self.assertEqual(
+            Decimal(metric_map["healthy_services_per_cost_unit"]["scenario_value"]),
+            (Decimal("3") / result.new_monthly_cost).quantize(ratio_q),
+        )
         self.assertEqual(
             Decimal(metric_map["monthly_workload_cost"]["scenario_value"]),
             Decimal(metric_map["monthly_workload_cost"]["baseline_value"]) - Decimal("1.00"),

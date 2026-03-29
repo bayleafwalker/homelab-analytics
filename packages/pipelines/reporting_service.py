@@ -22,6 +22,7 @@ from packages.pipelines.homelab_models import (
 )
 from packages.pipelines.overview_models import (
     MART_CURRENT_OPERATING_BASELINE_TABLE,
+    MART_HOMELAB_ROI_TABLE,
     MART_HOUSEHOLD_OVERVIEW_TABLE,
     MART_OPEN_ATTENTION_ITEMS_TABLE,
     MART_RECENT_SIGNIFICANT_CHANGES_TABLE,
@@ -511,6 +512,14 @@ class ReportingService:
             self._transformation_service.get_household_overview,
             ("", []),
             "ORDER BY current_month DESC",
+        )
+
+    def get_homelab_roi(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_HOMELAB_ROI_TABLE,
+            self._transformation_service.get_homelab_roi,
+            ("", []),
+            "ORDER BY roi_state, service_count DESC",
         )
 
     def get_open_attention_items(self) -> list[dict[str, Any]]:

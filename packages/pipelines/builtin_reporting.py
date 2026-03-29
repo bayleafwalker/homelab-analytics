@@ -53,6 +53,8 @@ from packages.pipelines.overview_models import (
     MART_COST_TREND_12M_TABLE,
     MART_CURRENT_OPERATING_BASELINE_COLUMNS,
     MART_CURRENT_OPERATING_BASELINE_TABLE,
+    MART_HOMELAB_ROI_COLUMNS,
+    MART_HOMELAB_ROI_TABLE,
     MART_HOUSEHOLD_COST_MODEL_COLUMNS,
     MART_HOUSEHOLD_COST_MODEL_TABLE,
     MART_HOUSEHOLD_OVERVIEW_COLUMNS,
@@ -287,6 +289,11 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         relation_name=MART_HOUSEHOLD_OVERVIEW_TABLE,
         columns=MART_HOUSEHOLD_OVERVIEW_COLUMNS,
         order_by="current_month",
+    ),
+    MART_HOMELAB_ROI_TABLE: PublicationRelation(
+        relation_name=MART_HOMELAB_ROI_TABLE,
+        columns=MART_HOMELAB_ROI_COLUMNS,
+        order_by="roi_state, service_count DESC",
     ),
     MART_OPEN_ATTENTION_ITEMS_TABLE: PublicationRelation(
         relation_name=MART_OPEN_ATTENTION_ITEMS_TABLE,

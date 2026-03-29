@@ -118,10 +118,10 @@ The platform derives household and homelab analytics from normalized canonical m
 **Rationale:** These models help household operators make informed decisions about infrastructure spending and living arrangements.
 
 **Phase:** 3
-**Status:** in-progress (`mart_affordability_ratios` and `mart_recurring_cost_baseline` are materialised from finance, utility, subscription, and loan data; API exposes `GET /reports/affordability-ratios` and `GET /reports/recurring-cost-baseline`; the dashboard renders affordability cards and recurring-baseline views; the homelab value-loop operator panel now surfaces reporting-layer service-health, workload-cost summaries, a derived value-versus-cost comparison signal, a saved homelab cost/benefit scenario summary, a saved-scenario compare page, and shared saved compare sets, but formal homelab ROI modeling remains pending)
+**Status:** implemented (`mart_affordability_ratios` and `mart_recurring_cost_baseline` are materialised from finance, utility, subscription, and loan data; API exposes `GET /reports/affordability-ratios` and `GET /reports/recurring-cost-baseline`; the dashboard renders affordability cards and recurring-baseline views; the homelab value-loop operator panel now surfaces reporting-layer service-health, workload-cost summaries, a formal homelab ROI report, a derived value-versus-cost comparison signal, a saved homelab cost/benefit scenario summary, a saved-scenario compare page, and shared saved compare sets)
 
 **Acceptance criteria:**
-- At least two profitability models are implemented: homelab infrastructure cost/benefit and housing affordability ratio.
+- At least two profitability models are implemented: homelab ROI and housing affordability ratio.
 - Models compute from existing facts and dimensions — no new ingestion sources required.
 - Results are exposed via API and dashboard.
 - Tests verify model calculations from fixture data.
@@ -196,7 +196,7 @@ The platform derives household and homelab analytics from normalized canonical m
 | ANA-03 | Reporting | `packages/pipelines/budget_service.py`, `packages/pipelines/transformation_budgets.py`, `packages/pipelines/transformation_service.py`, `apps/api/routes/report_routes.py`, `apps/web/frontend/app/budgets/page.js` | `tests/test_budget_domain.py`, `tests/test_household_complete_integration.py`, `tests/test_reporting_api_app.py` |
 | ANA-04 | Reporting | `packages/pipelines/transformation_overview.py`, `packages/pipelines/transformation_service.py`, `apps/api/routes/report_routes.py`, `apps/web/frontend/app/costs/page.js` | `tests/test_transformation_overview.py`, `tests/test_household_complete_integration.py` |
 | ANA-05 | Reporting | `packages/pipelines/utility_models.py`, `packages/pipelines/transformation_utilities.py`, `packages/pipelines/transformation_service.py`, `apps/api/routes/report_routes.py`, `apps/web/frontend/app/utilities/page.js` | `tests/test_utility_domain.py`, `tests/test_sprint1_dashboard.py`, `tests/test_reporting_api_app.py` |
-| ANA-06 | Reporting | `packages/pipelines/transformation_overview.py`, `packages/pipelines/transformation_service.py`, `apps/api/routes/report_routes.py`, `apps/web/frontend/app/page.js` | `tests/test_household_complete_integration.py` |
+| ANA-06 | Reporting | `packages/pipelines/transformation_overview.py`, `packages/pipelines/transformation_service.py`, `packages/pipelines/reporting_service.py`, `apps/api/routes/report_routes.py`, `apps/web/frontend/app/page.js`, `apps/web/frontend/app/homelab/page.js` | `tests/test_household_complete_integration.py`, `tests/test_transformation_overview.py`, `tests/test_reporting_api_app.py`, `tests/test_web_auth.py` |
 | ANA-07 | Reporting | `packages/pipelines/subscription_models.py`, `packages/pipelines/transformation_service.py` | `tests/test_subscription_domain.py` |
 | ANA-08 | API and dashboard publication | `packages/pipelines/ha_contract_renderer.py`, `packages/pipelines/ha_mqtt_publisher.py`, `apps/api/routes/ha_routes.py`, `apps/api/main.py` | `tests/test_ha_contract_renderer.py`, `tests/test_ha_mqtt_publisher.py`, `tests/test_ha_api.py` |
 | ANA-09 | Reporting | `packages/pipelines/contract_price_models.py`, `packages/pipelines/transformation_service.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_contract_price_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py` |
