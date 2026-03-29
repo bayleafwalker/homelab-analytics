@@ -66,6 +66,7 @@ def test_app_reporting_paths_do_not_compute_cashflow_from_landing_service() -> N
 def test_app_reporting_routes_flow_through_reporting_service_contract() -> None:
     api_source = (ROOT / "apps" / "api" / "routes" / "report_routes.py").read_text()
     api_app_source = (ROOT / "apps" / "api" / "app.py").read_text()
+    scenario_routes_source = (ROOT / "apps" / "api" / "routes" / "scenario_routes.py").read_text()
     worker_ingest_source = (
         ROOT / "apps" / "worker" / "command_handlers" / "ingest_commands.py"
     ).read_text()
@@ -73,6 +74,8 @@ def test_app_reporting_routes_flow_through_reporting_service_contract() -> None:
 
     assert "resolved_reporting_service.get_transformation_audit(" in api_source
     assert "reporting_service=resolved_reporting_service" in api_source
+    assert "resolved_reporting_service=reporting_service" in api_app_source
+    assert "resolved_reporting_service.get_homelab_cost_benefit_baseline()" in scenario_routes_source
     assert "publish_promotion_reporting(" in api_app_source
     assert "publish_promotion_reporting(" in worker_ingest_source
     assert "publish_promotion_reporting(" in worker_control_plane_source

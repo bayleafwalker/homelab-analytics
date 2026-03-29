@@ -1347,17 +1347,30 @@ class TransformationService:
         *,
         monthly_cost_delta: Decimal,
         label: str | None = None,
+        service_rows: list[dict[str, Any]] | None = None,
+        workload_rows: list[dict[str, Any]] | None = None,
+        baseline_run_id: str | None = None,
     ) -> HomelabCostBenefitResult:
         return create_homelab_cost_benefit_scenario(
             self._store,
             monthly_cost_delta=monthly_cost_delta,
             label=label,
+            service_rows=service_rows,
+            workload_rows=workload_rows,
+            baseline_run_id=baseline_run_id,
         )
 
     def get_homelab_cost_benefit_comparison(
-        self, scenario_id: str
+        self,
+        scenario_id: str,
+        *,
+        current_baseline_run_id: str | None = None,
     ) -> HomelabCostBenefitComparison | None:
-        return get_homelab_cost_benefit_comparison(self._store, scenario_id)
+        return get_homelab_cost_benefit_comparison(
+            self._store,
+            scenario_id,
+            current_baseline_run_id=current_baseline_run_id,
+        )
 
     def create_tariff_shock_scenario(
         self,

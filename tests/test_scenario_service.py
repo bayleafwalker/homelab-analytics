@@ -499,6 +499,30 @@ class HomelabCostBenefitScenarioTests(unittest.TestCase):
         self.assertIsNotNone(comparison)
         self.assertTrue(comparison.is_stale)
 
+    def test_homelab_cost_benefit_can_use_injected_reporting_baseline(self) -> None:
+        result = create_homelab_cost_benefit_scenario(
+            self.store,
+            monthly_cost_delta=Decimal("2.00"),
+            service_rows=[
+                {"service_id": "svc-a", "state": "running"},
+                {"service_id": "svc-b", "state": "running"},
+            ],
+            workload_rows=[
+                {"workload_id": "wk-a", "est_monthly_cost": "5.00"},
+            ],
+            baseline_run_id="published-homelab-v1",
+        )
+        self.assertEqual(Decimal("5.00"), result.baseline_monthly_cost)
+        self.assertEqual(Decimal("7.00"), result.new_monthly_cost)
+
+        comparison = get_homelab_cost_benefit_comparison(
+            self.store,
+            result.scenario_id,
+            current_baseline_run_id="published-homelab-v2",
+        )
+        self.assertIsNotNone(comparison)
+        self.assertTrue(comparison.is_stale)
+
 
 if __name__ == "__main__":
     unittest.main()

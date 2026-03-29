@@ -18,6 +18,7 @@ from typing import Any, Callable
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 
 
@@ -67,6 +68,7 @@ def register_scenario_routes(
     app: FastAPI,
     *,
     transformation_service: TransformationService | None,
+    resolved_reporting_service: ReportingService | None = None,
     to_jsonable: Callable[[Any], Any],
 ) -> None:
     def _svc() -> TransformationService:
@@ -76,6 +78,11 @@ def register_scenario_routes(
             status_code=503,
             detail="Scenario service requires a transformation service.",
         )
+
+    def _homelab_baseline():
+        if resolved_reporting_service is None:
+            return None
+        return resolved_reporting_service.get_homelab_cost_benefit_baseline()
 
     @app.post("/api/scenarios/loan-what-if")
     async def create_loan_what_if(body: LoanWhatIfRequest) -> dict[str, Any]:
@@ -157,7 +164,11 @@ def register_scenario_routes(
         if scenario is None:
             raise HTTPException(status_code=404, detail="Scenario not found.")
         if scenario["scenario_type"] == "homelab_cost_benefit":
-            homelab_comparison = svc.get_homelab_cost_benefit_comparison(scenario_id)
+            baseline = _homelab_baseline()
+            homelab_comparison = svc.get_homelab_cost_benefit_comparison(
+                scenario_id,
+                current_baseline_run_id=None if baseline is None else baseline.signature,
+            )
             if homelab_comparison is None:
                 raise HTTPException(status_code=404, detail="Scenario not found.")
             return {
@@ -278,10 +289,14 @@ def register_scenario_routes(
                 status_code=422,
                 detail=f"Invalid monthly_cost_delta: {body.monthly_cost_delta!r}",
             ) from exc
+        baseline = _homelab_baseline()
         try:
             result = svc.create_homelab_cost_benefit_scenario(
                 monthly_cost_delta=monthly_cost_delta,
                 label=body.label,
+                service_rows=None if baseline is None else baseline.service_rows,
+                workload_rows=None if baseline is None else baseline.workload_rows,
+                baseline_run_id=None if baseline is None else baseline.signature,
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -322,7 +337,11 @@ def register_scenario_routes(
         if scenario is None:
             raise HTTPException(status_code=404, detail="Scenario not found.")
         if scenario["scenario_type"] == "homelab_cost_benefit":
-            homelab_comparison = svc.get_homelab_cost_benefit_comparison(scenario_id)
+            baseline = _homelab_baseline()
+            homelab_comparison = svc.get_homelab_cost_benefit_comparison(
+                scenario_id,
+                current_baseline_run_id=None if baseline is None else baseline.signature,
+            )
             if homelab_comparison is None:
                 raise HTTPException(status_code=404, detail="Scenario not found.")
             return {

@@ -7,6 +7,8 @@ engine.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -15,8 +17,6 @@ from typing import Any
 
 from packages.pipelines.amortization import LoanParameters, compute_amortization_schedule
 from packages.pipelines.homelab_models import (
-    FACT_SERVICE_HEALTH_TABLE,
-    FACT_WORKLOAD_SENSOR_TABLE,
     MART_SERVICE_HEALTH_CURRENT_TABLE,
     MART_WORKLOAD_COST_7D_TABLE,
 )
@@ -706,29 +706,62 @@ def archive_scenario(store: DuckDBStore, scenario_id: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _get_latest_fact_run_id(store: DuckDBStore, table_name: str) -> str | None:
-    rows = store.fetchall_dicts(
-        f"SELECT run_id FROM {table_name}"
-        " WHERE run_id IS NOT NULL ORDER BY run_id DESC LIMIT 1"
-    )
-    return str(rows[0]["run_id"]) if rows else None
-
-
-def _get_latest_homelab_run_signature(store: DuckDBStore) -> str | None:
-    service_run_id = _get_latest_fact_run_id(store, FACT_SERVICE_HEALTH_TABLE)
-    workload_run_id = _get_latest_fact_run_id(store, FACT_WORKLOAD_SENSOR_TABLE)
-    if service_run_id is None and workload_run_id is None:
-        return None
-    return f"services:{service_run_id or 'none'}|workloads:{workload_run_id or 'none'}"
-
-
-def _get_homelab_current_summary(store: DuckDBStore) -> dict[str, Any]:
+def _get_homelab_current_rows(
+    store: DuckDBStore,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     service_rows = store.fetchall_dicts(
         f"SELECT * FROM {MART_SERVICE_HEALTH_CURRENT_TABLE} ORDER BY service_id"
     )
     workload_rows = store.fetchall_dicts(
         f"SELECT * FROM {MART_WORKLOAD_COST_7D_TABLE} ORDER BY est_monthly_cost DESC NULLS LAST"
     )
+    return service_rows, workload_rows
+
+
+def build_homelab_cost_benefit_baseline_signature(
+    *,
+    service_rows: list[dict[str, Any]],
+    workload_rows: list[dict[str, Any]],
+) -> str | None:
+    if not service_rows and not workload_rows:
+        return None
+
+    normalized = {
+        "services": sorted(
+            [
+                {
+                    "service_id": str(row.get("service_id") or ""),
+                    "state": str(row.get("state") or ""),
+                    "last_state_change": str(row.get("last_state_change") or ""),
+                    "recorded_at": str(row.get("recorded_at") or ""),
+                }
+                for row in service_rows
+            ],
+            key=lambda row: row["service_id"],
+        ),
+        "workloads": sorted(
+            [
+                {
+                    "workload_id": str(row.get("workload_id") or ""),
+                    "avg_cpu_pct_7d": str(row.get("avg_cpu_pct_7d") or ""),
+                    "avg_mem_gb_7d": str(row.get("avg_mem_gb_7d") or ""),
+                    "reading_count_7d": str(row.get("reading_count_7d") or ""),
+                    "est_monthly_cost": str(row.get("est_monthly_cost") or "0"),
+                }
+                for row in workload_rows
+            ],
+            key=lambda row: row["workload_id"],
+        ),
+    }
+    payload = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _build_homelab_current_summary(
+    *,
+    service_rows: list[dict[str, Any]],
+    workload_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
     if not service_rows and not workload_rows:
         raise ValueError(
             "No homelab service or workload rows are available. "
@@ -775,7 +808,20 @@ def _get_homelab_current_summary(store: DuckDBStore) -> dict[str, Any]:
     }
 
 
-def _is_homelab_cost_benefit_stale(store: DuckDBStore, scenario_id: str) -> bool:
+def _get_latest_homelab_run_signature(store: DuckDBStore) -> str | None:
+    service_rows, workload_rows = _get_homelab_current_rows(store)
+    return build_homelab_cost_benefit_baseline_signature(
+        service_rows=service_rows,
+        workload_rows=workload_rows,
+    )
+
+
+def _is_homelab_cost_benefit_stale(
+    store: DuckDBStore,
+    scenario_id: str,
+    *,
+    current_baseline_run_id: str | None = None,
+) -> bool:
     scenario_rows = store.fetchall_dicts(
         f"SELECT baseline_run_id FROM {DIM_SCENARIO_TABLE} WHERE scenario_id = ?",
         [scenario_id],
@@ -783,7 +829,9 @@ def _is_homelab_cost_benefit_stale(store: DuckDBStore, scenario_id: str) -> bool
     if not scenario_rows:
         return False
     baseline_run_id = scenario_rows[0]["baseline_run_id"]
-    current_run_id = _get_latest_homelab_run_signature(store)
+    current_run_id = current_baseline_run_id
+    if current_run_id is None:
+        current_run_id = _get_latest_homelab_run_signature(store)
     if baseline_run_id is None or current_run_id is None:
         return False
     return str(baseline_run_id) != current_run_id
@@ -933,12 +981,23 @@ def create_homelab_cost_benefit_scenario(
     *,
     monthly_cost_delta: Decimal,
     label: str | None = None,
+    service_rows: list[dict[str, Any]] | None = None,
+    workload_rows: list[dict[str, Any]] | None = None,
+    baseline_run_id: str | None = None,
 ) -> HomelabCostBenefitResult:
     """Create a homelab cost/benefit scenario from current homelab marts."""
     ensure_scenario_storage(store)
 
-    summary = _get_homelab_current_summary(store)
-    baseline_run_id = _get_latest_homelab_run_signature(store)
+    if service_rows is None or workload_rows is None:
+        service_rows, workload_rows = _get_homelab_current_rows(store)
+    summary = _build_homelab_current_summary(
+        service_rows=service_rows,
+        workload_rows=workload_rows,
+    )
+    resolved_baseline_run_id = baseline_run_id or build_homelab_cost_benefit_baseline_signature(
+        service_rows=service_rows,
+        workload_rows=workload_rows,
+    )
     new_monthly_cost = summary["monthly_cost"] + monthly_cost_delta
     if new_monthly_cost < Decimal("0"):
         raise ValueError("monthly_cost_delta would make the projected homelab cost negative.")
@@ -956,7 +1015,7 @@ def create_homelab_cost_benefit_scenario(
                 "subject_id": "homelab",
                 "label": auto_label,
                 "status": "active",
-                "baseline_run_id": baseline_run_id,
+                "baseline_run_id": resolved_baseline_run_id,
                 "created_at": datetime.now(UTC).isoformat(),
             }
         ],
@@ -998,6 +1057,8 @@ def create_homelab_cost_benefit_scenario(
 def get_homelab_cost_benefit_comparison(
     store: DuckDBStore,
     scenario_id: str,
+    *,
+    current_baseline_run_id: str | None = None,
 ) -> HomelabCostBenefitComparison | None:
     ensure_scenario_storage(store)
 
@@ -1020,7 +1081,11 @@ def get_homelab_cost_benefit_comparison(
         label=scenario["label"],
         assumptions=assumptions,
         summary_rows=summary_rows,
-        is_stale=_is_homelab_cost_benefit_stale(store, scenario_id),
+        is_stale=_is_homelab_cost_benefit_stale(
+            store,
+            scenario_id,
+            current_baseline_run_id=current_baseline_run_id,
+        ),
     )
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
 from typing import Any, Callable
@@ -28,6 +29,9 @@ from packages.pipelines.overview_models import (
     MART_RECENT_SIGNIFICANT_CHANGES_TABLE,
 )
 from packages.pipelines.promotion import PromotionResult
+from packages.pipelines.scenario_service import (
+    build_homelab_cost_benefit_baseline_signature,
+)
 from packages.pipelines.subscription_models import (
     MART_SUBSCRIPTION_SUMMARY_TABLE,
     MART_UPCOMING_FIXED_COSTS_30D_TABLE,
@@ -67,6 +71,13 @@ class ReportingAccessMode(StrEnum):
     PREFER_PUBLISHED = "prefer_published"
     PUBLISHED = "published"
     WAREHOUSE = "warehouse"
+
+
+@dataclass(frozen=True)
+class HomelabCostBenefitBaseline:
+    service_rows: list[dict[str, Any]]
+    workload_rows: list[dict[str, Any]]
+    signature: str | None
 
 
 def publish_promotion_reporting(
@@ -580,6 +591,18 @@ class ReportingService:
             self._transformation_service.get_workload_cost_7d,
             ("", []),
             "ORDER BY est_monthly_cost DESC NULLS LAST",
+        )
+
+    def get_homelab_cost_benefit_baseline(self) -> HomelabCostBenefitBaseline:
+        service_rows = self.get_service_health_current()
+        workload_rows = self.get_workload_cost_7d()
+        return HomelabCostBenefitBaseline(
+            service_rows=service_rows,
+            workload_rows=workload_rows,
+            signature=build_homelab_cost_benefit_baseline_signature(
+                service_rows=service_rows,
+                workload_rows=workload_rows,
+            ),
         )
 
     def get_relation_rows(self, relation_name: str) -> list[dict[str, Any]]:

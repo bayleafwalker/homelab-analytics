@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
+from packages.pipelines.reporting_service import HomelabCostBenefitBaseline
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository
@@ -67,6 +68,53 @@ def _build_homelab_client(temp_dir: str) -> tuple[TestClient, TransformationServ
     ts.refresh_workload_cost_7d()
     app = create_app(service, transformation_service=ts)
     return TestClient(app), ts
+
+
+class _StubHomelabReportingService:
+    def __init__(self) -> None:
+        self._baseline = HomelabCostBenefitBaseline(
+            service_rows=[
+                {"service_id": "svc-a", "state": "running"},
+                {"service_id": "svc-b", "state": "running"},
+            ],
+            workload_rows=[
+                {"workload_id": "wk-a", "est_monthly_cost": "5.00"},
+            ],
+            signature="published-homelab-v1",
+        )
+
+    def set_signature(self, signature: str) -> None:
+        self._baseline = HomelabCostBenefitBaseline(
+            service_rows=self._baseline.service_rows,
+            workload_rows=self._baseline.workload_rows,
+            signature=signature,
+        )
+
+    def get_homelab_cost_benefit_baseline(self) -> HomelabCostBenefitBaseline:
+        return self._baseline
+
+
+def _build_homelab_client_with_reporting(
+    temp_dir: str,
+) -> tuple[TestClient, TransformationService, _StubHomelabReportingService]:
+    from packages.pipelines.account_transaction_service import AccountTransactionService
+
+    service = AccountTransactionService(
+        landing_root=Path(temp_dir) / "landing",
+        metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+    )
+    ts = TransformationService(DuckDBStore.memory())
+    ts.load_service_health(_service_rows(), run_id="run-homelab-services")
+    ts.refresh_service_health_current()
+    ts.load_workload_sensors(_workload_rows(), run_id="run-homelab-workloads")
+    ts.refresh_workload_cost_7d()
+    reporting_service = _StubHomelabReportingService()
+    app = create_app(
+        service,
+        transformation_service=ts,
+        reporting_service=reporting_service,
+    )
+    return TestClient(app), ts, reporting_service
 
 
 def _shift_homelab_rows(rows: list[dict], *, hours: int = 1) -> list[dict]:
@@ -426,6 +474,31 @@ class HomelabCostBenefitScenarioAPITests(unittest.TestCase):
             self.assertIn("summary_rows", data)
             self.assertGreater(len(data["summary_rows"]), 0)
             self.assertTrue(all("metric_key" in row for row in data["summary_rows"]))
+
+    def test_homelab_cost_benefit_uses_reporting_backed_baseline_when_available(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _, _ = _build_homelab_client_with_reporting(tmp)
+            resp = client.post(
+                "/api/scenarios/homelab-cost-benefit",
+                json={"monthly_cost_delta": "1.00"},
+            )
+            self.assertEqual(200, resp.status_code)
+            data = resp.json()
+            self.assertEqual("5.00", data["baseline_monthly_cost"])
+            self.assertEqual("6.00", data["new_monthly_cost"])
+
+    def test_homelab_cost_benefit_staleness_uses_reporting_signature_when_available(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _, reporting_service = _build_homelab_client_with_reporting(tmp)
+            create_resp = client.post(
+                "/api/scenarios/homelab-cost-benefit",
+                json={"monthly_cost_delta": "1.00"},
+            )
+            scenario_id = create_resp.json()["scenario_id"]
+            reporting_service.set_signature("published-homelab-v2")
+            resp = client.get(f"/api/scenarios/{scenario_id}/comparison")
+            self.assertEqual(200, resp.status_code)
+            self.assertTrue(resp.json()["is_stale"])
 
     def test_homelab_cost_benefit_becomes_stale_after_new_fact_run(self) -> None:
         with TemporaryDirectory() as tmp:
