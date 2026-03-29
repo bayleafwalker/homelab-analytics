@@ -35,6 +35,8 @@ more directions, but the contract shape stays the same.
 
 The manifest is a contract surface, not a runtime convenience object. It should be sufficient
 to validate whether an adapter can be activated before any live connection is opened.
+It should not carry live handles, counters, or last-seen timestamps; those belong in runtime
+status snapshots.
 
 ### Runtime status
 
@@ -52,6 +54,23 @@ At minimum, a shared runtime status shape should distinguish:
 Adapters may expose extra fields for their own operational domain, but the snapshot should stay
 stable enough for the UI, API, and operators to reason about health the same way across adapter
 types.
+
+### Lifecycle expectations
+
+All adapter directions follow the same high-level lifecycle:
+
+1. Load or discover the manifest.
+2. Validate declared capabilities and credential requirements.
+3. Activate the adapter and open the live transport only after validation succeeds.
+4. Run the direction-specific loop: ingest, publish, or action dispatch.
+5. Update a typed runtime status snapshot during operation.
+6. Tear down the adapter independently so one failing integration does not destabilize the rest.
+
+Direction-specific expectations:
+
+- ingest adapters may persist checkpoint or cursor state when the source supports it
+- publish adapters may need to re-emit discovery or registration state after reconnect
+- action adapters should surface approval gates, dispatch results, and durable result state
 
 ### `IngestAdapter`
 
@@ -131,10 +150,10 @@ existing six-layer architecture maps to the adapter model as follows:
 | HA hub layer | Adapter contract role |
 |---|---|
 | Layer 1 - Device and ecosystem ingress | Source systems feeding the ingest adapter |
-| Layer 2 - Entity normalization bridge | `IngestAdapter.normalize()` |
-| Layer 3 - Event and history bus | `IngestAdapter.connect()` and `IngestAdapter.stream()` |
+| Layer 2 - Entity normalization bridge | `IngestAdapter.normalize()` and canonical entity mapping |
+| Layer 3 - Event and history bus | `IngestAdapter.connect()`, `IngestAdapter.stream()`, and checkpoint recovery |
 | Layer 4 - Semantic and planning core | Platform-side logic, not an adapter concern |
-| Layer 5 - Action and approval layer | `ActionAdapter.validate()` and `ActionAdapter.dispatch()` |
+| Layer 5 - Action and approval layer | `ActionAdapter.validate()`, `ActionAdapter.dispatch()`, and approval gates |
 | Layer 6 - External ecosystem federation | `PublishAdapter.publish()` and outward delivery adapters |
 
 The HA-specific protocol details remain HA-specific:
@@ -146,6 +165,9 @@ The HA-specific protocol details remain HA-specific:
 
 Those details are implementation choices of the HA adapter, not assumptions the platform should
 make about every future integration.
+
+The reference mapping is intentionally narrow: it shows how the proven HA implementation fits
+the generic contracts, but it does not promote HA transport details into platform-wide APIs.
 
 ## Candidate integration surfaces
 
