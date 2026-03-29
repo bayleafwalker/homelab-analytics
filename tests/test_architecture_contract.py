@@ -83,6 +83,7 @@ def test_app_reporting_routes_flow_through_reporting_service_contract() -> None:
 
 def test_runtime_builders_preserve_published_vs_warehouse_reporting_boundary() -> None:
     api_main_source = (ROOT / "apps" / "api" / "main.py").read_text()
+    runtime_support_source = (ROOT / "apps" / "runtime_support.py").read_text()
     platform_builder_source = (
         ROOT / "packages" / "platform" / "runtime" / "builder.py"
     ).read_text()
@@ -93,14 +94,27 @@ def test_runtime_builders_preserve_published_vs_warehouse_reporting_boundary() -
     # API uses PUBLISHED mode for postgres, WAREHOUSE otherwise — checked in api/main.py
     assert "ReportingAccessMode.PUBLISHED" in api_main_source
     assert 'settings.reporting_backend.lower() == "postgres"' in api_main_source
+    assert "from apps import runtime_support as _runtime_support" in api_main_source
+    assert "def build_service(" not in api_main_source
+    assert "def build_transformation_service(" not in api_main_source
+    assert "def build_reporting_service(" not in api_main_source
     # Pipeline registry loading and catalog sync live in the shared platform builder
     assert "build_pipeline_registries(" in platform_builder_source
     assert "sync_pipeline_catalog(" in platform_builder_source
     assert "domain_registry=pipeline_registries.transformation_domain_registry" in platform_builder_source
     assert "build_transformation_service(" in platform_builder_source
     assert "build_reporting_service(" in platform_builder_source
-    # Worker always uses WAREHOUSE mode
-    assert "access_mode=ReportingAccessMode.WAREHOUSE" in worker_runtime_source
+    assert "def build_service(" in runtime_support_source
+    assert "def build_transformation_service(" in runtime_support_source
+    assert "def build_reporting_service(" in runtime_support_source
+    assert "def build_lazy_transformation_service(" in runtime_support_source
+    assert "build_container(" in runtime_support_source
+    assert "access_mode: ReportingAccessMode = ReportingAccessMode.WAREHOUSE" in runtime_support_source
+    # The shared helper defaults worker-facing reporting to WAREHOUSE mode.
+    assert "from apps import runtime_support as _runtime_support" in worker_runtime_source
+    assert "def build_service(" not in worker_runtime_source
+    assert "def build_transformation_service(" not in worker_runtime_source
+    assert "def build_reporting_service(" not in worker_runtime_source
     assert "build_web_environment" in web_main_source
     assert "HOMELAB_ANALYTICS_API_BASE_URL" in web_app_source
 

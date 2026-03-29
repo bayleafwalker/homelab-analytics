@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import logging
-from typing import cast
 
 import uvicorn
 
-import packages.platform.runtime.builder as platform_runtime_builder
+from apps import runtime_support as _runtime_support
 from apps.api.app import create_app
 from apps.api.ha_startup import (
     build_ha_startup_runtime,
@@ -14,88 +13,48 @@ from packages.domains.finance.manifest import FINANCE_PACK
 from packages.domains.homelab.manifest import HOMELAB_PACK
 from packages.domains.overview.manifest import OVERVIEW_PACK
 from packages.domains.utilities.manifest import UTILITIES_PACK
-from packages.pipelines.lazy_transformation_service import LazyTransformationService
-from packages.pipelines.reporting_service import (
-    ReportingAccessMode,
-    ReportingService,
-)
-from packages.pipelines.transformation_service import TransformationService
+from packages.pipelines.reporting_service import ReportingAccessMode
 from packages.platform.auth.configuration import validate_auth_configuration
 from packages.platform.auth.machine_jwt_provider import build_machine_jwt_provider
 from packages.platform.auth.oidc_provider import build_oidc_provider
 from packages.platform.auth.proxy_provider import build_proxy_provider
 from packages.platform.auth.session_manager import build_session_manager
-from packages.platform.runtime.builder import (
-    build_account_transaction_service as _platform_build_service,
-)
 from packages.platform.runtime.builder import build_container
-from packages.platform.runtime.builder import (
-    build_function_registry as _platform_build_function_registry,
-)
-from packages.platform.runtime.builder import (
-    build_reporting_service as _platform_build_reporting_service,
-)
-from packages.platform.runtime.builder import (
-    build_transformation_service as _platform_build_transformation_service,
-)
 from packages.shared.logging import configure_logging
 from packages.shared.settings import AppSettings
 
-
-def build_function_registry(settings: AppSettings, *, config_repository=None):
-    return _platform_build_function_registry(settings, config_repository=config_repository)
-
-
-def build_service(settings: AppSettings):
-    return _platform_build_service(settings)
+build_extension_registry = _runtime_support.build_extension_registry
+build_function_registry = _runtime_support.build_function_registry
+build_lazy_transformation_service = _runtime_support.build_lazy_transformation_service
+build_service = _runtime_support.build_service
+build_transformation_service = _runtime_support.build_transformation_service
 
 
-def build_transformation_service(
+def _build_reporting_service(
     settings: AppSettings,
-    *,
-    container=None,
-) -> TransformationService:
-    resolved_container = container or build_container(settings)
-    return _platform_build_transformation_service(
-        settings,
-        control_plane_store=resolved_container.control_plane_store,
-        publication_refresh_registry=resolved_container.publication_refresh_registry,
-        domain_registry=resolved_container.transformation_domain_registry,
-    )
-
-
-def build_lazy_transformation_service(
-    settings: AppSettings,
-    *,
-    container=None,
-) -> TransformationService:
-    resolved_container = container or build_container(settings)
-    return cast(
-        TransformationService,
-        LazyTransformationService(
-            lambda: build_transformation_service(settings, container=resolved_container)
-        ),
-    )
-
-
-def build_reporting_service(
-    settings: AppSettings,
-    transformation_service: TransformationService,
+    transformation_service,
     extension_registry=None,
     control_plane_store=None,
-) -> ReportingService:
-    return _platform_build_reporting_service(
-        settings,
-        transformation_service,
-        publication_store=platform_runtime_builder.build_reporting_store(settings),
-        extension_registry=extension_registry,
-        control_plane_store=control_plane_store,
-        access_mode=(
+    *,
+    access_mode: ReportingAccessMode | None = None,
+):
+    resolved_access_mode = access_mode
+    if resolved_access_mode is None:
+        resolved_access_mode = (
             ReportingAccessMode.PUBLISHED
             if settings.reporting_backend.lower() == "postgres"
             else ReportingAccessMode.WAREHOUSE
-        ),
+        )
+    return _runtime_support.build_reporting_service(
+        settings,
+        transformation_service,
+        extension_registry,
+        control_plane_store,
+        access_mode=resolved_access_mode,
     )
+
+
+build_reporting_service = _build_reporting_service
 
 
 def _build_api_startup_components(
@@ -114,6 +73,11 @@ def _build_api_startup_components(
         transformation_service,
         container.extension_registry,
         container.control_plane_store,
+        access_mode=(
+            ReportingAccessMode.PUBLISHED
+            if settings.reporting_backend.lower() == "postgres"
+            else ReportingAccessMode.WAREHOUSE
+        ),
     )
     ha_runtime = build_ha_startup_runtime(
         settings,

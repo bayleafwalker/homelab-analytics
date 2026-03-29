@@ -4,38 +4,15 @@ import logging
 from dataclasses import dataclass
 from typing import TextIO
 
+from apps import runtime_support as _runtime_support
 from packages.domains.finance.manifest import FINANCE_PACK
 from packages.domains.overview.manifest import OVERVIEW_PACK
 from packages.domains.utilities.manifest import UTILITIES_PACK
 from packages.pipelines.account_transaction_service import AccountTransactionService
-from packages.pipelines.extension_registries import PipelineRegistries
-from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
 from packages.pipelines.transformation_domain_registry import TransformationDomainRegistry
 from packages.pipelines.transformation_refresh_registry import PublicationRefreshRegistry
-from packages.pipelines.transformation_service import TransformationService
-from packages.platform.runtime.builder import (
-    build_account_transaction_service as _platform_build_service,
-)
 from packages.platform.runtime.builder import (
     build_container,
-)
-from packages.platform.runtime.builder import (
-    build_contract_price_service as _platform_build_contract_price_service,
-)
-from packages.platform.runtime.builder import (
-    build_extension_registry as _platform_build_extension_registry,
-)
-from packages.platform.runtime.builder import (
-    build_pipeline_registries as _platform_build_pipeline_registries,
-)
-from packages.platform.runtime.builder import (
-    build_reporting_service as _platform_build_reporting_service,
-)
-from packages.platform.runtime.builder import (
-    build_subscription_service as _platform_build_subscription_service,
-)
-from packages.platform.runtime.builder import (
-    build_transformation_service as _platform_build_transformation_service,
 )
 from packages.platform.runtime.container import AppContainer
 from packages.shared.extensions import ExtensionRegistry
@@ -103,7 +80,10 @@ def build_worker_runtime(
     logger: logging.Logger,
 ) -> WorkerRuntime:
     """Build the worker runtime via the shared platform container."""
-    container = build_container(settings, capability_packs=[FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK])
+    container = build_container(
+        settings,
+        capability_packs=[FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK],
+    )
     return WorkerRuntime(
         container=container,
         output=output,
@@ -112,62 +92,11 @@ def build_worker_runtime(
     )
 
 
-# ---------------------------------------------------------------------------
-# Builder helpers — used by command_handlers.py, control_plane.py, main.py.
-# These build on-demand services for specific worker commands.  They are
-# wrappers around platform builder functions or direct storage factories.
-# ---------------------------------------------------------------------------
-
-
-def build_service(settings: AppSettings) -> AccountTransactionService:
-    return _platform_build_service(settings)
-
-
-def build_subscription_service(settings: AppSettings):
-    return _platform_build_subscription_service(settings)
-
-
-def build_contract_price_service(settings: AppSettings):
-    return _platform_build_contract_price_service(settings)
-
-
-def build_extension_registry(
-    settings: AppSettings,
-    *,
-    config_repository=None,
-) -> ExtensionRegistry:
-    return _platform_build_extension_registry(settings, config_repository=config_repository)
-
-
-def build_pipeline_registries(
-    settings: AppSettings,
-    *,
-    config_repository=None,
-) -> PipelineRegistries:
-    return _platform_build_pipeline_registries(settings, config_repository=config_repository)
-
-
-def build_transformation_service(
-    settings: AppSettings,
-    *,
-    publication_refresh_registry: PublicationRefreshRegistry | None = None,
-    domain_registry: TransformationDomainRegistry | None = None,
-) -> TransformationService:
-    return _platform_build_transformation_service(
-        settings,
-        publication_refresh_registry=publication_refresh_registry,
-        domain_registry=domain_registry,
-    )
-
-
-def build_reporting_service(
-    settings: AppSettings,
-    transformation_service: TransformationService,
-    extension_registry: ExtensionRegistry | None = None,
-) -> ReportingService:
-    return _platform_build_reporting_service(
-        settings,
-        transformation_service,
-        extension_registry=extension_registry,
-        access_mode=ReportingAccessMode.WAREHOUSE,
-    )
+build_contract_price_service = _runtime_support.build_contract_price_service
+build_extension_registry = _runtime_support.build_extension_registry
+build_function_registry = _runtime_support.build_function_registry
+build_pipeline_registries = _runtime_support.build_pipeline_registries
+build_reporting_service = _runtime_support.build_reporting_service
+build_service = _runtime_support.build_service
+build_subscription_service = _runtime_support.build_subscription_service
+build_transformation_service = _runtime_support.build_transformation_service
