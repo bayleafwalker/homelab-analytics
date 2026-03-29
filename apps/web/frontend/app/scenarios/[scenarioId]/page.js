@@ -63,6 +63,11 @@ export default async function ScenarioDetailPage({ params }) {
             ← Back to scenarios
           </Link>
         </div>
+        <div>
+          <Link href={`/scenarios/compare?left=${encodeURIComponent(scenarioId)}`} style={{ color: "var(--accent)" }}>
+            Compare scenarios
+          </Link>
+        </div>
 
         {/* Loan what-if: repayment variance table */}
         {comparison?.variance_rows?.length > 0 && (

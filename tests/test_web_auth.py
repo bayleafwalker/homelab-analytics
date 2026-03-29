@@ -609,7 +609,9 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "Homelab cost/benefit" in homelab_cost_benefit_panel_source
     assert "View scenario" in homelab_cost_benefit_panel_source
     assert "Compare scenarios" in homelab_cost_benefit_panel_source
+    assert "/api/scenarios" in homelab_cost_benefit_panel_source
     assert "/scenarios/compare?left=" in homelab_cost_benefit_panel_source
+    assert "&right=" in homelab_cost_benefit_panel_source
     assert "Cost/value summary" in homelab_cost_benefit_panel_source
     assert "comparison?.summary_rows?.length > 0" in homelab_cost_benefit_panel_source
     assert "Assumptions" in homelab_cost_benefit_panel_source
@@ -642,6 +644,8 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert 'name="right"' in scenarios_compare_source
     assert "summary_rows" in scenario_detail_source
     assert "Cost/value summary" in scenario_detail_source
+    assert "Compare scenarios" in scenario_detail_source
+    assert "/scenarios/compare?left=" in scenario_detail_source
     assert "/api/ha/actions/proposals/{action_id}/approve" in homelab_approve_route
     assert "/api/ha/actions/proposals/{action_id}/dismiss" in homelab_dismiss_route
     assert "getLocalUsers" in control_source

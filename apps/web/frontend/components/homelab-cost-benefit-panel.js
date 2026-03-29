@@ -16,6 +16,7 @@ export function HomelabCostBenefitPanel() {
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const [comparison, setComparison] = useState(null);
+  const [compareHref, setCompareHref] = useState("");
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -23,6 +24,7 @@ export function HomelabCostBenefitPanel() {
     setError(null);
     setResult(null);
     setComparison(null);
+    setCompareHref("");
 
     const body = { monthly_cost_delta: monthlyCostDelta };
     if (label) body.label = label;
@@ -45,6 +47,23 @@ export function HomelabCostBenefitPanel() {
       if (comparisonRes.ok) {
         setComparison(await comparisonRes.json());
       }
+
+      const scenariosRes = await fetch("/api/scenarios");
+      if (scenariosRes.ok) {
+        const scenariosPayload = await scenariosRes.json();
+        const partnerScenario = (scenariosPayload.rows || []).find(
+          (scenario) => scenario.scenario_id !== data.scenario_id,
+        );
+        if (partnerScenario?.scenario_id) {
+          setCompareHref(
+            `/scenarios/compare?left=${encodeURIComponent(data.scenario_id)}&right=${encodeURIComponent(partnerScenario.scenario_id)}`,
+          );
+        } else {
+          setCompareHref(`/scenarios/compare?left=${encodeURIComponent(data.scenario_id)}`);
+        }
+      } else {
+        setCompareHref(`/scenarios/compare?left=${encodeURIComponent(data.scenario_id)}`);
+      }
     } catch {
       setError("Network error — could not reach API.");
     } finally {
@@ -57,6 +76,7 @@ export function HomelabCostBenefitPanel() {
     setLabel("");
     setResult(null);
     setComparison(null);
+    setCompareHref("");
     setError(null);
   }
 
@@ -181,10 +201,7 @@ export function HomelabCostBenefitPanel() {
                 <Link className="primaryButton inlineButton" href={`/scenarios/${result.scenario_id}`}>
                   View scenario
                 </Link>
-                <Link
-                  className="ghostButton inlineButton"
-                  href={`/scenarios/compare?left=${encodeURIComponent(result.scenario_id)}`}
-                >
+                <Link className="ghostButton inlineButton" href={compareHref || `/scenarios/compare?left=${encodeURIComponent(result.scenario_id)}`}>
                   Compare scenarios
                 </Link>
                 <button className="ghostButton inlineButton" type="button" onClick={reset}>
