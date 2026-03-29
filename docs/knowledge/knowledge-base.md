@@ -1,7 +1,23 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-03-28T20:57:46Z
+Generated: 2026-03-29T09:22:58Z
 
 ## Decisions
+
+### Keep homelab ROI decisions on a reporting-backed mart
+Source: track: stage-4, sprint: 12
+Tags: homelab, reporting, roi, decision-surface
+
+The homelab ROI decision loop should live on a reporting-backed mart and be consumed through the reporting service contract instead of being recomputed in the app surface. This keeps the operator UI aligned with the reporting-layer boundary and gives the ROI cue a stable contract in both warehouse and published-reporting setups.
+
+---
+
+### Keep the homelab compare workflow anchored on the operator surface
+Source: track: stage-4, sprint: 12
+Tags: homelab, scenarios, compare, operator-surface
+
+After a homelab cost/benefit scenario is created, the operator surface should keep the comparison loop reachable without forcing a separate list-first workflow. Inline summary rows, a direct compare CTA, automatic partner selection when possible, and compare-set saving should stay attached to the homelab flow so operators can move from scenario creation to pairwise evaluation with minimal navigation.
+
+---
 
 ### Keep API startup wiring thin behind a shared HA startup helper
 Source: track: stage-5, sprint: 9

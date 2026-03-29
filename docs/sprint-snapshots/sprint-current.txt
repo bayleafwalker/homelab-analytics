@@ -1,10 +1,13 @@
 SPRINT: Sprint K — Household Decision Surfaces  [active]
-Goal:   Finish the next operator-facing decision loop from the existing platform by moving homelab value-loop logic into reporting-layer models and the homelab surface.
+Goal:   Keep the shipped homelab decision surface aligned by closing the remaining reporting-boundary, knowledge-publication, and sprint-state cleanup gaps.
 Dates:  2026-03-29 to 2026-04-12
 ID:     12
 
 --- Track: stage-4 ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
   [done    ] #75  Homelab ROI reporting mart and operator surface  (assignee: -)
+  [done    ] #76  Align homelab scenario baseline with reporting contract  (assignee: -)
+  [done    ] #77  Publish Sprint K homelab value-loop knowledge  (assignee: -)
+  [done    ] #78  Normalize Sprint K duplicate sprint state and snapshot  (assignee: -)
 
-Rendered: 2026-03-29T08:55:54Z
+Rendered: 2026-03-29T09:26:13Z

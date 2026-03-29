@@ -1,21 +1,22 @@
 # Sprint K — Household Decision Surfaces
 
 **Status:** Active
-**Stage:** 4 — Homelab ROI and scenario surface
-**Goal:** Close the current operator-facing decision loop around homelab ROI and cost/benefit scenarios instead of widening into more new domains.
+**Stage:** 4 — Delivered surface plus corrective packet
+**Goal:** Keep the shipped homelab decision surface aligned by closing the remaining reporting-boundary, knowledge-publication, and sprint-state cleanup gaps.
 
 ## Why this sprint exists
 
-The worktree already moved utility tariff shock and approval-gated action flows forward. The next high-value product work is not another substrate sprint. It is finishing the homelab decision surface that turns the current household operating picture into a decisive control loop.
+The worktree already delivered the homelab ROI panel, compare workflow, and compare-set saving path on `main`. The remaining sprint value is no longer another feature slice. It is making sure the homelab scenario baseline uses the same reporting-backed source of truth as the operator surface, publishing the Sprint K decisions into durable repo knowledge, and normalizing the sprint-state artifacts before the next execution slice.
 
 ## Scope
 
-- Homelab value loop: reporting mart plus operator-facing surface
-- Homelab cost/benefit scenario
-- Scenario comparison view for saved scenarios
+- Reporting-backed homelab scenario baseline alignment
+- Sprint K knowledge publication from recorded decision events
+- Duplicate sprint cleanup and refreshed shared sprint snapshot
 
 ## Out of scope
 
+- New homelab product capabilities
 - New source connectors or domain foundations
 - Runtime-profile simplification
 - Generic adapter extraction
@@ -23,24 +24,25 @@ The worktree already moved utility tariff shock and approval-gated action flows 
 
 ## Dependencies
 
-- Existing scenario engine and tariff-shock flow
-- Existing homelab pack marts, routes, and HA publication surface
+- Existing homelab ROI/reporting routes and scenario engine
+- Recorded Sprint K events in `sprintctl` and the `kctl` review pipeline
+- Canonical live sprint state in sprint `#12`
 
 ## Deliverables
 
-1. Homelab value loop packet:
-   reporting mart and operator surface that tie cost, service value, and actionability together.
-2. Stage 4 simulation packet:
-   homelab cost/benefit scenario plus comparison view.
+1. Reporting-aligned homelab scenario packet:
+   creation and staleness checks use the reporting-backed homelab baseline when available.
+2. Sprint K durable artifact packet:
+   published homelab knowledge entries plus normalized sprint state and refreshed shared snapshot.
 
 ## Acceptance checks
 
-- An operator can create a homelab cost/benefit scenario from `/homelab` without reading raw marts.
-- Homelab cost/benefit decisions use reporting-layer models and scenario outputs rather than ad hoc API composition.
-- Scenario comparison is explainable and clearly separated from observed state.
+- Homelab cost/benefit scenario creation and comparison staleness align with the reporting-backed homelab surface when published reporting is configured.
+- `docs/knowledge/knowledge-base.md` contains the approved Sprint K homelab ROI and compare workflow decisions.
+- Sprint `#12` is the only active Sprint K record and the shared snapshot reflects items `#75` through `#78`.
 
 ## Verification path
 
-- Focused reporting, API, and UI tests for each new decision surface
-- Scenario tests covering assumptions and comparison outputs
-- Requirements and product-doc updates for new decision-support behavior
+- Focused homelab scenario service/API tests plus web/auth architecture coverage
+- `kctl extract`, review, publish, and render for Sprint 12 decisions
+- `sprintctl maintain check` and `sprintctl render` after live sprint-state cleanup
