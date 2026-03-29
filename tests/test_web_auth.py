@@ -604,9 +604,13 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "ROI score" in homelab_source
     assert "Highest-cost share" in homelab_source
     assert "/api/scenarios/homelab-cost-benefit" in homelab_cost_benefit_panel_source
+    assert "/api/scenarios/${data.scenario_id}/comparison" in homelab_cost_benefit_panel_source
     assert "monthly_cost_delta" in homelab_cost_benefit_panel_source
     assert "Homelab cost/benefit" in homelab_cost_benefit_panel_source
     assert "View scenario" in homelab_cost_benefit_panel_source
+    assert "Cost/value summary" in homelab_cost_benefit_panel_source
+    assert "comparison?.summary_rows?.length > 0" in homelab_cost_benefit_panel_source
+    assert "Assumptions" in homelab_cost_benefit_panel_source
     assert "Approval queue" in homelab_source
     assert "Approve" in homelab_source
     assert "Dismiss" in homelab_source
@@ -615,9 +619,6 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "/api/scenarios/tariff-shock" in tariff_shock_panel_source
     assert "tariff_pct_delta" in tariff_shock_panel_source
     assert "Tariff shock what-if" in tariff_shock_panel_source
-    assert "monthly_cost_delta" in homelab_cost_benefit_panel_source
-    assert "Homelab cost/benefit" in homelab_cost_benefit_panel_source
-    assert "View scenario" in homelab_cost_benefit_panel_source
     assert "/scenarios/${result.scenario_id}" in homelab_cost_benefit_panel_source
     assert "homelab_cost_benefit" in scenarios_source
     assert "Homelab cost/benefit" in scenarios_source
