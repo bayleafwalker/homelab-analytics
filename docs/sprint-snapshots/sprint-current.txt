@@ -1,14 +1,14 @@
-SPRINT: Sprint L — Runtime Profiles And Operator Onboarding  [active]
-Goal:   Collapse the current runtime/config/auth matrix into three blessed deployment stories and turn ingestion/freshness into an opinionated operator workflow.
-ID:     14
+SPRINT: Sprint M — Integration Boundary Hardening  [active]
+Goal:   Make the composition-root and HA boundary story honest across API and worker startup, then extract the Stage 6 adapter layer from the proven HA implementation.
+ID:     15
 
---- Track: stage-0 ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #81  Deployment profile packet: one golden-path configuration story per blessed profile  (assignee: -)
-  [done    ] #82  Operator onboarding packet: demo-first path, guided import/remediation, and freshness next-action flow  (assignee: -)
+--- Track: stage-5 ---
+  health: 1 items — 0 done (0%), 1 active, 0 pending, 0 blocked (0%)
+  [active  ] #84  Runtime-boundary cleanup packet: HA startup extraction and builder consolidation  (assignee: -)
 
---- Track: stage-9 ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #83  Config-surface cleanup packet: clearly separate supported defaults from power-user overrides  (assignee: -)
+--- Track: stage-6 ---
+  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
+  [pending ] #85  Stage 6 adapter packet: AdapterManifest, ingest/publish/action contract boundaries, lifecycle expectations, and HA-as-reference mapping  (assignee: -)
+  [pending ] #86  Health/reporting packet: one coherent status model for integration runtime health  (assignee: -)
 
-Rendered: 2026-03-29T11:43:30Z
+Rendered: 2026-03-29T11:50:52Z
