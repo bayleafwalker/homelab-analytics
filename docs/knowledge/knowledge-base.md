@@ -1,7 +1,31 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-03-29T11:02:53Z
+Generated: 2026-03-29T11:20:09Z
 
 ## Decisions
+
+### Sprint J starts with Stage 1 carryover cleanup as the first active item
+Source: sprint: 13
+Tags: stage-1, dim_household_member, semantic-contracts, planning
+
+The next sprint was seeded around the remaining Stage 1 carryover: `dim_household_member` cleanup, explicit reporting/publication follow-up, and the semantic-contract guidance that keeps future Stage 1 extensions out of vague backlog labels.
+
+---
+
+### Stage 1 carryover cleanup now stops at dim_household_member and publication semantics
+Source: track: stage-1, sprint: 13
+Tags: stage-1, dim_household_member, publication-semantics, roadmap
+
+The remaining Stage 1 cleanup was narrowed to the single unfinished dimension plus the publication-semantic path. Infrastructure foundations are already landed and should stay out of the carryover backlog.
+
+---
+
+### Semantic-contract guidance is now explicit in tracked docs
+Source: track: stage-1, sprint: 13
+Tags: semantic-contracts, stage-1, publication, shared-dimensions
+
+The Stage 1 contract cleanup now calls out shared-dimension promotion timing, explicit reporting/publication follow-up, and the remaining `dim_household_member` gap so future Stage 1 extensions stay out of vague backlog labels.
+
+---
 
 ### Sprint K duplicate packets remain archival
 Source: sprint: 12
