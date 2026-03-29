@@ -1,7 +1,39 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-03-29T11:20:09Z
+Generated: 2026-03-29T11:50:52Z
 
 ## Decisions
+
+### Make onboarding demo-first and action-oriented
+Source: track: stage-0, sprint: 14
+Tags: operator-onboarding, demo-first, freshness, remediation
+
+The onboarding packet now ties demo bundle validation, one-source-at-a-time import, freshness reminders, and failed-run remediation into one operator story across finance source contracts and freshness workflow docs.
+
+---
+
+### Start with deployment profiles and freshness stories
+Source: track: stage-0, sprint: 14
+Tags: runtime-profiles, freshness, operator-onboarding, configuration
+
+The first Sprint L packet focuses on the three blessed deployment profiles and the matching freshness workflow so docs, runtime defaults, and operator remediation guidance stay aligned across demo/dev, single-user homelab, and shared OIDC deployments.
+
+---
+
+### Use a concrete example bundle entrypoint for onboarding
+Source: track: stage-0, sprint: 14
+Tags: operator-onboarding, demo-first, examples, indexing
+
+The demo-first onboarding path now has a single example-bundle README, explicit ordering for the finance source examples, and top-level docs index entries so operators can find the disposable validation flow without hunting across files.
+
+---
+
+### Separate supported defaults from override surfaces
+Source: track: stage-9, sprint: 14
+Tags: configuration, defaults, overrides, operability
+
+The configuration runbook now groups blessed defaults by surface and labels legacy aliases, break-glass admin, trusted proxy, machine JWT, extensions, and secrets as compatibility or power-user override paths.
+
+---
 
 ### Sprint J starts with Stage 1 carryover cleanup as the first active item
 Source: sprint: 13
