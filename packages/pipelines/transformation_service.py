@@ -131,12 +131,6 @@ from packages.pipelines.transformation_domain_registry import (
     TransformationDomainRegistry,
     get_default_transformation_domain_registry,
 )
-from packages.pipelines.transformation_household import (
-    ensure_household_member_storage,
-    get_household_members,
-    seed_default_household_member,
-    upsert_household_member,
-)
 from packages.pipelines.transformation_home_automation import (
     count_automation_event_rows,
     count_home_automation_state_rows,
@@ -165,6 +159,12 @@ from packages.pipelines.transformation_homelab import (
     refresh_service_health_current,
     refresh_storage_risk,
     refresh_workload_cost_7d,
+)
+from packages.pipelines.transformation_household import (
+    ensure_household_member_storage,
+    get_household_members,
+    seed_default_household_member,
+    upsert_household_member,
 )
 from packages.pipelines.transformation_infrastructure import (
     count_cluster_metric_rows,
@@ -223,7 +223,6 @@ from packages.pipelines.transformation_subscriptions import (
 from packages.pipelines.transformation_transactions import (
     count_transactions,
     ensure_transaction_storage,
-    populate_counterparty_category_ids,
     get_account_balance_trend,
     get_monthly_cashflow,
     get_monthly_cashflow_by_counterparty,
@@ -232,6 +231,7 @@ from packages.pipelines.transformation_transactions import (
     get_transaction_anomalies_current,
     get_transactions,
     load_transactions,
+    populate_counterparty_category_ids,
     refresh_account_balance_trend,
     refresh_monthly_cashflow,
     refresh_monthly_cashflow_by_counterparty,
