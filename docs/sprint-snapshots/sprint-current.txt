@@ -7,8 +7,8 @@ ID:     15
   [done    ] #84  Runtime-boundary cleanup packet: HA startup extraction and builder consolidation  (assignee: -)
 
 --- Track: stage-6 ---
-  health: 2 items — 1 done (50%), 1 active, 0 pending, 0 blocked (0%)
+  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
   [done    ] #85  Stage 6 adapter packet: AdapterManifest, ingest/publish/action contract boundaries, lifecycle expectations, and HA-as-reference mapping  (assignee: -)
-  [active  ] #86  Health/reporting packet: one coherent status model for integration runtime health  (assignee: -)
+  [done    ] #86  Health/reporting packet: one coherent status model for integration runtime health  (assignee: -)
 
-Rendered: 2026-03-29T13:00:38Z
+Rendered: 2026-03-29T13:38:48Z
