@@ -3,12 +3,12 @@ Goal:   Make the composition-root and HA boundary story honest across API and wo
 ID:     15
 
 --- Track: stage-5 ---
-  health: 1 items — 0 done (0%), 1 active, 0 pending, 0 blocked (0%)
-  [active  ] #84  Runtime-boundary cleanup packet: HA startup extraction and builder consolidation  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #84  Runtime-boundary cleanup packet: HA startup extraction and builder consolidation  (assignee: -)
 
 --- Track: stage-6 ---
-  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
-  [pending ] #85  Stage 6 adapter packet: AdapterManifest, ingest/publish/action contract boundaries, lifecycle expectations, and HA-as-reference mapping  (assignee: -)
+  health: 2 items — 0 done (0%), 1 active, 1 pending, 0 blocked (0%)
+  [active  ] #85  Stage 6 adapter packet: AdapterManifest, ingest/publish/action contract boundaries, lifecycle expectations, and HA-as-reference mapping  (assignee: -)
   [pending ] #86  Health/reporting packet: one coherent status model for integration runtime health  (assignee: -)
 
-Rendered: 2026-03-29T11:50:52Z
+Rendered: 2026-03-29T12:36:06Z
