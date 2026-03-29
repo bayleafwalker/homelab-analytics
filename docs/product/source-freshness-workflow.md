@@ -20,6 +20,8 @@ The freshness workflow sits on top of the three blessed deployment profiles defi
 
 The model is the same in all three cases; only the startup path and operator posture change. Profile choice determines how the operator authenticates, where landing payloads live, and which bootstrap path is safest, not how freshness itself is computed.
 
+That makes the onboarding loop demo-first: validate the disposable bundle, then move one real source at a time through the same import, freshness, and remediation flow.
+
 ---
 
 ## The problem

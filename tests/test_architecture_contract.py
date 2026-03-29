@@ -142,6 +142,24 @@ def test_blessed_deployment_profiles_are_consistent_across_operator_docs() -> No
     assert "Profile choice determines how the operator authenticates, where landing payloads live" in freshness
 
 
+def test_operator_onboarding_docs_pin_demo_first_and_next_action_flow() -> None:
+    contracts = (ROOT / "docs" / "product" / "finance-source-contracts.md").read_text()
+    freshness = (ROOT / "docs" / "product" / "source-freshness-workflow.md").read_text()
+
+    assert "demo-first" in contracts
+    assert "seed the demo bundle" in contracts
+    assert "example CSV and PDF files under `docs/examples/finance-source-contracts/`" in contracts
+    assert "fix the source file and re-upload" in contracts
+    assert "open the failed run" in contracts
+    assert "repair the source binding" in contracts
+    assert "When a source is overdue, the operator should be prompted to fetch the missing export" in contracts
+    assert "demo-first" in freshness
+    assert "one real source at a time" in freshness
+    assert "upload the missing export" in freshness
+    assert "open the failed run" in freshness
+    assert "repair the source binding" in freshness
+
+
 def test_stage6_adapter_docs_pin_typed_runtime_status_boundaries() -> None:
     integration_adapters = (
         ROOT / "docs" / "architecture" / "integration-adapters.md"
