@@ -17,6 +17,10 @@ export function HomelabCostBenefitPanel() {
   const [result, setResult] = useState(null);
   const [comparison, setComparison] = useState(null);
   const [compareHref, setCompareHref] = useState("");
+  const [comparePartnerId, setComparePartnerId] = useState("");
+  const [compareSetSaving, setCompareSetSaving] = useState(false);
+  const [compareSetError, setCompareSetError] = useState("");
+  const [compareSetSavedLabel, setCompareSetSavedLabel] = useState("");
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -25,6 +29,10 @@ export function HomelabCostBenefitPanel() {
     setResult(null);
     setComparison(null);
     setCompareHref("");
+    setComparePartnerId("");
+    setCompareSetSaving(false);
+    setCompareSetError("");
+    setCompareSetSavedLabel("");
 
     const body = { monthly_cost_delta: monthlyCostDelta };
     if (label) body.label = label;
@@ -55,13 +63,16 @@ export function HomelabCostBenefitPanel() {
           (scenario) => scenario.scenario_id !== data.scenario_id,
         );
         if (partnerScenario?.scenario_id) {
+          setComparePartnerId(partnerScenario.scenario_id);
           setCompareHref(
             `/scenarios/compare?left=${encodeURIComponent(data.scenario_id)}&right=${encodeURIComponent(partnerScenario.scenario_id)}`,
           );
         } else {
+          setComparePartnerId("");
           setCompareHref(`/scenarios/compare?left=${encodeURIComponent(data.scenario_id)}`);
         }
       } else {
+        setComparePartnerId("");
         setCompareHref(`/scenarios/compare?left=${encodeURIComponent(data.scenario_id)}`);
       }
     } catch {
@@ -77,7 +88,45 @@ export function HomelabCostBenefitPanel() {
     setResult(null);
     setComparison(null);
     setCompareHref("");
+    setComparePartnerId("");
+    setCompareSetSaving(false);
+    setCompareSetError("");
+    setCompareSetSavedLabel("");
     setError(null);
+  }
+
+  async function handleSaveCompareSet() {
+    if (!result?.scenario_id || !comparePartnerId || compareSetSaving) {
+      return;
+    }
+    setCompareSetSaving(true);
+    setCompareSetError("");
+    setCompareSetSavedLabel("");
+
+    try {
+      const response = await fetch("/api/scenarios/compare-sets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          left_scenario_id: result.scenario_id,
+          right_scenario_id: comparePartnerId,
+          label: `Homelab compare: ${result.label || result.scenario_id}`,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        setCompareSetError(err.detail || "Failed to save compare set.");
+        return;
+      }
+
+      const savedSet = await response.json();
+      setCompareSetSavedLabel(savedSet.label || "Saved compare set");
+    } catch {
+      setCompareSetError("Network error — could not reach API.");
+    } finally {
+      setCompareSetSaving(false);
+    }
   }
 
   const deltaValue = Number(monthlyCostDelta);
@@ -204,10 +253,30 @@ export function HomelabCostBenefitPanel() {
                 <Link className="ghostButton inlineButton" href={compareHref || `/scenarios/compare?left=${encodeURIComponent(result.scenario_id)}`}>
                   Compare scenarios
                 </Link>
+                <button
+                  className="ghostButton inlineButton"
+                  type="button"
+                  onClick={handleSaveCompareSet}
+                  disabled={!comparePartnerId || compareSetSaving}
+                >
+                  {compareSetSaving ? "Saving compare set…" : "Save compare set"}
+                </button>
                 <button className="ghostButton inlineButton" type="button" onClick={reset}>
                   Run another
                 </button>
               </div>
+
+              {compareSetError && (
+                <div className="errorBanner" style={{ marginTop: "0.75rem" }}>
+                  {compareSetError}
+                </div>
+              )}
+
+              {compareSetSavedLabel && (
+                <div className="successBanner" style={{ marginTop: "0.75rem" }}>
+                  {compareSetSavedLabel}
+                </div>
+              )}
 
               {comparison?.summary_rows?.length > 0 && (
                 <div style={{ marginTop: "1rem" }}>

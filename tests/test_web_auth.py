@@ -605,10 +605,12 @@ def test_nextjs_frontend_reads_data_from_api_helper_only() -> None:
     assert "Highest-cost share" in homelab_source
     assert "/api/scenarios/homelab-cost-benefit" in homelab_cost_benefit_panel_source
     assert "/api/scenarios/${data.scenario_id}/comparison" in homelab_cost_benefit_panel_source
+    assert "/api/scenarios/compare-sets" in homelab_cost_benefit_panel_source
     assert "monthly_cost_delta" in homelab_cost_benefit_panel_source
     assert "Homelab cost/benefit" in homelab_cost_benefit_panel_source
     assert "View scenario" in homelab_cost_benefit_panel_source
     assert "Compare scenarios" in homelab_cost_benefit_panel_source
+    assert "Save compare set" in homelab_cost_benefit_panel_source
     assert "/api/scenarios" in homelab_cost_benefit_panel_source
     assert "/scenarios/compare?left=" in homelab_cost_benefit_panel_source
     assert "&right=" in homelab_cost_benefit_panel_source
