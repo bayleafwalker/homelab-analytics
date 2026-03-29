@@ -60,7 +60,7 @@ The external verdict is directionally correct but stale against the local worktr
 The old catch-all backlog should be split into focused sprint packets:
 
 1. `Sprint J — Non-Finance Canonical Foundations`
-   Carries the genuine Stage 1 follow-up: cross-domain semantic-contract cleanup, the remaining canonical-dimension follow-up (`dim_household_member`), the now-implemented `fact_balance_snapshot`, and any carefully scoped reporting/publication completion still needed around infrastructure and homelab foundations.
+   Carries the genuine Stage 1 follow-up: cross-domain semantic-contract cleanup, the remaining canonical-dimension follow-up (`dim_household_member`), and any carefully scoped reporting/publication completion still needed around publication semantics and the current-dimension path.
 2. `Sprint K — Household Decision Surfaces`
    Delivered as Sprint `#12`. Keep it as the historical record for the homelab decision-surface work, but do not treat it as queued backlog.
 3. `Sprint L — Runtime Profiles And Operator Onboarding`

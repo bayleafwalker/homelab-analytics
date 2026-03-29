@@ -113,11 +113,14 @@ def test_stage1_carryover_docs_name_remaining_dimension_and_completed_fact() -> 
 
     assert "`dim_household_member`" in roadmap
     assert "`fact_balance_snapshot`" in roadmap
+    assert "Publication-semantic guidance for the current-dimension path" in roadmap
     assert "`dim_household_member`" in backlog
-    assert "`fact_balance_snapshot`" in backlog
-    assert "`dim_household_member` is still planned and not implemented." in semantic_contracts
+    assert "publication semantics and the current-dimension path" in backlog
+    assert "When a shared dimension is promoted, update the relevant requirements entry and publication contract in the same change." in semantic_contracts
+    assert "`dim_household_member` is still planned and not implemented; it is the only remaining Stage 1 dimension gap." in semantic_contracts
     assert "implemented as the Stage 1 point-in-time balance fact across account and loan balances" in semantic_contracts
     assert "`fact_balance_snapshot`" in requirements
+    assert "publication-semantic follow-up is tracked in `docs/architecture/semantic-contracts.md`" in requirements
     assert "remaining Stage 1 dimension work is concentrated in `dim_household_member`" in requirements
 
 

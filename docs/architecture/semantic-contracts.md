@@ -11,6 +11,7 @@ They sit between the transformation-layer model and the reporting/publication su
 ## Contract rules
 
 - Shared dimensions must be named once and reused across domains. Do not create parallel per-domain copies when a dimension already exists in transformation.
+- When a shared dimension is promoted, update the relevant requirements entry and publication contract in the same change. Do not leave a promoted dimension half-documented between transformation and reporting.
 - Reporting-facing current dimensions must publish an explicit semantic contract. Do not rely on inferred-only metadata when the relation is intended to be a durable app or renderer surface.
 - The current-dimension publication key stays aligned to the canonical dimension name, while the backing relation remains `rpt_current_dim_*`.
 - Surrogate key columns such as `sk` are identifiers in contract metadata, not anonymous string dimensions.
@@ -44,7 +45,7 @@ Domain-local does not mean ad hoc. Each still needs reporting-layer publication 
 
 ## Known governance gaps
 
-- `dim_household_member` is still planned and not implemented.
+- `dim_household_member` is still planned and not implemented; it is the only remaining Stage 1 dimension gap.
 - `fact_balance_snapshot` is implemented as the Stage 1 point-in-time balance fact across account and loan balances.
 - Finance still stores `dim_counterparty.category` as a free-text bridge instead of a canonical `category_id`.
 - Provider semantics still live inside domain-local string columns such as `dim_contract.provider`; there is no shared provider dimension yet.
