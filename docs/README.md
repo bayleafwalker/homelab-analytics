@@ -56,6 +56,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 - `sprints/expense-shock-sprint.md` — Sprint E+2: expense shock / tariff / cost-of-living scenario. Done.
 - `sprints/ha-integration-hub-phase1.md` — Sprint G: HA integration hub Phase 1 (entity normalization bridge). Done.
 - `sprints/documentation-reconciliation-and-adapter-stage.md` — documentation reconciliation, integration adapter stage, and roadmap update.
+- `sprints/agentic-and-assistant-layer.md` — Sprint N: agentic retrieval and safe action proposals.
 
 ## Agents
 
