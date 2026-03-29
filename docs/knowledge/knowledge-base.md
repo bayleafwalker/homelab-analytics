@@ -1,7 +1,55 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-03-29T16:48:22Z
+Generated: 2026-03-29T17:15:19Z
 
 ## Decisions
+
+### Scope Sprint K compare-set follow-up to pair-set lifecycle only
+Source: track: stage-4, sprint: 5
+Tags: stage-4, scenario, compare-set, lifecycle
+
+The Sprint K compare-set follow-up stays on the current pair-based model. Scope is limited to label rename, archived-set visibility in the compare UI, and restore/unarchive flow. Do not introduce multi-scenario membership or a new homelab ROI model in this slice. Widening to a multi-scenario compare model requires a dedicated sprint with its own acceptance criteria.
+
+---
+
+### Store compare sets in backend persistence, not browser localStorage
+Source: track: stage-3, sprint: 5
+Tags: stage-4, scenario, comparison, persistence
+
+The scenario compare-set slice stores compare pairs in the scenario backend so the workflow is reusable across sessions and browsers. This replaces an earlier browser-local localStorage approach and keeps the compare page aligned with the existing scenario storage and auth model. Backend persistence ensures compare sets survive browser refreshes, are subject to the same auth boundaries as scenarios, and can be retrieved by any authorized client.
+
+---
+
+### Keep first homelab comparison slice frontend-only
+Source: track: stage-3, sprint: 5
+Tags: stage-3, homelab, frontend, reporting
+
+Existing /api/homelab/services and /api/homelab/workloads rows are sufficient for the first value-vs-cost decision surface. Add derived comparison metrics in the homelab page component instead of introducing a new reporting helper or mart. This limits blast radius for the slice and keeps backend boundaries clean until a richer join is clearly needed.
+
+---
+
+### Build first homelab value-loop slice from existing reporting marts
+Source: track: stage-3, sprint: 5
+Tags: stage-3, homelab, value-loop, reporting
+
+The initial homelab value-loop surface is deliberately built from existing reporting-layer service-health and workload-cost routes. This keeps the sprint slice narrow and leaves a dedicated cross-domain cost/benefit mart for the next increment if the model needs a stronger join or a new heuristic. Do not introduce new mart queries or reporting helpers until the existing routes have proven insufficient for the value-loop use case.
+
+---
+
+### Normalize planning states to good/warning/needs-action
+Source: track: stage-3, sprint: 5
+Tags: stage-3, reporting, state-indicators
+
+Implement the Stage 3 structured state indicator slice by exposing a normalized state field on existing budget variance, budget envelope, budget progress, and affordability ratio outputs. Keep the domain-specific raw status fields for backward compatibility, but let the dashboard and budgets page render the shared normalized state. This makes the state model consistent across planning surfaces without breaking existing consumers.
+
+---
+
+### Mirror generated frontend contracts when Node is unavailable
+Source: track: stage-3, sprint: 5
+Tags: frontend, generated, tooling
+
+Node and npm were unavailable in the workspace, so new budget-envelope API and publication contracts were mirrored into the generated TypeScript stubs by hand to keep the frontend types aligned with the OpenAPI and publication JSON exports. This is an acceptable fallback when the code-gen toolchain is not available, but the mirrored stubs must be kept in sync with the OpenAPI spec until a re-generation pass can run.
+
+---
 
 ### Use the existing publication contract model as the semantic retrieval source of truth
 Source: track: stage-10, sprint: 16
@@ -286,6 +334,22 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 ---
 
 ## Lessons
+
+### Require claim token or explicit handoff before mutating exclusively claimed items
+Source: sprint: 5
+Tags: sprintctl, claims, coordination
+
+If a sprint item has an exclusive claim, do not normalize its status just because the actor label matches a familiar agent. Wait for the claim token, a valid handoff via sprintctl claim handoff, or claim expiry before mutating the item state. Actor label matching alone is insufficient proof of ownership and can result in two agents mutating the same item concurrently.
+
+---
+
+### Use repo toolchain for web verification, not host shell tools
+Source: track: stage-3, sprint: 5
+Tags: verification, tooling, frontend
+
+The host shell does not expose node or pytest, but the repository bundles the Node runtime under .tooling and the Python environment under .venv. For frontend changes, prefer make verify-fast over ad hoc system checks so verification matches the repo contract. Running verification outside the repo toolchain risks false-green results when host tool versions differ from the project-pinned versions.
+
+---
 
 ### Select next sprint work from live sprintctl state first
 Source: sprint: 12
