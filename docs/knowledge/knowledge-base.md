@@ -1,7 +1,23 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-03-29T14:15:42Z
+Generated: 2026-03-29T16:48:22Z
 
 ## Decisions
+
+### Use the existing publication contract model as the semantic retrieval source of truth
+Source: track: stage-10, sprint: 16
+Tags: stage-10, publication-index, retrieval, contracts
+
+Sprint N item #87 will expose a read-only semantic index under /contracts rather than inventing a parallel publication registry. The index is derived from the existing publication and UI descriptor contracts so assistant surfaces can retrieve publication metadata, renderer hints, and field semantics without bypassing the contract layer or landing/transformation internals.
+
+---
+
+### Add a read-only assistant answer route grounded in publication-backed reporting methods
+Source: track: stage-10, sprint: 16
+Tags: stage-10, assistant-surface, retrieval, reporting
+
+Sprint N item #89 will expose a single /api/assistant/answer entrypoint that resolves finance, utilities, and operations questions from the semantic publication layer and reporting service. Responses will include explicit publication-index and report-path pointers so the assistant stays explainable, read-first, and proposal-only.
+
+---
 
 ### Sprint M starts with runtime-boundary cleanup and adapter honesty
 Source: track: stage-5, sprint: 15
