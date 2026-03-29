@@ -1,7 +1,15 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-03-29T10:53:51Z
+Generated: 2026-03-29T11:02:53Z
 
 ## Decisions
+
+### Sprint K duplicate packets remain archival
+Source: sprint: 12
+Tags: sprint-k, backlog-cleanup, sprintctl, knowledge
+
+Sprint #12 is complete, the older Sprint K packets remain archival noise in closed sprint records, and the live backlog should move to Sprint J rather than reusing the duplicate packets.
+
+---
 
 ### Normalize duplicate Sprint K packets into the delivered record
 Source: track: stage-3, sprint: 11
@@ -174,6 +182,14 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 ---
 
 ## Lessons
+
+### Select next sprint work from live sprintctl state first
+Source: sprint: 12
+Tags: sprintctl, workflow, handoff, process
+
+The sprint closeout exposed that duplicate historical packets and stale tracker entries are easy to confuse with active work; future sprint selection should start from live sprintctl state, then use docs and snapshots as supporting context.
+
+---
 
 ### Require explicit claim proof for item transitions
 Source: track: stage-9, sprint: 8
