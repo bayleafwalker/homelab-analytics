@@ -13,6 +13,7 @@ import {
   getHomelabWorkloads,
 } from "@/lib/backend";
 import { getWebRendererDiscovery } from "@/lib/renderer-discovery";
+import { HomelabCostBenefitPanel } from "@/components/homelab-cost-benefit-panel";
 
 function formatTimestamp(ts) {
   if (!ts) return "—";
@@ -406,6 +407,7 @@ export default async function HomelabPage({ searchParams }) {
             </span>
           </div>
           <p className="muted">{homelabRoi?.decision_cue || "No homelab ROI rows are published yet."}</p>
+          <HomelabCostBenefitPanel />
           <dl className="kvGrid">
             <dt>Healthy services</dt>
             <dd>{homelabRoi?.healthy_service_count ?? "—"}</dd>
