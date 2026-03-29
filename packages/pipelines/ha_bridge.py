@@ -22,7 +22,10 @@ import json
 import logging
 import uuid
 from datetime import UTC, datetime
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
+
+if TYPE_CHECKING:
+    from packages.adapters.contracts import AdapterRuntimeStatus
 
 import httpx
 import websockets
@@ -107,7 +110,7 @@ class HaBridgeWorker:
             "reconnect_count": self.reconnect_count,
         }
 
-    def get_runtime_status(self) -> "AdapterRuntimeStatus":
+    def get_runtime_status(self) -> AdapterRuntimeStatus:
         """Return a typed runtime status snapshot for the adapter layer."""
         from packages.adapters.contracts import AdapterRuntimeStatus
 

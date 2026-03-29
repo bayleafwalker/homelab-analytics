@@ -33,7 +33,10 @@ import asyncio
 import json
 import logging
 from datetime import UTC, datetime
-from typing import Any, Callable, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Sequence
+
+if TYPE_CHECKING:
+    from packages.adapters.contracts import AdapterRuntimeStatus
 
 from packages.pipelines.ha_mqtt_models import HaMqttEntityDefinition
 
@@ -274,7 +277,7 @@ class HaMqttPublisher:
             "publication_keys": publication_keys,
         }
 
-    def get_runtime_status(self) -> "AdapterRuntimeStatus":
+    def get_runtime_status(self) -> AdapterRuntimeStatus:
         """Return a typed runtime status snapshot for the adapter layer."""
         from packages.adapters.contracts import AdapterRuntimeStatus
 

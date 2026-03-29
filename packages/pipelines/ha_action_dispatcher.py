@@ -32,6 +32,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
+    from packages.adapters.contracts import AdapterRuntimeStatus
     from packages.pipelines.ha_action_proposals import (
         ApprovalActionProposal,
         ApprovalActionRegistry,
@@ -379,7 +380,7 @@ class HaActionDispatcher:
             "approval_dismissed_count": approval_status.get("dismissed", 0),
         }
 
-    def get_runtime_status(self) -> "AdapterRuntimeStatus":
+    def get_runtime_status(self) -> AdapterRuntimeStatus:
         """Return a typed runtime status snapshot for the adapter layer."""
         from packages.adapters.contracts import AdapterRuntimeStatus
 
