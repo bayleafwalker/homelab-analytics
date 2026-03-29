@@ -55,10 +55,11 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Dashboard UI and external consumers (e.g. Home Assistant) access analytics data through the same API.
 
 **Phase:** 1–3
-**Status:** in-progress (`GET /reports/monthly-cashflow` and the other built-in marts read through the reporting-service contract; when Postgres published reporting is configured, API/web app-facing reads now require published relations instead of falling back to DuckDB; current-dimension, subscription-summary, contract-price, electricity-price, utility-cost-summary, and homelab ROI endpoints are exposed from reporting-layer models; executable reporting extensions now advertise whether they are `published` or `warehouse` backed, published extensions can declare publication relations for Postgres-backed execution, and config-driven publication definitions can include those relation keys during promotion; export formats and remaining mart endpoints are still pending)
+**Status:** in-progress (`GET /reports/monthly-cashflow` and the other built-in marts read through the reporting-service contract; when Postgres published reporting is configured, API/web app-facing reads now require published relations instead of falling back to DuckDB; current-dimension, subscription-summary, contract-price, electricity-price, utility-cost-summary, and homelab ROI endpoints are exposed from reporting-layer models; `GET /contracts/publication-index` now provides a semantic retrieval view over publication contracts and UI descriptors for agent-facing consumers; executable reporting extensions now advertise whether they are `published` or `warehouse` backed, published extensions can declare publication relations for Postgres-backed execution, and config-driven publication definitions can include those relation keys during promotion; export formats and remaining mart endpoints are still pending)
 
 **Acceptance criteria:**
 - `GET /reports/{mart_name}` returns mart data with query parameters for date range and filters.
+- `GET /contracts/publication-index` returns a semantic publication retrieval view with query/filter support and key-based lookup.
 - Response supports JSON format; CSV and Parquet export via `Accept` header or query parameter (Phase 2).
 - Each mart from PLT-12 has a corresponding API endpoint.
 - Tests verify response content from known fixture data.
@@ -257,7 +258,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 |---|---|---|
 | APP-01 | `apps/api/app.py`, `apps/api/support.py`, `apps/api/routes/ingest_routes.py` | `tests/test_api_app.py` |
 | APP-02 | `apps/api/app.py`, `apps/api/support.py`, `apps/api/routes/run_routes.py`, `apps/api/routes/config_routes.py` | `tests/test_api_app.py` |
-| APP-03 | `apps/api/app.py`, `apps/api/support.py`, `apps/api/routes/report_routes.py` | `tests/test_api_app.py`, `tests/test_reporting_api_app.py`, `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py` |
+| APP-03 | `apps/api/app.py`, `apps/api/support.py`, `apps/api/routes/report_routes.py`, `apps/api/routes/contract_routes.py`, `packages/platform/publication_index.py` | `tests/test_api_app.py`, `tests/test_reporting_api_app.py`, `tests/test_utility_domain.py`, `tests/test_local_domain_harness.py`, `tests/test_publication_semantic_index.py` |
 | APP-04 | `apps/api/app.py`, `apps/api/auth_runtime.py`, `apps/api/support.py`, `apps/api/runtime_state.py`, `apps/api/routes/auth_routes.py`, `apps/api/routes/config_routes.py`, `apps/api/routes/control_routes.py`, `apps/api/routes/ingest_routes.py` | `tests/test_api_app.py` |
 | APP-05 | `apps/web/frontend/app/page.js`, `apps/web/frontend/app/reports/page.js`, `apps/web/frontend/app/control/page.js`, `apps/web/frontend/app/control/catalog/page.js`, `apps/web/frontend/app/control/execution/page.js`, `apps/web/frontend/app/homelab/page.js`, `apps/web/frontend/components/app-shell.js` | `tests/test_web_app.py`, `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
 | APP-06 | `apps/web/frontend/app/runs/page.js`, `apps/web/frontend/app/runs/[runId]/page.js`, `apps/web/frontend/lib/backend.ts` | `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |

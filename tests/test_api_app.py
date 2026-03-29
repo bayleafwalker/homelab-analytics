@@ -194,6 +194,51 @@ class ApiAppTests(unittest.TestCase):
                     "content"
                 ]["application/json"]["schema"]["$ref"],
             )
+            self.assertEqual(
+                "#/components/schemas/PublicationSemanticIndexResponse",
+                schema["paths"]["/contracts/publication-index"]["get"]["responses"]["200"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+            self.assertEqual(
+                "#/components/schemas/PublicationSemanticIndexEntryModel",
+                schema["paths"]["/contracts/publication-index/{publication_key}"]["get"][
+                    "responses"
+                ]["200"]["content"]["application/json"]["schema"]["$ref"],
+            )
+
+    def test_publication_semantic_index_supports_query_and_retrieval(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs.db"
+                        ),
+                    ),
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            list_response = client.get("/contracts/publication-index", params={"query": "cashflow"})
+
+            self.assertEqual(200, list_response.status_code)
+            publication_index = list_response.json()["publication_index"]
+            self.assertTrue(
+                any(
+                    entry["publication"]["publication_key"] == "monthly_cashflow"
+                    for entry in publication_index
+                )
+            )
+
+            detail_response = client.get("/contracts/publication-index/monthly_cashflow")
+
+            self.assertEqual(200, detail_response.status_code)
+            self.assertEqual(
+                "monthly_cashflow",
+                detail_response.json()["publication"]["publication_key"],
+            )
 
     def test_openapi_schema_exposes_typed_mutation_response_models(self) -> None:
         with TemporaryDirectory() as temp_dir:

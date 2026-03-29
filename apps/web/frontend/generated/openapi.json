@@ -3883,6 +3883,98 @@
         "title": "PublicationDefinitionRequest",
         "type": "object"
       },
+      "PublicationSemanticIndexEntryModel": {
+        "additionalProperties": false,
+        "properties": {
+          "publication": {
+            "$ref": "#/components/schemas/PublicationContractModel"
+          },
+          "search_terms": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Search Terms",
+            "type": "array"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "supported_renderers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Supported Renderers",
+            "type": "array"
+          },
+          "ui_descriptor_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ui Descriptor Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "publication",
+          "ui_descriptor_keys",
+          "supported_renderers",
+          "search_terms",
+          "summary"
+        ],
+        "title": "PublicationSemanticIndexEntryModel",
+        "type": "object"
+      },
+      "PublicationSemanticIndexResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "publication_index": {
+            "items": {
+              "$ref": "#/components/schemas/PublicationSemanticIndexEntryModel"
+            },
+            "title": "Publication Index",
+            "type": "array"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
+          "renderer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Renderer"
+          },
+          "ui_descriptor_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ui Descriptor Key"
+          }
+        },
+        "required": [
+          "publication_index"
+        ],
+        "title": "PublicationSemanticIndexResponse",
+        "type": "object"
+      },
       "RecentChangesResponse": {
         "properties": {
           "rows": {
@@ -9766,6 +9858,123 @@
           }
         },
         "summary": "Set Transformation Package Archived State"
+      }
+    },
+    "/contracts/publication-index": {
+      "get": {
+        "operationId": "list_publication_semantic_index_contracts_publication_index_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Query"
+            }
+          },
+          {
+            "in": "query",
+            "name": "renderer",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Renderer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ui_descriptor_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ui Descriptor Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicationSemanticIndexResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Publication Semantic Index"
+      }
+    },
+    "/contracts/publication-index/{publication_key}": {
+      "get": {
+        "operationId": "get_publication_semantic_index_entry_contracts_publication_index__publication_key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "publication_key",
+            "required": true,
+            "schema": {
+              "title": "Publication Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicationSemanticIndexEntryModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Publication Semantic Index Entry"
       }
     },
     "/contracts/publications": {

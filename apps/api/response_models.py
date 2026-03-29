@@ -10,6 +10,7 @@ from packages.platform.publication_contracts import (
     PublicationContract,
     UiDescriptorContract,
 )
+from packages.platform.publication_index import PublicationSemanticIndexEntry
 
 
 class PublicationColumnContractModel(BaseModel):
@@ -73,6 +74,25 @@ class UiDescriptorsResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ui_descriptors: list[UiDescriptorContractModel]
+
+
+class PublicationSemanticIndexEntryModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    publication: PublicationContractModel
+    ui_descriptor_keys: list[str]
+    supported_renderers: list[str]
+    search_terms: list[str]
+    summary: str
+
+
+class PublicationSemanticIndexResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    publication_index: list[PublicationSemanticIndexEntryModel]
+    query: str | None = None
+    renderer: str | None = None
+    ui_descriptor_key: str | None = None
 
 
 class HaRuntimeStatusModel(BaseModel):
@@ -371,3 +391,15 @@ def publication_column_model_from_dataclass(
     column: PublicationColumnContract,
 ) -> PublicationColumnContractModel:
     return PublicationColumnContractModel.model_validate(column, from_attributes=True)
+
+
+def publication_semantic_index_entry_model_from_dataclass(
+    entry: PublicationSemanticIndexEntry,
+) -> PublicationSemanticIndexEntryModel:
+    return PublicationSemanticIndexEntryModel(
+        publication=publication_contract_model_from_dataclass(entry.publication),
+        ui_descriptor_keys=list(entry.ui_descriptor_keys),
+        supported_renderers=list(entry.supported_renderers),
+        search_terms=list(entry.search_terms),
+        summary=entry.summary,
+    )

@@ -1381,6 +1381,40 @@ export interface paths {
         patch: operations["set_transformation_package_archived_state_config_transformation_packages__transformation_package_id__archive_patch"];
         trace?: never;
     };
+    "/contracts/publication-index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Publication Semantic Index */
+        get: operations["list_publication_semantic_index_contracts_publication_index_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contracts/publication-index/{publication_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Publication Semantic Index Entry */
+        get: operations["get_publication_semantic_index_entry_contracts_publication_index__publication_key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/contracts/publications": {
         parameters: {
             query?: never;
@@ -3694,6 +3728,29 @@ export interface components {
             publication_key: string;
             /** Transformation Package Id */
             transformation_package_id: string;
+        };
+        /** PublicationSemanticIndexEntryModel */
+        PublicationSemanticIndexEntryModel: {
+            publication: components["schemas"]["PublicationContractModel"];
+            /** Search Terms */
+            search_terms: string[];
+            /** Summary */
+            summary: string;
+            /** Supported Renderers */
+            supported_renderers: string[];
+            /** Ui Descriptor Keys */
+            ui_descriptor_keys: string[];
+        };
+        /** PublicationSemanticIndexResponse */
+        PublicationSemanticIndexResponse: {
+            /** Publication Index */
+            publication_index: components["schemas"]["PublicationSemanticIndexEntryModel"][];
+            /** Query */
+            query?: string | null;
+            /** Renderer */
+            renderer?: string | null;
+            /** Ui Descriptor Key */
+            ui_descriptor_key?: string | null;
         };
         /** RecentChangesResponse */
         RecentChangesResponse: {
@@ -7523,6 +7580,70 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_publication_semantic_index_contracts_publication_index_get: {
+        parameters: {
+            query?: {
+                query?: string | null;
+                renderer?: string | null;
+                ui_descriptor_key?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationSemanticIndexResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_publication_semantic_index_entry_contracts_publication_index__publication_key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publication_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationSemanticIndexEntryModel"];
                 };
             };
             /** @description Validation Error */

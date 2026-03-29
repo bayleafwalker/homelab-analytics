@@ -507,6 +507,10 @@ def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> Non
         required_service_token_scope_for_request("/contracts/publications", "GET")
         == "reports:read"
     )
+    assert (
+        required_permission_for_request("/contracts/publication-index", method="GET")
+        == "reports.read"
+    )
 
     assert required_role_for_request("/api/scenarios", "GET") == UserRole.READER
     assert required_permission_for_request("/api/scenarios", method="GET") == "reports.read"
