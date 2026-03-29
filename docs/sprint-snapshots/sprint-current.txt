@@ -1,4 +1,4 @@
-SPRINT: Sprint N — Agentic Retrieval And Safe Action Proposals  [active]
+SPRINT: Sprint N — Agentic Retrieval And Safe Action Proposals  [closed]
 Goal:   Make semantic publication state explorable by agents, let them draft safe auditable action proposals, and surface explainable recommendations without making agents the source of truth.
 Dates:  2026-03-29 to 2026-04-12
 ID:     16
@@ -9,4 +9,4 @@ ID:     16
   [done    ] #88  Auditable action proposal and approval gating  (assignee: -)
   [done    ] #89  Domain assistant entrypoint for finance, utilities, and operations  (assignee: -)
 
-Rendered: 2026-03-29T16:46:58Z
+Rendered: 2026-03-29T16:48:35Z
