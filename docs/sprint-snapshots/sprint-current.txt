@@ -1,14 +1,12 @@
-SPRINT: Sprint M — Integration Boundary Hardening  [closed]
-Goal:   Make the composition-root and HA boundary story honest across API and worker startup, then extract the Stage 6 adapter layer from the proven HA implementation.
-ID:     15
+SPRINT: Sprint N — Agentic Retrieval And Safe Action Proposals  [active]
+Goal:   Make semantic publication state explorable by agents, let them draft safe auditable action proposals, and surface explainable recommendations without making agents the source of truth.
+Dates:  2026-03-29 to 2026-04-12
+ID:     16
 
---- Track: stage-5 ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #84  Runtime-boundary cleanup packet: HA startup extraction and builder consolidation  (assignee: -)
+--- Track: stage-10 ---
+  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
+  [pending ] #87  Semantic publication index and retrieval API  (assignee: -)
+  [pending ] #88  Auditable action proposal and approval gating  (assignee: -)
+  [pending ] #89  Domain assistant entrypoint for finance, utilities, and operations  (assignee: -)
 
---- Track: stage-6 ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #85  Stage 6 adapter packet: AdapterManifest, ingest/publish/action contract boundaries, lifecycle expectations, and HA-as-reference mapping  (assignee: -)
-  [done    ] #86  Health/reporting packet: one coherent status model for integration runtime health  (assignee: -)
-
-Rendered: 2026-03-29T14:15:45Z
+Rendered: 2026-03-29T15:34:40Z
