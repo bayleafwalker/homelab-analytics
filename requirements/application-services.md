@@ -272,6 +272,25 @@ The platform exposes its capabilities through three application workloads: a JSO
 
 ---
 
+### APP-15: REST API - domain assistant answer entrypoint
+
+**Description:** The API exposes a narrow read-first assistant query surface over finance, utilities, and operations publications, returning explainable answers with explicit publication and report pointers.
+
+**Rationale:** Agentic and voice surfaces need a controlled query entrypoint that stays grounded in the semantic publication layer and does not bypass reporting or action-safety rails.
+
+**Phase:** 10
+**Status:** in-progress (`GET /api/assistant/answer` resolves finance, utilities, or operations questions through the publication index and reporting-service contract, returning explainable answers with publication-index/report-path pointers and evidence snippets; broader multi-turn or write-capable assistant behavior remains out of scope)
+
+**Acceptance criteria:**
+- `GET /api/assistant/answer` accepts a question and optional domain hint.
+- Response returns a grounded answer plus publication and report pointers.
+- The endpoint is read-first and cannot mutate canonical state or dispatch actions.
+- Tests verify auth mapping, response shape, and grounding against publication-backed report data.
+
+**Dependencies:** APP-03, APP-14
+
+---
+
 ## Traceability
 
 | Requirement | Implementation module | Test file |
@@ -290,3 +309,4 @@ The platform exposes its capabilities through three application workloads: a JSO
 | APP-12 | `apps/api/app.py`, `apps/api/support.py`, `apps/api/runtime_state.py`, `apps/web/frontend/app/health/route.js` | `tests/test_api_app.py`, `tests/test_web_app.py` |
 | APP-13 | `apps/api/app.py`, `apps/api/models.py`, `apps/api/routes/config_routes.py`, `apps/worker/runtime.py`, `apps/worker/command_parser.py`, `apps/worker/command_handlers.py`, `packages/shared/function_registry.py`, `packages/pipelines/configured_csv_ingestion.py`, `packages/pipelines/promotion_registry.py`, `apps/web/frontend/app/control/catalog/page.js`, `apps/web/frontend/app/control/catalog/transformation-packages/route.js`, `apps/web/frontend/app/control/catalog/publication-definitions/route.js`, `apps/web/frontend/components/external-registry-panel.js`, `apps/web/frontend/components/function-catalog-panel.js`, `apps/web/frontend/components/transformation-catalog-panel.js`, `apps/web/frontend/lib/config-spec.js`, `apps/web/frontend/lib/backend.ts` | `tests/test_api_app.py`, `tests/test_api_main.py`, `tests/test_worker_cli.py`, `tests/test_configured_csv_ingestion.py`, `tests/test_control_plane_worker_cli.py`, `tests/test_web_auth.py` |
 | APP-14 | `apps/api/routes/ha_routes.py`, `packages/pipelines/ha_action_proposals.py`, `packages/platform/auth/permission_registry.py`, `packages/platform/auth/scope_authorization.py` | `tests/test_api_app.py`, `tests/test_api_auth.py`, `tests/test_auth_permission_registry.py`, `tests/test_ha_action_proposals.py`, `tests/test_ha_api.py`, `tests/test_ha_action_dispatcher.py` |
+| APP-15 | `apps/api/app.py`, `apps/api/response_models.py`, `apps/api/routes/assistant_routes.py`, `packages/platform/auth/scope_authorization.py` | `tests/test_api_app.py`, `tests/test_api_auth.py`, `tests/test_auth_permission_registry.py` |

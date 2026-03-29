@@ -20,7 +20,33 @@ from tests.control_plane_test_support import seed_source_asset_graph
 
 class _StubReportingService:
     def get_monthly_cashflow(self, from_month=None, to_month=None):
-        return []
+        return [
+            {
+                "booking_month": "2026-01",
+                "income": "2500.00",
+                "expense": "900.00",
+                "net": "1600.00",
+                "transaction_count": 2,
+            }
+        ]
+
+    def get_spend_by_category_monthly(self):
+        return [
+            {
+                "booking_month": "2026-01",
+                "category": "groceries",
+                "counterparty_name": "Supermarket",
+                "total_expense": "84.15",
+            }
+        ]
+
+    def get_upcoming_fixed_costs_30d(self):
+        return [
+            {
+                "contract_name": "Rent",
+                "expected_date": "2026-04-01",
+            }
+        ]
 
 
 def _build_client(
@@ -166,11 +192,19 @@ def test_api_local_auth_enforces_newly_mapped_api_surfaces() -> None:
                 ("reader", "reader-password", UserRole.READER),
                 ("admin", "admin-password", UserRole.ADMIN),
             ),
+            reporting_service=_StubReportingService(),
         )
 
         assert client.get("/contracts/publications").status_code == 401
         assert client.get("/api/scenarios").status_code == 401
         assert client.get("/api/ha/entities").status_code == 401
+        assert (
+            client.get(
+                "/api/assistant/answer",
+                params={"question": "what is our current monthly burn?"},
+            ).status_code
+            == 401
+        )
 
         assert (
             client.post(
@@ -195,6 +229,14 @@ def test_api_local_auth_enforces_newly_mapped_api_surfaces() -> None:
 
         ha_entities = client.get("/api/ha/entities")
         assert ha_entities.status_code == 503
+        assistant = client.get(
+            "/api/assistant/answer",
+            params={"question": "what is our current monthly burn?"},
+        )
+        assert assistant.status_code == 200
+        assistant_payload = assistant.json()
+        assert assistant_payload["resolved_domain"] == "finance"
+        assert assistant_payload["sources"][0]["publication_key"] == "mart_monthly_cashflow"
 
         denied_ha_ingest = client.post(
             "/api/ha/ingest",
@@ -245,6 +287,7 @@ def test_api_local_auth_enforces_reader_operator_and_admin_roles() -> None:
                 ("operator", "operator-password", UserRole.OPERATOR),
                 ("admin", "admin-password", UserRole.ADMIN),
             ),
+            reporting_service=_StubReportingService(),
         )
 
         assert (
@@ -255,6 +298,12 @@ def test_api_local_auth_enforces_reader_operator_and_admin_roles() -> None:
             == 200
         )
         assert reader_client.get("/runs").status_code == 200
+        assistant = reader_client.get(
+            "/api/assistant/answer",
+            params={"question": "what is our current monthly burn?"},
+        )
+        assert assistant.status_code == 200
+        assert "Latest monthly cashflow" in assistant.json()["answer"]
         assert (
             reader_client.post(
                 "/ingest",

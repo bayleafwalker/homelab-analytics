@@ -585,6 +585,16 @@ def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> Non
         == "ingest:write"
     )
 
+    assert required_role_for_request("/api/assistant/answer", "GET") == UserRole.READER
+    assert (
+        required_permission_for_request("/api/assistant/answer", method="GET")
+        == PERMISSION_REPORTS_READ
+    )
+    assert (
+        required_service_token_scope_for_request("/api/assistant/answer", "GET")
+        == "reports:read"
+    )
+
     assert required_role_for_request("/api/ha/entities", "GET") == UserRole.READER
     assert required_permission_for_request("/api/ha/entities", method="GET") == "runs.read"
     assert (

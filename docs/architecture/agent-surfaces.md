@@ -48,6 +48,8 @@ The initial assistant surfaces should stay narrow:
 
 The assistant should return explainable responses with pointers back to publication metadata and, where relevant, policy or lineage context. It should not reach into landing or transformation internals as a shortcut.
 
+The first implemented entrypoint is a single read-only `GET /api/assistant/answer` surface that routes finance, utilities, and operations questions through the semantic publication index and reporting layer. Each answer should name the publication-backed sources it used and point back to the corresponding publication-index and report paths.
+
 ## Boundary rules
 
 - Read from publication contracts, not raw tables.

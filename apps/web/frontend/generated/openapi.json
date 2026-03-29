@@ -127,6 +127,108 @@
         "title": "ArchivedStateRequest",
         "type": "object"
       },
+      "AssistantAnswerResponseModel": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "evidence": {
+            "additionalProperties": {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "title": "Evidence",
+            "type": "object"
+          },
+          "follow_up_questions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Follow Up Questions",
+            "type": "array"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "requested_domain": {
+            "title": "Requested Domain",
+            "type": "string"
+          },
+          "resolved_domain": {
+            "title": "Resolved Domain",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/AssistantSourceModel"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "question",
+          "requested_domain",
+          "resolved_domain",
+          "answer",
+          "sources",
+          "evidence",
+          "follow_up_questions"
+        ],
+        "title": "AssistantAnswerResponseModel",
+        "type": "object"
+      },
+      "AssistantSourceModel": {
+        "additionalProperties": false,
+        "properties": {
+          "publication_display_name": {
+            "title": "Publication Display Name",
+            "type": "string"
+          },
+          "publication_index_path": {
+            "title": "Publication Index Path",
+            "type": "string"
+          },
+          "publication_key": {
+            "title": "Publication Key",
+            "type": "string"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          },
+          "report_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Path"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publication_key",
+          "publication_display_name",
+          "publication_index_path",
+          "summary",
+          "rationale"
+        ],
+        "title": "AssistantSourceModel",
+        "type": "object"
+      },
       "AttentionItemRow": {
         "properties": {
           "detail": {
@@ -6032,6 +6134,61 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/assistant/answer": {
+      "get": {
+        "operationId": "answer_assistant_api_assistant_answer_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "question",
+            "required": true,
+            "schema": {
+              "title": "Question",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "domain",
+            "required": false,
+            "schema": {
+              "default": "auto",
+              "enum": [
+                "auto",
+                "finance",
+                "utilities",
+                "operations"
+              ],
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantAnswerResponseModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Answer Assistant"
+      }
+    },
     "/api/categories": {
       "get": {
         "operationId": "list_categories_api_categories_get",

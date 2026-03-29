@@ -1,4 +1,21 @@
 export interface paths {
+    "/api/assistant/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Answer Assistant */
+        get: operations["answer_assistant_api_assistant_answer_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/categories": {
         parameters: {
             query?: never;
@@ -2539,6 +2556,42 @@ export interface components {
             /** Archived */
             archived: boolean;
         };
+        /** AssistantAnswerResponseModel */
+        AssistantAnswerResponseModel: {
+            /** Answer */
+            answer: string;
+            /** Evidence */
+            evidence: {
+                [key: string]: {
+                    [key: string]: unknown;
+                }[];
+            };
+            /** Follow Up Questions */
+            follow_up_questions: string[];
+            /** Question */
+            question: string;
+            /** Requested Domain */
+            requested_domain: string;
+            /** Resolved Domain */
+            resolved_domain: string;
+            /** Sources */
+            sources: components["schemas"]["AssistantSourceModel"][];
+        };
+        /** AssistantSourceModel */
+        AssistantSourceModel: {
+            /** Publication Display Name */
+            publication_display_name: string;
+            /** Publication Index Path */
+            publication_index_path: string;
+            /** Publication Key */
+            publication_key: string;
+            /** Rationale */
+            rationale: string;
+            /** Report Path */
+            report_path?: string | null;
+            /** Summary */
+            summary: string;
+        };
         /** AttentionItemRow */
         AttentionItemRow: {
             /** Detail */
@@ -4411,6 +4464,38 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    answer_assistant_api_assistant_answer_get: {
+        parameters: {
+            query: {
+                question: string;
+                domain?: "auto" | "finance" | "utilities" | "operations";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantAnswerResponseModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_categories_api_categories_get: {
         parameters: {
             query?: never;

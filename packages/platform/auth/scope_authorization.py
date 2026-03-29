@@ -189,6 +189,8 @@ def required_permission_for_request(
         if len(path_parts) == 3 and request_method == "DELETE":
             return PERMISSION_INGEST_WRITE
         return PERMISSION_REPORTS_READ
+    if path.startswith("/api/assistant"):
+        return PERMISSION_REPORTS_READ
     if path.startswith("/api/ha"):
         if path in {"/api/ha/ingest", "/api/ha/policies/evaluate"}:
             return PERMISSION_INGEST_WRITE
@@ -403,6 +405,7 @@ def required_role_for_path(path: str) -> UserRole | None:
     if (
         path.startswith("/runs")
         or path.startswith("/reports")
+        or path.startswith("/api/assistant")
         or path == "/auth/me"
         or path.startswith("/docs")
         or path.startswith("/redoc")
@@ -434,6 +437,8 @@ def required_service_token_scope_for_path(path: str) -> str | None:
     ):
         return SERVICE_TOKEN_SCOPE_RUNS_READ
     if path.startswith("/reports"):
+        return SERVICE_TOKEN_SCOPE_REPORTS_READ
+    if path.startswith("/api/assistant"):
         return SERVICE_TOKEN_SCOPE_REPORTS_READ
     if (
         path.startswith("/auth/users")

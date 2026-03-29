@@ -95,6 +95,29 @@ class PublicationSemanticIndexResponse(BaseModel):
     ui_descriptor_key: str | None = None
 
 
+class AssistantSourceModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    publication_key: str
+    publication_display_name: str
+    publication_index_path: str
+    report_path: str | None = None
+    summary: str
+    rationale: str
+
+
+class AssistantAnswerResponseModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    question: str
+    requested_domain: str
+    resolved_domain: str
+    answer: str
+    sources: list[AssistantSourceModel]
+    evidence: dict[str, list[dict[str, Any]]]
+    follow_up_questions: list[str]
+
+
 class HaRuntimeStatusModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

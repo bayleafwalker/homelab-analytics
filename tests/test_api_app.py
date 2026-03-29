@@ -44,6 +44,36 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
 
 
+class _AssistantStubReportingService:
+    def get_monthly_cashflow(self, from_month=None, to_month=None):
+        return [
+            {
+                "booking_month": "2026-01",
+                "income": "2500.00",
+                "expense": "900.00",
+                "net": "1600.00",
+            }
+        ]
+
+    def get_spend_by_category_monthly(self):
+        return [
+            {
+                "booking_month": "2026-01",
+                "category": "groceries",
+                "counterparty_name": "Supermarket",
+                "total_expense": "84.15",
+            }
+        ]
+
+    def get_upcoming_fixed_costs_30d(self):
+        return [
+            {
+                "contract_name": "Rent",
+                "expected_date": "2026-04-01",
+            }
+        ]
+
+
 class ApiAppTests(unittest.TestCase):
     def test_create_app_rejects_legacy_auth_mode_only_bootstrap(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -206,6 +236,12 @@ class ApiAppTests(unittest.TestCase):
                     "responses"
                 ]["200"]["content"]["application/json"]["schema"]["$ref"],
             )
+            self.assertEqual(
+                "#/components/schemas/AssistantAnswerResponseModel",
+                schema["paths"]["/api/assistant/answer"]["get"]["responses"]["200"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
 
     def test_publication_semantic_index_supports_query_and_retrieval(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -239,6 +275,33 @@ class ApiAppTests(unittest.TestCase):
                 "monthly_cashflow",
                 detail_response.json()["publication"]["publication_key"],
             )
+
+    def test_assistant_answer_surface_returns_publication_backed_response(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs.db"
+                        ),
+                    ),
+                    reporting_service=_AssistantStubReportingService(),
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            response = client.get(
+                "/api/assistant/answer",
+                params={"question": "what is our current monthly burn?"},
+            )
+
+            self.assertEqual(200, response.status_code)
+            payload = response.json()
+            self.assertEqual("finance", payload["resolved_domain"])
+            self.assertEqual("mart_monthly_cashflow", payload["sources"][0]["publication_key"])
+            self.assertIn("Latest monthly cashflow", payload["answer"])
+            self.assertEqual("2026-01", payload["evidence"]["monthly_cashflow"][0]["booking_month"])
 
     def test_openapi_schema_exposes_typed_mutation_response_models(self) -> None:
         with TemporaryDirectory() as temp_dir:

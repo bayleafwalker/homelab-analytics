@@ -14,6 +14,7 @@ from apps.api.auth_runtime import (
     cookie_secure_for_request,
     register_auth_middleware,
 )
+from apps.api.routes.assistant_routes import register_assistant_routes
 from apps.api.routes.auth_routes import register_auth_routes
 from apps.api.routes.category_routes import register_category_routes
 from apps.api.routes.config_routes import register_config_routes
@@ -560,6 +561,13 @@ def create_app(
         service=container.service,
         registry=container.extension_registry,
         transformation_service=transformation_service,
+        resolved_reporting_service=reporting_service,
+        to_jsonable=to_jsonable,
+    )
+    register_assistant_routes(
+        app,
+        capability_packs=container.capability_packs,
+        extension_registry=container.extension_registry,
         resolved_reporting_service=reporting_service,
         to_jsonable=to_jsonable,
     )
