@@ -1,42 +1,41 @@
-SPRINT: Sprint iron-grove-atlas — Adapter Ecosystem and Renderer Contracts  [active]
-Goal:   Prove adapter and renderer abstractions are real by shipping non-HA implementations, general renderer contract, and governed pack model
-ID:     23
+SPRINT: Sprint substrate-iron-seam — Platform Kernel and Household App Seam  [active]
+Goal:   Make the kernel/app boundary visible and enforceable: split packages/pipelines/ by domain, clean container assumptions, add import-boundary enforcement tests, prove minimal-kernel boot
+Dates:  2026-03-31 to 2026-04-27
+ID:     27
+Items:  16 total — 1 done, 0 active, 15 pending, 0 blocked
 
---- Track: scope ---
-  health: 6 items — 0 done (0%), 0 active, 6 pending, 0 blocked (0%)
-  [pending ] #120  Renderer contract extraction  (assignee: -)
-  [pending ] #121  CSV/JSON export renderer  (assignee: -)
-  [pending ] #122  Prometheus metrics adapter  (assignee: -)
-  [pending ] #123  Adapter pack manifest and lifecycle  (assignee: -)
-  [pending ] #124  Pack compatibility and trust model  (assignee: -)
-  [pending ] #125  Multi-renderer publication routing  (assignee: -)
+--- Track: pipeline-split ---
+  health: 5 items — 0 done (0%), 0 active, 5 pending, 0 blocked (0%)
+  [pending ] #190  WP-1a: Split finance-domain pipeline logic out of packages/pipelines/ into packages/domains/finance/  (assignee: -)
+  [pending ] #191  WP-1b: Split utilities-domain pipeline logic out of packages/pipelines/ into packages/domains/utilities/  (assignee: -)
+  [pending ] #192  WP-1c: Split homelab/HA-domain pipeline logic out of packages/pipelines/ into packages/domains/homelab/  (assignee: -)
+  [pending ] #193  WP-1d: Split overview-domain pipeline logic out of packages/pipelines/ into packages/domains/overview/  (assignee: -)
+  [pending ] #194  WP-1e: Resolve ambiguous pipeline files — classify each as kernel, app, or justified-mixed with written rationale  (assignee: -)
 
---- Track: adapter-contract ---
+--- Track: boundary-cleanup ---
+  health: 4 items — 0 done (0%), 0 active, 4 pending, 0 blocked (0%)
+  [pending ] #196  WP-3: Move household-specific contract instances out of platform-level locations into domain/app ownership  (assignee: -)
+  [pending ] #197  WP-4: Clean shared-layer imports of domain manifests — accept packs as parameters instead of importing directly  (assignee: -)
+  [pending ] #198  WP-5: Remove remaining platform dependency inversions into mixed pipeline code — consume registration input instead  (assignee: -)
+  [pending ] #199  WP-6: Promote genuinely generic freshness logic to platform/shared home if still generic after review  (assignee: -)
+
+--- Track: container-cleanup ---
   health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #216  Formal adapter contract: identity, version, capability types (ingest/publish/action/observe), config, health signals  (assignee: -)
+  [pending ] #195  WP-2: Remove household-typed fields from platform container — move domain-service construction into app composition logic  (assignee: -)
 
---- Track: extension-ux ---
+--- Track: enforcement ---
+  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
+  [pending ] #200  WP-7: Add import-boundary enforcement tests — CI fails on platform-to-domain import violations  (assignee: -)
+  [pending ] #201  WP-8: Add minimal-kernel boot smoke test — platform imports, zero-pack container builds, health endpoints respond  (assignee: -)
+
+--- Track: deferred ---
   health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #222  Extension operator/admin surface: installed packs, health, config, compatibility warnings, enable/disable  (assignee: -)
+  [pending ] #205  WP-12: [DEFERRED] Revisit route-extension/composition hooks only after seam cleanup proves pain  (assignee: -)
 
---- Track: reference-impl ---
-  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
-  [pending ] #220  Strengthen Home Assistant as reference adapter under formal adapter contract  (assignee: -)
-  [pending ] #221  Add one non-HA adapter or renderer proving generality  (assignee: -)
+--- Track: naming-docs ---
+  health: 3 items — 1 done (33%), 0 active, 2 pending, 0 blocked (0%)
+  [pending ] #202  WP-9: Rename misleading builtin household files — stop disguising app content as universal platform infrastructure  (assignee: -)
+  [pending ] #203  WP-10: Add doc classification tags — tag ADRs/docs as PLATFORM / APP / CROSS-CUTTING, split docs by concern  (assignee: -)
+  [done    ] #204  WP-11: Add contributor/agent decision guide — classify work before touching code  (assignee: -)
 
---- Track: runtime-support ---
-  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
-  [pending ] #217  Discovery/registration path for adapters and packs with activation/deactivation behavior  (assignee: -)
-  [pending ] #218  Health and compatibility evaluation for loaded extensions  (assignee: -)
-  [pending ] #219  Contract exposure through API/control-plane metadata  (assignee: -)
-
---- Track: verification ---
-  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
-  [pending ] #223  Contract tests for adapter/renderer manifests and integration tests for registration/activation  (assignee: -)
-  [pending ] #224  Extension governance docs: boundaries, safety expectations, compatibility rules  (assignee: -)
-
---- Track: frontend-contracts ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #225  APP-16: Publish-lane UI contract bundle, Storybook review surfaces, token export, and Playwright checks  (assignee: -)
-
-Rendered: 2026-04-01T20:28:54Z
+Rendered: 2026-04-01T20:40:59Z

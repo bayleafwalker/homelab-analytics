@@ -198,7 +198,7 @@ Coordination rules:
 - if an exclusive claim already exists and the current session holds its `claim_token` and the identity clearly matches, refresh the heartbeat and continue
 - if an exclusive claim already exists and the identity is missing, ambiguous, or points to another live workspace, do not heartbeat it and do not edit repo files until a handoff is produced or a different item is selected
 - add `sprintctl event` records when decisions are made or blockers are resolved, not only at close-out
-- log reusable workflow corrections and coordination lessons as `decision` or `lesson-learned` events with summary, detail, tags, and confidence at the moment they are discovered
+- log reusable workflow corrections and coordination lessons as `decision` or `lesson-learned` events with `--payload` keys `summary`, `detail`, `tags`, and `confidence` at the moment they are discovered
 - use `sprintctl claim handoff` when ownership of an active claim moves to another live session
 - use `sprintctl handoff --output <path>` when work pauses materially or the next session needs broader machine-readable sprint context
 - keep handoff bundles local unless the task explicitly asks for a committed artifact

@@ -18,17 +18,16 @@ Recover durable knowledge from sprint events before the sprint goes stale. This 
 kctl extracts candidates from event payloads. A bare event with no payload fields produces a candidate whose summary is `decision: <item title>` — a reminder that something happened, not a durable record.
 
 **Fields that matter for extraction:**
-- `--summary` — one sentence capturing what was decided or learned. This becomes the candidate title. Required for useful output.
-- `--detail` — the reasoning, context, or alternatives considered. Omit only for trivial events.
-- `--tags` — JSON array of topic tags (e.g. `'["auth","ha-bridge"]'`). Used for filtering and cross-referencing.
-- `--confidence` — `high`, `medium`, or `low`. Signals how settled the decision is.
+- pass details in `--payload '<json>'` when running `sprintctl event add`.
+- `summary` — one sentence capturing what was decided or learned. This becomes the candidate title. Required for useful output.
+- `detail` — the reasoning, context, or alternatives considered. Omit only for trivial events.
+- `tags` — JSON array of topic tags (e.g. `["auth","ha-bridge"]`). Used for filtering and cross-referencing.
+- `confidence` — `high`, `medium`, or `low`. Signals how settled the decision is.
 
 **Good event (produces a useful candidate):**
 ```
 sprintctl event add --sprint-id 2 --type decision --actor claude \
-  --summary "Use MQTT retain flag for HA device state to survive broker restart" \
-  --detail "Evaluated polling vs. retain; retain avoids re-sync logic at cost of broker state coupling" \
-  --tags '["mqtt","ha-bridge"]' --confidence high
+  --payload '{"summary":"Use MQTT retain flag for HA device state to survive broker restart","detail":"Evaluated polling vs. retain; retain avoids re-sync logic at cost of broker state coupling","tags":["mqtt","ha-bridge"],"confidence":"high"}'
 ```
 
 **Poor event (produces noise):**

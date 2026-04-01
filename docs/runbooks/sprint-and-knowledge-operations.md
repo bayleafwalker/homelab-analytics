@@ -74,6 +74,7 @@ During implementation:
 - if an exclusive claim already exists and its identity does not clearly match the current live claim identity, do not heartbeat or reuse it; hand off the work or choose a different item first
 - use `sprintctl claim handoff` when an active claim's ownership itself changes; use `sprintctl handoff` only for broader sprint context because it does not move `claim_token`
 - add `sprintctl event` records when decisions, resolved blockers, or lessons happen, including reusable process corrections and coordination rules discovered during the sprint
+- include event detail in `--payload` JSON (for example `{"summary":"...","detail":"...","tags":["..."],"confidence":"high"}`) so extraction keeps the decision context instead of only the event type
 
 For kctl-ready event capture during execution:
 - use `decision` for durable design or workflow choices that should survive the sprint
@@ -113,8 +114,9 @@ Prefer JSON output when another agent or script needs machine-readable state.
 
 Recommended structured-state commands:
 - `sprintctl item list --json`
-- `sprintctl item show --json`
+- `sprintctl item show --id <item-id> --json`
 - `sprintctl sprint show --detail --json`
+- `sprintctl claim list --item-id <item-id> --json`
 - `sprintctl claim list-sprint --json`
 - `sprintctl claim resume --json`
 - `sprintctl handoff --output <path>`
