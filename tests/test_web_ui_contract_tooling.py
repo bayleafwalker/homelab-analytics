@@ -47,7 +47,7 @@ def test_generated_tokens_are_loaded_by_global_styles() -> None:
 
 def test_storybook_and_playwright_scaffolding_exist() -> None:
     expected = [
-        FRONTEND / ".storybook" / "main.cjs",
+        FRONTEND / ".storybook" / "main.ts",
         FRONTEND / ".storybook" / "preview.js",
         FRONTEND / "stories" / "app-shell.stories.jsx",
         FRONTEND / "stories" / "retro-shell.stories.jsx",

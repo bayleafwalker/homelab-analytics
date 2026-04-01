@@ -1,7 +1,8 @@
-const path = require("node:path");
+import { fileURLToPath } from "node:url";
 
-/** @type {import('@storybook/react-vite').StorybookConfig} */
-const config = {
+import type { StorybookConfig } from "@storybook/react-vite";
+
+const config: StorybookConfig = {
   stories: ["../stories/**/*.stories.@(js|jsx|ts|tsx)"],
   addons: [
     "@storybook/addon-essentials",
@@ -17,7 +18,7 @@ const config = {
     viteConfig.resolve = viteConfig.resolve || {};
     viteConfig.resolve.alias = {
       ...(viteConfig.resolve.alias || {}),
-      "next/link": path.resolve(__dirname, "./next-link-mock.js"),
+      "next/link": fileURLToPath(new URL("./next-link-mock.js", import.meta.url)),
     };
     viteConfig.esbuild = {
       ...(viteConfig.esbuild || {}),
@@ -35,4 +36,4 @@ const config = {
   },
 };
 
-module.exports = config;
+export default config;
