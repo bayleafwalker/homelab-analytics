@@ -1,49 +1,42 @@
-SPRINT: Sprint hearth-lantern-path — Product Polish and First-Week Onboarding  [active]
-Goal:   Turn scattered platform capability into one obvious workflow: a first-week operator experience that takes messy household data and produces useful answers with minimal ceremony.
-Dates:  2026-03-30 to 2026-04-13
-ID:     26
+SPRINT: Sprint iron-grove-atlas — Adapter Ecosystem and Renderer Contracts  [active]
+Goal:   Prove adapter and renderer abstractions are real by shipping non-HA implementations, general renderer contract, and governed pack model
+ID:     23
 
---- Track: first-answer ---
+--- Track: scope ---
+  health: 6 items — 0 done (0%), 0 active, 6 pending, 0 blocked (0%)
+  [pending ] #120  Renderer contract extraction  (assignee: -)
+  [pending ] #121  CSV/JSON export renderer  (assignee: -)
+  [pending ] #122  Prometheus metrics adapter  (assignee: -)
+  [pending ] #123  Adapter pack manifest and lifecycle  (assignee: -)
+  [pending ] #124  Pack compatibility and trust model  (assignee: -)
+  [pending ] #125  Multi-renderer publication routing  (assignee: -)
+
+--- Track: adapter-contract ---
+  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
+  [pending ] #216  Formal adapter contract: identity, version, capability types (ingest/publish/action/observe), config, health signals  (assignee: -)
+
+--- Track: extension-ux ---
+  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
+  [pending ] #222  Extension operator/admin surface: installed packs, health, config, compatibility warnings, enable/disable  (assignee: -)
+
+--- Track: reference-impl ---
+  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
+  [pending ] #220  Strengthen Home Assistant as reference adapter under formal adapter contract  (assignee: -)
+  [pending ] #221  Add one non-HA adapter or renderer proving generality  (assignee: -)
+
+--- Track: runtime-support ---
   health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
-  [pending ] #170  Post-ingest redirect: summary of what just arrived  (assignee: -)
-  [pending ] #171  First-answer composition: inline cashflow, recurring baseline, affordability, attention items  (assignee: -)
-  [pending ] #172  Progressive disclosure: show current value and what additional sources unlock  (assignee: -)
+  [pending ] #217  Discovery/registration path for adapters and packs with activation/deactivation behavior  (assignee: -)
+  [pending ] #218  Health and compatibility evaluation for loaded extensions  (assignee: -)
+  [pending ] #219  Contract exposure through API/control-plane metadata  (assignee: -)
 
---- Track: guided-onboarding ---
-  health: 5 items — 0 done (0%), 0 active, 5 pending, 0 blocked (0%)
-  [pending ] #165  Source type detection: accept dropped file, detect format, show detected contract with confidence  (assignee: -)
-  [pending ] #166  Mapping preview: show detected column mapping, canonical fields, highlight weak/missing fields  (assignee: -)
-  [pending ] #167  Publication preview: show which publications and views light up once source lands  (assignee: -)
-  [pending ] #168  Validation dry-run: parse without landing, show row count, date range, issues, accept/retry  (assignee: -)
-  [pending ] #169  Wire existing upload API behind the wizard flow  (assignee: -)
+--- Track: verification ---
+  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
+  [pending ] #223  Contract tests for adapter/renderer manifests and integration tests for registration/activation  (assignee: -)
+  [pending ] #224  Extension governance docs: boundaries, safety expectations, compatibility rules  (assignee: -)
 
---- Track: source-remediation ---
-  health: 4 items — 0 done (0%), 0 active, 4 pending, 0 blocked (0%)
-  [pending ] #173  Inline remediation actions: contextual upload/retry/inspect per stale source  (assignee: -)
-  [pending ] #174  Upload-in-context: file upload directly from freshness row  (assignee: -)
-  [pending ] #175  Recovery preview: show which publications recover once stale source refreshed  (assignee: -)
-  [pending ] #176  Promote freshness to top-level /sources route for operators  (assignee: -)
+--- Track: frontend-contracts ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #225  APP-16: Publish-lane UI contract bundle, Storybook review surfaces, token export, and Playwright checks  (assignee: -)
 
---- Track: onboarding-progress ---
-  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
-  [pending ] #182  Onboarding checklist widget: source types onboarded, pending, what each unlocks  (assignee: -)
-  [pending ] #183  Suggested next source: recommend next most valuable source based on current state  (assignee: -)
-  [pending ] #184  Dismissable checklist: collapse to compact badge once all core sources active  (assignee: -)
-
---- Track: operating-picture ---
-  health: 5 items — 0 done (0%), 0 active, 5 pending, 0 blocked (0%)
-  [pending ] #177  Structured Operating Picture layout: domain cards with headline metric, trend, top attention  (assignee: -)
-  [pending ] #178  Confidence band: freshness/confidence indicator per domain card  (assignee: -)
-  [pending ] #179  Upcoming actions strip: next 7 days of obligations, renewals, due exports, approvals  (assignee: -)
-  [pending ] #180  Cross-domain attention queue: unified items ranked by urgency with detail links  (assignee: -)
-  [pending ] #181  Recent changes feed: last 5 material changes across all domains  (assignee: -)
-
---- Track: tests ---
-  health: 5 items — 0 done (0%), 0 active, 5 pending, 0 blocked (0%)
-  [pending ] #185  Unit tests for source type detection logic  (assignee: -)
-  [pending ] #186  Unit tests for publication-preview mapping  (assignee: -)
-  [pending ] #187  Integration test for guided upload to land to first-answer flow  (assignee: -)
-  [pending ] #188  Integration test for freshness remediation to upload-in-context to recovery  (assignee: -)
-  [pending ] #189  make verify-fast green  (assignee: -)
-
-Rendered: 2026-03-30T09:01:35Z
+Rendered: 2026-04-01T20:28:54Z
