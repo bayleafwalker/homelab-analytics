@@ -27,6 +27,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 - `product/core-household-operating-picture.md` — core product definition: the Household Operating Picture, four core views (Overview, Money, Utilities, Operations), product principles, and acceptance criteria.
 - `product/initial-capability-packs-and-publications.md` — domain pack definitions, publication sets, insight types, and priority ordering for finance, utilities, homelab, and overview.
 - `product/core-product-design-workflow.md` — product design intake process and workflow.
+- `product/frontend-ui-delivery-playbook.md` — UI control loop, style/primitive/scenario contracts, draft-vs-publish lanes, and the target validation stack for agent-heavy frontend work.
 - `product/product-slice-template.md` — template for new product slices.
 
 ## Examples
@@ -36,6 +37,7 @@ The authoritative requirements baseline lives at `requirements/` in the reposito
 - `examples/finance-source-contracts/op-gold-invoice.md` — OP Gold invoice example and statement snapshot notes.
 - `examples/finance-source-contracts/revolut-personal-account-csv.md` — Revolut personal account example and canonical transaction notes.
 - `examples/finance-source-contracts/credit-registry-snapshot.md` — Finnish positive credit registry contract guide, record types, and reconciliation notes.
+- `examples/ui-contracts/README.md` — example frontend contract bundle with `intent.md`, `baseline.tokens.json`, and `ui-contract.yaml`.
 
 ## Sprints
 

@@ -1,0 +1,67 @@
+{
+  "metadata": {
+    "name": "default-shell",
+    "surface": "classic-web",
+    "lane": "publish"
+  },
+  "bg": {
+    "$value": "#f2ecdf",
+    "$type": "color"
+  },
+  "paper": {
+    "$value": "rgba(255, 250, 241, 0.94)",
+    "$type": "color"
+  },
+  "ink": {
+    "$value": "#132833",
+    "$type": "color"
+  },
+  "muted": {
+    "$value": "#5f6e75",
+    "$type": "color"
+  },
+  "line": {
+    "$value": "rgba(19, 40, 51, 0.14)",
+    "$type": "color"
+  },
+  "accent": {
+    "$value": "#0f766e",
+    "$type": "color"
+  },
+  "accent-warm": {
+    "$value": "#c96a3d",
+    "$type": "color"
+  },
+  "accent-cool": {
+    "$value": "#0b5f83",
+    "$type": "color"
+  },
+  "ok": {
+    "$value": "#2a9d8f",
+    "$type": "color"
+  },
+  "warn": {
+    "$value": "#d1495b",
+    "$type": "color"
+  },
+  "shadow": {
+    "$value": "0 24px 70px rgba(19, 40, 51, 0.14)",
+    "$type": "shadow"
+  },
+  "font-sans": {
+    "$value": "\"Avenir Next\", \"Trebuchet MS\", \"Segoe UI\", sans-serif",
+    "$type": "fontFamily"
+  },
+  "font-serif": {
+    "$value": "\"Iowan Old Style\", \"Palatino Linotype\", Georgia, serif",
+    "$type": "fontFamily"
+  },
+  "radius-pill": {
+    "$value": "999px",
+    "$type": "dimension"
+  },
+  "radius-panel": {
+    "$value": "24px",
+    "$type": "dimension"
+  }
+}

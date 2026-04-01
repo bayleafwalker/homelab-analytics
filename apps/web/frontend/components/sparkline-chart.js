@@ -1,3 +1,5 @@
+import React from "react";
+
 export function SparklineChart({ series = [], labels = [], height = 100, width = 400 }) {
   const yPad = 18;
   const xPad = 8;

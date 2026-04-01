@@ -1672,6 +1672,17 @@
             ],
             "title": "Category"
           },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
           "counterparty_name": {
             "title": "Counterparty Name",
             "type": "string"

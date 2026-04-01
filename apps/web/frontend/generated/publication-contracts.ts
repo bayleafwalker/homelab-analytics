@@ -1296,6 +1296,19 @@ export const publicationContractMap = {
         "sortable": true,
         "storage_type": "VARCHAR",
         "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Category id",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "category_id",
+        "nullable": true,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
       }
     ],
     "description": "Current snapshot of canonical counterparties shared by transaction-facing finance reporting.",

@@ -1,0 +1,191 @@
+{
+  "metadata": {
+    "name": "retro-operator-shell",
+    "derivedFrom": "docs/examples/ui-contracts/intent.md",
+    "lane": "publish",
+    "principles": [
+      "Dense information display",
+      "Calm contrast",
+      "Clear hierarchy",
+      "Keyboard-first interaction"
+    ],
+    "iconStyle": "Monoline, squared corners, minimal fill",
+    "contentTone": "Concise, analytical, operational",
+    "surfaceTreatment": "Prefer linework and contrast shifts over soft shadows."
+  },
+  "color": {
+    "surface": {
+      "canvas": {
+        "$value": "#16130f",
+        "$type": "color",
+        "$description": "Primary page background."
+      },
+      "panel": {
+        "$value": "#211c16",
+        "$type": "color",
+        "$description": "Raised panel surface."
+      },
+      "panelStrong": {
+        "$value": "#2b241c",
+        "$type": "color",
+        "$description": "Higher-emphasis panel or strip."
+      }
+    },
+    "text": {
+      "primary": {
+        "$value": "#f0e7d5",
+        "$type": "color"
+      },
+      "muted": {
+        "$value": "#b8ab95",
+        "$type": "color"
+      },
+      "accent": {
+        "$value": "#f1b35a",
+        "$type": "color"
+      }
+    },
+    "border": {
+      "default": {
+        "$value": "#5a4c3e",
+        "$type": "color"
+      },
+      "strong": {
+        "$value": "#8d765c",
+        "$type": "color"
+      }
+    },
+    "state": {
+      "ok": {
+        "$value": "#89c17c",
+        "$type": "color"
+      },
+      "warn": {
+        "$value": "#f1b35a",
+        "$type": "color"
+      },
+      "critical": {
+        "$value": "#d96b54",
+        "$type": "color"
+      }
+    }
+  },
+  "font": {
+    "family": {
+      "display": {
+        "$value": "IBM Plex Mono, monospace",
+        "$type": "fontFamily"
+      },
+      "body": {
+        "$value": "IBM Plex Sans, system-ui, sans-serif",
+        "$type": "fontFamily"
+      }
+    },
+    "weight": {
+      "regular": {
+        "$value": "400",
+        "$type": "fontWeight"
+      },
+      "medium": {
+        "$value": "500",
+        "$type": "fontWeight"
+      },
+      "strong": {
+        "$value": "600",
+        "$type": "fontWeight"
+      }
+    },
+    "size": {
+      "label": {
+        "$value": "0.75rem",
+        "$type": "dimension"
+      },
+      "body": {
+        "$value": "0.9375rem",
+        "$type": "dimension"
+      },
+      "headline": {
+        "$value": "1.375rem",
+        "$type": "dimension"
+      }
+    }
+  },
+  "space": {
+    "2xs": {
+      "$value": "0.25rem",
+      "$type": "dimension"
+    },
+    "xs": {
+      "$value": "0.5rem",
+      "$type": "dimension"
+    },
+    "sm": {
+      "$value": "0.75rem",
+      "$type": "dimension"
+    },
+    "md": {
+      "$value": "1rem",
+      "$type": "dimension"
+    },
+    "lg": {
+      "$value": "1.5rem",
+      "$type": "dimension"
+    },
+    "xl": {
+      "$value": "2rem",
+      "$type": "dimension"
+    }
+  },
+  "radius": {
+    "sharp": {
+      "$value": "0px",
+      "$type": "dimension"
+    },
+    "panel": {
+      "$value": "0.25rem",
+      "$type": "dimension"
+    }
+  },
+  "border": {
+    "width": {
+      "thin": {
+        "$value": "1px",
+        "$type": "dimension"
+      },
+      "thick": {
+        "$value": "2px",
+        "$type": "dimension"
+      }
+    }
+  },
+  "motion": {
+    "duration": {
+      "instant": {
+        "$value": "0ms",
+        "$type": "duration"
+      },
+      "subtle": {
+        "$value": "140ms",
+        "$type": "duration"
+      },
+      "panel": {
+        "$value": "220ms",
+        "$type": "duration"
+      }
+    }
+  },
+  "layout": {
+    "contentMaxWidth": {
+      "$value": "90rem",
+      "$type": "dimension"
+    },
+    "panelGap": {
+      "$value": "1rem",
+      "$type": "dimension"
+    },
+    "denseRowHeight": {
+      "$value": "2.25rem",
+      "$type": "dimension"
+    }
+  }
+}

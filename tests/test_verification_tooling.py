@@ -29,6 +29,7 @@ def test_makefile_contains_required_verification_targets() -> None:
         "contract-export-check:",
         "contract-compat-report:",
         "contract-release-artifacts:",
+        "web-token-check:",
         "verify-fast:",
         "verify-all:",
         "verify-domain:",
@@ -44,7 +45,7 @@ def test_makefile_contains_required_verification_targets() -> None:
     assert (
         "verify-fast: lint typecheck test-fast test-sqlite-adapters "
         "verify-docs verify-agent verify-arch contract-export-check "
-        "web-codegen-check web-build web-typecheck helm-lint"
+        "web-codegen-check web-token-check web-build web-typecheck helm-lint"
     ) in content
     assert "APP_IMAGE := homelab-analytics:latest" in content
     assert "WEB_IMAGE := homelab-analytics-web:latest" in content

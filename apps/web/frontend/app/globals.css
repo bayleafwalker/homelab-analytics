@@ -1,16 +1,4 @@
-:root {
-  --bg: #f2ecdf;
-  --paper: rgba(255, 250, 241, 0.94);
-  --ink: #132833;
-  --muted: #5f6e75;
-  --line: rgba(19, 40, 51, 0.14);
-  --accent: #0f766e;
-  --accent-warm: #c96a3d;
-  --accent-cool: #0b5f83;
-  --ok: #2a9d8f;
-  --warn: #d1495b;
-  --shadow: 0 24px 70px rgba(19, 40, 51, 0.14);
-}
+@import "./generated/ui-tokens.css";
 
 * {
   box-sizing: border-box;
@@ -23,7 +11,7 @@ body {
 }
 
 body {
-  font-family: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   color: var(--ink);
   background:
     radial-gradient(circle at top left, rgba(201, 106, 61, 0.18), transparent 30%),
@@ -67,7 +55,7 @@ a {
 .hero h1,
 .section h2,
 .loginCard h1 {
-  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-family: var(--font-serif);
   margin: 0;
 }
 
@@ -91,7 +79,7 @@ a {
 .navLink,
 .ghostButton,
 .primaryButton {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.72rem 1rem;
   font-weight: 700;
   border: 1px solid transparent;
@@ -113,7 +101,7 @@ a {
 }
 
 .subnavLink {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.68rem 0.96rem;
   background: rgba(19, 40, 51, 0.04);
   border: 1px solid var(--line);
@@ -149,7 +137,7 @@ a {
 .panel {
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 24px;
+  border-radius: var(--radius-panel);
   box-shadow: var(--shadow);
 }
 
@@ -566,17 +554,6 @@ th {
 .chartLegendDot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
 .retroRoot {
-  --retro-bg: #08110c;
-  --retro-panel: rgba(9, 21, 15, 0.9);
-  --retro-panel-strong: rgba(9, 21, 15, 0.98);
-  --retro-line: rgba(136, 255, 164, 0.28);
-  --retro-line-strong: rgba(250, 208, 122, 0.34);
-  --retro-text: #d9ffd7;
-  --retro-muted: rgba(199, 244, 204, 0.72);
-  --retro-ok: #88ffa4;
-  --retro-warn: #f6c76d;
-  --retro-accent: #8ae6ff;
-  --retro-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
   position: relative;
   min-height: 100vh;
   color: var(--retro-text);
@@ -622,7 +599,7 @@ th {
   padding: 28px 18px 56px;
   display: grid;
   gap: 18px;
-  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: var(--retro-font-mono);
 }
 
 .retroHeader {
@@ -638,7 +615,7 @@ th {
     linear-gradient(180deg, rgba(15, 31, 21, 0.98), rgba(9, 21, 15, 0.9));
   border: 1px solid var(--retro-line);
   box-shadow: inset 0 0 0 1px rgba(136, 255, 164, 0.08), var(--retro-shadow);
-  border-radius: 20px;
+  border-radius: var(--retro-radius-panel);
   padding: 18px;
   overflow: hidden;
 }
@@ -722,7 +699,7 @@ th {
 .retroActionLink,
 .retroActionButton {
   border: 1px solid var(--retro-line);
-  border-radius: 999px;
+  border-radius: var(--retro-radius-pill);
   background: rgba(8, 18, 13, 0.75);
   color: var(--retro-text);
   box-shadow: inset 0 0 18px rgba(136, 255, 164, 0.05);

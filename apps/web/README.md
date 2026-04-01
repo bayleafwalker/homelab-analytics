@@ -5,6 +5,9 @@ User-facing UI for dashboards, ingestion operations, mapping configuration, and 
 Current foundation:
 
 - Next.js frontend source lives in `frontend/`
+- publish-lane UI contracts now live under `frontend/ui-contracts/`; the current scaffold covers `default-shell` and `retro-shell` with repo-tracked `intent.md`, `baseline.tokens.json`, and `ui-contract.yaml`
+- `frontend/scripts/build-ui-tokens.mjs` exports the shell baselines into `frontend/app/generated/ui-tokens.css`, and `npm run tokens:check` is the sync check for that generated artifact
+- Storybook and Playwright scaffolding now live under `frontend/.storybook/`, `frontend/stories/`, and `frontend/playwright/`; use `npm run storybook`, `npm run storybook:build`, and `npm run ui:test` for the APP-16 review loop
 - the frontend consumes the API only and proxies local-login, OIDC login/callback, logout, and control-plane admin forms to the API auth endpoints
 - `frontend/lib/backend.ts` is the shared backend transport boundary for server-rendered reads and auth-aware proxy route helpers; new API-consuming read helpers should be added there rather than via page-local backend fetches
 - `frontend/lib/renderer-discovery.ts` joins `/contracts/publications` and `/contracts/ui-descriptors` into the current web renderer view model, so report and homelab discovery surfaces do not maintain a second publication registry in page code

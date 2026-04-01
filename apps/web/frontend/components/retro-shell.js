@@ -1,3 +1,4 @@
+import React from "react";
 import Link from "next/link";
 
 function navItemsForUser(user) {
@@ -25,9 +26,17 @@ function isActive(currentPath, item) {
   return currentPath === item.href || currentPath.startsWith(`${item.prefix}/`);
 }
 
-export function RetroShell({ currentPath, user, title, eyebrow, lede, children }) {
+export function RetroShell({
+  currentPath,
+  user,
+  title,
+  eyebrow,
+  lede,
+  renderedAt,
+  children
+}) {
   const navItems = navItemsForUser(user);
-  const renderedAt = new Date().toISOString().replace("T", " ").slice(0, 19);
+  const stamp = renderedAt || new Date().toISOString().replace("T", " ").slice(0, 19);
 
   return (
     <main className="retroPage">
@@ -41,7 +50,7 @@ export function RetroShell({ currentPath, user, title, eyebrow, lede, children }
           <div className="retroStatusBar" aria-label="Retro status strip">
             <span className="retroStatusCell">LINK: STABLE</span>
             <span className="retroStatusCell">RENDERER: WEB-CRT</span>
-            <span className="retroStatusCell">STAMP: {renderedAt}</span>
+            <span className="retroStatusCell">STAMP: {stamp}</span>
           </div>
           <nav className="retroNav" aria-label="Retro navigation">
             {navItems.map((item) => (

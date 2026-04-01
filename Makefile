@@ -22,7 +22,7 @@ CONTRACT_RELEASE_DIR ?= dist/contracts
 	verify-agent verify-arch verify-fast verify-all verify-domain helm-lint \
 	docker-build compose-smoke audit-deps db-migrate-sqlite db-migrate-postgres \
 	db-migrate-postgres-control-plane db-migrate-postgres-run-metadata \
-	web-codegen web-codegen-check web-typecheck web-build demo-generate demo-seed \
+	web-codegen web-codegen-check web-token-check web-typecheck web-build demo-generate demo-seed \
 	contract-export-check contract-compat-report contract-release-artifacts
 
 lint:
@@ -103,6 +103,9 @@ web-codegen:
 web-codegen-check:
 	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run codegen:check
 
+web-token-check:
+	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run tokens:check
+
 web-typecheck:
 	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run typecheck
 
@@ -154,7 +157,7 @@ compose-smoke:
 audit-deps:
 	-$(PIP_AUDIT)
 
-verify-fast: lint typecheck test-fast test-sqlite-adapters verify-docs verify-agent verify-arch contract-export-check web-codegen-check web-build web-typecheck helm-lint
+verify-fast: lint typecheck test-fast test-sqlite-adapters verify-docs verify-agent verify-arch contract-export-check web-codegen-check web-token-check web-build web-typecheck helm-lint
 
 verify-all: verify-fast test-integration test-e2e-local docker-build
 

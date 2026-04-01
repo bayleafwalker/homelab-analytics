@@ -47,10 +47,13 @@ The current product direction is defined by these documents:
 - `core-household-operating-picture.md`
 - `initial-capability-packs-and-publications.md`
 - `core-product-design-workflow.md`
+- `frontend-ui-delivery-playbook.md`
 - `product-slice-template.md`
 - `finance-source-contracts.md`
 - `source-freshness-workflow.md`
 - `manual-reference-inputs.md`
+
+For UI-heavy work, pair the product workflow with `frontend-ui-delivery-playbook.md` and the example artifact bundle in `docs/examples/ui-contracts/`.
 
 ## Rules of use
 

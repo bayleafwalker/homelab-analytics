@@ -291,6 +291,29 @@ The platform exposes its capabilities through three application workloads: a JSO
 
 ---
 
+### APP-16: Web UI - contract-driven frontend delivery workflow
+
+**Description:** Stable product-facing UI directions are defined and delivered through repo-tracked intent briefs, token baselines, primitive contracts, scenario coverage, and automated review surfaces instead of prose-only generation.
+
+**Rationale:** Agent-heavy frontend work drifts quickly unless taste, reuse, and validation are all explicit and reviewable.
+
+**Phase:** 4
+**Status:** in-progress (the frontend now carries publish-lane contract artifacts for the default and retro shells, generated token CSS, Storybook review surfaces, MSW-backed mock scaffolding, and Playwright plus axe checks against curated stories; raw-style linting and broader story coverage still remain)
+
+**Acceptance criteria:**
+- Each publish-lane UI direction has a repo-tracked `intent.md`, `baseline.tokens.json`, and `ui-contract.yaml`.
+- Approved implementations consume the baseline and primitive contracts instead of ad hoc raw style values and one-off components.
+- Primitive and screen review surfaces cover default, loading, empty, error, overflow, keyboard, and narrow-width scenarios where applicable.
+- Shared mock fixtures or handlers are reusable across component review and browser tests.
+- Curated browser checks cover interaction flows, screenshot baselines, and semantic/accessibility drift for stable product surfaces.
+- Draft-lane experiments are explicitly marked as draft and do not bypass publish-lane requirements when promoted.
+
+**Dependencies:** APP-05
+
+**Notes:** See `docs/product/frontend-ui-delivery-playbook.md`, `apps/web/README.md`, and `apps/web/frontend/ui-contracts/`.
+
+---
+
 ## Traceability
 
 | Requirement | Implementation module | Test file |
@@ -310,3 +333,4 @@ The platform exposes its capabilities through three application workloads: a JSO
 | APP-13 | `apps/api/app.py`, `apps/api/models.py`, `apps/api/routes/config_routes.py`, `apps/worker/runtime.py`, `apps/worker/command_parser.py`, `apps/worker/command_handlers.py`, `packages/shared/function_registry.py`, `packages/pipelines/configured_csv_ingestion.py`, `packages/pipelines/promotion_registry.py`, `apps/web/frontend/app/control/catalog/page.js`, `apps/web/frontend/app/control/catalog/transformation-packages/route.js`, `apps/web/frontend/app/control/catalog/publication-definitions/route.js`, `apps/web/frontend/components/external-registry-panel.js`, `apps/web/frontend/components/function-catalog-panel.js`, `apps/web/frontend/components/transformation-catalog-panel.js`, `apps/web/frontend/lib/config-spec.js`, `apps/web/frontend/lib/backend.ts` | `tests/test_api_app.py`, `tests/test_api_main.py`, `tests/test_worker_cli.py`, `tests/test_configured_csv_ingestion.py`, `tests/test_control_plane_worker_cli.py`, `tests/test_web_auth.py` |
 | APP-14 | `apps/api/routes/ha_routes.py`, `packages/pipelines/ha_action_proposals.py`, `packages/platform/auth/permission_registry.py`, `packages/platform/auth/scope_authorization.py` | `tests/test_api_app.py`, `tests/test_api_auth.py`, `tests/test_auth_permission_registry.py`, `tests/test_ha_action_proposals.py`, `tests/test_ha_api.py`, `tests/test_ha_action_dispatcher.py` |
 | APP-15 | `apps/api/app.py`, `apps/api/response_models.py`, `apps/api/routes/assistant_routes.py`, `packages/platform/auth/scope_authorization.py` | `tests/test_api_app.py`, `tests/test_api_auth.py`, `tests/test_auth_permission_registry.py` |
+| APP-16 | `apps/web/frontend/ui-contracts/default-shell/intent.md`, `apps/web/frontend/ui-contracts/default-shell/baseline.tokens.json`, `apps/web/frontend/ui-contracts/default-shell/ui-contract.yaml`, `apps/web/frontend/ui-contracts/retro-shell/intent.md`, `apps/web/frontend/ui-contracts/retro-shell/baseline.tokens.json`, `apps/web/frontend/ui-contracts/retro-shell/ui-contract.yaml`, `apps/web/frontend/scripts/build-ui-tokens.mjs`, `apps/web/frontend/app/generated/ui-tokens.css`, `apps/web/frontend/.storybook/main.cjs`, `apps/web/frontend/.storybook/preview.js`, `apps/web/frontend/stories/app-shell.stories.jsx`, `apps/web/frontend/stories/retro-shell.stories.jsx`, `apps/web/frontend/stories/sparkline-chart.stories.jsx`, `apps/web/frontend/stories/mock-status-card.stories.jsx`, `apps/web/frontend/playwright.config.js`, `apps/web/frontend/playwright/storybook-ui.spec.js` | `tests/test_web_ui_contract_tooling.py` |

@@ -3048,6 +3048,8 @@ export interface components {
         DimCounterpartyRow: {
             /** Category */
             category?: string | null;
+            /** Category Id */
+            category_id?: string | null;
             /** Counterparty Name */
             counterparty_name: string;
             /** Sk */

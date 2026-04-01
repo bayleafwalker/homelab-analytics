@@ -1,0 +1,38 @@
+direction:
+  name: default-shell
+  intent: apps/web/frontend/ui-contracts/default-shell/intent.md
+  baseline: apps/web/frontend/ui-contracts/default-shell/baseline.tokens.json
+  lane: publish
+
+primitives:
+  - id: AppShell
+    purpose: Hold the primary authenticated navigation and page framing.
+    required_states:
+      - reader
+      - operator
+      - admin
+      - narrow-width
+  - id: SparklineChart
+    purpose: Show compact trend context inside dashboard and reporting panels.
+    required_states:
+      - default
+      - narrow-width
+      - multi-series
+  - id: RendererDiscovery
+    purpose: Present renderer-published destinations without duplicating publication knowledge in page code.
+    required_states:
+      - default
+      - empty
+      - overflow
+
+screens:
+  - id: dashboard-shell
+    composed_of:
+      - AppShell
+      - SparklineChart
+      - RendererDiscovery
+    scenarios:
+      - default
+      - loading
+      - empty
+      - keyboard-navigation

@@ -1,0 +1,149 @@
+direction:
+  name: retro-operator-shell
+  intent: docs/examples/ui-contracts/intent.md
+  baseline: docs/examples/ui-contracts/baseline.tokens.json
+  lane: publish
+
+style_contract:
+  must_use_token_files: true
+  spacing_scale_source: space
+  anti_goals:
+    - Neon cyberpunk glow stacks
+    - Glassmorphism or translucent frosted panels
+    - Hero-banner marketing layouts
+    - Arbitrary raw hex colors outside token files
+  content_tone:
+    - concise
+    - analytical
+    - operator-first
+
+primitives:
+  - id: MetricCard
+    purpose: Show a headline metric, confidence state, and one supporting delta.
+    props:
+      label: string
+      value: string
+      delta: string
+      confidence: enum(ok, warn, critical)
+    required_states:
+      - default
+      - loading
+      - empty
+      - error
+      - overflow
+      - narrow
+    accessibility:
+      - Expose the metric label as text, not icon-only meaning.
+      - Preserve readable numeric grouping and units.
+    interaction_notes:
+      - Optional drill-down action only when a deeper view exists.
+    visual_notes:
+      do:
+        - Keep numerics dominant and secondary text terse.
+      dont:
+        - Do not add multiple competing actions inside one card.
+
+  - id: TrendPanel
+    purpose: Compare current movement against a recent baseline without becoming a charting playground.
+    props:
+      title: string
+      series: array
+      summary: string
+    required_states:
+      - default
+      - loading
+      - empty
+      - error
+      - keyboard
+      - narrow
+    accessibility:
+      - Provide a textual summary of the trend direction.
+      - Keep focus order stable when filters update.
+
+  - id: FilterBar
+    purpose: Expose compact scoping controls for date range, source set, or segment.
+    props:
+      filters: array
+      active_count: integer
+    required_states:
+      - default
+      - empty
+      - keyboard
+      - narrow
+    accessibility:
+      - Every control has a visible label.
+      - Keyboard users can clear filters without pointer-only affordances.
+
+  - id: AlertRail
+    purpose: Present ranked attention items across freshness, failures, and notable changes.
+    props:
+      items: array
+      severity: enum(ok, warn, critical)
+    required_states:
+      - default
+      - empty
+      - overflow
+      - keyboard
+    accessibility:
+      - Severity is conveyed by text, not color alone.
+      - Linked detail targets have descriptive labels.
+
+  - id: DetailDrawer
+    purpose: Reveal focused drill-down context without losing the surrounding operating picture.
+    props:
+      title: string
+      sections: array
+      open: boolean
+    required_states:
+      - default
+      - empty
+      - error
+      - keyboard
+      - narrow
+    accessibility:
+      - Focus moves into the drawer on open and returns on close.
+      - Drawer title is announced as the active region label.
+
+screens:
+  - id: operating-picture
+    composed_of:
+      - MetricCard
+      - TrendPanel
+      - AlertRail
+    scenarios:
+      - default
+      - loading
+      - partial-data
+      - stale-source
+      - keyboard-navigation
+      - narrow-width
+
+  - id: source-health
+    composed_of:
+      - FilterBar
+      - AlertRail
+      - DetailDrawer
+    scenarios:
+      - default
+      - empty
+      - failed-source
+      - recovery-preview
+      - keyboard-navigation
+      - narrow-width
+
+validation:
+  draft_lane:
+    required:
+      - intent brief
+      - rough baseline
+      - primitive sketch
+      - screenshots for review
+  publish_lane:
+    required:
+      - approved intent brief
+      - approved token baseline
+      - stories for every required primitive and screen state
+      - reusable mock fixtures or handlers
+      - interaction checks for keyboard and high-value flows
+      - curated screenshot baselines
+      - accessibility scan and ARIA structure review

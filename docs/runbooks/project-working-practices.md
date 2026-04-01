@@ -71,6 +71,7 @@ Interpretation rules:
 
 **While in progress:**
 - preserve the landing, transformation, and reporting layer split
+- for substantial web UI or renderer work, follow `docs/product/frontend-ui-delivery-playbook.md` and freeze repo-tracked `intent.md`, `baseline.tokens.json`, and `ui-contract.yaml` artifacts before broad publish-lane implementation
 - update docs or requirements when behavior, architecture, or scope changes
 - keep sprint state current if the work is sprint-scoped
 - use focused local verification during implementation and broader checks before review or push

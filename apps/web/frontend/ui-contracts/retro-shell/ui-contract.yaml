@@ -1,0 +1,35 @@
+direction:
+  name: retro-shell
+  intent: apps/web/frontend/ui-contracts/retro-shell/intent.md
+  baseline: apps/web/frontend/ui-contracts/retro-shell/baseline.tokens.json
+  lane: publish
+
+primitives:
+  - id: RetroShell
+    purpose: Hold the alternate CRT-style renderer chrome and role-aware navigation.
+    required_states:
+      - operator
+      - admin
+      - narrow-width
+  - id: SparklineChart
+    purpose: Show compact trend context inside retro panels.
+    required_states:
+      - default
+      - multi-series
+  - id: RetroStatusStrip
+    purpose: Communicate renderer health and current operator context in one dense row.
+    required_states:
+      - default
+      - narrow-width
+
+screens:
+  - id: retro-overview-shell
+    composed_of:
+      - RetroShell
+      - SparklineChart
+      - RetroStatusStrip
+    scenarios:
+      - default
+      - empty
+      - keyboard-navigation
+      - narrow-width

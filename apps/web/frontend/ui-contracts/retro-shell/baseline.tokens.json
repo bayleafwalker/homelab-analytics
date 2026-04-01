@@ -1,0 +1,63 @@
+{
+  "metadata": {
+    "name": "retro-shell",
+    "surface": "retro-web",
+    "lane": "publish"
+  },
+  "retro-bg": {
+    "$value": "#08110c",
+    "$type": "color"
+  },
+  "retro-panel": {
+    "$value": "rgba(9, 21, 15, 0.9)",
+    "$type": "color"
+  },
+  "retro-panel-strong": {
+    "$value": "rgba(9, 21, 15, 0.98)",
+    "$type": "color"
+  },
+  "retro-line": {
+    "$value": "rgba(136, 255, 164, 0.28)",
+    "$type": "color"
+  },
+  "retro-line-strong": {
+    "$value": "rgba(250, 208, 122, 0.34)",
+    "$type": "color"
+  },
+  "retro-text": {
+    "$value": "#d9ffd7",
+    "$type": "color"
+  },
+  "retro-muted": {
+    "$value": "rgba(199, 244, 204, 0.72)",
+    "$type": "color"
+  },
+  "retro-ok": {
+    "$value": "#88ffa4",
+    "$type": "color"
+  },
+  "retro-warn": {
+    "$value": "#f6c76d",
+    "$type": "color"
+  },
+  "retro-accent": {
+    "$value": "#8ae6ff",
+    "$type": "color"
+  },
+  "retro-shadow": {
+    "$value": "0 24px 70px rgba(0, 0, 0, 0.45)",
+    "$type": "shadow"
+  },
+  "retro-font-mono": {
+    "$value": "\"IBM Plex Mono\", \"SFMono-Regular\", Consolas, \"Liberation Mono\", monospace",
+    "$type": "fontFamily"
+  },
+  "retro-radius-pill": {
+    "$value": "999px",
+    "$type": "dimension"
+  },
+  "retro-radius-panel": {
+    "$value": "20px",
+    "$type": "dimension"
+  }
+}
