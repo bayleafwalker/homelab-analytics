@@ -1,7 +1,15 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-02T11:31:34Z
+Generated: 2026-04-02T12:03:34Z
 
 ## Decisions
+
+### Guided upload can infer contract target from file format and headers
+Source: track: guided-onboarding, sprint: 26
+Tags: guided-onboarding, upload, contract-detection
+
+Guided onboarding now routes dropped uploads by detecting format and matching header columns against configured source mappings and built-in targets. The API returns confidence-scored candidates and the web wizard preselects upload path and contract target.
+
+---
 
 ### Moved finance service builders out of platform runtime builder into apps/runtime_support.
 Source: track: finding-corrections, sprint: 28
@@ -494,6 +502,22 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 ---
 
 ## Lessons
+
+### API-level fixture tests harden source detection without UI e2e overhead
+Source: track: tests, sprint: 26
+Tags: tests, guided-onboarding, source-detection
+
+Source-detection behavior is verified through API fixture tests (configured CSV + HA states JSON + negative cases), which provides durable regression coverage without requiring a new UI e2e harness.
+
+---
+
+### Claim proof handling must preserve claim_token for lifecycle operations
+Source: track: guided-onboarding, sprint: 26
+Tags: claims, coordination, handoff
+
+Claim ownership in sprintctl is enforced by claim_id plus claim_token. If token persistence is lost, lifecycle operations (status updates, handoff, release) can block even when identity metadata matches; preserve token immediately after claim create.
+
+---
 
 ### Require claim token or explicit handoff before mutating exclusively claimed items
 Source: sprint: 5
