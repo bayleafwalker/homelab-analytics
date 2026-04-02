@@ -7,6 +7,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from packages.domains.finance.manifest import FINANCE_PACK
+from packages.pipelines.composition.current_dimension_contracts import (
+    CURRENT_DIMENSION_CONTRACTS,
+)
+from packages.pipelines.household_reporting import (
+    CURRENT_DIMENSION_RELATIONS,
+    PUBLICATION_RELATIONS,
+)
 from packages.shared.external_registry import (
     EXTERNAL_REGISTRY_MANIFEST_FILENAME,
     _build_git_environment,
@@ -224,6 +231,9 @@ class ExternalRegistrySupportTests(unittest.TestCase):
                 "duplicate-publication-key",
                 activate=True,
                 builtin_packs=(FINANCE_PACK,),
+                publication_relations=PUBLICATION_RELATIONS,
+                current_dimension_relations=CURRENT_DIMENSION_RELATIONS,
+                current_dimension_contracts=CURRENT_DIMENSION_CONTRACTS,
             )
 
             self.assertFalse(result.passed)

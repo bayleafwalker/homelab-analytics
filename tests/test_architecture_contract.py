@@ -53,6 +53,8 @@ def test_shared_external_registry_does_not_import_domain_manifests() -> None:
     imports = _import_names(ROOT / "packages" / "shared" / "external_registry.py")
 
     assert not any(name.startswith("packages.domains.") for name in imports)
+    assert "packages.pipelines.household_reporting" not in imports
+    assert "packages.pipelines.composition.current_dimension_contracts" not in imports
     assert "packages.platform.capability_types" in imports
 
 

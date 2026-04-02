@@ -12,18 +12,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
+from typing import Any, Mapping
 from uuid import uuid4
 
-from packages.pipelines.composition.current_dimension_contracts import (
-    CURRENT_DIMENSION_CONTRACTS,
-)
 from packages.pipelines.extension_registries import load_pipeline_registries
-from packages.pipelines.household_reporting import (
-    CURRENT_DIMENSION_RELATIONS,
-    PUBLICATION_RELATIONS,
-)
 from packages.platform.capability_registry import load_capability_packs
 from packages.platform.capability_types import CapabilityPack
+from packages.platform.current_dimension_contracts import CurrentDimensionContractDefinition
 from packages.platform.publication_contracts import (
     build_publication_contract_catalog,
     build_publication_relation_map,
@@ -144,6 +139,12 @@ def sync_extension_registry_source(
     *,
     activate: bool = False,
     builtin_packs: Sequence[CapabilityPack] = (),
+    publication_relations: Mapping[str, Any] | None = None,
+    current_dimension_relations: Mapping[str, str] | None = None,
+    current_dimension_contracts: Mapping[
+        str,
+        CurrentDimensionContractDefinition,
+    ] | None = None,
     cache_root: Path | None = None,
     secret_resolver: SecretResolver | None = None,
     synchronized_at: datetime | None = None,
@@ -177,6 +178,9 @@ def sync_extension_registry_source(
             source_root,
             manifest,
             builtin_packs=builtin_packs,
+            publication_relations=publication_relations,
+            current_dimension_relations=current_dimension_relations,
+            current_dimension_contracts=current_dimension_contracts,
         )
 
         revision = store.create_extension_registry_revision(
@@ -404,6 +408,12 @@ def _validate_manifest_modules(
     manifest: ExtensionRegistryManifest,
     *,
     builtin_packs: Sequence[CapabilityPack] = (),
+    publication_relations: Mapping[str, Any] | None = None,
+    current_dimension_relations: Mapping[str, str] | None = None,
+    current_dimension_contracts: Mapping[
+        str,
+        CurrentDimensionContractDefinition,
+    ] | None = None,
 ) -> None:
     extension_paths = tuple((source_root / import_path).resolve() for import_path in manifest.import_paths)
     if manifest.extension_modules:
@@ -432,14 +442,17 @@ def _validate_manifest_modules(
             raise ValueError(
                 f"Publication keys owned by multiple capability packs: {duplicates}"
             )
+        resolved_publication_relations = publication_relations or {}
+        resolved_current_dimension_relations = current_dimension_relations or {}
+        resolved_current_dimension_contracts = current_dimension_contracts or {}
         build_publication_contract_catalog(
             capability_packs,
             publication_relations=build_publication_relation_map(
-                base_relations=PUBLICATION_RELATIONS,
+                base_relations=resolved_publication_relations,
                 extension_registry=extension_registry,
             ),
-            current_dimension_relations=CURRENT_DIMENSION_RELATIONS,
-            current_dimension_contracts=CURRENT_DIMENSION_CONTRACTS,
+            current_dimension_relations=resolved_current_dimension_relations,
+            current_dimension_contracts=resolved_current_dimension_contracts,
         )
     if manifest.function_modules:
         load_function_registry(
