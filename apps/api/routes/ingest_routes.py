@@ -25,6 +25,7 @@ from packages.pipelines.promotion import (
     promote_subscription_run,
 )
 from packages.pipelines.promotion_registry import PromotionHandlerRegistry
+from packages.pipelines.publication_preview import attach_publication_preview
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.pipelines.upload_detection import detect_upload_target
@@ -182,6 +183,15 @@ def register_ingest_routes(
             source_assets=source_assets,
             column_mappings_by_id={
                 record.column_mapping_id: record for record in column_mappings
+            },
+            dataset_contracts_by_id={
+                record.dataset_contract_id: record for record in dataset_contracts
+            },
+        )
+        detection = attach_publication_preview(
+            detection,
+            source_assets_by_id={
+                record.source_asset_id: record for record in source_assets
             },
             dataset_contracts_by_id={
                 record.dataset_contract_id: record for record in dataset_contracts

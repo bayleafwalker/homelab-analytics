@@ -36,6 +36,24 @@ function appendUnique(values, nextValue) {
   return [...values, nextValue];
 }
 
+function asStringArray(value) {
+  return Array.isArray(value)
+    ? value
+        .map((entry) => String(entry || "").trim())
+        .filter(Boolean)
+    : [];
+}
+
+function mappingStatus(matchedColumns, missingColumns) {
+  if (matchedColumns.length === 0) {
+    return "No mapped canonical fields";
+  }
+  if (missingColumns.length === 0) {
+    return "Ready to ingest";
+  }
+  return `Needs review (${missingColumns.length} missing field${missingColumns.length === 1 ? "" : "s"})`;
+}
+
 export function UploadDetectionWizard({ activeSourceAssets }) {
   const fileInputRef = useRef(null);
   const detectRequestIdRef = useRef(0);
@@ -137,6 +155,10 @@ export function UploadDetectionWizard({ activeSourceAssets }) {
   const alternatives = Array.isArray(detection?.alternatives)
     ? detection.alternatives
     : [];
+  const matchedColumns = asStringArray(candidate?.matched_columns);
+  const missingColumns = asStringArray(candidate?.missing_columns);
+  const expectedColumns = asStringArray(candidate?.expected_columns);
+  const publicationPreview = candidate?.publication_preview || null;
   const resolvedUploadPath = uploadPath;
   const needsSourceAsset = isConfiguredUpload(resolvedUploadPath);
   const knownSourceAssetIds = appendUnique(
@@ -268,8 +290,76 @@ export function UploadDetectionWizard({ activeSourceAssets }) {
           </div>
           <div className="metaItem">
             <div className="metricLabel">Matched columns</div>
-            <div>{(candidate.matched_columns || []).join(", ") || "n/a"}</div>
+            <div>{matchedColumns.join(", ") || "n/a"}</div>
           </div>
+          <div className="metaItem">
+            <div className="metricLabel">Mapping status</div>
+            <div className={missingColumns.length > 0 ? "warnText" : ""}>
+              {mappingStatus(matchedColumns, missingColumns)}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {candidate ? (
+        <div className="stack compactStack uploadWizardPreview">
+          <div className="metricLabel">Mapping preview</div>
+          <div className="metaGrid uploadWizardMeta">
+            <div className="metaItem">
+              <div className="metricLabel">Canonical fields expected</div>
+              <div>{expectedColumns.join(", ") || "n/a"}</div>
+            </div>
+            <div className="metaItem">
+              <div className="metricLabel">Canonical fields mapped</div>
+              <div>{matchedColumns.join(", ") || "n/a"}</div>
+            </div>
+            <div className="metaItem">
+              <div className="metricLabel">Weak or missing fields</div>
+              <div className={missingColumns.length > 0 ? "warnText" : "muted"}>
+                {missingColumns.join(", ") || "none"}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {candidate ? (
+        <div className="stack compactStack uploadWizardPreview">
+          <div className="metricLabel">Publication preview</div>
+          {!publicationPreview ? (
+            <div className="muted">No publication preview available for this source.</div>
+          ) : (
+            <div className="metaGrid uploadWizardMeta">
+              <div className="metaItem">
+                <div className="metricLabel">Direct publications</div>
+                <div>
+                  {Array.isArray(publicationPreview.direct) &&
+                  publicationPreview.direct.length > 0
+                    ? publicationPreview.direct
+                        .map((entry) => entry?.name || entry?.publication_key || "")
+                        .filter(Boolean)
+                        .join(", ")
+                    : "none"}
+                </div>
+              </div>
+              <div className="metaItem">
+                <div className="metricLabel">Additional refreshed views</div>
+                <div>
+                  {Array.isArray(publicationPreview.derived) &&
+                  publicationPreview.derived.length > 0
+                    ? publicationPreview.derived
+                        .map((entry) => entry?.name || entry?.publication_key || "")
+                        .filter(Boolean)
+                        .join(", ")
+                    : "none"}
+                </div>
+              </div>
+              <div className="metaItem">
+                <div className="metricLabel">Transformation package</div>
+                <div>{publicationPreview.transformation_package_id || "n/a"}</div>
+              </div>
+            </div>
+          )}
         </div>
       ) : null}
 

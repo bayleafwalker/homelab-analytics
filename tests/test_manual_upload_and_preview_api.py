@@ -88,6 +88,16 @@ def test_api_detects_source_type_for_configured_csv_upload() -> None:
         assert candidate["contract_id"] == "household_account_transactions_v1"
         assert candidate["confidence_label"] == "high"
         assert "booking_date" in candidate["matched_columns"]
+        preview = candidate["publication_preview"]
+        assert preview["transformation_package_id"] == "builtin_account_transactions"
+        assert any(
+            entry["publication_key"] == "mart_monthly_cashflow"
+            for entry in preview["direct"]
+        )
+        assert any(
+            entry["publication_key"] == "mart_household_overview"
+            for entry in preview["derived"]
+        )
 
 
 def test_api_detects_ha_states_json_upload_target() -> None:
@@ -117,6 +127,12 @@ def test_api_detects_ha_states_json_upload_target() -> None:
         assert candidate["contract_id"] == "home_assistant_states_json_v1"
         assert candidate["confidence_label"] == "high"
         assert candidate["matched_columns"] == ["entity_id", "state"]
+        preview = candidate["publication_preview"]
+        assert preview["transformation_package_id"] == "builtin_homelab"
+        assert any(
+            entry["publication_key"] == "mart_service_health_current"
+            for entry in preview["direct"]
+        )
 
 
 def test_api_detection_returns_no_candidate_for_unknown_binary_upload() -> None:
