@@ -1,41 +1,17 @@
-SPRINT: Sprint substrate-iron-seam — Platform Kernel and Household App Seam  [active]
-Goal:   Make the kernel/app boundary visible and enforceable: split packages/pipelines/ by domain, clean container assumptions, add import-boundary enforcement tests, prove minimal-kernel boot
-Dates:  2026-03-31 to 2026-04-27
-ID:     27
-Items:  16 total — 15 done, 0 active, 1 pending, 0 blocked
+SPRINT: Sprint seam-finish-pass — Composition Boundary Follow-through  [active]
+Goal:   Close residual kernel/app seam findings, apply deferred route composition cleanup, and keep boundary enforcement green.
+Dates:  2026-04-02 to 2026-04-30
+ID:     28
+Items:  4 total — 0 done, 0 active, 4 pending, 0 blocked
 
---- Track: pipeline-split ---
-  health: 5 items — 5 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #190  WP-1a: Split finance-domain pipeline logic out of packages/pipelines/ into packages/domains/finance/  (assignee: -)
-  [done    ] #191  WP-1b: Split utilities-domain pipeline logic out of packages/pipelines/ into packages/domains/utilities/  (assignee: -)
-  [done    ] #192  WP-1c: Split homelab/HA-domain pipeline logic out of packages/pipelines/ into packages/domains/homelab/  (assignee: -)
-  [done    ] #193  WP-1d: Split overview-domain pipeline logic out of packages/pipelines/ into packages/domains/overview/  (assignee: -)
-  [done    ] #194  WP-1e: Resolve ambiguous pipeline files — classify each as kernel, app, or justified-mixed with written rationale  (assignee: -)
-
---- Track: boundary-cleanup ---
-  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #196  WP-3: Move household-specific contract instances out of platform-level locations into domain/app ownership  (assignee: -)
-  [done    ] #197  WP-4: Clean shared-layer imports of domain manifests — accept packs as parameters instead of importing directly  (assignee: -)
-  [done    ] #198  WP-5: Remove remaining platform dependency inversions into mixed pipeline code — consume registration input instead  (assignee: -)
-  [done    ] #199  WP-6: Promote genuinely generic freshness logic to platform/shared home if still generic after review  (assignee: -)
-
---- Track: container-cleanup ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #195  WP-2: Remove household-typed fields from platform container — move domain-service construction into app composition logic  (assignee: -)
-
---- Track: enforcement ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #200  WP-7: Add import-boundary enforcement tests — CI fails on platform-to-domain import violations  (assignee: -)
-  [done    ] #201  WP-8: Add minimal-kernel boot smoke test — platform imports, zero-pack container builds, health endpoints respond  (assignee: -)
-
---- Track: deferred ---
+--- Track: carryover ---
   health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #205  WP-12: [DEFERRED] Revisit route-extension/composition hooks only after seam cleanup proves pain  (assignee: -)
+  [pending ] #226  WP-12 carryover: route-extension/composition hooks cleanup (from #205)  (assignee: -)
 
---- Track: naming-docs ---
-  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #202  WP-9: Rename misleading builtin household files — stop disguising app content as universal platform infrastructure  (assignee: -)
-  [done    ] #203  WP-10: Add doc classification tags — tag ADRs/docs as PLATFORM / APP / CROSS-CUTTING, split docs by concern  (assignee: -)
-  [done    ] #204  WP-11: Add contributor/agent decision guide — classify work before touching code  (assignee: -)
+--- Track: finding-corrections ---
+  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
+  [pending ] #227  WP-13: move finance service builders out of platform runtime builder into app composition helpers  (assignee: -)
+  [pending ] #228  WP-14: remove household publication/current-dimension imports from shared external registry via injected registrations  (assignee: -)
+  [pending ] #229  WP-15: relocate household current-dimension contract instances into app-owned composition module  (assignee: -)
 
-Rendered: 2026-04-02T08:15:48Z
+Rendered: 2026-04-02T11:17:05Z
