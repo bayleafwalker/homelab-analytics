@@ -2,7 +2,7 @@ SPRINT: Sprint hearth-lantern-path — Product Polish and First-Week Onboarding 
 Goal:   Turn scattered platform capability into one obvious workflow: a first-week operator experience that takes messy household data and produces useful answers with minimal ceremony.
 Dates:  2026-03-30 to 2026-04-13
 ID:     26
-Items:  27 total — 6 done, 0 active, 21 pending, 0 blocked
+Items:  27 total — 7 done, 0 active, 20 pending, 0 blocked
 
 --- Track: first-answer ---
   health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
@@ -11,11 +11,11 @@ Items:  27 total — 6 done, 0 active, 21 pending, 0 blocked
   [pending ] #172  Progressive disclosure: show current value and what additional sources unlock  (assignee: -)
 
 --- Track: guided-onboarding ---
-  health: 5 items — 3 done (60%), 0 active, 2 pending, 0 blocked (0%)
+  health: 5 items — 4 done (80%), 0 active, 1 pending, 0 blocked (0%)
   [done    ] #165  Source type detection: accept dropped file, detect format, show detected contract with confidence  (assignee: -)
   [done    ] #166  Mapping preview: show detected column mapping, canonical fields, highlight weak/missing fields  (assignee: -)
   [done    ] #167  Publication preview: show which publications and views light up once source lands  (assignee: -)
-  [pending ] #168  Validation dry-run: parse without landing, show row count, date range, issues, accept/retry  (assignee: -)
+  [done    ] #168  Validation dry-run: parse without landing, show row count, date range, issues, accept/retry  (assignee: -)
   [pending ] #169  Wire existing upload API behind the wizard flow  (assignee: -)
 
 --- Track: source-remediation ---
@@ -52,4 +52,4 @@ Items:  27 total — 6 done, 0 active, 21 pending, 0 blocked
   [pending ] #214  High-quality demo seed data for scripted operator journey  (assignee: -)
   [pending ] #215  Minimal walkthrough doc: scripted path proving the product loop from upload to operating picture  (assignee: -)
 
-Rendered: 2026-04-02T12:30:56Z
+Rendered: 2026-04-02T12:58:17Z
