@@ -2,13 +2,13 @@ SPRINT: Sprint substrate-iron-seam — Platform Kernel and Household App Seam  [
 Goal:   Make the kernel/app boundary visible and enforceable: split packages/pipelines/ by domain, clean container assumptions, add import-boundary enforcement tests, prove minimal-kernel boot
 Dates:  2026-03-31 to 2026-04-27
 ID:     27
-Items:  16 total — 7 done, 0 active, 9 pending, 0 blocked
+Items:  16 total — 8 done, 0 active, 8 pending, 0 blocked
 
 --- Track: pipeline-split ---
-  health: 5 items — 3 done (60%), 0 active, 2 pending, 0 blocked (0%)
+  health: 5 items — 4 done (80%), 0 active, 1 pending, 0 blocked (0%)
   [done    ] #190  WP-1a: Split finance-domain pipeline logic out of packages/pipelines/ into packages/domains/finance/  (assignee: -)
   [done    ] #191  WP-1b: Split utilities-domain pipeline logic out of packages/pipelines/ into packages/domains/utilities/  (assignee: -)
-  [pending ] #192  WP-1c: Split homelab/HA-domain pipeline logic out of packages/pipelines/ into packages/domains/homelab/  (assignee: -)
+  [done    ] #192  WP-1c: Split homelab/HA-domain pipeline logic out of packages/pipelines/ into packages/domains/homelab/  (assignee: -)
   [done    ] #193  WP-1d: Split overview-domain pipeline logic out of packages/pipelines/ into packages/domains/overview/  (assignee: -)
   [pending ] #194  WP-1e: Resolve ambiguous pipeline files — classify each as kernel, app, or justified-mixed with written rationale  (assignee: -)
 
@@ -38,4 +38,4 @@ Items:  16 total — 7 done, 0 active, 9 pending, 0 blocked
   [done    ] #203  WP-10: Add doc classification tags — tag ADRs/docs as PLATFORM / APP / CROSS-CUTTING, split docs by concern  (assignee: -)
   [done    ] #204  WP-11: Add contributor/agent decision guide — classify work before touching code  (assignee: -)
 
-Rendered: 2026-04-02T06:37:25Z
+Rendered: 2026-04-02T06:47:14Z
