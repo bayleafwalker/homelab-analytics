@@ -1,5 +1,7 @@
 # Data Platform Architecture
 
+**Classification:** PLATFORM
+
 ## Goals
 
 The platform needs one architecture that supports:

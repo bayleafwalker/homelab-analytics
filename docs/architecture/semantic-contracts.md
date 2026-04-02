@@ -1,5 +1,7 @@
 # Semantic Contracts
 
+**Classification:** PLATFORM
+
 Semantic contracts define how the canonical model is extended without turning reporting relations into one-off, domain-local shapes.
 
 They sit between the transformation-layer model and the reporting/publication surface:

@@ -1,5 +1,7 @@
 # Integration Adapter Contracts
 
+**Classification:** PLATFORM
+
 ## Purpose
 
 This document turns Stage 6 from roadmap text into an implementation-ready contract packet.

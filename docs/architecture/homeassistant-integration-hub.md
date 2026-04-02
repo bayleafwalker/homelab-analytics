@@ -1,5 +1,7 @@
 # Home Assistant Integration Hub
 
+**Classification:** PLATFORM
+
 ## Purpose
 
 This document specifies the architecture of the Home Assistant integration hub — the technical bridge between Home Assistant and the household operating platform. It defines the six layers of the hub, the protocol choices at each layer, the entity normalization contract, the bidirectional command fabric, the synthetic entity publication model, and the resilience model.

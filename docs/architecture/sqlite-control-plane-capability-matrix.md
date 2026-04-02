@@ -1,5 +1,7 @@
 # SQLite Control-Plane Capability Matrix
 
+**Classification:** PLATFORM
+
 This matrix defines what the repository guarantees for the retained SQLite path
 compared with the canonical Postgres control-plane path.
 

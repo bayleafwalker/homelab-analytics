@@ -1,5 +1,7 @@
 # Category Governance — Architecture
 
+**Classification:** PLATFORM
+
 **Status:** implemented baseline; broader cross-domain adoption remains open
 **Stage:** 1 semantic-domain governance
 **Tracker:** `CategoryGovernancePhase2Tests` in `tests/test_household_complete_integration.py`

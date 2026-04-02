@@ -1,5 +1,7 @@
 # Agent Surfaces
 
+**Classification:** PLATFORM
+
 ## Goal
 
 Stage 10 adds agent-facing retrieval and proposal surfaces without making agents the source of truth. The semantic layer remains publication contracts, policy state, and approved execution paths.

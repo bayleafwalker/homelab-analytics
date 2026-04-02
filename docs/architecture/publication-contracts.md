@@ -1,5 +1,7 @@
 # Publication Contracts
 
+**Classification:** PLATFORM
+
 Publication contracts are the backend-owned semantic surface for renderer consumers.
 
 The API exports them through:

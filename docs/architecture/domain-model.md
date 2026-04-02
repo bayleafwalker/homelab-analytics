@@ -1,5 +1,7 @@
 # Domain Model
 
+**Classification:** PLATFORM
+
 Canonical household ontology for the platform. Documents every shipped dimension and its domain ownership, natural key, and governance notes.
 
 For governance rules governing shared dimensions and publication contracts, see [`semantic-contracts.md`](semantic-contracts.md).

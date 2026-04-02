@@ -1,5 +1,7 @@
 # Finance Ingestion Model
 
+**Classification:** PLATFORM
+
 ## Purpose
 
 This document defines the ingestion architecture for personal-finance sources. It introduces a contract taxonomy, three ingestion lanes, four canonical dataset types, and the lifecycle from raw evidence to published output. It extends the platform's existing data architecture without replacing it.

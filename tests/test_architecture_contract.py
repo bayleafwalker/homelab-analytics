@@ -52,6 +52,12 @@ def test_shared_external_registry_does_not_import_domain_manifests() -> None:
     assert "packages.platform.capability_types" in imports
 
 
+def test_architecture_docs_are_classified_as_platform_or_cross_cutting() -> None:
+    for path in sorted((ROOT / "docs" / "architecture").glob("*.md")):
+        source = path.read_text()
+        assert "**Classification:** " in source
+
+
 def test_app_reporting_paths_do_not_compute_cashflow_from_landing_service() -> None:
     api_source = (ROOT / "apps" / "api" / "routes" / "report_routes.py").read_text()
     web_dashboard_source = (ROOT / "apps" / "web" / "frontend" / "app" / "page.js").read_text()

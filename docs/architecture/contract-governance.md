@@ -1,5 +1,7 @@
 # Contract Governance
 
+**Classification:** PLATFORM
+
 The repo now treats backend-owned contracts as release artifacts, not just build inputs.
 
 There are four committed frontend-facing artifacts under `apps/web/frontend/generated/`:
