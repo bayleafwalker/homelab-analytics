@@ -52,4 +52,4 @@ Items:  27 total — 6 done, 0 active, 21 pending, 0 blocked
   [pending ] #214  High-quality demo seed data for scripted operator journey  (assignee: -)
   [pending ] #215  Minimal walkthrough doc: scripted path proving the product loop from upload to operating picture  (assignee: -)
 
-Rendered: 2026-04-02T12:22:46Z
+Rendered: 2026-04-02T12:30:56Z
