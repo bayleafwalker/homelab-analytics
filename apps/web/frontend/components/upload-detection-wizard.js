@@ -158,6 +158,25 @@ export function UploadDetectionWizard({ activeSourceAssets }) {
   const matchedColumns = asStringArray(candidate?.matched_columns);
   const missingColumns = asStringArray(candidate?.missing_columns);
   const expectedColumns = asStringArray(candidate?.expected_columns);
+  const rawCanonicalMatchedColumns = asStringArray(candidate?.canonical_matched_columns);
+  const rawCanonicalMissingColumns = asStringArray(candidate?.canonical_missing_columns);
+  const rawCanonicalExpectedColumns = asStringArray(candidate?.canonical_expected_columns);
+  const hasCanonicalPreview =
+    rawCanonicalMatchedColumns.length > 0 ||
+    rawCanonicalMissingColumns.length > 0 ||
+    rawCanonicalExpectedColumns.length > 0;
+  const canonicalMatchedColumns =
+    hasCanonicalPreview
+      ? rawCanonicalMatchedColumns
+      : matchedColumns;
+  const canonicalMissingColumns =
+    hasCanonicalPreview
+      ? rawCanonicalMissingColumns
+      : missingColumns;
+  const canonicalExpectedColumns =
+    hasCanonicalPreview
+      ? rawCanonicalExpectedColumns
+      : expectedColumns;
   const publicationPreview = candidate?.publication_preview || null;
   const resolvedUploadPath = uploadPath;
   const needsSourceAsset = isConfiguredUpload(resolvedUploadPath);
@@ -294,8 +313,8 @@ export function UploadDetectionWizard({ activeSourceAssets }) {
           </div>
           <div className="metaItem">
             <div className="metricLabel">Mapping status</div>
-            <div className={missingColumns.length > 0 ? "warnText" : ""}>
-              {mappingStatus(matchedColumns, missingColumns)}
+            <div className={canonicalMissingColumns.length > 0 ? "warnText" : ""}>
+              {mappingStatus(canonicalMatchedColumns, canonicalMissingColumns)}
             </div>
           </div>
         </div>
@@ -307,17 +326,21 @@ export function UploadDetectionWizard({ activeSourceAssets }) {
           <div className="metaGrid uploadWizardMeta">
             <div className="metaItem">
               <div className="metricLabel">Canonical fields expected</div>
-              <div>{expectedColumns.join(", ") || "n/a"}</div>
+              <div>{canonicalExpectedColumns.join(", ") || "n/a"}</div>
             </div>
             <div className="metaItem">
               <div className="metricLabel">Canonical fields mapped</div>
-              <div>{matchedColumns.join(", ") || "n/a"}</div>
+              <div>{canonicalMatchedColumns.join(", ") || "n/a"}</div>
             </div>
             <div className="metaItem">
               <div className="metricLabel">Weak or missing fields</div>
-              <div className={missingColumns.length > 0 ? "warnText" : "muted"}>
-                {missingColumns.join(", ") || "none"}
+              <div className={canonicalMissingColumns.length > 0 ? "warnText" : "muted"}>
+                {canonicalMissingColumns.join(", ") || "none"}
               </div>
+            </div>
+            <div className="metaItem">
+              <div className="metricLabel">Source columns matched</div>
+              <div>{matchedColumns.join(", ") || "n/a"}</div>
             </div>
           </div>
         </div>
@@ -352,6 +375,9 @@ export function UploadDetectionWizard({ activeSourceAssets }) {
                         .filter(Boolean)
                         .join(", ")
                     : "none"}
+                </div>
+                <div className="muted">
+                  May require additional source data before showing meaningful values.
                 </div>
               </div>
               <div className="metaItem">

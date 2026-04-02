@@ -226,6 +226,13 @@ def _build_configured_candidates(
         mapping = column_mappings_by_id.get(source_asset.column_mapping_id)
         if mapping is None or mapping.archived:
             continue
+        canonical_expected_columns = sorted(
+            {
+                str(rule.target_column).strip().lower()
+                for rule in mapping.rules
+                if str(rule.target_column).strip()
+            }
+        )
         expected_columns = sorted(
             {
                 str(rule.source_column).strip().lower()
@@ -239,6 +246,22 @@ def _build_configured_candidates(
         matched_columns = sorted(header_set & expected_set)
         if not matched_columns:
             continue
+        canonical_matched_set: set[str] = set()
+        for rule in mapping.rules:
+            target_column = str(rule.target_column).strip().lower()
+            if not target_column:
+                continue
+            source_column = str(rule.source_column or "").strip().lower()
+            if source_column and source_column in header_set:
+                canonical_matched_set.add(target_column)
+                continue
+            if rule.default_value is not None:
+                canonical_matched_set.add(target_column)
+        canonical_matched_columns = sorted(canonical_matched_set)
+        canonical_expected_set = set(canonical_expected_columns)
+        canonical_missing_columns = sorted(
+            canonical_expected_set - canonical_matched_set
+        )
         missing_columns = sorted(expected_set - header_set)
         score = len(matched_columns) / len(expected_columns)
         confidence_label = _confidence_label(score)
@@ -263,6 +286,9 @@ def _build_configured_candidates(
                 "missing_columns": missing_columns,
                 "expected_columns": expected_columns,
                 "matched_count": len(matched_columns),
+                "canonical_expected_columns": canonical_expected_columns,
+                "canonical_matched_columns": canonical_matched_columns,
+                "canonical_missing_columns": canonical_missing_columns,
             }
         )
     return candidates
@@ -294,6 +320,9 @@ def _build_builtin_candidates(*, header_set: set[str]) -> list[dict[str, object]
                 "missing_columns": missing_required,
                 "expected_columns": required_columns + optional_columns,
                 "matched_count": len(matched_required),
+                "canonical_expected_columns": required_columns + optional_columns,
+                "canonical_matched_columns": matched_required,
+                "canonical_missing_columns": missing_required,
             }
         )
     return candidates
@@ -362,6 +391,11 @@ def _detect_json_target(
         "missing_columns": [] if has_state else ["state"],
         "expected_columns": ["entity_id", "state"],
         "matched_count": 2 if has_state else 1,
+        "canonical_expected_columns": ["entity_id", "state"],
+        "canonical_matched_columns": (
+            ["entity_id", "state"] if has_state else ["entity_id"]
+        ),
+        "canonical_missing_columns": [] if has_state else ["state"],
         "file_name_hint": file_name,
     }
     return {"candidate": candidate, "alternatives": []}

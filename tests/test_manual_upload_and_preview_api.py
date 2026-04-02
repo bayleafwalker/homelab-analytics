@@ -88,6 +88,9 @@ def test_api_detects_source_type_for_configured_csv_upload() -> None:
         assert candidate["contract_id"] == "household_account_transactions_v1"
         assert candidate["confidence_label"] == "high"
         assert "booking_date" in candidate["matched_columns"]
+        assert "booked_at" in candidate["canonical_expected_columns"]
+        assert "booked_at" in candidate["canonical_matched_columns"]
+        assert candidate["canonical_missing_columns"] == []
         preview = candidate["publication_preview"]
         assert preview["transformation_package_id"] == "builtin_account_transactions"
         assert any(
@@ -98,6 +101,35 @@ def test_api_detects_source_type_for_configured_csv_upload() -> None:
             entry["publication_key"] == "mart_household_overview"
             for entry in preview["derived"]
         )
+
+
+def test_api_detects_canonical_field_gaps_for_partial_configured_csv() -> None:
+    with TemporaryDirectory() as temp_dir:
+        client, _ = _build_client(temp_dir)
+
+        response = client.post(
+            "/ingest/detect-source",
+            files={
+                "file": (
+                    "configured-upload.csv",
+                    (
+                        "booking_date,account_number,payee\n"
+                        "2026-03-01,FI123,Corner Shop\n"
+                    ).encode("utf-8"),
+                    "text/csv",
+                )
+            },
+        )
+
+        assert response.status_code == 200
+        detection = response.json()["detection"]
+        candidate = detection["candidate"]
+        assert candidate["kind"] == "configured_csv"
+        assert candidate["confidence_label"] == "low"
+        assert "booked_at" in candidate["canonical_matched_columns"]
+        assert "currency" in candidate["canonical_matched_columns"]
+        assert "amount" in candidate["canonical_missing_columns"]
+        assert "description" in candidate["canonical_missing_columns"]
 
 
 def test_api_detects_ha_states_json_upload_target() -> None:
@@ -127,6 +159,9 @@ def test_api_detects_ha_states_json_upload_target() -> None:
         assert candidate["contract_id"] == "home_assistant_states_json_v1"
         assert candidate["confidence_label"] == "high"
         assert candidate["matched_columns"] == ["entity_id", "state"]
+        assert candidate["canonical_expected_columns"] == ["entity_id", "state"]
+        assert candidate["canonical_matched_columns"] == ["entity_id", "state"]
+        assert candidate["canonical_missing_columns"] == []
         preview = candidate["publication_preview"]
         assert preview["transformation_package_id"] == "builtin_homelab"
         assert any(
