@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
-from packages.domains.finance.freshness import (
+from packages.platform.source_freshness import (
     SourceFreshnessRunObservation,
     SourceFreshnessState,
     evaluate_source_freshness,
