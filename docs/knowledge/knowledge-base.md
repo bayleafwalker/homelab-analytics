@@ -1,7 +1,135 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-03-29T17:15:19Z
+Generated: 2026-04-02T08:15:48Z
 
 ## Decisions
+
+### Align sprintctl/kctl guidance with payload-based events and id-scoped lookup commands
+Source: track: naming-docs, sprint: 27
+Tags: sprintctl, kctl, docs, agent-skills
+
+Updated runbooks and sprint skills so sprintctl event add uses --payload JSON and structured state queries include explicit --id/--item-id selectors after CLI surface changes.
+
+---
+
+### Inject builtin capability packs into external registry sync instead of importing domain manifests in shared layer
+Source: track: boundary-cleanup, sprint: 27
+Tags: architecture, layer-boundary, external-registry
+
+Refactored packages/shared/external_registry.py to accept builtin_packs as an explicit dependency and updated API/worker call paths to pass container capability packs. This removes shared-layer imports of packages.domains.* and keeps duplicate publication-key validation behavior through composition-layer wiring.
+
+---
+
+### Adopt explicit doc concern tags (PLATFORM/APP/CROSS-CUTTING) and concern-oriented docs index
+Source: track: naming-docs, sprint: 27
+Tags: documentation, architecture-boundary, governance
+
+Tagged the ADR set and key runbooks/product docs with a Classification marker and added a concern-oriented starting-point split in docs/README.md to keep kernel vs household-app ownership explicit during future edits.
+
+---
+
+### Rename misleading builtin household pipeline modules to household_* with compatibility shims
+Source: track: naming-docs, sprint: 27
+Tags: naming, architecture-boundary, compatibility
+
+Moved builtin_packages/reporting/promotion_handlers/transformation_refresh modules to household_* names and rewired imports across runtime, platform, storage, and tests. Added thin builtin_* shim modules that re-export household_* symbols to avoid import breakage while clarifying ownership semantics.
+
+---
+
+### Complete WP-10 tagging coverage by adding classification tags to all architecture docs and enforce with architecture test
+Source: track: naming-docs, sprint: 27
+Tags: documentation, wp-10, quality-gate
+
+Added **Classification:** PLATFORM markers to every docs/architecture/*.md file and added a test assertion in tests/test_architecture_contract.py so future architecture docs must include a classification marker.
+
+---
+
+### WP-1a finance pipeline split: moved finance transforms/models/services into packages/domains/finance/pipelines with compatibility shims
+Source: track: pipeline-split, sprint: 27
+Tags: wp-1a, architecture-boundary, refactor
+
+Relocated account/subscription/budget/loan/contract/transaction/scenario finance pipeline modules from packages/pipelines into packages/domains/finance/pipelines, rewired imports repo-wide to the domain namespace, and left thin packages/pipelines shim modules for compatibility so platform stays domain-agnostic through shim imports while the seam settles.
+
+---
+
+### WP-1b utilities pipeline split: moved utility transforms/models/services into packages/domains/utilities/pipelines with compatibility shims
+Source: track: pipeline-split, sprint: 27
+Tags: wp-1b, architecture-boundary, refactor
+
+Relocated utility models, bill/usage services, and transformation logic from packages/pipelines into packages/domains/utilities/pipelines, rewired imports to the domain namespace, and preserved thin shims at old packages/pipelines paths for compatibility during transition.
+
+---
+
+### WP-1d overview pipeline split: moved overview marts/transforms into packages/domains/overview/pipelines with compatibility shims
+Source: track: pipeline-split, sprint: 27
+Tags: wp-1d, architecture-boundary, refactor
+
+Relocated overview_models and transformation_overview from packages/pipelines into packages/domains/overview/pipelines, rewired transformation/reporting imports to the domain namespace, and preserved thin shim modules at the legacy paths for compatibility while the seam migration continues.
+
+---
+
+### WP-1c homelab/HA pipeline split: moved HA/homelab/infrastructure pipelines into packages/domains/homelab/pipelines with compatibility shims
+Source: track: pipeline-split, sprint: 27
+Tags: wp-1c, architecture-boundary, refactor
+
+Relocated homelab, home-automation, infrastructure, and HA integration pipeline modules from packages/pipelines into packages/domains/homelab/pipelines; rewired runtime/reporting/API imports to the domain namespace; kept thin shim modules at legacy paths for compatibility; and moved AdapterRuntimeStatus to packages/platform so domain modules no longer import packages.adapters directly.
+
+---
+
+### WP-1e classified remaining ambiguous pipeline files with explicit APP/JUSTIFIED-MIXED rationale
+Source: track: pipeline-split, sprint: 27
+Tags: wp-1e, architecture-boundary, documentation
+
+Added docs/architecture/pipeline-ambiguity-classification.md covering asset_models, asset_register, asset_register_service, transformation_assets, and contracts.py with rationale for current placement, and added an architecture test guard to keep this classification coverage explicit.
+
+---
+
+### WP-7 added import-boundary enforcement tests for platform/shared layers
+Source: track: enforcement, sprint: 27
+Tags: wp-7, architecture-boundary, tests
+
+Added architecture tests that enforce packages/shared has no direct domain imports and packages/platform avoids homelab/overview domain pipeline modules; also rewired shared/extensions account-transaction inbox helper to use the pipelines shim path so shared-to-domains boundary remains clean.
+
+---
+
+### WP-8 added minimal-kernel boot smoke test for zero-pack container path
+Source: track: enforcement, sprint: 27
+Tags: wp-8, architecture-boundary, smoke-test
+
+Added ApiMain test coverage that builds the platform container with capability_packs=() and verifies FastAPI /health and /ready respond successfully via create_app(container), proving the narrow kernel boot path works without domain pack registration.
+
+---
+
+### WP-2 removed domain-typed fields from AppContainer and shifted domain-service wiring to app composition.
+Source: track: container-cleanup, sprint: 27
+Tags: wp-2, container-cleanup, composition
+
+Container no longer owns finance-specific typed services or finance_pack; API and worker startup now build account/subscription/contract-price services explicitly from shared stores while preserving legacy create_app behavior.
+
+---
+
+### Moved household current-dimension contract instances out of platform module into app-owned pipeline module.
+Source: track: boundary-cleanup, sprint: 27
+Tags: wp-3, contracts, platform-boundary
+
+packages/platform/current_dimension_contracts.py now exposes only the generic CurrentDimensionContractDefinition shape; publication_contract assembly reads instance metadata from packages/pipelines/household_current_dimension_contracts.py.
+
+---
+
+### Platform publication-contract builder now consumes injected publication and current-dimension registrations instead of importing household pipeline registrations directly.
+Source: track: boundary-cleanup, sprint: 27
+Tags: wp-5, platform-boundary, registration-injection
+
+build_publication_relation_map/build_publication_contracts/build_publication_contract_catalog now require caller-provided relation and current-dimension metadata; API routes, export tooling, HA contract renderer, and external-registry validation pass the household registrations explicitly.
+
+---
+
+### Promoted generic source-freshness evaluator from finance domain path into platform module.
+Source: track: boundary-cleanup, sprint: 27
+Tags: wp-6, freshness, platform
+
+Added packages/platform/source_freshness.py as canonical home for source freshness assessment logic and converted packages/domains/finance/freshness.py into a compatibility re-export shim; tests now target platform location.
+
+---
 
 ### Scope Sprint K compare-set follow-up to pair-set lifecycle only
 Source: track: stage-4, sprint: 5
