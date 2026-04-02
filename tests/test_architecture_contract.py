@@ -861,6 +861,23 @@ def test_app_container_no_longer_exposes_finance_specific_typed_fields() -> None
     assert "finance_pack" not in container_source
 
 
+def test_current_dimension_contract_instances_live_outside_platform_module() -> None:
+    platform_current_dimension_source = (
+        ROOT / "packages" / "platform" / "current_dimension_contracts.py"
+    ).read_text()
+    publication_contract_source = (
+        ROOT / "packages" / "platform" / "publication_contracts.py"
+    ).read_text()
+    household_current_dimension_source = (
+        ROOT / "packages" / "pipelines" / "household_current_dimension_contracts.py"
+    ).read_text()
+
+    assert "CURRENT_DIMENSION_CONTRACTS" not in platform_current_dimension_source
+    assert "CurrentDimensionContractDefinition" in platform_current_dimension_source
+    assert "packages.pipelines.household_current_dimension_contracts" in publication_contract_source
+    assert "CURRENT_DIMENSION_CONTRACTS" in household_current_dimension_source
+
+
 # ---------------------------------------------------------------------------
 # Auth policy matrix tests (ADR §14)
 # ---------------------------------------------------------------------------

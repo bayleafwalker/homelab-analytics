@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from packages.pipelines.household_current_dimension_contracts import (
+    CURRENT_DIMENSION_CONTRACTS,
+)
 from packages.pipelines.household_reporting import (
     CURRENT_DIMENSION_RELATIONS,
     PUBLICATION_RELATIONS,
@@ -13,10 +16,7 @@ from packages.platform.capability_types import (
     PublicationDefinition,
     PublicationFieldDefinition,
 )
-from packages.platform.current_dimension_contracts import (
-    CURRENT_DIMENSION_CONTRACTS,
-    CurrentDimensionContractDefinition,
-)
+from packages.platform.current_dimension_contracts import CurrentDimensionContractDefinition
 from packages.shared.extensions import ExtensionRegistry
 
 
