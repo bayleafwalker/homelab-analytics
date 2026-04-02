@@ -1,7 +1,23 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-02T12:31:06Z
+Generated: 2026-04-02T13:12:37Z
 
 ## Decisions
+
+### Dry-run upload flow enforces explicit accept/retry gating before ingestion
+Source: track: guided-onboarding, sprint: 26
+Tags: guided-onboarding, dry-run, upload
+
+Guided onboarding uploads now require an explicit dry-run acceptance step before ingest proceeds. The flow surfaces row count, date range, and issues, keeps upload disabled until acceptance, and supports retrying dry-run to re-lock the gate until re-accepted.
+
+---
+
+### Storybook Playwright automation covers guided upload accept/retry gate
+Source: track: tests, sprint: 26
+Tags: guided-onboarding, frontend-automation, dry-run
+
+Dedicated frontend automation for upload gating is implemented with a Storybook MSW scenario and Playwright interaction test. The test verifies upload stays disabled before acceptance, becomes enabled after acceptance, and is disabled again after retry until accepted once more.
+
+---
 
 ### Detect-source now exposes publication unlock preview
 Source: track: guided-onboarding, sprint: 26
@@ -510,6 +526,22 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 ---
 
 ## Lessons
+
+### Contract changes require OpenAPI export and frontend codegen refresh
+Source: track: guided-onboarding, sprint: 26
+Tags: contracts, openapi, workflow
+
+When ingest endpoints or route contracts change, contract-export and frontend codegen must be refreshed in the same change. verify-fast catches drift through contract-export-check and web codegen checks.
+
+---
+
+### Storybook JSX runtime may need explicit React import in client components
+Source: track: tests, sprint: 26
+Tags: storybook, frontend-tests, workflow
+
+Client components that rely on Next.js runtime behavior can fail in Storybook/Vite with React-is-not-defined unless React is explicitly imported in JSX files. Add explicit React imports when introducing Storybook automation for such components.
+
+---
 
 ### Upload preview must report canonical target coverage
 Source: track: guided-onboarding, sprint: 26
