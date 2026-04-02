@@ -2,7 +2,7 @@ SPRINT: Sprint substrate-iron-seam — Platform Kernel and Household App Seam  [
 Goal:   Make the kernel/app boundary visible and enforceable: split packages/pipelines/ by domain, clean container assumptions, add import-boundary enforcement tests, prove minimal-kernel boot
 Dates:  2026-03-31 to 2026-04-27
 ID:     27
-Items:  16 total — 10 done, 0 active, 6 pending, 0 blocked
+Items:  16 total — 11 done, 0 active, 5 pending, 0 blocked
 
 --- Track: pipeline-split ---
   health: 5 items — 5 done (100%), 0 active, 0 pending, 0 blocked (0%)
@@ -24,9 +24,9 @@ Items:  16 total — 10 done, 0 active, 6 pending, 0 blocked
   [pending ] #195  WP-2: Remove household-typed fields from platform container — move domain-service construction into app composition logic  (assignee: -)
 
 --- Track: enforcement ---
-  health: 2 items — 1 done (50%), 0 active, 1 pending, 0 blocked (0%)
+  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
   [done    ] #200  WP-7: Add import-boundary enforcement tests — CI fails on platform-to-domain import violations  (assignee: -)
-  [pending ] #201  WP-8: Add minimal-kernel boot smoke test — platform imports, zero-pack container builds, health endpoints respond  (assignee: -)
+  [done    ] #201  WP-8: Add minimal-kernel boot smoke test — platform imports, zero-pack container builds, health endpoints respond  (assignee: -)
 
 --- Track: deferred ---
   health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
@@ -38,4 +38,4 @@ Items:  16 total — 10 done, 0 active, 6 pending, 0 blocked
   [done    ] #203  WP-10: Add doc classification tags — tag ADRs/docs as PLATFORM / APP / CROSS-CUTTING, split docs by concern  (assignee: -)
   [done    ] #204  WP-11: Add contributor/agent decision guide — classify work before touching code  (assignee: -)
 
-Rendered: 2026-04-02T06:50:59Z
+Rendered: 2026-04-02T06:53:05Z
