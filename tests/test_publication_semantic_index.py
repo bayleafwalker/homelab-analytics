@@ -6,7 +6,7 @@ from packages.domains.finance.manifest import FINANCE_PACK
 from packages.domains.homelab.manifest import HOMELAB_PACK
 from packages.domains.overview.manifest import OVERVIEW_PACK
 from packages.domains.utilities.manifest import UTILITIES_PACK
-from packages.pipelines.household_current_dimension_contracts import (
+from packages.pipelines.composition.current_dimension_contracts import (
     CURRENT_DIMENSION_CONTRACTS,
 )
 from packages.pipelines.household_reporting import (

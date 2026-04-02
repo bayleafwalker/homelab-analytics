@@ -871,16 +871,20 @@ def test_current_dimension_contract_instances_live_outside_platform_module() -> 
     contract_routes_source = (
         ROOT / "apps" / "api" / "routes" / "contract_routes.py"
     ).read_text()
-    household_current_dimension_source = (
+    composition_current_dimension_source = (
+        ROOT / "packages" / "pipelines" / "composition" / "current_dimension_contracts.py"
+    ).read_text()
+    legacy_shim_source = (
         ROOT / "packages" / "pipelines" / "household_current_dimension_contracts.py"
     ).read_text()
 
     assert "CURRENT_DIMENSION_CONTRACTS" not in platform_current_dimension_source
     assert "CurrentDimensionContractDefinition" in platform_current_dimension_source
-    assert "packages.pipelines.household_current_dimension_contracts" not in publication_contract_source
+    assert "packages.pipelines.composition.current_dimension_contracts" not in publication_contract_source
     assert "current_dimension_contracts" in publication_contract_source
     assert "CURRENT_DIMENSION_CONTRACTS" in contract_routes_source
-    assert "CURRENT_DIMENSION_CONTRACTS" in household_current_dimension_source
+    assert "CURRENT_DIMENSION_CONTRACTS" in composition_current_dimension_source
+    assert "packages.pipelines.composition.current_dimension_contracts" in legacy_shim_source
 
 
 def test_source_freshness_evaluator_is_promoted_to_platform() -> None:

@@ -12,7 +12,7 @@ from apps.api.response_models import (
     publication_semantic_index_entry_model_from_dataclass,
     ui_descriptor_model_from_dataclass,
 )
-from packages.pipelines.household_current_dimension_contracts import (
+from packages.pipelines.composition.current_dimension_contracts import (
     CURRENT_DIMENSION_CONTRACTS,
 )
 from packages.pipelines.household_reporting import (

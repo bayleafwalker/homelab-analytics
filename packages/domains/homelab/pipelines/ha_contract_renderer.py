@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Sequence
 
 from packages.domains.homelab.pipelines.ha_mqtt_models import HaMqttEntityDefinition
-from packages.pipelines.household_current_dimension_contracts import (
+from packages.pipelines.composition.current_dimension_contracts import (
     CURRENT_DIMENSION_CONTRACTS,
 )
 from packages.pipelines.household_reporting import (

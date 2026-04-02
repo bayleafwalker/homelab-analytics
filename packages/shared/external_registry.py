@@ -14,10 +14,10 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from uuid import uuid4
 
-from packages.pipelines.extension_registries import load_pipeline_registries
-from packages.pipelines.household_current_dimension_contracts import (
+from packages.pipelines.composition.current_dimension_contracts import (
     CURRENT_DIMENSION_CONTRACTS,
 )
+from packages.pipelines.extension_registries import load_pipeline_registries
 from packages.pipelines.household_reporting import (
     CURRENT_DIMENSION_RELATIONS,
     PUBLICATION_RELATIONS,

@@ -10,7 +10,7 @@ from apps.api.response_models import (
     AssistantAnswerResponseModel,
     AssistantSourceModel,
 )
-from packages.pipelines.household_current_dimension_contracts import (
+from packages.pipelines.composition.current_dimension_contracts import (
     CURRENT_DIMENSION_CONTRACTS,
 )
 from packages.pipelines.household_reporting import (
