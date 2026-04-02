@@ -1,7 +1,15 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-02T12:03:34Z
+Generated: 2026-04-02T12:23:23Z
 
 ## Decisions
+
+### Detect-source now exposes publication unlock preview
+Source: track: guided-onboarding, sprint: 26
+Tags: guided-onboarding, upload, publication-preview
+
+Use transformation-package metadata during upload target detection to surface both direct and derived publication unlocks in the guided wizard before ingest. This keeps onboarding guidance aligned with reporting-layer outputs without changing ingest paths.
+
+---
 
 ### Guided upload can infer contract target from file format and headers
 Source: track: guided-onboarding, sprint: 26
