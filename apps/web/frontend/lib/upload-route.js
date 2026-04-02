@@ -68,7 +68,7 @@ export async function proxyUploadRequest(
     return NextResponse.redirect(redirectUrl, { status: 303 });
   }
   return NextResponse.redirect(
-    new URL(`/runs/${payload.run.run_id}?notice=upload-created`, request.url),
+    new URL(`/ingest-summary/${payload.run.run_id}`, request.url),
     { status: 303 }
   );
 }

@@ -20,6 +20,7 @@ function navItemsForUser(user) {
     { href: "/homelab", label: "Homelab" },
   ];
   if (hasRequiredRole(user, "operator")) {
+    items.push({ href: "/sources", label: "Sources" });
     items.push({ href: "/upload", label: "Upload" });
   }
   if (user?.role === "admin") {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
+import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { SparklineChart } from "@/components/sparkline-chart";
 import { stateIndicatorBadge } from "@/lib/state-indicators";
 import {
@@ -12,6 +13,7 @@ import {
   getRecentChanges,
   getRecurringCostBaseline,
   getRuns,
+  getSourceFreshness,
   getSpendByCategoryMonthly,
   getSubscriptionSummary,
   getUtilityCostTrend,
@@ -19,7 +21,7 @@ import {
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
-  const [cashflowRows, runs, overview, attentionItems, recentChanges, spendByCategory, subscriptions, utilityTrend, affordabilityRatios, recurringBaseline] =
+  const [cashflowRows, runs, overview, attentionItems, recentChanges, spendByCategory, subscriptions, utilityTrend, affordabilityRatios, recurringBaseline, freshnessDatasets] =
     await Promise.all([
       getMonthlyCashflow(),
       getRuns(8),
@@ -31,6 +33,7 @@ export default async function DashboardPage() {
       getUtilityCostTrend(),
       getAffordabilityRatios(),
       getRecurringCostBaseline(),
+      getSourceFreshness(),
     ]);
   const latest = cashflowRows.at(-1);
 
@@ -64,6 +67,24 @@ export default async function DashboardPage() {
   const recurringTotal = subscriptions
     .filter((r) => r.status === "active")
     .reduce((sum, r) => sum + Number(r.monthly_equivalent || 0), 0);
+
+  // Onboarding checklist: compute fresh datasets and next suggestion
+  const freshDatasetNames = freshnessDatasets
+    .filter((ds) => {
+      if (!ds.landed_at) return false;
+      const diffDays = (Date.now() - new Date(ds.landed_at)) / (1000 * 60 * 60 * 24);
+      return diffDays < 7;
+    })
+    .map((ds) => ds.dataset_name);
+
+  const ONBOARDING_ORDER = [
+    { dataset: "account_transactions", label: "Account transactions", uploadPath: "/upload/account-transactions" },
+    { dataset: "subscriptions", label: "Subscriptions", uploadPath: "/upload/subscriptions" },
+    { dataset: "contract_prices", label: "Contract prices", uploadPath: "/upload/contract-prices" },
+    { dataset: "budgets", label: "Budgets", uploadPath: "/upload/budgets" },
+    { dataset: "loan_repayments", label: "Loan repayments", uploadPath: "/upload/loan-repayments" },
+  ];
+  const nextSuggestion = ONBOARDING_ORDER.find((s) => !freshDatasetNames.includes(s.dataset)) || null;
 
   const trendLabels = cashflowRows.slice(-12).map((r) => r.booking_month);
   const trendSeries = [
@@ -131,6 +152,8 @@ export default async function DashboardPage() {
           </div>
         </aside>
       </section>
+
+      <OnboardingChecklist freshDatasets={freshDatasetNames} nextSuggestion={nextSuggestion} />
 
       <section className="cards">
         <article className="panel metricCard">
