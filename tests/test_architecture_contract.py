@@ -62,6 +62,19 @@ def test_architecture_docs_are_classified_as_platform_or_cross_cutting() -> None
         assert "**Classification:** " in source
 
 
+def test_ambiguous_pipeline_files_have_explicit_wp1e_classification() -> None:
+    source = (
+        ROOT / "docs" / "architecture" / "pipeline-ambiguity-classification.md"
+    ).read_text()
+
+    assert "`packages/pipelines/asset_models.py`" in source
+    assert "`packages/pipelines/asset_register.py`" in source
+    assert "`packages/pipelines/asset_register_service.py`" in source
+    assert "`packages/pipelines/transformation_assets.py`" in source
+    assert "`packages/pipelines/contracts.py`" in source
+    assert "JUSTIFIED-MIXED" in source
+
+
 def test_app_reporting_paths_do_not_compute_cashflow_from_landing_service() -> None:
     api_source = (ROOT / "apps" / "api" / "routes" / "report_routes.py").read_text()
     web_dashboard_source = (ROOT / "apps" / "web" / "frontend" / "app" / "page.js").read_text()
