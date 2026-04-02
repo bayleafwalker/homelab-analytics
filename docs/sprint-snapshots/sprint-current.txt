@@ -2,7 +2,7 @@ SPRINT: Sprint substrate-iron-seam — Platform Kernel and Household App Seam  [
 Goal:   Make the kernel/app boundary visible and enforceable: split packages/pipelines/ by domain, clean container assumptions, add import-boundary enforcement tests, prove minimal-kernel boot
 Dates:  2026-03-31 to 2026-04-27
 ID:     27
-Items:  16 total — 3 done, 0 active, 13 pending, 0 blocked
+Items:  16 total — 4 done, 0 active, 12 pending, 0 blocked
 
 --- Track: pipeline-split ---
   health: 5 items — 0 done (0%), 0 active, 5 pending, 0 blocked (0%)
@@ -33,9 +33,9 @@ Items:  16 total — 3 done, 0 active, 13 pending, 0 blocked
   [pending ] #205  WP-12: [DEFERRED] Revisit route-extension/composition hooks only after seam cleanup proves pain  (assignee: -)
 
 --- Track: naming-docs ---
-  health: 3 items — 2 done (66%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #202  WP-9: Rename misleading builtin household files — stop disguising app content as universal platform infrastructure  (assignee: -)
+  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #202  WP-9: Rename misleading builtin household files — stop disguising app content as universal platform infrastructure  (assignee: -)
   [done    ] #203  WP-10: Add doc classification tags — tag ADRs/docs as PLATFORM / APP / CROSS-CUTTING, split docs by concern  (assignee: -)
   [done    ] #204  WP-11: Add contributor/agent decision guide — classify work before touching code  (assignee: -)
 
-Rendered: 2026-04-02T05:45:13Z
+Rendered: 2026-04-02T05:48:31Z
