@@ -331,6 +331,8 @@ def create_app(
 ) -> FastAPI:
     # Support both the new AppContainer-first call and the legacy
     # AccountTransactionService-first call from existing tests.
+    resolved_subscription_service: SubscriptionService | None
+    resolved_contract_price_service: ContractPriceService | None
     if isinstance(service_or_container, AppContainer):
         container = service_or_container
         resolved_service = account_transaction_service or AccountTransactionService(

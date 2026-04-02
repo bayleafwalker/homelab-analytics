@@ -380,10 +380,18 @@ def _current_dimension_field_definitions(
 
 def build_publication_relation_map(
     *,
-    base_relations: Mapping[str, PublicationRelation],
+    base_relations: Mapping[str, Any],
     extension_registry: ExtensionRegistry | None = None,
 ) -> dict[str, PublicationRelation]:
-    relation_map = dict(base_relations)
+    relation_map = {
+        relation_name: PublicationRelation(
+            relation_name=relation.relation_name,
+            columns=list(relation.columns),
+            order_by=relation.order_by,
+            source_query=relation.source_query,
+        )
+        for relation_name, relation in base_relations.items()
+    }
     if extension_registry is None:
         return relation_map
 
@@ -406,14 +414,22 @@ def build_publication_relation_map(
 def build_publication_contracts(
     capability_packs: Sequence[CapabilityPack],
     *,
-    publication_relations: Mapping[str, PublicationRelation],
+    publication_relations: Mapping[str, Any],
     current_dimension_relations: Mapping[str, str] | None = None,
     current_dimension_contracts: Mapping[
         str,
         CurrentDimensionContractDefinition,
     ] | None = None,
 ) -> list[PublicationContract]:
-    relation_map = dict(publication_relations)
+    relation_map = {
+        relation_name: PublicationRelation(
+            relation_name=relation.relation_name,
+            columns=list(relation.columns),
+            order_by=relation.order_by,
+            source_query=relation.source_query,
+        )
+        for relation_name, relation in publication_relations.items()
+    }
     resolved_current_dimension_relations = current_dimension_relations or {}
     resolved_current_dimension_contracts = current_dimension_contracts or {}
     pack_publications = _pack_publication_relations(capability_packs)
@@ -547,7 +563,7 @@ def build_ui_descriptor_contracts(
 def build_publication_contract_catalog(
     capability_packs: Sequence[CapabilityPack],
     *,
-    publication_relations: Mapping[str, PublicationRelation],
+    publication_relations: Mapping[str, Any],
     current_dimension_relations: Mapping[str, str] | None = None,
     current_dimension_contracts: Mapping[
         str,
