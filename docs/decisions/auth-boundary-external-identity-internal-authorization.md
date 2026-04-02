@@ -1,5 +1,6 @@
 # ADR: External Identity, Internal Authorization, and Narrow Break-Glass
 
+**Classification:** PLATFORM
 **Status:** Accepted
 **Owner:** Juha
 **Decision type:** Security and platform-boundary architecture

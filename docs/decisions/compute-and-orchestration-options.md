@@ -1,5 +1,7 @@
 # Compute And Orchestration Options
 
+**Classification:** PLATFORM
+
 ## Decision summary
 
 Recommended initial stack:

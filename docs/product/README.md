@@ -1,5 +1,7 @@
 # Product documentation
 
+**Classification:** APP
+
 This directory supplements the ADR workflow with a product-design workflow.
 
 The architecture decisions in `docs/decisions/` answer questions such as:

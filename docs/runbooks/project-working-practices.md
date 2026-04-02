@@ -1,5 +1,7 @@
 # Project Working Practices
 
+**Classification:** CROSS-CUTTING
+
 ## Purpose
 
 This runbook defines the repository's default working practices for how work starts, moves, and closes.

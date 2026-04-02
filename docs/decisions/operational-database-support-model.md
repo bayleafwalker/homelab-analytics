@@ -1,5 +1,6 @@
 # ADR: Operational Database Support Model
 
+**Classification:** PLATFORM
 **Status:** Accepted
 **Owner:** Juha
 **Decision type:** Architecture / storage support model

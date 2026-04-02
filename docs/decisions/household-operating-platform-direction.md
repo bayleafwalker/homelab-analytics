@@ -1,5 +1,6 @@
 # ADR: Household Operating Platform Direction
 
+**Classification:** CROSS-CUTTING
 **Status:** Accepted
 **Owner:** Juha
 **Decision type:** Product direction / identity evolution

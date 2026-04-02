@@ -1,5 +1,7 @@
 # Sprint And Knowledge Operations
 
+**Classification:** CROSS-CUTTING
+
 ## Purpose
 
 This runbook defines how the repository uses `sprintctl` for live sprint state and `kctl` for durable knowledge capture.
@@ -119,6 +121,7 @@ Recommended structured-state commands:
 - `sprintctl claim list --item-id <item-id> --json`
 - `sprintctl claim list-sprint --json`
 - `sprintctl claim resume --json`
+- `sprintctl usage --context --json`
 - `sprintctl handoff --output <path>`
 - `kctl review list --json`
 - `kctl status --json`

@@ -1,5 +1,6 @@
 # ADR: Headless Platform Core, Domain Capability Packs, and Replaceable Presentation Adapters
 
+**Classification:** CROSS-CUTTING
 **Status:** Accepted
 **Owner:** Juha
 **Decision type:** Architecture / codebase restructuring

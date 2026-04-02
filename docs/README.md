@@ -4,6 +4,41 @@
 
 The authoritative requirements baseline lives at `requirements/` in the repository root. See `requirements/README.md` for the template, phase definitions, stage alignment, and document index.
 
+## Concern tags
+
+Use these tags when adding or updating docs so kernel-vs-app ownership stays explicit:
+
+- `PLATFORM` — platform kernel architecture, runtime primitives, security foundations, and storage support model.
+- `APP` — household-app product behavior, operator workflows, and domain-facing UX guidance.
+- `CROSS-CUTTING` — docs that intentionally span platform and app concerns (for example sprint/process guidance or boundary ADRs).
+
+## Concern-oriented starting points
+
+### Platform kernel docs (`PLATFORM`)
+
+- `decisions/operational-database-support-model.md`
+- `decisions/compute-and-orchestration-options.md`
+- `decisions/auth-boundary-external-identity-internal-authorization.md`
+- `architecture/data-platform-architecture.md`
+- `architecture/contract-governance.md`
+- `runbooks/release-governance.md`
+
+### Household app docs (`APP`)
+
+- `product/core-household-operating-picture.md`
+- `product/initial-capability-packs-and-publications.md`
+- `product/finance-source-contracts.md`
+- `product/source-freshness-workflow.md`
+- `examples/finance-source-contracts/README.md`
+
+### Boundary docs (`CROSS-CUTTING`)
+
+- `decisions/household-platform-adr-and-refactor-blueprint.md`
+- `decisions/household-operating-platform-direction.md`
+- `runbooks/project-working-practices.md`
+- `runbooks/sprint-and-knowledge-operations.md`
+- `agents/implementation.md`
+
 ## Architecture
 
 - `architecture/data-platform-architecture.md` — source ingestion pattern, landing/bronze, transformation/silver, reporting/gold, SCD handling, extensibility model, and API/UI publishing model. Also covers forward-looking architectural layers: semantic domain, planning/scenario, policy/automation, multi-renderer delivery, pack ecosystem, and trust/governance.
