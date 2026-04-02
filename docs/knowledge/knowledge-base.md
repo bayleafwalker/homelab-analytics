@@ -1,7 +1,15 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-02T13:12:37Z
+Generated: 2026-04-02T13:23:44Z
 
 ## Decisions
+
+### Frontend gating automation is now part of blocking verify-fast CI
+Source: track: tests, sprint: 26
+Tags: frontend-automation, ci, verify-fast
+
+The accept/retry gating UI automation is now enforced in the blocking verification path by adding web-ui-test and including it in verify-fast. This turns frontend gating checks from advisory to merge-gating coverage.
+
+---
 
 ### Dry-run upload flow enforces explicit accept/retry gating before ingestion
 Source: track: guided-onboarding, sprint: 26
@@ -526,6 +534,14 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 ---
 
 ## Lessons
+
+### Update verification-tooling contract tests when verify-fast target list changes
+Source: track: tests, sprint: 26
+Tags: tests, workflow, verify-fast
+
+Verification tooling tests assert the exact verify-fast target chain. Any Makefile verification-surface change must update tests/test_verification_tooling.py in the same change to keep CI signal aligned with intended policy.
+
+---
 
 ### Contract changes require OpenAPI export and frontend codegen refresh
 Source: track: guided-onboarding, sprint: 26
