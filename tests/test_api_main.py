@@ -8,6 +8,7 @@ from uuid import uuid4
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from apps.api.app import create_app
 from apps.api.ha_startup import (
     _build_approval_status_state,
     _build_bridge_status_state,
@@ -33,6 +34,7 @@ from packages.domains.overview.manifest import OVERVIEW_PACK
 from packages.domains.utilities.manifest import UTILITIES_PACK
 from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.reporting_service import ReportingAccessMode
+from packages.platform.runtime.builder import build_container
 from packages.shared.external_registry import sync_extension_registry_source
 from packages.shared.settings import AppSettings
 from packages.storage.ingestion_config import (
@@ -127,6 +129,35 @@ class ApiMainTests(unittest.TestCase):
             app = build_app(settings)
 
             self.assertIsInstance(app, FastAPI)
+
+    def test_kernel_container_boots_with_zero_packs_and_exposes_health_routes(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+            )
+
+            container = build_container(settings, capability_packs=())
+            self.assertEqual((), container.capability_packs)
+
+            app = create_app(container)
+            with TestClient(app) as client:
+                health = client.get("/health")
+                ready = client.get("/ready")
+
+            self.assertEqual(200, health.status_code)
+            self.assertEqual({"status": "ok"}, health.json())
+            self.assertEqual(200, ready.status_code)
+            self.assertEqual("ready", ready.json()["status"])
 
     def test_main_logs_resolved_identity_mode_on_startup_failure(self) -> None:
         with TemporaryDirectory() as temp_dir:
