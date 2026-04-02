@@ -852,10 +852,13 @@ def test_platform_runtime_builder_accepts_packs_via_parameter() -> None:
     assert "packages.domains" not in builder_source
 
 
-def test_finance_pack_is_stored_in_app_container() -> None:
+def test_app_container_no_longer_exposes_finance_specific_typed_fields() -> None:
     container_source = (ROOT / "packages" / "platform" / "runtime" / "container.py").read_text()
-    assert "finance_pack" in container_source
     assert "CapabilityPack" in container_source
+    assert "service: AccountTransactionService" not in container_source
+    assert "subscription_service" not in container_source
+    assert "contract_price_service" not in container_source
+    assert "finance_pack" not in container_source
 
 
 # ---------------------------------------------------------------------------

@@ -2,14 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.configured_ingestion_definition import (
     ConfiguredIngestionDefinitionService,
 )
-from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.pipeline_catalog import PipelineCatalogRegistry
 from packages.pipelines.promotion_registry import PromotionHandlerRegistry
-from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_domain_registry import TransformationDomainRegistry
 from packages.pipelines.transformation_refresh_registry import PublicationRefreshRegistry
 from packages.platform.capability_types import CapabilityPack
@@ -29,8 +26,9 @@ class AppContainer:
     packages.platform.runtime.builder and then select the capabilities
     they need (API adds auth/web; worker adds CLI dispatch).
 
-    Fields marked "transitional" will migrate into domain capability pack
-    registrations once the finance domain pack is introduced (Phase 3).
+    Domain-specific services are intentionally composed by app entrypoints
+    (API, worker, demo tooling) instead of being stored as typed fields on
+    the platform container.
     """
 
     settings: AppSettings
@@ -43,12 +41,6 @@ class AppContainer:
     transformation_domain_registry: TransformationDomainRegistry
     publication_refresh_registry: PublicationRefreshRegistry
     pipeline_catalog_registry: PipelineCatalogRegistry
-    # transitional — will move into finance domain capability pack
-    service: AccountTransactionService
-    subscription_service: SubscriptionService | None
-    contract_price_service: ContractPriceService | None
     configured_definition_service: ConfiguredIngestionDefinitionService
     # all registered capability packs (validated at build time)
     capability_packs: tuple[CapabilityPack, ...] = ()
-    # finance domain capability pack — backward-compatible accessor; use capability_packs for new code
-    finance_pack: CapabilityPack | None = None

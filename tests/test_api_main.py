@@ -218,6 +218,8 @@ class ApiMainTests(unittest.TestCase):
             container = SimpleNamespace(
                 extension_registry="extension-registry",
                 control_plane_store="control-plane-store",
+                run_metadata_store="run-metadata-store",
+                blob_store="blob-store",
             )
             ha_runtime = SimpleNamespace(
                 bridge="bridge",
@@ -228,6 +230,15 @@ class ApiMainTests(unittest.TestCase):
             )
             with (
                 patch("apps.api.main.build_container", return_value=container),
+                patch("apps.api.main.build_service", return_value="account-service"),
+                patch(
+                    "apps.api.main._runtime_support.build_subscription_service",
+                    return_value="subscription-service",
+                ),
+                patch(
+                    "apps.api.main._runtime_support.build_contract_price_service",
+                    return_value="contract-price-service",
+                ),
                 patch(
                     "apps.api.main.build_lazy_transformation_service",
                     return_value="transformation-service",
@@ -262,9 +273,12 @@ class ApiMainTests(unittest.TestCase):
                 ],
             )
             self.assertEqual(container, runtime[0])
-            self.assertEqual("transformation-service", runtime[1])
-            self.assertEqual("reporting-service", runtime[2])
-            self.assertEqual(ha_runtime, runtime[3])
+            self.assertEqual("account-service", runtime[1])
+            self.assertEqual("subscription-service", runtime[2])
+            self.assertEqual("contract-price-service", runtime[3])
+            self.assertEqual("transformation-service", runtime[4])
+            self.assertEqual("reporting-service", runtime[5])
+            self.assertEqual(ha_runtime, runtime[6])
 
     def test_build_app_delegates_ha_startup_wiring(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -302,6 +316,9 @@ class ApiMainTests(unittest.TestCase):
                     "apps.api.main._build_api_startup_components",
                     return_value=(
                         container,
+                        "account-service",
+                        "subscription-service",
+                        "contract-price-service",
                         "transformation-service",
                         "reporting-service",
                         ha_runtime,
@@ -321,6 +338,9 @@ class ApiMainTests(unittest.TestCase):
             mock_build_api_startup_components.assert_called_once_with(settings)
             self.assertIsInstance(app, FastAPI)
             create_kwargs = mock_create_app.call_args.kwargs
+            self.assertEqual("account-service", create_kwargs["account_transaction_service"])
+            self.assertEqual("subscription-service", create_kwargs["subscription_service"])
+            self.assertEqual("contract-price-service", create_kwargs["contract_price_service"])
             self.assertEqual("bridge", create_kwargs["ha_bridge"])
             self.assertEqual("policy-evaluator", create_kwargs["ha_policy_evaluator"])
             self.assertEqual(

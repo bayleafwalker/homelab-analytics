@@ -209,8 +209,7 @@ def build_container(
     top of the returned container.
 
     capability_packs: domain packs to register at startup; each is validated
-    before the container is assembled.  The first pack (if any) is stored on
-    the container as finance_pack for backward-compatible access.
+    before the container is assembled.
     """
     blob_store = build_blob_store(settings)
     run_metadata_store = build_run_metadata_store(settings)
@@ -248,14 +247,6 @@ def build_container(
         promotion_handler_registry=pipeline_registries.promotion_handler_registry,
     )
 
-    finance_pack = next((p for p in resolved_capability_packs if p.name == "finance"), None)
-
-    service = build_account_transaction_service(
-        settings,
-        metadata_repository=run_metadata_store,
-        blob_store=blob_store,
-    )
-
     return AppContainer(
         settings=settings,
         blob_store=blob_store,
@@ -267,17 +258,6 @@ def build_container(
         transformation_domain_registry=pipeline_registries.transformation_domain_registry,
         publication_refresh_registry=pipeline_registries.publication_refresh_registry,
         pipeline_catalog_registry=pipeline_registries.pipeline_catalog_registry,
-        service=service,
-        subscription_service=build_subscription_service(
-            settings,
-            metadata_repository=run_metadata_store,
-            blob_store=blob_store,
-        ),
-        contract_price_service=build_contract_price_service(
-            settings,
-            metadata_repository=run_metadata_store,
-            blob_store=blob_store,
-        ),
         configured_definition_service=ConfiguredIngestionDefinitionService(
             landing_root=settings.landing_root,
             metadata_repository=run_metadata_store,
@@ -286,5 +266,4 @@ def build_container(
             function_registry=function_registry,
         ),
         capability_packs=tuple(resolved_capability_packs),
-        finance_pack=finance_pack,
     )

@@ -167,12 +167,12 @@ def seed_demo_data(
         "loan_repayments": input_dir / "canonical" / "loan_repayments.csv",
     }
 
-    subscription_service = container.subscription_service or SubscriptionService(
+    subscription_service = SubscriptionService(
         landing_root=settings.landing_root,
         metadata_repository=container.run_metadata_store,
         blob_store=container.blob_store,
     )
-    contract_price_service = container.contract_price_service or ContractPriceService(
+    contract_price_service = ContractPriceService(
         landing_root=settings.landing_root,
         metadata_repository=container.run_metadata_store,
         blob_store=container.blob_store,

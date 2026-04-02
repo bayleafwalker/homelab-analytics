@@ -72,16 +72,43 @@ def build_pipeline_registries(
     )
 
 
-def build_service(settings: AppSettings) -> AccountTransactionService:
-    return _platform_build_service(settings)
+def build_service(
+    settings: AppSettings,
+    *,
+    metadata_repository=None,
+    blob_store=None,
+) -> AccountTransactionService:
+    return _platform_build_service(
+        settings,
+        metadata_repository=metadata_repository,
+        blob_store=blob_store,
+    )
 
 
-def build_subscription_service(settings: AppSettings) -> SubscriptionService:
-    return _platform_build_subscription_service(settings)
+def build_subscription_service(
+    settings: AppSettings,
+    *,
+    metadata_repository=None,
+    blob_store=None,
+) -> SubscriptionService:
+    return _platform_build_subscription_service(
+        settings,
+        metadata_repository=metadata_repository,
+        blob_store=blob_store,
+    )
 
 
-def build_contract_price_service(settings: AppSettings) -> ContractPriceService:
-    return _platform_build_contract_price_service(settings)
+def build_contract_price_service(
+    settings: AppSettings,
+    *,
+    metadata_repository=None,
+    blob_store=None,
+) -> ContractPriceService:
+    return _platform_build_contract_price_service(
+        settings,
+        metadata_repository=metadata_repository,
+        blob_store=blob_store,
+    )
 
 
 def build_transformation_service(

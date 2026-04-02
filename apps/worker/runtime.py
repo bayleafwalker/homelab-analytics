@@ -9,6 +9,9 @@ from packages.domains.finance.manifest import FINANCE_PACK
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.domains.overview.manifest import OVERVIEW_PACK
 from packages.domains.utilities.manifest import UTILITIES_PACK
+from packages.pipelines.configured_ingestion_definition import (
+    ConfiguredIngestionDefinitionService,
+)
 from packages.pipelines.transformation_domain_registry import TransformationDomainRegistry
 from packages.pipelines.transformation_refresh_registry import PublicationRefreshRegistry
 from packages.platform.runtime.builder import (
@@ -29,27 +32,20 @@ class WorkerRuntime:
     """
 
     container: AppContainer
+    service: AccountTransactionService
+    configured_definition_service: ConfiguredIngestionDefinitionService
     output: TextIO
     error_output: TextIO
     logger: logging.Logger
 
-    # Convenience pass-throughs so existing command_handlers code keeps working
-    # without touching every call-site in this PR.
+    # Convenience pass-throughs so command handlers can remain container-agnostic.
     @property
     def settings(self) -> AppSettings:
         return self.container.settings
 
     @property
-    def service(self) -> AccountTransactionService:
-        return self.container.service
-
-    @property
     def config_repository(self):  # type: ignore[return]
         return self.container.control_plane_store
-
-    @property
-    def configured_definition_service(self):  # type: ignore[return]
-        return self.container.configured_definition_service
 
     @property
     def extension_registry(self) -> ExtensionRegistry:
@@ -84,8 +80,15 @@ def build_worker_runtime(
         settings,
         capability_packs=[FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK],
     )
+    service = _runtime_support.build_service(
+        settings,
+        metadata_repository=container.run_metadata_store,
+        blob_store=container.blob_store,
+    )
     return WorkerRuntime(
         container=container,
+        service=service,
+        configured_definition_service=container.configured_definition_service,
         output=output,
         error_output=error_output,
         logger=logger,

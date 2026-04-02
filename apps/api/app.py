@@ -168,12 +168,15 @@ def _load_run_manifest_and_context(
 def _build_run_recovery_payload(
     run: IngestionRunRecord,
     context: RunControlContext | None,
+    *,
+    has_subscription_service: bool,
+    has_contract_price_service: bool,
 ) -> dict[str, Any]:
     return build_run_recovery(
         run,
         context,
-        has_subscription_service=True,
-        has_contract_price_service=True,
+        has_subscription_service=has_subscription_service,
+        has_contract_price_service=has_contract_price_service,
     )
 
 
@@ -238,8 +241,6 @@ def _build_container_from_legacy_args(
     config_repository: ControlPlaneStore | None,
     function_registry: FunctionRegistry | None,
     promotion_handler_registry: PromotionHandlerRegistry | None,
-    subscription_service: SubscriptionService | None,
-    contract_price_service: ContractPriceService | None,
 ) -> AppContainer:
     """Build a minimal AppContainer from the old-style create_app() positional/keyword args.
 
@@ -260,10 +261,6 @@ def _build_container_from_legacy_args(
     resolved_promotion_handler_registry = (
         promotion_handler_registry or get_default_promotion_handler_registry()
     )
-    # Preserve None to keep the old behaviour of returning 404 when these
-    # services were not explicitly configured.
-    resolved_subscription_service = subscription_service
-    resolved_contract_price_service = contract_price_service
     resolved_configured_definition_service = ConfiguredIngestionDefinitionService(
         landing_root=service.landing_root,
         metadata_repository=service.metadata_repository,
@@ -298,17 +295,14 @@ def _build_container_from_legacy_args(
         transformation_domain_registry=pipeline_registries.transformation_domain_registry,
         publication_refresh_registry=pipeline_registries.publication_refresh_registry,
         pipeline_catalog_registry=pipeline_registries.pipeline_catalog_registry,
-        service=service,
-        subscription_service=resolved_subscription_service,
-        contract_price_service=resolved_contract_price_service,
         configured_definition_service=resolved_configured_definition_service,
         capability_packs=(FINANCE_PACK,),
-        finance_pack=FINANCE_PACK,
     )
 
 
 def create_app(
     service_or_container: Union[AppContainer, AccountTransactionService],
+    account_transaction_service: AccountTransactionService | None = None,
     extension_registry: ExtensionRegistry | None = None,
     config_repository: ControlPlaneStore | None = None,
     external_registry_cache_root: Path | None = None,
@@ -339,6 +333,21 @@ def create_app(
     # AccountTransactionService-first call from existing tests.
     if isinstance(service_or_container, AppContainer):
         container = service_or_container
+        resolved_service = account_transaction_service or AccountTransactionService(
+            landing_root=container.settings.landing_root,
+            metadata_repository=container.run_metadata_store,
+            blob_store=container.blob_store,
+        )
+        resolved_subscription_service = subscription_service or SubscriptionService(
+            landing_root=container.settings.landing_root,
+            metadata_repository=container.run_metadata_store,
+            blob_store=container.blob_store,
+        )
+        resolved_contract_price_service = contract_price_service or ContractPriceService(
+            landing_root=container.settings.landing_root,
+            metadata_repository=container.run_metadata_store,
+            blob_store=container.blob_store,
+        )
         resolved_identity_mode = container.settings.resolved_identity_mode
         resolved_auth_mode = container.settings.resolved_auth_mode
     else:
@@ -347,16 +356,18 @@ def create_app(
                 "Legacy auth_mode-only create_app calls are no longer supported; "
                 "pass identity_mode explicitly."
             )
-        service = service_or_container
+        resolved_service = service_or_container
         container = _build_container_from_legacy_args(
-            service,
+            resolved_service,
             extension_registry=extension_registry,
             config_repository=config_repository,
             function_registry=function_registry,
             promotion_handler_registry=promotion_handler_registry,
-            subscription_service=subscription_service,
-            contract_price_service=contract_price_service,
         )
+        # Preserve None to keep the old behaviour of returning 404 when these
+        # services were not explicitly configured in legacy create_app calls.
+        resolved_subscription_service = subscription_service
+        resolved_contract_price_service = contract_price_service
         resolved_identity_mode = normalize_identity_mode(identity_mode or "disabled")
         resolved_auth_mode = normalize_auth_mode(resolved_identity_mode)
 
@@ -397,7 +408,7 @@ def create_app(
 
     configured_ingestion_service = ConfiguredCsvIngestionService(
         landing_root=container.settings.landing_root,
-        metadata_repository=container.run_metadata_store,
+        metadata_repository=resolved_service.metadata_repository,
         config_repository=resolved_config_repository,
         blob_store=container.blob_store,
         function_registry=container.function_registry,
@@ -446,7 +457,16 @@ def create_app(
 
     def serialize_run_detail(run: IngestionRunRecord) -> dict[str, Any]:
         _, context = load_run_manifest_and_context(run)
-        return serialize_run(run, context=context, recovery=_build_run_recovery_payload(run, context))
+        return serialize_run(
+            run,
+            context=context,
+            recovery=_build_run_recovery_payload(
+                run,
+                context,
+                has_subscription_service=resolved_subscription_service is not None,
+                has_contract_price_service=resolved_contract_price_service is not None,
+            ),
+        )
 
     register_auth_middleware(
         app,
@@ -489,17 +509,22 @@ def create_app(
 
     register_run_routes(
         app,
-        service=container.service,
+        service=resolved_service,
         configured_ingestion_service=configured_ingestion_service,
         resolved_config_repository=resolved_config_repository,
         transformation_service=transformation_service,
         resolved_reporting_service=reporting_service,
-        subscription_service=container.subscription_service,
-        contract_price_service=container.contract_price_service,
+        subscription_service=resolved_subscription_service,
+        contract_price_service=resolved_contract_price_service,
         registry=container.extension_registry,
         promotion_handler_registry=container.promotion_handler_registry,
         load_run_manifest_and_context=load_run_manifest_and_context,
-        build_run_recovery=_build_run_recovery_payload,
+        build_run_recovery=lambda run, context: _build_run_recovery_payload(
+            run,
+            context,
+            has_subscription_service=resolved_subscription_service is not None,
+            has_contract_price_service=resolved_contract_price_service is not None,
+        ),
         serialize_run=serialize_run,
         serialize_run_detail=serialize_run_detail,
         build_run_response=build_run_response,
@@ -528,38 +553,48 @@ def create_app(
     )
     register_control_routes(
         app,
-        service=container.service,
+        service=resolved_service,
         resolved_config_repository=resolved_config_repository,
         require_unsafe_admin=require_unsafe_admin,
         serialize_run_detail=serialize_run_detail,
         build_operational_summary=lambda: build_runtime_operational_summary(
-            service=container.service,
+            service=resolved_service,
             config_repository=resolved_config_repository,
             load_run_manifest_and_context=load_run_manifest_and_context,
-            build_run_recovery=_build_run_recovery_payload,
+            build_run_recovery=lambda run, context: _build_run_recovery_payload(
+                run,
+                context,
+                has_subscription_service=resolved_subscription_service is not None,
+                has_contract_price_service=resolved_contract_price_service is not None,
+            ),
         ),
         to_jsonable=to_jsonable,
     )
     register_control_terminal_routes(
         app,
-        service=container.service,
+        service=resolved_service,
         resolved_config_repository=resolved_config_repository,
         extension_registry=container.extension_registry,
         function_registry=container.function_registry,
         promotion_handler_registry=container.promotion_handler_registry,
         require_unsafe_admin=require_unsafe_admin,
         build_operational_summary=lambda: build_runtime_operational_summary(
-            service=container.service,
+            service=resolved_service,
             config_repository=resolved_config_repository,
             load_run_manifest_and_context=load_run_manifest_and_context,
-            build_run_recovery=_build_run_recovery_payload,
+            build_run_recovery=lambda run, context: _build_run_recovery_payload(
+                run,
+                context,
+                has_subscription_service=resolved_subscription_service is not None,
+                has_contract_price_service=resolved_contract_price_service is not None,
+            ),
         ),
         record_auth_event=record_auth_event,
         to_jsonable=to_jsonable,
     )
     register_report_routes(
         app,
-        service=container.service,
+        service=resolved_service,
         registry=container.extension_registry,
         transformation_service=transformation_service,
         resolved_reporting_service=reporting_service,
@@ -585,15 +620,15 @@ def create_app(
     )
     register_ingest_routes(
         app,
-        service=container.service,
+        service=resolved_service,
         registry=container.extension_registry,
         configured_ingestion_service=configured_ingestion_service,
         configured_definition_service=container.configured_definition_service,
         resolved_config_repository=resolved_config_repository,
         transformation_service=transformation_service,
         resolved_reporting_service=reporting_service,
-        subscription_service=container.subscription_service,
-        contract_price_service=container.contract_price_service,
+        subscription_service=resolved_subscription_service,
+        contract_price_service=resolved_contract_price_service,
         require_unsafe_admin=require_unsafe_admin,
         promotion_handler_registry=container.promotion_handler_registry,
         publish_reporting=publish_reporting,

@@ -65,6 +65,21 @@ def _build_api_startup_components(
         settings,
         capability_packs=capability_packs,
     )
+    service = build_service(
+        settings,
+        metadata_repository=container.run_metadata_store,
+        blob_store=container.blob_store,
+    )
+    subscription_service = _runtime_support.build_subscription_service(
+        settings,
+        metadata_repository=container.run_metadata_store,
+        blob_store=container.blob_store,
+    )
+    contract_price_service = _runtime_support.build_contract_price_service(
+        settings,
+        metadata_repository=container.run_metadata_store,
+        blob_store=container.blob_store,
+    )
     transformation_service = build_lazy_transformation_service(
         settings, container=container
     )
@@ -85,7 +100,15 @@ def _build_api_startup_components(
         reporting_service=reporting_service,
         capability_packs=capability_packs,
     )
-    return container, transformation_service, reporting_service, ha_runtime
+    return (
+        container,
+        service,
+        subscription_service,
+        contract_price_service,
+        transformation_service,
+        reporting_service,
+        ha_runtime,
+    )
 
 
 def build_app(settings: AppSettings | None = None):
@@ -94,6 +117,9 @@ def build_app(settings: AppSettings | None = None):
 
     (
         container,
+        service,
+        subscription_service,
+        contract_price_service,
         transformation_service,
         reporting_service,
         ha_runtime,
@@ -101,8 +127,11 @@ def build_app(settings: AppSettings | None = None):
 
     return create_app(
         container,
+        account_transaction_service=service,
         transformation_service=transformation_service,
         reporting_service=reporting_service,
+        subscription_service=subscription_service,
+        contract_price_service=contract_price_service,
         session_manager=build_session_manager(resolved_settings),
         oidc_provider=build_oidc_provider(resolved_settings),
         machine_jwt_provider=build_machine_jwt_provider(resolved_settings),
