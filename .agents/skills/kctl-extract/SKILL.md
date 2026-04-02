@@ -10,7 +10,8 @@ Recover durable knowledge from sprint events before the sprint goes stale. This 
 ## Inputs
 
 - A closed or nearly-closed sprint with events logged via `sprintctl event add`.
-- Event types that carry extractable knowledge: `decision`, `blocker-resolved`, `pattern-noted`, `risk-accepted`, `lesson-learned`, `claim-handoff`, `claim-ownership-corrected`, `claim-ambiguity-detected`, `coordination-failure`.
+- Default `kctl extract` event types: `decision`, `blocker-resolved`, `pattern-noted`, `risk-accepted`, `lesson-learned`.
+- Optional coordination event types when you explicitly pass `--event-types`: `claim-handoff`, `claim-ownership-corrected`, `claim-ambiguity-detected`, `coordination-failure`.
 - Process, coordination, or workflow corrections that were logged during the sprint when they were discovered, even if extraction itself waits until sprint close.
 
 ## Event payload quality
@@ -43,7 +44,9 @@ This includes coordination corrections such as claim misuse, handoff rules, or o
 1. Load the project DB environment via `.envrc` or exported `SPRINTCTL_DB` and `KCTL_DB`.
 2. Run `kctl preflight` or `sprintctl maintain check --sprint-id <id>` first so stale-item or sprint-health warnings are visible before close-out.
 3. Confirm the sprint has meaningful events logged. If none, note that extraction will yield no candidates.
-4. Run `kctl extract --sprint-id <id>` to scan events and insert candidates.
+4. Run one of these extraction paths:
+   - `kctl extract --sprint-id <id>` for the default knowledge event set.
+   - `kctl extract --sprint-id <id> --event-types decision,blocker-resolved,pattern-noted,risk-accepted,lesson-learned,claim-handoff,claim-ownership-corrected,claim-ambiguity-detected,coordination-failure` when coordination history should be reviewed too.
 5. Run `kctl review list` to see the extracted candidates. Use `--json` if the result is being consumed by another agent or script.
 6. Use `kctl review show --id <n>` for handoff or coordination candidates when you need the preserved source payload and actor context before deciding whether to keep them.
 7. For each candidate:
@@ -52,7 +55,7 @@ This includes coordination corrections such as claim misuse, handoff rules, or o
 8. Run `kctl review list --status approved` to confirm the promoted set.
 9. Run `kctl status --sprint-id <id>` to confirm there are no unexpected leftovers in the pipeline. Use `--json` if the result needs to be machine-consumable.
 10. If the task explicitly includes promoting approved knowledge into published entries:
-   - Use `kctl publish` for the approved entries that should become durable repo knowledge.
+   - Use `kctl publish --id <n> --body "<detail>" --category <decision|pattern|lesson|risk|reference>` for the approved entries that should become durable repo knowledge.
    - Render the committed artifact to `docs/knowledge/knowledge-base.md` via `kctl render --output docs/knowledge/knowledge-base.md`.
    - Keep the knowledge-base update separate from unrelated feature work.
 

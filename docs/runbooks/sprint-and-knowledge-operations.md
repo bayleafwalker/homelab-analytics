@@ -4,40 +4,15 @@
 
 ## Purpose
 
-This runbook defines how the repository uses `sprintctl` for live sprint state and `kctl` for durable knowledge capture.
+This runbook covers the repo's `sprintctl` and `kctl` operating model.
 
-The goal is to keep the operational database local, the shared repo artifacts explicit, and the workflow consistent across planning, implementation, handoff, and sprint close.
+Use `sprintctl` for live sprint execution state. Use `kctl` for extracting, reviewing, publishing, and rendering durable knowledge from sprint events.
 
 For repo-wide startup order, source-of-truth precedence, done criteria, and session-note policy, use `runbooks/project-working-practices.md`.
 
-## System Roles
+## Shared State
 
-### `sprintctl`
-
-`sprintctl` is the live operational control plane for sprint execution.
-
-Use it to:
-- register sprints and work items
-- update item status during execution
-- claim work in parallel agent workflows
-- log decisions, blockers, and lessons as structured events
-- render the committed sprint snapshot
-- produce local export or handoff bundles when needed
-
-### `kctl`
-
-`kctl` is the knowledge pipeline layered on top of `sprintctl` events.
-
-Use it to:
-- preflight sprint health before extraction
-- extract knowledge candidates from sprint events
-- review and triage those candidates
-- publish approved knowledge entries
-- render the committed knowledge base
-
-## Repo Artifacts
-
-### Local-only state
+### Local only
 
 These stay machine-local and gitignored:
 - `.sprintctl/sprintctl.db`
@@ -45,100 +20,86 @@ These stay machine-local and gitignored:
 - `sprint-*.json`
 - `handoff-*.json`
 
-### Committed shared artifacts
+### Committed
 
-These are the repo-facing outputs:
+These are the shared repo artifacts:
 - `docs/sprint-snapshots/sprint-current.txt`
 - `docs/knowledge/knowledge-base.md`
 
-Treat these files as the canonical shared view. Do not treat the SQLite databases as repo state.
+Treat the committed files as the shared repo view. The SQLite databases are local execution state.
 
-## Operating Model
+## Daily Use
 
-### 1. Scope accepted work
+### 1. Start from the project-scoped DB
 
-When scope is accepted and needs execution tracking:
-- follow the new scope registration loop in `runbooks/project-working-practices.md`
-- use the `sprint-packet` skill
-- create or update the sprint in `sprintctl`
-- register work items by meaningful repo slices or stage tracks
-
-### 2. Execute work
-
-During implementation:
-- follow the resume existing sprint item and implementation loops in `runbooks/project-working-practices.md`
 - load `.envrc` before using either CLI
-- move items through `pending`, `active`, `done`, or `blocked`
-- use claims when multiple agents may touch the same sprint DB, with a strong live identity per agent or worktree: `runtime_session_id`, `instance_id`, and `claim_token`
-- for Codex, prefer `CODEX_THREAD_ID` as `runtime_session_id` when it is available and mint a separate `instance_id` once per live client or process start
-- include workspace metadata on claims when available: branch, worktree, commit SHA, PR reference
-- treat workspace metadata as advisory context, not as claim ownership proof
-- if an exclusive claim already exists and its identity does not clearly match the current live claim identity, do not heartbeat or reuse it; hand off the work or choose a different item first
-- use `sprintctl claim handoff` when an active claim's ownership itself changes; use `sprintctl handoff` only for broader sprint context because it does not move `claim_token`
-- add `sprintctl event` records when decisions, resolved blockers, or lessons happen, including reusable process corrections and coordination rules discovered during the sprint
-- include event detail in `--payload` JSON (for example `{"summary":"...","detail":"...","tags":["..."],"confidence":"high"}`) so extraction keeps the decision context instead of only the event type
+- confirm `SPRINTCTL_DB` and `KCTL_DB` point at the repo-local DBs, not home-directory defaults
 
-For kctl-ready event capture during execution:
-- use `decision` for durable design or workflow choices that should survive the sprint
-- use `lesson-learned` for process corrections, coordination failures, or heuristics you want future agents to avoid repeating
-- use `blocker-resolved`, `pattern-noted`, or `risk-accepted` when they better fit the event
-- treat system-emitted `claim-handoff`, `claim-ownership-corrected`, `claim-ambiguity-detected`, and `coordination-failure` events as extractable coordination history when ownership behavior itself matters later
-- include `summary`, `detail`, `tags`, and `confidence` so sprint-close extraction yields useful candidates instead of noise
+### 2. Register or resume work
 
-### 3. Keep shared sprint state current
+- use `sprint-packet` when accepted scope is not yet represented in `sprintctl`
+- use `sprint-resume` when the work item already exists
+- choose or resume sprint work from live `sprintctl` state first, then use docs as implementation context
 
-When sprint state materially changes:
-- refresh the snapshot only after the live state change exists in `sprintctl`
-- run `sprintctl render`
-- write the output to `docs/sprint-snapshots/sprint-current.txt`
-- keep snapshot commits separate from unrelated feature work when committed
+### 3. Follow the claim lifecycle
 
-### 4. Close the sprint cleanly
+- `sprintctl agent-protocol --json` is the authoritative claim-lifecycle reference
+- the normal flow is `claim create` -> `claim heartbeat` -> `item status` -> `claim handoff` or `claim release`
+- ownership proof is `claim_id` plus `claim_token`
+- attach `runtime_session_id` and `instance_id` on claims; for Codex, let `CODEX_THREAD_ID` populate the runtime session id when available or set `SPRINTCTL_RUNTIME_SESSION_ID` explicitly, and keep `SPRINTCTL_INSTANCE_ID` stable for the live process
+- attach branch, worktree, commit SHA, and PR reference when available, but treat them as advisory metadata
+- if an active exclusive claim does not clearly belong to the current session, stop and resolve a handoff or choose different work before editing repo files
 
-At sprint close:
-- follow the sprint close loop in `runbooks/project-working-practices.md`
-- run `sprintctl maintain check`
-- use `carryover` for unfinished items that belong in the next sprint
-- close the sprint when the execution state is correct
-- run `kctl extract`
-- review candidates to approved or rejected
+### 4. Capture events while work is happening
 
-### 5. Publish durable knowledge intentionally
+- log `decision`, `lesson-learned`, `blocker-resolved`, `pattern-noted`, or `risk-accepted` events when the fact is discovered, not only at sprint close
+- use `--payload` JSON with `summary`, `detail`, `tags`, and `confidence` so extraction yields useful candidates instead of noise
 
-If the task includes knowledge publication:
-- use `kctl publish` for approved entries that belong in repo memory
-- render to `docs/knowledge/knowledge-base.md`
-- keep knowledge-base updates separate from unrelated feature work
+### 5. Refresh the shared sprint snapshot after live changes
 
-## Structured Output Guidance
+- run `sprintctl render --output docs/sprint-snapshots/sprint-current.txt`
+- do this only after the DB state is already correct
+- keep snapshot-only commits separate from unrelated feature work
+
+## Sprint Close
+
+- run `kctl preflight` or `sprintctl maintain check --sprint-id <id>`
+- move unfinished work with `sprintctl maintain carryover --from-sprint <id> --to-sprint <next-id>`
+- close the sprint with `sprintctl sprint status --id <id> --status closed`
+- run `kctl extract --sprint-id <id>` for the default knowledge event set: `decision`, `blocker-resolved`, `pattern-noted`, `risk-accepted`, `lesson-learned`
+- if coordination history matters too, extend extraction with `--event-types decision,blocker-resolved,pattern-noted,risk-accepted,lesson-learned,claim-handoff,claim-ownership-corrected,claim-ambiguity-detected,coordination-failure`
+- review candidates with `kctl review list`, `kctl review show`, `kctl review approve`, and `kctl review reject`
+- publish intentionally with `kctl publish ...` and render the committed artifact with `kctl render --output docs/knowledge/knowledge-base.md`
+
+## Useful Structured Surfaces
 
 Prefer JSON output when another agent or script needs machine-readable state.
 
-Recommended structured-state commands:
-- `sprintctl item list --json`
-- `sprintctl item show --id <item-id> --json`
 - `sprintctl sprint show --detail --json`
+- `sprintctl item list --sprint-id <id> --json`
+- `sprintctl item show --id <item-id> --json`
 - `sprintctl claim list --item-id <item-id> --json`
-- `sprintctl claim list-sprint --json`
-- `sprintctl claim resume --json`
+- `sprintctl claim list-sprint --sprint-id <id> --json`
+- `sprintctl claim resume --instance-id <id> --json`
 - `sprintctl usage --context --json`
-- `sprintctl handoff --output <path>`
+- `sprintctl agent-protocol --json`
+- `sprintctl handoff --format json --output <path>`
 - `kctl review list --json`
 - `kctl status --json`
 
-## Recovery And Portability
+## Recovery
 
 If a local DB is lost:
-- treat `docs/sprint-snapshots/sprint-current.txt` as the source of truth for current sprint state
+- treat `docs/sprint-snapshots/sprint-current.txt` as the shared view of the current sprint
 - recreate the relevant sprint and items manually in `sprintctl`
-- use local `sprintctl export` files only as advisory convenience inputs, not as canonical repo state
+- use local export and handoff bundles only as advisory inputs, not as canonical repo state
 
 ## Skills Boundary
 
-Use the runbook for repo-wide operating rules.
+Use the runbook for the repo-wide operating model.
 
 Use skills for task-specific execution:
-- `sprint-packet` for turning accepted but not-yet-registered scope into tracked sprint work
-- `sprint-resume` for safely resuming an already-registered sprint item, including claim identity checks and handoff behavior
-- `sprint-snapshot` for refreshing the committed sprint snapshot after live sprint state changes
-- `kctl-extract` for sprint-close extraction and knowledge publication
+- `sprint-packet` for new accepted scope that is not yet registered
+- `sprint-resume` for resuming an existing sprint item safely
+- `sprint-snapshot` for refreshing `docs/sprint-snapshots/sprint-current.txt`
+- `kctl-extract` for sprint-close extraction, review, and optional publication

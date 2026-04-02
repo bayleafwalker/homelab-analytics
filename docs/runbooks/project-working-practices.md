@@ -52,11 +52,8 @@ Interpretation rules:
 **While in progress:**
 - load `.envrc` before consulting or mutating sprint state
 - inspect item status, active claims, and recent events
-- use a strong live claim identity for each agent or worktree when claiming or heartbeating sprint work: `runtime_session_id`, `instance_id`, and the server-issued `claim_token`
-- for Codex, prefer `CODEX_THREAD_ID` as `runtime_session_id` when it is available; otherwise mint a local session id at startup and keep it stable for the life of that session
-- claim the item before repo edits when parallel overlap is possible
-- if an exclusive claim already exists, only continue under that claim when the current session already holds its `claim_token` or a handoff explicitly transfers it, and the live identity plus workspace metadata clearly match; otherwise stop repo edits and resolve a handoff or pick different work
-- when active claim ownership itself changes hands, use `sprintctl claim handoff`; use `sprintctl handoff --output <path>` for broader sprint context because it does not transfer `claim_token`
+- follow the claim lifecycle in `runbooks/sprint-and-knowledge-operations.md` or `sprintctl agent-protocol --json` before repo edits when parallel overlap is possible
+- if an exclusive claim already exists, only continue when the current session clearly owns it through `claim_id` plus `claim_token`; otherwise stop repo edits and resolve a handoff or pick different work
 - move the item to `active` before implementation when appropriate
 - log `decision` or `lesson-learned` events when process, coordination, or design rules are clarified during execution; do not wait until sprint close to capture them
 - use sprint docs, requirements, and architecture docs only as implementation context for the selected item
@@ -178,21 +175,16 @@ Minimum done criteria:
 
 Use claims and handoff artifacts to coordinate shared sprint work.
 
+For exact CLI steps, use `sprintctl agent-protocol --json`.
+
 Claim before repo edits when:
 - the work is already represented as a sprint item and more than one agent or worktree may act on it
 - the next task is being selected from live sprint state rather than assigned explicitly by the user
 - ownership of the item would otherwise be ambiguous
 
 Required claim identity for multi-agent work when the local workflow supports it:
-- `claim_id`
-- `claim_token`, minted by `sprintctl` when the claim is created and echoed on heartbeat and release
-- `runtime_session_id`, using the runtime's own session id when available; for Codex prefer `CODEX_THREAD_ID`
-- `instance_id`, generated once per live client or process start
-- actor label for human-readable attribution
-- branch
-- worktree
-- commit SHA
-- PR reference
+- ownership proof: `claim_id` plus `claim_token`
+- identity metadata: `runtime_session_id`, `instance_id`, actor label, and workspace metadata such as branch, worktree, commit SHA, and PR reference when available
 
 Coordination rules:
 - do not infer ownership from sprint docs, plans, or session notes when live `sprintctl` state exists
