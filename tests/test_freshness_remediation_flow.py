@@ -1,6 +1,6 @@
 """Integration test for the freshness remediation → upload-in-context → recovery flow.
 
-Sprint hearth-lantern-path #246:
+Sprint hearth-lantern-path (sprint #29), item #246:
   Freshness remediation flow: stale source is identified via /control/source-freshness,
   operator uploads a correction via /ingest/detect-source + /ingest/configured-csv
   (upload in context), and the freshness endpoint then reflects recovery.
@@ -141,12 +141,13 @@ def test_upload_in_context_recovers_stale_source() -> None:
 
 
 def test_failed_ingest_shows_rejected_state_before_remediation() -> None:
-    """A rejected run leaves the source in a degraded state (parse_failed)
-    that the operator must remediate by uploading a corrected file."""
+    """A rejected run leaves the source in a degraded (rejected) state visible in
+    the freshness endpoint. The operator remediates by uploading a corrected file,
+    and the freshness state recovers to landed."""
     with TemporaryDirectory() as temp_dir:
         client = _build_client(temp_dir)
 
-        # Ingest a malformed file — missing required columns
+        # Ingest a malformed file — missing required columns → 400 rejected
         bad_csv = b"booking_date,account_number,payee\n2026-03-01,FI123,Corner Shop\n"
         bad_ingest = client.post(
             "/ingest/configured-csv",
@@ -156,8 +157,17 @@ def test_failed_ingest_shows_rejected_state_before_remediation() -> None:
             },
             files={"file": ("bad.csv", bad_csv, "text/csv")},
         )
-        # A bad CSV with missing required fields lands but flags issues
-        assert bad_ingest.status_code in {201, 400}
+        assert bad_ingest.status_code == 400
+        assert bad_ingest.json()["run"]["status"] == "rejected"
+
+        # Intermediate state: freshness shows the degraded run
+        degraded = client.get("/control/source-freshness")
+        assert degraded.status_code == 200
+        degraded_datasets = degraded.json()["datasets"]
+        assert len(degraded_datasets) == 1
+        assert degraded_datasets[0]["status"] == "rejected", (
+            "Freshness must reflect the rejected run before remediation"
+        )
 
         # Remediate: upload the correct file
         good_ingest = client.post(
@@ -177,12 +187,12 @@ def test_failed_ingest_shows_rejected_state_before_remediation() -> None:
         assert good_ingest.status_code == 201
         assert good_ingest.json()["run"]["status"] == "landed"
 
-        # Recovery: freshness shows latest run as landed
-        freshness = client.get("/control/source-freshness")
-        assert freshness.status_code == 200
-        datasets = freshness.json()["datasets"]
-        assert len(datasets) == 1
-        assert datasets[0]["status"] == "landed"
+        # Recovery: freshness now shows latest run as landed
+        recovered = client.get("/control/source-freshness")
+        assert recovered.status_code == 200
+        recovered_datasets = recovered.json()["datasets"]
+        assert len(recovered_datasets) == 1
+        assert recovered_datasets[0]["status"] == "landed"
 
 
 def test_dry_run_previews_file_before_committing_upload() -> None:

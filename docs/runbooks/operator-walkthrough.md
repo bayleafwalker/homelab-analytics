@@ -88,7 +88,9 @@ At this point the **Money** domain card on the Operating Picture is fully popula
 ### Step 4 — Utility bills
 
 1. Go to **Upload** → drop `canonical/utility_bills.csv`.
-2. Upload via `/upload/utility-bills` or use the detection wizard.
+2. Upload via the **utility bills** upload form (`/upload` → select Utility Bills, or use the
+   direct ingest endpoint `/ingest/utility-bills`). Note: utility bills use their own ingest
+   endpoint and are not covered by the configured-CSV dry-run wizard.
 3. Confirm ingest.
 
 **What you see:**
@@ -163,7 +165,7 @@ After all three:
 
 ## Demo Bundle Machine Reference
 
-The demo bundle is generated deterministically from a fixed seed. The `journey.json` file in the bundle root contains the step-by-step machine-readable version of this walkthrough, including artifact IDs, upload paths, and what each step unlocks.
+The demo bundle is generated deterministically from a fixed seed. The `journey.json` file in the bundle root contains the machine-readable journey with 8 individual steps (one per data-source artifact), including artifact IDs, upload paths, what each step unlocks, and attention items. This walkthrough groups steps 6–8 into one section for readability; `journey.json` lists each separately.
 
 ```
 /tmp/homelab-demo/
