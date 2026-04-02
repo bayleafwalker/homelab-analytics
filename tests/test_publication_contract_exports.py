@@ -11,7 +11,7 @@ from packages.domains.finance.manifest import FINANCE_PACK
 from packages.domains.homelab.manifest import HOMELAB_PACK
 from packages.domains.overview.manifest import OVERVIEW_PACK
 from packages.domains.utilities.manifest import UTILITIES_PACK
-from packages.pipelines.builtin_reporting import PublicationRelation
+from packages.pipelines.household_reporting import PublicationRelation
 from packages.platform.capability_types import CapabilityPack, PublicationDefinition
 from packages.platform.publication_contracts import build_publication_contract_catalog
 

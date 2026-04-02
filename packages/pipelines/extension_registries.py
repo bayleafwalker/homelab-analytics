@@ -4,10 +4,10 @@ import inspect
 from dataclasses import dataclass
 from pathlib import Path
 
-from packages.pipelines.builtin_promotion_handlers import (
+from packages.pipelines.household_promotion_handlers import (
     register_builtin_promotion_handlers,
 )
-from packages.pipelines.builtin_transformation_refresh import (
+from packages.pipelines.household_transformation_refresh import (
     register_builtin_publication_refresh_handlers,
 )
 from packages.pipelines.pipeline_catalog import (

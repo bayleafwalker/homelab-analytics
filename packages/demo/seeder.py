@@ -17,16 +17,16 @@ from packages.domains.finance.manifest import FINANCE_PACK
 from packages.domains.overview.manifest import OVERVIEW_PACK
 from packages.domains.utilities.manifest import UTILITIES_PACK
 from packages.pipelines.budget_service import BudgetService
-from packages.pipelines.builtin_promotion_handlers import (
+from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
+from packages.pipelines.contract_price_service import ContractPriceService
+from packages.pipelines.csv_validation import ColumnType
+from packages.pipelines.household_promotion_handlers import (
     promote_budget_run,
     promote_contract_price_run,
     promote_loan_repayment_run,
     promote_subscription_run,
     promote_utility_bill_run,
 )
-from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
-from packages.pipelines.contract_price_service import ContractPriceService
-from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.loan_service import LoanService
 from packages.pipelines.promotion import promote_source_asset_run
 from packages.pipelines.reporting_service import (

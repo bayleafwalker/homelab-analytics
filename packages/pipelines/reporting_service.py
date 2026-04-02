@@ -6,11 +6,6 @@ from datetime import date
 from enum import StrEnum
 from typing import Any, Callable
 
-from packages.pipelines.builtin_reporting import (
-    CURRENT_DIMENSION_RELATIONS,
-    PUBLICATION_RELATIONS,
-    PublicationRelation,
-)
 from packages.pipelines.contract_price_models import (
     MART_CONTRACT_PRICE_CURRENT_TABLE,
     MART_ELECTRICITY_PRICE_CURRENT_TABLE,
@@ -20,6 +15,11 @@ from packages.pipelines.homelab_models import (
     MART_SERVICE_HEALTH_CURRENT_TABLE,
     MART_STORAGE_RISK_TABLE,
     MART_WORKLOAD_COST_7D_TABLE,
+)
+from packages.pipelines.household_reporting import (
+    CURRENT_DIMENSION_RELATIONS,
+    PUBLICATION_RELATIONS,
+    PublicationRelation,
 )
 from packages.pipelines.overview_models import (
     MART_CURRENT_OPERATING_BASELINE_TABLE,

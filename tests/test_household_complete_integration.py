@@ -20,7 +20,8 @@ from tempfile import TemporaryDirectory
 
 from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.budget_service import BudgetService
-from packages.pipelines.builtin_promotion_handlers import (
+from packages.pipelines.contract_price_service import ContractPriceService
+from packages.pipelines.household_promotion_handlers import (
     promote_budget_run,
     promote_contract_price_run,
     promote_loan_repayment_run,
@@ -28,7 +29,6 @@ from packages.pipelines.builtin_promotion_handlers import (
     promote_subscription_run,
     promote_utility_bill_run,
 )
-from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.loan_service import LoanService
 from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService

@@ -19,7 +19,7 @@ from packages.pipelines.budgets import (
     CanonicalBudget,
     load_canonical_budgets_bytes,
 )
-from packages.pipelines.builtin_promotion_handlers import promote_budget_run
+from packages.pipelines.household_promotion_handlers import promote_budget_run
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository

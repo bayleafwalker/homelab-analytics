@@ -449,7 +449,7 @@ def test_utility_publication_keys_not_in_finance_pack() -> None:
 
 def test_all_pack_publications_have_reporting_relations() -> None:
     from packages.domains.overview.manifest import OVERVIEW_PACK
-    from packages.pipelines.builtin_reporting import PUBLICATION_RELATIONS
+    from packages.pipelines.household_reporting import PUBLICATION_RELATIONS
 
     relation_keys = set(PUBLICATION_RELATIONS.keys())
     missing: list[str] = []

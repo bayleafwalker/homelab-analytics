@@ -12,13 +12,13 @@ from apps.api.response_models import (
     build_rows_response_model,
 )
 from packages.pipelines.account_transaction_service import AccountTransactionService
-from packages.pipelines.builtin_reporting import (
-    CURRENT_DIMENSION_RELATIONS,
-    PUBLICATION_RELATIONS,
-)
 from packages.pipelines.category_rules import (
     CATEGORY_OVERRIDE_COLUMNS,
     CATEGORY_RULE_COLUMNS,
+)
+from packages.pipelines.household_reporting import (
+    CURRENT_DIMENSION_RELATIONS,
+    PUBLICATION_RELATIONS,
 )
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transaction_models import TRANSFORMATION_AUDIT_COLUMNS

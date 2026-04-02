@@ -5,8 +5,8 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 
-from packages.pipelines.builtin_packages import BUILTIN_TRANSFORMATION_PACKAGE_SPECS
 from packages.pipelines.csv_validation import ColumnContract, ColumnType, DatasetContract
+from packages.pipelines.household_packages import BUILTIN_TRANSFORMATION_PACKAGE_SPECS
 from packages.shared.extensions import ExtensionRegistry
 
 
@@ -403,7 +403,7 @@ def allowed_publication_keys(
     *,
     extension_registry: ExtensionRegistry | None = None,
 ) -> set[str]:
-    from packages.pipelines.builtin_reporting import PUBLICATION_RELATIONS
+    from packages.pipelines.household_reporting import PUBLICATION_RELATIONS
 
     allowed_keys = set(PUBLICATION_RELATIONS)
     if extension_registry is not None:

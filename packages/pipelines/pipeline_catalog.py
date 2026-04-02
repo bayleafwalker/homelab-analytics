@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from packages.pipelines.builtin_packages import BUILTIN_TRANSFORMATION_PACKAGE_SPECS
+from packages.pipelines.household_packages import BUILTIN_TRANSFORMATION_PACKAGE_SPECS
 from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.shared.extensions import ExtensionRegistry
 from packages.storage.control_plane import ConfigCatalogStore

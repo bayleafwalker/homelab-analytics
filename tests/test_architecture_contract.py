@@ -287,8 +287,8 @@ def test_config_routes_validate_transformation_packages_against_loaded_handlers(
 
 def test_promotion_orchestration_imports_shared_registry_contracts() -> None:
     imports = _import_names(ROOT / "packages" / "pipelines" / "promotion.py")
-    builtin_handler_imports = _import_names(
-        ROOT / "packages" / "pipelines" / "builtin_promotion_handlers.py"
+    household_handler_imports = _import_names(
+        ROOT / "packages" / "pipelines" / "household_promotion_handlers.py"
     )
     promotion_registry_imports = _import_names(
         ROOT / "packages" / "pipelines" / "promotion_registry.py"
@@ -298,9 +298,9 @@ def test_promotion_orchestration_imports_shared_registry_contracts() -> None:
     )
 
     assert "packages.pipelines.promotion_registry" in imports
-    assert "packages.pipelines.builtin_promotion_handlers" in imports
+    assert "packages.pipelines.household_promotion_handlers" in imports
     assert "packages.pipelines.promotion_types" in imports
-    assert "packages.pipelines.promotion_registry" in builtin_handler_imports
+    assert "packages.pipelines.promotion_registry" in household_handler_imports
     assert "packages.pipelines.transformation_domain_registry" in promotion_registry_imports
     assert "packages.pipelines.pipeline_catalog" in extension_registry_imports
 
@@ -308,7 +308,7 @@ def test_promotion_orchestration_imports_shared_registry_contracts() -> None:
 def test_reporting_service_imports_shared_builtin_reporting_registry() -> None:
     imports = _import_names(ROOT / "packages" / "pipelines" / "reporting_service.py")
 
-    assert "packages.pipelines.builtin_reporting" in imports
+    assert "packages.pipelines.household_reporting" in imports
 
 
 def test_postgres_ingestion_backend_imports_split_catalog_modules() -> None:

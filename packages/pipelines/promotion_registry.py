@@ -274,7 +274,7 @@ _DEFAULT_PROMOTION_HANDLER_REGISTRY: PromotionHandlerRegistry | None = None
 def get_default_promotion_handler_registry() -> PromotionHandlerRegistry:
     global _DEFAULT_PROMOTION_HANDLER_REGISTRY
     if _DEFAULT_PROMOTION_HANDLER_REGISTRY is None:
-        from packages.pipelines.builtin_promotion_handlers import (
+        from packages.pipelines.household_promotion_handlers import (
             register_builtin_promotion_handlers,
         )
 

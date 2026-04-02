@@ -14,7 +14,7 @@ from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from packages.pipelines.builtin_promotion_handlers import promote_loan_repayment_run
+from packages.pipelines.household_promotion_handlers import promote_loan_repayment_run
 from packages.pipelines.loan_service import (
     CanonicalLoanRepayment,
     LoanService,

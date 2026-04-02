@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
-from packages.pipelines.builtin_reporting import (
+from packages.pipelines.household_reporting import (
     CURRENT_DIMENSION_RELATIONS,
     PUBLICATION_RELATIONS,
     PublicationRelation,

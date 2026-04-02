@@ -56,7 +56,7 @@ _DEFAULT_PUBLICATION_REFRESH_REGISTRY: PublicationRefreshRegistry | None = None
 def get_default_publication_refresh_registry() -> PublicationRefreshRegistry:
     global _DEFAULT_PUBLICATION_REFRESH_REGISTRY
     if _DEFAULT_PUBLICATION_REFRESH_REGISTRY is None:
-        from packages.pipelines.builtin_transformation_refresh import (
+        from packages.pipelines.household_transformation_refresh import (
             register_builtin_publication_refresh_handlers,
         )
 

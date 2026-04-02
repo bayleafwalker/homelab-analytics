@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from packages.pipelines.builtin_promotion_handlers import (
+from packages.pipelines.household_promotion_handlers import (
     promote_budget_run,
     promote_contract_price_run,
     promote_run,
