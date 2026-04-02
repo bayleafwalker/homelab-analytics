@@ -11045,6 +11045,26 @@
         "summary": "Ingest Contract Prices"
       }
     },
+    "/ingest/detect-source": {
+      "post": {
+        "operationId": "detect_source_upload_target_ingest_detect_source_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Detect Source Upload Target Ingest Detect Source Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Detect Source Upload Target"
+      }
+    },
     "/ingest/ingestion-definitions/{ingestion_definition_id}/process": {
       "post": {
         "operationId": "process_ingestion_definition_ingest_ingestion_definitions__ingestion_definition_id__process_post",

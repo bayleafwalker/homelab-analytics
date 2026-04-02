@@ -1774,6 +1774,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ingest/detect-source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Detect Source Upload Target */
+        post: operations["detect_source_upload_target_ingest_detect_source_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ingest/ingestion-definitions/{ingestion_definition_id}/process": {
         parameters: {
             query?: never;
@@ -8386,6 +8403,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    detect_source_upload_target_ingest_detect_source_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };

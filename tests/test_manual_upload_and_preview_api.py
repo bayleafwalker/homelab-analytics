@@ -62,6 +62,107 @@ def test_api_supports_multipart_configured_csv_upload_by_source_asset_binding() 
         assert payload["run"]["status"] == "landed"
 
 
+def test_api_detects_source_type_for_configured_csv_upload() -> None:
+    with TemporaryDirectory() as temp_dir:
+        client, _ = _build_client(temp_dir)
+
+        response = client.post(
+            "/ingest/detect-source",
+            files={
+                "file": (
+                    "configured-upload.csv",
+                    (ACCOUNT_FIXTURES / "configured_account_transactions_source.csv").read_bytes(),
+                    "text/csv",
+                )
+            },
+        )
+
+        assert response.status_code == 200
+        detection = response.json()["detection"]
+        assert detection["format"] == "csv"
+        assert "booking_date" in detection["header_columns"]
+        candidate = detection["candidate"]
+        assert candidate["kind"] == "configured_csv"
+        assert candidate["upload_path"] == "/upload/configured-csv"
+        assert candidate["source_asset_id"] == "bank_partner_transactions"
+        assert candidate["contract_id"] == "household_account_transactions_v1"
+        assert candidate["confidence_label"] == "high"
+        assert "booking_date" in candidate["matched_columns"]
+
+
+def test_api_detects_ha_states_json_upload_target() -> None:
+    with TemporaryDirectory() as temp_dir:
+        client, _ = _build_client(temp_dir)
+
+        response = client.post(
+            "/ingest/detect-source",
+            files={
+                "file": (
+                    "ha-states.json",
+                    (
+                        '[{"entity_id":"sensor.kitchen_temperature","state":"21.3",'
+                        '"last_changed":"2026-03-30T07:00:00+00:00"}]'
+                    ).encode("utf-8"),
+                    "application/json",
+                )
+            },
+        )
+
+        assert response.status_code == 200
+        detection = response.json()["detection"]
+        assert detection["format"] == "json"
+        candidate = detection["candidate"]
+        assert candidate["kind"] == "builtin"
+        assert candidate["upload_path"] == "/upload/ha-states"
+        assert candidate["contract_id"] == "home_assistant_states_json_v1"
+        assert candidate["confidence_label"] == "high"
+        assert candidate["matched_columns"] == ["entity_id", "state"]
+
+
+def test_api_detection_returns_no_candidate_for_unknown_binary_upload() -> None:
+    with TemporaryDirectory() as temp_dir:
+        client, _ = _build_client(temp_dir)
+
+        response = client.post(
+            "/ingest/detect-source",
+            files={
+                "file": (
+                    "mystery.bin",
+                    b"\x00\x01\x02\x03\x04",
+                    "application/octet-stream",
+                )
+            },
+        )
+
+        assert response.status_code == 200
+        detection = response.json()["detection"]
+        assert detection["format"] == "unknown"
+        assert detection["candidate"] is None
+        assert detection["alternatives"] == []
+
+
+def test_api_detection_returns_no_candidate_for_malformed_json() -> None:
+    with TemporaryDirectory() as temp_dir:
+        client, _ = _build_client(temp_dir)
+
+        response = client.post(
+            "/ingest/detect-source",
+            files={
+                "file": (
+                    "broken.json",
+                    b"{not-valid-json",
+                    "application/json",
+                )
+            },
+        )
+
+        assert response.status_code == 200
+        detection = response.json()["detection"]
+        assert detection["format"] == "json"
+        assert detection["candidate"] is None
+        assert detection["alternatives"] == []
+
+
 def test_api_previews_saved_column_mapping_versions_against_sample_csv() -> None:
     with TemporaryDirectory() as temp_dir:
         client, _ = _build_client(temp_dir)

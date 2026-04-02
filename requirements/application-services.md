@@ -131,7 +131,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Non-technical household members should be able to import data without CLI or API knowledge.
 
 **Phase:** 2
-**Status:** implemented (the Next.js shell now exposes operator-facing browser uploads for account transactions, subscriptions, contract prices, and config-driven source-asset uploads; successful uploads redirect into run detail, and failed uploads render inline validation, run, and API-error feedback on the upload page)
+**Status:** implemented (the Next.js shell now exposes operator-facing browser uploads for account transactions, subscriptions, contract prices, and config-driven source-asset uploads; a guided upload panel accepts drag/drop files, detects likely source contract targets with confidence, and preselects the matching upload path; successful uploads redirect into run detail, and failed uploads render inline validation, run, and API-error feedback on the upload page)
 
 **Acceptance criteria:**
 - Upload form allows file selection, source system choice, and dataset type choice.
@@ -324,7 +324,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 | APP-04 | `apps/api/app.py`, `apps/api/auth_runtime.py`, `apps/api/support.py`, `apps/api/runtime_state.py`, `apps/api/routes/auth_routes.py`, `apps/api/routes/config_routes.py`, `apps/api/routes/control_routes.py`, `apps/api/routes/ingest_routes.py` | `tests/test_api_app.py` |
 | APP-05 | `apps/web/frontend/app/page.js`, `apps/web/frontend/app/reports/page.js`, `apps/web/frontend/app/control/page.js`, `apps/web/frontend/app/control/catalog/page.js`, `apps/web/frontend/app/control/execution/page.js`, `apps/web/frontend/app/homelab/page.js`, `apps/web/frontend/components/app-shell.js` | `tests/test_web_app.py`, `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
 | APP-06 | `apps/web/frontend/app/runs/page.js`, `apps/web/frontend/app/runs/[runId]/page.js`, `apps/web/frontend/lib/backend.ts` | `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
-| APP-07 | `apps/web/frontend/app/upload/page.js`, `apps/web/frontend/app/upload/*/route.js`, `apps/web/frontend/lib/upload-route.js` | `tests/test_manual_upload_and_preview_api.py`, `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
+| APP-07 | `apps/api/routes/ingest_routes.py`, `packages/pipelines/upload_detection.py`, `apps/web/frontend/app/upload/page.js`, `apps/web/frontend/components/upload-detection-wizard.js`, `apps/web/frontend/app/upload/*/route.js`, `apps/web/frontend/lib/upload-route.js` | `tests/test_manual_upload_and_preview_api.py`, `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
 | APP-08 | `apps/web/frontend/app/control/catalog/page.js`, `apps/web/frontend/app/control/execution/page.js` | `tests/test_web_auth.py`, `tests/test_architecture_contract.py` |
 | APP-09 | — | — |
 | APP-10 | `apps/web/frontend/app/control/execution/page.js`, `apps/web/frontend/app/control/execution/schedule-dispatches/route.js` | `tests/test_web_auth.py`, `tests/test_architecture_contract.py`, `tests/test_control_plane_api_app.py` |

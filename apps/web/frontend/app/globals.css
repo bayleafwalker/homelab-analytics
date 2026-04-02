@@ -536,6 +536,43 @@ th {
   font-weight: 700;
 }
 
+.uploadWizardSummary {
+  margin-bottom: 12px;
+}
+
+.dropZone {
+  display: grid;
+  gap: 8px;
+  border: 2px dashed var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.dropZone[data-active="true"] {
+  border-color: var(--accent);
+  background: rgba(15, 118, 110, 0.08);
+}
+
+.dropZoneTitle {
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.detectedContract {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent-cool);
+}
+
+.uploadWizardMeta {
+  margin-top: 12px;
+}
+
+.confidenceBadge {
+  font-weight: 700;
+}
+
 .userBadge {
   border-radius: 999px;
   padding: 0.45rem 0.72rem;

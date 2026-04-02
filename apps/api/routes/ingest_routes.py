@@ -27,6 +27,7 @@ from packages.pipelines.promotion import (
 from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
+from packages.pipelines.upload_detection import detect_upload_target
 from packages.shared.extensions import ExtensionRegistry
 from packages.storage.control_plane import ConfigCatalogStore
 
@@ -160,6 +161,33 @@ def register_ingest_routes(
                 )
                 publish_reporting(promotion)
         return build_run_response(run, promotion=promotion)
+
+    @app.post("/ingest/detect-source")
+    async def detect_source_upload_target(request: Request) -> dict[str, Any]:
+        form = await request.form()
+        upload = require_upload(form.get("file"))
+        source_bytes = await read_upload_limited(upload)
+        file_name = getattr(upload, "filename", None) or "upload"
+        await upload.close()
+
+        source_assets = resolved_config_repository.list_source_assets(include_archived=False)
+        column_mappings = resolved_config_repository.list_column_mappings(include_archived=False)
+        dataset_contracts = resolved_config_repository.list_dataset_contracts(
+            include_archived=False
+        )
+
+        detection = detect_upload_target(
+            file_name=file_name,
+            source_bytes=source_bytes,
+            source_assets=source_assets,
+            column_mappings_by_id={
+                record.column_mapping_id: record for record in column_mappings
+            },
+            dataset_contracts_by_id={
+                record.dataset_contract_id: record for record in dataset_contracts
+            },
+        )
+        return {"detection": to_jsonable(detection)}
 
     @app.post("/ingest/subscriptions", status_code=201)
     async def ingest_subscriptions(request: Request) -> JSONResponse:

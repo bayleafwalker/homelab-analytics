@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
+import { UploadDetectionWizard } from "@/components/upload-detection-wizard";
 import { getCurrentUser, getSourceAssets } from "@/lib/backend";
 
 function errorCopy(error) {
@@ -16,6 +17,8 @@ function errorCopy(error) {
       return "Budget upload failed.";
     case "loan-upload-failed":
       return "Loan repayment upload failed.";
+    case "ha-upload-failed":
+      return "HA states upload failed.";
     case "configured-upload-failed":
       return "Configured upload failed.";
     default:
@@ -102,6 +105,8 @@ export default async function UploadPage({ searchParams }) {
       lede="Browser uploads stay API-backed. Built-in datasets and configured source assets land through the same ingest contracts the worker and CLI already use."
     >
       <section className="stack">
+        <UploadDetectionWizard activeSourceAssets={activeSourceAssets} />
+
         {error ? (
           <article className="panel section">
             <div className="errorBanner">{error}</div>
