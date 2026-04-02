@@ -7,11 +7,9 @@ from packages.pipelines.account_transaction_service import AccountTransactionSer
 from packages.pipelines.configured_ingestion_definition import (
     ConfiguredIngestionDefinitionService,
 )
-from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.extension_registries import PipelineRegistries, load_pipeline_registries
 from packages.pipelines.pipeline_catalog import sync_pipeline_catalog
 from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
-from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_domain_registry import TransformationDomainRegistry
 from packages.pipelines.transformation_refresh_registry import PublicationRefreshRegistry
 from packages.pipelines.transformation_service import TransformationService
@@ -129,32 +127,6 @@ def build_account_transaction_service(
     blob_store=None,
 ) -> AccountTransactionService:
     return AccountTransactionService(
-        landing_root=settings.landing_root,
-        metadata_repository=metadata_repository or build_run_metadata_store(settings),
-        blob_store=blob_store or build_blob_store(settings),
-    )
-
-
-def build_subscription_service(
-    settings: AppSettings,
-    *,
-    metadata_repository: RunMetadataStore | None = None,
-    blob_store=None,
-) -> SubscriptionService:
-    return SubscriptionService(
-        landing_root=settings.landing_root,
-        metadata_repository=metadata_repository or build_run_metadata_store(settings),
-        blob_store=blob_store or build_blob_store(settings),
-    )
-
-
-def build_contract_price_service(
-    settings: AppSettings,
-    *,
-    metadata_repository: RunMetadataStore | None = None,
-    blob_store=None,
-) -> ContractPriceService:
-    return ContractPriceService(
         landing_root=settings.landing_root,
         metadata_repository=metadata_repository or build_run_metadata_store(settings),
         blob_store=blob_store or build_blob_store(settings),

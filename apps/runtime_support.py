@@ -18,9 +18,6 @@ from packages.platform.runtime.builder import (
     build_container,
 )
 from packages.platform.runtime.builder import (
-    build_contract_price_service as _platform_build_contract_price_service,
-)
-from packages.platform.runtime.builder import (
     build_extension_registry as _platform_build_extension_registry,
 )
 from packages.platform.runtime.builder import (
@@ -33,14 +30,14 @@ from packages.platform.runtime.builder import (
     build_reporting_service as _platform_build_reporting_service,
 )
 from packages.platform.runtime.builder import (
-    build_subscription_service as _platform_build_subscription_service,
-)
-from packages.platform.runtime.builder import (
     build_transformation_service as _platform_build_transformation_service,
 )
 from packages.shared.extensions import ExtensionRegistry
 from packages.shared.settings import AppSettings
+from packages.storage.blob import BlobStore
 from packages.storage.control_plane import ControlPlaneStore
+from packages.storage.run_metadata import RunMetadataStore
+from packages.storage.runtime import build_blob_store, build_run_metadata_store
 
 
 def build_extension_registry(
@@ -88,26 +85,26 @@ def build_service(
 def build_subscription_service(
     settings: AppSettings,
     *,
-    metadata_repository=None,
-    blob_store=None,
+    metadata_repository: RunMetadataStore | None = None,
+    blob_store: BlobStore | None = None,
 ) -> SubscriptionService:
-    return _platform_build_subscription_service(
-        settings,
-        metadata_repository=metadata_repository,
-        blob_store=blob_store,
+    return SubscriptionService(
+        landing_root=settings.landing_root,
+        metadata_repository=metadata_repository or build_run_metadata_store(settings),
+        blob_store=blob_store or build_blob_store(settings),
     )
 
 
 def build_contract_price_service(
     settings: AppSettings,
     *,
-    metadata_repository=None,
-    blob_store=None,
+    metadata_repository: RunMetadataStore | None = None,
+    blob_store: BlobStore | None = None,
 ) -> ContractPriceService:
-    return _platform_build_contract_price_service(
-        settings,
-        metadata_repository=metadata_repository,
-        blob_store=blob_store,
+    return ContractPriceService(
+        landing_root=settings.landing_root,
+        metadata_repository=metadata_repository or build_run_metadata_store(settings),
+        blob_store=blob_store or build_blob_store(settings),
     )
 
 
