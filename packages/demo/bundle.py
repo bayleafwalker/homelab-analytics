@@ -16,6 +16,7 @@ from typing import Literal, TypedDict, cast
 DEMO_SEED = 20260324
 DEMO_GENERATED_AT = "2026-03-24T00:00:00+00:00"
 MANIFEST_NAME = "manifest.json"
+JOURNEY_NAME = "journey.json"
 
 PERSONAL_ACCOUNT_ARTIFACT_ID = "op_personal_account_csv"
 COMMON_ACCOUNT_ARTIFACT_ID = "op_common_account_csv"
@@ -443,6 +444,168 @@ def build_demo_bundle(*, include_template_artifacts: bool = True) -> DemoBundle:
     return DemoBundle(artifacts=ordered_artifacts)
 
 
+def build_journey() -> dict[str, object]:
+    """Return the scripted operator journey metadata for the demo bundle.
+
+    The journey describes the intended upload sequence, what each step unlocks,
+    and which metrics / attention items to highlight during a walkthrough.
+    """
+    return {
+        "title": "Household Operating Platform — Scripted Operator Journey",
+        "description": (
+            "A step-by-step walkthrough using the demo bundle to prove the product loop "
+            "from first upload to a populated Operating Picture."
+        ),
+        "data_period": "2025-01 to 2025-12",
+        "steps": [
+            {
+                "step": 1,
+                "title": "Upload personal account transactions (OP CSV)",
+                "artifact_ids": [PERSONAL_ACCOUNT_ARTIFACT_ID],
+                "upload_path": "/upload",
+                "action": "Drag-and-drop the personal OP export CSV onto the upload page. "
+                           "The wizard detects 'OP personal account' with high confidence.",
+                "unlocks": [
+                    "Monthly Cashflow (12 months of income and spending)",
+                    "Spend by Category baseline",
+                    "Salary detection: Employer Corp, EUR 3 200/month",
+                ],
+                "attention_items": [
+                    "Card payment to OP-Korttiyhtiö each month (~EUR 260–320) — credit card loop",
+                    "Regular transfer to Demo Shared Household — shared account contribution",
+                ],
+            },
+            {
+                "step": 2,
+                "title": "Upload common household account (OP CSV)",
+                "artifact_ids": [COMMON_ACCOUNT_ARTIFACT_ID],
+                "upload_path": "/upload",
+                "action": "Upload the common household account CSV. "
+                           "Wizard detects 'OP common account' binding.",
+                "unlocks": [
+                    "Household overview enriched with shared spending",
+                    "Grocery and utilities spend visible",
+                    "Counterparty categories: Supermarket Plus, City Power, Metro Transport",
+                ],
+                "attention_items": [
+                    "Utilities spend (City Power): EUR 35–63/month with clear seasonal pattern",
+                    "Grocery spend: EUR 250–320/month — largest discretionary line",
+                ],
+            },
+            {
+                "step": 3,
+                "title": "Upload Revolut card account (Revolut CSV)",
+                "artifact_ids": [REVOLUT_ACCOUNT_ARTIFACT_ID],
+                "upload_path": "/upload",
+                "action": "Upload the Revolut export. Wizard detects Revolut format.",
+                "unlocks": [
+                    "Entertainment spend: Netflix EUR 15.99/month",
+                    "Health spend: Pharmacy Central",
+                    "Full cashflow with all three account streams reconciled",
+                ],
+                "attention_items": [
+                    "Revolut top-ups match exactly to OP personal account outflows — reconciliation proof",
+                ],
+            },
+            {
+                "step": 4,
+                "title": "Upload utility bills (canonical CSV)",
+                "artifact_ids": [UTILITY_BILLS_CANONICAL_ARTIFACT_ID],
+                "upload_path": "/upload/utility-bills",
+                "action": "Upload canonical utility bills CSV from the demo bundle.",
+                "unlocks": [
+                    "Utility Cost Summary (electricity + water, 12 months)",
+                    "kWh and liter usage trends",
+                    "Unit price comparison across periods",
+                ],
+                "attention_items": [
+                    "Electricity peaks in winter (Dec: 421 kWh vs summer trough Jun: 257 kWh)",
+                    "Total annual electricity: ~3 762 kWh",
+                ],
+            },
+            {
+                "step": 5,
+                "title": "Upload subscriptions (canonical CSV)",
+                "artifact_ids": [SUBSCRIPTIONS_CANONICAL_ARTIFACT_ID],
+                "upload_path": "/upload/subscriptions",
+                "action": "Upload canonical subscriptions CSV.",
+                "unlocks": [
+                    "Subscription Summary: recurring monthly obligations",
+                    "Renewal calendar in Operating Picture upcoming-actions strip",
+                ],
+                "attention_items": [
+                    "Review subscription list against Revolut spend for unregistered recurring charges",
+                ],
+            },
+            {
+                "step": 6,
+                "title": "Upload contract prices (canonical CSV)",
+                "artifact_ids": [CONTRACT_PRICES_CANONICAL_ARTIFACT_ID],
+                "upload_path": "/upload/contract-prices",
+                "action": "Upload canonical contract prices CSV.",
+                "unlocks": [
+                    "Contract Price Current: active tariffs and unit costs",
+                    "Cost model comparison in Operating Picture",
+                ],
+                "attention_items": [],
+            },
+            {
+                "step": 7,
+                "title": "Upload budgets (canonical CSV)",
+                "artifact_ids": [BUDGETS_CANONICAL_ARTIFACT_ID],
+                "upload_path": "/upload/budgets",
+                "action": "Upload canonical budgets CSV.",
+                "unlocks": [
+                    "Budget Variance: planned vs actual by category",
+                    "Budget status synthetic sensor in Home Assistant",
+                ],
+                "attention_items": [
+                    "Compare groceries budget to actual — expect overage in most months",
+                ],
+            },
+            {
+                "step": 8,
+                "title": "Upload loan repayments (canonical CSV)",
+                "artifact_ids": [LOAN_REPAYMENTS_CANONICAL_ARTIFACT_ID],
+                "upload_path": "/upload/loan-repayments",
+                "action": "Upload canonical loan repayments CSV.",
+                "unlocks": [
+                    "Loan Overview: outstanding balance and amortisation schedule",
+                    "Affordability ratio with debt service included",
+                ],
+                "attention_items": [
+                    "Monthly payment visible — appears in upcoming obligations strip",
+                ],
+            },
+        ],
+        "operating_picture_headline": {
+            "money": {
+                "headline_metric": "Net cashflow last 3 months",
+                "trend": "stable",
+                "attention": "Card payment loop — credit card charges visible monthly",
+            },
+            "utilities": {
+                "headline_metric": "Electricity + water cost YTD",
+                "trend": "seasonal",
+                "attention": "Winter electricity peak (~EUR 63/month) vs summer trough (~EUR 36)",
+            },
+            "operations": {
+                "headline_metric": "Active subscriptions",
+                "trend": "stable",
+                "attention": "Renewal calendar: check subscriptions for upcoming end dates",
+            },
+        },
+        "demo_data_highlights": [
+            "12 months of household transaction history (2025)",
+            "Three account sources covering personal, shared, and card spending",
+            "Seasonal utility usage data with realistic kWh and volume figures",
+            "Salary, transfer, and card payment flows visible for reconciliation",
+            "All canonical dataset types covered: transactions, subscriptions, contract prices, "
+            "utility bills, budgets, loan repayments",
+        ],
+    }
+
+
 def write_demo_bundle(output_dir: Path) -> DemoManifest:
     bundle = build_demo_bundle()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -461,6 +624,10 @@ def write_demo_bundle(output_dir: Path) -> DemoManifest:
     }
     (output_dir / MANIFEST_NAME).write_text(
         json.dumps(manifest, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (output_dir / JOURNEY_NAME).write_text(
+        json.dumps(build_journey(), indent=2) + "\n",
         encoding="utf-8",
     )
     return manifest

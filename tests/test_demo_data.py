@@ -10,9 +10,16 @@ pytest.importorskip("reportlab")
 
 from apps.worker.main import main
 from packages.demo.bundle import (
+    BUDGETS_CANONICAL_ARTIFACT_ID,
     COMMON_ACCOUNT_ARTIFACT_ID,
+    CONTRACT_PRICES_CANONICAL_ARTIFACT_ID,
+    JOURNEY_NAME,
+    LOAN_REPAYMENTS_CANONICAL_ARTIFACT_ID,
     PERSONAL_ACCOUNT_ARTIFACT_ID,
     REVOLUT_ACCOUNT_ARTIFACT_ID,
+    SUBSCRIPTIONS_CANONICAL_ARTIFACT_ID,
+    UTILITY_BILLS_CANONICAL_ARTIFACT_ID,
+    build_journey,
     load_demo_manifest,
     write_demo_bundle,
 )
@@ -73,6 +80,49 @@ def test_demo_bundle_generation_is_deterministic(tmp_path: Path, monkeypatch: py
     }
     for row in first_manifest["artifacts"]:
         assert required_fields.issubset(row.keys())
+
+
+def test_demo_bundle_writes_journey_with_all_artifact_steps(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    output_dir = tmp_path / "demo"
+    write_demo_bundle(output_dir)
+
+    journey_path = output_dir / JOURNEY_NAME
+    assert journey_path.exists(), "journey.json must be written alongside manifest.json"
+
+    journey = json.loads(journey_path.read_text())
+    assert "steps" in journey
+    assert "operating_picture_headline" in journey
+    assert "demo_data_highlights" in journey
+
+    steps = journey["steps"]
+    assert len(steps) == 8, "All 8 data-source steps must be present"
+
+    # Every step must have a title, artifact_ids, upload_path, unlocks list
+    required_step_fields = {"step", "title", "artifact_ids", "upload_path", "unlocks"}
+    for step in steps:
+        assert required_step_fields.issubset(step.keys()), f"Step {step.get('step')} missing fields"
+        assert len(step["unlocks"]) > 0, f"Step {step['step']} must unlock at least one publication"
+
+    # The full set of canonical artifact IDs must be covered
+    all_artifact_ids = {aid for step in steps for aid in step["artifact_ids"]}
+    expected_artifact_ids = {
+        PERSONAL_ACCOUNT_ARTIFACT_ID,
+        COMMON_ACCOUNT_ARTIFACT_ID,
+        REVOLUT_ACCOUNT_ARTIFACT_ID,
+        UTILITY_BILLS_CANONICAL_ARTIFACT_ID,
+        SUBSCRIPTIONS_CANONICAL_ARTIFACT_ID,
+        CONTRACT_PRICES_CANONICAL_ARTIFACT_ID,
+        BUDGETS_CANONICAL_ARTIFACT_ID,
+        LOAN_REPAYMENTS_CANONICAL_ARTIFACT_ID,
+    }
+    assert all_artifact_ids == expected_artifact_ids
+
+
+def test_build_journey_is_deterministic() -> None:
+    first = build_journey()
+    second = build_journey()
+    assert first == second
 
 
 def test_demo_bundle_outputs_are_public_and_privacy_safe(tmp_path: Path) -> None:
