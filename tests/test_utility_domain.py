@@ -14,16 +14,16 @@ from fastapi.testclient import TestClient
 from apps.api.app import create_app
 from apps.worker.main import main
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
-from packages.pipelines.transformation_service import TransformationService
-from packages.pipelines.utility_bills import (
+from packages.domains.utilities.pipelines.utility_bills import (
     CanonicalUtilityBill,
     load_canonical_utility_bills_bytes,
 )
-from packages.pipelines.utility_models import DIM_METER
-from packages.pipelines.utility_usage import (
+from packages.domains.utilities.pipelines.utility_models import DIM_METER
+from packages.domains.utilities.pipelines.utility_usage import (
     CanonicalUtilityUsage,
     load_canonical_utility_usage_bytes,
 )
+from packages.pipelines.transformation_service import TransformationService
 from packages.shared.settings import AppSettings
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.ingestion_config import IngestionConfigRepository

@@ -42,7 +42,7 @@ def test_transformation_service_imports_split_domain_modules() -> None:
     assert "packages.domains.finance.pipelines.transformation_transactions" in imports
     assert "packages.domains.finance.pipelines.transformation_subscriptions" in imports
     assert "packages.domains.finance.pipelines.transformation_contract_prices" in imports
-    assert "packages.pipelines.transformation_utilities" in imports
+    assert "packages.domains.utilities.pipelines.transformation_utilities" in imports
 
 
 def test_shared_external_registry_does_not_import_domain_manifests() -> None:

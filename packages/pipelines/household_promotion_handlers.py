@@ -8,6 +8,8 @@ from packages.domains.finance.pipelines.budget_service import BudgetService
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
 from packages.domains.finance.pipelines.loan_service import LoanService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
+from packages.domains.utilities.pipelines.utility_bill_service import UtilityBillService
+from packages.domains.utilities.pipelines.utility_usage_service import UtilityUsageService
 from packages.pipelines.asset_register_service import AssetRegisterService
 from packages.pipelines.household_packages import (
     BuiltinTransformationPackageSpec,
@@ -23,8 +25,6 @@ from packages.pipelines.promotion_registry import (
 )
 from packages.pipelines.promotion_types import PromotionResult
 from packages.pipelines.transformation_service import TransformationService
-from packages.pipelines.utility_bill_service import UtilityBillService
-from packages.pipelines.utility_usage_service import UtilityUsageService
 
 
 @dataclass(frozen=True)

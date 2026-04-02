@@ -134,6 +134,27 @@ from packages.domains.finance.pipelines.transformation_transactions import (
     refresh_spend_by_category_monthly,
     refresh_transaction_anomalies_current,
 )
+from packages.domains.utilities.pipelines.transformation_utilities import (
+    count_bills,
+    count_utility_usage,
+    ensure_utility_storage,
+    get_contract_renewal_watchlist,
+    get_contract_review_candidates,
+    get_usage_vs_price_summary,
+    get_utility_cost_summary,
+    get_utility_cost_trend_monthly,
+    load_bills,
+    load_utility_usage,
+    refresh_contract_renewal_watchlist,
+    refresh_contract_review_candidates,
+    refresh_usage_vs_price_summary,
+    refresh_utility_cost_summary,
+    refresh_utility_cost_trend_monthly,
+)
+from packages.domains.utilities.pipelines.utility_models import (
+    CURRENT_DIM_METER_VIEW,
+    DIM_METER,
+)
 from packages.pipelines.asset_models import (
     CURRENT_DIM_ASSET_VIEW,
     DIM_ASSET,
@@ -238,27 +259,6 @@ from packages.pipelines.transformation_overview import (
 from packages.pipelines.transformation_refresh_registry import (
     PublicationRefreshRegistry,
     get_default_publication_refresh_registry,
-)
-from packages.pipelines.transformation_utilities import (
-    count_bills,
-    count_utility_usage,
-    ensure_utility_storage,
-    get_contract_renewal_watchlist,
-    get_contract_review_candidates,
-    get_usage_vs_price_summary,
-    get_utility_cost_summary,
-    get_utility_cost_trend_monthly,
-    load_bills,
-    load_utility_usage,
-    refresh_contract_renewal_watchlist,
-    refresh_contract_review_candidates,
-    refresh_usage_vs_price_summary,
-    refresh_utility_cost_summary,
-    refresh_utility_cost_trend_monthly,
-)
-from packages.pipelines.utility_models import (
-    CURRENT_DIM_METER_VIEW,
-    DIM_METER,
 )
 from packages.storage.control_plane import SourceLineageCreate, SourceLineageStore
 from packages.storage.duckdb_store import DuckDBStore

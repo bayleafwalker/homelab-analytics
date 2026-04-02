@@ -20,6 +20,7 @@ from packages.domains.finance.pipelines.loan_service import LoanService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.domains.overview.manifest import OVERVIEW_PACK
 from packages.domains.utilities.manifest import UTILITIES_PACK
+from packages.domains.utilities.pipelines.utility_bill_service import UtilityBillService
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
 from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.household_promotion_handlers import (
@@ -36,7 +37,6 @@ from packages.pipelines.reporting_service import (
     publish_promotion_reporting,
 )
 from packages.pipelines.transformation_service import TransformationService
-from packages.pipelines.utility_bill_service import UtilityBillService
 from packages.platform.runtime.builder import build_container
 from packages.platform.runtime.container import AppContainer
 from packages.shared.settings import AppSettings

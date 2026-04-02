@@ -15,6 +15,11 @@ from packages.domains.finance.pipelines.transaction_models import (
     MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
     MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
 )
+from packages.domains.utilities.pipelines.utility_models import (
+    MART_CONTRACT_RENEWAL_WATCHLIST_TABLE,
+    MART_CONTRACT_REVIEW_CANDIDATES_TABLE,
+    MART_UTILITY_COST_TREND_MONTHLY_TABLE,
+)
 from packages.pipelines.homelab_models import (
     MART_SERVICE_HEALTH_CURRENT_TABLE,
     MART_WORKLOAD_COST_7D_TABLE,
@@ -38,11 +43,6 @@ from packages.pipelines.overview_models import (
     MART_RECENT_SIGNIFICANT_CHANGES_TABLE,
     MART_RECURRING_COST_BASELINE_COLUMNS,
     MART_RECURRING_COST_BASELINE_TABLE,
-)
-from packages.pipelines.utility_models import (
-    MART_CONTRACT_RENEWAL_WATCHLIST_TABLE,
-    MART_CONTRACT_REVIEW_CANDIDATES_TABLE,
-    MART_UTILITY_COST_TREND_MONTHLY_TABLE,
 )
 from packages.storage.duckdb_store import DuckDBStore
 

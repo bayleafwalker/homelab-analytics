@@ -23,6 +23,7 @@ from packages.domains.finance.pipelines.budget_service import BudgetService
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
 from packages.domains.finance.pipelines.loan_service import LoanService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
+from packages.domains.utilities.pipelines.utility_bill_service import UtilityBillService
 from packages.pipelines.household_promotion_handlers import (
     promote_budget_run,
     promote_contract_price_run,
@@ -32,7 +33,6 @@ from packages.pipelines.household_promotion_handlers import (
     promote_utility_bill_run,
 )
 from packages.pipelines.transformation_service import TransformationService
-from packages.pipelines.utility_bill_service import UtilityBillService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository
 from tests.fixtures.demo_household_complete import generate_all
