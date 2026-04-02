@@ -6,6 +6,13 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Sequence
 
 from packages.domains.homelab.pipelines.ha_mqtt_models import HaMqttEntityDefinition
+from packages.pipelines.household_current_dimension_contracts import (
+    CURRENT_DIMENSION_CONTRACTS,
+)
+from packages.pipelines.household_reporting import (
+    CURRENT_DIMENSION_RELATIONS,
+    PUBLICATION_RELATIONS,
+)
 from packages.pipelines.reporting_service import ReportingService
 from packages.platform.capability_types import CapabilityPack
 from packages.platform.publication_contracts import (
@@ -146,7 +153,12 @@ def _render_state(
 def build_ha_publication_entities(
     capability_packs: Sequence[CapabilityPack],
 ) -> list[HaPublicationEntity]:
-    publication_contracts = build_publication_contracts(capability_packs)
+    publication_contracts = build_publication_contracts(
+        capability_packs,
+        publication_relations=PUBLICATION_RELATIONS,
+        current_dimension_relations=CURRENT_DIMENSION_RELATIONS,
+        current_dimension_contracts=CURRENT_DIMENSION_CONTRACTS,
+    )
     ui_descriptors = build_ui_descriptor_contracts(capability_packs)
     descriptor_index = _ha_descriptor_index(ui_descriptors)
 

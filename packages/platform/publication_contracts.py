@@ -3,14 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
-from packages.pipelines.household_current_dimension_contracts import (
-    CURRENT_DIMENSION_CONTRACTS,
-)
-from packages.pipelines.household_reporting import (
-    CURRENT_DIMENSION_RELATIONS,
-    PUBLICATION_RELATIONS,
-    PublicationRelation,
-)
 from packages.platform.capability_types import (
     CapabilityPack,
     PublicationDefinition,
@@ -66,6 +58,14 @@ class UiDescriptorContract:
     supported_renderers: tuple[str, ...]
     renderer_hints: dict[str, str]
     default_filters: dict[str, str]
+
+
+@dataclass(frozen=True)
+class PublicationRelation:
+    relation_name: str
+    columns: list[tuple[str, str]]
+    order_by: str
+    source_query: str | None = None
 
 
 def _json_type_for_storage_type(storage_type: str) -> str:
@@ -380,10 +380,10 @@ def _current_dimension_field_definitions(
 
 def build_publication_relation_map(
     *,
-    base_relations: Mapping[str, PublicationRelation] | None = None,
+    base_relations: Mapping[str, PublicationRelation],
     extension_registry: ExtensionRegistry | None = None,
 ) -> dict[str, PublicationRelation]:
-    relation_map = dict(base_relations or PUBLICATION_RELATIONS)
+    relation_map = dict(base_relations)
     if extension_registry is None:
         return relation_map
 
@@ -405,14 +405,22 @@ def build_publication_relation_map(
 
 def build_publication_contracts(
     capability_packs: Sequence[CapabilityPack],
-    publication_relations: Mapping[str, PublicationRelation] | None = None,
+    *,
+    publication_relations: Mapping[str, PublicationRelation],
+    current_dimension_relations: Mapping[str, str] | None = None,
+    current_dimension_contracts: Mapping[
+        str,
+        CurrentDimensionContractDefinition,
+    ] | None = None,
 ) -> list[PublicationContract]:
-    relation_map = dict(publication_relations or PUBLICATION_RELATIONS)
+    relation_map = dict(publication_relations)
+    resolved_current_dimension_relations = current_dimension_relations or {}
+    resolved_current_dimension_contracts = current_dimension_contracts or {}
     pack_publications = _pack_publication_relations(capability_packs)
     ui_descriptor_index = _ui_descriptor_index(capability_packs)
     current_dimension_relation_keys = {
         relation_name: publication_key
-        for publication_key, relation_name in CURRENT_DIMENSION_RELATIONS.items()
+        for publication_key, relation_name in resolved_current_dimension_relations.items()
     }
 
     missing_relations = sorted(
@@ -432,7 +440,9 @@ def build_publication_contracts(
             relation_name,
         )
         pack_metadata = pack_publications.get(relation_name)
-        current_dimension_definition = CURRENT_DIMENSION_CONTRACTS.get(publication_key)
+        current_dimension_definition = resolved_current_dimension_contracts.get(
+            publication_key
+        )
         if pack_metadata is not None:
             pack, publication = pack_metadata
             publication_key = publication.key
@@ -536,11 +546,19 @@ def build_ui_descriptor_contracts(
 
 def build_publication_contract_catalog(
     capability_packs: Sequence[CapabilityPack],
-    publication_relations: Mapping[str, PublicationRelation] | None = None,
+    *,
+    publication_relations: Mapping[str, PublicationRelation],
+    current_dimension_relations: Mapping[str, str] | None = None,
+    current_dimension_contracts: Mapping[
+        str,
+        CurrentDimensionContractDefinition,
+    ] | None = None,
 ) -> dict[str, Any]:
     contracts = build_publication_contracts(
         capability_packs,
         publication_relations=publication_relations,
+        current_dimension_relations=current_dimension_relations,
+        current_dimension_contracts=current_dimension_contracts,
     )
     ui_descriptors = build_ui_descriptor_contracts(capability_packs)
     return {

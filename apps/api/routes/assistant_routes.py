@@ -6,6 +6,13 @@ from typing import Any, Callable, Literal
 
 from fastapi import FastAPI, HTTPException
 
+from packages.pipelines.household_current_dimension_contracts import (
+    CURRENT_DIMENSION_CONTRACTS,
+)
+from packages.pipelines.household_reporting import (
+    CURRENT_DIMENSION_RELATIONS,
+    PUBLICATION_RELATIONS,
+)
 from apps.api.response_models import (
     AssistantAnswerResponseModel,
     AssistantSourceModel,
@@ -399,8 +406,11 @@ def register_assistant_routes(
     publication_contracts = build_publication_contracts(
         capability_packs,
         publication_relations=build_publication_relation_map(
+            base_relations=PUBLICATION_RELATIONS,
             extension_registry=extension_registry,
         ),
+        current_dimension_relations=CURRENT_DIMENSION_RELATIONS,
+        current_dimension_contracts=CURRENT_DIMENSION_CONTRACTS,
     )
     ui_descriptors = build_ui_descriptor_contracts(capability_packs)
     publication_semantic_index = build_publication_semantic_index(

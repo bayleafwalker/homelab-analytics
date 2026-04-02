@@ -15,6 +15,13 @@ from pathlib import Path
 from uuid import uuid4
 
 from packages.pipelines.extension_registries import load_pipeline_registries
+from packages.pipelines.household_current_dimension_contracts import (
+    CURRENT_DIMENSION_CONTRACTS,
+)
+from packages.pipelines.household_reporting import (
+    CURRENT_DIMENSION_RELATIONS,
+    PUBLICATION_RELATIONS,
+)
 from packages.platform.capability_registry import load_capability_packs
 from packages.platform.capability_types import CapabilityPack
 from packages.platform.publication_contracts import (
@@ -428,8 +435,11 @@ def _validate_manifest_modules(
         build_publication_contract_catalog(
             capability_packs,
             publication_relations=build_publication_relation_map(
+                base_relations=PUBLICATION_RELATIONS,
                 extension_registry=extension_registry,
             ),
+            current_dimension_relations=CURRENT_DIMENSION_RELATIONS,
+            current_dimension_contracts=CURRENT_DIMENSION_CONTRACTS,
         )
     if manifest.function_modules:
         load_function_registry(

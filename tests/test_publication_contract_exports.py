@@ -11,7 +11,14 @@ from packages.domains.finance.manifest import FINANCE_PACK
 from packages.domains.homelab.manifest import HOMELAB_PACK
 from packages.domains.overview.manifest import OVERVIEW_PACK
 from packages.domains.utilities.manifest import UTILITIES_PACK
+from packages.pipelines.household_current_dimension_contracts import (
+    CURRENT_DIMENSION_CONTRACTS,
+)
 from packages.pipelines.household_reporting import PublicationRelation
+from packages.pipelines.household_reporting import (
+    CURRENT_DIMENSION_RELATIONS,
+    PUBLICATION_RELATIONS,
+)
 from packages.platform.capability_types import CapabilityPack, PublicationDefinition
 from packages.platform.publication_contracts import build_publication_contract_catalog
 
@@ -62,7 +69,10 @@ def test_export_contracts_writes_openapi_and_publication_catalog() -> None:
 
 def test_publication_contract_catalog_maps_columns_and_scalar_types() -> None:
     catalog = build_publication_contract_catalog(
-        (FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK, HOMELAB_PACK)
+        (FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK, HOMELAB_PACK),
+        publication_relations=PUBLICATION_RELATIONS,
+        current_dimension_relations=CURRENT_DIMENSION_RELATIONS,
+        current_dimension_contracts=CURRENT_DIMENSION_CONTRACTS,
     )
     publication_contracts = _publication_contract_map(catalog)
     ui_descriptors = _ui_descriptor_map(catalog)
@@ -159,7 +169,12 @@ def test_publication_contract_catalog_requires_reporting_relations() -> None:
     )
 
     with pytest.raises(ValueError, match="missing reporting relations"):
-        build_publication_contract_catalog((orphan_pack,))
+        build_publication_contract_catalog(
+            (orphan_pack,),
+            publication_relations=PUBLICATION_RELATIONS,
+            current_dimension_relations=CURRENT_DIMENSION_RELATIONS,
+            current_dimension_contracts=CURRENT_DIMENSION_CONTRACTS,
+        )
 
 
 def test_publication_contract_catalog_requires_field_semantics_for_pack_publications() -> None:
@@ -197,4 +212,6 @@ def test_publication_contract_catalog_requires_field_semantics_for_pack_publicat
                     order_by="period_month",
                 )
             },
+            current_dimension_relations=CURRENT_DIMENSION_RELATIONS,
+            current_dimension_contracts=CURRENT_DIMENSION_CONTRACTS,
         )
