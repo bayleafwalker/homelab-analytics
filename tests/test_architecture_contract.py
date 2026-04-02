@@ -808,6 +808,40 @@ def test_platform_does_not_import_from_domains() -> None:
     )
 
 
+def test_shared_does_not_import_from_domains() -> None:
+    """Shared layer must not import app-domain modules directly."""
+    shared_dir = ROOT / "packages" / "shared"
+    imports = _collect_imports_in_dir(shared_dir)
+    domain_imports = [imp for imp in imports if imp.startswith("packages.domains.")]
+    assert not domain_imports, (
+        f"packages/shared must not import from packages.domains.* — found: {domain_imports}"
+    )
+
+
+def test_platform_does_not_import_homelab_or_overview_pipeline_modules() -> None:
+    """Platform layer must not depend on moved homelab/overview pipeline modules."""
+    platform_dir = ROOT / "packages" / "platform"
+    imports = _collect_imports_in_dir(platform_dir)
+    forbidden_prefixes = (
+        "packages.pipelines.ha_",
+        "packages.pipelines.homelab_models",
+        "packages.pipelines.home_automation_models",
+        "packages.pipelines.infrastructure_models",
+        "packages.pipelines.transformation_homelab",
+        "packages.pipelines.transformation_home_automation",
+        "packages.pipelines.transformation_infrastructure",
+        "packages.pipelines.overview_models",
+        "packages.pipelines.transformation_overview",
+    )
+    forbidden_imports = [
+        imp for imp in imports if any(imp.startswith(prefix) for prefix in forbidden_prefixes)
+    ]
+    assert not forbidden_imports, (
+        "packages/platform must not import homelab/overview domain pipeline modules — "
+        f"found: {forbidden_imports}"
+    )
+
+
 def test_platform_runtime_builder_accepts_packs_via_parameter() -> None:
     """Builder must accept capability packs as a parameter, not import domain packs directly."""
     builder_source = (ROOT / "packages" / "platform" / "runtime" / "builder.py").read_text()

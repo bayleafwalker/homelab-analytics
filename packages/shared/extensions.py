@@ -348,7 +348,7 @@ def _run_account_transaction_folder_watch(
     failed_dir: Path,
     source_name: str,
 ):
-    from packages.domains.finance.pipelines.account_transaction_inbox import (
+    from packages.pipelines.account_transaction_inbox import (
         process_account_transaction_inbox,
     )
 
