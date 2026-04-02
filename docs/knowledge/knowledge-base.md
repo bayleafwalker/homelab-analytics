@@ -1,7 +1,39 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-02T08:15:48Z
+Generated: 2026-04-02T11:31:34Z
 
 ## Decisions
+
+### Moved finance service builders out of platform runtime builder into apps/runtime_support.
+Source: track: finding-corrections, sprint: 28
+Tags: wp-13, boundary, composition
+
+SubscriptionService and ContractPriceService constructors now live in app composition helpers; platform builder no longer imports those domain services.
+
+---
+
+### Relocated current-dimension contract instances into an explicit app composition module.
+Source: track: finding-corrections, sprint: 28
+Tags: wp-15, composition, contracts
+
+Canonical module is now packages/pipelines/composition/current_dimension_contracts.py; consumers were rewired and old module kept as compatibility shim.
+
+---
+
+### External registry sync validation now receives publication/current-dimension registrations via injection.
+Source: track: finding-corrections, sprint: 28
+Tags: wp-14, boundary, external-registry
+
+packages/shared/external_registry no longer imports household reporting/current-dimension modules; API and worker registry sync callers supply relations/contracts explicitly.
+
+---
+
+### Consolidated publication-contract route composition hooks into one app-composition input module.
+Source: track: carryover, sprint: 28
+Tags: wp-12, route-composition, extensions
+
+Added packages/pipelines/composition/publication_contract_inputs.py and rewired assistant/contract/export/registry/worker/HA renderer paths to consume shared registrations + relation-map helper.
+
+---
 
 ### Align sprintctl/kctl guidance with payload-based events and id-scoped lookup commands
 Source: track: naming-docs, sprint: 27
