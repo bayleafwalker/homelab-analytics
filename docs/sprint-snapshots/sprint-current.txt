@@ -2,7 +2,7 @@ SPRINT: Sprint substrate-iron-seam — Platform Kernel and Household App Seam  [
 Goal:   Make the kernel/app boundary visible and enforceable: split packages/pipelines/ by domain, clean container assumptions, add import-boundary enforcement tests, prove minimal-kernel boot
 Dates:  2026-03-31 to 2026-04-27
 ID:     27
-Items:  16 total — 1 done, 0 active, 15 pending, 0 blocked
+Items:  16 total — 2 done, 0 active, 14 pending, 0 blocked
 
 --- Track: pipeline-split ---
   health: 5 items — 0 done (0%), 0 active, 5 pending, 0 blocked (0%)
@@ -13,9 +13,9 @@ Items:  16 total — 1 done, 0 active, 15 pending, 0 blocked
   [pending ] #194  WP-1e: Resolve ambiguous pipeline files — classify each as kernel, app, or justified-mixed with written rationale  (assignee: -)
 
 --- Track: boundary-cleanup ---
-  health: 4 items — 0 done (0%), 0 active, 4 pending, 0 blocked (0%)
+  health: 4 items — 1 done (25%), 0 active, 3 pending, 0 blocked (0%)
   [pending ] #196  WP-3: Move household-specific contract instances out of platform-level locations into domain/app ownership  (assignee: -)
-  [pending ] #197  WP-4: Clean shared-layer imports of domain manifests — accept packs as parameters instead of importing directly  (assignee: -)
+  [done    ] #197  WP-4: Clean shared-layer imports of domain manifests — accept packs as parameters instead of importing directly  (assignee: -)
   [pending ] #198  WP-5: Remove remaining platform dependency inversions into mixed pipeline code — consume registration input instead  (assignee: -)
   [pending ] #199  WP-6: Promote genuinely generic freshness logic to platform/shared home if still generic after review  (assignee: -)
 
@@ -38,4 +38,4 @@ Items:  16 total — 1 done, 0 active, 15 pending, 0 blocked
   [pending ] #203  WP-10: Add doc classification tags — tag ADRs/docs as PLATFORM / APP / CROSS-CUTTING, split docs by concern  (assignee: -)
   [done    ] #204  WP-11: Add contributor/agent decision guide — classify work before touching code  (assignee: -)
 
-Rendered: 2026-04-01T20:40:59Z
+Rendered: 2026-04-02T05:43:00Z
