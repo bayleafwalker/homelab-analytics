@@ -1,6 +1,7 @@
 """Config routes coordinator — delegates to source, schedule, and registry sub-modules."""
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Callable
 
@@ -11,6 +12,7 @@ from apps.api.routes.schedule_routes import register_schedule_routes
 from apps.api.routes.source_routes import register_source_routes
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
 from packages.pipelines.promotion_registry import PromotionHandlerRegistry
+from packages.platform.capability_types import CapabilityPack
 from packages.shared.extensions import ExtensionRegistry
 from packages.shared.function_registry import FunctionRegistry
 from packages.storage.control_plane import ControlPlaneAdminStore
@@ -26,6 +28,7 @@ def register_config_routes(
     registry: ExtensionRegistry,
     function_registry: FunctionRegistry,
     promotion_handler_registry: PromotionHandlerRegistry,
+    builtin_packs: Sequence[CapabilityPack],
     resolved_config_repository: ControlPlaneAdminStore,
     external_registry_cache_root: Path,
     configured_ingestion_service: ConfiguredCsvIngestionService,
@@ -64,6 +67,7 @@ def register_config_routes(
         registry=registry,
         function_registry=function_registry,
         promotion_handler_registry=promotion_handler_registry,
+        builtin_packs=builtin_packs,
         resolved_config_repository=resolved_config_repository,
         external_registry_cache_root=external_registry_cache_root,
         require_unsafe_admin=require_unsafe_admin,

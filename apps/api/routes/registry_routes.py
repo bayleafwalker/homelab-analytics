@@ -1,6 +1,7 @@
 """Registry config routes: extension registry sources, revisions, activations, introspection."""
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Callable
 
@@ -16,6 +17,7 @@ from packages.pipelines.promotion_registry import (
     PromotionHandlerRegistry,
     serialize_promotion_handler_registry,
 )
+from packages.platform.capability_types import CapabilityPack
 from packages.shared.extensions import ExtensionRegistry, serialize_extension_registry
 from packages.shared.external_registry import sync_extension_registry_source
 from packages.shared.function_registry import FunctionRegistry, serialize_function_registry
@@ -31,6 +33,7 @@ def register_registry_routes(
     registry: ExtensionRegistry,
     function_registry: FunctionRegistry,
     promotion_handler_registry: PromotionHandlerRegistry,
+    builtin_packs: Sequence[CapabilityPack],
     resolved_config_repository: ControlPlaneAdminStore,
     external_registry_cache_root: Path,
     require_unsafe_admin: Callable[[], None],
@@ -167,6 +170,7 @@ def register_registry_routes(
             resolved_config_repository,
             extension_registry_source_id,
             activate=payload.activate,
+            builtin_packs=builtin_packs,
             cache_root=external_registry_cache_root,
             secret_resolver=EnvironmentSecretResolver(),
         )

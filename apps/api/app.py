@@ -511,6 +511,7 @@ def create_app(
         registry=container.extension_registry,
         function_registry=container.function_registry,
         promotion_handler_registry=container.promotion_handler_registry,
+        builtin_packs=container.capability_packs,
         resolved_config_repository=resolved_config_repository,
         external_registry_cache_root=resolved_external_registry_cache_root,
         configured_ingestion_service=configured_ingestion_service,

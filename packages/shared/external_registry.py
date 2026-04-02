@@ -7,18 +7,16 @@ import os
 import shutil
 import subprocess
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from uuid import uuid4
 
-from packages.domains.finance.manifest import FINANCE_PACK
-from packages.domains.homelab.manifest import HOMELAB_PACK
-from packages.domains.overview.manifest import OVERVIEW_PACK
-from packages.domains.utilities.manifest import UTILITIES_PACK
 from packages.pipelines.extension_registries import load_pipeline_registries
 from packages.platform.capability_registry import load_capability_packs
+from packages.platform.capability_types import CapabilityPack
 from packages.platform.publication_contracts import (
     build_publication_contract_catalog,
     build_publication_relation_map,
@@ -138,6 +136,7 @@ def sync_extension_registry_source(
     extension_registry_source_id: str,
     *,
     activate: bool = False,
+    builtin_packs: Sequence[CapabilityPack] = (),
     cache_root: Path | None = None,
     secret_resolver: SecretResolver | None = None,
     synchronized_at: datetime | None = None,
@@ -167,7 +166,11 @@ def sync_extension_registry_source(
         resolved_ref = prepared_source.resolved_ref
         manifest = load_extension_registry_manifest(source_root)
         _validate_manifest_platform_compatibility(manifest)
-        _validate_manifest_modules(source_root, manifest)
+        _validate_manifest_modules(
+            source_root,
+            manifest,
+            builtin_packs=builtin_packs,
+        )
 
         revision = store.create_extension_registry_revision(
             ExtensionRegistryRevisionCreate(
@@ -392,6 +395,8 @@ def _validate_manifest_platform_compatibility(
 def _validate_manifest_modules(
     source_root: Path,
     manifest: ExtensionRegistryManifest,
+    *,
+    builtin_packs: Sequence[CapabilityPack] = (),
 ) -> None:
     extension_paths = tuple((source_root / import_path).resolve() for import_path in manifest.import_paths)
     if manifest.extension_modules:
@@ -404,7 +409,7 @@ def _validate_manifest_modules(
             extension_modules=manifest.extension_modules,
         )
         capability_packs = load_capability_packs(
-            builtin_packs=(FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK, HOMELAB_PACK),
+            builtin_packs=builtin_packs,
             extension_paths=extension_paths,
             extension_modules=manifest.extension_modules,
         )

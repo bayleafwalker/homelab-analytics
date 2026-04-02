@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from packages.domains.finance.manifest import FINANCE_PACK
 from packages.shared.external_registry import (
     EXTERNAL_REGISTRY_MANIFEST_FILENAME,
     _build_git_environment,
@@ -222,6 +223,7 @@ class ExternalRegistrySupportTests(unittest.TestCase):
                 repository,
                 "duplicate-publication-key",
                 activate=True,
+                builtin_packs=(FINANCE_PACK,),
             )
 
             self.assertFalse(result.passed)

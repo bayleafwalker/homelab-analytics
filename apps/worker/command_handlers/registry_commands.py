@@ -128,6 +128,7 @@ def handle_sync_extension_registry_source(
         runtime.config_repository,
         args.source_id,
         activate=getattr(args, "activate", False),
+        builtin_packs=runtime.container.capability_packs,
         cache_root=runtime.settings.resolved_external_registry_cache_root,
         secret_resolver=EnvironmentSecretResolver(),
     )

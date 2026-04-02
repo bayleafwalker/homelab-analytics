@@ -45,6 +45,13 @@ def test_transformation_service_imports_split_domain_modules() -> None:
     assert "packages.pipelines.transformation_utilities" in imports
 
 
+def test_shared_external_registry_does_not_import_domain_manifests() -> None:
+    imports = _import_names(ROOT / "packages" / "shared" / "external_registry.py")
+
+    assert not any(name.startswith("packages.domains.") for name in imports)
+    assert "packages.platform.capability_types" in imports
+
+
 def test_app_reporting_paths_do_not_compute_cashflow_from_landing_service() -> None:
     api_source = (ROOT / "apps" / "api" / "routes" / "report_routes.py").read_text()
     web_dashboard_source = (ROOT / "apps" / "web" / "frontend" / "app" / "page.js").read_text()
