@@ -14,11 +14,13 @@ from packages.demo.bundle import (
     load_demo_manifest,
 )
 from packages.domains.finance.manifest import FINANCE_PACK
+from packages.domains.finance.pipelines.budget_service import BudgetService
+from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
+from packages.domains.finance.pipelines.loan_service import LoanService
+from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.domains.overview.manifest import OVERVIEW_PACK
 from packages.domains.utilities.manifest import UTILITIES_PACK
-from packages.pipelines.budget_service import BudgetService
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
-from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.household_promotion_handlers import (
     promote_budget_run,
@@ -27,14 +29,12 @@ from packages.pipelines.household_promotion_handlers import (
     promote_subscription_run,
     promote_utility_bill_run,
 )
-from packages.pipelines.loan_service import LoanService
 from packages.pipelines.promotion import promote_source_asset_run
 from packages.pipelines.reporting_service import (
     ReportingAccessMode,
     ReportingService,
     publish_promotion_reporting,
 )
-from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
 from packages.pipelines.utility_bill_service import UtilityBillService
 from packages.platform.runtime.builder import build_container

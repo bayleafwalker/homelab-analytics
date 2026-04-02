@@ -14,8 +14,8 @@ from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from packages.pipelines.budget_service import BudgetService
-from packages.pipelines.budgets import (
+from packages.domains.finance.pipelines.budget_service import BudgetService
+from packages.domains.finance.pipelines.budgets import (
     CanonicalBudget,
     load_canonical_budgets_bytes,
 )

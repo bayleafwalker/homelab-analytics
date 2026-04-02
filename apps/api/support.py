@@ -14,7 +14,7 @@ from starlette.datastructures import UploadFile
 
 from apps.api.models import ConfiguredCsvIngestRequest
 from packages.analytics.cashflow import MonthlyCashflowSummary
-from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.promotion import PromotionResult, promote_run
 from packages.pipelines.reporting_service import (
     ReportingService,

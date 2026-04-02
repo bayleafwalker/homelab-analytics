@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Callable
 
-from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.config_preflight import run_config_preflight
 from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.shared.extensions import ExtensionRegistry

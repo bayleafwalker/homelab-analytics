@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
-from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService

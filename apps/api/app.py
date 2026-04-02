@@ -48,9 +48,10 @@ from apps.api.support import (
 )
 from packages.application.use_cases.run_recovery import build_run_recovery
 from packages.domains.finance.manifest import FINANCE_PACK
-from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
+from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
-from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.ha_action_proposals import ApprovalActionRegistry
 from packages.pipelines.promotion import (
     PromotionResult,
@@ -68,7 +69,6 @@ from packages.pipelines.run_context import (
     read_run_manifest,
     run_context_from_manifest,
 )
-from packages.pipelines.subscription_service import SubscriptionService
 from packages.platform.auth.break_glass import BreakGlassController
 from packages.platform.auth.machine_jwt_provider import MachineJwtProvider
 from packages.platform.auth.oidc_provider import OidcProvider

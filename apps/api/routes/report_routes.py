@@ -11,17 +11,17 @@ from apps.api.response_models import (
     build_row_union_type,
     build_rows_response_model,
 )
-from packages.pipelines.account_transaction_service import AccountTransactionService
-from packages.pipelines.category_rules import (
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.category_rules import (
     CATEGORY_OVERRIDE_COLUMNS,
     CATEGORY_RULE_COLUMNS,
 )
+from packages.domains.finance.pipelines.transaction_models import TRANSFORMATION_AUDIT_COLUMNS
 from packages.pipelines.household_reporting import (
     CURRENT_DIMENSION_RELATIONS,
     PUBLICATION_RELATIONS,
 )
 from packages.pipelines.reporting_service import ReportingService
-from packages.pipelines.transaction_models import TRANSFORMATION_AUDIT_COLUMNS
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.extensions import ExtensionRegistry
 

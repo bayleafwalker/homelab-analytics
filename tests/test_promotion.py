@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
 from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.household_packages import BUILTIN_TRANSFORMATION_PACKAGE_SPECS

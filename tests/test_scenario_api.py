@@ -19,7 +19,9 @@ from tests.test_homelab_domain import _service_rows, _workload_rows
 
 
 def _build_client(temp_dir: str) -> tuple[TestClient, TransformationService]:
-    from packages.pipelines.account_transaction_service import AccountTransactionService
+    from packages.domains.finance.pipelines.account_transaction_service import (
+        AccountTransactionService,
+    )
 
     service = AccountTransactionService(
         landing_root=Path(temp_dir) / "landing",
@@ -55,7 +57,9 @@ def _build_client(temp_dir: str) -> tuple[TestClient, TransformationService]:
 
 
 def _build_homelab_client(temp_dir: str) -> tuple[TestClient, TransformationService]:
-    from packages.pipelines.account_transaction_service import AccountTransactionService
+    from packages.domains.finance.pipelines.account_transaction_service import (
+        AccountTransactionService,
+    )
 
     service = AccountTransactionService(
         landing_root=Path(temp_dir) / "landing",
@@ -97,7 +101,9 @@ class _StubHomelabReportingService:
 def _build_homelab_client_with_reporting(
     temp_dir: str,
 ) -> tuple[TestClient, TransformationService, _StubHomelabReportingService]:
-    from packages.pipelines.account_transaction_service import AccountTransactionService
+    from packages.domains.finance.pipelines.account_transaction_service import (
+        AccountTransactionService,
+    )
 
     service = AccountTransactionService(
         landing_root=Path(temp_dir) / "landing",
@@ -162,7 +168,9 @@ class ScenarioCreateAPITests(unittest.TestCase):
             self.assertEqual(404, resp.status_code)
 
     def test_post_no_transformation_service_returns_503(self) -> None:
-        from packages.pipelines.account_transaction_service import AccountTransactionService
+        from packages.domains.finance.pipelines.account_transaction_service import (
+            AccountTransactionService,
+        )
 
         with TemporaryDirectory() as tmp:
             service = AccountTransactionService(

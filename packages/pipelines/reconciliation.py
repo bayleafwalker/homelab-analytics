@@ -23,14 +23,14 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from packages.pipelines.normalization import normalize_currency_code, normalize_timestamp_utc
-from packages.pipelines.transaction_models import (
+from packages.domains.finance.pipelines.transaction_models import (
     FACT_TRANSACTION_CURRENT_COLUMNS,
     FACT_TRANSACTION_CURRENT_TABLE,
     TRANSACTION_ENTITY_COLUMNS,
     TRANSACTION_ENTITY_TABLE,
     TRANSACTION_OBSERVATION_TABLE,
 )
+from packages.pipelines.normalization import normalize_currency_code, normalize_timestamp_utc
 from packages.storage.duckdb_store import DuckDBStore
 
 

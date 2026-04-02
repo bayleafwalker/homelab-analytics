@@ -11,8 +11,8 @@ from typing import Any, Callable, TextIO
 
 from apps.worker.runtime import build_reporting_service, build_transformation_service
 from apps.worker.serialization import _json_default, _write_json
-from packages.pipelines.account_transaction_service import AccountTransactionService
-from packages.pipelines.bootstrap_account_transaction_watch import (
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.bootstrap_account_transaction_watch import (
     ensure_account_transaction_watch_definition,
 )
 from packages.pipelines.configured_ingestion_definition import (

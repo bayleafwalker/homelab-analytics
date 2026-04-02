@@ -2,7 +2,7 @@ import unittest
 from decimal import Decimal
 from pathlib import Path
 
-from packages.pipelines.account_transactions import (
+from packages.domains.finance.pipelines.account_transactions import (
     load_canonical_transactions,
     load_canonical_transactions_bytes,
 )

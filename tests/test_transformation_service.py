@@ -104,7 +104,7 @@ def test_load_transactions_deterministic_ids(svc: TransformationService) -> None
 
 def test_load_transactions_populates_dimensions(svc: TransformationService) -> None:
     svc.load_transactions(LANDING_ROWS)
-    from packages.pipelines.transaction_models import DIM_ACCOUNT, DIM_COUNTERPARTY
+    from packages.domains.finance.pipelines.transaction_models import DIM_ACCOUNT, DIM_COUNTERPARTY
 
     accounts = svc.store.query_current(DIM_ACCOUNT)
     assert len(accounts) == 1  # only CHK-001
@@ -229,7 +229,7 @@ def test_load_transactions_atomic_rollback_on_failure(
     svc: TransformationService, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A failure during fact insert must leave no dimension or fact rows."""
-    from packages.pipelines.transaction_models import DIM_ACCOUNT, DIM_COUNTERPARTY
+    from packages.domains.finance.pipelines.transaction_models import DIM_ACCOUNT, DIM_COUNTERPARTY
 
     def failing_insert(table_name: str, rows: list[dict]) -> int:  # noqa: ARG001
         raise RuntimeError("Injected failure during fact insert")
@@ -478,7 +478,7 @@ def test_recent_large_transactions_empty_when_below_threshold(
     svc.load_transactions(LANDING_ROWS)
     from decimal import Decimal
 
-    from packages.pipelines.transformation_transactions import (
+    from packages.domains.finance.pipelines.transformation_transactions import (
         refresh_recent_large_transactions,
     )
 

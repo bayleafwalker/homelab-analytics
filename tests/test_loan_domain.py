@@ -14,12 +14,12 @@ from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from packages.pipelines.household_promotion_handlers import promote_loan_repayment_run
-from packages.pipelines.loan_service import (
+from packages.domains.finance.pipelines.loan_service import (
     CanonicalLoanRepayment,
     LoanService,
     load_canonical_loan_repayments_bytes,
 )
+from packages.pipelines.household_promotion_handlers import promote_loan_repayment_run
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository

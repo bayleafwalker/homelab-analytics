@@ -4,7 +4,9 @@ from __future__ import annotations
 import unittest
 from datetime import date
 
-from packages.pipelines.transformation_transactions import populate_counterparty_category_ids
+from packages.domains.finance.pipelines.transformation_transactions import (
+    populate_counterparty_category_ids,
+)
 from packages.storage.duckdb_store import DimensionColumn, DimensionDefinition, DuckDBStore
 
 # Minimal counterparty dimension for test isolation.

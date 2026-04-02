@@ -26,9 +26,7 @@ from decimal import Decimal
 
 import pytest
 
-from packages.pipelines.normalization import normalize_currency_code, normalize_timestamp_utc
-from packages.pipelines.reconciliation import reconcile_batch
-from packages.pipelines.transaction_models import (
+from packages.domains.finance.pipelines.transaction_models import (
     DIM_ACCOUNT,
     DIM_COUNTERPARTY,
     FACT_TRANSACTION_CURRENT_TABLE,
@@ -36,13 +34,15 @@ from packages.pipelines.transaction_models import (
     TRANSACTION_ENTITY_TABLE,
     TRANSACTION_OBSERVATION_TABLE,
 )
-from packages.pipelines.transformation_service import TransformationService
-from packages.pipelines.transformation_transactions import (
+from packages.domains.finance.pipelines.transformation_transactions import (
     INGEST_BATCH_TABLE,
 )
-from packages.pipelines.transformation_transactions import (
+from packages.domains.finance.pipelines.transformation_transactions import (
     load_transactions as _low_load,
 )
+from packages.pipelines.normalization import normalize_currency_code, normalize_timestamp_utc
+from packages.pipelines.reconciliation import reconcile_batch
+from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
 # ---------------------------------------------------------------------------

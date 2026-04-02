@@ -18,9 +18,11 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from packages.pipelines.account_transaction_service import AccountTransactionService
-from packages.pipelines.budget_service import BudgetService
-from packages.pipelines.contract_price_service import ContractPriceService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.budget_service import BudgetService
+from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
+from packages.domains.finance.pipelines.loan_service import LoanService
+from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.household_promotion_handlers import (
     promote_budget_run,
     promote_contract_price_run,
@@ -29,8 +31,6 @@ from packages.pipelines.household_promotion_handlers import (
     promote_subscription_run,
     promote_utility_bill_run,
 )
-from packages.pipelines.loan_service import LoanService
-from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
 from packages.pipelines.utility_bill_service import UtilityBillService
 from packages.storage.duckdb_store import DuckDBStore
@@ -437,7 +437,7 @@ class CategoryGovernancePhase2Tests(unittest.TestCase):
         cls._temp.cleanup()
 
     def test_system_categories_seeded_at_init(self) -> None:
-        from packages.pipelines.category_seed import SYSTEM_CATEGORY_IDS
+        from packages.domains.finance.pipelines.category_seed import SYSTEM_CATEGORY_IDS
 
         rows = self.ts.get_current_categories()
         present = {r["category_id"] for r in rows}
@@ -485,7 +485,7 @@ class CategoryGovernancePhase2Tests(unittest.TestCase):
         )
 
     def test_operator_category_creation_blocked_for_system_slug(self) -> None:
-        from packages.pipelines.category_seed import SYSTEM_CATEGORY_IDS
+        from packages.domains.finance.pipelines.category_seed import SYSTEM_CATEGORY_IDS
 
         # The 409 guard lives in the API route. Here we verify SYSTEM_CATEGORY_IDS
         # covers all slugs that a POST /api/categories must reject.

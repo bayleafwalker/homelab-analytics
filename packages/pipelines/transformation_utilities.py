@@ -5,7 +5,9 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from packages.pipelines.contract_price_models import MART_CONTRACT_PRICE_CURRENT_TABLE
+from packages.domains.finance.pipelines.contract_price_models import (
+    MART_CONTRACT_PRICE_CURRENT_TABLE,
+)
 from packages.pipelines.normalization import normalize_currency_code, normalize_unit
 from packages.pipelines.utility_models import (
     FACT_BILL_COLUMNS,

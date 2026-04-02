@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlparse
 from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
-from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.shared.auth import (
     build_oidc_provider,
     build_session_manager,

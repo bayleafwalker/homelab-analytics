@@ -1,16 +1,4 @@
-"""Dimension and fact definitions for balance snapshots."""
+"""Backward-compatible import shim for finance balance dimensions/marts."""
 
-from __future__ import annotations
+from packages.domains.finance.pipelines.balance_models import *  # noqa: F403
 
-FACT_BALANCE_SNAPSHOT_TABLE = "fact_balance_snapshot"
-
-FACT_BALANCE_SNAPSHOT_COLUMNS: list[tuple[str, str]] = [
-    ("snapshot_id", "VARCHAR PRIMARY KEY"),
-    ("snapshot_date", "DATE NOT NULL"),
-    ("balance_kind", "VARCHAR NOT NULL"),
-    ("entity_id", "VARCHAR NOT NULL"),
-    ("entity_label", "VARCHAR"),
-    ("balance_amount", "DECIMAL(18,4) NOT NULL"),
-    ("currency", "VARCHAR NOT NULL"),
-    ("run_id", "VARCHAR"),
-]

@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
-from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.shared.auth import issue_service_token
 from packages.shared.metrics import metrics_registry
 from packages.storage.auth_store import (

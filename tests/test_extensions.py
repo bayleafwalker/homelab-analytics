@@ -4,7 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import uuid4
 
-from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.extension_registries import load_pipeline_registries
 from packages.pipelines.promotion_registry import PromotionRuntime
 from packages.pipelines.reporting_service import ReportingService

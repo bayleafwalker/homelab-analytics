@@ -7,14 +7,14 @@ from decimal import Decimal
 
 import pytest
 
-from packages.pipelines.transformation_service import TransformationService
-from packages.pipelines.transformation_transactions import (
+from packages.domains.finance.pipelines.transformation_transactions import (
     INGEST_BATCH_TABLE,
     TRANSACTION_OBSERVATION_TABLE,
     _batch_id,
     _normalized_observation_json,
     _observation_id,
 )
+from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
 # ---------------------------------------------------------------------------

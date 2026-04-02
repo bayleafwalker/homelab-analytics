@@ -68,7 +68,7 @@ BUILTIN_EXTENSIONS = (
         key="account_transaction_manual_ingest",
         kind="connector",
         description="Built-in manual file ingestion flow for account transaction CSV files.",
-        module="packages.pipelines.account_transaction_service",
+        module="packages.domains.finance.pipelines.account_transaction_service",
         source="builtin",
         handler=lambda *, service, source_path, source_name="manual-upload": service.ingest_file(
             Path(source_path), source_name=source_name
@@ -79,7 +79,7 @@ BUILTIN_EXTENSIONS = (
         key="account_transaction_folder_watch",
         kind="connector",
         description="Built-in watched-folder ingestion flow for account transaction CSV files.",
-        module="packages.pipelines.account_transaction_inbox",
+        module="packages.domains.finance.pipelines.account_transaction_inbox",
         source="builtin",
         handler=lambda *, service, inbox_dir, processed_dir, failed_dir, source_name="folder-watch": (
             _run_account_transaction_folder_watch(
@@ -96,7 +96,7 @@ BUILTIN_EXTENSIONS = (
         key="account_transactions_canonical",
         kind="transformation",
         description="Built-in canonical transaction normalization from landed account transaction CSV data.",
-        module="packages.pipelines.account_transactions",
+        module="packages.domains.finance.pipelines.account_transactions",
         source="builtin",
         handler=lambda *, service, run_id: service.get_canonical_transactions(run_id),
     ),
@@ -348,7 +348,7 @@ def _run_account_transaction_folder_watch(
     failed_dir: Path,
     source_name: str,
 ):
-    from packages.pipelines.account_transaction_inbox import (
+    from packages.domains.finance.pipelines.account_transaction_inbox import (
         process_account_transaction_inbox,
     )
 

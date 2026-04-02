@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from apps.worker.main import build_service, main
-from packages.pipelines.bootstrap_account_transaction_watch import (
+from packages.domains.finance.pipelines.bootstrap_account_transaction_watch import (
     LEGACY_ACCOUNT_TRANSACTION_WATCH_INGESTION_DEFINITION_ID,
 )
 from packages.pipelines.csv_validation import ColumnType

@@ -11,9 +11,9 @@ from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
 from apps.worker.main import main
-from packages.pipelines.account_transaction_service import AccountTransactionService
-from packages.pipelines.contract_price_service import ContractPriceService
-from packages.pipelines.subscription_service import SubscriptionService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
+from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.settings import AppSettings
 from packages.storage.duckdb_store import DuckDBStore

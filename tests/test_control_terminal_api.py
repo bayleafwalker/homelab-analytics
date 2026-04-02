@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
-from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.shared.auth import hash_password, issue_service_token
 from packages.storage.auth_store import LocalUserCreate, ServiceTokenCreate, UserRole
 from packages.storage.control_plane import WorkerHeartbeatCreate

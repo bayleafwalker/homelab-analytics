@@ -15,7 +15,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from packages.pipelines.scenario_service import (
+from packages.domains.finance.pipelines.scenario_service import (
     archive_scenario,
     archive_scenario_compare_set,
     create_homelab_cost_benefit_scenario,

@@ -3,7 +3,7 @@ from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from packages.pipelines.account_transaction_service import (
+from packages.domains.finance.pipelines.account_transaction_service import (
     AccountTransactionService,
 )
 from packages.storage.blob import InMemoryBlobStore

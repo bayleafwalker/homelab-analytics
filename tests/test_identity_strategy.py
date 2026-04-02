@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
+from packages.domains.finance.pipelines.transaction_models import BANK_TRANSACTION_IDENTITY_STRATEGY
 from packages.pipelines.identity_strategy import (
     IdentityStrategy,
     IdentityTier,
     resolve_entity_key,
 )
-from packages.pipelines.transaction_models import BANK_TRANSACTION_IDENTITY_STRATEGY
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures

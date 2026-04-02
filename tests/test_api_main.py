@@ -802,7 +802,7 @@ class ApiMainTests(unittest.TestCase):
             module_path.write_text(
                 "\n".join(
                     [
-                        "from packages.pipelines.account_transaction_service import AccountTransactionService",
+                        "from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService",
                         "from packages.pipelines.pipeline_catalog import (",
                         "    PipelinePackageSpec,",
                         "    PipelinePublicationSpec,",

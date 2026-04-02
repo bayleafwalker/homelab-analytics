@@ -39,9 +39,9 @@ def test_transformation_service_imports_split_domain_modules() -> None:
 
     assert "packages.pipelines.transformation_domain_registry" in imports
     assert "packages.pipelines.transformation_refresh_registry" in imports
-    assert "packages.pipelines.transformation_transactions" in imports
-    assert "packages.pipelines.transformation_subscriptions" in imports
-    assert "packages.pipelines.transformation_contract_prices" in imports
+    assert "packages.domains.finance.pipelines.transformation_transactions" in imports
+    assert "packages.domains.finance.pipelines.transformation_subscriptions" in imports
+    assert "packages.domains.finance.pipelines.transformation_contract_prices" in imports
     assert "packages.pipelines.transformation_utilities" in imports
 
 

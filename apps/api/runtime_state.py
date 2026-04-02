@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from apps.api.support import serialize_run, to_jsonable
-from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.shared.metrics import metrics_registry
 from packages.storage.control_plane import ControlPlaneStore, ScheduleDispatchRecord
 from packages.storage.run_metadata import IngestionRunRecord

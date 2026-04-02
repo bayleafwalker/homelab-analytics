@@ -16,7 +16,7 @@ import unittest
 from datetime import date
 from decimal import Decimal
 
-from packages.pipelines.amortization import (
+from packages.domains.finance.pipelines.amortization import (
     AmortizationRow,
     LoanParameters,
     compute_amortization_schedule,

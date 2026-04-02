@@ -5,8 +5,8 @@ from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from packages.pipelines.contract_price_service import ContractPriceService
-from packages.pipelines.contract_prices import (
+from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
+from packages.domains.finance.pipelines.contract_prices import (
     CanonicalContractPrice,
     load_canonical_contract_prices_bytes,
 )

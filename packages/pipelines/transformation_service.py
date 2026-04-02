@@ -7,15 +7,11 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from packages.pipelines.asset_models import (
-    CURRENT_DIM_ASSET_VIEW,
-    DIM_ASSET,
-)
-from packages.pipelines.budget_models import (
+from packages.domains.finance.pipelines.budget_models import (
     CURRENT_DIM_BUDGET_VIEW,
     DIM_BUDGET,
 )
-from packages.pipelines.category_rules import (
+from packages.domains.finance.pipelines.category_rules import (
     add_category_rule,
     backfill_counterparty_categories,
     ensure_category_storage,
@@ -26,33 +22,12 @@ from packages.pipelines.category_rules import (
     resolve_categories_bulk,
     set_category_override,
 )
-from packages.pipelines.category_seed import seed_system_categories
-from packages.pipelines.ha_service import (
-    ensure_ha_storage,
-    get_ha_entities,
-    get_ha_entity_history,
-    ingest_ha_states,
-)
-from packages.pipelines.home_automation_models import (
-    CURRENT_DIM_ENTITY_VIEW,
-    DIM_ENTITY,
-)
-from packages.pipelines.homelab_models import (
-    CURRENT_DIM_SERVICE_VIEW,
-    CURRENT_DIM_WORKLOAD_VIEW,
-    DIM_SERVICE,
-    DIM_WORKLOAD,
-)
-from packages.pipelines.loan_models import (
+from packages.domains.finance.pipelines.category_seed import seed_system_categories
+from packages.domains.finance.pipelines.loan_models import (
     CURRENT_DIM_LOAN_VIEW,
     DIM_LOAN,
 )
-from packages.pipelines.normalization import (
-    normalize_currency_code,
-    normalize_timestamp_utc,
-)
-from packages.pipelines.reconciliation import reconcile_batch
-from packages.pipelines.scenario_service import (
+from packages.domains.finance.pipelines.scenario_service import (
     ComparisonResult,
     ExpenseShockResult,
     HomelabCostBenefitComparison,
@@ -83,32 +58,25 @@ from packages.pipelines.scenario_service import (
     restore_scenario_compare_set,
     update_scenario_compare_set_label,
 )
-from packages.pipelines.subscription_models import (
+from packages.domains.finance.pipelines.subscription_models import (
     CURRENT_DIM_CATEGORY_VIEW,
     CURRENT_DIM_CONTRACT_VIEW,
     DIM_CATEGORY,
     DIM_CONTRACT,
 )
-from packages.pipelines.transaction_models import (
+from packages.domains.finance.pipelines.transaction_models import (
     CURRENT_DIM_ACCOUNT_VIEW,
     CURRENT_DIM_COUNTERPARTY_VIEW,
     DIM_ACCOUNT,
     DIM_COUNTERPARTY,
     TRANSFORMATION_AUDIT_TABLE,
 )
-from packages.pipelines.transformation_assets import (
-    count_asset_event_rows,
-    ensure_asset_storage,
-    get_current_assets,
-    load_asset_event_rows,
-    load_asset_register_rows,
-)
-from packages.pipelines.transformation_balances import (
+from packages.domains.finance.pipelines.transformation_balances import (
     ensure_balance_storage,
     get_balance_snapshot,
     refresh_balance_snapshot,
 )
-from packages.pipelines.transformation_budgets import (
+from packages.domains.finance.pipelines.transformation_budgets import (
     count_budget_targets,
     ensure_budget_storage,
     get_budget_envelope_drift,
@@ -119,13 +87,84 @@ from packages.pipelines.transformation_budgets import (
     refresh_budget_progress_current,
     refresh_budget_variance,
 )
-from packages.pipelines.transformation_contract_prices import (
+from packages.domains.finance.pipelines.transformation_contract_prices import (
     count_contract_prices,
     ensure_contract_price_storage,
     get_contract_price_current,
     get_electricity_price_current,
     load_contract_prices,
     refresh_contract_price_current,
+)
+from packages.domains.finance.pipelines.transformation_loans import (
+    count_loan_repayments,
+    ensure_loan_storage,
+    get_loan_overview,
+    get_loan_repayment_variance,
+    get_loan_schedule_projected,
+    load_loan_repayments,
+    refresh_loan_overview,
+    refresh_loan_repayment_variance,
+    refresh_loan_schedule_projected,
+)
+from packages.domains.finance.pipelines.transformation_subscriptions import (
+    count_subscriptions,
+    ensure_subscription_storage,
+    get_subscription_summary,
+    get_upcoming_fixed_costs_30d,
+    load_subscriptions,
+    refresh_subscription_summary,
+    refresh_upcoming_fixed_costs_30d,
+)
+from packages.domains.finance.pipelines.transformation_transactions import (
+    count_transactions,
+    ensure_transaction_storage,
+    get_account_balance_trend,
+    get_monthly_cashflow,
+    get_monthly_cashflow_by_counterparty,
+    get_recent_large_transactions,
+    get_spend_by_category_monthly,
+    get_transaction_anomalies_current,
+    get_transactions,
+    load_transactions,
+    populate_counterparty_category_ids,
+    refresh_account_balance_trend,
+    refresh_monthly_cashflow,
+    refresh_monthly_cashflow_by_counterparty,
+    refresh_recent_large_transactions,
+    refresh_spend_by_category_monthly,
+    refresh_transaction_anomalies_current,
+)
+from packages.pipelines.asset_models import (
+    CURRENT_DIM_ASSET_VIEW,
+    DIM_ASSET,
+)
+from packages.pipelines.ha_service import (
+    ensure_ha_storage,
+    get_ha_entities,
+    get_ha_entity_history,
+    ingest_ha_states,
+)
+from packages.pipelines.home_automation_models import (
+    CURRENT_DIM_ENTITY_VIEW,
+    DIM_ENTITY,
+)
+from packages.pipelines.homelab_models import (
+    CURRENT_DIM_SERVICE_VIEW,
+    CURRENT_DIM_WORKLOAD_VIEW,
+    DIM_SERVICE,
+    DIM_WORKLOAD,
+)
+from packages.pipelines.normalization import (
+    normalize_currency_code,
+    normalize_timestamp_utc,
+)
+from packages.pipelines.reconciliation import reconcile_batch
+from packages.pipelines.transformation_assets import (
+    count_asset_event_rows,
+    ensure_asset_storage,
+    get_current_assets,
+    load_asset_event_rows,
+    load_asset_register_rows,
 )
 from packages.pipelines.transformation_domain_registry import (
     TransformationDomainRegistry,
@@ -175,17 +214,6 @@ from packages.pipelines.transformation_infrastructure import (
     load_cluster_metric_rows,
     load_power_consumption_rows,
 )
-from packages.pipelines.transformation_loans import (
-    count_loan_repayments,
-    ensure_loan_storage,
-    get_loan_overview,
-    get_loan_repayment_variance,
-    get_loan_schedule_projected,
-    load_loan_repayments,
-    refresh_loan_overview,
-    refresh_loan_repayment_variance,
-    refresh_loan_schedule_projected,
-)
 from packages.pipelines.transformation_overview import (
     ensure_overview_storage,
     get_affordability_ratios,
@@ -210,34 +238,6 @@ from packages.pipelines.transformation_overview import (
 from packages.pipelines.transformation_refresh_registry import (
     PublicationRefreshRegistry,
     get_default_publication_refresh_registry,
-)
-from packages.pipelines.transformation_subscriptions import (
-    count_subscriptions,
-    ensure_subscription_storage,
-    get_subscription_summary,
-    get_upcoming_fixed_costs_30d,
-    load_subscriptions,
-    refresh_subscription_summary,
-    refresh_upcoming_fixed_costs_30d,
-)
-from packages.pipelines.transformation_transactions import (
-    count_transactions,
-    ensure_transaction_storage,
-    get_account_balance_trend,
-    get_monthly_cashflow,
-    get_monthly_cashflow_by_counterparty,
-    get_recent_large_transactions,
-    get_spend_by_category_monthly,
-    get_transaction_anomalies_current,
-    get_transactions,
-    load_transactions,
-    populate_counterparty_category_ids,
-    refresh_account_balance_trend,
-    refresh_monthly_cashflow,
-    refresh_monthly_cashflow_by_counterparty,
-    refresh_recent_large_transactions,
-    refresh_spend_by_category_monthly,
-    refresh_transaction_anomalies_current,
 )
 from packages.pipelines.transformation_utilities import (
     count_bills,

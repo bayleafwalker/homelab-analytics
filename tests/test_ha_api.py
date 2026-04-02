@@ -21,7 +21,9 @@ def _build_client(
     proposal_registry: ApprovalActionRegistry | None = None,
     action_dispatcher: object | None = None,
 ) -> TestClient:
-    from packages.pipelines.account_transaction_service import AccountTransactionService
+    from packages.domains.finance.pipelines.account_transaction_service import (
+        AccountTransactionService,
+    )
 
     service = AccountTransactionService(
         landing_root=Path(temp_dir) / "landing",

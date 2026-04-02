@@ -6,9 +6,9 @@ from typing import TextIO
 
 from apps import runtime_support as _runtime_support
 from packages.domains.finance.manifest import FINANCE_PACK
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.domains.overview.manifest import OVERVIEW_PACK
 from packages.domains.utilities.manifest import UTILITIES_PACK
-from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.transformation_domain_registry import TransformationDomainRegistry
 from packages.pipelines.transformation_refresh_registry import PublicationRefreshRegistry
 from packages.platform.runtime.builder import (

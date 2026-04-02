@@ -11,7 +11,7 @@ from __future__ import annotations
 import unittest
 from decimal import Decimal
 
-from packages.pipelines.scenario_service import (
+from packages.domains.finance.pipelines.scenario_service import (
     archive_scenario,
     create_income_change_scenario,
     get_income_scenario_comparison,

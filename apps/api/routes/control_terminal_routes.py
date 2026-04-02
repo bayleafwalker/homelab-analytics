@@ -18,7 +18,7 @@ from packages.application.use_cases.control_terminal import (
     rejected_terminal_execution,
     terminal_command_specs,
 )
-from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.platform.auth.role_hierarchy import AuthenticatedPrincipal
 from packages.shared.extensions import ExtensionRegistry

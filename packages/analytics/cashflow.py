@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from packages.pipelines.account_transactions import CanonicalTransaction
+from packages.domains.finance.pipelines.account_transactions import CanonicalTransaction
 
 
 @dataclass(frozen=True)

@@ -15,8 +15,8 @@ from typing import Any, Callable
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from packages.pipelines.category_seed import SYSTEM_CATEGORY_IDS
-from packages.pipelines.subscription_models import DIM_CATEGORY
+from packages.domains.finance.pipelines.category_seed import SYSTEM_CATEGORY_IDS
+from packages.domains.finance.pipelines.subscription_models import DIM_CATEGORY
 from packages.pipelines.transformation_service import TransformationService
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_]*$")

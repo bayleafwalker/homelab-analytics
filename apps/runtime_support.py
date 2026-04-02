@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import cast
 
-from packages.pipelines.account_transaction_service import AccountTransactionService
-from packages.pipelines.contract_price_service import ContractPriceService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
+from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.extension_registries import PipelineRegistries
 from packages.pipelines.lazy_transformation_service import LazyTransformationService
 from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
-from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_domain_registry import TransformationDomainRegistry
 from packages.pipelines.transformation_refresh_registry import PublicationRefreshRegistry
 from packages.pipelines.transformation_service import TransformationService

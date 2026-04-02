@@ -3,15 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.budget_service import BudgetService
+from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
+from packages.domains.finance.pipelines.loan_service import LoanService
+from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.asset_register_service import AssetRegisterService
-from packages.pipelines.budget_service import BudgetService
-from packages.pipelines.contract_price_service import ContractPriceService
 from packages.pipelines.household_packages import (
     BuiltinTransformationPackageSpec,
     get_builtin_transformation_package_spec,
 )
-from packages.pipelines.loan_service import LoanService
 from packages.pipelines.promotion_registry import (
     CanonicalPromotionProcessor,
     PromotionHandler,
@@ -21,7 +22,6 @@ from packages.pipelines.promotion_registry import (
     run_canonical_promotion,
 )
 from packages.pipelines.promotion_types import PromotionResult
-from packages.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.transformation_service import TransformationService
 from packages.pipelines.utility_bill_service import UtilityBillService
 from packages.pipelines.utility_usage_service import UtilityUsageService

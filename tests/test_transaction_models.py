@@ -6,7 +6,7 @@ from datetime import date
 
 import pytest
 
-from packages.pipelines.transaction_models import (
+from packages.domains.finance.pipelines.transaction_models import (
     DIM_ACCOUNT,
     DIM_COUNTERPARTY,
     extract_accounts,

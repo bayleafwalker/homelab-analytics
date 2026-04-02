@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
 from apps.api.main import build_app
-from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.shared.auth import SessionManager, build_proxy_provider, hash_password
 from packages.shared.settings import AppSettings
 from packages.storage.auth_store import LocalUserCreate, UserRole

@@ -81,7 +81,9 @@ def _build_client(
     load_cashflow: bool = True,
     load_utility_data: bool = True,
 ) -> tuple[TestClient, TransformationService]:
-    from packages.pipelines.account_transaction_service import AccountTransactionService
+    from packages.domains.finance.pipelines.account_transaction_service import (
+        AccountTransactionService,
+    )
 
     service = AccountTransactionService(
         landing_root=Path(temp_dir) / "landing",
@@ -182,7 +184,9 @@ class TariffShockCreateAPITests(unittest.TestCase):
 
     def test_post_no_transformation_service_returns_503(self) -> None:
         with TemporaryDirectory() as tmp:
-            from packages.pipelines.account_transaction_service import AccountTransactionService
+            from packages.domains.finance.pipelines.account_transaction_service import (
+                AccountTransactionService,
+            )
 
             service = AccountTransactionService(
                 landing_root=Path(tmp) / "landing",

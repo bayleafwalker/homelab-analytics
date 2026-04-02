@@ -14,12 +14,12 @@ from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from packages.pipelines.promotion import promote_subscription_run
-from packages.pipelines.subscription_service import SubscriptionService
-from packages.pipelines.subscriptions import (
+from packages.domains.finance.pipelines.subscription_service import SubscriptionService
+from packages.domains.finance.pipelines.subscriptions import (
     CanonicalSubscription,
     load_canonical_subscriptions_bytes,
 )
+from packages.pipelines.promotion import promote_subscription_run
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository

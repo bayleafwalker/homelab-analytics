@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException
 
 from apps.api.models import ScheduleDispatchRequest
 from apps.api.response_models import ScheduleDispatchResponseModel
-from packages.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.shared.metrics import metrics_registry
 from packages.storage.control_plane import ControlPlaneAdminStore
 

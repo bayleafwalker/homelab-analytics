@@ -9,8 +9,10 @@ from tempfile import TemporaryDirectory
 from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
-from packages.pipelines.account_transaction_service import AccountTransactionService
-from packages.pipelines.contract_price_service import ContractPriceService
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
+from packages.domains.finance.pipelines.subscription_service import SubscriptionService
+from packages.domains.finance.pipelines.transaction_models import DIM_ACCOUNT
 from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.promotion_registry import (
     PromotionHandler,
@@ -18,8 +20,6 @@ from packages.pipelines.promotion_registry import (
     get_default_promotion_handler_registry,
 )
 from packages.pipelines.promotion_types import PromotionResult
-from packages.pipelines.subscription_service import SubscriptionService
-from packages.pipelines.transaction_models import DIM_ACCOUNT
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.extensions import (
     ExtensionPublication,
