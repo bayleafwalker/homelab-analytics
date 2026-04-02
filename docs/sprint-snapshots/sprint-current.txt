@@ -38,4 +38,4 @@ Items:  16 total — 4 done, 0 active, 12 pending, 0 blocked
   [done    ] #203  WP-10: Add doc classification tags — tag ADRs/docs as PLATFORM / APP / CROSS-CUTTING, split docs by concern  (assignee: -)
   [done    ] #204  WP-11: Add contributor/agent decision guide — classify work before touching code  (assignee: -)
 
-Rendered: 2026-04-02T05:48:31Z
+Rendered: 2026-04-02T05:58:40Z
