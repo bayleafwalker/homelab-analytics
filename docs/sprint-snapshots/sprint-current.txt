@@ -2,7 +2,7 @@ SPRINT: Sprint hearth-lantern-path — Product Polish and First-Week Onboarding 
 Goal:   Turn scattered platform capability into one obvious workflow: a first-week operator experience that takes messy household data and produces useful answers with minimal ceremony.
 Dates:  2026-03-30 to 2026-04-13
 ID:     26
-Items:  27 total — 5 done, 0 active, 22 pending, 0 blocked
+Items:  27 total — 6 done, 0 active, 21 pending, 0 blocked
 
 --- Track: first-answer ---
   health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
@@ -40,16 +40,16 @@ Items:  27 total — 5 done, 0 active, 22 pending, 0 blocked
   [pending ] #181  Recent changes feed: last 5 material changes across all domains  (assignee: -)
 
 --- Track: tests ---
-  health: 5 items — 2 done (40%), 0 active, 3 pending, 0 blocked (0%)
+  health: 5 items — 3 done (60%), 0 active, 2 pending, 0 blocked (0%)
   [done    ] #185  Unit tests for source type detection logic  (assignee: -)
   [done    ] #186  Unit tests for publication-preview mapping  (assignee: -)
   [pending ] #187  Integration test for guided upload to land to first-answer flow  (assignee: -)
   [pending ] #188  Integration test for freshness remediation to upload-in-context to recovery  (assignee: -)
-  [pending ] #189  make verify-fast green  (assignee: -)
+  [done    ] #189  make verify-fast green  (assignee: -)
 
 --- Track: demoability ---
   health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
   [pending ] #214  High-quality demo seed data for scripted operator journey  (assignee: -)
   [pending ] #215  Minimal walkthrough doc: scripted path proving the product loop from upload to operating picture  (assignee: -)
 
-Rendered: 2026-04-02T12:18:11Z
+Rendered: 2026-04-02T12:22:46Z
