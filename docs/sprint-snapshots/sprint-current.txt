@@ -1,17 +1,17 @@
-SPRINT: Sprint seam-finish-pass — Composition Boundary Follow-through  [active]
+SPRINT: Sprint seam-finish-pass — Composition Boundary Follow-through  [closed]
 Goal:   Close residual kernel/app seam findings, apply deferred route composition cleanup, and keep boundary enforcement green.
 Dates:  2026-04-02 to 2026-04-30
 ID:     28
-Items:  4 total — 0 done, 0 active, 4 pending, 0 blocked
+Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
 
 --- Track: carryover ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #226  WP-12 carryover: route-extension/composition hooks cleanup (from #205)  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #226  WP-12 carryover: route-extension/composition hooks cleanup (from #205)  (assignee: -)
 
 --- Track: finding-corrections ---
-  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
-  [pending ] #227  WP-13: move finance service builders out of platform runtime builder into app composition helpers  (assignee: -)
-  [pending ] #228  WP-14: remove household publication/current-dimension imports from shared external registry via injected registrations  (assignee: -)
-  [pending ] #229  WP-15: relocate household current-dimension contract instances into app-owned composition module  (assignee: -)
+  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #227  WP-13: move finance service builders out of platform runtime builder into app composition helpers  (assignee: -)
+  [done    ] #228  WP-14: remove household publication/current-dimension imports from shared external registry via injected registrations  (assignee: -)
+  [done    ] #229  WP-15: relocate household current-dimension contract instances into app-owned composition module  (assignee: -)
 
-Rendered: 2026-04-02T11:17:05Z
+Rendered: 2026-04-02T11:31:50Z
