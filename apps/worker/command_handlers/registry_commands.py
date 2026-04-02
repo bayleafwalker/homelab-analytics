@@ -5,12 +5,8 @@ from argparse import Namespace
 
 from apps.worker.runtime import WorkerRuntime
 from apps.worker.serialization import _write_json
-from packages.pipelines.composition.current_dimension_contracts import (
-    CURRENT_DIMENSION_CONTRACTS,
-)
-from packages.pipelines.household_reporting import (
-    CURRENT_DIMENSION_RELATIONS,
-    PUBLICATION_RELATIONS,
+from packages.pipelines.composition.publication_contract_inputs import (
+    HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS,
 )
 from packages.pipelines.promotion_registry import serialize_promotion_handler_registry
 from packages.shared.extensions import serialize_extension_registry
@@ -136,9 +132,15 @@ def handle_sync_extension_registry_source(
         args.source_id,
         activate=getattr(args, "activate", False),
         builtin_packs=runtime.container.capability_packs,
-        publication_relations=PUBLICATION_RELATIONS,
-        current_dimension_relations=CURRENT_DIMENSION_RELATIONS,
-        current_dimension_contracts=CURRENT_DIMENSION_CONTRACTS,
+        publication_relations=(
+            HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS.publication_relations
+        ),
+        current_dimension_relations=(
+            HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS.current_dimension_relations
+        ),
+        current_dimension_contracts=(
+            HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS.current_dimension_contracts
+        ),
         cache_root=runtime.settings.resolved_external_registry_cache_root,
         secret_resolver=EnvironmentSecretResolver(),
     )

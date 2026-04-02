@@ -13,12 +13,8 @@ from apps.api.models import (
     ExtensionRegistrySourceRequest,
     ExtensionRegistrySyncRequest,
 )
-from packages.pipelines.composition.current_dimension_contracts import (
-    CURRENT_DIMENSION_CONTRACTS,
-)
-from packages.pipelines.household_reporting import (
-    CURRENT_DIMENSION_RELATIONS,
-    PUBLICATION_RELATIONS,
+from packages.pipelines.composition.publication_contract_inputs import (
+    HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS,
 )
 from packages.pipelines.promotion_registry import (
     PromotionHandlerRegistry,
@@ -178,9 +174,15 @@ def register_registry_routes(
             extension_registry_source_id,
             activate=payload.activate,
             builtin_packs=builtin_packs,
-            publication_relations=PUBLICATION_RELATIONS,
-            current_dimension_relations=CURRENT_DIMENSION_RELATIONS,
-            current_dimension_contracts=CURRENT_DIMENSION_CONTRACTS,
+            publication_relations=(
+                HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS.publication_relations
+            ),
+            current_dimension_relations=(
+                HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS.current_dimension_relations
+            ),
+            current_dimension_contracts=(
+                HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS.current_dimension_contracts
+            ),
             cache_root=external_registry_cache_root,
             secret_resolver=EnvironmentSecretResolver(),
         )

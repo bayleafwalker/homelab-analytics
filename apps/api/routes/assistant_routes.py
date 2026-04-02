@@ -10,18 +10,14 @@ from apps.api.response_models import (
     AssistantAnswerResponseModel,
     AssistantSourceModel,
 )
-from packages.pipelines.composition.current_dimension_contracts import (
-    CURRENT_DIMENSION_CONTRACTS,
-)
-from packages.pipelines.household_reporting import (
-    CURRENT_DIMENSION_RELATIONS,
-    PUBLICATION_RELATIONS,
+from packages.pipelines.composition.publication_contract_inputs import (
+    HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS,
+    build_household_publication_relation_map,
 )
 from packages.pipelines.reporting_service import ReportingService
 from packages.platform.capability_types import CapabilityPack
 from packages.platform.publication_contracts import (
     build_publication_contracts,
-    build_publication_relation_map,
     build_ui_descriptor_contracts,
 )
 from packages.platform.publication_index import (
@@ -405,12 +401,15 @@ def register_assistant_routes(
 ) -> None:
     publication_contracts = build_publication_contracts(
         capability_packs,
-        publication_relations=build_publication_relation_map(
-            base_relations=PUBLICATION_RELATIONS,
+        publication_relations=build_household_publication_relation_map(
             extension_registry=extension_registry,
         ),
-        current_dimension_relations=CURRENT_DIMENSION_RELATIONS,
-        current_dimension_contracts=CURRENT_DIMENSION_CONTRACTS,
+        current_dimension_relations=(
+            HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS.current_dimension_relations
+        ),
+        current_dimension_contracts=(
+            HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS.current_dimension_contracts
+        ),
     )
     ui_descriptors = build_ui_descriptor_contracts(capability_packs)
     publication_semantic_index = build_publication_semantic_index(

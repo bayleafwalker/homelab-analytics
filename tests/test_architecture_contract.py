@@ -873,6 +873,9 @@ def test_current_dimension_contract_instances_live_outside_platform_module() -> 
     contract_routes_source = (
         ROOT / "apps" / "api" / "routes" / "contract_routes.py"
     ).read_text()
+    assistant_routes_source = (
+        ROOT / "apps" / "api" / "routes" / "assistant_routes.py"
+    ).read_text()
     composition_current_dimension_source = (
         ROOT / "packages" / "pipelines" / "composition" / "current_dimension_contracts.py"
     ).read_text()
@@ -884,7 +887,9 @@ def test_current_dimension_contract_instances_live_outside_platform_module() -> 
     assert "CurrentDimensionContractDefinition" in platform_current_dimension_source
     assert "packages.pipelines.composition.current_dimension_contracts" not in publication_contract_source
     assert "current_dimension_contracts" in publication_contract_source
-    assert "CURRENT_DIMENSION_CONTRACTS" in contract_routes_source
+    assert "packages.pipelines.composition.publication_contract_inputs" in contract_routes_source
+    assert "HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS" in contract_routes_source
+    assert "packages.pipelines.composition.publication_contract_inputs" in assistant_routes_source
     assert "CURRENT_DIMENSION_CONTRACTS" in composition_current_dimension_source
     assert "packages.pipelines.composition.current_dimension_contracts" in legacy_shim_source
 

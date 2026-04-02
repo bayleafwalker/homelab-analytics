@@ -11,16 +11,12 @@ from packages.domains.finance.manifest import FINANCE_PACK
 from packages.domains.homelab.manifest import HOMELAB_PACK
 from packages.domains.overview.manifest import OVERVIEW_PACK
 from packages.domains.utilities.manifest import UTILITIES_PACK
-from packages.pipelines.composition.current_dimension_contracts import (
-    CURRENT_DIMENSION_CONTRACTS,
-)
-from packages.pipelines.household_reporting import (
-    CURRENT_DIMENSION_RELATIONS,
-    PUBLICATION_RELATIONS,
+from packages.pipelines.composition.publication_contract_inputs import (
+    HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS,
+    build_household_publication_relation_map,
 )
 from packages.platform.publication_contracts import (
     build_publication_contract_catalog,
-    build_publication_relation_map,
 )
 from packages.platform.runtime.builder import build_capability_packs, build_extension_registry
 from packages.shared.settings import AppSettings
@@ -65,12 +61,15 @@ def export_contracts(output_dir: Path = DEFAULT_GENERATED_DIR) -> None:
         extension_registry = build_extension_registry(settings)
         publication_catalog = build_publication_contract_catalog(
             capability_packs,
-            publication_relations=build_publication_relation_map(
-                base_relations=PUBLICATION_RELATIONS,
+            publication_relations=build_household_publication_relation_map(
                 extension_registry=extension_registry,
             ),
-            current_dimension_relations=CURRENT_DIMENSION_RELATIONS,
-            current_dimension_contracts=CURRENT_DIMENSION_CONTRACTS,
+            current_dimension_relations=(
+                HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS.current_dimension_relations
+            ),
+            current_dimension_contracts=(
+                HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS.current_dimension_contracts
+            ),
         )
         publication_contracts_path.write_text(
             json.dumps(publication_catalog, indent=2, sort_keys=True, default=to_jsonable)
