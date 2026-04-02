@@ -8,4 +8,4 @@ Use `docs/runbooks/project-working-practices.md` to decide which working loop ap
 - `code-change-verification`: use after repo-tracked changes to standardize what local checks to run and how to report them.
 - `pr-handoff-summary`: use when preparing the final reviewer or handoff summary for stable work.
 - `sprint-snapshot`: use to render and commit the current sprintctl sprint state as a reviewable plaintext snapshot after live state changes, with the project DB loaded explicitly first.
-- `kctl-extract`: use at sprint close to extract decisions, patterns, and lessons from sprintctl events into the kctl knowledge review pipeline, with JSON review/status output available for agent-driven follow-up, then publish and render to `docs/knowledge/knowledge-base.md` when that is in scope.
+- `kctl-extract`: use at sprint close to extract decisions, patterns, and lessons from sprintctl events into the kctl knowledge review pipeline, review durable and coordination streams (`--kind all`) with optional JSON output for agent-driven follow-up, then publish and render to `docs/knowledge/knowledge-base.md` when that is in scope.

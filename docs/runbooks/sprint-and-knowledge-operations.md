@@ -19,6 +19,7 @@ These stay machine-local and gitignored:
 - `.kctl/kctl.db`
 - `sprint-*.json`
 - `handoff-*.json`
+- `handoff-*.txt`
 
 ### Committed
 
@@ -44,8 +45,13 @@ Treat the committed files as the shared repo view. The SQLite databases are loca
 ### 3. Follow the claim lifecycle
 
 - `sprintctl agent-protocol --json` is the authoritative claim-lifecycle reference
-- the normal flow is `claim create` -> `claim heartbeat` -> `item status` -> `claim handoff` or `claim release`
+- prefer `sprintctl claim start --item-id <id> ...` to claim + set `active` in one step
+- for sessions that need explicit control, use `claim create` then `item status --status active`
+- during execution, refresh ownership with `claim heartbeat`
+- when finishing an item, prefer `item done-from-claim` (or `item status --status done` + `claim release` when needed)
+- hand off with `claim handoff` or release with `claim release` before shutdown
 - ownership proof is `claim_id` plus `claim_token`
+- treat the claim token as a secret and persist it immediately after claim creation
 - attach `runtime_session_id` and `instance_id` on claims; for Codex, let `CODEX_THREAD_ID` populate the runtime session id when available or set `SPRINTCTL_RUNTIME_SESSION_ID` explicitly, and keep `SPRINTCTL_INSTANCE_ID` stable for the live process
 - attach branch, worktree, commit SHA, and PR reference when available, but treat them as advisory metadata
 - if an active exclusive claim does not clearly belong to the current session, stop and resolve a handoff or choose different work before editing repo files
@@ -63,12 +69,12 @@ Treat the committed files as the shared repo view. The SQLite databases are loca
 
 ## Sprint Close
 
-- run `kctl preflight` or `sprintctl maintain check --sprint-id <id>`
+- run `kctl preflight --sprint-id <id>` or `sprintctl maintain check --sprint-id <id>`
 - move unfinished work with `sprintctl maintain carryover --from-sprint <id> --to-sprint <next-id>`
 - close the sprint with `sprintctl sprint status --id <id> --status closed`
-- run `kctl extract --sprint-id <id>` for the default knowledge event set: `decision`, `blocker-resolved`, `pattern-noted`, `risk-accepted`, `lesson-learned`
-- if coordination history matters too, extend extraction with `--event-types decision,blocker-resolved,pattern-noted,risk-accepted,lesson-learned,claim-handoff,claim-ownership-corrected,claim-ambiguity-detected,coordination-failure`
-- review candidates with `kctl review list`, `kctl review show`, `kctl review approve`, and `kctl review reject`
+- run `kctl extract --sprint-id <id>` (it runs preflight unless `--no-preflight` is set)
+- use explicit `--event-types ...` when you need deterministic filtering instead of the default event set
+- review candidates with `kctl review list`, `kctl review show`, `kctl review approve`, and `kctl review reject` (use `--kind all` when coordination stream candidates matter)
 - publish intentionally with `kctl publish ...` and render the committed artifact with `kctl render --output docs/knowledge/knowledge-base.md`
 
 ## Useful Structured Surfaces
@@ -81,11 +87,15 @@ Prefer JSON output when another agent or script needs machine-readable state.
 - `sprintctl claim list --item-id <item-id> --json`
 - `sprintctl claim list-sprint --sprint-id <id> --json`
 - `sprintctl claim resume --instance-id <id> --json`
+- `sprintctl claim start --item-id <item-id> --actor <name> --json`
+- `sprintctl item done-from-claim --id <item-id> --claim-id <claim-id> --claim-token <claim-token> --json`
 - `sprintctl usage --context --json`
 - `sprintctl agent-protocol --json`
 - `sprintctl handoff --format json --output <path>`
+- `kctl preflight --sprint-id <id> --json`
 - `kctl review list --json`
-- `kctl status --json`
+- `kctl review show --id <candidate-id> --json`
+- `kctl status --kind all --json`
 
 ## Recovery
 

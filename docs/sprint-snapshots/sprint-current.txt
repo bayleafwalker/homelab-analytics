@@ -2,7 +2,7 @@ SPRINT: Sprint hearth-lantern-path phase-2 — First-Answer and Remediation Clos
 Goal:   Carry over unfinished onboarding/remediation/operating-picture scope after closing the accept/retry frontend-automation residual gap.
 Dates:  2026-04-02 to 2026-04-16
 ID:     29
-Items:  19 total — 0 done, 0 active, 19 pending, 0 blocked
+Items:  20 total — 17 done, 0 active, 3 pending, 0 blocked
 
 --- Track: demoability ---
   health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
@@ -10,38 +10,42 @@ Items:  19 total — 0 done, 0 active, 19 pending, 0 blocked
   [pending ] #248  Minimal walkthrough doc: scripted path proving the product loop from upload to operating picture  (assignee: -)
 
 --- Track: first-answer ---
-  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
-  [pending ] #231  Post-ingest redirect: summary of what just arrived  (assignee: -)
-  [pending ] #232  First-answer composition: inline cashflow, recurring baseline, affordability, attention items  (assignee: -)
-  [pending ] #233  Progressive disclosure: show current value and what additional sources unlock  (assignee: -)
+  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #231  Post-ingest redirect: summary of what just arrived  (assignee: -)
+  [done    ] #232  First-answer composition: inline cashflow, recurring baseline, affordability, attention items  (assignee: -)
+  [done    ] #233  Progressive disclosure: show current value and what additional sources unlock  (assignee: -)
 
 --- Track: guided-onboarding ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #230  Wire existing upload API behind the wizard flow  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #230  Wire existing upload API behind the wizard flow  (assignee: -)
 
 --- Track: onboarding-progress ---
-  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
-  [pending ] #243  Onboarding checklist widget: source types onboarded, pending, what each unlocks  (assignee: -)
-  [pending ] #244  Suggested next source: recommend next most valuable source based on current state  (assignee: -)
-  [pending ] #245  Dismissable checklist: collapse to compact badge once all core sources active  (assignee: -)
+  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #243  Onboarding checklist widget: source types onboarded, pending, what each unlocks  (assignee: -)
+  [done    ] #244  Suggested next source: recommend next most valuable source based on current state  (assignee: -)
+  [done    ] #245  Dismissable checklist: collapse to compact badge once all core sources active  (assignee: -)
 
 --- Track: operating-picture ---
-  health: 5 items — 0 done (0%), 0 active, 5 pending, 0 blocked (0%)
-  [pending ] #238  Structured Operating Picture layout: domain cards with headline metric, trend, top attention  (assignee: -)
-  [pending ] #239  Confidence band: freshness/confidence indicator per domain card  (assignee: -)
-  [pending ] #240  Upcoming actions strip: next 7 days of obligations, renewals, due exports, approvals  (assignee: -)
-  [pending ] #241  Cross-domain attention queue: unified items ranked by urgency with detail links  (assignee: -)
-  [pending ] #242  Recent changes feed: last 5 material changes across all domains  (assignee: -)
+  health: 5 items — 5 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #238  Structured Operating Picture layout: domain cards with headline metric, trend, top attention  (assignee: -)
+  [done    ] #239  Confidence band: freshness/confidence indicator per domain card  (assignee: -)
+  [done    ] #240  Upcoming actions strip: next 7 days of obligations, renewals, due exports, approvals  (assignee: -)
+  [done    ] #241  Cross-domain attention queue: unified items ranked by urgency with detail links  (assignee: -)
+  [done    ] #242  Recent changes feed: last 5 material changes across all domains  (assignee: -)
 
 --- Track: source-remediation ---
-  health: 4 items — 0 done (0%), 0 active, 4 pending, 0 blocked (0%)
-  [pending ] #234  Inline remediation actions: contextual upload/retry/inspect per stale source  (assignee: -)
-  [pending ] #235  Upload-in-context: file upload directly from freshness row  (assignee: -)
-  [pending ] #236  Recovery preview: show which publications recover once stale source refreshed  (assignee: -)
-  [pending ] #237  Promote freshness to top-level /sources route for operators  (assignee: -)
+  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #234  Inline remediation actions: contextual upload/retry/inspect per stale source  (assignee: -)
+  [done    ] #235  Upload-in-context: file upload directly from freshness row  (assignee: -)
+  [done    ] #236  Recovery preview: show which publications recover once stale source refreshed  (assignee: -)
+  [done    ] #237  Promote freshness to top-level /sources route for operators  (assignee: -)
 
 --- Track: tests ---
   health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
   [pending ] #246  Integration test for freshness remediation to upload-in-context to recovery  (assignee: -)
 
-Rendered: 2026-04-02T13:12:37Z
+--- Track: tooling-ops ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #249  Upgrade sprintctl+kctl and refactor sprint/knowledge docs and skills  (assignee: -)
+
+Rendered: 2026-04-02T19:30:59Z

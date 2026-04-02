@@ -24,6 +24,7 @@ docs/sprints
 .kctl/
 sprint-*.json
 handoff-*.json
+handoff-*.txt
 docs/knowledge/*
 !docs/knowledge/README.md
 !docs/knowledge/knowledge-base.md
