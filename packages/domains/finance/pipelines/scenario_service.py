@@ -45,12 +45,12 @@ from packages.domains.finance.pipelines.transaction_models import (
     MART_MONTHLY_CASHFLOW_COLUMNS,
     MART_MONTHLY_CASHFLOW_TABLE,
 )
-from packages.domains.utilities.pipelines.utility_models import (
-    MART_UTILITY_COST_TREND_MONTHLY_TABLE,
-)
-from packages.pipelines.homelab_models import (
+from packages.domains.homelab.pipelines.homelab_models import (
     MART_SERVICE_HEALTH_CURRENT_TABLE,
     MART_WORKLOAD_COST_7D_TABLE,
+)
+from packages.domains.utilities.pipelines.utility_models import (
+    MART_UTILITY_COST_TREND_MONTHLY_TABLE,
 )
 from packages.storage.duckdb_store import DuckDBStore
 

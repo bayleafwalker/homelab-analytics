@@ -42,6 +42,9 @@ def test_transformation_service_imports_split_domain_modules() -> None:
     assert "packages.domains.finance.pipelines.transformation_transactions" in imports
     assert "packages.domains.finance.pipelines.transformation_subscriptions" in imports
     assert "packages.domains.finance.pipelines.transformation_contract_prices" in imports
+    assert "packages.domains.homelab.pipelines.transformation_home_automation" in imports
+    assert "packages.domains.homelab.pipelines.transformation_homelab" in imports
+    assert "packages.domains.homelab.pipelines.transformation_infrastructure" in imports
     assert "packages.domains.utilities.pipelines.transformation_utilities" in imports
     assert "packages.domains.overview.pipelines.transformation_overview" in imports
 

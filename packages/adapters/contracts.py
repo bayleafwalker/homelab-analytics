@@ -16,7 +16,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
+
+from packages.platform.adapter_runtime_status import AdapterRuntimeStatus
 
 # ---------------------------------------------------------------------------
 # Direction and capability vocabulary
@@ -73,48 +75,6 @@ class AdapterManifest:
     credential_requirements: tuple[str, ...] = field(default_factory=tuple)
     health_check_contract: str = ""
     target_capabilities: tuple[str, ...] = field(default_factory=tuple)
-
-
-# ---------------------------------------------------------------------------
-# AdapterRuntimeStatus — typed live snapshot
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class AdapterRuntimeStatus:
-    """Typed runtime snapshot returned by any adapter's ``get_status()`` call.
-
-    The shared fields cover the four health dimensions all adapters expose:
-
-    - ``enabled``: whether the adapter is configured and participating.
-    - ``connected``: whether the live transport is currently attached.
-    - ``last_activity_at``: ISO-8601 timestamp of the most recent successful
-      sync, publish, or dispatch.  ``None`` when the adapter has not yet
-      completed any operation.
-    - ``error_count``: cumulative error counter since startup.
-
-    Adapters may supply extra domain-specific fields via ``extra``.  Callers
-    that need the full picture can inspect ``extra``; callers that only care
-    about health can rely on the four shared fields being stable across all
-    adapter types.
-    """
-
-    enabled: bool
-    connected: bool
-    last_activity_at: str | None
-    error_count: int
-    extra: dict[str, Any] = field(default_factory=dict)
-
-    def as_dict(self) -> dict[str, Any]:
-        """Flatten to a JSON-serialisable dict for API responses."""
-        result: dict[str, Any] = {
-            "enabled": self.enabled,
-            "connected": self.connected,
-            "last_activity_at": self.last_activity_at,
-            "error_count": self.error_count,
-        }
-        result.update(self.extra)
-        return result
 
 
 # ---------------------------------------------------------------------------

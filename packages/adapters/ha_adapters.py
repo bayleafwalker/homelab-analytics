@@ -33,9 +33,9 @@ from packages.adapters.contracts import (
 )
 
 if TYPE_CHECKING:
-    from packages.pipelines.ha_action_dispatcher import HaActionDispatcher
-    from packages.pipelines.ha_bridge import HaBridgeWorker
-    from packages.pipelines.ha_mqtt_publisher import HaMqttPublisher
+    from packages.domains.homelab.pipelines.ha_action_dispatcher import HaActionDispatcher
+    from packages.domains.homelab.pipelines.ha_bridge import HaBridgeWorker
+    from packages.domains.homelab.pipelines.ha_mqtt_publisher import HaMqttPublisher
 
 
 # ---------------------------------------------------------------------------
@@ -91,7 +91,7 @@ HA_ACTION_MANIFEST = AdapterManifest(
 
 
 class HaIngestAdapter:
-    """IngestAdapter wrapping :class:`~packages.pipelines.ha_bridge.HaBridgeWorker`.
+    """IngestAdapter wrapping :class:`~packages.domains.homelab.pipelines.ha_bridge.HaBridgeWorker`.
 
     Conforms to the ``IngestAdapter`` protocol from ``packages.adapters.contracts``.
     """
@@ -118,7 +118,7 @@ class HaIngestAdapter:
 
 
 class HaMqttPublishAdapter:
-    """PublishAdapter wrapping :class:`~packages.pipelines.ha_mqtt_publisher.HaMqttPublisher`.
+    """PublishAdapter wrapping :class:`~packages.domains.homelab.pipelines.ha_mqtt_publisher.HaMqttPublisher`.
 
     Conforms to the ``PublishAdapter`` protocol from ``packages.adapters.contracts``.
     """
@@ -149,7 +149,7 @@ class HaMqttPublishAdapter:
 
 
 class HaActionAdapter:
-    """ActionAdapter wrapping :class:`~packages.pipelines.ha_action_dispatcher.HaActionDispatcher`.
+    """ActionAdapter wrapping :class:`~packages.domains.homelab.pipelines.ha_action_dispatcher.HaActionDispatcher`.
 
     Conforms to the ``ActionAdapter`` protocol from ``packages.adapters.contracts``.
     """

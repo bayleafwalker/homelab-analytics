@@ -51,8 +51,8 @@ from packages.domains.finance.manifest import FINANCE_PACK
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
+from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
-from packages.pipelines.ha_action_proposals import ApprovalActionRegistry
 from packages.pipelines.promotion import (
     PromotionResult,
 )

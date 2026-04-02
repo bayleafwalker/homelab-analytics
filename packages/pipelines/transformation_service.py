@@ -134,6 +134,60 @@ from packages.domains.finance.pipelines.transformation_transactions import (
     refresh_spend_by_category_monthly,
     refresh_transaction_anomalies_current,
 )
+from packages.domains.homelab.pipelines.ha_service import (
+    ensure_ha_storage,
+    get_ha_entities,
+    get_ha_entity_history,
+    ingest_ha_states,
+)
+from packages.domains.homelab.pipelines.home_automation_models import (
+    CURRENT_DIM_ENTITY_VIEW,
+    DIM_ENTITY,
+)
+from packages.domains.homelab.pipelines.homelab_models import (
+    CURRENT_DIM_SERVICE_VIEW,
+    CURRENT_DIM_WORKLOAD_VIEW,
+    DIM_SERVICE,
+    DIM_WORKLOAD,
+)
+from packages.domains.homelab.pipelines.transformation_home_automation import (
+    count_automation_event_rows,
+    count_home_automation_state_rows,
+    count_sensor_reading_rows,
+    ensure_home_automation_storage,
+    get_current_entities,
+    load_automation_events,
+    load_home_automation_state_rows,
+    load_sensor_readings,
+)
+from packages.domains.homelab.pipelines.transformation_homelab import (
+    count_backup_run_rows,
+    count_service_health_rows,
+    count_storage_sensor_rows,
+    count_workload_sensor_rows,
+    ensure_homelab_storage,
+    get_backup_freshness,
+    get_service_health_current,
+    get_storage_risk,
+    get_workload_cost_7d,
+    load_backup_run_rows,
+    load_service_health_rows,
+    load_storage_sensor_rows,
+    load_workload_sensor_rows,
+    refresh_backup_freshness,
+    refresh_service_health_current,
+    refresh_storage_risk,
+    refresh_workload_cost_7d,
+)
+from packages.domains.homelab.pipelines.transformation_infrastructure import (
+    count_cluster_metric_rows,
+    count_power_consumption_rows,
+    ensure_infrastructure_storage,
+    get_current_devices,
+    get_current_nodes,
+    load_cluster_metric_rows,
+    load_power_consumption_rows,
+)
 from packages.domains.overview.pipelines.transformation_overview import (
     ensure_overview_storage,
     get_affordability_ratios,
@@ -180,22 +234,6 @@ from packages.pipelines.asset_models import (
     CURRENT_DIM_ASSET_VIEW,
     DIM_ASSET,
 )
-from packages.pipelines.ha_service import (
-    ensure_ha_storage,
-    get_ha_entities,
-    get_ha_entity_history,
-    ingest_ha_states,
-)
-from packages.pipelines.home_automation_models import (
-    CURRENT_DIM_ENTITY_VIEW,
-    DIM_ENTITY,
-)
-from packages.pipelines.homelab_models import (
-    CURRENT_DIM_SERVICE_VIEW,
-    CURRENT_DIM_WORKLOAD_VIEW,
-    DIM_SERVICE,
-    DIM_WORKLOAD,
-)
 from packages.pipelines.normalization import (
     normalize_currency_code,
     normalize_timestamp_utc,
@@ -212,49 +250,11 @@ from packages.pipelines.transformation_domain_registry import (
     TransformationDomainRegistry,
     get_default_transformation_domain_registry,
 )
-from packages.pipelines.transformation_home_automation import (
-    count_automation_event_rows,
-    count_home_automation_state_rows,
-    count_sensor_reading_rows,
-    ensure_home_automation_storage,
-    get_current_entities,
-    load_automation_events,
-    load_home_automation_state_rows,
-    load_sensor_readings,
-)
-from packages.pipelines.transformation_homelab import (
-    count_backup_run_rows,
-    count_service_health_rows,
-    count_storage_sensor_rows,
-    count_workload_sensor_rows,
-    ensure_homelab_storage,
-    get_backup_freshness,
-    get_service_health_current,
-    get_storage_risk,
-    get_workload_cost_7d,
-    load_backup_run_rows,
-    load_service_health_rows,
-    load_storage_sensor_rows,
-    load_workload_sensor_rows,
-    refresh_backup_freshness,
-    refresh_service_health_current,
-    refresh_storage_risk,
-    refresh_workload_cost_7d,
-)
 from packages.pipelines.transformation_household import (
     ensure_household_member_storage,
     get_household_members,
     seed_default_household_member,
     upsert_household_member,
-)
-from packages.pipelines.transformation_infrastructure import (
-    count_cluster_metric_rows,
-    count_power_consumption_rows,
-    ensure_infrastructure_storage,
-    get_current_devices,
-    get_current_nodes,
-    load_cluster_metric_rows,
-    load_power_consumption_rows,
 )
 from packages.pipelines.transformation_refresh_registry import (
     PublicationRefreshRegistry,

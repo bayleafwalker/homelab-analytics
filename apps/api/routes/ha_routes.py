@@ -27,7 +27,7 @@ from apps.api.response_models import (
     HaBridgeStatusModel,
     HaMqttStatusModel,
 )
-from packages.pipelines.ha_action_proposals import ApprovalActionRegistry
+from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
 from packages.pipelines.transformation_service import TransformationService
 
 

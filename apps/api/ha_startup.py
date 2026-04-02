@@ -7,8 +7,8 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, cast
 
-from packages.pipelines.ha_action_proposals import ApprovalActionRegistry
-from packages.pipelines.ha_policy import HaPolicyEvaluator
+from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
+from packages.domains.homelab.pipelines.ha_policy import HaPolicyEvaluator
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.platform.capability_types import CapabilityPack
@@ -169,10 +169,10 @@ def build_ha_startup_runtime(
     reporting_service: ReportingService,
     capability_packs: Sequence[CapabilityPack],
 ) -> HaStartupRuntime:
-    from packages.pipelines.ha_action_dispatcher import HaActionDispatcher
-    from packages.pipelines.ha_bridge import HaBridgeWorker
-    from packages.pipelines.ha_contract_renderer import HaContractRenderer
-    from packages.pipelines.ha_mqtt_publisher import HaMqttPublisher
+    from packages.domains.homelab.pipelines.ha_action_dispatcher import HaActionDispatcher
+    from packages.domains.homelab.pipelines.ha_bridge import HaBridgeWorker
+    from packages.domains.homelab.pipelines.ha_contract_renderer import HaContractRenderer
+    from packages.domains.homelab.pipelines.ha_mqtt_publisher import HaMqttPublisher
 
     ha_bridge = None
     if settings.ha_url and settings.ha_token:
