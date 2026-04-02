@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
+import { ONBOARDING_SOURCES } from "@/lib/onboarding-sources";
 import { SparklineChart } from "@/components/sparkline-chart";
 import { stateIndicatorBadge } from "@/lib/state-indicators";
 import {
@@ -77,14 +78,7 @@ export default async function DashboardPage() {
     })
     .map((ds) => ds.dataset_name);
 
-  const ONBOARDING_ORDER = [
-    { dataset: "account_transactions", label: "Account transactions", uploadPath: "/upload/account-transactions" },
-    { dataset: "subscriptions", label: "Subscriptions", uploadPath: "/upload/subscriptions" },
-    { dataset: "contract_prices", label: "Contract prices", uploadPath: "/upload/contract-prices" },
-    { dataset: "budgets", label: "Budgets", uploadPath: "/upload/budgets" },
-    { dataset: "loan_repayments", label: "Loan repayments", uploadPath: "/upload/loan-repayments" },
-  ];
-  const nextSuggestion = ONBOARDING_ORDER.find((s) => !freshDatasetNames.includes(s.dataset)) || null;
+  const nextSuggestion = ONBOARDING_SOURCES.find((s) => !freshDatasetNames.includes(s.dataset)) || null;
 
   const trendLabels = cashflowRows.slice(-12).map((r) => r.booking_month);
   const trendSeries = [

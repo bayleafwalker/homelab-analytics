@@ -3,45 +3,9 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 
-const DISMISS_KEY = "onboarding_checklist_dismissed";
+import { ONBOARDING_SOURCES } from "@/lib/onboarding-sources";
 
-const SOURCE_STEPS = [
-  {
-    dataset: "account_transactions",
-    label: "Account transactions",
-    description: "Cashflow, categories, anomalies",
-    uploadPath: "/upload/account-transactions",
-    required: true,
-  },
-  {
-    dataset: "subscriptions",
-    label: "Subscriptions",
-    description: "Recurring cost baseline",
-    uploadPath: "/upload/subscriptions",
-    required: true,
-  },
-  {
-    dataset: "contract_prices",
-    label: "Contract prices",
-    description: "Affordability ratios, contract watchlist",
-    uploadPath: "/upload/contract-prices",
-    required: false,
-  },
-  {
-    dataset: "budgets",
-    label: "Budgets",
-    description: "Budget variance, envelopes",
-    uploadPath: "/upload/budgets",
-    required: false,
-  },
-  {
-    dataset: "loan_repayments",
-    label: "Loan repayments",
-    description: "Debt service ratio, loan schedule",
-    uploadPath: "/upload/loan-repayments",
-    required: false,
-  },
-];
+const DISMISS_KEY = "onboarding_checklist_dismissed";
 
 /** @param {{ freshDatasets: string[], nextSuggestion: {dataset: string, label: string, uploadPath: string} | null }} props */
 export function OnboardingChecklist({ freshDatasets, nextSuggestion }) {
@@ -92,7 +56,7 @@ export function OnboardingChecklist({ freshDatasets, nextSuggestion }) {
   if (!mounted) return null;
   if (dismissed) return null;
 
-  const steps = SOURCE_STEPS.map((s) => ({
+  const steps = ONBOARDING_SOURCES.map((s) => ({
     ...s,
     active: freshDatasets.includes(s.dataset),
   }));

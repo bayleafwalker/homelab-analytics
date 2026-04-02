@@ -4,44 +4,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { UploadDetectionWizard } from "@/components/upload-detection-wizard";
 import { getCurrentUser, getSourceAssets, getSourceFreshness } from "@/lib/backend";
-
-const ONBOARDING_SOURCES = [
-  {
-    dataset: "account_transactions",
-    label: "Account transactions",
-    description: "Bank and credit card exports. Core cashflow and categorisation source.",
-    uploadPath: "/upload/account-transactions",
-    required: true,
-  },
-  {
-    dataset: "subscriptions",
-    label: "Subscriptions",
-    description: "Recurring service subscriptions. Enables subscription cost tracking.",
-    uploadPath: "/upload/subscriptions",
-    required: true,
-  },
-  {
-    dataset: "contract_prices",
-    label: "Contract prices",
-    description: "Utility and service contract price snapshots. Enables affordability ratios.",
-    uploadPath: "/upload/contract-prices",
-    required: false,
-  },
-  {
-    dataset: "budgets",
-    label: "Budgets",
-    description: "Budget targets by category. Enables budget variance and envelope reports.",
-    uploadPath: "/upload/budgets",
-    required: false,
-  },
-  {
-    dataset: "loan_repayments",
-    label: "Loan repayments",
-    description: "Loan repayment history. Enables debt service ratio and loan schedule.",
-    uploadPath: "/upload/loan-repayments",
-    required: false,
-  },
-];
+import { ONBOARDING_SOURCES } from "@/lib/onboarding-sources";
 
 export default async function OnboardingPage() {
   const user = await getCurrentUser();

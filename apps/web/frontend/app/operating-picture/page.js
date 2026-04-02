@@ -94,7 +94,8 @@ export default async function OperatingPicturePage() {
     "account_transactions",
     "subscriptions",
   ]);
-  const utilityFreshness = domainFreshnessBand(freshnessDatasets, [
+  // contract_prices feeds both utility affordability and contract renewal watchlist
+  const contractFreshness = domainFreshnessBand(freshnessDatasets, [
     "contract_prices",
   ]);
   const loanFreshness = domainFreshnessBand(freshnessDatasets, [
@@ -210,12 +211,12 @@ export default async function OperatingPicturePage() {
               <span
                 className="statusPill"
                 style={{
-                  background: utilityFreshness.color,
+                  background: contractFreshness.color,
                   color: "#fff",
                   border: "none",
                 }}
               >
-                {utilityFreshness.label}
+                {contractFreshness.label}
               </span>
             </div>
             {utilityDelta !== null && (
@@ -243,12 +244,12 @@ export default async function OperatingPicturePage() {
                 <span
                   className="statusPill"
                   style={{
-                    background: utilityFreshness.color,
+                    background: contractFreshness.color,
                     color: "#fff",
                     border: "none",
                   }}
                 >
-                  {utilityFreshness.label}
+                  {contractFreshness.label}
                 </span>
               </div>
               <div className="stack compactStack">
@@ -467,15 +468,15 @@ export default async function OperatingPicturePage() {
                         width: "10px",
                         height: "10px",
                         borderRadius: "50%",
-                        background: utilityFreshness.color,
+                        background: contractFreshness.color,
                         marginRight: "6px",
                       }}
                     />
-                    {utilityFreshness.label}
+                    {contractFreshness.label}
                   </td>
                   <td className="muted">contract_prices</td>
                   <td>
-                    {utilityFreshness.band !== "green" && (
+                    {contractFreshness.band !== "green" && (
                       <Link className="inlineLink" href="/upload/contract-prices">
                         Upload
                       </Link>

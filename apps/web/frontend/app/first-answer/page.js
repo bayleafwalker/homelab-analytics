@@ -12,72 +12,7 @@ import {
   getSourceFreshness,
   getSubscriptionSummary,
 } from "@/lib/backend";
-
-const SOURCE_UNLOCK_MAP = {
-  account_transactions: [
-    "Monthly cashflow trend",
-    "Spend-by-category breakdown",
-    "Transaction anomalies",
-    "Attention items",
-  ],
-  subscriptions: [
-    "Recurring cost baseline",
-    "Subscription review queue",
-    "Cost model (subscription layer)",
-  ],
-  contract_prices: [
-    "Affordability ratios",
-    "Contract renewal watchlist",
-    "Utility contract pricing",
-  ],
-  budgets: [
-    "Budget variance report",
-    "Envelope tracking",
-  ],
-  loan_repayments: [
-    "Loan overview",
-    "Debt service ratio",
-    "Loan repayment schedule",
-  ],
-};
-
-const PENDING_SOURCE_SUGGESTIONS = [
-  {
-    dataset: "account_transactions",
-    label: "Account transactions",
-    unlocks: "cashflow, categories, anomalies",
-    uploadPath: "/upload/account-transactions",
-    priority: 1,
-  },
-  {
-    dataset: "subscriptions",
-    label: "Subscriptions",
-    unlocks: "recurring cost baseline, subscription review",
-    uploadPath: "/upload/subscriptions",
-    priority: 2,
-  },
-  {
-    dataset: "contract_prices",
-    label: "Contract prices",
-    unlocks: "affordability ratios, contract watchlist",
-    uploadPath: "/upload/contract-prices",
-    priority: 3,
-  },
-  {
-    dataset: "budgets",
-    label: "Budgets",
-    unlocks: "budget variance, envelope tracking",
-    uploadPath: "/upload/budgets",
-    priority: 4,
-  },
-  {
-    dataset: "loan_repayments",
-    label: "Loan repayments",
-    unlocks: "loan overview, debt service ratio",
-    uploadPath: "/upload/loan-repayments",
-    priority: 5,
-  },
-];
+import { ONBOARDING_SOURCES } from "@/lib/onboarding-sources";
 
 export default async function FirstAnswerPage() {
   const user = await getCurrentUser();
@@ -126,13 +61,12 @@ export default async function FirstAnswerPage() {
     },
   ];
 
-  // Pending sources: not in freshDatasets
-  const pendingSources = PENDING_SOURCE_SUGGESTIONS
-    .filter((s) => !freshDatasets.has(s.dataset))
-    .sort((a, b) => a.priority - b.priority);
+  // Pending sources: not in freshDatasets (ONBOARDING_SOURCES already in priority order)
+  const pendingSources = ONBOARDING_SOURCES
+    .filter((s) => !freshDatasets.has(s.dataset));
 
   // Active sources with their unlocked features
-  const activeSources = PENDING_SOURCE_SUGGESTIONS
+  const activeSources = ONBOARDING_SOURCES
     .filter((s) => freshDatasets.has(s.dataset));
 
   const hasCashflow = cashflowRows.length > 0;
@@ -360,7 +294,7 @@ export default async function FirstAnswerPage() {
                       Unlocks: {src.unlocks}
                     </div>
                     <div className="muted" style={{ fontSize: "0.82rem", marginTop: "2px" }}>
-                      {(SOURCE_UNLOCK_MAP[src.dataset] || []).join(" · ")}
+                      {(src.unlocksDetail || []).join(" · ")}
                     </div>
                   </div>
                   <Link className="ghostButton" href={src.uploadPath}>
