@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 
 const MANUAL_TARGETS = [
   { uploadPath: "/upload/account-transactions", label: "Account transactions" },
