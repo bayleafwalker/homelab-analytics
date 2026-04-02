@@ -1,17 +1,55 @@
-SPRINT: Sprint seam-finish-pass — Composition Boundary Follow-through  [closed]
-Goal:   Close residual kernel/app seam findings, apply deferred route composition cleanup, and keep boundary enforcement green.
-Dates:  2026-04-02 to 2026-04-30
-ID:     28
-Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
+SPRINT: Sprint hearth-lantern-path — Product Polish and First-Week Onboarding  [active]
+Goal:   Turn scattered platform capability into one obvious workflow: a first-week operator experience that takes messy household data and produces useful answers with minimal ceremony.
+Dates:  2026-03-30 to 2026-04-13
+ID:     26
+Items:  27 total — 2 done, 0 active, 25 pending, 0 blocked
 
---- Track: carryover ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #226  WP-12 carryover: route-extension/composition hooks cleanup (from #205)  (assignee: -)
+--- Track: first-answer ---
+  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
+  [pending ] #170  Post-ingest redirect: summary of what just arrived  (assignee: -)
+  [pending ] #171  First-answer composition: inline cashflow, recurring baseline, affordability, attention items  (assignee: -)
+  [pending ] #172  Progressive disclosure: show current value and what additional sources unlock  (assignee: -)
 
---- Track: finding-corrections ---
-  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #227  WP-13: move finance service builders out of platform runtime builder into app composition helpers  (assignee: -)
-  [done    ] #228  WP-14: remove household publication/current-dimension imports from shared external registry via injected registrations  (assignee: -)
-  [done    ] #229  WP-15: relocate household current-dimension contract instances into app-owned composition module  (assignee: -)
+--- Track: guided-onboarding ---
+  health: 5 items — 1 done (20%), 0 active, 4 pending, 0 blocked (0%)
+  [done    ] #165  Source type detection: accept dropped file, detect format, show detected contract with confidence  (assignee: -)
+  [pending ] #166  Mapping preview: show detected column mapping, canonical fields, highlight weak/missing fields  (assignee: -)
+  [pending ] #167  Publication preview: show which publications and views light up once source lands  (assignee: -)
+  [pending ] #168  Validation dry-run: parse without landing, show row count, date range, issues, accept/retry  (assignee: -)
+  [pending ] #169  Wire existing upload API behind the wizard flow  (assignee: -)
 
-Rendered: 2026-04-02T11:31:50Z
+--- Track: source-remediation ---
+  health: 4 items — 0 done (0%), 0 active, 4 pending, 0 blocked (0%)
+  [pending ] #173  Inline remediation actions: contextual upload/retry/inspect per stale source  (assignee: -)
+  [pending ] #174  Upload-in-context: file upload directly from freshness row  (assignee: -)
+  [pending ] #175  Recovery preview: show which publications recover once stale source refreshed  (assignee: -)
+  [pending ] #176  Promote freshness to top-level /sources route for operators  (assignee: -)
+
+--- Track: onboarding-progress ---
+  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
+  [pending ] #182  Onboarding checklist widget: source types onboarded, pending, what each unlocks  (assignee: -)
+  [pending ] #183  Suggested next source: recommend next most valuable source based on current state  (assignee: -)
+  [pending ] #184  Dismissable checklist: collapse to compact badge once all core sources active  (assignee: -)
+
+--- Track: operating-picture ---
+  health: 5 items — 0 done (0%), 0 active, 5 pending, 0 blocked (0%)
+  [pending ] #177  Structured Operating Picture layout: domain cards with headline metric, trend, top attention  (assignee: -)
+  [pending ] #178  Confidence band: freshness/confidence indicator per domain card  (assignee: -)
+  [pending ] #179  Upcoming actions strip: next 7 days of obligations, renewals, due exports, approvals  (assignee: -)
+  [pending ] #180  Cross-domain attention queue: unified items ranked by urgency with detail links  (assignee: -)
+  [pending ] #181  Recent changes feed: last 5 material changes across all domains  (assignee: -)
+
+--- Track: tests ---
+  health: 5 items — 1 done (20%), 0 active, 4 pending, 0 blocked (0%)
+  [done    ] #185  Unit tests for source type detection logic  (assignee: -)
+  [pending ] #186  Unit tests for publication-preview mapping  (assignee: -)
+  [pending ] #187  Integration test for guided upload to land to first-answer flow  (assignee: -)
+  [pending ] #188  Integration test for freshness remediation to upload-in-context to recovery  (assignee: -)
+  [pending ] #189  make verify-fast green  (assignee: -)
+
+--- Track: demoability ---
+  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
+  [pending ] #214  High-quality demo seed data for scripted operator journey  (assignee: -)
+  [pending ] #215  Minimal walkthrough doc: scripted path proving the product loop from upload to operating picture  (assignee: -)
+
+Rendered: 2026-04-02T11:56:10Z
