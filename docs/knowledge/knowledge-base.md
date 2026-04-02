@@ -1,5 +1,5 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-02T12:23:23Z
+Generated: 2026-04-02T12:31:06Z
 
 ## Decisions
 
@@ -510,6 +510,14 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 ---
 
 ## Lessons
+
+### Upload preview must report canonical target coverage
+Source: track: guided-onboarding, sprint: 26
+Tags: guided-onboarding, mapping-preview, ux-correctness
+
+For configured CSV detection, source-header overlap is not equivalent to canonical-field readiness. Preview surfaces must show canonical target coverage from mapping rules (including defaults) and treat source-header matches as separate evidence.
+
+---
 
 ### API-level fixture tests harden source detection without UI e2e overhead
 Source: track: tests, sprint: 26
