@@ -14,10 +14,10 @@ from packages.domains.utilities.manifest import UTILITIES_PACK
 from packages.pipelines.household_current_dimension_contracts import (
     CURRENT_DIMENSION_CONTRACTS,
 )
-from packages.pipelines.household_reporting import PublicationRelation
 from packages.pipelines.household_reporting import (
     CURRENT_DIMENSION_RELATIONS,
     PUBLICATION_RELATIONS,
+    PublicationRelation,
 )
 from packages.platform.capability_types import CapabilityPack, PublicationDefinition
 from packages.platform.publication_contracts import build_publication_contract_catalog
