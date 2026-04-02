@@ -54,9 +54,29 @@ function mappingStatus(matchedColumns, missingColumns) {
   return `Needs review (${missingColumns.length} missing field${missingColumns.length === 1 ? "" : "s"})`;
 }
 
+function formatIssueLocation(issue) {
+  const parts = [];
+  if (issue?.column) {
+    parts.push(`column ${issue.column}`);
+  }
+  if (issue?.row_number) {
+    parts.push(`row ${issue.row_number}`);
+  }
+  return parts.join(" / ");
+}
+
+function formatDateRangeLabel(dateRange) {
+  if (!dateRange?.start || !dateRange?.end) {
+    return "n/a";
+  }
+  const column = dateRange?.column ? ` (${dateRange.column})` : "";
+  return `${dateRange.start} to ${dateRange.end}${column}`;
+}
+
 export function UploadDetectionWizard({ activeSourceAssets }) {
   const fileInputRef = useRef(null);
   const detectRequestIdRef = useRef(0);
+  const dryRunRequestIdRef = useRef(0);
   const [sourceName, setSourceName] = useState("manual-upload");
   const [uploadPath, setUploadPath] = useState(MANUAL_TARGETS[0].uploadPath);
   const [sourceAssetId, setSourceAssetId] = useState("");
@@ -65,17 +85,30 @@ export function UploadDetectionWizard({ activeSourceAssets }) {
   const [detecting, setDetecting] = useState(false);
   const [detectError, setDetectError] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
+  const [dryRunPreview, setDryRunPreview] = useState(null);
+  const [dryRunLoading, setDryRunLoading] = useState(false);
+  const [dryRunError, setDryRunError] = useState("");
+  const [dryRunAccepted, setDryRunAccepted] = useState(false);
 
   const sourceAssetOptions = useMemo(
     () => activeSourceAssets.map((record) => record.source_asset_id),
     [activeSourceAssets]
   );
 
+  function resetDryRunState() {
+    dryRunRequestIdRef.current += 1;
+    setDryRunPreview(null);
+    setDryRunLoading(false);
+    setDryRunError("");
+    setDryRunAccepted(false);
+  }
+
   async function detectFile(file) {
     const requestId = detectRequestIdRef.current + 1;
     detectRequestIdRef.current = requestId;
     setDetectError("");
     setDetecting(true);
+    resetDryRunState();
     try {
       const formData = new FormData();
       formData.set("file", file);
@@ -112,6 +145,58 @@ export function UploadDetectionWizard({ activeSourceAssets }) {
     }
   }
 
+  async function runDryRun() {
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) {
+      setDryRunError("Choose a file before running dry-run.");
+      return;
+    }
+    const resolvedUploadPath = uploadPath;
+    const requiresSourceAsset = isConfiguredUpload(resolvedUploadPath);
+    if (requiresSourceAsset && !sourceAssetId) {
+      setDryRunError("Select source asset before running dry-run.");
+      return;
+    }
+    const requestId = dryRunRequestIdRef.current + 1;
+    dryRunRequestIdRef.current = requestId;
+    setDryRunError("");
+    setDryRunLoading(true);
+    setDryRunAccepted(false);
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      formData.set("upload_path", resolvedUploadPath);
+      if (requiresSourceAsset) {
+        formData.set("source_asset_id", sourceAssetId);
+      }
+      const response = await fetch("/upload/dry-run", {
+        method: "POST",
+        body: formData
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || "Dry-run preview failed.");
+      }
+      if (requestId !== dryRunRequestIdRef.current) {
+        return;
+      }
+      setDryRunPreview(payload?.preview || null);
+      if (!payload?.preview) {
+        setDryRunError("Dry-run preview did not return any data.");
+      }
+    } catch (error) {
+      if (requestId !== dryRunRequestIdRef.current) {
+        return;
+      }
+      setDryRunPreview(null);
+      setDryRunError(error instanceof Error ? error.message : "Dry-run preview failed.");
+    } finally {
+      if (requestId === dryRunRequestIdRef.current) {
+        setDryRunLoading(false);
+      }
+    }
+  }
+
   function syncFileInput(file) {
     const input = fileInputRef.current;
     if (!input || typeof DataTransfer === "undefined") {
@@ -135,6 +220,7 @@ export function UploadDetectionWizard({ activeSourceAssets }) {
       setSelectedFileName("");
       setDetection(null);
       setDetecting(false);
+      resetDryRunState();
       return;
     }
     setSelectedFileName(file.name || "");
@@ -184,9 +270,13 @@ export function UploadDetectionWizard({ activeSourceAssets }) {
     sourceAssetOptions,
     candidate?.kind === "configured_csv" ? String(candidate?.source_asset_id || "") : ""
   );
-  const canSubmit =
+  const canRunDryRun =
     selectedFileName &&
     (!needsSourceAsset || Boolean(sourceAssetId));
+  const canSubmit = canRunDryRun && Boolean(dryRunPreview) && dryRunAccepted;
+  const dryRunIssues = Array.isArray(dryRunPreview?.issues)
+    ? dryRunPreview.issues
+    : [];
 
   return (
     <article className="panel section">
@@ -217,7 +307,10 @@ export function UploadDetectionWizard({ activeSourceAssets }) {
           <select
             id="guided-upload-target"
             value={resolvedUploadPath}
-            onChange={(event) => setUploadPath(event.target.value)}
+            onChange={(event) => {
+              setUploadPath(event.target.value);
+              resetDryRunState();
+            }}
           >
             {MANUAL_TARGETS.map((target) => (
               <option key={target.uploadPath} value={target.uploadPath}>
@@ -270,7 +363,10 @@ export function UploadDetectionWizard({ activeSourceAssets }) {
               id="guided-source-asset"
               name="source_asset_id"
               value={sourceAssetId}
-              onChange={(event) => setSourceAssetId(event.target.value)}
+              onChange={(event) => {
+                setSourceAssetId(event.target.value);
+                resetDryRunState();
+              }}
               required
             >
               <option value="" disabled>
@@ -285,6 +381,47 @@ export function UploadDetectionWizard({ activeSourceAssets }) {
           </div>
         ) : null}
 
+        <div className="spanThree uploadWizardActions">
+          <div className="muted">
+            Run a validation dry-run before upload. This parses the file without landing.
+          </div>
+          <div className="uploadWizardActionButtons">
+            <button
+              className="primaryButton inlineButton"
+              type="button"
+              onClick={() => {
+                runDryRun();
+              }}
+              disabled={!canRunDryRun || dryRunLoading}
+            >
+              {dryRunLoading ? "Running dry-run..." : "Run dry-run"}
+            </button>
+            {dryRunPreview ? (
+              <button
+                className="primaryButton inlineButton"
+                type="button"
+                onClick={() => {
+                  setDryRunAccepted(false);
+                  runDryRun();
+                }}
+                disabled={dryRunLoading}
+              >
+                Retry dry-run
+              </button>
+            ) : null}
+            {dryRunPreview ? (
+              <button
+                className="primaryButton inlineButton"
+                type="button"
+                onClick={() => setDryRunAccepted(true)}
+                disabled={dryRunLoading}
+              >
+                Accept preview
+              </button>
+            ) : null}
+          </div>
+        </div>
+
         <button className="primaryButton inlineButton" type="submit" disabled={!canSubmit}>
           Upload file
         </button>
@@ -292,6 +429,65 @@ export function UploadDetectionWizard({ activeSourceAssets }) {
 
       {detecting ? <div className="muted">Detecting source type...</div> : null}
       {detectError ? <div className="errorBanner">{detectError}</div> : null}
+      {dryRunLoading ? <div className="muted">Running validation dry-run...</div> : null}
+      {dryRunError ? <div className="errorBanner">{dryRunError}</div> : null}
+
+      {dryRunPreview ? (
+        <div className="stack compactStack uploadWizardPreview">
+          <div className="metricLabel">Dry-run preview</div>
+          <div className="metaGrid uploadWizardMeta">
+            <div className="metaItem">
+              <div className="metricLabel">Target</div>
+              <div>{dryRunPreview?.target?.title || "n/a"}</div>
+            </div>
+            <div className="metaItem">
+              <div className="metricLabel">Row count</div>
+              <div>{Number(dryRunPreview?.row_count || 0)}</div>
+            </div>
+            <div className="metaItem">
+              <div className="metricLabel">Date range</div>
+              <div>{formatDateRangeLabel(dryRunPreview?.date_range)}</div>
+            </div>
+            <div className="metaItem">
+              <div className="metricLabel">Detected issues</div>
+              <div className={dryRunIssues.length > 0 ? "warnText" : "muted"}>
+                {dryRunIssues.length}
+              </div>
+            </div>
+          </div>
+          {dryRunIssues.length > 0 ? (
+            <div className="stack compactStack uploadWizardIssueList">
+              <div className="metricLabel">Dry-run issues</div>
+              <div className="entityList">
+                {dryRunIssues.map((issue, index) => (
+                  <article className="entityCard" key={`${issue.code || "issue"}-${index}`}>
+                    <div className="entityHeader">
+                      <div>
+                        <div className="metricLabel">{issue.code || "validation_issue"}</div>
+                        <h3>{issue.message || "Validation issue detected."}</h3>
+                      </div>
+                      {formatIssueLocation(issue) ? (
+                        <span className="statusPill status-rejected">
+                          {formatIssueLocation(issue)}
+                        </span>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {dryRunAccepted ? (
+            <div className="successBanner uploadWizardDecision">
+              Dry-run accepted. Upload is now enabled.
+            </div>
+          ) : (
+            <div className="muted uploadWizardDecision">
+              Decision point: accept the preview to continue or retry dry-run after fixing inputs.
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {candidate ? (
         <div className="metaGrid uploadWizardMeta">

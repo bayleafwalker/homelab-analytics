@@ -11065,6 +11065,26 @@
         "summary": "Detect Source Upload Target"
       }
     },
+    "/ingest/dry-run": {
+      "post": {
+        "operationId": "dry_run_source_upload_ingest_dry_run_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Dry Run Source Upload Ingest Dry Run Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Dry Run Source Upload"
+      }
+    },
     "/ingest/ingestion-definitions/{ingestion_definition_id}/process": {
       "post": {
         "operationId": "process_ingestion_definition_ingest_ingestion_definitions__ingestion_definition_id__process_post",

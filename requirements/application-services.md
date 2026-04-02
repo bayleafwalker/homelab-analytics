@@ -131,7 +131,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Non-technical household members should be able to import data without CLI or API knowledge.
 
 **Phase:** 2
-**Status:** implemented (the Next.js shell now exposes operator-facing browser uploads for account transactions, subscriptions, contract prices, and config-driven source-asset uploads; a guided upload panel accepts drag/drop files, detects likely source contract targets with confidence, and preselects the matching upload path; successful uploads redirect into run detail, and failed uploads render inline validation, run, and API-error feedback on the upload page)
+**Status:** implemented (the Next.js shell now exposes operator-facing browser uploads for account transactions, subscriptions, contract prices, and config-driven source-asset uploads; a guided upload panel accepts drag/drop files, detects likely source contract targets with confidence, and preselects the matching upload path; it now also runs a no-landing dry-run preview that reports row count, date range, and validation issues with an explicit accept/retry decision gate before upload; successful uploads redirect into run detail, and failed uploads render inline validation, run, and API-error feedback on the upload page)
 
 **Acceptance criteria:**
 - Upload form allows file selection, source system choice, and dataset type choice.

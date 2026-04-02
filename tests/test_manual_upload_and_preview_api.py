@@ -214,6 +214,79 @@ def test_api_detection_returns_no_candidate_for_malformed_json() -> None:
         assert detection["alternatives"] == []
 
 
+def test_api_dry_run_previews_configured_csv_without_landing() -> None:
+    with TemporaryDirectory() as temp_dir:
+        client, _ = _build_client(temp_dir)
+
+        response = client.post(
+            "/ingest/dry-run",
+            data={
+                "upload_path": "/upload/configured-csv",
+                "source_asset_id": "bank_partner_transactions",
+            },
+            files={
+                "file": (
+                    "configured-upload.csv",
+                    (
+                        ACCOUNT_FIXTURES / "configured_account_transactions_source.csv"
+                    ).read_bytes(),
+                    "text/csv",
+                )
+            },
+        )
+
+        assert response.status_code == 200
+        preview = response.json()["preview"]
+        assert preview["target"]["upload_path"] == "/upload/configured-csv"
+        assert preview["target"]["source_asset_id"] == "bank_partner_transactions"
+        assert preview["row_count"] == 2
+        assert preview["date_range"] == {
+            "column": "booked_at",
+            "start": "2026-01-02",
+            "end": "2026-01-03",
+        }
+        assert preview["issue_count"] == 0
+        assert preview["ready"] is True
+        assert RunMetadataRepository(Path(temp_dir) / "runs.db").count_runs() == 0
+
+
+def test_api_dry_run_reports_validation_issues_without_landing() -> None:
+    with TemporaryDirectory() as temp_dir:
+        client, _ = _build_client(temp_dir)
+
+        response = client.post(
+            "/ingest/dry-run",
+            data={
+                "upload_path": "/upload/configured-csv",
+                "source_asset_id": "bank_partner_transactions",
+            },
+            files={
+                "file": (
+                    "configured-upload.csv",
+                    (
+                        "booking_date,account_number,payee\n"
+                        "2026-03-01,FI123,Corner Shop\n"
+                    ).encode("utf-8"),
+                    "text/csv",
+                )
+            },
+        )
+
+        assert response.status_code == 200
+        preview = response.json()["preview"]
+        assert preview["row_count"] == 1
+        assert preview["date_range"] == {
+            "column": "booked_at",
+            "start": "2026-03-01",
+            "end": "2026-03-01",
+        }
+        assert preview["issue_count"] > 0
+        assert preview["ready"] is False
+        issue_codes = {issue["code"] for issue in preview["issues"]}
+        assert "missing_required_value" in issue_codes
+        assert RunMetadataRepository(Path(temp_dir) / "runs.db").count_runs() == 0
+
+
 def test_api_previews_saved_column_mapping_versions_against_sample_csv() -> None:
     with TemporaryDirectory() as temp_dir:
         client, _ = _build_client(temp_dir)

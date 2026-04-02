@@ -577,6 +577,26 @@ th {
   margin-top: 12px;
 }
 
+.uploadWizardActions {
+  margin-top: 4px;
+  display: grid;
+  gap: 10px;
+}
+
+.uploadWizardActionButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.uploadWizardIssueList {
+  margin-top: 10px;
+}
+
+.uploadWizardDecision {
+  margin-top: 10px;
+}
+
 .warnText {
   color: var(--warn);
   font-weight: 700;
