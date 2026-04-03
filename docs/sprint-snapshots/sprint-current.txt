@@ -1,13 +1,13 @@
-SPRINT: Sprint hearth-lantern-path phase-2 — First-Answer and Remediation Closure  [active]
+SPRINT: Sprint hearth-lantern-path phase-2 — First-Answer and Remediation Closure  [closed]
 Goal:   Carry over unfinished onboarding/remediation/operating-picture scope after closing the accept/retry frontend-automation residual gap.
 Dates:  2026-04-02 to 2026-04-16
 ID:     29
-Items:  20 total — 17 done, 0 active, 3 pending, 0 blocked
+Items:  20 total — 20 done, 0 active, 0 pending, 0 blocked
 
 --- Track: demoability ---
-  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
-  [pending ] #247  High-quality demo seed data for scripted operator journey  (assignee: -)
-  [pending ] #248  Minimal walkthrough doc: scripted path proving the product loop from upload to operating picture  (assignee: -)
+  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #247  High-quality demo seed data for scripted operator journey  (assignee: -)
+  [done    ] #248  Minimal walkthrough doc: scripted path proving the product loop from upload to operating picture  (assignee: -)
 
 --- Track: first-answer ---
   health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
@@ -41,11 +41,11 @@ Items:  20 total — 17 done, 0 active, 3 pending, 0 blocked
   [done    ] #237  Promote freshness to top-level /sources route for operators  (assignee: -)
 
 --- Track: tests ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #246  Integration test for freshness remediation to upload-in-context to recovery  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #246  Integration test for freshness remediation to upload-in-context to recovery  (assignee: -)
 
 --- Track: tooling-ops ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
   [done    ] #249  Upgrade sprintctl+kctl and refactor sprint/knowledge docs and skills  (assignee: -)
 
-Rendered: 2026-04-02T19:30:59Z
+Rendered: 2026-04-03T09:09:23Z
