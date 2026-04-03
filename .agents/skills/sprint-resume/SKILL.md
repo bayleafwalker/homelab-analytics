@@ -26,7 +26,13 @@ Resume an already-registered sprint item from live `sprintctl` state without dup
 5. For Codex, prefer `CODEX_THREAD_ID` as `runtime_session_id` when it is available. Also mint a stable `instance_id` once per live client or process start. Shared labels and workspace metadata alone are not enough to prove ownership. Use `sprintctl agent-protocol --json` if you need the exact create, heartbeat, handoff, or release command shape.
 6. Move the item to `active` before implementation when appropriate (already handled if you used `claim start`).
 7. Use sprint docs, requirements, and architecture docs only as implementation context for the selected item; they do not override live ownership or status.
-8. Record structured `sprintctl` events when decisions, resolved blockers, or reusable lessons happen. Use `decision` or `lesson-learned` for process corrections that should feed `kctl` later, and include payload keys such as `summary`, `detail`, `tags`, and `confidence`.
+8. Record structured `sprintctl` events when decisions, resolved blockers, or reusable lessons happen. Use `decision` or `lesson-learned` for process corrections that should feed `kctl` later, and include payload keys such as `summary`, `detail`, `tags`, and `confidence`. The bar is met when any of these occur:
+   - A design choice was made between two viable options
+   - A blocker was resolved by a non-obvious fix
+   - A pattern emerged that applies to other items or future sprints
+   - A migration or schema decision was made
+   - An integration failure revealed a wrong assumption
+   Log the event immediately — context degrades fast and retroactive logging at sprint close produces thin candidates.
 9. If work pauses or changes hands, use `sprintctl claim handoff` to transfer or rotate any active claim, then produce `sprintctl handoff --output <path>` when the next session also needs broader sprint context. Keep handoff artifacts local unless a tracked artifact was explicitly requested.
 10. When implementation completes, prefer `sprintctl item done-from-claim` so done + optional claim release stay tied to ownership proof.
 11. After material sprint-state changes, refresh the shared snapshot with `sprint-snapshot`.

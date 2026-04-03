@@ -36,6 +36,7 @@ Use `docs/runbooks/project-working-practices.md` for startup order, change-class
 - Implement the change end-to-end where feasible.
 - Report what changed, what was verified, and any residual gaps.
 - Reference the verification commands or test targets that were run.
+- If any non-obvious decision was made during implementation, log it as a `sprintctl` event before closing the item. Do not defer to sprint close — log while context is hot.
 
 ## Stop and escalate
 
