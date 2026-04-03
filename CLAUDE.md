@@ -51,8 +51,15 @@ This application is **not yet deployed** to a cluster. Do not run `kubectl` agai
 1. Run the full test suite after making changes: `make test` (or `pytest -q`).
 2. Report the pass/fail count before committing.
 3. **Never commit with failing tests.**
-4. Run `make verify-fast` before opening a PR or pushing a branch that will trigger CI.
-5. Behavior changes must include updated or new tests in the same commit.
+4. **Commit after each sprint item completes — not at the end of a session.** One item = one commit. Run tests before each commit.
+5. Run `make verify-fast` before opening a PR or pushing a branch that will trigger CI.
+6. Behavior changes must include updated or new tests in the same commit.
+
+### Self-healing test loop
+
+If tests fail after a change, diagnose the root cause, fix, and re-run — up to **5 cycles** — before escalating to the user. Only escalate if:
+- still failing after 5 attempts, or
+- a design decision is required that isn't answerable from code, docs, or prior instructions.
 
 ---
 

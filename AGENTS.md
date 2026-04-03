@@ -46,7 +46,12 @@ This application is **not yet deployed** to a cluster. Do not run `kubectl` agai
 - Primary language: **Python**. Testing: `pytest` (`make test` or `pytest -q`).
 - Run the full test suite after making changes and report pass/fail count before committing.
 - **Never commit with failing tests.**
+- **Commit after each sprint item completes — not at the end of a session.** One item = one commit. Run tests before each commit.
 - Run `make verify-fast` before any PR or CI-triggering push.
+
+### Self-healing test loop
+
+If tests fail after a change, diagnose the root cause, fix, and re-run — up to **5 cycles** — before escalating. Only escalate if still failing after 5 attempts or if a design decision is required.
 
 ## Sprint and knowledge tooling
 

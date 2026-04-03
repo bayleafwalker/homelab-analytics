@@ -28,6 +28,8 @@ Use `docs/runbooks/project-working-practices.md` for startup order, change-class
 - Record material item-state changes in `sprintctl` and refresh the shared sprint snapshot when that state changes.
 - Update requirements or architecture docs when behavior or scope changes.
 - Add or update focused tests and at least one integration path for new behavior.
+- **Commit after each sprint item completes verification. Do not batch multiple items into a single commit.**
+- **If the test suite fails after a change, diagnose the root cause, fix, and re-run — up to 5 cycles — before escalating. Only escalate if still failing after 5 attempts or if a design decision is required.**
 
 ## Required output shape
 
