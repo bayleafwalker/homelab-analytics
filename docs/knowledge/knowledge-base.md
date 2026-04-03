@@ -1,7 +1,15 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-02T13:23:44Z
+Generated: 2026-04-03T09:12:51Z
 
 ## Decisions
+
+### Use claim start/done-from-claim and kind-all for kctl checks in sprint workflow
+Source: track: tooling-ops, sprint: 29
+Tags: sprintctl, kctl, workflow, agent-skills
+
+After upgrading sprintctl/kctl, runbook and skills were updated to use claim start for atomic activation, done-from-claim for ownership-bound completion, and kctl review/status kind-all checks for full durable+coordination visibility. This ensures agents see the full pipeline state rather than only the durable stream.
+
+---
 
 ### Frontend gating automation is now part of blocking verify-fast CI
 Source: track: tests, sprint: 26
