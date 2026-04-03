@@ -1,51 +1,25 @@
-SPRINT: Sprint hearth-lantern-path phase-2 — First-Answer and Remediation Closure  [closed]
-Goal:   Carry over unfinished onboarding/remediation/operating-picture scope after closing the accept/retry frontend-automation residual gap.
-Dates:  2026-04-02 to 2026-04-16
-ID:     29
-Items:  20 total — 20 done, 0 active, 0 pending, 0 blocked
+SPRINT: Sprint proof-grain-veil — Confidence Model and Trust Propagation  [active]
+Goal:   Ship the publication confidence snapshot primitive, source-health-to-publication-health propagation rules, and derived-output degradation/banding model — making stale or degraded data degrade visibly rather than silently becoming truth-ish.
+Dates:  2026-04-03 to 2026-04-17
+ID:     30
+Items:  6 total — 0 done, 0 active, 6 pending, 0 blocked
 
---- Track: demoability ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #247  High-quality demo seed data for scripted operator journey  (assignee: -)
-  [done    ] #248  Minimal walkthrough doc: scripted path proving the product loop from upload to operating picture  (assignee: -)
+--- Track: confidence-model ---
+  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
+  [pending ] #250  PublicationConfidenceSnapshot model, compute_publication_confidence(), migrations, snap on publication refresh  (assignee: -)
 
---- Track: first-answer ---
-  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #231  Post-ingest redirect: summary of what just arrived  (assignee: -)
-  [done    ] #232  First-answer composition: inline cashflow, recurring baseline, affordability, attention items  (assignee: -)
-  [done    ] #233  Progressive disclosure: show current value and what additional sources unlock  (assignee: -)
-
---- Track: guided-onboarding ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #230  Wire existing upload API behind the wizard flow  (assignee: -)
-
---- Track: onboarding-progress ---
-  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #243  Onboarding checklist widget: source types onboarded, pending, what each unlocks  (assignee: -)
-  [done    ] #244  Suggested next source: recommend next most valuable source based on current state  (assignee: -)
-  [done    ] #245  Dismissable checklist: collapse to compact badge once all core sources active  (assignee: -)
-
---- Track: operating-picture ---
-  health: 5 items — 5 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #238  Structured Operating Picture layout: domain cards with headline metric, trend, top attention  (assignee: -)
-  [done    ] #239  Confidence band: freshness/confidence indicator per domain card  (assignee: -)
-  [done    ] #240  Upcoming actions strip: next 7 days of obligations, renewals, due exports, approvals  (assignee: -)
-  [done    ] #241  Cross-domain attention queue: unified items ranked by urgency with detail links  (assignee: -)
-  [done    ] #242  Recent changes feed: last 5 material changes across all domains  (assignee: -)
-
---- Track: source-remediation ---
-  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #234  Inline remediation actions: contextual upload/retry/inspect per stale source  (assignee: -)
-  [done    ] #235  Upload-in-context: file upload directly from freshness row  (assignee: -)
-  [done    ] #236  Recovery preview: show which publications recover once stale source refreshed  (assignee: -)
-  [done    ] #237  Promote freshness to top-level /sources route for operators  (assignee: -)
+--- Track: publication-metadata ---
+  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
+  [pending ] #251  Extend PublicationContract with freshness/confidence fields; export to artifacts; frontend confidence badges  (assignee: -)
 
 --- Track: tests ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #246  Integration test for freshness remediation to upload-in-context to recovery  (assignee: -)
+  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
+  [pending ] #254  Scenario fixtures for stale, partial, and malformed input states  (assignee: -)
+  [pending ] #255  Confidence computation, cross-domain freshness, integration tests, make verify-fast  (assignee: -)
 
---- Track: tooling-ops ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #249  Upgrade sprintctl+kctl and refactor sprint/knowledge docs and skills  (assignee: -)
+--- Track: trust-propagation ---
+  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
+  [pending ] #252  Source-health-to-publication-health propagation rules — stale source marks downstream outputs degraded  (assignee: -)
+  [pending ] #253  Derived-output degradation rules and confidence scoring/banding model  (assignee: -)
 
-Rendered: 2026-04-03T09:09:23Z
+Rendered: 2026-04-03T09:18:05Z
