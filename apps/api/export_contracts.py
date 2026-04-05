@@ -59,6 +59,10 @@ def export_contracts(output_dir: Path = DEFAULT_GENERATED_DIR) -> None:
             builtin_packs=(FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK, HOMELAB_PACK),
         )
         extension_registry = build_extension_registry(settings)
+
+        # Extract control_plane_store from app for confidence enrichment
+        control_plane_store = app.container.control_plane_store if hasattr(app, "container") else None
+
         publication_catalog = build_publication_contract_catalog(
             capability_packs,
             publication_relations=build_household_publication_relation_map(
@@ -70,6 +74,7 @@ def export_contracts(output_dir: Path = DEFAULT_GENERATED_DIR) -> None:
             current_dimension_contracts=(
                 HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS.current_dimension_contracts
             ),
+            control_plane=control_plane_store,
         )
         publication_contracts_path.write_text(
             json.dumps(publication_catalog, indent=2, sort_keys=True, default=to_jsonable)

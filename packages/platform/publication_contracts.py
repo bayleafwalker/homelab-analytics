@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
 from packages.platform.capability_types import (
     CapabilityPack,
@@ -10,6 +10,9 @@ from packages.platform.capability_types import (
 )
 from packages.platform.current_dimension_contracts import CurrentDimensionContractDefinition
 from packages.shared.extensions import ExtensionRegistry
+
+if TYPE_CHECKING:
+    from packages.storage.control_plane import ControlPlaneStore
 
 
 @dataclass(frozen=True)
@@ -574,6 +577,7 @@ def build_publication_contract_catalog(
         str,
         CurrentDimensionContractDefinition,
     ] | None = None,
+    control_plane: ControlPlaneStore | None = None,
 ) -> dict[str, Any]:
     contracts = build_publication_contracts(
         capability_packs,
@@ -581,6 +585,31 @@ def build_publication_contract_catalog(
         current_dimension_relations=current_dimension_relations,
         current_dimension_contracts=current_dimension_contracts,
     )
+
+    # Enrich contracts with latest confidence metadata if control_plane is available
+    if control_plane is not None:
+        from packages.pipelines.publication_confidence_service import (
+            get_latest_publication_confidence,
+        )
+
+        enriched_contracts = []
+        for contract in contracts:
+            latest_confidence = get_latest_publication_confidence(
+                contract.publication_key,
+                control_plane,
+            )
+            if latest_confidence is not None:
+                # Replace contract with enriched version
+                contract = replace(
+                    contract,
+                    freshness_state=str(latest_confidence.freshness_state),
+                    completeness_pct=latest_confidence.completeness_pct,
+                    confidence_verdict=str(latest_confidence.confidence_verdict),
+                    assessed_at=latest_confidence.assessed_at.isoformat(),
+                )
+            enriched_contracts.append(contract)
+        contracts = enriched_contracts
+
     ui_descriptors = build_ui_descriptor_contracts(capability_packs)
     return {
         "publication_contracts": contracts,
