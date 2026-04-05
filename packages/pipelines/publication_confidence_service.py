@@ -14,7 +14,10 @@ from packages.platform.publication_confidence import (
     SourceFreshnessSnapshot,
     compute_publication_freshness_state,
 )
-from packages.platform.source_freshness import SourceFreshnessState
+from packages.platform.source_freshness import (
+    SourceFreshnessRunObservation,
+    evaluate_source_freshness,
+)
 from packages.storage.control_plane import PublicationConfidenceSnapshotCreate
 
 if TYPE_CHECKING:
@@ -57,14 +60,51 @@ def compute_and_record_publication_confidence(
                 contributing_run_ids.append(record.source_run_id)
 
     # Evaluate freshness for each contributing source
-    # For now, assume CURRENT unless we have freshness config
-    # (This will be enhanced when non-finance freshness configs are populated)
     source_freshness_states: dict[str, SourceFreshnessSnapshot] = {}
+    all_freshness_configs = {
+        config.source_asset_id: config
+        for config in control_plane.list_source_freshness_configs()
+    }
+
     for source_system in source_runs.keys():
+        freshness_config = all_freshness_configs.get(source_system)
+
+        # If no config exists, default to CURRENT (backwards compat)
+        if freshness_config is None:
+            source_freshness_states[source_system] = SourceFreshnessSnapshot(
+                source_asset_id=source_system,
+                freshness_state=SourceFreshnessState.CURRENT,
+                last_ingest_at=as_of,
+            )
+            continue
+
+        # Query run observations for this source asset from lineage
+        # (For now: assume all contributing runs are successful; a future enhancement
+        # can enhance this to query run_metadata for actual status)
+        run_id = source_runs[source_system]
+        observations = [
+            SourceFreshnessRunObservation(
+                status="success",
+                observed_at=as_of,
+                covered_from=None,
+                covered_through=None,
+            )
+        ]
+
+        # Evaluate freshness using the source freshness engine
+        assessment = evaluate_source_freshness(
+            freshness_config,
+            observations,
+            as_of=as_of.date() if isinstance(as_of, datetime) else as_of,
+        )
+
         source_freshness_states[source_system] = SourceFreshnessSnapshot(
             source_asset_id=source_system,
-            freshness_state=SourceFreshnessState.CURRENT,  # Default assumption
-            last_ingest_at=as_of,
+            freshness_state=assessment.state,
+            last_ingest_at=assessment.last_ingest_at,
+            covered_through=assessment.covered_through.isoformat()
+            if assessment.covered_through
+            else None,
         )
 
     # Calculate completeness: for now assume 100% if we have lineage, else 0

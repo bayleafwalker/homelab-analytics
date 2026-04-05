@@ -10,6 +10,7 @@ from packages.pipelines.configured_ingestion_definition import (
 from packages.pipelines.extension_registries import PipelineRegistries, load_pipeline_registries
 from packages.pipelines.pipeline_catalog import sync_pipeline_catalog
 from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
+from packages.pipelines.source_freshness_bootstrap import ensure_domain_freshness_configs
 from packages.pipelines.transformation_domain_registry import TransformationDomainRegistry
 from packages.pipelines.transformation_refresh_registry import PublicationRefreshRegistry
 from packages.pipelines.transformation_service import TransformationService
@@ -212,6 +213,7 @@ def build_container(
     )
 
     maybe_bootstrap_local_admin(control_plane_store, settings)
+    ensure_domain_freshness_configs(control_plane_store, tuple(resolved_capability_packs))
     sync_pipeline_catalog(
         control_plane_store,
         pipeline_registries.pipeline_catalog_registry,
