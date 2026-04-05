@@ -730,6 +730,22 @@ class AuthAuditStore(Protocol):
 
 
 @runtime_checkable
+class PublicationConfidenceSnapshotStore(Protocol):
+    def record_publication_confidence_snapshot(
+        self, entries: tuple[PublicationConfidenceSnapshotCreate, ...]
+    ) -> list[PublicationConfidenceSnapshotRecord]:
+        ...
+
+    def list_publication_confidence_snapshots(
+        self,
+        *,
+        publication_key: str | None = None,
+        limit: int | None = None,
+    ) -> list[PublicationConfidenceSnapshotRecord]:
+        ...
+
+
+@runtime_checkable
 class SnapshotStore(Protocol):
     def export_snapshot(self) -> ControlPlaneSnapshot:
         ...
@@ -802,6 +818,7 @@ class ControlPlaneAdminStore(
     ExecutionStore,
     SourceLineageStore,
     PublicationAuditStore,
+    PublicationConfidenceSnapshotStore,
     AuthAuditStore,
     Protocol,
 ):

@@ -18,7 +18,7 @@ from __future__ import annotations
 import calendar
 import logging
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, Callable, Literal
 
 logger = logging.getLogger("homelab_analytics.ha_policy")
