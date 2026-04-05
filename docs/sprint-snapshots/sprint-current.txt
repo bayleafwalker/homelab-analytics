@@ -1,8 +1,8 @@
-SPRINT: Sprint proof-grain-veil — Confidence Model and Trust Propagation  [active]
+SPRINT: Sprint proof-grain-veil — Confidence Model and Trust Propagation  [closed]
 Goal:   Ship the publication confidence snapshot primitive, source-health-to-publication-health propagation rules, and derived-output degradation/banding model — making stale or degraded data degrade visibly rather than silently becoming truth-ish.
 Dates:  2026-04-03 to 2026-04-17
 ID:     30
-Items:  9 total — 5 done, 0 active, 4 pending, 0 blocked
+Items:  9 total — 9 done, 0 active, 0 pending, 0 blocked
 
 --- Track: confidence-model ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
@@ -13,8 +13,8 @@ Items:  9 total — 5 done, 0 active, 4 pending, 0 blocked
   [done    ] #251  Extend PublicationContract with freshness/confidence fields; export to artifacts; frontend confidence badges  (assignee: -)
 
 --- Track: tests ---
-  health: 2 items — 1 done (50%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #254  Scenario fixtures for stale, partial, and malformed input states  (assignee: -)
+  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #254  Scenario fixtures for stale, partial, and malformed input states  (assignee: -)
   [done    ] #255  Confidence computation, cross-domain freshness, integration tests, make verify-fast  (assignee: -)
 
 --- Track: trust-propagation ---
@@ -23,9 +23,9 @@ Items:  9 total — 5 done, 0 active, 4 pending, 0 blocked
   [done    ] #253  Derived-output degradation rules and confidence scoring/banding model  (assignee: -)
 
 --- Track: wiring ---
-  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
-  [pending ] #256  Seed non-finance source freshness configs (utilities, homelab, HA)  (assignee: -)
-  [pending ] #257  Transformation service hook — call compute_and_record_publication_confidence() on mart refresh  (assignee: -)
-  [pending ] #258  Contract artifact export enrichment — populate confidence fields at export time  (assignee: -)
+  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #256  Seed non-finance source freshness configs (utilities, homelab, HA)  (assignee: -)
+  [done    ] #257  Transformation service hook — call compute_and_record_publication_confidence() on mart refresh  (assignee: -)
+  [done    ] #258  Contract artifact export enrichment — populate confidence fields at export time  (assignee: -)
 
-Rendered: 2026-04-05T16:56:50Z
+Rendered: 2026-04-05T18:18:40Z
