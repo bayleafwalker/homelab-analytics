@@ -1,31 +1,24 @@
-SPRINT: Sprint proof-grain-veil — Confidence Model and Trust Propagation  [closed]
-Goal:   Ship the publication confidence snapshot primitive, source-health-to-publication-health propagation rules, and derived-output degradation/banding model — making stale or degraded data degrade visibly rather than silently becoming truth-ish.
-Dates:  2026-04-03 to 2026-04-17
-ID:     30
-Items:  9 total — 9 done, 0 active, 0 pending, 0 blocked
+SPRINT: forge-amber-lens — Confidence Surface: Dashboard, Tracing, and Lineage  [active]
+Goal:   
+Dates:  2026-04-06 to 2026-04-17
+ID:     31
+Items:  5 total — 0 done, 0 active, 5 pending, 0 blocked
 
---- Track: confidence-model ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #250  PublicationConfidenceSnapshot model, compute_publication_confidence(), migrations, snap on publication refresh  (assignee: -)
+--- Track: dashboard ---
+  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
+  [pending ] #259  Confidence dashboard: /control/confidence page, domain summary cards, per-publication rows, verdict badges, stale filter  (assignee: -)
 
---- Track: publication-metadata ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #251  Extend PublicationContract with freshness/confidence fields; export to artifacts; frontend confidence badges  (assignee: -)
+--- Track: tracing ---
+  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
+  [pending ] #260  Scenario assumptions_summary: attach source freshness state per contributing source and render on scenario detail page  (assignee: -)
+  [pending ] #261  Policy input_freshness: capture source freshness at evaluation time and expose on policy API responses  (assignee: -)
 
---- Track: tests ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #254  Scenario fixtures for stale, partial, and malformed input states  (assignee: -)
-  [done    ] #255  Confidence computation, cross-domain freshness, integration tests, make verify-fast  (assignee: -)
+--- Track: lineage ---
+  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
+  [pending ] #262  Bidirectional lineage: contributing_sources reverse lookup for both storage backends and API query mode  (assignee: -)
 
---- Track: trust-propagation ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #252  Source-health-to-publication-health propagation rules — stale source marks downstream outputs degraded  (assignee: -)
-  [done    ] #253  Derived-output degradation rules and confidence scoring/banding model  (assignee: -)
+--- Track: test-debt ---
+  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
+  [pending ] #263  Fix 3 pre-existing failures: test_refresh_recent_large_transactions, test_recent_large_transactions_is_idempotent, test_refresh_publications_includes_new_marts  (assignee: -)
 
---- Track: wiring ---
-  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #256  Seed non-finance source freshness configs (utilities, homelab, HA)  (assignee: -)
-  [done    ] #257  Transformation service hook — call compute_and_record_publication_confidence() on mart refresh  (assignee: -)
-  [done    ] #258  Contract artifact export enrichment — populate confidence fields at export time  (assignee: -)
-
-Rendered: 2026-04-05T18:18:40Z
+Rendered: 2026-04-05T18:41:27Z
