@@ -18,7 +18,7 @@ from __future__ import annotations
 import calendar
 import logging
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any, Callable, Literal
 
 logger = logging.getLogger("homelab_analytics.ha_policy")
@@ -28,6 +28,16 @@ PolicyVerdict = Literal["ok", "warning", "breach", "unavailable"]
 _WARNING_UTILIZATION_PCT: float = 80.0
 _STALE_BRIDGE_SECONDS: int = 300      # 5 minutes
 _PACE_OVERSPEND_MARGIN: float = 15.0  # pct-points above daily pace → warning
+
+
+@dataclass
+class ConfidenceSummary:
+    """Summary of publication confidence at time of policy evaluation."""
+
+    verdict: str
+    freshness_state: str
+    completeness_pct: int
+    assessed_at: datetime
 
 
 @dataclass
@@ -42,6 +52,7 @@ class PolicyResult:
     evaluated_at: str
     approval_required: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
+    input_freshness: ConfidenceSummary | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
