@@ -47,6 +47,10 @@ class PublicationContractModel(BaseModel):
     renderer_hints: dict[str, str]
     ui_descriptor_keys: list[str]
     columns: list[PublicationColumnContractModel]
+    freshness_state: str | None = None
+    completeness_pct: int | None = None
+    confidence_verdict: str | None = None
+    assessed_at: str | None = None
 
 
 class UiDescriptorContractModel(BaseModel):

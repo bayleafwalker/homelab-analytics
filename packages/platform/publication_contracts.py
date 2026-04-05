@@ -44,6 +44,11 @@ class PublicationContract:
     renderer_hints: dict[str, str] = field(default_factory=dict)
     ui_descriptor_keys: tuple[str, ...] = ()
     columns: tuple[PublicationColumnContract, ...] = ()
+    # Confidence metadata (optional, set at export time from latest snapshot)
+    freshness_state: str | None = None
+    completeness_pct: int | None = None
+    confidence_verdict: str | None = None
+    assessed_at: str | None = None  # ISO format timestamp
 
 
 @dataclass(frozen=True)
