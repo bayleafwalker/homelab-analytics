@@ -74,6 +74,76 @@ def source_unconfigured() -> SourceFreshnessSnapshot:
     )
 
 
+# Scenario fixtures for stale, partial, and malformed input states
+@pytest.fixture
+def scenario_stale_source(source_overdue):
+    """Publication with a stale source."""
+    return {
+        "publication_key": "pub_stale_financial_summary",
+        "sources": {source_overdue.source_asset_id: source_overdue},
+        "completeness_pct": 60,
+        "expected_verdict": ConfidenceVerdict.DEGRADED,
+    }
+
+
+@pytest.fixture
+def scenario_partial_ingestion(source_current, source_due_soon):
+    """Publication with partial source coverage (only 40% of expected sources ingested)."""
+    return {
+        "publication_key": "pub_partial_utilities_summary",
+        "sources": {source_current.source_asset_id: source_current},
+        "completeness_pct": 40,
+        "expected_verdict": ConfidenceVerdict.DEGRADED,
+    }
+
+
+@pytest.fixture
+def scenario_missing_period(source_missing_period):
+    """Publication with source covering a missing period."""
+    return {
+        "publication_key": "pub_gap_homelab_metrics",
+        "sources": {source_missing_period.source_asset_id: source_missing_period},
+        "completeness_pct": 70,
+        "expected_verdict": ConfidenceVerdict.DEGRADED,
+    }
+
+
+@pytest.fixture
+def scenario_all_stale(source_overdue, source_missing_period):
+    """Publication where all sources are stale with low completeness."""
+    return {
+        "publication_key": "pub_unreliable_cross_domain",
+        "sources": {
+            source_overdue.source_asset_id: source_overdue,
+            source_missing_period.source_asset_id: source_missing_period,
+        },
+        "completeness_pct": 20,
+        "expected_verdict": ConfidenceVerdict.UNRELIABLE,
+    }
+
+
+@pytest.fixture
+def scenario_unconfigured_sources(source_unconfigured):
+    """Publication with no freshness configs (malformed state)."""
+    return {
+        "publication_key": "pub_unknown_sources",
+        "sources": {source_unconfigured.source_asset_id: source_unconfigured},
+        "completeness_pct": 100,
+        "expected_verdict": ConfidenceVerdict.UNAVAILABLE,
+    }
+
+
+@pytest.fixture
+def scenario_empty_sources():
+    """Publication with no contributing sources."""
+    return {
+        "publication_key": "pub_no_sources",
+        "sources": {},
+        "completeness_pct": 0,
+        "expected_verdict": ConfidenceVerdict.UNAVAILABLE,
+    }
+
+
 class TestVerdictComputation:
     """Test confidence verdict logic."""
 
@@ -267,3 +337,83 @@ class TestPublicationConfidenceSnapshot:
         )
         assert snapshot.contributing_run_ids == []
         assert snapshot.quality_flags == {}
+
+
+class TestScenarios:
+    """Test verdict logic against real-world scenarios."""
+
+    def test_scenario_stale_source(self, now, scenario_stale_source):
+        """Stale source with moderate completeness → DEGRADED."""
+        scenario = scenario_stale_source
+        snapshot = PublicationConfidenceSnapshot.create(
+            publication_key=scenario["publication_key"],
+            assessed_at=now,
+            freshness_state=FreshnessState.STALE,
+            completeness_pct=scenario["completeness_pct"],
+            source_freshness_states=scenario["sources"],
+        )
+        assert snapshot.confidence_verdict == scenario["expected_verdict"]
+        assert snapshot.confidence_verdict == ConfidenceVerdict.DEGRADED
+
+    def test_scenario_partial_ingestion(self, now, scenario_partial_ingestion):
+        """Partial source coverage with low completeness → DEGRADED."""
+        scenario = scenario_partial_ingestion
+        snapshot = PublicationConfidenceSnapshot.create(
+            publication_key=scenario["publication_key"],
+            assessed_at=now,
+            freshness_state=FreshnessState.DUE_SOON,
+            completeness_pct=scenario["completeness_pct"],
+            source_freshness_states=scenario["sources"],
+        )
+        assert snapshot.confidence_verdict == scenario["expected_verdict"]
+
+    def test_scenario_missing_period(self, now, scenario_missing_period):
+        """Source with missing period → DEGRADED."""
+        scenario = scenario_missing_period
+        snapshot = PublicationConfidenceSnapshot.create(
+            publication_key=scenario["publication_key"],
+            assessed_at=now,
+            freshness_state=FreshnessState.STALE,
+            completeness_pct=scenario["completeness_pct"],
+            source_freshness_states=scenario["sources"],
+        )
+        assert snapshot.confidence_verdict == scenario["expected_verdict"]
+
+    def test_scenario_all_stale_low_completeness(self, now, scenario_all_stale):
+        """All sources stale with low completeness → UNRELIABLE."""
+        scenario = scenario_all_stale
+        snapshot = PublicationConfidenceSnapshot.create(
+            publication_key=scenario["publication_key"],
+            assessed_at=now,
+            freshness_state=FreshnessState.STALE,
+            completeness_pct=scenario["completeness_pct"],
+            source_freshness_states=scenario["sources"],
+        )
+        assert snapshot.confidence_verdict == scenario["expected_verdict"]
+        assert snapshot.confidence_verdict == ConfidenceVerdict.UNRELIABLE
+
+    def test_scenario_unconfigured_sources(self, now, scenario_unconfigured_sources):
+        """Unconfigured sources → UNAVAILABLE."""
+        scenario = scenario_unconfigured_sources
+        snapshot = PublicationConfidenceSnapshot.create(
+            publication_key=scenario["publication_key"],
+            assessed_at=now,
+            freshness_state=FreshnessState.UNAVAILABLE,
+            completeness_pct=scenario["completeness_pct"],
+            source_freshness_states=scenario["sources"],
+        )
+        assert snapshot.confidence_verdict == scenario["expected_verdict"]
+        assert snapshot.confidence_verdict == ConfidenceVerdict.UNAVAILABLE
+
+    def test_scenario_empty_sources(self, now, scenario_empty_sources):
+        """No contributing sources → UNAVAILABLE."""
+        scenario = scenario_empty_sources
+        snapshot = PublicationConfidenceSnapshot.create(
+            publication_key=scenario["publication_key"],
+            assessed_at=now,
+            freshness_state=FreshnessState.UNAVAILABLE,
+            completeness_pct=scenario["completeness_pct"],
+            source_freshness_states=scenario["sources"],
+        )
+        assert snapshot.confidence_verdict == scenario["expected_verdict"]
+        assert snapshot.confidence_verdict == ConfidenceVerdict.UNAVAILABLE
