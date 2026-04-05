@@ -16,17 +16,18 @@ from packages.platform.publication_confidence import (
 )
 from packages.platform.source_freshness import (
     SourceFreshnessRunObservation,
+    SourceFreshnessState,
     evaluate_source_freshness,
 )
 from packages.storage.control_plane import PublicationConfidenceSnapshotCreate
 
 if TYPE_CHECKING:
-    from packages.storage.control_plane import ControlPlane
+    from packages.storage.control_plane import ControlPlaneStore
 
 
 def compute_and_record_publication_confidence(
     publication_key: str,
-    control_plane: ControlPlane,
+    control_plane: ControlPlaneStore,
     storage_adapter,
     *,
     as_of: datetime | None = None,
@@ -81,7 +82,6 @@ def compute_and_record_publication_confidence(
         # Query run observations for this source asset from lineage
         # (For now: assume all contributing runs are successful; a future enhancement
         # can enhance this to query run_metadata for actual status)
-        run_id = source_runs[source_system]
         observations = [
             SourceFreshnessRunObservation(
                 status="success",
@@ -142,7 +142,7 @@ def compute_and_record_publication_confidence(
 
 def get_latest_publication_confidence(
     publication_key: str,
-    control_plane: ControlPlane,
+    control_plane: ControlPlaneStore,
 ) -> PublicationConfidenceSnapshot | None:
     """Retrieve the latest confidence snapshot for a publication.
 

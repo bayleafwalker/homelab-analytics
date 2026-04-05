@@ -431,7 +431,7 @@ def refresh_recent_large_transactions(
             counterparty_name, amount, currency, description, direction
         FROM {FACT_TRANSACTION_CURRENT_TABLE}
         WHERE ABS(amount) >= ?
-          AND booked_at >= CURRENT_DATE - INTERVAL '{lookback_months}' MONTH
+          AND booked_at >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '{lookback_months}' MONTH)
         ORDER BY ABS(amount) DESC
         """,
         [threshold],

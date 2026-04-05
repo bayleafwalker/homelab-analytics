@@ -1,7 +1,6 @@
 """Tests for publication confidence model and verdict computation."""
 
 from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
 
 import pytest
 

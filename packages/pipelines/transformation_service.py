@@ -238,6 +238,9 @@ from packages.pipelines.normalization import (
     normalize_currency_code,
     normalize_timestamp_utc,
 )
+from packages.pipelines.publication_confidence_service import (
+    compute_and_record_publication_confidence,
+)
 from packages.pipelines.reconciliation import reconcile_batch
 from packages.pipelines.transformation_assets import (
     count_asset_event_rows,
@@ -255,9 +258,6 @@ from packages.pipelines.transformation_household import (
     get_household_members,
     seed_default_household_member,
     upsert_household_member,
-)
-from packages.pipelines.publication_confidence_service import (
-    compute_and_record_publication_confidence,
 )
 from packages.pipelines.transformation_refresh_registry import (
     PublicationRefreshRegistry,
