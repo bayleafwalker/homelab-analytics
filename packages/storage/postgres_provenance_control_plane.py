@@ -71,6 +71,7 @@ class PostgresProvenanceControlPlaneMixin:
         *,
         input_run_id: str | None = None,
         target_layer: str | None = None,
+        source_asset_id: str | None = None,
     ) -> list[SourceLineageRecord]:
         clauses: list[str] = []
         params: list[object] = []
@@ -80,6 +81,9 @@ class PostgresProvenanceControlPlaneMixin:
         if target_layer is not None:
             clauses.append("target_layer = %s")
             params.append(target_layer)
+        if source_asset_id is not None:
+            clauses.append("source_system = %s")
+            params.append(source_asset_id)
         where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         with self._connect(row_factory=dict_row) as connection:
             rows = connection.execute(

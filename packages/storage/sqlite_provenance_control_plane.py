@@ -65,6 +65,7 @@ class SQLiteProvenanceControlPlaneMixin:
         *,
         input_run_id: str | None = None,
         target_layer: str | None = None,
+        source_asset_id: str | None = None,
     ) -> list[SourceLineageRecord]:
         clauses: list[str] = []
         params: list[str] = []
@@ -74,6 +75,9 @@ class SQLiteProvenanceControlPlaneMixin:
         if target_layer is not None:
             clauses.append("target_layer = ?")
             params.append(target_layer)
+        if source_asset_id is not None:
+            clauses.append("source_system = ?")
+            params.append(source_asset_id)
         where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         with self._connect() as connection:
             connection.row_factory = sqlite3.Row

@@ -36,6 +36,21 @@ def register_control_routes(
             )
         }
 
+    @app.get("/control/lineage/downstream")
+    async def get_lineage_downstream(
+        source_asset_id: str,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        lineage_records = resolved_config_repository.list_source_lineage(
+            source_asset_id=source_asset_id,
+        )
+        # Extract distinct publication keys (target_name values)
+        publications = sorted(set(record.target_name for record in lineage_records))
+        return {
+            "source_asset_id": source_asset_id,
+            "publications": publications,
+        }
+
     @app.get("/control/publication-audit")
     async def get_publication_audit(
         run_id: str | None = None,

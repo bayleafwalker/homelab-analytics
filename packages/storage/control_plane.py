@@ -687,6 +687,7 @@ class SourceLineageStore(Protocol):
         *,
         input_run_id: str | None = None,
         target_layer: str | None = None,
+        source_asset_id: str | None = None,
     ) -> list[SourceLineageRecord]:
         ...
 
