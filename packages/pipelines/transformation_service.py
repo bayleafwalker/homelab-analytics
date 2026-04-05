@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -256,6 +256,9 @@ from packages.pipelines.transformation_household import (
     seed_default_household_member,
     upsert_household_member,
 )
+from packages.pipelines.publication_confidence_service import (
+    compute_and_record_publication_confidence,
+)
 from packages.pipelines.transformation_refresh_registry import (
     PublicationRefreshRegistry,
     get_default_publication_refresh_registry,
@@ -439,7 +442,31 @@ class TransformationService:
         self,
         publication_keys: list[str] | tuple[str, ...],
     ) -> list[str]:
-        return self._publication_refresh_registry.refresh(self, publication_keys)
+        """Refresh publications and compute confidence snapshots.
+
+        Refreshes the specified publications and records their confidence
+        snapshots in the control plane for upstream consumption by dashboards,
+        APIs, and other confidence-aware features.
+        """
+        refreshed = self._publication_refresh_registry.refresh(self, publication_keys)
+
+        # Record confidence snapshots for each refreshed publication
+        if self._control_plane_store is not None:
+            as_of = datetime.now(timezone.utc)
+            for publication_key in refreshed:
+                try:
+                    compute_and_record_publication_confidence(
+                        publication_key,
+                        self._control_plane_store,
+                        self._store,
+                        as_of=as_of,
+                    )
+                except Exception:
+                    # Silently skip on error; confidence snapshot is optional
+                    # and should not block publication refresh
+                    pass
+
+        return refreshed
 
     def get_monthly_cashflow(
         self,
