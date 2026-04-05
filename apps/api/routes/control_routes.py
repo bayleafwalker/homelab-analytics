@@ -11,6 +11,20 @@ from packages.shared.metrics import metrics_registry
 from packages.storage.control_plane import ControlPlaneAdminStore
 
 
+def _worst_case_verdict(verdict1: str, verdict2: str) -> str:
+    """Return the worst case verdict between two verdicts.
+
+    Verdict severity order: UNAVAILABLE > UNRELIABLE > DEGRADED > TRUSTWORTHY
+    """
+    severity = {
+        "TRUSTWORTHY": 1,
+        "DEGRADED": 2,
+        "UNRELIABLE": 3,
+        "UNAVAILABLE": 4,
+    }
+    return verdict1 if severity.get(verdict1, 0) >= severity.get(verdict2, 0) else verdict2
+
+
 def register_control_routes(
     app: FastAPI,
     *,
@@ -90,6 +104,47 @@ def register_control_routes(
                 }
             )
         return {"datasets": datasets}
+
+    @app.get("/control/confidence")
+    async def get_confidence() -> dict[str, Any]:
+        require_unsafe_admin()
+        snapshots = resolved_config_repository.list_publication_confidence_snapshots()
+        # Group by domain derived from publication_key (first component before underscore)
+        domain_summaries: dict[str, dict[str, Any]] = {}
+        publications = []
+
+        for snapshot in snapshots:
+            pub_data = {
+                "publication_key": snapshot.publication_key,
+                "freshness_state": snapshot.freshness_state,
+                "completeness_pct": snapshot.completeness_pct,
+                "confidence_verdict": snapshot.confidence_verdict,
+                "assessed_at": snapshot.assessed_at.isoformat(),
+            }
+            publications.append(pub_data)
+
+            # Extract domain (e.g., "finance" from "pub_budget_projection")
+            parts = snapshot.publication_key.split("_")
+            domain = parts[1] if len(parts) > 1 else "general"
+
+            if domain not in domain_summaries:
+                domain_summaries[domain] = {
+                    "domain": domain,
+                    "verdict": snapshot.confidence_verdict,
+                    "count": 0,
+                }
+            else:
+                # Roll up to worst-case verdict
+                current_verdict = domain_summaries[domain]["verdict"]
+                worst_case = _worst_case_verdict(current_verdict, snapshot.confidence_verdict)
+                domain_summaries[domain]["verdict"] = worst_case
+
+            domain_summaries[domain]["count"] += 1
+
+        return {
+            "publications": publications,
+            "domain_summaries": list(domain_summaries.values()),
+        }
 
     @app.get("/control/schedule-dispatches")
     async def list_schedule_dispatches(
