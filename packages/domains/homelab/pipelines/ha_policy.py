@@ -26,6 +26,33 @@ logger = logging.getLogger("homelab_analytics.ha_policy")
 PolicyVerdict = Literal["ok", "warning", "breach", "unavailable"]
 
 _WARNING_UTILIZATION_PCT: float = 80.0
+
+
+def _verdict_severity(verdict: str) -> int:
+    """Return severity of a confidence verdict (higher = worse)."""
+    severity_map = {
+        "TRUSTWORTHY": 1,
+        "DEGRADED": 2,
+        "UNRELIABLE": 3,
+        "UNAVAILABLE": 4,
+    }
+    return severity_map.get(verdict, 0)
+
+
+def _freshness_severity(state: str) -> int:
+    """Return severity of a freshness state (higher = worse)."""
+    severity_map = {
+        "CURRENT": 1,
+        "DUE_SOON": 2,
+        "OVERDUE": 3,
+        "MISSING_PERIOD": 4,
+        "PARSE_FAILED": 5,
+        "UNCONFIGURED": 0,
+    }
+    return severity_map.get(state, 0)
+
+
+_WARNING_UTILIZATION_PCT: float = 80.0
 _STALE_BRIDGE_SECONDS: int = 300      # 5 minutes
 _PACE_OVERSPEND_MARGIN: float = 15.0  # pct-points above daily pace → warning
 
@@ -218,8 +245,14 @@ class HaPolicyEvaluator:
             ``budget_rows``         (list[dict]) — mart_budget_progress_current rows
     """
 
-    def __init__(self, fetch_fn: FetchFn) -> None:
+    def __init__(
+        self,
+        fetch_fn: FetchFn,
+        *,
+        control_plane_store: Any | None = None,
+    ) -> None:
         self._fetch_fn = fetch_fn
+        self._control_plane_store = control_plane_store
         self._last_results: list[PolicyResult] = []
 
     def evaluate(self) -> list[PolicyResult]:
@@ -231,6 +264,39 @@ class HaPolicyEvaluator:
             context = {}
 
         now = datetime.now(UTC)
+
+        # Capture confidence snapshot at evaluation time if available
+        input_freshness = None
+        if self._control_plane_store is not None:
+            try:
+                snapshots = self._control_plane_store.list_publication_confidence_snapshots()
+                if snapshots:
+                    # Aggregate to worst-case verdict for all publications
+                    verdicts = [snap.confidence_verdict for snap in snapshots]
+                    worst_verdict = verdicts[0]
+                    for v in verdicts[1:]:
+                        if _verdict_severity(v) > _verdict_severity(worst_verdict):
+                            worst_verdict = v
+
+                    avg_completeness = sum(
+                        snap.completeness_pct for snap in snapshots
+                    ) // len(snapshots)
+                    worst_freshness = snapshots[0].freshness_state
+                    for snap in snapshots[1:]:
+                        if _freshness_severity(snap.freshness_state) > _freshness_severity(
+                            worst_freshness
+                        ):
+                            worst_freshness = snap.freshness_state
+
+                    input_freshness = ConfidenceSummary(
+                        verdict=worst_verdict,
+                        freshness_state=worst_freshness,
+                        completeness_pct=avg_completeness,
+                        assessed_at=now,
+                    )
+            except Exception:
+                pass
+
         results: list[PolicyResult] = []
         for policy in _POLICIES:
             try:
@@ -250,6 +316,7 @@ class HaPolicyEvaluator:
                 evaluated_at=now.isoformat(),
                 approval_required=policy.approval_required,
                 metadata=dict(policy.metadata),
+                input_freshness=input_freshness,
             ))
 
         self._last_results = results
