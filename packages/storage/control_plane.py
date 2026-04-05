@@ -160,6 +160,32 @@ class PublicationAuditRecord:
 
 
 @dataclass(frozen=True)
+class PublicationConfidenceSnapshotCreate:
+    snapshot_id: str
+    publication_key: str
+    assessed_at: datetime
+    freshness_state: str
+    completeness_pct: int
+    confidence_verdict: str
+    quality_flags: dict | None = None
+    contributing_run_ids: tuple[str, ...] | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass(frozen=True)
+class PublicationConfidenceSnapshotRecord:
+    snapshot_id: str
+    publication_key: str
+    assessed_at: datetime
+    freshness_state: str
+    completeness_pct: int
+    confidence_verdict: str
+    quality_flags: dict | None
+    contributing_run_ids: tuple[str, ...]
+    created_at: datetime
+
+
+@dataclass(frozen=True)
 class AuthAuditEventCreate:
     event_id: str
     event_type: str

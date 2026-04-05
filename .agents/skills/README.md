@@ -1,5 +1,18 @@
 # Agent Skills
 
+## Maintenance
+
+Skills are authored and maintained here in `.agents/skills/` — this is the source of truth and works for all agents via `AGENTS.md`.
+
+`.claude/skills/` holds only symlinks — never content. To add a skill:
+1. Create the directory and `SKILL.md` here under `.agents/skills/<name>/`.
+2. Add a symlink: `ln -s ../../.agents/skills/<name> .claude/skills/<name>`
+3. Register it in this README.
+
+Never copy skill content into `.claude/skills/` — symlinks only.
+
+---
+
 Use `docs/runbooks/project-working-practices.md` to decide which working loop applies before choosing a skill.
 
 - `domain-impact-scan`: use before implementing a new domain, ingestion family, or cross-layer capability. It identifies layer impact, required docs, and blockers.

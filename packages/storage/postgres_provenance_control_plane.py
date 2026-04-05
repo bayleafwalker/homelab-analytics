@@ -8,6 +8,8 @@ from psycopg.rows import dict_row
 from packages.storage.control_plane import (
     PublicationAuditCreate,
     PublicationAuditRecord,
+    PublicationConfidenceSnapshotCreate,
+    PublicationConfidenceSnapshotRecord,
     SourceLineageCreate,
     SourceLineageRecord,
 )
@@ -147,3 +149,92 @@ class PostgresProvenanceControlPlaneMixin:
                 params,
             ).fetchall()
         return [_deserialize_publication_audit_row(_coerce_row_mapping(row)) for row in rows]
+
+    def record_publication_confidence_snapshot(
+        self,
+        entries: tuple[PublicationConfidenceSnapshotCreate, ...],
+    ) -> list[PublicationConfidenceSnapshotRecord]:
+        """Record publication confidence snapshots."""
+        if not entries:
+            return []
+        import json
+
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.executemany(
+                    """
+                    INSERT INTO publication_confidence_snapshot (
+                        snapshot_id, publication_key, assessed_at, freshness_state,
+                        completeness_pct, confidence_verdict, quality_flags,
+                        contributing_run_ids, created_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    [
+                        (
+                            entry.snapshot_id,
+                            entry.publication_key,
+                            entry.assessed_at,
+                            entry.freshness_state,
+                            entry.completeness_pct,
+                            entry.confidence_verdict,
+                            json.dumps(entry.quality_flags) if entry.quality_flags else None,
+                            list(entry.contributing_run_ids) if entry.contributing_run_ids else None,
+                            entry.created_at,
+                        )
+                        for entry in entries
+                    ],
+                )
+        return self.list_publication_confidence_snapshots()
+
+    def list_publication_confidence_snapshots(
+        self,
+        *,
+        publication_key: str | None = None,
+        limit: int | None = None,
+    ) -> list[PublicationConfidenceSnapshotRecord]:
+        """List publication confidence snapshots."""
+        import json
+
+        clauses: list[str] = []
+        params: list[object] = []
+        if publication_key is not None:
+            clauses.append("publication_key = %s")
+            params.append(publication_key)
+
+        where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        limit_sql = f"LIMIT {limit}" if limit is not None else ""
+
+        with self._connect(row_factory=dict_row) as connection:
+            rows = connection.execute(
+                f"""
+                SELECT snapshot_id, publication_key, assessed_at, freshness_state,
+                       completeness_pct, confidence_verdict, quality_flags,
+                       contributing_run_ids, created_at
+                FROM publication_confidence_snapshot
+                {where_sql}
+                ORDER BY assessed_at DESC, snapshot_id
+                {limit_sql}
+                """,
+                params,
+            ).fetchall()
+
+        records = []
+        for row in rows:
+            row_dict = _coerce_row_mapping(row)
+            records.append(
+                PublicationConfidenceSnapshotRecord(
+                    snapshot_id=str(row_dict["snapshot_id"]),
+                    publication_key=str(row_dict["publication_key"]),
+                    assessed_at=row_dict["assessed_at"],  # type: ignore
+                    freshness_state=str(row_dict["freshness_state"]),
+                    completeness_pct=int(row_dict["completeness_pct"]),  # type: ignore
+                    confidence_verdict=str(row_dict["confidence_verdict"]),
+                    quality_flags=json.loads(row_dict["quality_flags"])
+                    if row_dict["quality_flags"]
+                    else None,
+                    contributing_run_ids=tuple(row_dict["contributing_run_ids"] or []),
+                    created_at=row_dict["created_at"],  # type: ignore
+                )
+            )
+        return records

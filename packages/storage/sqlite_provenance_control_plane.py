@@ -5,6 +5,8 @@ import sqlite3
 from packages.storage.control_plane import (
     PublicationAuditCreate,
     PublicationAuditRecord,
+    PublicationConfidenceSnapshotCreate,
+    PublicationConfidenceSnapshotRecord,
     SourceLineageCreate,
     SourceLineageRecord,
 )
@@ -162,3 +164,108 @@ class SQLiteProvenanceControlPlaneMixin:
                 params,
             ).fetchall()
         return [_deserialize_publication_audit_row(row) for row in rows]
+
+    def record_publication_confidence_snapshot(
+        self,
+        entries: tuple[PublicationConfidenceSnapshotCreate, ...],
+    ) -> list[PublicationConfidenceSnapshotRecord]:
+        """Record publication confidence snapshots."""
+        import json
+
+        if not entries:
+            return []
+        with self._connect() as connection:
+            connection.executemany(
+                """
+                INSERT INTO publication_confidence_snapshot (
+                    snapshot_id,
+                    publication_key,
+                    assessed_at,
+                    freshness_state,
+                    completeness_pct,
+                    confidence_verdict,
+                    quality_flags,
+                    contributing_run_ids,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        entry.snapshot_id,
+                        entry.publication_key,
+                        entry.assessed_at.isoformat(),
+                        entry.freshness_state,
+                        entry.completeness_pct,
+                        entry.confidence_verdict,
+                        json.dumps(entry.quality_flags) if entry.quality_flags else None,
+                        json.dumps(list(entry.contributing_run_ids))
+                        if entry.contributing_run_ids
+                        else None,
+                        entry.created_at.isoformat(),
+                    )
+                    for entry in entries
+                ],
+            )
+            connection.commit()
+        return self.list_publication_confidence_snapshots()
+
+    def list_publication_confidence_snapshots(
+        self,
+        *,
+        publication_key: str | None = None,
+        limit: int | None = None,
+    ) -> list[PublicationConfidenceSnapshotRecord]:
+        """List publication confidence snapshots."""
+        import json
+        from datetime import datetime
+
+        clauses: list[str] = []
+        params: list[str] = []
+        if publication_key is not None:
+            clauses.append("publication_key = ?")
+            params.append(publication_key)
+
+        where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        limit_sql = f"LIMIT {limit}" if limit is not None else ""
+
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(
+                f"""
+                SELECT
+                    snapshot_id,
+                    publication_key,
+                    assessed_at,
+                    freshness_state,
+                    completeness_pct,
+                    confidence_verdict,
+                    quality_flags,
+                    contributing_run_ids,
+                    created_at
+                FROM publication_confidence_snapshot
+                {where_sql}
+                ORDER BY assessed_at DESC, snapshot_id
+                {limit_sql}
+                """,
+                params,
+            ).fetchall()
+
+        records = []
+        for row in rows:
+            contributing = json.loads(row["contributing_run_ids"]) if row["contributing_run_ids"] else []
+            quality = json.loads(row["quality_flags"]) if row["quality_flags"] else None
+            records.append(
+                PublicationConfidenceSnapshotRecord(
+                    snapshot_id=row["snapshot_id"],
+                    publication_key=row["publication_key"],
+                    assessed_at=datetime.fromisoformat(row["assessed_at"]),
+                    freshness_state=row["freshness_state"],
+                    completeness_pct=row["completeness_pct"],
+                    confidence_verdict=row["confidence_verdict"],
+                    quality_flags=quality,
+                    contributing_run_ids=tuple(contributing),
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                )
+            )
+        return records
