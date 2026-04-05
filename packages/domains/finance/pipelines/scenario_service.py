@@ -447,7 +447,12 @@ def get_scenario(store: DuckDBStore, scenario_id: str) -> dict[str, Any] | None:
     return rows[0] if rows else None
 
 
-def get_scenario_comparison(store: DuckDBStore, scenario_id: str) -> ComparisonResult | None:
+def get_scenario_comparison(
+    store: DuckDBStore,
+    scenario_id: str,
+    *,
+    control_plane_store: Any | None = None,
+) -> ComparisonResult | None:
     ensure_scenario_storage(store)
 
     scenario = get_scenario(store, scenario_id)
@@ -481,6 +486,23 @@ def get_scenario_comparison(store: DuckDBStore, scenario_id: str) -> ComparisonR
 
     stale = _is_stale(store, scenario_id, loan_id)
 
+    # Build assumptions_summary if control plane is available
+    assumptions_summary = None
+    if control_plane_store is not None:
+        try:
+            snapshots = control_plane_store.list_publication_confidence_snapshots()
+            assumptions_summary = [
+                SourceFreshnessSummary(
+                    source_asset_id=snap.publication_key,
+                    freshness_state=snap.freshness_state,
+                    last_ingest_at=snap.assessed_at,
+                )
+                for snap in snapshots
+            ]
+        except Exception:
+            # Gracefully skip if confidence data unavailable
+            pass
+
     return ComparisonResult(
         scenario_id=scenario_id,
         label=scenario["label"],
@@ -489,6 +511,7 @@ def get_scenario_comparison(store: DuckDBStore, scenario_id: str) -> ComparisonR
         scenario_rows=scenario_rows,
         variance_rows=variance_rows,
         is_stale=stale,
+        assumptions_summary=assumptions_summary,
     )
 
 
@@ -1080,6 +1103,7 @@ def get_homelab_cost_benefit_comparison(
     scenario_id: str,
     *,
     current_baseline_run_id: str | None = None,
+    control_plane_store: Any | None = None,
 ) -> HomelabCostBenefitComparison | None:
     ensure_scenario_storage(store)
 
@@ -1097,6 +1121,22 @@ def get_homelab_cost_benefit_comparison(
         [scenario_id],
     )
 
+    # Build assumptions_summary if control plane is available
+    assumptions_summary = None
+    if control_plane_store is not None:
+        try:
+            snapshots = control_plane_store.list_publication_confidence_snapshots()
+            assumptions_summary = [
+                SourceFreshnessSummary(
+                    source_asset_id=snap.publication_key,
+                    freshness_state=snap.freshness_state,
+                    last_ingest_at=snap.assessed_at,
+                )
+                for snap in snapshots
+            ]
+        except Exception:
+            pass
+
     return HomelabCostBenefitComparison(
         scenario_id=scenario_id,
         label=scenario["label"],
@@ -1107,6 +1147,7 @@ def get_homelab_cost_benefit_comparison(
             scenario_id,
             current_baseline_run_id=current_baseline_run_id,
         ),
+        assumptions_summary=assumptions_summary,
     )
 
 
@@ -1477,19 +1518,26 @@ def create_tariff_shock_scenario(
 
 
 def get_expense_shock_comparison(
-    store: DuckDBStore, scenario_id: str
+    store: DuckDBStore,
+    scenario_id: str,
+    *,
+    control_plane_store: Any | None = None,
 ) -> IncomeCashflowComparison | None:
     """Return projected cashflow rows for an expense_shock scenario.
 
     Delegates to the same storage queries as get_income_scenario_comparison
     since both types use proj_income_cashflow.
     """
-    return get_income_scenario_comparison(store, scenario_id)
+    return get_income_scenario_comparison(
+        store, scenario_id, control_plane_store=control_plane_store
+    )
 
 
 def get_tariff_shock_comparison(
     store: DuckDBStore,
     scenario_id: str,
+    *,
+    control_plane_store: Any | None = None,
 ) -> IncomeCashflowComparison | None:
     """Return projected cashflow rows + assumptions for a tariff_shock scenario."""
     ensure_scenario_storage(store)
@@ -1508,17 +1556,37 @@ def get_tariff_shock_comparison(
         [scenario_id],
     )
 
+    # Build assumptions_summary if control plane is available
+    assumptions_summary = None
+    if control_plane_store is not None:
+        try:
+            snapshots = control_plane_store.list_publication_confidence_snapshots()
+            assumptions_summary = [
+                SourceFreshnessSummary(
+                    source_asset_id=snap.publication_key,
+                    freshness_state=snap.freshness_state,
+                    last_ingest_at=snap.assessed_at,
+                )
+                for snap in snapshots
+            ]
+        except Exception:
+            pass
+
     return IncomeCashflowComparison(
         scenario_id=scenario_id,
         label=scenario["label"],
         assumptions=assumptions,
         cashflow_rows=cashflow_rows,
         is_stale=_is_tariff_scenario_stale(store, scenario_id, scenario["subject_id"]),
+        assumptions_summary=assumptions_summary,
     )
 
 
 def get_income_scenario_comparison(
-    store: DuckDBStore, scenario_id: str
+    store: DuckDBStore,
+    scenario_id: str,
+    *,
+    control_plane_store: Any | None = None,
 ) -> IncomeCashflowComparison | None:
     """Return projected cashflow rows + assumptions for an income_change scenario."""
     ensure_scenario_storage(store)
@@ -1537,10 +1605,27 @@ def get_income_scenario_comparison(
         [scenario_id],
     )
 
+    # Build assumptions_summary if control plane is available
+    assumptions_summary = None
+    if control_plane_store is not None:
+        try:
+            snapshots = control_plane_store.list_publication_confidence_snapshots()
+            assumptions_summary = [
+                SourceFreshnessSummary(
+                    source_asset_id=snap.publication_key,
+                    freshness_state=snap.freshness_state,
+                    last_ingest_at=snap.assessed_at,
+                )
+                for snap in snapshots
+            ]
+        except Exception:
+            pass
+
     return IncomeCashflowComparison(
         scenario_id=scenario_id,
         label=scenario["label"],
         assumptions=assumptions,
         cashflow_rows=cashflow_rows,
         is_stale=_is_income_scenario_stale(store, scenario_id),
+        assumptions_summary=assumptions_summary,
     )
