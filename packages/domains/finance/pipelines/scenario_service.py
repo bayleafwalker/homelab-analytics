@@ -56,6 +56,16 @@ from packages.storage.duckdb_store import DuckDBStore
 
 
 @dataclass
+class SourceFreshnessSummary:
+    """Summary of source freshness for a contributing source system."""
+
+    source_asset_id: str
+    freshness_state: str
+    last_ingest_at: datetime | None = None
+    covered_through: date | None = None
+
+
+@dataclass
 class ScenarioResult:
     scenario_id: str
     label: str
@@ -64,6 +74,7 @@ class ScenarioResult:
     new_payoff_date: date | None
     baseline_payoff_date: date | None
     is_stale: bool
+    assumptions_summary: list[SourceFreshnessSummary] | None = None
 
 
 @dataclass
@@ -76,6 +87,7 @@ class IncomeScenarioResult:
     annual_net_change: Decimal
     months_until_deficit: int | None
     is_stale: bool
+    assumptions_summary: list[SourceFreshnessSummary] | None = None
 
 
 @dataclass
@@ -88,6 +100,7 @@ class ExpenseShockResult:
     annual_additional_cost: Decimal
     months_until_deficit: int | None
     is_stale: bool
+    assumptions_summary: list[SourceFreshnessSummary] | None = None
 
 
 @dataclass
@@ -100,6 +113,7 @@ class TariffShockResult:
     annual_additional_cost: Decimal
     months_until_deficit: int | None
     is_stale: bool
+    assumptions_summary: list[SourceFreshnessSummary] | None = None
 
 
 @dataclass
@@ -109,6 +123,7 @@ class IncomeCashflowComparison:
     assumptions: list[dict[str, Any]]
     cashflow_rows: list[dict[str, Any]]
     is_stale: bool
+    assumptions_summary: list[SourceFreshnessSummary] | None = None
 
 
 @dataclass
@@ -120,6 +135,7 @@ class ComparisonResult:
     scenario_rows: list[dict[str, Any]]
     variance_rows: list[dict[str, Any]]
     is_stale: bool
+    assumptions_summary: list[SourceFreshnessSummary] | None = None
 
 
 @dataclass
@@ -131,6 +147,7 @@ class HomelabCostBenefitResult:
     new_monthly_cost: Decimal
     annual_cost_delta: Decimal
     is_stale: bool
+    assumptions_summary: list[SourceFreshnessSummary] | None = None
 
 
 @dataclass
@@ -140,6 +157,7 @@ class HomelabCostBenefitComparison:
     assumptions: list[dict[str, Any]]
     summary_rows: list[dict[str, Any]]
     is_stale: bool
+    assumptions_summary: list[SourceFreshnessSummary] | None = None
 
 
 @dataclass
