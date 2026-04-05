@@ -109,7 +109,19 @@ def register_control_routes(
     async def get_confidence() -> dict[str, Any]:
         require_unsafe_admin()
         snapshots = resolved_config_repository.list_publication_confidence_snapshots()
-        # Group by domain derived from publication_key (first component before underscore)
+        publication_defs = resolved_config_repository.list_publication_definitions()
+
+        # Build map of publication_key -> domain from publication definitions
+        pub_to_domain: dict[str, str] = {}
+        for pub_def in publication_defs:
+            # Publication definitions have a pack_name that indicates domain
+            # e.g., pack_name="finance-pack" → domain="finance"
+            domain = "platform"  # default
+            if pub_def.pack_name:
+                domain = pub_def.pack_name.split("-")[0]
+            pub_to_domain[pub_def.publication_definition_id] = domain
+
+        # Group snapshots by domain
         domain_summaries: dict[str, dict[str, Any]] = {}
         publications = []
 
@@ -123,9 +135,8 @@ def register_control_routes(
             }
             publications.append(pub_data)
 
-            # Extract domain (e.g., "finance" from "pub_budget_projection")
-            parts = snapshot.publication_key.split("_")
-            domain = parts[1] if len(parts) > 1 else "general"
+            # Look up domain from publication definition, fall back to "platform"
+            domain = pub_to_domain.get(snapshot.publication_key, "platform")
 
             if domain not in domain_summaries:
                 domain_summaries[domain] = {
