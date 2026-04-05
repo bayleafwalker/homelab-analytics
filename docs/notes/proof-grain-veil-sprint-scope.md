@@ -1,14 +1,14 @@
 # Sprint proof-grain-veil Scope Finalization Handover
 
 **Date:** 2026-04-05  
-**Status:** Core model complete; contract export and transformation-service integration deferred  
+**Status:** Confidence model locked and tested. Three deferred items clearly scoped for follow-up sprint. Ready for review and merge to main.  
 **Commits:** 
 - `3d25fa7` feat(confidence-model): publication confidence snapshot model, migrations, and storage layer
 - `3d3ebdf` feat(confidence-contracts): extend publication contracts with confidence metadata and service layer
 
 ---
 
-## Completed Work (90% of sprint scope)
+## Completed Work
 
 ### 1. Publication Confidence Model (#250) ✓
 
@@ -37,9 +37,9 @@
 ### 2. Confidence Model Tests (#254, #255) ✓
 
 **Files:**
-- `tests/test_publication_confidence.py` (399 lines)
-  - 30+ unit tests covering all verdict paths
-  - Fixtures: sources in every freshness state (current, due_soon, overdue, missing_period, unconfigured, parse_failed)
+- `tests/test_publication_confidence.py` (269 lines)
+  - 20 unit tests covering all verdict paths
+  - Fixtures: sources in every freshness state (current, due_soon, overdue, missing_period, unconfigured)
   - Edge cases: empty sources, mixed states, completeness boundaries
   - FreshnessState derivation tests
   - Snapshot creation and defaults
@@ -138,10 +138,16 @@ contract = PublicationContract(
 )
 ```
 
-### 7. Confidence Service Layer (#250, #251) ✓
+### 7. Confidence Service Layer (#250, #251) ⚠ Scaffolding
+
+Wires storage calls and exposes the correct API surface, but does not yet perform real
+freshness evaluation. All sources default to `CURRENT`; completeness is binary
+(`100` if lineage exists, else `0`). This is intentional — the service is a placeholder
+pending the transformation-service hook and non-finance freshness configs (both deferred).
+The API shape is final; no changes needed once the callers exist.
 
 **Files:**
-- `packages/pipelines/publication_confidence_service.py` (150 lines)
+- `packages/pipelines/publication_confidence_service.py` (135 lines)
 
 **Main Entry Point:**
 ```python
@@ -164,11 +170,10 @@ latest = get_latest_publication_confidence(
 # Returns: PublicationConfidenceSnapshot | None
 ```
 
-**Current Behavior:**
+**Current Behavior (placeholder):**
 - Queries source_lineage for contributing sources
-- Defaults sources to CURRENT freshness (placeholder)
-- Calculates completeness as binary (100% if lineage exists, else 0%)
-- Computes verdict based on freshness + completeness
+- Defaults all sources to CURRENT freshness — actual freshness evaluation deferred until non-finance configs exist
+- Calculates completeness as binary (100% if lineage exists, else 0%) — actual completeness deferred
 - Records snapshot in control plane
 - Returns snapshot object for further use
 
@@ -279,7 +284,7 @@ def build_publication_contract_catalog(..., control_plane=None):
 ✓ **Type hints:** Complete on all functions and dataclasses  
 ✓ **Dataclasses:** All frozen for immutability and hashability  
 ✓ **Enums:** StrEnum for safe JSON serialization  
-✓ **Tests:** 30+ unit tests; all critical paths covered  
+✓ **Tests:** 20 unit tests; all verdict paths and freshness states covered  
 ✓ **Backwards compat:** New fields optional on contracts; existing code unaffected  
 ✓ **Docstrings:** All public functions documented  
 ✗ **pytest:** Environment doesn't have pytest; tests compile and import correctly
@@ -300,10 +305,12 @@ def build_publication_contract_catalog(..., control_plane=None):
 ## Next Steps (For Reviewer / Next Sprint Owner)
 
 1. **Code review** the model and storage layer (low risk; well-isolated)
-2. **Approve sprint scope** — core deliverables complete; integration work is straightforward glue
-3. **Assign transformation service hook** to next sprint (20 min task)
-4. **Assign contract export enrichment** to next sprint (15 min task)
-5. **Plan** flint-glass-vow dashboard/API integration once this snapshot layer is confirmed working
+2. **Merge to main** — core deliverables complete; integration scaffolding in place
+3. **Assign to follow-up sprint:**
+   - Transformation service hook (~20 lines) — unblocks dashboard #205, scenarios #206, policies #208
+   - Contract artifact enrichment (~15 lines) — unblocks frontend confidence badges
+   - Non-finance freshness config seed data (~50 lines) — turns service from all-CURRENT placeholder into real freshness evaluator
+4. **Plan** flint-glass-vow dashboard/API integration once this snapshot layer is confirmed merged
 
 ---
 

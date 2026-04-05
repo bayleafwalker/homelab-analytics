@@ -2,24 +2,30 @@ SPRINT: Sprint proof-grain-veil — Confidence Model and Trust Propagation  [act
 Goal:   Ship the publication confidence snapshot primitive, source-health-to-publication-health propagation rules, and derived-output degradation/banding model — making stale or degraded data degrade visibly rather than silently becoming truth-ish.
 Dates:  2026-04-03 to 2026-04-17
 ID:     30
-Items:  6 total — 0 done, 0 active, 6 pending, 0 blocked
+Items:  9 total — 5 done, 0 active, 4 pending, 0 blocked
 
 --- Track: confidence-model ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #250  PublicationConfidenceSnapshot model, compute_publication_confidence(), migrations, snap on publication refresh  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #250  PublicationConfidenceSnapshot model, compute_publication_confidence(), migrations, snap on publication refresh  (assignee: -)
 
 --- Track: publication-metadata ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #251  Extend PublicationContract with freshness/confidence fields; export to artifacts; frontend confidence badges  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #251  Extend PublicationContract with freshness/confidence fields; export to artifacts; frontend confidence badges  (assignee: -)
 
 --- Track: tests ---
-  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
+  health: 2 items — 1 done (50%), 0 active, 1 pending, 0 blocked (0%)
   [pending ] #254  Scenario fixtures for stale, partial, and malformed input states  (assignee: -)
-  [pending ] #255  Confidence computation, cross-domain freshness, integration tests, make verify-fast  (assignee: -)
+  [done    ] #255  Confidence computation, cross-domain freshness, integration tests, make verify-fast  (assignee: -)
 
 --- Track: trust-propagation ---
-  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
-  [pending ] #252  Source-health-to-publication-health propagation rules — stale source marks downstream outputs degraded  (assignee: -)
-  [pending ] #253  Derived-output degradation rules and confidence scoring/banding model  (assignee: -)
+  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #252  Source-health-to-publication-health propagation rules — stale source marks downstream outputs degraded  (assignee: -)
+  [done    ] #253  Derived-output degradation rules and confidence scoring/banding model  (assignee: -)
 
-Rendered: 2026-04-03T09:18:05Z
+--- Track: wiring ---
+  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
+  [pending ] #256  Seed non-finance source freshness configs (utilities, homelab, HA)  (assignee: -)
+  [pending ] #257  Transformation service hook — call compute_and_record_publication_confidence() on mart refresh  (assignee: -)
+  [pending ] #258  Contract artifact export enrichment — populate confidence fields at export time  (assignee: -)
+
+Rendered: 2026-04-05T16:56:50Z
