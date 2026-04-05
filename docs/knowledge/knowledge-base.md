@@ -1,5 +1,5 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-03T09:12:51Z
+Generated: 2026-04-05T20:19:30Z
 
 ## Decisions
 
@@ -542,6 +542,14 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 ---
 
 ## Lessons
+
+### Two-pass delivery: scaffold fields first, wire population in same sprint
+Source: track: tracing, sprint: 31
+Tags: sprint-discipline, scaffold-pattern, delivery-style
+
+Observed across proof-grain-veil and forge-amber-lens: implementer adds model/field in a first pass commit, leaves the population wiring for a follow-up commit in the same sprint. This is a valid delivery style — it keeps commits atomic and reviewable — but it requires explicit reviewer awareness. When scoping sprint items, mark the second-pass wiring step as a named deliverable (not implied by the first), and during review check whether fields default to None before approving the scaffold commit as done.
+
+---
 
 ### Update verification-tooling contract tests when verify-fast target list changes
 Source: track: tests, sprint: 26
