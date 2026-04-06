@@ -608,6 +608,7 @@ def create_app(
         extension_registry=container.extension_registry,
         resolved_reporting_service=reporting_service,
         to_jsonable=to_jsonable,
+        control_plane=resolved_config_repository,
     )
     register_homelab_routes(
         app,

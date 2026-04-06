@@ -4,6 +4,7 @@ from __future__ import annotations
 import unittest
 
 from packages.pipelines.ha_action_proposals import ApprovalActionRegistry
+from packages.domains.homelab.pipelines.ha_action_proposals import ProposalProvenance
 
 
 class ApprovalActionRegistryTests(unittest.TestCase):
@@ -83,6 +84,63 @@ class ApprovalActionRegistryTests(unittest.TestCase):
         self.assertEqual(payload["source_key"], "publication.monthly-cashflow")
         self.assertEqual(payload["source_summary"], "Draft approval to review monthly cash flow.")
         self.assertEqual(payload["created_by"], "assistant")
+
+
+class ProposalProvenanceTests(unittest.TestCase):
+    def test_provenance_defaults(self) -> None:
+        prov = ProposalProvenance()
+        self.assertEqual(prov.publication_keys, [])
+        self.assertIsNone(prov.confidence_verdict_at_draft)
+        self.assertIsNone(prov.freshness_state_at_draft)
+        self.assertIsNone(prov.assessed_at)
+
+    def test_provenance_to_dict(self) -> None:
+        prov = ProposalProvenance(
+            publication_keys=["mart_monthly_cashflow", "mart_spend_by_category_monthly"],
+            confidence_verdict_at_draft="trustworthy",
+            freshness_state_at_draft="current",
+            assessed_at="2026-04-06T12:00:00+00:00",
+        )
+        d = prov.to_dict()
+        self.assertEqual(d["publication_keys"], ["mart_monthly_cashflow", "mart_spend_by_category_monthly"])
+        self.assertEqual(d["confidence_verdict_at_draft"], "trustworthy")
+        self.assertEqual(d["freshness_state_at_draft"], "current")
+        self.assertEqual(d["assessed_at"], "2026-04-06T12:00:00+00:00")
+
+    def test_proposal_to_dict_with_provenance(self) -> None:
+        registry = ApprovalActionRegistry()
+        prov = ProposalProvenance(
+            publication_keys=["mart_monthly_cashflow"],
+            confidence_verdict_at_draft="degraded",
+            freshness_state_at_draft="stale",
+            assessed_at="2026-04-06T12:00:00+00:00",
+        )
+        proposal = registry.register(
+            policy_id="budget_alert",
+            policy_name="Budget Alert",
+            verdict="warning",
+            value=None,
+            notification_id=None,
+            source_kind="assistant",
+            provenance=prov,
+        )
+        d = proposal.to_dict()
+        self.assertIsNotNone(d["provenance"])
+        assert d["provenance"] is not None
+        self.assertEqual(d["provenance"]["confidence_verdict_at_draft"], "degraded")
+        self.assertEqual(d["provenance"]["publication_keys"], ["mart_monthly_cashflow"])
+
+    def test_proposal_to_dict_without_provenance(self) -> None:
+        registry = ApprovalActionRegistry()
+        proposal = registry.register(
+            policy_id="device_control",
+            policy_name="Device Control",
+            verdict="ok",
+            value=None,
+            notification_id=None,
+        )
+        d = proposal.to_dict()
+        self.assertIsNone(d["provenance"])
 
 
 if __name__ == "__main__":

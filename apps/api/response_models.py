@@ -108,6 +108,18 @@ class AssistantSourceModel(BaseModel):
     report_path: str | None = None
     summary: str
     rationale: str
+    confidence_verdict: str | None = None
+    freshness_state: str | None = None
+    assessed_at: str | None = None
+
+
+class AnswerConfidenceSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    overall_verdict: str | None
+    stale_source_count: int
+    total_source_count: int
+    note: str | None = None
 
 
 class AssistantAnswerResponseModel(BaseModel):
@@ -120,6 +132,7 @@ class AssistantAnswerResponseModel(BaseModel):
     sources: list[AssistantSourceModel]
     evidence: dict[str, list[dict[str, Any]]]
     follow_up_questions: list[str]
+    answer_confidence: AnswerConfidenceSummary | None = None
 
 
 class HaRuntimeStatusModel(BaseModel):

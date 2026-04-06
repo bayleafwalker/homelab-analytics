@@ -18,6 +18,29 @@ ProposalSourceKind = Literal["policy", "assistant", "operator"]
 
 
 @dataclass
+class ProposalProvenance:
+    """Confidence and freshness evidence captured at proposal draft time.
+
+    Records which publications were consulted, and what trust state they were
+    in when the proposal was created. Allows auditors to reconstruct the data
+    quality at the moment the proposal was generated.
+    """
+
+    publication_keys: list[str] = field(default_factory=list)
+    confidence_verdict_at_draft: str | None = None
+    freshness_state_at_draft: str | None = None
+    assessed_at: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "publication_keys": list(self.publication_keys),
+            "confidence_verdict_at_draft": self.confidence_verdict_at_draft,
+            "freshness_state_at_draft": self.freshness_state_at_draft,
+            "assessed_at": self.assessed_at,
+        }
+
+
+@dataclass
 class ApprovalActionProposal:
     """A pending approval-gated action request."""
 
@@ -36,6 +59,7 @@ class ApprovalActionProposal:
     approved_at: str | None = None
     dismissed_at: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    provenance: ProposalProvenance | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -54,6 +78,7 @@ class ApprovalActionProposal:
             "approved_at": self.approved_at,
             "dismissed_at": self.dismissed_at,
             "metadata": dict(self.metadata),
+            "provenance": self.provenance.to_dict() if self.provenance is not None else None,
         }
 
 
@@ -77,6 +102,7 @@ class ApprovalActionRegistry:
         created_by: str | None = None,
         metadata: dict[str, Any] | None = None,
         action_id: str | None = None,
+        provenance: ProposalProvenance | None = None,
     ) -> ApprovalActionProposal:
         resolved_action_id = action_id or f"approval_{uuid.uuid4().hex[:12]}"
         resolved_notification_id = notification_id or resolved_action_id
@@ -92,6 +118,7 @@ class ApprovalActionRegistry:
             source_summary=source_summary,
             created_by=created_by,
             metadata=dict(metadata or {}),
+            provenance=provenance,
         )
         self._proposals[resolved_action_id] = proposal
         return proposal

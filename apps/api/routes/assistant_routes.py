@@ -1,21 +1,32 @@
 from __future__ import annotations
 
+import logging
 import re
 from decimal import Decimal
-from typing import Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Callable, Literal
+
+_log = logging.getLogger(__name__)
 
 from fastapi import FastAPI, HTTPException
 
 from apps.api.response_models import (
+    AnswerConfidenceSummary,
     AssistantAnswerResponseModel,
     AssistantSourceModel,
 )
+
+if TYPE_CHECKING:
+    from packages.storage.control_plane import ControlPlaneStore
 from packages.pipelines.composition.publication_contract_inputs import (
     HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS,
     build_household_publication_relation_map,
 )
+from packages.pipelines.publication_confidence_service import (
+    get_latest_publication_confidence,
+)
 from packages.pipelines.reporting_service import ReportingService
 from packages.platform.capability_types import CapabilityPack
+from packages.platform.publication_confidence import PublicationConfidenceSnapshot
 from packages.platform.publication_contracts import (
     build_publication_contracts,
     build_ui_descriptor_contracts,
@@ -109,6 +120,7 @@ def _publication_source(
     publication_key: str,
     *,
     rationale: str,
+    confidence_by_key: dict[str, PublicationConfidenceSnapshot] | None = None,
 ) -> AssistantSourceModel:
     entry = publication_index_by_key.get(publication_key)
     publication_display_name = publication_key
@@ -116,6 +128,7 @@ def _publication_source(
     if entry is not None:
         publication_display_name = entry.publication.display_name
         summary = entry.summary
+    confidence = (confidence_by_key or {}).get(publication_key)
     return AssistantSourceModel(
         publication_key=publication_key,
         publication_display_name=publication_display_name,
@@ -123,6 +136,40 @@ def _publication_source(
         report_path=_REPORT_PATH_BY_PUBLICATION_KEY.get(publication_key),
         summary=summary or f"{publication_display_name} publication contract.",
         rationale=rationale,
+        confidence_verdict=str(confidence.confidence_verdict) if confidence is not None else None,
+        freshness_state=str(confidence.freshness_state) if confidence is not None else None,
+        assessed_at=confidence.assessed_at.isoformat() if confidence is not None else None,
+    )
+
+
+_STALE_VERDICTS = {"degraded", "unreliable", "unavailable"}
+
+
+def _build_answer_confidence(sources: list[AssistantSourceModel]) -> AnswerConfidenceSummary | None:
+    """Derive a worst-case confidence summary from the source list.
+
+    Returns None when no source carries confidence data.
+    """
+    verdicts = [s.confidence_verdict for s in sources if s.confidence_verdict is not None]
+    if not verdicts:
+        return None
+
+    _VERDICT_RANK = {"trustworthy": 0, "degraded": 1, "unreliable": 2, "unavailable": 3}
+    worst = max(verdicts, key=lambda v: _VERDICT_RANK.get(v, 0))
+    stale_count = sum(1 for v in verdicts if v in _STALE_VERDICTS)
+
+    note: str | None = None
+    if worst in _STALE_VERDICTS:
+        note = (
+            f"{stale_count} of {len(verdicts)} source(s) are not fully current; "
+            "treat this answer as indicative rather than authoritative."
+        )
+
+    return AnswerConfidenceSummary(
+        overall_verdict=worst,
+        stale_source_count=stale_count,
+        total_source_count=len(verdicts),
+        note=note,
     )
 
 
@@ -150,6 +197,7 @@ def _build_finance_answer(
     reporting_service: ReportingService,
     publication_index_by_key: dict[str, PublicationSemanticIndexEntry],
     to_jsonable: Callable[[Any], Any],
+    confidence_by_key: dict[str, PublicationConfidenceSnapshot] | None = None,
 ) -> AssistantAnswerResponseModel:
     cashflow_rows = reporting_service.get_monthly_cashflow()
     spend_rows = reporting_service.get_spend_by_category_monthly()
@@ -193,16 +241,19 @@ def _build_finance_answer(
             publication_index_by_key,
             "mart_monthly_cashflow",
             rationale="Primary monthly cashflow source for burn and income trend questions.",
+            confidence_by_key=confidence_by_key,
         ),
         _publication_source(
             publication_index_by_key,
             "mart_spend_by_category_monthly",
             rationale="Secondary finance source for category and counterparty spend context.",
+            confidence_by_key=confidence_by_key,
         ),
         _publication_source(
             publication_index_by_key,
             "mart_upcoming_fixed_costs_30d",
             rationale="Supplementary source for near-term recurring commitments.",
+            confidence_by_key=confidence_by_key,
         ),
     ]
     return AssistantAnswerResponseModel(
@@ -216,6 +267,7 @@ def _build_finance_answer(
             "Ask about the largest spending category or upcoming fixed costs.",
             "Ask which counterparty drove the latest monthly cashflow change.",
         ],
+        answer_confidence=_build_answer_confidence(sources),
     )
 
 
@@ -223,6 +275,7 @@ def _build_utilities_answer(
     reporting_service: ReportingService,
     publication_index_by_key: dict[str, PublicationSemanticIndexEntry],
     to_jsonable: Callable[[Any], Any],
+    confidence_by_key: dict[str, PublicationConfidenceSnapshot] | None = None,
 ) -> AssistantAnswerResponseModel:
     utility_rows = reporting_service.get_utility_cost_summary()
     usage_vs_price_rows = reporting_service.get_usage_vs_price_summary()
@@ -273,21 +326,25 @@ def _build_utilities_answer(
             publication_index_by_key,
             "mart_utility_cost_summary",
             rationale="Primary utility summary source for current bills and coverage status.",
+            confidence_by_key=confidence_by_key,
         ),
         _publication_source(
             publication_index_by_key,
             "mart_usage_vs_price_summary",
             rationale="Secondary utility source for usage and price context.",
+            confidence_by_key=confidence_by_key,
         ),
         _publication_source(
             publication_index_by_key,
             "mart_contract_price_current",
             rationale="Supplementary price source for current contract pricing.",
+            confidence_by_key=confidence_by_key,
         ),
         _publication_source(
             publication_index_by_key,
             "mart_electricity_price_current",
             rationale="Supplementary source for current electricity tariff pricing.",
+            confidence_by_key=confidence_by_key,
         ),
     ]
     return AssistantAnswerResponseModel(
@@ -301,6 +358,7 @@ def _build_utilities_answer(
             "Ask which meter drives the highest billed amount.",
             "Ask whether any contract or tariff is worth reviewing next.",
         ],
+        answer_confidence=_build_answer_confidence(sources),
     )
 
 
@@ -308,6 +366,7 @@ def _build_operations_answer(
     reporting_service: ReportingService,
     publication_index_by_key: dict[str, PublicationSemanticIndexEntry],
     to_jsonable: Callable[[Any], Any],
+    confidence_by_key: dict[str, PublicationConfidenceSnapshot] | None = None,
 ) -> AssistantAnswerResponseModel:
     attention_rows = reporting_service.get_open_attention_items()
     recent_changes_rows = reporting_service.get_recent_significant_changes()
@@ -360,21 +419,25 @@ def _build_operations_answer(
             publication_index_by_key,
             "mart_open_attention_items",
             rationale="Primary operations source for current attention items and priorities.",
+            confidence_by_key=confidence_by_key,
         ),
         _publication_source(
             publication_index_by_key,
             "mart_recent_significant_changes",
             rationale="Secondary operations source for recent change context.",
+            confidence_by_key=confidence_by_key,
         ),
         _publication_source(
             publication_index_by_key,
             "mart_current_operating_baseline",
             rationale="Baseline source for the current operating picture.",
+            confidence_by_key=confidence_by_key,
         ),
         _publication_source(
             publication_index_by_key,
             "mart_homelab_roi",
             rationale="Supplementary homelab operations source for cost and value context.",
+            confidence_by_key=confidence_by_key,
         ),
     ]
     return AssistantAnswerResponseModel(
@@ -388,6 +451,7 @@ def _build_operations_answer(
             "Ask which open attention item is the highest priority.",
             "Ask for the latest operating change or ROI snapshot.",
         ],
+        answer_confidence=_build_answer_confidence(sources),
     )
 
 
@@ -398,6 +462,7 @@ def register_assistant_routes(
     extension_registry: ExtensionRegistry,
     resolved_reporting_service: ReportingService | None,
     to_jsonable: Callable[[Any], Any],
+    control_plane: ControlPlaneStore | None = None,
 ) -> None:
     publication_contracts = build_publication_contracts(
         capability_packs,
@@ -428,6 +493,38 @@ def register_assistant_routes(
             detail="Assistant answer surface requires a reporting service.",
         )
 
+    def _fetch_confidence(publication_keys: list[str]) -> dict[str, PublicationConfidenceSnapshot]:
+        if control_plane is None:
+            return {}
+        result: dict[str, PublicationConfidenceSnapshot] = {}
+        try:
+            for key in publication_keys:
+                snapshot = get_latest_publication_confidence(key, control_plane)
+                if snapshot is not None:
+                    result[key] = snapshot
+        except Exception:
+            _log.debug("Confidence lookup unavailable (table may not be migrated yet)", exc_info=True)
+            return {}
+        return result
+
+    _FINANCE_KEYS = [
+        "mart_monthly_cashflow",
+        "mart_spend_by_category_monthly",
+        "mart_upcoming_fixed_costs_30d",
+    ]
+    _UTILITIES_KEYS = [
+        "mart_utility_cost_summary",
+        "mart_usage_vs_price_summary",
+        "mart_contract_price_current",
+        "mart_electricity_price_current",
+    ]
+    _OPERATIONS_KEYS = [
+        "mart_open_attention_items",
+        "mart_recent_significant_changes",
+        "mart_current_operating_baseline",
+        "mart_homelab_roi",
+    ]
+
     @app.get("/api/assistant/answer", response_model=AssistantAnswerResponseModel)
     async def answer_assistant(
         question: str,
@@ -436,22 +533,28 @@ def register_assistant_routes(
         svc = _svc()
         resolved_domain = _infer_domain(question, domain)
         if resolved_domain == "finance":
+            confidence_by_key = _fetch_confidence(_FINANCE_KEYS)
             response = _build_finance_answer(
                 svc,
                 publication_index_by_key,
                 to_jsonable,
+                confidence_by_key=confidence_by_key,
             )
         elif resolved_domain == "utilities":
+            confidence_by_key = _fetch_confidence(_UTILITIES_KEYS)
             response = _build_utilities_answer(
                 svc,
                 publication_index_by_key,
                 to_jsonable,
+                confidence_by_key=confidence_by_key,
             )
         else:
+            confidence_by_key = _fetch_confidence(_OPERATIONS_KEYS)
             response = _build_operations_answer(
                 svc,
                 publication_index_by_key,
                 to_jsonable,
+                confidence_by_key=confidence_by_key,
             )
         return AssistantAnswerResponseModel(
             question=question,
@@ -461,4 +564,5 @@ def register_assistant_routes(
             sources=response.sources,
             evidence=response.evidence,
             follow_up_questions=response.follow_up_questions,
+            answer_confidence=response.answer_confidence,
         )
