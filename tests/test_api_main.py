@@ -28,10 +28,7 @@ from apps.api.main import (
     build_transformation_service,
     main,
 )
-from packages.domains.finance.manifest import FINANCE_PACK
-from packages.domains.homelab.manifest import HOMELAB_PACK
-from packages.domains.overview.manifest import OVERVIEW_PACK
-from packages.domains.utilities.manifest import UTILITIES_PACK
+from packages.pipelines.composition.builtin_packs import BUILTIN_CAPABILITY_PACKS
 from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.reporting_service import ReportingAccessMode
 from packages.platform.runtime.builder import build_container
@@ -265,12 +262,7 @@ class ApiMainTests(unittest.TestCase):
                 settings,
                 transformation_service="transformation-service",
                 reporting_service="reporting-service",
-                capability_packs=[
-                    FINANCE_PACK,
-                    UTILITIES_PACK,
-                    OVERVIEW_PACK,
-                    HOMELAB_PACK,
-                ],
+                capability_packs=BUILTIN_CAPABILITY_PACKS,
             )
             self.assertEqual(container, runtime[0])
             self.assertEqual("account-service", runtime[1])

@@ -9,10 +9,7 @@ from apps.api.app import create_app
 from apps.api.ha_startup import (
     build_ha_startup_runtime,
 )
-from packages.domains.finance.manifest import FINANCE_PACK
-from packages.domains.homelab.manifest import HOMELAB_PACK
-from packages.domains.overview.manifest import OVERVIEW_PACK
-from packages.domains.utilities.manifest import UTILITIES_PACK
+from packages.pipelines.composition.builtin_packs import BUILTIN_CAPABILITY_PACKS
 from packages.pipelines.reporting_service import ReportingAccessMode
 from packages.platform.auth.configuration import validate_auth_configuration
 from packages.platform.auth.machine_jwt_provider import build_machine_jwt_provider
@@ -60,10 +57,9 @@ build_reporting_service = _build_reporting_service
 def _build_api_startup_components(
     settings: AppSettings,
 ):
-    capability_packs = [FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK, HOMELAB_PACK]
     container = build_container(
         settings,
-        capability_packs=capability_packs,
+        capability_packs=BUILTIN_CAPABILITY_PACKS,
     )
     service = build_service(
         settings,
@@ -98,7 +94,7 @@ def _build_api_startup_components(
         settings,
         transformation_service=transformation_service,
         reporting_service=reporting_service,
-        capability_packs=capability_packs,
+        capability_packs=BUILTIN_CAPABILITY_PACKS,
     )
     return (
         container,

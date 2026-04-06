@@ -110,6 +110,10 @@ from packages.pipelines.asset_models import (
     CURRENT_DIM_ASSET_VIEW,
     DIM_ASSET,
 )
+from packages.pipelines.household_models import (
+    CURRENT_DIM_HOUSEHOLD_MEMBER_VIEW,
+    DIM_HOUSEHOLD_MEMBER,
+)
 from packages.storage.duckdb_store import DimensionDefinition
 
 
@@ -260,6 +264,11 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         columns=_current_dimension_columns(DIM_ENTITY),
         order_by="entity_id",
     ),
+    CURRENT_DIM_HOUSEHOLD_MEMBER_VIEW: PublicationRelation(
+        relation_name=CURRENT_DIM_HOUSEHOLD_MEMBER_VIEW,
+        columns=_current_dimension_columns(DIM_HOUSEHOLD_MEMBER),
+        order_by="member_id",
+    ),
     MART_BUDGET_VARIANCE_TABLE: PublicationRelation(
         relation_name=MART_BUDGET_VARIANCE_TABLE,
         columns=MART_BUDGET_VARIANCE_COLUMNS,
@@ -363,4 +372,5 @@ CURRENT_DIMENSION_RELATIONS = {
     "dim_loan": CURRENT_DIM_LOAN_VIEW,
     "dim_asset": CURRENT_DIM_ASSET_VIEW,
     "dim_entity": CURRENT_DIM_ENTITY_VIEW,
+    "dim_household_member": CURRENT_DIM_HOUSEHOLD_MEMBER_VIEW,
 }

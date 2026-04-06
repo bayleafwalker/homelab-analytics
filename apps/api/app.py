@@ -47,8 +47,8 @@ from apps.api.support import (
     to_jsonable,
 )
 from packages.application.use_cases.run_recovery import build_run_recovery
-from packages.domains.finance.manifest import FINANCE_PACK
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.pipelines.composition.builtin_packs import BUILTIN_CAPABILITY_PACKS
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
@@ -296,7 +296,7 @@ def _build_container_from_legacy_args(
         publication_refresh_registry=pipeline_registries.publication_refresh_registry,
         pipeline_catalog_registry=pipeline_registries.pipeline_catalog_registry,
         configured_definition_service=resolved_configured_definition_service,
-        capability_packs=(FINANCE_PACK,),
+        capability_packs=BUILTIN_CAPABILITY_PACKS,
     )
 
 

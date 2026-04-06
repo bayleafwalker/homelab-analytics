@@ -5,10 +5,8 @@ from dataclasses import dataclass
 from typing import TextIO
 
 from apps import runtime_support as _runtime_support
-from packages.domains.finance.manifest import FINANCE_PACK
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
-from packages.domains.overview.manifest import OVERVIEW_PACK
-from packages.domains.utilities.manifest import UTILITIES_PACK
+from packages.pipelines.composition.builtin_packs import BUILTIN_CAPABILITY_PACKS
 from packages.pipelines.configured_ingestion_definition import (
     ConfiguredIngestionDefinitionService,
 )
@@ -78,7 +76,7 @@ def build_worker_runtime(
     """Build the worker runtime via the shared platform container."""
     container = build_container(
         settings,
-        capability_packs=[FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK],
+        capability_packs=BUILTIN_CAPABILITY_PACKS,
     )
     service = _runtime_support.build_service(
         settings,

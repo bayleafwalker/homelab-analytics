@@ -145,4 +145,28 @@ CURRENT_DIMENSION_CONTRACTS: dict[str, CurrentDimensionContractDefinition] = {
             "entity_class": dimension_field("Normalized entity class derived from the entity id."),
         },
     ),
+    "dim_household_member": CurrentDimensionContractDefinition(
+        schema_name="dim_household_member",
+        schema_version="1.0.0",
+        display_name="Current Household Members",
+        description=(
+            "Current snapshot of canonical household members used for attribution of "
+            "transactions, assets, loans, and subscriptions."
+        ),
+        field_overrides={
+            "sk": identifier_field("Stable surrogate key for the current household member row."),
+            "member_id": identifier_field(
+                "Stable household member identifier used for attribution across domains."
+            ),
+            "display_name": dimension_field(
+                "Human-readable member name shown in attribution surfaces."
+            ),
+            "role": dimension_field(
+                "Member role within the household (head, partner, dependent, lodger)."
+            ),
+            "active": status_field(
+                "Whether the member is currently active and eligible for attribution."
+            ),
+        },
+    ),
 }

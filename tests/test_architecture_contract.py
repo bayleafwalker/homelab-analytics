@@ -1107,13 +1107,21 @@ def test_build_container_validates_cross_pack_publication_uniqueness() -> None:
     assert "Publication keys owned by multiple" in builder_source
 
 
-def test_both_entrypoints_register_finance_and_utilities_packs() -> None:
-    """Both API and worker entrypoints must register FINANCE_PACK and UTILITIES_PACK."""
+def test_both_entrypoints_register_builtin_packs() -> None:
+    """Both API and worker entrypoints must use the canonical BUILTIN_CAPABILITY_PACKS list."""
     api_main = (ROOT / "apps" / "api" / "main.py").read_text()
     worker_runtime = (ROOT / "apps" / "worker" / "runtime.py").read_text()
+    builtin_packs = (ROOT / "packages" / "pipelines" / "composition" / "builtin_packs.py").read_text()
     for source, label in ((api_main, "apps/api/main.py"), (worker_runtime, "apps/worker/runtime.py")):
-        assert "FINANCE_PACK" in source, f"{label} must register FINANCE_PACK"
-        assert "UTILITIES_PACK" in source, f"{label} must register UTILITIES_PACK"
+        assert "BUILTIN_CAPABILITY_PACKS" in source, (
+            f"{label} must import and use BUILTIN_CAPABILITY_PACKS "
+            "from packages.pipelines.composition.builtin_packs"
+        )
+    # The canonical list must include all four domain packs
+    for pack_name in ("FINANCE_PACK", "UTILITIES_PACK", "OVERVIEW_PACK", "HOMELAB_PACK"):
+        assert pack_name in builtin_packs, (
+            f"builtin_packs.py must declare {pack_name}"
+        )
 
 
 # ---------------------------------------------------------------------------
