@@ -65,6 +65,7 @@ class SQLiteProvenanceControlPlaneMixin:
         *,
         input_run_id: str | None = None,
         target_layer: str | None = None,
+        target_name: str | None = None,
         source_asset_id: str | None = None,
     ) -> list[SourceLineageRecord]:
         clauses: list[str] = []
@@ -75,6 +76,9 @@ class SQLiteProvenanceControlPlaneMixin:
         if target_layer is not None:
             clauses.append("target_layer = ?")
             params.append(target_layer)
+        if target_name is not None:
+            clauses.append("target_name = ?")
+            params.append(target_name)
         if source_asset_id is not None:
             clauses.append("source_system = ?")
             params.append(source_asset_id)

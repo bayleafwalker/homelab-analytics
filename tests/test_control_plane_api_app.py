@@ -524,3 +524,61 @@ def test_control_plane_api_supports_archive_delete_and_include_archived_filters(
         assert "archived" in blocked_dispatch_response.json()["error"]
         schedule_delete_response = client.delete("/config/execution-schedules/bank_partner_poll")
         assert schedule_delete_response.status_code == 204
+
+
+def test_bidirectional_lineage_endpoints() -> None:
+    with TemporaryDirectory() as temp_dir:
+        repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+        seed_source_asset_graph(repository)
+        service = AccountTransactionService(
+            landing_root=Path(temp_dir) / "landing",
+            metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+        )
+        client = TestClient(
+            create_app(
+                service,
+                config_repository=repository,
+                enable_unsafe_admin=True,
+            )
+        )
+
+        # target_name filter on /control/source-lineage
+        hit = client.get(
+            "/control/source-lineage",
+            params={"target_name": "fact_account_transaction"},
+        )
+        assert hit.status_code == 200
+        assert len(hit.json()["lineage"]) == 1
+        assert hit.json()["lineage"][0]["target_name"] == "fact_account_transaction"
+
+        miss = client.get(
+            "/control/source-lineage",
+            params={"target_name": "no_such_publication"},
+        )
+        assert miss.status_code == 200
+        assert miss.json()["lineage"] == []
+
+        # /control/lineage/upstream: given a publication, return contributing sources
+        upstream = client.get(
+            "/control/lineage/upstream",
+            params={"publication_key": "fact_account_transaction"},
+        )
+        assert upstream.status_code == 200
+        assert upstream.json()["publication_key"] == "fact_account_transaction"
+        assert upstream.json()["contributing_sources"] == ["manual-upload"]
+
+        upstream_miss = client.get(
+            "/control/lineage/upstream",
+            params={"publication_key": "no_such_publication"},
+        )
+        assert upstream_miss.status_code == 200
+        assert upstream_miss.json()["contributing_sources"] == []
+
+        # /control/lineage/downstream: given a source, return dependent publications
+        downstream = client.get(
+            "/control/lineage/downstream",
+            params={"source_asset_id": "manual-upload"},
+        )
+        assert downstream.status_code == 200
+        assert downstream.json()["source_asset_id"] == "manual-upload"
+        assert downstream.json()["publications"] == ["fact_account_transaction"]

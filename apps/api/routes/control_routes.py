@@ -39,6 +39,7 @@ def register_control_routes(
     async def get_source_lineage(
         run_id: str | None = None,
         target_layer: str | None = None,
+        target_name: str | None = None,
     ) -> dict[str, Any]:
         require_unsafe_admin()
         return {
@@ -46,6 +47,7 @@ def register_control_routes(
                 resolved_config_repository.list_source_lineage(
                     input_run_id=run_id,
                     target_layer=target_layer,
+                    target_name=target_name,
                 )
             )
         }
@@ -58,11 +60,30 @@ def register_control_routes(
         lineage_records = resolved_config_repository.list_source_lineage(
             source_asset_id=source_asset_id,
         )
-        # Extract distinct publication keys (target_name values)
         publications = sorted(set(record.target_name for record in lineage_records))
         return {
             "source_asset_id": source_asset_id,
             "publications": publications,
+        }
+
+    @app.get("/control/lineage/upstream")
+    async def get_lineage_upstream(
+        publication_key: str,
+    ) -> dict[str, Any]:
+        require_unsafe_admin()
+        lineage_records = resolved_config_repository.list_source_lineage(
+            target_name=publication_key,
+        )
+        sources = sorted(
+            {
+                record.source_system
+                for record in lineage_records
+                if record.source_system is not None
+            }
+        )
+        return {
+            "publication_key": publication_key,
+            "contributing_sources": sources,
         }
 
     @app.get("/control/publication-audit")

@@ -71,6 +71,7 @@ class PostgresProvenanceControlPlaneMixin:
         *,
         input_run_id: str | None = None,
         target_layer: str | None = None,
+        target_name: str | None = None,
         source_asset_id: str | None = None,
     ) -> list[SourceLineageRecord]:
         clauses: list[str] = []
@@ -81,6 +82,9 @@ class PostgresProvenanceControlPlaneMixin:
         if target_layer is not None:
             clauses.append("target_layer = %s")
             params.append(target_layer)
+        if target_name is not None:
+            clauses.append("target_name = %s")
+            params.append(target_name)
         if source_asset_id is not None:
             clauses.append("source_system = %s")
             params.append(source_asset_id)
