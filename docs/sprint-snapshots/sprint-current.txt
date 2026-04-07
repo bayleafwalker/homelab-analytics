@@ -2,7 +2,7 @@ SPRINT: Sprint flint-glass-vow — Semantic Confidence and Operator Trust  [acti
 Goal:   Make every platform output carry explicit freshness, completeness, and lineage signals so stale data degrades visibly instead of silently becoming truth-ish
 Dates:  2026-03-30 to 2026-04-13
 ID:     25
-Items:  15 total — 14 done, 0 active, 1 pending, 0 blocked
+Items:  15 total — 15 done, 0 active, 0 pending, 0 blocked
 
 --- Track: confidence-model ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
@@ -30,8 +30,8 @@ Items:  15 total — 14 done, 0 active, 1 pending, 0 blocked
   [done    ] #213  Scenario fixtures for stale, partial, and malformed input states  (assignee: -)
 
 --- Track: tracing ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #163  Assumption and dependency tracing — scenario assumptions_summary, policy input_freshness, detail pages  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #163  Assumption and dependency tracing — scenario assumptions_summary, policy input_freshness, detail pages  (assignee: -)
 
 --- Track: auditable-outputs ---
   health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
@@ -52,4 +52,4 @@ Items:  15 total — 14 done, 0 active, 1 pending, 0 blocked
   [done    ] #209  Source-health-to-publication-health propagation rules — stale source marks downstream outputs as degraded  (assignee: -)
   [done    ] #210  Derived-output degradation rules and confidence scoring/banding model  (assignee: -)
 
-Rendered: 2026-04-07T06:49:14Z
+Rendered: 2026-04-07T06:58:41Z
