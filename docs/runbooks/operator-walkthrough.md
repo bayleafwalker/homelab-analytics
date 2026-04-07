@@ -140,6 +140,19 @@ After all three:
 
 ---
 
+## Control Terminal
+
+The control terminal (`/control/terminal`) is a deliberate operator aid, not an undocumented escape hatch. Commands are grouped by task:
+
+- **diagnostics** — inspect live state: `status`, `runs`, `dispatches`, `heartbeats`, `freshness`
+- **remediation** — trace and validate: `publication-audit`, `lineage`, `verify-config`
+- **configuration** — review registered entities: `source-systems`, `source-assets`, `ingestion-definitions`, `publication-definitions`, `schedules`
+- **admin** — users, tokens, audit trail, and queue operations: `users`, `tokens`, `audit`, `enqueue-due`
+
+Use `help` to list all commands. The `/control/terminal/commands` endpoint returns each command with its `group`, `usage`, and `mutating` flag.
+
+---
+
 ## Freshness and Remediation
 
 1. Go to **Sources** (`/sources`).

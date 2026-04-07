@@ -19,6 +19,7 @@ class TerminalCommandSpec:
     usage: str
     description: str
     mutating: bool = False
+    group: str = "general"
 
 
 @dataclass(frozen=True)
@@ -55,92 +56,110 @@ _COMMAND_SPECS: tuple[TerminalCommandSpec, ...] = (
         name="help",
         usage="help",
         description="Show the allowlisted terminal commands.",
+        group="general",
     ),
     TerminalCommandSpec(
         name="status",
         usage="status",
         description="Summarize queue, worker, run, and auth state from the control plane.",
+        group="diagnostics",
     ),
     TerminalCommandSpec(
         name="runs",
         usage="runs [limit]",
         description="List recent ingestion runs. Default limit is 10, max 50.",
+        group="diagnostics",
     ),
     TerminalCommandSpec(
         name="dispatches",
         usage="dispatches [status]",
         description="List schedule dispatches, optionally filtered by status.",
+        group="diagnostics",
     ),
     TerminalCommandSpec(
         name="heartbeats",
         usage="heartbeats",
         description="List current worker heartbeats.",
+        group="diagnostics",
     ),
     TerminalCommandSpec(
         name="freshness",
         usage="freshness",
         description="Show latest dataset freshness snapshots.",
+        group="diagnostics",
     ),
     TerminalCommandSpec(
         name="schedules",
         usage="schedules [limit]",
         description="List execution schedules. Default limit is 10, max 50.",
+        group="configuration",
     ),
     TerminalCommandSpec(
         name="tokens",
         usage="tokens [limit]",
         description="List service tokens, including revoked tokens. Default limit is 10, max 50.",
+        group="admin",
     ),
     TerminalCommandSpec(
         name="audit",
         usage="audit [limit]",
         description="List recent auth/control audit events. Default limit is 10, max 50.",
+        group="admin",
     ),
     TerminalCommandSpec(
         name="publication-audit",
         usage="publication-audit [limit]",
         description="List recent publication audit records. Default limit is 10, max 50.",
+        group="remediation",
     ),
     TerminalCommandSpec(
         name="users",
         usage="users [limit]",
         description="List local users. Default limit is 10, max 50.",
+        group="admin",
     ),
     TerminalCommandSpec(
         name="source-systems",
         usage="source-systems [limit]",
         description="List configured source systems. Default limit is 10, max 50.",
+        group="configuration",
     ),
     TerminalCommandSpec(
         name="source-assets",
         usage="source-assets [limit]",
         description="List source assets, including archived assets. Default limit is 10, max 50.",
+        group="configuration",
     ),
     TerminalCommandSpec(
         name="ingestion-definitions",
         usage="ingestion-definitions [limit]",
         description="List ingestion definitions, including archived definitions. Default limit is 10, max 50.",
+        group="configuration",
     ),
     TerminalCommandSpec(
         name="publication-definitions",
         usage="publication-definitions [limit]",
         description="List publication definitions, including archived definitions. Default limit is 10, max 50.",
+        group="configuration",
     ),
     TerminalCommandSpec(
         name="lineage",
         usage="lineage [limit]",
         description="List recent source-lineage records. Default limit is 10, max 50.",
+        group="remediation",
     ),
     TerminalCommandSpec(
         name="verify-config",
         usage="verify-config",
         description="Run config preflight validation against the current control-plane state.",
+        group="remediation",
     ),
     TerminalCommandSpec(
         name="enqueue-due",
         usage="enqueue-due [limit]",
         description="Enqueue due execution schedules using the control-plane queue.",
         mutating=True,
+        group="admin",
     ),
 )
 _COMMANDS_BY_NAME = {command.name: command for command in _COMMAND_SPECS}
