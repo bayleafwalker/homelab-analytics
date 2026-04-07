@@ -1,14 +1,18 @@
-SPRINT: semantic-seam-forge - Semantic Engine Contracts and Application Seams  [active]
-Goal:   Make the semantic engine explicit and stop surfaces from carrying workflow order.
-ID:     42
-Items:  2 total — 2 done, 0 active, 0 pending, 0 blocked
+SPRINT: pack-loop-harbor - Product Pack Ownership and Workflow Closure  [active]
+Goal:   Make first-source onboarding and first broken-run recovery feel like one pack-owned product loop.
+ID:     43
+Items:  3 total — 3 done, 0 active, 0 pending, 0 blocked
 
---- Track: semantic-contracts ---
+--- Track: onboarding ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #291  Publish remaining homelab and infrastructure current-dimension contracts  (assignee: -)
+  [done    ] #293  First-source onboarding flow closure  (assignee: -)
 
---- Track: orchestration-seam ---
+--- Track: pack-ownership ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #292  Extract explicit application/use-case entrypoints for ingest, publish, scenario, and policy flows  (assignee: -)
+  [done    ] #295  Keep onboarding and remediation sequencing under pack/application ownership  (assignee: -)
 
-Rendered: 2026-04-07T19:52:36Z
+--- Track: remediation ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #294  Failed-run to remediation action path  (assignee: -)
+
+Rendered: 2026-04-07T20:03:01Z
