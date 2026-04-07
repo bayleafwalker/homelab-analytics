@@ -245,3 +245,51 @@ def register_registry_routes(
                 resolved_config_repository.list_extension_registry_activations()
             )
         }
+
+    @app.get("/control/registry/summary")
+    async def get_registry_summary() -> dict[str, Any]:
+        # Read-only operator surface — no unsafe_admin required.
+        sources = resolved_config_repository.list_extension_registry_sources(
+            include_archived=False
+        )
+        activations = resolved_config_repository.list_extension_registry_activations()
+        active_revision: dict[str, Any] | None = None
+        if activations:
+            latest = max(activations, key=lambda a: a.activated_at)
+            revision = resolved_config_repository.get_extension_registry_revision(
+                latest.extension_registry_revision_id
+            )
+            active_revision = {
+                "id": revision.extension_registry_revision_id,
+                "revision_ref": revision.resolved_ref,
+                "activated_at": to_jsonable(latest.activated_at),
+            }
+        discovered_handlers = [
+            handler.handler_key
+            for handler in promotion_handler_registry.list()
+        ]
+        all_extensions = registry.list_extensions()
+        publication_keys = [
+            pub.relation_name
+            for ext in all_extensions
+            for pub in ext.publication_relations
+        ]
+        function_keys = [
+            fn.function_key for fn in function_registry.list()
+        ]
+        return {
+            "sources": [
+                {
+                    "id": s.extension_registry_source_id,
+                    "url": s.location,
+                    "status": "enabled" if s.enabled else "disabled",
+                    "last_synced": to_jsonable(s.created_at),
+                }
+                for s in sources
+            ],
+            "active_revision": active_revision,
+            "discovered_handlers": discovered_handlers,
+            "publication_keys": publication_keys,
+            "function_keys": function_keys,
+            "loaded_extension_count": len(all_extensions),
+        }

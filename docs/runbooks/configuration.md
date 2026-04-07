@@ -210,6 +210,14 @@ Machine JWT tokens are evaluated by the existing in-app authorization kernel. Sc
 
 ---
 
+### Registry visibility
+
+`GET /control/registry/summary` returns a read-only snapshot of the extension registry state. It is accessible without unsafe-admin credentials and is intended for operator dashboards and health checks.
+
+Response fields: `sources` (configured registry sources and their enabled status), `active_revision` (the currently activated revision id and ref, or `null`), `discovered_handlers` (promotion handler keys loaded at runtime), `publication_keys` (relation names from reporting extensions), `function_keys` (registered function keys), and `loaded_extension_count`.
+
+---
+
 ## Kubernetes secret examples
 
 The repository includes example Secret manifests under `infra/examples/secrets/` for the current credential classes: bootstrap single-DSN database access, workload-scoped API and worker database access, bootstrap local auth, blob storage, OIDC, and provider API access.
