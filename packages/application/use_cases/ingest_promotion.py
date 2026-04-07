@@ -89,7 +89,7 @@ def promote_and_publish_subscription(
 def promote_and_publish_configured_csv_batch(
     run_ids: list[str],
     *,
-    source_asset: object,
+    source_asset: "SourceAssetRecord",
     config_repository: "IngestionConfigRepository",
     service: "ConfiguredCsvIngestionService",
     transformation_service: "TransformationService | None",

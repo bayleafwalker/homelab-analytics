@@ -365,7 +365,15 @@ def build_run_remediation(
             ),
         }
 
-    # Received / landed with issues or any other status.
+    if status == IngestionRunStatus.REJECTED:
+        return {
+            "action": "upload_missing_period",
+            "reason": (
+                "Run was rejected. Correct and re-upload the source file for the affected period."
+            ),
+        }
+
+    # Received / landed or any other status.
     return {"action": "none", "reason": "No operator action required."}
 
 
