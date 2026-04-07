@@ -36,6 +36,7 @@ Use these tags when adding or updating docs so kernel-vs-app ownership stays exp
 - `decisions/household-platform-adr-and-refactor-blueprint.md`
 - `decisions/household-operating-platform-direction.md`
 - `runbooks/project-working-practices.md`
+- `runbooks/testing-and-verification.md`
 - `runbooks/sprint-and-knowledge-operations.md`
 - `agents/implementation.md`
 

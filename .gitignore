@@ -32,3 +32,4 @@ docs/knowledge/*
 !docs/knowledge/knowledge-base.md
 # Local session notes are scratch/history only, not shared repo guidance.
 docs/sessions/*
+.artifacts/
