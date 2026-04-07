@@ -167,5 +167,76 @@ class AdapterContractsAPITests(unittest.TestCase):
             self.assertIn("local", trust_levels)
 
 
+class AdapterOperatorAPITests(unittest.TestCase):
+    def test_enable_pack(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            # First, disable the pack (ha_core starts active)
+            client.post("/adapters/packs/ha_core/disable")
+            # Then enable it
+            resp = client.post("/adapters/packs/ha_core/enable")
+            self.assertEqual(200, resp.status_code)
+            data = resp.json()
+            self.assertEqual("ha_core", data["pack_key"])
+            self.assertTrue(data["active"])
+
+    def test_disable_pack(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.post("/adapters/packs/ha_core/disable")
+            self.assertEqual(200, resp.status_code)
+            data = resp.json()
+            self.assertEqual("ha_core", data["pack_key"])
+            self.assertFalse(data["active"])
+
+    def test_enable_nonexistent_pack(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.post("/adapters/packs/nonexistent/enable")
+            self.assertEqual(404, resp.status_code)
+
+    def test_disable_nonexistent_pack(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.post("/adapters/packs/nonexistent/disable")
+            self.assertEqual(404, resp.status_code)
+
+    def test_get_pack_health(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.get("/adapters/packs/ha_core/health")
+            self.assertEqual(200, resp.status_code)
+            data = resp.json()
+            self.assertEqual("ha_core", data["pack_key"])
+            self.assertIn("active", data)
+            self.assertIn("compatibility", data)
+            compat = data["compatibility"]
+            self.assertIn("is_compatible", compat)
+            self.assertIn("issues", compat)
+            self.assertIn("warnings", compat)
+
+    def test_get_pack_health_nonexistent(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.get("/adapters/packs/nonexistent/health")
+            self.assertEqual(404, resp.status_code)
+
+    def test_get_pack_config(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.get("/adapters/packs/ha_core/config")
+            self.assertEqual(200, resp.status_code)
+            data = resp.json()
+            self.assertEqual("ha_core", data["pack_key"])
+            self.assertIn("credential_requirements", data)
+            self.assertIn("adapter_count", data)
+            self.assertIn("renderer_count", data)
+            # ha_core has adapters with credential_requirements
+            self.assertGreater(len(data["credential_requirements"]), 0)
+            # Verify credential_requirements is a sorted list
+            creds = data["credential_requirements"]
+            self.assertEqual(creds, sorted(creds))
+
+
 if __name__ == "__main__":
     unittest.main()

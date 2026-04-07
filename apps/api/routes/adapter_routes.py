@@ -13,6 +13,7 @@ from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException
 
+from packages.adapters.compatibility import check_compatibility
 from packages.adapters.contracts import AdapterDirection, TrustLevel
 from packages.adapters.registry import AdapterRegistry
 
@@ -161,4 +162,133 @@ def register_adapter_routes(
         return {
             "directions": [d.value for d in AdapterDirection],
             "trust_levels": [t.value for t in TrustLevel],
+        }
+
+    @app.post("/adapters/packs/{pack_key}/enable")
+    async def enable_pack(pack_key: str) -> dict[str, Any]:
+        """Enable (activate) an adapter pack.
+
+        Parameters
+        ----------
+        pack_key : str
+            The pack key to enable.
+
+        Returns
+        -------
+        dict[str, Any]
+            Response with pack_key and active=true.
+
+        Raises
+        ------
+        HTTPException
+            404 if the pack is not registered.
+        """
+        require_unsafe_admin()
+        pack = adapter_registry.get(pack_key)
+        if pack is None:
+            raise HTTPException(status_code=404, detail=f"Pack '{pack_key}' not found")
+
+        adapter_registry.activate(pack_key)
+        return {"pack_key": pack_key, "active": True}
+
+    @app.post("/adapters/packs/{pack_key}/disable")
+    async def disable_pack(pack_key: str) -> dict[str, Any]:
+        """Disable (deactivate) an adapter pack.
+
+        Parameters
+        ----------
+        pack_key : str
+            The pack key to disable.
+
+        Returns
+        -------
+        dict[str, Any]
+            Response with pack_key and active=false.
+
+        Raises
+        ------
+        HTTPException
+            404 if the pack is not registered.
+        """
+        require_unsafe_admin()
+        pack = adapter_registry.get(pack_key)
+        if pack is None:
+            raise HTTPException(status_code=404, detail=f"Pack '{pack_key}' not found")
+
+        adapter_registry.deactivate(pack_key)
+        return {"pack_key": pack_key, "active": False}
+
+    @app.get("/adapters/packs/{pack_key}/health")
+    async def get_pack_health(pack_key: str) -> dict[str, Any]:
+        """Get health status and compatibility check for a pack.
+
+        Parameters
+        ----------
+        pack_key : str
+            The pack key to check.
+
+        Returns
+        -------
+        dict[str, Any]
+            Response with pack_key, active state, and compatibility check results.
+
+        Raises
+        ------
+        HTTPException
+            404 if the pack is not registered.
+        """
+        require_unsafe_admin()
+        pack = adapter_registry.get(pack_key)
+        if pack is None:
+            raise HTTPException(status_code=404, detail=f"Pack '{pack_key}' not found")
+
+        compat = check_compatibility(pack)
+        return {
+            "pack_key": pack_key,
+            "active": adapter_registry.is_active(pack_key),
+            "compatibility": {
+                "is_compatible": compat.is_compatible,
+                "issues": list(compat.issues),
+                "warnings": list(compat.warnings),
+            },
+        }
+
+    @app.get("/adapters/packs/{pack_key}/config")
+    async def get_pack_config(pack_key: str) -> dict[str, Any]:
+        """Get configuration requirements for a pack.
+
+        Parameters
+        ----------
+        pack_key : str
+            The pack key to check.
+
+        Returns
+        -------
+        dict[str, Any]
+            Response with credential_requirements (deduplicated and sorted),
+            adapter_count, and renderer_count.
+
+        Raises
+        ------
+        HTTPException
+            404 if the pack is not registered.
+        """
+        require_unsafe_admin()
+        pack = adapter_registry.get(pack_key)
+        if pack is None:
+            raise HTTPException(status_code=404, detail=f"Pack '{pack_key}' not found")
+
+        # Collect all credential requirements from all adapters in the pack
+        all_creds = set()
+        for adapter in pack.adapters:
+            all_creds.update(adapter.credential_requirements)
+
+        # Sort for determinism
+        creds_list = sorted(list(all_creds))
+
+        return {
+            "pack_key": pack_key,
+            "credential_requirements": creds_list,
+            "adapter_count": len(pack.adapters),
+            "renderer_count": len(pack.renderers),
         }
