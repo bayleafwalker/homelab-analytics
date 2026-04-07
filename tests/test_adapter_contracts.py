@@ -15,6 +15,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from packages.adapters.compatibility import check_compatibility, validate_adapter_pack
 from packages.adapters.contracts import (
     ActionAdapter,
     AdapterDirection,
@@ -29,9 +30,7 @@ from packages.adapters.contracts import (
     RendererManifest,
     TrustLevel,
 )
-from packages.adapters.compatibility import check_compatibility, validate_adapter_pack
 from packages.adapters.export_renderer import ExportRenderer
-from packages.adapters.registry import AdapterRegistry
 from packages.adapters.ha_adapters import (
     HA_ACTION_MANIFEST,
     HA_ADAPTER_PACK,
@@ -41,6 +40,7 @@ from packages.adapters.ha_adapters import (
     HaIngestAdapter,
     HaMqttPublishAdapter,
 )
+from packages.adapters.registry import AdapterRegistry
 
 # ---------------------------------------------------------------------------
 # AdapterManifest

@@ -231,6 +231,9 @@ class PostgresProvenanceControlPlaneMixin:
         records = []
         for row in rows:
             row_dict = _coerce_row_mapping(row)
+            quality_flags_raw = row_dict["quality_flags"]
+            contributing_run_ids_raw = row_dict["contributing_run_ids"]
+            source_freshness_states_raw = row_dict["source_freshness_states"]
             records.append(
                 PublicationConfidenceSnapshotRecord(
                     snapshot_id=str(row_dict["snapshot_id"]),
@@ -239,12 +242,14 @@ class PostgresProvenanceControlPlaneMixin:
                     freshness_state=str(row_dict["freshness_state"]),
                     completeness_pct=int(row_dict["completeness_pct"]),  # type: ignore
                     confidence_verdict=str(row_dict["confidence_verdict"]),
-                    quality_flags=json.loads(row_dict["quality_flags"])
-                    if row_dict["quality_flags"]
+                    quality_flags=json.loads(quality_flags_raw)
+                    if isinstance(quality_flags_raw, (str, bytes, bytearray))
                     else None,
-                    contributing_run_ids=tuple(row_dict["contributing_run_ids"] or []),
-                    source_freshness_states=json.loads(row_dict["source_freshness_states"])
-                    if row_dict["source_freshness_states"]
+                    contributing_run_ids=tuple(str(value) for value in contributing_run_ids_raw)
+                    if isinstance(contributing_run_ids_raw, (list, tuple))
+                    else (),
+                    source_freshness_states=json.loads(source_freshness_states_raw)
+                    if isinstance(source_freshness_states_raw, (str, bytes, bytearray))
                     else None,
                     created_at=row_dict["created_at"],  # type: ignore
                 )

@@ -785,13 +785,14 @@ def test_get_confidence_detail_returns_404_when_publication_not_found() -> None:
 
 
 def test_get_confidence_detail_returns_snapshot_when_found() -> None:
-    from packages.storage.control_plane import PublicationConfidenceSnapshotCreate
     import uuid
+
+    from packages.storage.control_plane import PublicationConfidenceSnapshotCreate
 
     with TemporaryDirectory() as temp_dir:
         repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
         now = datetime.now(UTC)
-        seeded = seed_source_asset_graph(repository)
+        seed_source_asset_graph(repository)
 
         # Create a confidence snapshot
         snapshot_create = PublicationConfidenceSnapshotCreate(

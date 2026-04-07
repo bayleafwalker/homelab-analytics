@@ -1,6 +1,7 @@
 {
   "publication_contracts": [
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -68,8 +69,11 @@
           "unit": "count"
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Cumulative balance trend per account derived from transaction history.",
       "display_name": "Account Balance Trend",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "finance",
       "pack_version": "1.0.0",
@@ -88,6 +92,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": "none",
@@ -194,8 +199,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": null,
       "display_name": "Mart Affordability Ratios",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -212,6 +220,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -305,8 +314,11 @@
           "unit": "count"
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Most recent backup per target with staleness flag (>24h = stale).",
       "display_name": "Backup Freshness",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "homelab",
       "pack_version": "0.1.0",
@@ -333,6 +345,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -465,8 +478,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": null,
       "display_name": "Mart Budget Envelope Drift",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -483,6 +499,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -589,8 +606,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": null,
       "display_name": "Mart Budget Progress Current",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -607,6 +627,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -739,8 +760,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": null,
       "display_name": "Mart Budget Variance",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -757,6 +781,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -915,8 +940,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Latest contracted unit prices for utilities and services.",
       "display_name": "Current Contract Prices",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "utilities",
       "pack_version": "1.0.0",
@@ -935,6 +963,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -1054,8 +1083,11 @@
           "unit": "days"
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Active utility contracts with renewal or expiry dates within the next 90 days.",
       "display_name": "Contract Renewal Watchlist",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "utilities",
       "pack_version": "1.0.0",
@@ -1074,6 +1106,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -1180,8 +1213,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Utility contracts flagged for review based on price, tenure, or market comparison signals.",
       "display_name": "Contract Review Candidates",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "utilities",
       "pack_version": "1.0.0",
@@ -1200,6 +1236,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -1280,8 +1317,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": null,
       "display_name": "Mart Cost Trend 12M",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -1298,6 +1338,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -1365,8 +1406,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Household financial baseline \u2014 average monthly spend, recurring costs, utility baseline, and current account balance.",
       "display_name": "Current Operating Baseline",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "overview",
       "pack_version": "1.0.0",
@@ -1385,6 +1429,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -1543,8 +1588,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Latest electricity tariff rates derived from contract price data.",
       "display_name": "Current Electricity Prices",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "utilities",
       "pack_version": "1.0.0",
@@ -1563,6 +1611,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": "count",
@@ -1721,8 +1770,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": null,
       "display_name": "Mart Homelab Roi",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -1739,6 +1791,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -1806,8 +1859,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": null,
       "display_name": "Mart Household Cost Model",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -1824,6 +1880,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -1943,8 +2000,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Top-line summary of current cashflow, utility spend, subscriptions, and account balance direction.",
       "display_name": "Household Overview",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "overview",
       "pack_version": "1.0.0",
@@ -1963,6 +2023,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -2095,8 +2156,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": null,
       "display_name": "Mart Loan Overview",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -2113,6 +2177,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -2232,8 +2297,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": null,
       "display_name": "Mart Loan Repayment Variance",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -2250,6 +2318,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -2369,8 +2438,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": null,
       "display_name": "Mart Loan Schedule Projected",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -2387,6 +2459,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -2454,8 +2527,11 @@
           "unit": "count"
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Aggregated monthly income and expense summary from account transactions.",
       "display_name": "Monthly Cashflow",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "finance",
       "pack_version": "1.0.0",
@@ -2474,6 +2550,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -2554,8 +2631,11 @@
           "unit": "count"
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": null,
       "display_name": "Mart Monthly Cashflow By Counterparty",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -2572,6 +2652,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -2652,8 +2733,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Aggregated attention items across domains \u2014 anomalies, contract reviews, upcoming renewals, and imminent payments.",
       "display_name": "Open Attention Items",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "overview",
       "pack_version": "1.0.0",
@@ -2672,6 +2756,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -2791,8 +2876,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Notable transactions above a threshold in recent months.",
       "display_name": "Recent Large Transactions",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "finance",
       "pack_version": "1.0.0",
@@ -2811,6 +2899,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -2904,8 +2993,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Biggest month-over-month changes in cashflow, category spend, and utility costs.",
       "display_name": "Recent Significant Changes",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "overview",
       "pack_version": "1.0.0",
@@ -2924,6 +3016,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": "none",
@@ -3004,8 +3097,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": null,
       "display_name": "Mart Recurring Cost Baseline",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -3022,6 +3118,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -3154,8 +3251,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Latest health state per service with uptime and last-change timestamp.",
       "display_name": "Service Health (Current)",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "homelab",
       "pack_version": "0.1.0",
@@ -3182,6 +3282,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -3249,8 +3350,11 @@
           "unit": "count"
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Monthly expense totals grouped by counterparty and category.",
       "display_name": "Spend by Category Monthly",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "finance",
       "pack_version": "1.0.0",
@@ -3269,6 +3373,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -3375,8 +3480,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Per-device capacity usage with risk tier (warn >80%, crit >90%).",
       "display_name": "Storage Risk",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "homelab",
       "pack_version": "0.1.0",
@@ -3403,6 +3511,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -3535,8 +3644,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Active recurring subscription costs grouped by category.",
       "display_name": "Subscription Summary",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "finance",
       "pack_version": "1.0.0",
@@ -3555,6 +3667,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -3648,8 +3761,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Recent transactions flagged as anomalous \u2014 first-time counterparties or unusual amounts.",
       "display_name": "Transaction Anomalies",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "finance",
       "pack_version": "1.0.0",
@@ -3668,6 +3784,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -3761,8 +3878,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Active recurring subscriptions projected as upcoming charges in the next 30 days.",
       "display_name": "Upcoming Fixed Costs (30 days)",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "finance",
       "pack_version": "1.0.0",
@@ -3781,6 +3901,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -3861,8 +3982,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Month-over-month comparison of usage and price changes \u2014 answers whether cost increases are driven by price or consumption.",
       "display_name": "Usage vs Price Summary",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "utilities",
       "pack_version": "1.0.0",
@@ -3881,6 +4005,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -4078,8 +4203,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Monthly utility cost breakdown combining contract prices and usage.",
       "display_name": "Utility Cost Summary",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "utilities",
       "pack_version": "1.0.0",
@@ -4098,6 +4226,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -4191,8 +4320,11 @@
           "unit": "count"
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Monthly aggregated utility costs and usage per utility type.",
       "display_name": "Utility Cost Trend (Monthly)",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "utilities",
       "pack_version": "1.0.0",
@@ -4211,6 +4343,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -4317,8 +4450,11 @@
           "unit": "currency"
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Rolling 7-day average CPU and memory per workload with cost estimate.",
       "display_name": "Workload Cost (7-day rolling)",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": "homelab",
       "pack_version": "0.1.0",
@@ -4344,6 +4480,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -4385,8 +4522,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Current snapshot of canonical household account records.",
       "display_name": "Current Accounts",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -4403,6 +4543,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -4509,8 +4650,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Current snapshot of tracked household and homelab assets.",
       "display_name": "Current Assets",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -4527,6 +4671,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -4607,8 +4752,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Current snapshot of budget definitions keyed to canonical categories.",
       "display_name": "Current Budgets",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -4625,6 +4773,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -4718,8 +4867,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Current snapshot of the shared cross-domain category registry.",
       "display_name": "Current Categories",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -4736,6 +4888,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -4842,8 +4995,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Current snapshot of shared contract definitions used by subscriptions and utility-pricing workflows.",
       "display_name": "Current Contracts",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -4860,6 +5016,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -4914,8 +5071,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Current snapshot of canonical counterparties shared by transaction-facing finance reporting.",
       "display_name": "Current Counterparties",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -4932,6 +5092,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -5051,8 +5212,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Current snapshot of canonical Home Assistant entities kept separate from homelab operational models.",
       "display_name": "Current Home Automation Entities",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -5069,6 +5233,96 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
+      "columns": [
+        {
+          "aggregation": null,
+          "description": "Stable surrogate key for the current household member row.",
+          "filterable": true,
+          "grain": null,
+          "json_type": "string",
+          "name": "sk",
+          "nullable": false,
+          "semantic_role": "identifier",
+          "sortable": true,
+          "storage_type": "VARCHAR NOT NULL",
+          "unit": null
+        },
+        {
+          "aggregation": null,
+          "description": "Stable household member identifier used for attribution across domains.",
+          "filterable": true,
+          "grain": null,
+          "json_type": "string",
+          "name": "member_id",
+          "nullable": false,
+          "semantic_role": "identifier",
+          "sortable": true,
+          "storage_type": "VARCHAR NOT NULL",
+          "unit": null
+        },
+        {
+          "aggregation": null,
+          "description": "Human-readable member name shown in attribution surfaces.",
+          "filterable": true,
+          "grain": null,
+          "json_type": "string",
+          "name": "display_name",
+          "nullable": true,
+          "semantic_role": "dimension",
+          "sortable": true,
+          "storage_type": "VARCHAR",
+          "unit": null
+        },
+        {
+          "aggregation": null,
+          "description": "Member role within the household (head, partner, dependent, lodger).",
+          "filterable": true,
+          "grain": null,
+          "json_type": "string",
+          "name": "role",
+          "nullable": true,
+          "semantic_role": "dimension",
+          "sortable": true,
+          "storage_type": "VARCHAR",
+          "unit": null
+        },
+        {
+          "aggregation": null,
+          "description": "Whether the member is currently active and eligible for attribution.",
+          "filterable": true,
+          "grain": null,
+          "json_type": "boolean",
+          "name": "active",
+          "nullable": true,
+          "semantic_role": "status",
+          "sortable": true,
+          "storage_type": "BOOLEAN",
+          "unit": null
+        }
+      ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
+      "description": "Current snapshot of canonical household members used for attribution of transactions, assets, loans, and subscriptions.",
+      "display_name": "Current Household Members",
+      "freshness_state": null,
+      "lineage_required": true,
+      "pack_name": null,
+      "pack_version": null,
+      "publication_key": "dim_household_member",
+      "relation_name": "rpt_current_dim_household_member",
+      "renderer_hints": {},
+      "retention_policy": "indefinite",
+      "schema_name": "dim_household_member",
+      "schema_version": "1.0.0",
+      "supported_renderers": [
+        "web"
+      ],
+      "ui_descriptor_keys": [],
+      "visibility": "public"
+    },
+    {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -5214,8 +5468,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Current snapshot of canonical household loan definitions and terms.",
       "display_name": "Current Loans",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -5232,6 +5489,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -5312,8 +5570,11 @@
           "unit": null
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": "Current snapshot of canonical utility meters and their source metadata.",
       "display_name": "Current Meters",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,
@@ -5330,6 +5591,7 @@
       "visibility": "public"
     },
     {
+      "assessed_at": null,
       "columns": [
         {
           "aggregation": null,
@@ -5436,8 +5698,11 @@
           "unit": "count"
         }
       ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
       "description": null,
       "display_name": "Transformation Audit",
+      "freshness_state": null,
       "lineage_required": true,
       "pack_name": null,
       "pack_version": null,

@@ -8,7 +8,7 @@ defaulting everything to CURRENT.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from packages.storage.ingestion_catalog import SourceFreshnessConfigCreate
 
@@ -17,9 +17,21 @@ if TYPE_CHECKING:
     from packages.storage.control_plane import ControlPlaneStore
 
 
+class FreshnessConfigTemplate(TypedDict):
+    acquisition_mode: str
+    expected_frequency: str
+    coverage_kind: str
+    due_day_of_month: int | None
+    expected_window_days: int
+    freshness_sla_days: int
+    sensitivity_class: str
+    reminder_channel: str
+    requires_human_action: bool
+
+
 # Configuration templates for each domain's sources
 # Keyed by domain name → dataset name → config parameters
-DOMAIN_FRESHNESS_CONFIGS = {
+DOMAIN_FRESHNESS_CONFIGS: dict[str, dict[str, FreshnessConfigTemplate]] = {
     "finance": {
         "account_transactions": {
             "acquisition_mode": "pull",

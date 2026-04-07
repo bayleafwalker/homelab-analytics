@@ -6,10 +6,8 @@ through the standard adapter/renderer pipeline.
 
 from __future__ import annotations
 
-from packages.adapters.contracts import RenderedOutput, RendererManifest, TrustLevel
-from packages.adapters.contracts import AdapterPack
+from packages.adapters.contracts import AdapterPack, RenderedOutput, RendererManifest, TrustLevel
 from packages.shared.metrics import MetricsRegistry
-
 
 PROMETHEUS_RENDERER_MANIFEST = RendererManifest(
     renderer_key="prometheus_metrics",

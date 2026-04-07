@@ -114,6 +114,48 @@
         "title": "AffordabilityRatiosRow",
         "type": "object"
       },
+      "AnswerConfidenceSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "overall_verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overall Verdict"
+          },
+          "stale_source_count": {
+            "title": "Stale Source Count",
+            "type": "integer"
+          },
+          "total_source_count": {
+            "title": "Total Source Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "overall_verdict",
+          "stale_source_count",
+          "total_source_count"
+        ],
+        "title": "AnswerConfidenceSummary",
+        "type": "object"
+      },
       "ArchivedStateRequest": {
         "properties": {
           "archived": {
@@ -133,6 +175,16 @@
           "answer": {
             "title": "Answer",
             "type": "string"
+          },
+          "answer_confidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnswerConfidenceSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "evidence": {
             "additionalProperties": {
@@ -187,6 +239,39 @@
       "AssistantSourceModel": {
         "additionalProperties": false,
         "properties": {
+          "assessed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessed At"
+          },
+          "confidence_verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence Verdict"
+          },
+          "freshness_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness State"
+          },
           "publication_display_name": {
             "title": "Publication Display Name",
             "type": "string"
@@ -1222,6 +1307,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/DimEntityRow"
+                },
+                {
+                  "$ref": "#/components/schemas/DimHouseholdMemberRow"
                 }
               ]
             },
@@ -1792,6 +1880,57 @@
           "entity_id"
         ],
         "title": "DimEntityRow",
+        "type": "object"
+      },
+      "DimHouseholdMemberRow": {
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "member_id": {
+            "title": "Member Id",
+            "type": "string"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "sk": {
+            "title": "Sk",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sk",
+          "member_id"
+        ],
+        "title": "DimHouseholdMemberRow",
         "type": "object"
       },
       "DimLoanRow": {
@@ -3976,12 +4115,45 @@
       "PublicationContractModel": {
         "additionalProperties": false,
         "properties": {
+          "assessed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessed At"
+          },
           "columns": {
             "items": {
               "$ref": "#/components/schemas/PublicationColumnContractModel"
             },
             "title": "Columns",
             "type": "array"
+          },
+          "completeness_pct": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completeness Pct"
+          },
+          "confidence_verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence Verdict"
           },
           "description": {
             "anyOf": [
@@ -3997,6 +4169,17 @@
           "display_name": {
             "title": "Display Name",
             "type": "string"
+          },
+          "freshness_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness State"
           },
           "lineage_required": {
             "title": "Lineage Required",
@@ -6145,6 +6328,279 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/adapters/contracts": {
+      "get": {
+        "description": "Get contract vocabulary summary (directions and trust levels).\n\nReturns\n-------\ndict[str, Any]\n    Response with 'directions' and 'trust_levels' keys.",
+        "operationId": "get_contract_vocabulary_adapters_contracts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Contract Vocabulary Adapters Contracts Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Contract Vocabulary"
+      }
+    },
+    "/adapters/packs": {
+      "get": {
+        "description": "List all registered adapter packs with summary metadata.\n\nReturns\n-------\ndict[str, Any]\n    Response with 'packs' key containing list of pack summaries.",
+        "operationId": "list_adapter_packs_adapters_packs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Adapter Packs Adapters Packs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Adapter Packs"
+      }
+    },
+    "/adapters/packs/{pack_key}": {
+      "get": {
+        "description": "Get detailed information about a specific adapter pack.\n\nParameters\n----------\npack_key : str\n    The pack key to retrieve.\n\nReturns\n-------\ndict[str, Any]\n    Response with pack details including adapters and renderers.\n\nRaises\n------\nHTTPException\n    404 if the pack is not found.",
+        "operationId": "get_adapter_pack_adapters_packs__pack_key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_key",
+            "required": true,
+            "schema": {
+              "title": "Pack Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Adapter Pack Adapters Packs  Pack Key  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Adapter Pack"
+      }
+    },
+    "/adapters/packs/{pack_key}/config": {
+      "get": {
+        "description": "Get configuration requirements for a pack.\n\nParameters\n----------\npack_key : str\n    The pack key to check.\n\nReturns\n-------\ndict[str, Any]\n    Response with credential_requirements (deduplicated and sorted),\n    adapter_count, and renderer_count.\n\nRaises\n------\nHTTPException\n    404 if the pack is not registered.",
+        "operationId": "get_pack_config_adapters_packs__pack_key__config_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_key",
+            "required": true,
+            "schema": {
+              "title": "Pack Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Pack Config Adapters Packs  Pack Key  Config Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Pack Config"
+      }
+    },
+    "/adapters/packs/{pack_key}/disable": {
+      "post": {
+        "description": "Disable (deactivate) an adapter pack.\n\nParameters\n----------\npack_key : str\n    The pack key to disable.\n\nReturns\n-------\ndict[str, Any]\n    Response with pack_key and active=false.\n\nRaises\n------\nHTTPException\n    404 if the pack is not registered.",
+        "operationId": "disable_pack_adapters_packs__pack_key__disable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_key",
+            "required": true,
+            "schema": {
+              "title": "Pack Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Disable Pack Adapters Packs  Pack Key  Disable Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Disable Pack"
+      }
+    },
+    "/adapters/packs/{pack_key}/enable": {
+      "post": {
+        "description": "Enable (activate) an adapter pack.\n\nParameters\n----------\npack_key : str\n    The pack key to enable.\n\nReturns\n-------\ndict[str, Any]\n    Response with pack_key and active=true.\n\nRaises\n------\nHTTPException\n    404 if the pack is not registered.",
+        "operationId": "enable_pack_adapters_packs__pack_key__enable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_key",
+            "required": true,
+            "schema": {
+              "title": "Pack Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Enable Pack Adapters Packs  Pack Key  Enable Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enable Pack"
+      }
+    },
+    "/adapters/packs/{pack_key}/health": {
+      "get": {
+        "description": "Get health status and compatibility check for a pack.\n\nParameters\n----------\npack_key : str\n    The pack key to check.\n\nReturns\n-------\ndict[str, Any]\n    Response with pack_key, active state, and compatibility check results.\n\nRaises\n------\nHTTPException\n    404 if the pack is not registered.",
+        "operationId": "get_pack_health_adapters_packs__pack_key__health_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_key",
+            "required": true,
+            "schema": {
+              "title": "Pack Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Pack Health Adapters Packs  Pack Key  Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Pack Health"
+      }
+    },
+    "/adapters/renderers": {
+      "get": {
+        "description": "List all renderer manifests from registered packs.\n\nReturns\n-------\ndict[str, Any]\n    Response with 'renderers' key containing list of renderer manifests.",
+        "operationId": "list_renderer_manifests_adapters_renderers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Renderer Manifests Adapters Renderers Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Renderer Manifests"
+      }
+    },
     "/api/assistant/answer": {
       "get": {
         "operationId": "answer_assistant_api_assistant_answer_get",
@@ -6706,6 +7162,47 @@
           }
         },
         "summary": "Evaluate Policies"
+      }
+    },
+    "/api/ha/policies/{policy_id}": {
+      "get": {
+        "operationId": "get_policy_by_id_api_ha_policies__policy_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "title": "Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Policy By Id Api Ha Policies  Policy Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Policy By Id"
       }
     },
     "/api/homelab/backups": {
@@ -10493,6 +10990,171 @@
         "summary": "List Auth Audit"
       }
     },
+    "/control/confidence": {
+      "get": {
+        "operationId": "get_confidence_control_confidence_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "stale_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Stale Only",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Confidence Control Confidence Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Confidence"
+      }
+    },
+    "/control/confidence/{publication_key}": {
+      "get": {
+        "operationId": "get_confidence_detail_control_confidence__publication_key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "publication_key",
+            "required": true,
+            "schema": {
+              "title": "Publication Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Confidence Detail Control Confidence  Publication Key  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Confidence Detail"
+      }
+    },
+    "/control/lineage/downstream": {
+      "get": {
+        "operationId": "get_lineage_downstream_control_lineage_downstream_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "source_asset_id",
+            "required": true,
+            "schema": {
+              "title": "Source Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Lineage Downstream Control Lineage Downstream Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Lineage Downstream"
+      }
+    },
+    "/control/lineage/upstream": {
+      "get": {
+        "operationId": "get_lineage_upstream_control_lineage_upstream_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "publication_key",
+            "required": true,
+            "schema": {
+              "title": "Publication Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Lineage Upstream Control Lineage Upstream Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Lineage Upstream"
+      }
+    },
     "/control/operational-summary": {
       "get": {
         "operationId": "get_operational_summary_control_operational_summary_get",
@@ -10813,6 +11475,22 @@
                 }
               ],
               "title": "Target Layer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Name"
             }
           }
         ],

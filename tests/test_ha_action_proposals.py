@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import unittest
 
-from packages.pipelines.ha_action_proposals import ApprovalActionRegistry
 from packages.domains.homelab.pipelines.ha_action_proposals import ProposalProvenance
+from packages.pipelines.ha_action_proposals import ApprovalActionRegistry
 
 
 class ApprovalActionRegistryTests(unittest.TestCase):

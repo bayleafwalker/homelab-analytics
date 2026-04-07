@@ -5,8 +5,6 @@ import re
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Callable, Literal
 
-_log = logging.getLogger(__name__)
-
 from fastapi import FastAPI, HTTPException
 
 from apps.api.response_models import (
@@ -36,6 +34,8 @@ from packages.platform.publication_index import (
     build_publication_semantic_index,
 )
 from packages.shared.extensions import ExtensionRegistry
+
+_log = logging.getLogger(__name__)
 
 _REPORT_PATH_BY_PUBLICATION_KEY: dict[str, str] = {
     "mart_monthly_cashflow": "/reports/monthly-cashflow",

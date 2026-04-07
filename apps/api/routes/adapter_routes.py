@@ -279,7 +279,7 @@ def register_adapter_routes(
             raise HTTPException(status_code=404, detail=f"Pack '{pack_key}' not found")
 
         # Collect all credential requirements from all adapters in the pack
-        all_creds = set()
+        all_creds: set[str] = set()
         for adapter in pack.adapters:
             all_creds.update(adapter.credential_requirements)
 

@@ -106,11 +106,11 @@ def validate_adapter_pack(pack: AdapterPack) -> list[str]:
 
     # Check adapter keys
     adapter_keys = []
-    for manifest in pack.adapters:
-        if not manifest.adapter_key:
-            errors.append(f"adapter '{manifest.adapter_key}' has empty adapter_key")
+    for adapter_manifest in pack.adapters:
+        if not adapter_manifest.adapter_key:
+            errors.append(f"adapter '{adapter_manifest.adapter_key}' has empty adapter_key")
         else:
-            adapter_keys.append(manifest.adapter_key)
+            adapter_keys.append(adapter_manifest.adapter_key)
 
     # Check for duplicate adapter keys
     seen = set()
@@ -121,11 +121,11 @@ def validate_adapter_pack(pack: AdapterPack) -> list[str]:
 
     # Check renderer keys
     renderer_keys = []
-    for manifest in pack.renderers:
-        if not manifest.renderer_key:
-            errors.append(f"renderer '{manifest.renderer_key}' has empty renderer_key")
+    for renderer_manifest in pack.renderers:
+        if not renderer_manifest.renderer_key:
+            errors.append(f"renderer '{renderer_manifest.renderer_key}' has empty renderer_key")
         else:
-            renderer_keys.append(manifest.renderer_key)
+            renderer_keys.append(renderer_manifest.renderer_key)
 
     # Check for duplicate renderer keys
     seen = set()

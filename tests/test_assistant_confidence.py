@@ -4,7 +4,7 @@ from __future__ import annotations
 import unittest
 from datetime import datetime, timezone
 
-from apps.api.response_models import AnswerConfidenceSummary, AssistantSourceModel
+from apps.api.response_models import AssistantSourceModel
 from apps.api.routes.assistant_routes import _build_answer_confidence, _publication_source
 from packages.platform.publication_confidence import (
     ConfidenceVerdict,
@@ -12,7 +12,6 @@ from packages.platform.publication_confidence import (
     PublicationConfidenceSnapshot,
     SourceFreshnessSnapshot,
 )
-from packages.platform.publication_index import PublicationSemanticIndexEntry
 from packages.platform.source_freshness import SourceFreshnessState
 
 

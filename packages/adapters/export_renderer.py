@@ -10,7 +10,6 @@ import json
 
 from packages.adapters.contracts import RenderedOutput, RendererManifest
 
-
 EXPORT_RENDERER_MANIFEST = RendererManifest(
     renderer_key="export_csv_json",
     display_name="Export Renderer — CSV / JSON",

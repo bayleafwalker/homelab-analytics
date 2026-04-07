@@ -7,7 +7,7 @@ adapter pack registry.
 
 from __future__ import annotations
 
-from packages.adapters.contracts import Renderer, RenderedOutput
+from packages.adapters.contracts import RenderedOutput, Renderer
 from packages.adapters.registry import AdapterRegistry
 
 

@@ -21,15 +21,32 @@ class SourceFreshnessState(StrEnum):
 
 @runtime_checkable
 class SourceFreshnessConfigLike(Protocol):
-    acquisition_mode: str
-    expected_frequency: str
-    coverage_kind: str
-    due_day_of_month: int | None
-    expected_window_days: int
-    freshness_sla_days: int
-    sensitivity_class: str
-    reminder_channel: str
-    requires_human_action: bool
+    @property
+    def acquisition_mode(self) -> str: ...
+
+    @property
+    def expected_frequency(self) -> str: ...
+
+    @property
+    def coverage_kind(self) -> str: ...
+
+    @property
+    def due_day_of_month(self) -> int | None: ...
+
+    @property
+    def expected_window_days(self) -> int: ...
+
+    @property
+    def freshness_sla_days(self) -> int: ...
+
+    @property
+    def sensitivity_class(self) -> str: ...
+
+    @property
+    def reminder_channel(self) -> str: ...
+
+    @property
+    def requires_human_action(self) -> bool: ...
 
 
 @dataclass(frozen=True)

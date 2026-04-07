@@ -263,7 +263,7 @@ from packages.pipelines.transformation_refresh_registry import (
     PublicationRefreshRegistry,
     get_default_publication_refresh_registry,
 )
-from packages.storage.control_plane import SourceLineageCreate, SourceLineageStore
+from packages.storage.control_plane import ControlPlaneStore, SourceLineageCreate
 from packages.storage.duckdb_store import DuckDBStore
 
 
@@ -274,7 +274,7 @@ class TransformationService:
         self,
         store: DuckDBStore,
         *,
-        control_plane_store: SourceLineageStore | None = None,
+        control_plane_store: ControlPlaneStore | None = None,
         publication_refresh_registry: PublicationRefreshRegistry | None = None,
         domain_registry: TransformationDomainRegistry | None = None,
     ) -> None:
