@@ -1,18 +1,18 @@
-SPRINT: pack-loop-harbor - Product Pack Ownership and Workflow Closure  [active]
-Goal:   Make first-source onboarding and first broken-run recovery feel like one pack-owned product loop.
-ID:     43
+SPRINT: surface-glass-bridge - Thin Surfaces and Operator Visibility  [active]
+Goal:   Make surfaces thinner and more honest by exposing reporting truth, terminal tasks, and extension state without widening scope.
+ID:     44
 Items:  3 total — 3 done, 0 active, 0 pending, 0 blocked
 
---- Track: onboarding ---
+--- Track: operator-tools ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #293  First-source onboarding flow closure  (assignee: -)
+  [done    ] #297  Terminal task library and command discovery  (assignee: -)
 
---- Track: pack-ownership ---
+--- Track: reporting-truth ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #295  Keep onboarding and remediation sequencing under pack/application ownership  (assignee: -)
+  [done    ] #296  Reporting mode disclosure and publication audit summary  (assignee: -)
 
---- Track: remediation ---
+--- Track: registry-visibility ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #294  Failed-run to remediation action path  (assignee: -)
+  [done    ] #298  Extension registry visibility surface  (assignee: -)
 
-Rendered: 2026-04-07T20:03:01Z
+Rendered: 2026-04-07T20:15:05Z
