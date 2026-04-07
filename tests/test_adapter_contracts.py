@@ -18,9 +18,15 @@ from packages.adapters.contracts import (
     ActionAdapter,
     AdapterDirection,
     AdapterManifest,
+    AdapterPack,
     AdapterRuntimeStatus,
+    CompatibilityCheck,
     IngestAdapter,
     PublishAdapter,
+    RenderedOutput,
+    Renderer,
+    RendererManifest,
+    TrustLevel,
 )
 from packages.adapters.ha_adapters import (
     HA_ACTION_MANIFEST,
@@ -183,6 +189,282 @@ class TestHaManifests:
         assert "ha_url" in HA_INGEST_MANIFEST.credential_requirements
         assert "ha_token" in HA_INGEST_MANIFEST.credential_requirements
         assert "ha_mqtt_broker_url" in HA_PUBLISH_MANIFEST.credential_requirements
+
+
+# ---------------------------------------------------------------------------
+# AdapterDirection with OBSERVE
+# ---------------------------------------------------------------------------
+
+
+class TestAdapterDirection:
+    def test_observe_direction_exists(self):
+        assert AdapterDirection.OBSERVE == "observe"
+        assert hasattr(AdapterDirection, "OBSERVE")
+
+    def test_all_directions(self):
+        directions = [d.value for d in AdapterDirection]
+        assert "ingest" in directions
+        assert "publish" in directions
+        assert "action" in directions
+        assert "observe" in directions
+
+
+# ---------------------------------------------------------------------------
+# Renderer contracts
+# ---------------------------------------------------------------------------
+
+
+class TestRenderedOutput:
+    def test_rendered_output_creation(self):
+        output = RenderedOutput(
+            format="csv",
+            content=b"a,b,c\n1,2,3",
+            content_type="text/csv"
+        )
+        assert output.format == "csv"
+        assert output.content == b"a,b,c\n1,2,3"
+        assert output.content_type == "text/csv"
+        assert output.encoding == "utf-8"
+
+    def test_rendered_output_custom_encoding(self):
+        output = RenderedOutput(
+            format="json",
+            content=b'{"key": "value"}',
+            content_type="application/json",
+            encoding="utf-16"
+        )
+        assert output.encoding == "utf-16"
+
+    def test_rendered_output_frozen(self):
+        output = RenderedOutput(
+            format="csv",
+            content=b"data",
+            content_type="text/csv"
+        )
+        with pytest.raises((AttributeError, TypeError)):
+            output.format = "json"  # type: ignore[misc]
+
+
+class TestRendererManifest:
+    def test_renderer_manifest_creation(self):
+        manifest = RendererManifest(
+            renderer_key="csv_renderer",
+            display_name="CSV Renderer",
+            version="1.0",
+            supported_formats=("csv", "tsv")
+        )
+        assert manifest.renderer_key == "csv_renderer"
+        assert manifest.display_name == "CSV Renderer"
+        assert "csv" in manifest.supported_formats
+        assert manifest.supported_publication_keys == ()
+
+    def test_renderer_manifest_with_publication_keys(self):
+        manifest = RendererManifest(
+            renderer_key="json_renderer",
+            display_name="JSON Renderer",
+            version="2.0",
+            supported_formats=("json",),
+            supported_publication_keys=("finance", "utilities")
+        )
+        assert manifest.supported_publication_keys == ("finance", "utilities")
+
+    def test_renderer_manifest_frozen(self):
+        manifest = RendererManifest(
+            renderer_key="test",
+            display_name="Test",
+            version="1.0",
+            supported_formats=("csv",)
+        )
+        with pytest.raises((AttributeError, TypeError)):
+            manifest.renderer_key = "changed"  # type: ignore[misc]
+
+
+class TestRenderer:
+    def _minimal_renderer(self):
+        class MinimalRenderer:
+            manifest = RendererManifest(
+                renderer_key="test_renderer",
+                display_name="Test",
+                version="1.0",
+                supported_formats=("csv",)
+            )
+
+            def render(self, publication_key: str, rows: list[dict]) -> RenderedOutput:
+                return RenderedOutput(
+                    format="csv",
+                    content=b"test",
+                    content_type="text/csv"
+                )
+
+        return MinimalRenderer()
+
+    def test_renderer_isinstance(self):
+        renderer = self._minimal_renderer()
+        assert isinstance(renderer, Renderer)
+
+    def test_missing_manifest_fails_renderer(self):
+        class Bad:
+            def render(self, publication_key: str, rows: list[dict]) -> RenderedOutput:
+                return RenderedOutput(
+                    format="csv",
+                    content=b"test",
+                    content_type="text/csv"
+                )
+
+        assert not isinstance(Bad(), Renderer)
+
+    def test_missing_render_fails_renderer(self):
+        class Bad:
+            manifest = RendererManifest(
+                renderer_key="test",
+                display_name="Test",
+                version="1.0",
+                supported_formats=("csv",)
+            )
+
+        assert not isinstance(Bad(), Renderer)
+
+
+# ---------------------------------------------------------------------------
+# Adapter pack management
+# ---------------------------------------------------------------------------
+
+
+class TestTrustLevel:
+    def test_trust_level_values(self):
+        assert TrustLevel.VERIFIED == "verified"
+        assert TrustLevel.COMMUNITY == "community"
+        assert TrustLevel.LOCAL == "local"
+
+    def test_all_trust_levels(self):
+        levels = [t.value for t in TrustLevel]
+        assert "verified" in levels
+        assert "community" in levels
+        assert "local" in levels
+
+
+class TestCompatibilityCheck:
+    def test_compatibility_check_compatible(self):
+        check = CompatibilityCheck(
+            is_compatible=True,
+            issues=(),
+            warnings=()
+        )
+        assert check.is_compatible is True
+        assert check.issues == ()
+        assert check.warnings == ()
+
+    def test_compatibility_check_with_issues(self):
+        check = CompatibilityCheck(
+            is_compatible=False,
+            issues=("Missing dependency X", "Incompatible API version"),
+            warnings=("Using deprecated feature",)
+        )
+        assert check.is_compatible is False
+        assert len(check.issues) == 2
+        assert "Missing dependency X" in check.issues
+        assert "Incompatible API version" in check.issues
+        assert "Using deprecated feature" in check.warnings
+
+    def test_compatibility_check_frozen(self):
+        check = CompatibilityCheck(
+            is_compatible=True,
+            issues=(),
+            warnings=()
+        )
+        with pytest.raises((AttributeError, TypeError)):
+            check.is_compatible = False  # type: ignore[misc]
+
+
+class TestAdapterPack:
+    def test_adapter_pack_creation_minimal(self):
+        pack = AdapterPack(
+            pack_key="test_pack",
+            display_name="Test Pack",
+            version="1.0",
+            trust_level=TrustLevel.LOCAL
+        )
+        assert pack.pack_key == "test_pack"
+        assert pack.display_name == "Test Pack"
+        assert pack.version == "1.0"
+        assert pack.trust_level == TrustLevel.LOCAL
+        assert pack.adapters == ()
+        assert pack.renderers == ()
+        assert pack.description == ""
+        assert pack.requires_platform_version == ""
+
+    def test_adapter_pack_with_adapters(self):
+        adapter_manifest = AdapterManifest(
+            adapter_key="test_adapter",
+            display_name="Test Adapter",
+            version="1.0",
+            supported_directions=(AdapterDirection.INGEST,)
+        )
+        pack = AdapterPack(
+            pack_key="pack_with_adapters",
+            display_name="Pack With Adapters",
+            version="1.0",
+            trust_level=TrustLevel.VERIFIED,
+            adapters=(adapter_manifest,)
+        )
+        assert len(pack.adapters) == 1
+        assert pack.adapters[0].adapter_key == "test_adapter"
+
+    def test_adapter_pack_with_renderers(self):
+        renderer_manifest = RendererManifest(
+            renderer_key="test_renderer",
+            display_name="Test Renderer",
+            version="1.0",
+            supported_formats=("csv",)
+        )
+        pack = AdapterPack(
+            pack_key="pack_with_renderers",
+            display_name="Pack With Renderers",
+            version="1.0",
+            trust_level=TrustLevel.COMMUNITY,
+            renderers=(renderer_manifest,)
+        )
+        assert len(pack.renderers) == 1
+        assert pack.renderers[0].renderer_key == "test_renderer"
+
+    def test_adapter_pack_with_all_fields(self):
+        adapter_manifest = AdapterManifest(
+            adapter_key="test_adapter",
+            display_name="Test Adapter",
+            version="1.0",
+            supported_directions=(AdapterDirection.PUBLISH,)
+        )
+        renderer_manifest = RendererManifest(
+            renderer_key="test_renderer",
+            display_name="Test Renderer",
+            version="1.0",
+            supported_formats=("json",)
+        )
+        pack = AdapterPack(
+            pack_key="full_pack",
+            display_name="Full Pack",
+            version="2.0",
+            trust_level=TrustLevel.COMMUNITY,
+            adapters=(adapter_manifest,),
+            renderers=(renderer_manifest,),
+            description="A test pack with everything",
+            requires_platform_version=">=1.5.0"
+        )
+        assert pack.pack_key == "full_pack"
+        assert pack.description == "A test pack with everything"
+        assert pack.requires_platform_version == ">=1.5.0"
+        assert len(pack.adapters) == 1
+        assert len(pack.renderers) == 1
+
+    def test_adapter_pack_frozen(self):
+        pack = AdapterPack(
+            pack_key="test",
+            display_name="Test",
+            version="1.0",
+            trust_level=TrustLevel.LOCAL
+        )
+        with pytest.raises((AttributeError, TypeError)):
+            pack.pack_key = "changed"  # type: ignore[misc]
 
 
 # ---------------------------------------------------------------------------

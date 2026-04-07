@@ -31,6 +31,7 @@ class AdapterDirection(str, Enum):
     INGEST = "ingest"
     PUBLISH = "publish"
     ACTION = "action"
+    OBSERVE = "observe"
 
 
 # ---------------------------------------------------------------------------
@@ -145,3 +146,76 @@ class ActionAdapter(Protocol):
 
     def get_status(self) -> AdapterRuntimeStatus:
         ...  # pragma: no cover
+
+
+# ---------------------------------------------------------------------------
+# Renderer contracts
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RenderedOutput:
+    """The result of a Renderer rendering a publication."""
+
+    format: str          # e.g. "csv", "json"
+    content: bytes
+    content_type: str    # MIME type, e.g. "text/csv"
+    encoding: str = "utf-8"
+
+
+@dataclass(frozen=True)
+class RendererManifest:
+    """Static declaration of a renderer's identity and output formats."""
+
+    renderer_key: str
+    display_name: str
+    version: str
+    supported_formats: tuple[str, ...]     # e.g. ("csv", "json")
+    supported_publication_keys: tuple[str, ...] = field(default_factory=tuple)
+    # Empty means "all publications"
+
+
+@runtime_checkable
+class Renderer(Protocol):
+    """Protocol for adapters that render publication data to a target format."""
+
+    manifest: RendererManifest
+
+    def render(self, publication_key: str, rows: list[dict]) -> RenderedOutput:
+        ...  # pragma: no cover
+
+
+# ---------------------------------------------------------------------------
+# Adapter pack management
+# ---------------------------------------------------------------------------
+
+
+class TrustLevel(str, Enum):
+    """Trust level for an adapter pack, set by the operator."""
+
+    VERIFIED = "verified"    # Platform-shipped, fully trusted
+    COMMUNITY = "community"  # Third-party, elevated scrutiny
+    LOCAL = "local"          # User-defined, no external verification
+
+
+@dataclass(frozen=True)
+class CompatibilityCheck:
+    """Result of checking an adapter pack's compatibility with the platform."""
+
+    is_compatible: bool
+    issues: tuple[str, ...]     # Human-readable incompatibility reasons
+    warnings: tuple[str, ...]   # Non-blocking concerns
+
+
+@dataclass(frozen=True)
+class AdapterPack:
+    """A named, versioned bundle of adapters and/or renderers."""
+
+    pack_key: str                                        # Stable identifier
+    display_name: str
+    version: str
+    trust_level: TrustLevel
+    adapters: tuple[AdapterManifest, ...] = field(default_factory=tuple)
+    renderers: tuple[RendererManifest, ...] = field(default_factory=tuple)
+    description: str = ""
+    requires_platform_version: str = ""                 # Semver constraint, "" = any
