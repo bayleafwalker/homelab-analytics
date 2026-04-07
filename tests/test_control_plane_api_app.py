@@ -582,3 +582,183 @@ def test_bidirectional_lineage_endpoints() -> None:
         assert downstream.status_code == 200
         assert downstream.json()["source_asset_id"] == "manual-upload"
         assert downstream.json()["publications"] == ["fact_account_transaction"]
+
+
+def test_control_plane_api_confidence_endpoint_with_stale_only_filter() -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from packages.platform.publication_confidence import FreshnessState
+    from packages.storage.control_plane import PublicationConfidenceSnapshotCreate
+
+    with TemporaryDirectory() as temp_dir:
+        repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+        seed_source_asset_graph(repository)
+        service = AccountTransactionService(
+            landing_root=Path(temp_dir) / "landing",
+            metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+        )
+        client = TestClient(
+            create_app(
+                service,
+                config_repository=repository,
+                enable_unsafe_admin=True,
+            )
+        )
+
+        now = datetime.now(UTC)
+
+        # Record confidence snapshots with different freshness states
+        repository.record_publication_confidence_snapshot(
+            (
+                PublicationConfidenceSnapshotCreate(
+                    snapshot_id="snap-001",
+                    publication_key="fact_account_transaction",
+                    assessed_at=now,
+                    freshness_state=FreshnessState.CURRENT,
+                    completeness_pct=100,
+                    confidence_verdict="trustworthy",
+                    quality_flags={"validation_errors": 0},
+                    source_freshness_states={
+                        "source1": {
+                            "source_asset_id": "source1",
+                            "freshness_state": "current",
+                            "last_ingest_at": now.isoformat(),
+                            "covered_through": "2026-04-07",
+                        }
+                    },
+                ),
+                PublicationConfidenceSnapshotCreate(
+                    snapshot_id="snap-002",
+                    publication_key="fact_account_transaction",
+                    assessed_at=now + timedelta(minutes=5),
+                    freshness_state=FreshnessState.STALE,
+                    completeness_pct=75,
+                    confidence_verdict="degraded",
+                    quality_flags={"validation_errors": 2},
+                    source_freshness_states={
+                        "source1": {
+                            "source_asset_id": "source1",
+                            "freshness_state": "overdue",
+                            "last_ingest_at": (now - timedelta(hours=2)).isoformat(),
+                            "covered_through": "2026-04-06",
+                        }
+                    },
+                ),
+                PublicationConfidenceSnapshotCreate(
+                    snapshot_id="snap-003",
+                    publication_key="fact_account_transaction",
+                    assessed_at=now + timedelta(minutes=10),
+                    freshness_state=FreshnessState.UNAVAILABLE,
+                    completeness_pct=0,
+                    confidence_verdict="unavailable",
+                    quality_flags={"validation_errors": 5},
+                    source_freshness_states=None,
+                ),
+            )
+        )
+
+        # Test default (stale_only=false) - should return all snapshots
+        response = client.get("/control/confidence")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["publications"]) == 3
+        verdicts = {pub["freshness_state"] for pub in data["publications"]}
+        assert verdicts == {FreshnessState.CURRENT, FreshnessState.STALE, FreshnessState.UNAVAILABLE}
+
+        # All publications should have source_freshness_states and quality_flags in response
+        for pub in data["publications"]:
+            assert "source_freshness_states" in pub
+            assert "quality_flags" in pub
+
+        # Test stale_only=true - should return only STALE and UNAVAILABLE snapshots
+        response_stale = client.get("/control/confidence", params={"stale_only": "true"})
+        assert response_stale.status_code == 200
+        data_stale = response_stale.json()
+        assert len(data_stale["publications"]) == 2
+        stale_verdicts = {pub["freshness_state"] for pub in data_stale["publications"]}
+        assert stale_verdicts == {FreshnessState.STALE, FreshnessState.UNAVAILABLE}
+
+        # Verify domain_summaries are recalculated from filtered set
+        # Platform domain (default for fact_account_transaction)
+        assert len(data_stale["domain_summaries"]) == 1
+        assert data_stale["domain_summaries"][0]["domain"] == "platform"
+        assert data_stale["domain_summaries"][0]["count"] == 2
+        assert data_stale["domain_summaries"][0]["verdict"] == "unavailable"
+
+        # Verify source_freshness_states are serialized correctly
+        stale_pub = next(
+            pub for pub in data_stale["publications"]
+            if pub["freshness_state"] == FreshnessState.STALE
+        )
+        assert stale_pub["source_freshness_states"] is not None
+        assert "source1" in stale_pub["source_freshness_states"]
+        source_snap = stale_pub["source_freshness_states"]["source1"]
+        assert source_snap["source_asset_id"] == "source1"
+        assert source_snap["freshness_state"] == "overdue"
+        assert source_snap["covered_through"] == "2026-04-06"
+
+
+def test_control_plane_api_confidence_source_freshness_and_quality_flags() -> None:
+    from datetime import UTC, datetime
+
+    from packages.platform.publication_confidence import FreshnessState
+    from packages.storage.control_plane import PublicationConfidenceSnapshotCreate
+
+    with TemporaryDirectory() as temp_dir:
+        repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+        seed_source_asset_graph(repository)
+        service = AccountTransactionService(
+            landing_root=Path(temp_dir) / "landing",
+            metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+        )
+        client = TestClient(
+            create_app(
+                service,
+                config_repository=repository,
+                enable_unsafe_admin=True,
+            )
+        )
+
+        now = datetime.now(UTC)
+
+        # Record a snapshot with comprehensive source_freshness_states
+        repository.record_publication_confidence_snapshot(
+            (
+                PublicationConfidenceSnapshotCreate(
+                    snapshot_id="snap-complete",
+                    publication_key="fact_account_transaction",
+                    assessed_at=now,
+                    freshness_state=FreshnessState.DUE_SOON,
+                    completeness_pct=95,
+                    confidence_verdict="degraded",
+                    quality_flags={"validation_errors": 1, "parse_failures": 0},
+                    source_freshness_states={
+                        "source_a": {
+                            "source_asset_id": "source_a",
+                            "freshness_state": "due_soon",
+                            "last_ingest_at": now.isoformat(),
+                            "covered_through": "2026-04-07",
+                        },
+                        "source_b": {
+                            "source_asset_id": "source_b",
+                            "freshness_state": "current",
+                            "last_ingest_at": now.isoformat(),
+                            "covered_through": "2026-04-07",
+                        },
+                    },
+                ),
+            )
+        )
+
+        response = client.get("/control/confidence")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["publications"]) == 1
+
+        pub = data["publications"][0]
+        assert pub["publication_key"] == "fact_account_transaction"
+        assert pub["quality_flags"] == {"validation_errors": 1, "parse_failures": 0}
+        assert pub["source_freshness_states"] is not None
+        assert len(pub["source_freshness_states"]) == 2
+        assert "source_a" in pub["source_freshness_states"]
+        assert "source_b" in pub["source_freshness_states"]

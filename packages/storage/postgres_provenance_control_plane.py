@@ -174,9 +174,9 @@ class PostgresProvenanceControlPlaneMixin:
                     INSERT INTO publication_confidence_snapshot (
                         snapshot_id, publication_key, assessed_at, freshness_state,
                         completeness_pct, confidence_verdict, quality_flags,
-                        contributing_run_ids, created_at
+                        contributing_run_ids, source_freshness_states, created_at
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     [
                         (
@@ -188,6 +188,7 @@ class PostgresProvenanceControlPlaneMixin:
                             entry.confidence_verdict,
                             json.dumps(entry.quality_flags) if entry.quality_flags else None,
                             list(entry.contributing_run_ids) if entry.contributing_run_ids else None,
+                            json.dumps(entry.source_freshness_states) if entry.source_freshness_states else None,
                             entry.created_at,
                         )
                         for entry in entries
@@ -218,7 +219,7 @@ class PostgresProvenanceControlPlaneMixin:
                 f"""
                 SELECT snapshot_id, publication_key, assessed_at, freshness_state,
                        completeness_pct, confidence_verdict, quality_flags,
-                       contributing_run_ids, created_at
+                       contributing_run_ids, source_freshness_states, created_at
                 FROM publication_confidence_snapshot
                 {where_sql}
                 ORDER BY assessed_at DESC, snapshot_id
@@ -242,6 +243,9 @@ class PostgresProvenanceControlPlaneMixin:
                     if row_dict["quality_flags"]
                     else None,
                     contributing_run_ids=tuple(row_dict["contributing_run_ids"] or []),
+                    source_freshness_states=json.loads(row_dict["source_freshness_states"])
+                    if row_dict["source_freshness_states"]
+                    else None,
                     created_at=row_dict["created_at"],  # type: ignore
                 )
             )

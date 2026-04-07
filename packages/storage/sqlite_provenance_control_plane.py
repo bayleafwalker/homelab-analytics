@@ -194,9 +194,10 @@ class SQLiteProvenanceControlPlaneMixin:
                     confidence_verdict,
                     quality_flags,
                     contributing_run_ids,
+                    source_freshness_states,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     (
@@ -210,6 +211,7 @@ class SQLiteProvenanceControlPlaneMixin:
                         json.dumps(list(entry.contributing_run_ids))
                         if entry.contributing_run_ids
                         else None,
+                        json.dumps(entry.source_freshness_states) if entry.source_freshness_states else None,
                         entry.created_at.isoformat(),
                     )
                     for entry in entries
@@ -250,6 +252,7 @@ class SQLiteProvenanceControlPlaneMixin:
                     confidence_verdict,
                     quality_flags,
                     contributing_run_ids,
+                    source_freshness_states,
                     created_at
                 FROM publication_confidence_snapshot
                 {where_sql}
@@ -263,6 +266,7 @@ class SQLiteProvenanceControlPlaneMixin:
         for row in rows:
             contributing = json.loads(row["contributing_run_ids"]) if row["contributing_run_ids"] else []
             quality = json.loads(row["quality_flags"]) if row["quality_flags"] else None
+            source_freshness = json.loads(row["source_freshness_states"]) if row["source_freshness_states"] else None
             records.append(
                 PublicationConfidenceSnapshotRecord(
                     snapshot_id=row["snapshot_id"],
@@ -273,6 +277,7 @@ class SQLiteProvenanceControlPlaneMixin:
                     confidence_verdict=row["confidence_verdict"],
                     quality_flags=quality,
                     contributing_run_ids=tuple(contributing),
+                    source_freshness_states=source_freshness,
                     created_at=datetime.fromisoformat(row["created_at"]),
                 )
             )

@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 from apps.api.models import ScheduleDispatchRequest
 from apps.api.response_models import ScheduleDispatchResponseModel
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.platform.publication_confidence import FreshnessState
 from packages.shared.metrics import metrics_registry
 from packages.storage.control_plane import ControlPlaneAdminStore
 
@@ -127,32 +128,51 @@ def register_control_routes(
         return {"datasets": datasets}
 
     @app.get("/control/confidence")
-    async def get_confidence() -> dict[str, Any]:
+    async def get_confidence(stale_only: bool = False) -> dict[str, Any]:
         require_unsafe_admin()
         snapshots = resolved_config_repository.list_publication_confidence_snapshots()
         publication_defs = resolved_config_repository.list_publication_definitions()
 
+        # Filter snapshots if stale_only is True
+        if stale_only:
+            snapshots = [
+                s for s in snapshots
+                if s.freshness_state in (FreshnessState.STALE, FreshnessState.UNAVAILABLE)
+            ]
+
         # Build map of publication_key -> domain from publication definitions
         pub_to_domain: dict[str, str] = {}
         for pub_def in publication_defs:
-            # Publication definitions have a pack_name that indicates domain
-            # e.g., pack_name="finance-pack" → domain="finance"
-            domain = "platform"  # default
-            if pub_def.pack_name:
-                domain = pub_def.pack_name.split("-")[0]
-            pub_to_domain[pub_def.publication_definition_id] = domain
+            # Default to "platform" domain (pack_name concept not available in current schema)
+            domain = "platform"
+            pub_to_domain[pub_def.publication_key] = domain
 
         # Group snapshots by domain
         domain_summaries: dict[str, dict[str, Any]] = {}
         publications = []
 
         for snapshot in snapshots:
+            # Serialize source_freshness_states if present
+            source_freshness_dict = None
+            if snapshot.source_freshness_states:
+                source_freshness_dict = {
+                    asset_id: {
+                        "source_asset_id": state.get("source_asset_id"),
+                        "freshness_state": state.get("freshness_state"),
+                        "last_ingest_at": state.get("last_ingest_at"),
+                        "covered_through": state.get("covered_through"),
+                    }
+                    for asset_id, state in snapshot.source_freshness_states.items()
+                }
+
             pub_data = {
                 "publication_key": snapshot.publication_key,
                 "freshness_state": snapshot.freshness_state,
                 "completeness_pct": snapshot.completeness_pct,
                 "confidence_verdict": snapshot.confidence_verdict,
                 "assessed_at": snapshot.assessed_at.isoformat(),
+                "source_freshness_states": source_freshness_dict,
+                "quality_flags": snapshot.quality_flags,
             }
             publications.append(pub_data)
 

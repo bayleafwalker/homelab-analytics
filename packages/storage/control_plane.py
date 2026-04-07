@@ -169,6 +169,7 @@ class PublicationConfidenceSnapshotCreate:
     confidence_verdict: str
     quality_flags: dict | None = None
     contributing_run_ids: tuple[str, ...] | None = None
+    source_freshness_states: dict[str, dict] | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -182,6 +183,7 @@ class PublicationConfidenceSnapshotRecord:
     confidence_verdict: str
     quality_flags: dict | None
     contributing_run_ids: tuple[str, ...]
+    source_freshness_states: dict[str, dict] | None
     created_at: datetime
 
 
