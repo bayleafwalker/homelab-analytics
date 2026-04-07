@@ -169,4 +169,92 @@ CURRENT_DIMENSION_CONTRACTS: dict[str, CurrentDimensionContractDefinition] = {
             ),
         },
     ),
+    "dim_service": CurrentDimensionContractDefinition(
+        schema_name="dim_service",
+        schema_version="1.0.0",
+        display_name="Current Services",
+        description=(
+            "Current snapshot of canonical homelab services including containers, VMs, "
+            "add-ons, and integrations managed across hosts."
+        ),
+        field_overrides={
+            "sk": identifier_field("Stable surrogate key for the current service row."),
+            "service_id": identifier_field("Stable service identifier used across homelab facts."),
+            "service_name": dimension_field("Human-readable name of the service."),
+            "service_type": dimension_field(
+                "Service category: container, vm, addon, or integration."
+            ),
+            "host": dimension_field("Host on which the service is running."),
+            "criticality": dimension_field(
+                "Operational criticality tier: critical, standard, or background."
+            ),
+            "managed_by": dimension_field(
+                "Orchestration platform managing the service: homeassistant, portainer, or manual."
+            ),
+        },
+    ),
+    "dim_workload": CurrentDimensionContractDefinition(
+        schema_name="dim_workload",
+        schema_version="1.0.0",
+        display_name="Current Workloads",
+        description=(
+            "Current snapshot of canonical homelab workloads representing containers, "
+            "VMs, and processes running across hosts."
+        ),
+        field_overrides={
+            "sk": identifier_field("Stable surrogate key for the current workload row."),
+            "workload_id": identifier_field("Stable workload identifier used across homelab facts."),
+            "entity_id": identifier_field(
+                "Home Assistant entity identifier associated with the workload, if any."
+            ),
+            "display_name": dimension_field("Human-readable workload name shown in dashboards."),
+            "host": dimension_field("Host on which the workload is running."),
+            "workload_type": dimension_field(
+                "Workload category: container, vm, or process."
+            ),
+        },
+    ),
+    "dim_node": CurrentDimensionContractDefinition(
+        schema_name="dim_node",
+        schema_version="1.0.0",
+        display_name="Current Infrastructure Nodes",
+        description=(
+            "Current snapshot of canonical infrastructure nodes including physical hosts "
+            "and virtual machines in the homelab cluster."
+        ),
+        field_overrides={
+            "sk": identifier_field("Stable surrogate key for the current node row."),
+            "hostname": identifier_field("Stable hostname used as the natural key for the node."),
+            "node_name": dimension_field("Human-readable node name shown in infrastructure views."),
+            "role": dimension_field("Cluster role of the node such as control-plane or worker."),
+            "cpu": dimension_field("CPU model or descriptor for the node."),
+            "ram_gb": measure_field(
+                "Total RAM installed on the node, in gigabytes.",
+                aggregation="latest",
+                unit="gb",
+            ),
+            "os": dimension_field("Operating system running on the node."),
+        },
+    ),
+    "dim_device": CurrentDimensionContractDefinition(
+        schema_name="dim_device",
+        schema_version="1.0.0",
+        display_name="Current Devices",
+        description=(
+            "Current snapshot of canonical physical devices tracked in the homelab "
+            "inventory including network gear, sensors, and smart home hardware."
+        ),
+        field_overrides={
+            "sk": identifier_field("Stable surrogate key for the current device row."),
+            "device_id": identifier_field("Stable device identifier used across homelab facts."),
+            "device_name": dimension_field("Human-readable device name shown in inventory views."),
+            "device_type": dimension_field("Device category such as switch, sensor, or hub."),
+            "location": dimension_field("Physical location or room where the device is installed."),
+            "power_rating_watts": measure_field(
+                "Rated power consumption of the device, in watts.",
+                aggregation="latest",
+                unit="watts",
+            ),
+        },
+    ),
 }
