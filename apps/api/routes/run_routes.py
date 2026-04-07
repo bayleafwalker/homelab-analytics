@@ -11,12 +11,12 @@ from packages.domains.finance.pipelines.account_transaction_service import Accou
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
-from packages.pipelines.promotion import (
-    PromotionResult,
-    promote_contract_price_run,
-    promote_source_asset_run,
-    promote_subscription_run,
+from packages.application.use_cases.ingest_promotion import (
+    promote_and_publish_configured_csv,
+    promote_and_publish_contract_prices,
+    promote_and_publish_subscription,
 )
+from packages.pipelines.promotion import PromotionResult
 from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.run_context import merge_run_context
@@ -140,28 +140,20 @@ def register_run_routes(
                 source_name=original_run.source_name,
                 run_context=retry_context,
             )
-            if transformation_service is not None and retried_run.passed:
-                resolved_source_asset = (
-                    source_asset
-                    or resolved_config_repository.find_source_asset_by_binding(
-                        source_system_id=context.source_system_id,
-                        dataset_contract_id=context.dataset_contract_id,
-                        column_mapping_id=context.column_mapping_id,
-                    )
+            if retried_run.passed:
+                promotion = promote_and_publish_configured_csv(
+                    retried_run.run_id,
+                    source_asset=source_asset,
+                    config_repository=resolved_config_repository,
+                    service=configured_ingestion_service,
+                    transformation_service=transformation_service,
+                    registry=registry,
+                    promotion_handler_registry=promotion_handler_registry,
+                    publish_reporting=publish_reporting,
+                    source_system_id=context.source_system_id,
+                    dataset_contract_id=context.dataset_contract_id,
+                    column_mapping_id=context.column_mapping_id,
                 )
-                if resolved_source_asset is not None:
-                    promotion = promote_source_asset_run(
-                        retried_run.run_id,
-                        source_asset=resolved_source_asset,
-                        config_repository=resolved_config_repository,
-                        landing_root=service.landing_root,
-                        metadata_repository=service.metadata_repository,
-                        transformation_service=transformation_service,
-                        blob_store=service.blob_store,
-                        extension_registry=registry,
-                        promotion_handler_registry=promotion_handler_registry,
-                    )
-                    publish_reporting(promotion)
             return build_run_response(retried_run, promotion=promotion)
 
         if retry_kind == "account_transactions":
@@ -186,13 +178,13 @@ def register_run_routes(
                 source_name=original_run.source_name,
                 run_context=retry_context,
             )
-            if transformation_service is not None and retried_run.passed:
-                promotion = promote_subscription_run(
+            if retried_run.passed:
+                promotion = promote_and_publish_subscription(
                     retried_run.run_id,
                     subscription_service=subscription_service,
                     transformation_service=transformation_service,
+                    publish_reporting=publish_reporting,
                 )
-                publish_reporting(promotion)
             return build_run_response(retried_run, promotion=promotion)
 
         if retry_kind == "contract_prices":
@@ -203,13 +195,13 @@ def register_run_routes(
                 source_name=original_run.source_name,
                 run_context=retry_context,
             )
-            if transformation_service is not None and retried_run.passed:
-                promotion = promote_contract_price_run(
+            if retried_run.passed:
+                promotion = promote_and_publish_contract_prices(
                     retried_run.run_id,
                     contract_price_service=contract_price_service,
                     transformation_service=transformation_service,
+                    publish_reporting=publish_reporting,
                 )
-                publish_reporting(promotion)
             return build_run_response(retried_run, promotion=promotion)
 
         raise HTTPException(status_code=400, detail="Run retry is not supported.")

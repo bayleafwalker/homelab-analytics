@@ -301,11 +301,80 @@ def serialize_promotion(promotion: PromotionResult) -> dict[str, Any]:
     }
 
 
+_CONTRACT_ISSUE_CODES = frozenset(
+    {
+        "missing_required_column",
+        "unexpected_column",
+        "duplicate_column",
+        "type_mismatch",
+        "invalid_value",
+        "empty_file",
+    }
+)
+
+
+def build_run_remediation(
+    run: IngestionRunRecord,
+    *,
+    recovery: dict[str, Any] | None = None,
+    has_source_asset_binding: bool = False,
+) -> dict[str, str]:
+    """Derive the operator remediation action for a completed run.
+
+    Returns a dict with ``action`` (one of: retry, upload_missing_period,
+    inspect_binding, fix_contract, none) and ``reason`` (human-readable).
+    """
+    from packages.storage.run_metadata import IngestionRunStatus
+
+    status = run.status
+
+    # Passed runs: check whether the promotion had a binding to promote to.
+    if run.passed:
+        if not has_source_asset_binding:
+            return {
+                "action": "inspect_binding",
+                "reason": (
+                    "Run landed successfully but no source asset binding was found. "
+                    "Check the source system / dataset contract / column mapping configuration."
+                ),
+            }
+        return {"action": "none", "reason": "Run completed and promoted successfully."}
+
+    # Failed or rejected: distinguish contract issues vs retryable failures.
+    issue_codes = {i.code for i in run.issues}
+    if issue_codes & _CONTRACT_ISSUE_CODES:
+        return {
+            "action": "fix_contract",
+            "reason": (
+                "Run failed due to schema or contract violations. "
+                "Fix the source file columns or update the dataset contract, then re-upload."
+            ),
+        }
+
+    if status == IngestionRunStatus.FAILED:
+        if recovery is not None and recovery.get("retry_supported"):
+            return {
+                "action": "retry",
+                "reason": "Run failed but the payload is available. Use POST /runs/{run_id}/retry.",
+            }
+        return {
+            "action": "upload_missing_period",
+            "reason": (
+                "Run failed and cannot be automatically retried. "
+                "Correct and re-upload the source file for the affected period."
+            ),
+        }
+
+    # Received / landed with issues or any other status.
+    return {"action": "none", "reason": "No operator action required."}
+
+
 def serialize_run(
     run: IngestionRunRecord,
     *,
     context: RunControlContext | None = None,
     recovery: dict[str, Any] | None = None,
+    remediation: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "run_id": run.run_id,
@@ -334,6 +403,8 @@ def serialize_run(
         payload["context"] = context.as_manifest_dict()
     if recovery is not None:
         payload["recovery"] = recovery
+    if remediation is not None:
+        payload["remediation"] = remediation
     return payload
 
 

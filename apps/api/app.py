@@ -40,6 +40,7 @@ from apps.api.support import (
     build_dataset_contract_diff,
     build_ingest_response,
     build_run_response,
+    build_run_remediation,
     request_principal_from_user,
     require_upload,
     resolve_configured_ingest_binding,
@@ -499,14 +500,28 @@ def create_app(
 
     def serialize_run_detail(run: IngestionRunRecord) -> dict[str, Any]:
         _, context = load_run_manifest_and_context(run)
+        recovery = _build_run_recovery_payload(
+            run,
+            context,
+            has_subscription_service=resolved_subscription_service is not None,
+            has_contract_price_service=resolved_contract_price_service is not None,
+        )
+        has_binding = context is not None and (
+            context.source_asset_id is not None
+            or (
+                context.source_system_id is not None
+                and context.dataset_contract_id is not None
+                and context.column_mapping_id is not None
+            )
+        )
         return serialize_run(
             run,
             context=context,
-            recovery=_build_run_recovery_payload(
+            recovery=recovery,
+            remediation=build_run_remediation(
                 run,
-                context,
-                has_subscription_service=resolved_subscription_service is not None,
-                has_contract_price_service=resolved_contract_price_service is not None,
+                recovery=recovery,
+                has_source_asset_binding=has_binding,
             ),
         )
 

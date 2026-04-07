@@ -148,6 +148,21 @@ After all three:
 4. The **Upload in context** section at the bottom of Sources shows quick-upload buttons for each stale dataset — no navigation required.
 5. After re-upload, the freshness indicator recovers and the Operating Picture confidence band updates.
 
+### Remediation actions
+
+When a run fails or a source goes stale, the platform surfaces a specific action. There are four possible actions:
+
+| Action | When it appears | What to do |
+|---|---|---|
+| `retry` | Run failed but payload is intact | POST `/runs/{run_id}/retry` — no re-upload needed |
+| `upload_missing_period` | Run failed, payload unavailable or rejected | Correct and re-upload the source file for the affected period |
+| `inspect_binding` | Run passed but promotion was skipped | Check source system / dataset contract / column mapping in Sources config |
+| `fix_contract` | Run rejected due to schema or column violations | Fix the source file or update the dataset contract, then re-upload |
+
+The run detail endpoint (`GET /runs/{run_id}`) returns `remediation.action` and `remediation.reason` in its response.
+The source freshness endpoint (`GET /control/source-freshness`) returns `suggested_action` per dataset.
+Both use the same four-action vocabulary, so the Sources page and the run detail tell the same story.
+
 ---
 
 ## Verifying the Product Loop

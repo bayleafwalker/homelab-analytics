@@ -112,6 +112,7 @@ def register_control_routes(
     @app.get("/control/source-freshness")
     async def get_source_freshness() -> dict[str, Any]:
         require_unsafe_admin()
+        from packages.storage.run_metadata import IngestionRunStatus
         recent_runs = service.metadata_repository.list_runs()
         seen: set[str] = set()
         datasets = []
@@ -119,12 +120,20 @@ def register_control_routes(
             if run.dataset_name in seen:
                 continue
             seen.add(run.dataset_name)
+            # Derive a simple suggested_action for stale / failed datasets.
+            if run.status == IngestionRunStatus.FAILED:
+                suggested_action = "retry"
+            elif run.status == IngestionRunStatus.REJECTED:
+                suggested_action = "upload_missing_period"
+            else:
+                suggested_action = "none"
             datasets.append(
                 {
                     "dataset_name": run.dataset_name,
                     "latest_run_id": run.run_id,
                     "status": run.status,
                     "landed_at": run.created_at.isoformat(),
+                    "suggested_action": suggested_action,
                 }
             )
         return {"datasets": datasets}
