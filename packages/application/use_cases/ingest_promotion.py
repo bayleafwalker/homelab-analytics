@@ -16,8 +16,7 @@ if TYPE_CHECKING:
     from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
     from packages.pipelines.promotion_registry import PromotionHandlerRegistry
     from packages.pipelines.transformation_service import TransformationService
-    from packages.storage.auth_store import AuthStore
-    from packages.storage.ingestion_config import IngestionConfigRepository
+    from packages.storage.ingestion_config import IngestionConfigRepository, SourceAssetRecord
 
 PublishReporting = Callable[[PromotionResult | None], None]
 
@@ -25,7 +24,7 @@ PublishReporting = Callable[[PromotionResult | None], None]
 def promote_and_publish_configured_csv(
     run_id: str,
     *,
-    source_asset: object | None,
+    source_asset: "SourceAssetRecord | None",
     config_repository: "IngestionConfigRepository",
     service: "ConfiguredCsvIngestionService",
     transformation_service: "TransformationService | None",
