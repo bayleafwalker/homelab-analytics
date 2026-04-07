@@ -176,6 +176,8 @@ The run detail endpoint (`GET /runs/{run_id}`) returns `remediation.action` and 
 The source freshness endpoint (`GET /control/source-freshness`) returns `suggested_action` per dataset.
 Both use the same four-action vocabulary, so the Sources page and the run detail tell the same story.
 
+The active reporting backend (DuckDB warehouse or Postgres published-reporting) is disclosed at `GET /control/operational-summary` under the `reporting_mode`, `reporting_mode_label`, and `publication_backend_active` fields.
+
 ---
 
 ## Verifying the Product Loop

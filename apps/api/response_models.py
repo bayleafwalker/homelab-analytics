@@ -310,6 +310,7 @@ class TerminalCommandModel(BaseModel):
     usage: str
     description: str
     mutating: bool
+    group: str = "general"
 
 
 class TerminalCommandsResponseModel(BaseModel):

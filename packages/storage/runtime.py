@@ -24,7 +24,8 @@ def _resolve_control_plane_backend(settings: AppSettings) -> str:
         auth_mode = getattr(settings, "resolved_auth_mode", None)
         has_dsn = bool(
             getattr(settings, "control_plane_dsn", None)
-            or getattr(settings, "postgres_dsn", None)
+            or getattr(settings, "control_postgres_dsn", None)
+            or getattr(settings, "metadata_postgres_dsn", None)
         )
         if auth_mode not in (None, "disabled") or has_dsn:
             import warnings

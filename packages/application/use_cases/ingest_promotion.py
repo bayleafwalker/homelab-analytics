@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING
 
 from packages.pipelines.promotion import (
@@ -16,7 +16,9 @@ if TYPE_CHECKING:
     from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
     from packages.pipelines.promotion_registry import PromotionHandlerRegistry
     from packages.pipelines.transformation_service import TransformationService
-    from packages.storage.ingestion_config import IngestionConfigRepository, SourceAssetRecord
+    from packages.shared.extensions import ExtensionRegistry
+    from packages.storage.control_plane import ConfigCatalogStore
+    from packages.storage.ingestion_config import SourceAssetRecord
 
 PublishReporting = Callable[[PromotionResult | None], None]
 
@@ -25,11 +27,11 @@ def promote_and_publish_configured_csv(
     run_id: str,
     *,
     source_asset: "SourceAssetRecord | None",
-    config_repository: "IngestionConfigRepository",
+    config_repository: "ConfigCatalogStore",
     service: "ConfiguredCsvIngestionService",
     transformation_service: "TransformationService | None",
-    registry: object,
-    promotion_handler_registry: "PromotionHandlerRegistry",
+    registry: "ExtensionRegistry | None",
+    promotion_handler_registry: "PromotionHandlerRegistry | None",
     publish_reporting: PublishReporting,
     source_system_id: str | None = None,
     dataset_contract_id: str | None = None,
@@ -44,7 +46,12 @@ def promote_and_publish_configured_csv(
     if transformation_service is None:
         return None
     resolved_source_asset = source_asset
-    if resolved_source_asset is None and source_system_id and dataset_contract_id:
+    if (
+        resolved_source_asset is None
+        and source_system_id
+        and dataset_contract_id
+        and column_mapping_id
+    ):
         resolved_source_asset = config_repository.find_source_asset_by_binding(
             source_system_id=source_system_id,
             dataset_contract_id=dataset_contract_id,
@@ -87,14 +94,14 @@ def promote_and_publish_subscription(
 
 
 def promote_and_publish_configured_csv_batch(
-    run_ids: list[str],
+    run_ids: Sequence[str],
     *,
     source_asset: "SourceAssetRecord",
-    config_repository: "IngestionConfigRepository",
+    config_repository: "ConfigCatalogStore",
     service: "ConfiguredCsvIngestionService",
     transformation_service: "TransformationService | None",
-    registry: object,
-    promotion_handler_registry: "PromotionHandlerRegistry",
+    registry: "ExtensionRegistry | None",
+    promotion_handler_registry: "PromotionHandlerRegistry | None",
     publish_reporting: PublishReporting,
 ) -> "list[PromotionResult]":
     """Promote and publish a batch of configured-CSV runs for one source asset.

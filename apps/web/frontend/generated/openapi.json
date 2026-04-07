@@ -5488,6 +5488,11 @@
             "title": "Description",
             "type": "string"
           },
+          "group": {
+            "default": "general",
+            "title": "Group",
+            "type": "string"
+          },
           "mutating": {
             "title": "Mutating",
             "type": "boolean"
@@ -11210,6 +11215,16 @@
               ],
               "title": "Publication Key"
             }
+          },
+          {
+            "in": "query",
+            "name": "summary",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Summary",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -11237,6 +11252,26 @@
           }
         },
         "summary": "Get Publication Audit"
+      }
+    },
+    "/control/registry/summary": {
+      "get": {
+        "operationId": "get_registry_summary_control_registry_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Registry Summary Control Registry Summary Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Registry Summary"
       }
     },
     "/control/schedule-dispatches": {

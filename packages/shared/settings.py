@@ -179,13 +179,15 @@ class AppSettings:
             )
         if not backends:
             # If a DSN is configured but no backend var is set, infer postgres
-            has_dsn = bool(
+            # Only infer postgres from control-plane-specific DSN fields.
+            # The generic postgres_dsn is shared with reporting and must not
+            # silently promote the control-plane backend.
+            has_control_dsn = bool(
                 self.control_plane_dsn
-                or self.postgres_dsn
                 or self.control_postgres_dsn
                 or self.metadata_postgres_dsn
             )
-            return "postgres" if has_dsn else "sqlite"
+            return "postgres" if has_control_dsn else "sqlite"
 
         normalized = {
             source: value.strip().lower() for source, value in backends.items()
