@@ -283,7 +283,7 @@ def register_registry_routes(
                     "id": s.extension_registry_source_id,
                     "url": s.location,
                     "status": "enabled" if s.enabled else "disabled",
-                    "last_synced": to_jsonable(s.created_at),
+                    "source_created_at": to_jsonable(s.created_at),
                 }
                 for s in sources
             ],

@@ -342,6 +342,7 @@ def _execute_help(
                     "usage": entry.usage,
                     "description": entry.description,
                     "mutating": entry.mutating,
+                    "group": entry.group,
                 }
                 for entry in _COMMAND_SPECS
             ]
