@@ -32,13 +32,25 @@ def _build_client(temp_dir: str) -> TestClient:
 
 
 class AdapterPacksAPITests(unittest.TestCase):
+    def test_list_packs_includes_prometheus_core(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.get("/adapters/packs")
+            self.assertEqual(200, resp.status_code)
+            packs = resp.json()["packs"]
+            self.assertEqual(3, len(packs))
+            pack_keys = {pack["pack_key"] for pack in packs}
+            self.assertIn("ha_core", pack_keys)
+            self.assertIn("export_core", pack_keys)
+            self.assertIn("prometheus_core", pack_keys)
+
     def test_list_packs_returns_both_ha_and_export(self) -> None:
         with TemporaryDirectory() as tmp:
             client = _build_client(tmp)
             resp = client.get("/adapters/packs")
             self.assertEqual(200, resp.status_code)
             packs = resp.json()["packs"]
-            self.assertEqual(2, len(packs))
+            self.assertEqual(3, len(packs))
             pack_keys = {pack["pack_key"] for pack in packs}
             self.assertIn("ha_core", pack_keys)
             self.assertIn("export_core", pack_keys)
@@ -121,23 +133,26 @@ class AdapterRenderersAPITests(unittest.TestCase):
             resp = client.get("/adapters/renderers")
             self.assertEqual(200, resp.status_code)
             renderers = resp.json()["renderers"]
-            self.assertEqual(1, len(renderers))
-            renderer = renderers[0]
-            self.assertEqual("export_csv_json", renderer["renderer_key"])
-            self.assertEqual("Export Renderer — CSV / JSON", renderer["display_name"])
-            self.assertEqual("1.0", renderer["version"])
+            self.assertEqual(2, len(renderers))
+            renderer_keys = {r["renderer_key"] for r in renderers}
+            self.assertIn("export_csv_json", renderer_keys)
+            self.assertIn("prometheus_metrics", renderer_keys)
+            export_renderer = next(r for r in renderers if r["renderer_key"] == "export_csv_json")
+            self.assertEqual("Export Renderer — CSV / JSON", export_renderer["display_name"])
+            self.assertEqual("1.0", export_renderer["version"])
 
     def test_renderer_has_required_fields(self) -> None:
         with TemporaryDirectory() as tmp:
             client = _build_client(tmp)
             resp = client.get("/adapters/renderers")
             self.assertEqual(200, resp.status_code)
-            renderer = resp.json()["renderers"][0]
-            self.assertIn("renderer_key", renderer)
-            self.assertIn("display_name", renderer)
-            self.assertIn("version", renderer)
-            self.assertIn("supported_formats", renderer)
-            self.assertIn("supported_publication_keys", renderer)
+            renderers = resp.json()["renderers"]
+            for renderer in renderers:
+                self.assertIn("renderer_key", renderer)
+                self.assertIn("display_name", renderer)
+                self.assertIn("version", renderer)
+                self.assertIn("supported_formats", renderer)
+                self.assertIn("supported_publication_keys", renderer)
 
 
 class AdapterContractsAPITests(unittest.TestCase):

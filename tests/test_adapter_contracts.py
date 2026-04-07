@@ -1418,3 +1418,85 @@ class TestAdapterPackLifecycleIntegration:
         registry.register(local_pack)
         registry.activate("local_test_pack")
         assert registry.is_active("local_test_pack") is True
+
+
+# ---------------------------------------------------------------------------
+# Prometheus adapter tests
+# ---------------------------------------------------------------------------
+
+
+class TestPrometheusAdapter:
+    """Tests for the Prometheus metrics adapter."""
+
+    def test_prometheus_renderer_manifest_key(self):
+        """Test that the manifest has the correct renderer key."""
+        from packages.adapters.prometheus_adapter import PROMETHEUS_RENDERER_MANIFEST
+        assert PROMETHEUS_RENDERER_MANIFEST.renderer_key == "prometheus_metrics"
+
+    def test_prometheus_renderer_manifest_version(self):
+        """Test that the manifest has the correct version."""
+        from packages.adapters.prometheus_adapter import PROMETHEUS_RENDERER_MANIFEST
+        assert PROMETHEUS_RENDERER_MANIFEST.version == "1.0"
+
+    def test_prometheus_renderer_manifest_supported_formats(self):
+        """Test that the manifest supports prometheus_text format."""
+        from packages.adapters.prometheus_adapter import PROMETHEUS_RENDERER_MANIFEST
+        assert "prometheus_text" in PROMETHEUS_RENDERER_MANIFEST.supported_formats
+
+    def test_prometheus_renderer_conforms_to_renderer_protocol(self):
+        """Test that PrometheusRenderer conforms to the Renderer protocol."""
+        from packages.adapters.prometheus_adapter import PrometheusRenderer
+        from packages.shared.metrics import MetricsRegistry
+
+        renderer = PrometheusRenderer(MetricsRegistry())
+        assert isinstance(renderer, Renderer)
+
+    def test_prometheus_renderer_render_returns_prometheus_text(self):
+        """Test that render() returns RenderedOutput with prometheus_text format."""
+        from packages.adapters.prometheus_adapter import PrometheusRenderer
+        from packages.shared.metrics import MetricsRegistry
+
+        registry = MetricsRegistry()
+        renderer = PrometheusRenderer(registry)
+        output = renderer.render("unused_key", [])
+        assert output.format == "prometheus_text"
+        assert "text/plain" in output.content_type
+        assert b"0.0.4" in output.content_type.encode()
+
+    def test_prometheus_renderer_render_with_metrics(self):
+        """Test that render() includes metric data from the registry."""
+        from packages.adapters.prometheus_adapter import PrometheusRenderer
+        from packages.shared.metrics import MetricsRegistry
+
+        registry = MetricsRegistry()
+        registry.set("test_gauge", 42.0, help_text="Test gauge", metric_type="gauge")
+        renderer = PrometheusRenderer(registry)
+        output = renderer.render("unused_key", [])
+        assert b"test_gauge" in output.content
+        assert b"42" in output.content
+
+    def test_prometheus_renderer_manifest_publication_keys_empty(self):
+        """Test that the manifest has empty publication keys (platform-wide)."""
+        from packages.adapters.prometheus_adapter import PROMETHEUS_RENDERER_MANIFEST
+        assert PROMETHEUS_RENDERER_MANIFEST.supported_publication_keys == ()
+
+    def test_prometheus_adapter_pack_key(self):
+        """Test that the adapter pack has the correct pack key."""
+        from packages.adapters.prometheus_adapter import PROMETHEUS_ADAPTER_PACK
+        assert PROMETHEUS_ADAPTER_PACK.pack_key == "prometheus_core"
+
+    def test_prometheus_adapter_pack_trust_level(self):
+        """Test that the adapter pack is marked as verified."""
+        from packages.adapters.prometheus_adapter import PROMETHEUS_ADAPTER_PACK
+        assert PROMETHEUS_ADAPTER_PACK.trust_level == TrustLevel.VERIFIED
+
+    def test_prometheus_adapter_pack_has_renderer(self):
+        """Test that the adapter pack includes the renderer manifest."""
+        from packages.adapters.prometheus_adapter import PROMETHEUS_ADAPTER_PACK
+        assert len(PROMETHEUS_ADAPTER_PACK.renderers) == 1
+        assert PROMETHEUS_ADAPTER_PACK.renderers[0].renderer_key == "prometheus_metrics"
+
+    def test_prometheus_adapter_pack_has_no_adapters(self):
+        """Test that the adapter pack has no adapters."""
+        from packages.adapters.prometheus_adapter import PROMETHEUS_ADAPTER_PACK
+        assert PROMETHEUS_ADAPTER_PACK.adapters == ()

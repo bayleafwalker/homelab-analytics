@@ -50,6 +50,7 @@ from apps.api.support import (
 from packages.adapters.contracts import AdapterPack, TrustLevel
 from packages.adapters.export_renderer import EXPORT_RENDERER_MANIFEST
 from packages.adapters.ha_adapters import HA_ADAPTER_PACK
+from packages.adapters.prometheus_adapter import PROMETHEUS_ADAPTER_PACK
 from packages.adapters.registry import AdapterRegistry
 from packages.application.use_cases.run_recovery import build_run_recovery
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
@@ -245,7 +246,7 @@ def _build_default_adapter_registry() -> AdapterRegistry:
     Returns
     -------
     AdapterRegistry
-        Registry with HA_ADAPTER_PACK and export_core pack registered and active.
+        Registry with HA_ADAPTER_PACK, export_core, and prometheus_core packs registered and active.
     """
     registry = AdapterRegistry()
 
@@ -265,6 +266,10 @@ def _build_default_adapter_registry() -> AdapterRegistry:
     )
     registry.register(export_pack)
     registry.activate("export_core")
+
+    # Register Prometheus core pack
+    registry.register(PROMETHEUS_ADAPTER_PACK)
+    registry.activate("prometheus_core")
 
     return registry
 
