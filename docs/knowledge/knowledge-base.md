@@ -1,7 +1,15 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-05T20:19:30Z
+Generated: 2026-04-07T09:20:44Z
 
 ## Decisions
+
+### Adapter trust levels are the primary safety boundary; operator review scales with trust level
+Source: track: verification, sprint: 23
+Tags: adapter-governance, trust-model, safety
+
+Adapter governance uses three trust levels as the primary safety boundary. VERIFIED (platform-shipped) adapters require no operator review before activation. COMMUNITY (third-party) adapters require recommended review before production use. LOCAL (user-defined) adapters require mandatory operator review before any activation. This ensures responsibility scales with the degree of external verification, and is the mechanism that prevents unsafe or unreviewed adapters from silently entering production.
+
+---
 
 ### Use claim start/done-from-claim and kind-all for kctl checks in sprint workflow
 Source: track: tooling-ops, sprint: 29
@@ -532,6 +540,14 @@ Balance snapshots belong in the transformation layer as DuckDB-backed facts deri
 ---
 
 ## Patterns
+
+### Adapter pack registration and activation are decoupled; only active packs are operator-visible
+Source: track: verification, sprint: 23
+Tags: adapter-lifecycle, registry-design, operator-workflow
+
+AdapterPack registration and activation are two separate lifecycle steps. Registration stores pack metadata and marks the pack inactive by default. Activation is a separate explicit step that marks the pack ready for use. Only active packs are returned by list_packs(active_only=True) and surfaced via the API. This design enables safe operator review workflows: register → inspect → check compatibility → activate when ready. It prevents newly registered packs from becoming immediately operator-visible before review.
+
+---
 
 ### Use raw landing for JSON-backed internal connectors
 Source: track: stage-1, sprint: 4
