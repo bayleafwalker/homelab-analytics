@@ -14,6 +14,7 @@ from apps.api.auth_runtime import (
     cookie_secure_for_request,
     register_auth_middleware,
 )
+from apps.api.routes.adapter_routes import register_adapter_routes
 from apps.api.routes.assistant_routes import register_assistant_routes
 from apps.api.routes.auth_routes import register_auth_routes
 from apps.api.routes.category_routes import register_category_routes
@@ -46,12 +47,16 @@ from apps.api.support import (
     serialize_run,
     to_jsonable,
 )
+from packages.adapters.contracts import AdapterPack, TrustLevel
+from packages.adapters.export_renderer import EXPORT_RENDERER_MANIFEST
+from packages.adapters.ha_adapters import HA_ADAPTER_PACK
+from packages.adapters.registry import AdapterRegistry
 from packages.application.use_cases.run_recovery import build_run_recovery
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
-from packages.pipelines.composition.builtin_packs import BUILTIN_CAPABILITY_PACKS
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
+from packages.pipelines.composition.builtin_packs import BUILTIN_CAPABILITY_PACKS
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
 from packages.pipelines.promotion import (
     PromotionResult,
@@ -232,6 +237,36 @@ def _register_base_routes(
             metrics_registry.render_prometheus_text(),
             media_type="text/plain; version=0.0.4",
         )
+
+
+def _build_default_adapter_registry() -> AdapterRegistry:
+    """Build and pre-populate the adapter registry with built-in packs.
+
+    Returns
+    -------
+    AdapterRegistry
+        Registry with HA_ADAPTER_PACK and export_core pack registered and active.
+    """
+    registry = AdapterRegistry()
+
+    # Register HA core adapter pack
+    registry.register(HA_ADAPTER_PACK)
+    registry.activate("ha_core")
+
+    # Register export core pack
+    export_pack = AdapterPack(
+        pack_key="export_core",
+        display_name="Export Core",
+        version="1.0",
+        trust_level=TrustLevel.VERIFIED,
+        adapters=(),
+        renderers=(EXPORT_RENDERER_MANIFEST,),
+        description="Platform-shipped export renderer pack for CSV/JSON output.",
+    )
+    registry.register(export_pack)
+    registry.activate("export_core")
+
+    return registry
 
 
 def _build_container_from_legacy_args(
@@ -661,6 +696,12 @@ def create_app(
         ha_action_dispatcher=ha_action_dispatcher,
         ha_action_proposal_registry=ha_action_proposal_registry,
         to_jsonable=to_jsonable,
+    )
+    adapter_registry = _build_default_adapter_registry()
+    register_adapter_routes(
+        app,
+        adapter_registry=adapter_registry,
+        require_unsafe_admin=require_unsafe_admin,
     )
 
     return app
