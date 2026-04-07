@@ -201,6 +201,26 @@ class SessionManager:
             )
         return None
 
+    def validate_csrf_token(
+        self,
+        principal: "AuthenticatedPrincipal",
+        csrf_header: str | None,
+        csrf_cookie: str | None,
+    ) -> bool:
+        """Return True if the CSRF tokens are valid for this principal.
+
+        All three values — the token stored in the session principal, the token
+        delivered via the CSRF cookie, and the token delivered via the
+        ``x-csrf-token`` request header — must be present and identical.
+        """
+        if principal.csrf_token is None:
+            return False
+        if csrf_cookie != principal.csrf_token:
+            return False
+        if csrf_header != principal.csrf_token:
+            return False
+        return True
+
     def build_wsgi_set_cookie_header(
         self,
         cookie_value: str,

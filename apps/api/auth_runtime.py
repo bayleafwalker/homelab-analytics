@@ -304,10 +304,10 @@ def register_auth_middleware(
                 csrf_cookie = request.cookies.get(
                     resolved_session_manager.csrf_cookie_name
                 )
-                if (
-                    request.state.principal.csrf_token is None
-                    or csrf_cookie != request.state.principal.csrf_token
-                    or csrf_header != request.state.principal.csrf_token
+                if not resolved_session_manager.validate_csrf_token(
+                    request.state.principal,
+                    csrf_header,
+                    csrf_cookie,
                 ):
                     denied_response = JSONResponse(
                         status_code=403,
