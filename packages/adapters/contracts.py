@@ -57,7 +57,9 @@ class AdapterManifest:
     version:
         Adapter contract or package version string.
     supported_directions:
-        One or more of ``AdapterDirection.INGEST``, ``PUBLISH``, ``ACTION``.
+        One or more of ``AdapterDirection.INGEST``, ``PUBLISH``, ``ACTION``,
+        ``OBSERVE``. OBSERVE adapters read platform state for external
+        observability consumers; no ObserveAdapter protocol is defined yet.
     supported_entity_classes:
         Canonical entity classes the adapter can read or produce.
     credential_requirements:

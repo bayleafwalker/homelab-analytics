@@ -23,7 +23,9 @@ def _worst_case_verdict(verdict1: str, verdict2: str) -> str:
         "UNRELIABLE": 3,
         "UNAVAILABLE": 4,
     }
-    return verdict1 if severity.get(verdict1, 0) >= severity.get(verdict2, 0) else verdict2
+    v1 = verdict1.upper()
+    v2 = verdict2.upper()
+    return verdict1 if severity.get(v1, 0) >= severity.get(v2, 0) else verdict2
 
 
 def register_control_routes(

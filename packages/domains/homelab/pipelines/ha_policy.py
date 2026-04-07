@@ -25,9 +25,6 @@ logger = logging.getLogger("homelab_analytics.ha_policy")
 
 PolicyVerdict = Literal["ok", "warning", "breach", "unavailable"]
 
-_WARNING_UTILIZATION_PCT: float = 80.0
-
-
 def _verdict_severity(verdict: str) -> int:
     """Return severity of a confidence verdict (higher = worse)."""
     severity_map = {
@@ -57,7 +54,7 @@ _STALE_BRIDGE_SECONDS: int = 300      # 5 minutes
 _PACE_OVERSPEND_MARGIN: float = 15.0  # pct-points above daily pace → warning
 
 
-@dataclass
+@dataclass(frozen=True)
 class ConfidenceSummary:
     """Summary of publication confidence at time of policy evaluation."""
 

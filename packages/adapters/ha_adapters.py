@@ -30,9 +30,9 @@ from packages.adapters.contracts import (
     AdapterDirection,
     AdapterManifest,
     AdapterPack,
-    AdapterRuntimeStatus,
     TrustLevel,
 )
+from packages.platform.adapter_runtime_status import AdapterRuntimeStatus
 
 if TYPE_CHECKING:
     from packages.domains.homelab.pipelines.ha_action_dispatcher import HaActionDispatcher
