@@ -10,6 +10,7 @@ Covers:
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock
 
 import pytest
@@ -29,9 +30,11 @@ from packages.adapters.contracts import (
     TrustLevel,
 )
 from packages.adapters.compatibility import check_compatibility, validate_adapter_pack
+from packages.adapters.export_renderer import ExportRenderer
 from packages.adapters.registry import AdapterRegistry
 from packages.adapters.ha_adapters import (
     HA_ACTION_MANIFEST,
+    HA_ADAPTER_PACK,
     HA_INGEST_MANIFEST,
     HA_PUBLISH_MANIFEST,
     HaActionAdapter,
@@ -1136,3 +1139,99 @@ class TestValidateAdapterPack:
         assert "version must be non-empty" in errors
         assert any("adapter_key" in e for e in errors)
         assert any("renderer_key" in e for e in errors)
+
+
+# ---------------------------------------------------------------------------
+# ExportRenderer
+# ---------------------------------------------------------------------------
+
+
+class TestExportRenderer:
+    def test_default_format_is_json(self):
+        """ExportRenderer defaults to JSON format."""
+        renderer = ExportRenderer()
+        assert renderer._format == "json"
+
+    def test_invalid_format_raises_value_error(self):
+        """ExportRenderer raises ValueError for unsupported format."""
+        with pytest.raises(ValueError, match="Unsupported format"):
+            ExportRenderer(format="xml")
+
+    def test_json_render_non_empty_rows(self):
+        """JSON render of non-empty rows returns valid JSON."""
+        renderer = ExportRenderer(format="json")
+        rows = [
+            {"id": 1, "name": "Alice"},
+            {"id": 2, "name": "Bob"},
+        ]
+        output = renderer.render("test_publication", rows)
+        assert output.format == "json"
+        assert output.content_type == "application/json"
+        data = json.loads(output.content.decode("utf-8"))
+        assert len(data) == 2
+        assert data[0]["id"] == 1
+
+    def test_json_render_empty_rows(self):
+        """JSON render of empty rows returns empty array."""
+        renderer = ExportRenderer(format="json")
+        output = renderer.render("test_publication", [])
+        assert output.content == b"[]"
+
+    def test_csv_render_non_empty_rows(self):
+        """CSV render of non-empty rows includes header and values."""
+        renderer = ExportRenderer(format="csv")
+        rows = [
+            {"id": "1", "name": "Alice"},
+            {"id": "2", "name": "Bob"},
+        ]
+        output = renderer.render("test_publication", rows)
+        assert output.format == "csv"
+        assert output.content_type == "text/csv"
+        csv_content = output.content.decode("utf-8")
+        lines = csv_content.strip().split("\n")
+        assert "id" in lines[0]
+        assert "name" in lines[0]
+        assert len(lines) == 3  # header + 2 rows
+
+    def test_csv_render_empty_rows(self):
+        """CSV render of empty rows returns empty bytes."""
+        renderer = ExportRenderer(format="csv")
+        output = renderer.render("test_publication", [])
+        assert output.content == b""
+
+    def test_conforms_to_renderer_protocol(self):
+        """ExportRenderer instance passes isinstance check for Renderer."""
+        renderer = ExportRenderer()
+        assert isinstance(renderer, Renderer)
+
+    def test_manifest_supported_formats(self):
+        """Manifest contains both csv and json formats."""
+        renderer = ExportRenderer()
+        assert "csv" in renderer.manifest.supported_formats
+        assert "json" in renderer.manifest.supported_formats
+
+
+# ---------------------------------------------------------------------------
+# HA_ADAPTER_PACK
+# ---------------------------------------------------------------------------
+
+
+class TestHaAdapterPack:
+    def test_pack_key(self):
+        """HA_ADAPTER_PACK has correct pack_key."""
+        assert HA_ADAPTER_PACK.pack_key == "ha_core"
+
+    def test_trust_level(self):
+        """HA_ADAPTER_PACK has VERIFIED trust level."""
+        assert HA_ADAPTER_PACK.trust_level == TrustLevel.VERIFIED
+
+    def test_has_all_three_manifests(self):
+        """HA_ADAPTER_PACK contains all three HA manifests in adapters."""
+        assert HA_INGEST_MANIFEST in HA_ADAPTER_PACK.adapters
+        assert HA_PUBLISH_MANIFEST in HA_ADAPTER_PACK.adapters
+        assert HA_ACTION_MANIFEST in HA_ADAPTER_PACK.adapters
+        assert len(HA_ADAPTER_PACK.adapters) == 3
+
+    def test_renderers_empty(self):
+        """HA_ADAPTER_PACK has no renderers."""
+        assert HA_ADAPTER_PACK.renderers == ()

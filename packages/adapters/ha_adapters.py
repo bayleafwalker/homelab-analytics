@@ -29,7 +29,9 @@ from typing import TYPE_CHECKING, Any
 from packages.adapters.contracts import (
     AdapterDirection,
     AdapterManifest,
+    AdapterPack,
     AdapterRuntimeStatus,
+    TrustLevel,
 )
 
 if TYPE_CHECKING:
@@ -175,3 +177,26 @@ class HaActionAdapter:
                 "approval_dismissed_count": raw.get("approval_dismissed_count", 0),
             },
         )
+
+
+# ---------------------------------------------------------------------------
+# HA_ADAPTER_PACK — canonical bundle of all HA adapters
+# ---------------------------------------------------------------------------
+
+HA_ADAPTER_PACK = AdapterPack(
+    pack_key="ha_core",
+    display_name="Home Assistant Core",
+    version="1.0",
+    trust_level=TrustLevel.VERIFIED,
+    adapters=(
+        HA_INGEST_MANIFEST,
+        HA_PUBLISH_MANIFEST,
+        HA_ACTION_MANIFEST,
+    ),
+    renderers=(),
+    description=(
+        "Platform-shipped adapter pack for Home Assistant integration. "
+        "Covers entity state ingest (WebSocket bridge), MQTT publish "
+        "(synthetic sensors), and action dispatch."
+    ),
+)
