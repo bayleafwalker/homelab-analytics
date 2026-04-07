@@ -29,7 +29,9 @@ Use `docs/runbooks/project-working-practices.md` for startup order, change-class
 - Update requirements or architecture docs when behavior or scope changes.
 - Add or update focused tests and at least one integration path for new behavior.
 - **Commit after each sprint item completes verification. Do not batch multiple items into a single commit.**
-- **If the test suite fails after a change, diagnose the root cause, fix, and re-run — up to 5 cycles — before escalating. Only escalate if still failing after 5 attempts or if a design decision is required.**
+- **Run targeted tests only — `pytest <changed-test-files> -x --tb=short` — foreground and blocking. Never background pytest for sequential verification. Full suite (`make test`) is a CI gate, not an in-session gate.**
+- **Gate `sprintctl` done transitions on targeted test exit code: `pytest <files> -x --tb=short && sprintctl item done-from-claim ...`**
+- **If tests fail after a change, diagnose the root cause, fix, and re-run — up to 5 cycles — before escalating. Only escalate if still failing after 5 attempts or if a design decision is required.**
 
 ## Required output shape
 

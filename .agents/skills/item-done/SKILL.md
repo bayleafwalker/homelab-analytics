@@ -17,13 +17,19 @@ Close a sprint item cleanly: verify the work, capture any durable knowledge befo
 
 ### 1. Confirm verification is clean
 
-Run the full test suite and report pass/fail count:
+Run targeted tests for the files changed in this item — blocking, foreground, fast-fail:
 
 ```bash
-make test
+pytest tests/test_foo.py tests/test_bar.py -x --tb=short
 ```
 
-Do not proceed if tests are failing. Use the self-healing loop (diagnose and fix up to 5 cycles) before escalating.
+Do not run the full suite (`make test`) in-session — that is a CI gate. Do not background pytest. Do not proceed if targeted tests are failing; use the self-healing loop (diagnose and fix up to 5 cycles) before escalating.
+
+Gate the rest of this skill on exit code zero:
+
+```bash
+pytest <changed-test-files> -x --tb=short && echo "verified"
+```
 
 ### 2. Reflect — log knowledge events while context is hot
 
@@ -97,7 +103,10 @@ git commit -m "chore: update sprint snapshot after <item-title>"
 
 ## Do not
 
-- Do not mark done before tests pass.
+- Do not mark done before targeted tests pass.
+- Do not run `make test` (full suite) in-session — push to CI and let it run there.
+- Do not background `pytest` — run it foreground and wait for the exit code.
+- Do not use `sprintctl item status --status done` before the pytest exit code is 0.
 - Do not skip step 2 assuming you'll capture it at sprint close — retroactive logging produces thin knowledge candidates.
 - Do not manufacture events if nothing non-obvious happened; one honest event beats three thin ones.
 - Do not batch this item's commit with another item's changes.

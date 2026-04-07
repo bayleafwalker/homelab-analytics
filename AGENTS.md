@@ -1,5 +1,8 @@
 # Agent Guidance
 
+> **Environment reference:** `/projects/dev/AGENTS.md` — devbox vs workstation context, tool install persistence, cluster access, direnv, PATH, cost logging, and mid-session switching.
+
+
 ## Architecture rules
 
 - Preserve the layer split: `landing` is immutable raw payloads plus validation, `transformation` is reusable normalized models plus SCD handling, and `reporting` is dashboard/API-facing marts.
@@ -26,10 +29,17 @@ Working practices: `docs/runbooks/project-working-practices.md`.
 
 **Load:** `source .envrc` or `direnv allow` from repo root before using `sprintctl` or `kctl`.
 
+**If `sprintctl` or `kctl` is not found** (e.g. on a fresh devbox), install from source — these are private tools, not on PyPI:
+```bash
+uv tool install /workspace/dev/sprintctl/ --python python3
+uv tool install /workspace/dev/kctl/ --python python3
+```
+This is a one-time step per PVC; tools land in `~/.local/bin` which is on PATH.
+
 **Validate before use:**
 ```bash
 echo $SPRINTCTL_DB   # must contain the repo path, not ~/
-SPRINTCTL_DB=/projects/dev/homelab-analytics/.sprintctl/sprintctl.db sprintctl sprint list
+SPRINTCTL_DB=/workspace/dev/homelab-analytics/.sprintctl/sprintctl.db sprintctl sprint list
 ```
 
 Using the home-directory default (`~/`) silently produces stale or wrong sprint state.
@@ -43,15 +53,37 @@ This application is **not yet deployed** to a cluster. Do not run `kubectl` agai
 
 ## Development workflow
 
-- Primary language: **Python**. Testing: `pytest` (`make test` or `pytest -q`).
-- Run the full test suite after making changes and report pass/fail count before committing.
+- Primary language: **Python**. Testing: `pytest`.
+- **Two-tier testing model:**
+  - **In-session (blocking, targeted):** Run only the tests covering changed files: `pytest tests/test_foo.py tests/test_bar.py -x --tb=short`. Run foreground and wait — never background `pytest` for sequential verification. This is the signal needed to mark items done.
+  - **Full suite (CI gate only):** `make test` is a merge gate, not a sprint-item gate. Push the branch; let CI run it. Do not run the full suite in-session unless debugging a cross-cutting regression.
+- Gate `sprintctl` done transitions on targeted test exit code: `pytest <files> -x --tb=short && sprintctl item done-from-claim ...`
 - **Never commit with failing tests.**
-- **Commit after each sprint item completes — not at the end of a session.** One item = one commit. Run tests before each commit.
+- **Commit after each sprint item completes — not at the end of a session.** One item = one commit. Run targeted tests before each commit.
 - Run `make verify-fast` before any PR or CI-triggering push.
 
 ### Self-healing test loop
 
 If tests fail after a change, diagnose the root cause, fix, and re-run — up to **5 cycles** — before escalating. Only escalate if still failing after 5 attempts or if a design decision is required.
+
+## Agent dispatch
+
+Work is divided across three agent tiers. The orchestrating session (Sonnet) coordinates; subagents execute.
+
+| Trigger | Skill | Subagent | Model |
+|---------|-------|----------|-------|
+| New scope, architecture decisions, layer questions | `/dispatch-plan` | Plan | opus |
+| Approved plan or well-scoped sprint item | `/dispatch-build` | general-purpose | haiku |
+| Stable diff, pre-PR, pre-handoff | `/dispatch-review` | general-purpose | sonnet |
+
+**Rules:**
+- **The orchestrating session is a coordinator, not an implementer.** It reads context, dispatches subagents, and collects results. Do not make repo edits for sprint deliverables directly — delegate to `dispatch-build` subagents even for well-scoped items. The only direct edits allowed in the orchestrating session are workflow scaffolding (e.g., setting up dispatch context, updating sprint state).
+- Spawn a `dispatch-plan` subagent before any repo edits when the task involves design decisions not already settled by code, docs, or prior instruction.
+- Spawn `dispatch-build` subagents per sprint item. Use `run_in_background=true` for independent items; use `isolation=worktree` for items touching overlapping files.
+- Do not pass `claim_token` to subagents — keep ownership proof in the orchestrating session.
+- Route back to `dispatch-build` if review surfaces blockers; do not close an item with unresolved findings.
+
+Skill definitions: `.agents/skills/dispatch-plan/`, `.agents/skills/dispatch-build/`, `.agents/skills/dispatch-review/`
 
 ## Sprint and knowledge tooling
 

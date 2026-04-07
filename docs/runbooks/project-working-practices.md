@@ -142,7 +142,8 @@ Minimum done criteria:
 Minimum done criteria:
 - update or add tests in the same change
 - update requirements or product/docs when externally visible behavior or accepted scope changes
-- run focused local verification for the affected behavior
+- run targeted tests for changed files in-session, foreground, fast-fail: `pytest <files> -x --tb=short`; full suite is a CI gate, not an in-session requirement
+- gate `sprintctl` done transitions on targeted test exit code
 - keep sprint state current if the work is sprint-scoped
 
 ### Architecture change
@@ -196,6 +197,71 @@ Coordination rules:
 - use `sprintctl claim handoff` when ownership of an active claim moves to another live session
 - use `sprintctl handoff --output <path>` when work pauses materially or the next session needs broader machine-readable sprint context
 - keep handoff bundles local unless the task explicitly asks for a committed artifact
+
+## Mid-Sprint Breaks and Session Handoffs
+
+Use this practice when pausing mid-sprint — end of session, context crash, or handing to another agent — before all pending items are complete.
+
+### When to write a handoff prompt
+
+Write a handoff prompt file whenever:
+- the session is ending with pending items in the current sprint
+- a crash or context loss interrupted an active item
+- work is being handed to a different agent or worktree
+
+### Where to write it
+
+`.agents/handoffs/<YYYY-MM-DD>-<topic-slug>.md` in the repo root.
+
+This directory is stable, tracked, and the canonical location for human-readable session restart prompts. Use the date and a short topic slug so files are sortable and identifiable.
+
+Example: `.agents/handoffs/2026-04-06-sprint-25-23-resume.md`
+
+### What to include
+
+```
+resume
+
+<one-line context: what sprint, what items, what state>
+
+## State
+- Which sprint(s) are active and which items are pending vs done
+- Any active or recently released claims
+- Any uncommitted changes and whether they should be left alone
+
+## Item <id> — <title> (<S/M/L>)
+- Files to touch (named)
+- What's missing (specific gaps, not vague)
+- Any design decisions already made
+
+## Suggested order
+<ordered list of items or sub-groups>
+
+<Any agent dispatch notes — dispatch-build / dispatch-review usage>
+```
+
+Omit planning that has not yet been done — do not fabricate a plan to fill the template.
+
+### Claim state before pausing
+
+Before closing a session mid-item:
+- if the item is incomplete, release the claim with `sprintctl claim release --claim-id <id> --claim-token <token>` so the next session can start cleanly
+- if the item is complete but not yet marked done, mark it done first with `sprintctl item done-from-claim`, then commit
+- if context was lost before claim state could be confirmed, check `sprintctl claim list --item-id <id>` at the start of the next session; if no claims exist, start a new claim
+
+### Resuming from a handoff prompt
+
+Open the handoff file and paste its contents as the opening message, or say:
+
+> resume — see `.agents/handoffs/<filename>.md`
+
+The next session should run `sprint-resume` first to verify live claim state before touching repo files.
+
+### Relationship to `sprintctl handoff`
+
+`sprintctl handoff --output <path>` produces a machine-readable bundle (JSON) for agent-to-agent ownership transfer. The `.agents/handoffs/` prompt file is the human-readable complement: it captures planning context, item scope, and suggested order that the machine bundle does not carry.
+
+Both can coexist. For solo work or simple session breaks, the prompt file alone is sufficient.
 
 ## Session Notes Boundary
 

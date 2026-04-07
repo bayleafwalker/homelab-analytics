@@ -48,10 +48,12 @@ This application is **not yet deployed** to a cluster. Do not run `kubectl` agai
 
 ## Development Workflow
 
-1. Run the full test suite after making changes: `make test` (or `pytest -q`).
-2. Report the pass/fail count before committing.
+1. **Two-tier testing model:**
+   - **In-session (blocking, targeted):** Run only the tests covering changed files: `pytest tests/test_foo.py -x --tb=short`. Run foreground and wait — never background `pytest` for sequential work.
+   - **Full suite (CI gate only):** `make test` is a merge gate, not a sprint-item gate. Push the branch; let CI run it.
+2. Gate done transitions on targeted test exit code: `pytest <files> -x --tb=short && sprintctl item done-from-claim ...`
 3. **Never commit with failing tests.**
-4. **Commit after each sprint item completes — not at the end of a session.** One item = one commit. Run tests before each commit.
+4. **Commit after each sprint item completes — not at the end of a session.** One item = one commit. Run targeted tests before each commit.
 5. Run `make verify-fast` before opening a PR or pushing a branch that will trigger CI.
 6. Behavior changes must include updated or new tests in the same commit.
 
