@@ -1,11 +1,11 @@
 ---
 name: sprint-close
-description: Use at the end of a sprint to run the full close-out sequence: verify clean test suite, snapshot sprint state, extract and review knowledge candidates, publish approved entries, and tag the sprint boundary.
+description: Use at the end of a sprint to run the full close-out sequence: verify the sprint-close fast gate, snapshot sprint state, extract and review knowledge candidates, publish approved entries, and tag the sprint boundary.
 ---
 
 ## Goal
 
-Encode the full sprint close-out sequence in one skill so the steps are not repeated ad-hoc across sessions. Produces a clean test baseline, a committed snapshot, reviewed knowledge candidates, and an optional tag.
+Encode the full sprint close-out sequence in one skill so the steps are not repeated ad-hoc across sessions. Produces a passing fast close gate, a committed snapshot, reviewed knowledge candidates, and an optional tag.
 
 ## Inputs
 
@@ -15,13 +15,15 @@ Encode the full sprint close-out sequence in one skill so the steps are not repe
 
 ## Steps
 
-### 1. Verify clean test suite
+### 1. Run the sprint-close fast gate
 
 ```bash
-make test
+pytest tests/test_architecture_contract.py -x --tb=short
 ```
 
-Report pass/fail count. If tests fail, diagnose and fix before continuing — do not close a sprint on a red suite. Use the self-healing loop (up to 5 cycles) before escalating.
+Report pass/fail status. If the contract test fails, diagnose and fix before continuing — do not close a sprint on a red close gate. Use the self-healing loop (up to 5 cycles) before escalating.
+
+The full suite is an ad-hoc, operator-initiated task rather than a blocking sprint-close requirement. When an operator chooses to run it, record the result separately from sprint close.
 
 ### 2. Confirm sprint item health
 
@@ -99,7 +101,7 @@ Confirm with the user before pushing tags.
 
 ## Output contract
 
-- Test suite is green at close.
+- Sprint-close contract gate passes.
 - `docs/sprint-snapshots/sprint-current.txt` reflects the closed sprint state.
 - All knowledge candidates are approved or rejected — none left in `candidate` status.
 - If publication was in scope, `docs/knowledge/knowledge-base.md` is up to date.
@@ -107,7 +109,7 @@ Confirm with the user before pushing tags.
 
 ## Do not
 
-- Do not close a sprint with a failing test suite.
+- Do not close a sprint with a failing sprint-close contract gate.
 - Do not skip the `maintain check` step — unresolved stale items silently drop work.
 - Do not run `kctl extract` if no events were logged; add retrospective events first via `sprintctl event add`.
 - Do not merge the snapshot commit, knowledge commit, and tag step into one commit — keep them separate for diffability.

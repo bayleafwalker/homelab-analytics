@@ -1,11 +1,11 @@
 ---
 name: kctl-extract
-description: Use at sprint close to extract durable knowledge (decisions, patterns, resolved blockers, lessons) from sprintctl events into the kctl review pipeline.
+description: Use at sprint close to extract durable knowledge and coordination lessons from sprintctl events into the kctl review pipeline.
 ---
 
 ## Goal
 
-Recover durable knowledge from sprint events before the sprint goes stale. This is the sprint-close step that feeds the knowledge pipeline.
+Recover durable knowledge and coordination lessons from sprint events before the sprint goes stale. This is the sprint-close step that feeds the knowledge pipeline.
 
 ## Inputs
 
@@ -56,6 +56,7 @@ This includes coordination corrections such as claim misuse, handoff rules, or o
 9. Run `kctl status --sprint-id <id> --kind all` to confirm there are no unexpected leftovers in the pipeline. Use `--json` if the result needs to be machine-consumable.
 10. If the task explicitly includes promoting approved knowledge into published entries:
    - Use `kctl publish --id <n> --body "<detail>" --category <decision|pattern|lesson|risk|reference>` for the approved entries that should become durable repo knowledge.
+   - For approved coordination candidates that should become durable workflow knowledge, use `kctl publish --coordination --id <n> --body "<detail>" --category <decision|pattern|lesson|risk|reference>`.
    - Render the committed artifact to `docs/knowledge/knowledge-base.md` via `kctl render --output docs/knowledge/knowledge-base.md`.
    - Keep the knowledge-base update separate from unrelated feature work.
 

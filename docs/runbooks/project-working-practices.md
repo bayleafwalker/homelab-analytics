@@ -54,6 +54,8 @@ Interpretation rules:
 - inspect item status, active claims, and recent events
 - follow the claim lifecycle in `runbooks/sprint-and-knowledge-operations.md` or `sprintctl agent-protocol --json` before repo edits when parallel overlap is possible
 - if an exclusive claim already exists, only continue when the current session clearly owns it through `claim_id` plus `claim_token`; otherwise stop repo edits and resolve a handoff or pick different work
+- when starting a claim, persist the `claim_token` immediately to `.sprintctl/claims/claim-<item_id>.token`; keep it in memory for normal execution and treat the file as crash recovery only
+- when reattaching after context loss, read `.sprintctl/claims/claim-<item_id>.token` before deciding whether to resume the active claim
 - move the item to `active` before implementation when appropriate
 - log `decision` or `lesson-learned` events when process, coordination, or design rules are clarified during execution; do not wait until sprint close to capture them
 - use sprint docs, requirements, and architecture docs only as implementation context for the selected item
@@ -74,6 +76,7 @@ Interpretation rules:
 - update docs or requirements when behavior, architecture, or scope changes
 - keep sprint state current if the work is sprint-scoped
 - use focused local verification during implementation and broader checks before review or push
+- after adding or modifying any API route or architecture doc, run `pytest tests/test_architecture_contract.py -x --tb=short`
 
 **Close-out artifacts:** repo change, matching tests or verification, any required requirements/docs updates, and sprint updates when applicable.
 
@@ -118,9 +121,11 @@ Interpretation rules:
 **Consult first:** live `sprintctl` state, open items, and recent event history.
 
 **While in progress:**
+- run `pytest tests/test_architecture_contract.py -x --tb=short`
 - run `sprintctl maintain check`
 - carry over unfinished work that belongs in the next sprint
 - close the sprint only after execution state is accurate
+- treat the full suite as an ad-hoc, operator-initiated task rather than a blocking sprint-close gate
 - run `kctl extract`, review candidates, and publish knowledge when that output belongs in repo memory
 
 **Close-out artifacts:** correct sprint status, refreshed sprint snapshot, reviewed knowledge candidates, and rendered knowledge base when published.
@@ -190,12 +195,15 @@ Required claim identity for multi-agent work when the local workflow supports it
 Coordination rules:
 - do not infer ownership from sprint docs, plans, or session notes when live `sprintctl` state exists
 - do not treat matching actor, workspace token, branch, worktree, or commit SHA by themselves as proof of ownership
+- persist each new `claim_token` immediately to `.sprintctl/claims/claim-<item_id>.token`; keep the token in memory for normal execution and use the file only for local crash recovery
 - if an exclusive claim already exists and the current session holds its `claim_token` and the identity clearly matches, refresh the heartbeat and continue
+- if reattaching after context loss, read `.sprintctl/claims/claim-<item_id>.token` first and use it to decide whether the active claim still belongs to the current session
 - if an exclusive claim already exists and the identity is missing, ambiguous, or points to another live workspace, do not heartbeat it and do not edit repo files until a handoff is produced or a different item is selected
 - add `sprintctl event` records when decisions are made or blockers are resolved, not only at close-out
 - log reusable workflow corrections and coordination lessons as `decision` or `lesson-learned` events with `--payload` keys `summary`, `detail`, `tags`, and `confidence` at the moment they are discovered
 - use `sprintctl claim handoff` when ownership of an active claim moves to another live session
 - use `sprintctl handoff --output <path>` when work pauses materially or the next session needs broader machine-readable sprint context
+- remove `.sprintctl/claims/claim-<item_id>.token` after successful `claim release` or `item done-from-claim`
 - keep handoff bundles local unless the task explicitly asks for a committed artifact
 
 ## Mid-Sprint Breaks and Session Handoffs

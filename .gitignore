@@ -22,6 +22,7 @@ apps/web/frontend/test-results/
 docs/sprints
 .samples/
 .sprintctl/
+.sprintctl/claims/
 .kctl/
 sprint-*.json
 handoff-*.json

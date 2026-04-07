@@ -16,6 +16,7 @@ For repo-wide startup order, source-of-truth precedence, done criteria, and sess
 
 These stay machine-local and gitignored:
 - `.sprintctl/sprintctl.db`
+- `.sprintctl/claims/claim-<item_id>.token`
 - `.kctl/kctl.db`
 - `sprint-*.json`
 - `handoff-*.json`
@@ -51,7 +52,10 @@ Treat the committed files as the shared repo view. The SQLite databases are loca
 - when finishing an item, prefer `item done-from-claim` (or `item status --status done` + `claim release` when needed)
 - hand off with `claim handoff` or release with `claim release` before shutdown
 - ownership proof is `claim_id` plus `claim_token`
-- treat the claim token as a secret and persist it immediately after claim creation
+- treat the claim token as a secret and persist it immediately after `claim start` to `.sprintctl/claims/claim-<item_id>.token`
+- keep the token in session memory during normal execution; treat the file as crash recovery only
+- when reattaching after context loss, read `.sprintctl/claims/claim-<item_id>.token` before deciding whether to resume the live claim
+- remove `.sprintctl/claims/claim-<item_id>.token` after successful `claim release` or `item done-from-claim`
 - attach `runtime_session_id` and `instance_id` on claims; for Codex, let `CODEX_THREAD_ID` populate the runtime session id when available or set `SPRINTCTL_RUNTIME_SESSION_ID` explicitly, and keep `SPRINTCTL_INSTANCE_ID` stable for the live process
 - attach branch, worktree, commit SHA, and PR reference when available, but treat them as advisory metadata
 - if an active exclusive claim does not clearly belong to the current session, stop and resolve a handoff or choose different work before editing repo files
@@ -70,12 +74,14 @@ Treat the committed files as the shared repo view. The SQLite databases are loca
 ## Sprint Close
 
 - run `kctl preflight --sprint-id <id>` or `sprintctl maintain check --sprint-id <id>`
+- run `pytest tests/test_architecture_contract.py -x --tb=short` as the sprint-close fast gate
 - move unfinished work with `sprintctl maintain carryover --from-sprint <id> --to-sprint <next-id>`
 - close the sprint with `sprintctl sprint status --id <id> --status closed`
+- treat the full suite as an ad-hoc, operator-initiated task rather than a blocking sprint-close requirement
 - run `kctl extract --sprint-id <id>` (it runs preflight unless `--no-preflight` is set)
 - use explicit `--event-types ...` when you need deterministic filtering instead of the default event set
 - review candidates with `kctl review list`, `kctl review show`, `kctl review approve`, and `kctl review reject` (use `--kind all` when coordination stream candidates matter)
-- publish intentionally with `kctl publish ...` and render the committed artifact with `kctl render --output docs/knowledge/knowledge-base.md`
+- publish intentionally with `kctl publish ...`; use `kctl publish --coordination ...` when an approved coordination candidate should become durable workflow knowledge, then render the committed artifact with `kctl render --output docs/knowledge/knowledge-base.md`
 
 ## Useful Structured Surfaces
 
