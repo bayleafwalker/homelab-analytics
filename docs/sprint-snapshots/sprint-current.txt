@@ -1,55 +1,11 @@
-SPRINT: Sprint flint-glass-vow — Semantic Confidence and Operator Trust  [active]
-Goal:   Make every platform output carry explicit freshness, completeness, and lineage signals so stale data degrades visibly instead of silently becoming truth-ish
-Dates:  2026-03-30 to 2026-04-13
-ID:     25
-Items:  15 total — 15 done, 0 active, 0 pending, 0 blocked
+SPRINT: amber-claim-ledger — Durable Coordination Follow-through  [active]
+Goal:   Record the remaining Sprint 23 follow-up as durable sprint knowledge by logging the claim-token persistence decision under tracked ownership.
+Dates:  2026-04-07 to 2026-04-10
+ID:     39
+Items:  1 total — 1 done, 0 active, 0 pending, 0 blocked
 
---- Track: confidence-model ---
+--- Track: coordination ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #158  Publication confidence model — PublicationConfidenceSnapshot, compute_publication_confidence(), migrations, snap on refresh  (assignee: -)
+  [done    ] #286  Log durable claim-token persistence decision event  (assignee: -)
 
---- Track: dashboard ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #162  Confidence dashboard — /control/confidence page, per-publication rows, domain summary cards, stale filter  (assignee: -)
-
---- Track: freshness ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #159  Cross-domain freshness aggregation — promote to platform, non-finance configs, enriched API + UI  (assignee: -)
-
---- Track: lineage ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #160  Bidirectional lineage — contributing_sources reverse lookup, both storage backends, API query mode  (assignee: -)
-
---- Track: publication-metadata ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #161  Publication freshness metadata — extend PublicationContract, export confidence to artifacts, frontend badges  (assignee: -)
-
---- Track: tests ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #164  Tests — confidence computation, cross-domain freshness, bidirectional lineage, integration, make verify-fast  (assignee: -)
-  [done    ] #213  Scenario fixtures for stale, partial, and malformed input states  (assignee: -)
-
---- Track: tracing ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #163  Assumption and dependency tracing — scenario assumptions_summary, policy input_freshness, detail pages  (assignee: -)
-
---- Track: auditable-outputs ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #211  Auditable recommendation/action proposal object model with provenance, freshness, assumptions, confidence  (assignee: -)
-  [done    ] #212  Assistant answer composition hooks for source evidence and freshness/confidence notes  (assignee: -)
-
---- Track: runtime-parity ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #207  Reconcile API/worker pack registration behavior — remove single-domain backward-compat scars  (assignee: -)
-  [done    ] #208  Expose capability pack metadata in one authoritative place  (assignee: -)
-
---- Track: semantic-closure ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #206  Finish remaining core shared-dimension work and normalize publication semantic metadata across packs  (assignee: -)
-
---- Track: trust-propagation ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #209  Source-health-to-publication-health propagation rules — stale source marks downstream outputs as degraded  (assignee: -)
-  [done    ] #210  Derived-output degradation rules and confidence scoring/banding model  (assignee: -)
-
-Rendered: 2026-04-07T09:18:45Z
+Rendered: 2026-04-07T13:40:54Z
