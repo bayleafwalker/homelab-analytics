@@ -22,6 +22,8 @@ It is **not** a proposal to pause the household app indefinitely while building 
 
 The goal is to make the kernel and household app **architecturally, operationally, testably, and documentationally separable** while remaining in one repo.
 
+For future backlog planning, treat this kernel-vs-app seam as the outer boundary and use a four-strata stability model inside it: kernel, semantic engine, product packs, and surfaces. The semantic engine is the reusable middle layer that is still too blurred inside mixed pipeline and orchestration code today.
+
 **Guiding rule:** design for extraction, do not extract for design.
 
 ---
@@ -80,7 +82,7 @@ When in doubt, prefer implementation evidence over elegance.
 The repo is already **substantially on the way** to being a platform kernel with a sewn-in flagship household app.
 The capability pack model, publication contract system, `packages/platform/` structure, and existing architecture tests all show real platform intent.
 
-The current biggest architectural problem is that `packages/pipelines/` is still doing double duty: it contains both platform-generic pipeline infrastructure and a large amount of household domain logic. That package, plus platform runtime imports into it, is the main reason the kernel/app seam is blurry.
+The current biggest architectural problem is that `packages/pipelines/` is still doing double duty: it contains both platform-generic pipeline infrastructure, the reusable semantic engine, and a large amount of household domain logic. That package, plus platform runtime imports into it, is the main reason the kernel/app seam is blurry.
 
 The approved direction is:
 

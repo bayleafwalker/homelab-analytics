@@ -1,11 +1,10 @@
-SPRINT: amber-claim-ledger — Durable Coordination Follow-through  [closed]
-Goal:   Record the remaining Sprint 23 follow-up as durable sprint knowledge by logging the claim-token persistence decision under tracked ownership.
-Dates:  2026-04-07 to 2026-04-10
-ID:     39
-Items:  1 total — 1 done, 0 active, 0 pending, 0 blocked
+SPRINT: none active
+Goal:   No active sprint is currently open. The next planned work is queued in backlog sprints 41-44.
 
---- Track: coordination ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #286  Log durable claim-token persistence decision event  (assignee: -)
+Backlog queue:
+  [planned ] #41  keel-ledger-bond - Kernel Hardening and Runtime Honesty
+  [planned ] #42  semantic-seam-forge - Semantic Engine Contracts and Application Seams
+  [planned ] #43  pack-loop-harbor - Product Pack Ownership and Workflow Closure
+  [planned ] #44  surface-glass-bridge - Thin Surfaces and Operator Visibility
 
-Rendered: 2026-04-07T14:14:54Z
+Rendered: 2026-04-07

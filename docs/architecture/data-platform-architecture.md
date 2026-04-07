@@ -12,6 +12,73 @@ The platform needs one architecture that supports:
 - publishable outputs through both API and dashboard surfaces
 - built-in product logic with explicit extension points for external code
 
+## Stability strata
+
+Keep one repo and one deployment story. Future refactors and backlog planning should be organized by stability and conceptual ownership, not by deployable service boundaries.
+
+This planning model overlays the runtime-oriented 5-layer ADR from `docs/decisions/household-platform-adr-and-refactor-blueprint.md`.
+
+### 1. Kernel
+
+The kernel is the part that should still make sense if every current domain pack vanished tomorrow.
+
+Kernel responsibilities:
+
+- runtime and container build
+- config and settings
+- auth primitives and policy assembly
+- control-plane stores and run metadata
+- blob or object storage
+- scheduling, dispatch, and health primitives
+- capability, publication, and UI descriptor types
+- extension loading
+- audit and lineage primitives
+
+### 2. Semantic engine
+
+The semantic engine turns observed evidence into normalized meaning and publishable semantic outputs.
+
+Semantic-engine responsibilities:
+
+- canonical facts and dimensions
+- ingestion-to-promotion orchestration
+- transformation registries and publication materialization
+- reporting access contracts
+- scenario storage and compute
+- policy evaluation primitives
+
+### 3. Product packs
+
+Finance, utilities, homelab, and overview are product packs attached to the semantic engine rather than proofs that the kernel is generic.
+
+Product-pack responsibilities:
+
+- source definitions
+- pack workflows
+- publication definitions
+- pack-local reporting and transformation rules
+- heuristics and insight logic
+- optional UI descriptors for pack outputs
+
+### 4. Surfaces
+
+API, worker, web, Home Assistant, exports, Prometheus, and admin views are surfaces. They should stay thin.
+
+Surface responsibilities:
+
+- accept requests or events
+- authenticate and authorize
+- call explicit use-case entrypoints
+- serialize, render, publish, or bridge outputs
+
+### Application/use-case seam
+
+The application or use-case layer remains the mandatory orchestration seam between the semantic engine plus product packs and the surfaces. It is not treated as a separate stability bucket for backlog slicing, but it must exist explicitly in code.
+
+Surface code should call stable use-cases such as `run_ingestion`, `promote_run`, `publish_outputs`, `retry_run`, `compute_scenario`, `evaluate_policy`, and `dispatch_action_proposal` rather than embedding business sequencing in route or shell code.
+
+Heuristic: if deleting all current domain packs would leave the code meaningful, it probably belongs in the kernel or semantic engine. If not, it probably belongs in a product pack or a surface.
+
 ## Source classes
 
 The source registry should classify each source by `source_type`, `transport`, `schedule_mode`, and `mapping_strategy`.

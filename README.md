@@ -8,6 +8,8 @@ This is not a Home Assistant add-on. Home Assistant is a first-class integration
 
 Database support model: Postgres is the canonical operational database for control-plane state, landing metadata, and published reporting. SQLite remains a local bootstrap fallback. DuckDB remains the worker/local analytical warehouse engine and is not the application's primary shared-production read contract.
 
+Architecture posture: keep one repo and one deployment story. The codebase is being hardened around four internal stability strata: kernel, semantic engine, product packs, and surfaces. The useful boundary is change rate and conceptual ownership, not API vs worker vs web as separate service products.
+
 ## Product direction
 
 The project follows an 11-stage roadmap from analytics platform to household operating platform:
@@ -24,12 +26,12 @@ The project follows an 11-stage roadmap from analytics platform to household ope
 9. Trust, governance, and operator confidence
 10. Agentic and assistant layer
 
-Stages 2–3 are complete. Stage 4 is partially shipped (three scenario types). Stage 5 is substantially underway through HA Phases 1–5. See `docs/plans/household-operating-platform-roadmap.md` for stage details and `docs/decisions/household-operating-platform-direction.md` for the direction ADR.
+Stage 2 is complete. Stage 3 is partially complete. Stage 4 is partially complete with five shipped scenario types. Stage 5 is substantially complete through the Home Assistant bridge, policy evaluation, synthetic entity publication, approval-aware action dispatch, and operator approval controls. See `docs/plans/household-operating-platform-roadmap.md` for stage details and `docs/decisions/household-operating-platform-direction.md` for the direction ADR.
 
-## Current capabilities (v0.1.0 — Household Operating Picture)
+## Current capabilities
 
-- Three domain capability packs: finance (transactions, subscriptions, budgets, loans), utilities (usage, bills, contracts), and cross-domain overview
-- Thirty-six publications: monthly cashflow, budget variance and progress, loan schedule and overview, utility cost trends, affordability ratios, recurring cost baseline, household cost model, and more
+- Four built-in capability packs: finance, utilities, homelab, and cross-domain overview
+- Stable publication-backed operating views across cashflow, planning, utility, homelab, and overview questions
 - Full data pipeline: landing (bronze) → transformation (silver) → reporting (gold)
 - Budget vs Reality: per-category budget targets against actual spend with variance and utilisation tracking
 - Debt and Cost Truth: amortization engine, loan schedule projection, repayment variance, and balance estimates
@@ -45,10 +47,10 @@ Stages 2–3 are complete. Stage 4 is partially shipped (three scenario types). 
 - Worker CLI with schedule dispatch, lease renewal, and stale-dispatch recovery
 - Docker Compose and Helm/Kubernetes deployment paths
 - Extension model for external connectors, transformations, and marts
-- Home Assistant integration: WebSocket live state bridge, MQTT synthetic entity publication, policy/automation evaluation engine, outbound action dispatcher (HA Phases 1–5)
-- Simulation engine: loan what-if, income change, and expense shock scenarios with assumption tracking and staleness detection
+- Home Assistant integration: WebSocket and API ingest, MQTT synthetic entity publication, policy evaluation, approval-aware action dispatch, and operator approval controls
+- Simulation engine: loan what-if, income change, expense shock, utility tariff shock, and homelab cost/benefit scenarios with assumption tracking and staleness detection
 - Immutable evidence model: content-addressed batch ingest, append-only transaction observations, reconciled entity projections
-- 1074 tests passing (1056 default + 18 slow)
+- Large pytest suite covering architecture contracts, domain logic, API behavior, storage adapters, and integration paths
 
 ## Repository layout
 
@@ -68,7 +70,7 @@ homelab-analytics/
 │   │   ├── utilities/          # Utility costs, contracts, metering
 │   │   ├── overview/           # Cross-domain composition
 │   │   └── homelab/            # HA integration, homelab telemetry
-│   ├── pipelines/              # Transformation and mart logic
+│   ├── pipelines/              # Transformation and mart logic; remaining engine/domain seam still being reduced
 │   ├── platform/               # Runtime, auth, capability types
 │   ├── shared/                 # Extension registry, auth shim, contracts
 │   └── storage/                # Postgres control-plane/reporting, DuckDB warehouse, SQLite local fallback, S3 adapters

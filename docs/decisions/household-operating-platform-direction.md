@@ -52,6 +52,8 @@ This ADR **extends** the following accepted documents. It does not replace or ov
 
 All of these remain unchanged. The operating-platform direction is a trajectory built on top of that structural foundation.
 
+For future backlog shaping, overlay a stability model on that runtime view: kernel, semantic engine, product packs, and surfaces. The application or use-case layer remains the required orchestration seam between the engine plus packs and the surfaces, even though it is not treated as a separate sprint bucket.
+
 ### Product scope document
 
 `docs/product/core-household-operating-picture.md` established:
