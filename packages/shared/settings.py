@@ -178,7 +178,14 @@ class AppSettings:
                 self.metadata_backend
             )
         if not backends:
-            return "sqlite"
+            # If a DSN is configured but no backend var is set, infer postgres
+            has_dsn = bool(
+                self.control_plane_dsn
+                or self.postgres_dsn
+                or self.control_postgres_dsn
+                or self.metadata_postgres_dsn
+            )
+            return "postgres" if has_dsn else "sqlite"
 
         normalized = {
             source: value.strip().lower() for source, value in backends.items()

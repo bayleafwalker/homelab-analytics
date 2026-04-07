@@ -26,7 +26,7 @@ Use the profile that matches the operator posture you want to support. The fresh
 
 #### Local demo/dev
 
-- Prefer SQLite for control-plane bootstrap, DuckDB for the warehouse, and filesystem landing storage.
+- Use SQLite for local bootstrap convenience only; for shared deployments, Postgres is the canonical control-plane backend. DuckDB serves the warehouse and filesystem serves landing storage.
 - Keep identity disabled unless a specific doc or test needs to exercise auth behavior.
 - Seed the demo bundle, use disposable fixture sources, and treat freshness state as a validation aid rather than an operational obligation.
 - This is the fastest path for local development, docs checks, and UI smoke tests.

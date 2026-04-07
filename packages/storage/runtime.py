@@ -20,6 +20,21 @@ def _resolve_control_plane_backend(settings: AppSettings) -> str:
             "Unsupported control-plane backend: "
             f"{backend!r}. Supported values are 'sqlite' and 'postgres'."
         )
+    if backend == "sqlite":
+        auth_mode = getattr(settings, "resolved_auth_mode", None)
+        has_dsn = bool(
+            getattr(settings, "control_plane_dsn", None)
+            or getattr(settings, "postgres_dsn", None)
+        )
+        if auth_mode not in (None, "disabled") or has_dsn:
+            import warnings
+            warnings.warn(
+                "Control-plane backend is SQLite but deployment posture suggests "
+                "a shared environment (auth is enabled or a Postgres DSN is set). "
+                "Set HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND=postgres for shared deployments.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
     return backend
 
 
