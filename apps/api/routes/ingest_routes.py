@@ -18,11 +18,14 @@ from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionSe
 from packages.pipelines.configured_ingestion_definition import (
     ConfiguredIngestionDefinitionService,
 )
+from packages.application.use_cases.ingest_promotion import (
+    promote_and_publish_configured_csv,
+    promote_and_publish_configured_csv_batch,
+    promote_and_publish_contract_prices,
+    promote_and_publish_subscription,
+)
 from packages.pipelines.promotion import (
     PromotionResult,
-    promote_contract_price_run,
-    promote_source_asset_run,
-    promote_subscription_run,
 )
 from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.pipelines.publication_preview import attach_publication_preview
@@ -140,28 +143,20 @@ def register_ingest_routes(
                 source_name=payload.source_name,
             )
         promotion: PromotionResult | None = None
-        if transformation_service is not None and run.passed:
-            resolved_source_asset = (
-                source_asset
-                or resolved_config_repository.find_source_asset_by_binding(
-                    source_system_id=source_system_id,
-                    dataset_contract_id=dataset_contract_id,
-                    column_mapping_id=column_mapping_id,
-                )
+        if run.passed:
+            promotion = promote_and_publish_configured_csv(
+                run.run_id,
+                source_asset=source_asset,
+                config_repository=resolved_config_repository,
+                service=service,
+                transformation_service=transformation_service,
+                registry=registry,
+                promotion_handler_registry=promotion_handler_registry,
+                publish_reporting=publish_reporting,
+                source_system_id=source_system_id,
+                dataset_contract_id=dataset_contract_id,
+                column_mapping_id=column_mapping_id,
             )
-            if resolved_source_asset is not None:
-                promotion = promote_source_asset_run(
-                    run.run_id,
-                    source_asset=resolved_source_asset,
-                    config_repository=resolved_config_repository,
-                    landing_root=service.landing_root,
-                    metadata_repository=service.metadata_repository,
-                    transformation_service=transformation_service,
-                    blob_store=service.blob_store,
-                    extension_registry=registry,
-                    promotion_handler_registry=promotion_handler_registry,
-                )
-                publish_reporting(promotion)
         return build_run_response(run, promotion=promotion)
 
     @app.post("/ingest/detect-source")
@@ -252,13 +247,13 @@ def register_ingest_routes(
                 source_name=payload.get("source_name", "manual-upload"),
             )
         promotion: PromotionResult | None = None
-        if transformation_service is not None and run.passed:
-            promotion = promote_subscription_run(
+        if run.passed:
+            promotion = promote_and_publish_subscription(
                 run.run_id,
                 subscription_service=subscription_service,
                 transformation_service=transformation_service,
+                publish_reporting=publish_reporting,
             )
-            publish_reporting(promotion)
         body: dict[str, Any] = {"run": serialize_run(run)}
         if promotion is not None:
             body["promotion"] = serialize_promotion(promotion)
@@ -292,13 +287,13 @@ def register_ingest_routes(
                 source_name=payload.get("source_name", "manual-upload"),
             )
         promotion: PromotionResult | None = None
-        if transformation_service is not None and run.passed:
-            promotion = promote_contract_price_run(
+        if run.passed:
+            promotion = promote_and_publish_contract_prices(
                 run.run_id,
                 contract_price_service=contract_price_service,
                 transformation_service=transformation_service,
+                publish_reporting=publish_reporting,
             )
-            publish_reporting(promotion)
         body: dict[str, Any] = {"run": serialize_run(run)}
         if promotion is not None:
             body["promotion"] = serialize_promotion(promotion)
@@ -327,22 +322,16 @@ def register_ingest_routes(
             source_asset = resolved_config_repository.get_source_asset(
                 ingestion_definition.source_asset_id
             )
-            promotions = [
-                promote_source_asset_run(
-                    run_id,
-                    source_asset=source_asset,
-                    config_repository=resolved_config_repository,
-                    landing_root=service.landing_root,
-                    metadata_repository=service.metadata_repository,
-                    transformation_service=transformation_service,
-                    blob_store=service.blob_store,
-                    extension_registry=registry,
-                    promotion_handler_registry=promotion_handler_registry,
-                )
-                for run_id in result.run_ids
-            ]
-            for promotion in promotions:
-                publish_reporting(promotion)
+            promotions = promote_and_publish_configured_csv_batch(
+                result.run_ids,
+                source_asset=source_asset,
+                config_repository=resolved_config_repository,
+                service=service,
+                transformation_service=transformation_service,
+                registry=registry,
+                promotion_handler_registry=promotion_handler_registry,
+                publish_reporting=publish_reporting,
+            )
             body["promotions"] = to_jsonable(promotions)
         return body
 
