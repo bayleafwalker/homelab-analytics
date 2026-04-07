@@ -37,6 +37,7 @@ def register_control_routes(
     serialize_run_detail: Callable[[Any], dict[str, Any]],
     build_operational_summary: Callable[[], dict[str, Any]],
     to_jsonable: Callable[[Any], Any],
+    resolved_reporting_service: Any = None,
 ) -> None:
     @app.get("/control/source-lineage")
     async def get_source_lineage(
@@ -93,21 +94,38 @@ def register_control_routes(
     async def get_publication_audit(
         run_id: str | None = None,
         publication_key: str | None = None,
+        summary: bool = False,
     ) -> dict[str, Any]:
         require_unsafe_admin()
-        return {
-            "publication_audit": to_jsonable(
-                resolved_config_repository.list_publication_audit(
-                    run_id=run_id,
-                    publication_key=publication_key,
-                )
-            )
-        }
+        records = resolved_config_repository.list_publication_audit(
+            run_id=run_id,
+            publication_key=publication_key,
+        )
+        if summary:
+            seen: set[str] = set()
+            latest: list[Any] = []
+            for record in records:
+                if record.publication_key not in seen:
+                    seen.add(record.publication_key)
+                    latest.append(record)
+            records = latest
+        return {"publication_audit": to_jsonable(records)}
 
     @app.get("/control/operational-summary")
     async def get_operational_summary() -> dict[str, Any]:
         require_unsafe_admin()
-        return build_operational_summary()
+        summary = build_operational_summary()
+        publication_backend_active = resolved_reporting_service is not None
+        if publication_backend_active:
+            reporting_mode = "postgres"
+            reporting_mode_label = "Published reporting (Postgres)"
+        else:
+            reporting_mode = "duckdb"
+            reporting_mode_label = "Warehouse-backed (DuckDB)"
+        summary["reporting_mode"] = reporting_mode
+        summary["reporting_mode_label"] = reporting_mode_label
+        summary["publication_backend_active"] = publication_backend_active
+        return summary
 
     @app.get("/control/source-freshness")
     async def get_source_freshness() -> dict[str, Any]:

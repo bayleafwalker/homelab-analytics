@@ -39,8 +39,8 @@ from apps.api.support import (
     build_column_mapping_diff,
     build_dataset_contract_diff,
     build_ingest_response,
-    build_run_response,
     build_run_remediation,
+    build_run_response,
     request_principal_from_user,
     require_upload,
     resolve_configured_ingest_binding,
@@ -626,6 +626,7 @@ def create_app(
             ),
         ),
         to_jsonable=to_jsonable,
+        resolved_reporting_service=reporting_service,
     )
     register_control_terminal_routes(
         app,
