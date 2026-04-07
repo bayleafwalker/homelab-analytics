@@ -28,6 +28,8 @@ from packages.adapters.contracts import (
     RendererManifest,
     TrustLevel,
 )
+from packages.adapters.compatibility import check_compatibility, validate_adapter_pack
+from packages.adapters.registry import AdapterRegistry
 from packages.adapters.ha_adapters import (
     HA_ACTION_MANIFEST,
     HA_INGEST_MANIFEST,
@@ -665,3 +667,472 @@ class TestWorkerGetRuntimeStatus:
         assert isinstance(status, AdapterRuntimeStatus)
         assert status.error_count == 0
         assert status.extra["approval_pending_count"] == 1
+
+
+# ---------------------------------------------------------------------------
+# AdapterRegistry
+# ---------------------------------------------------------------------------
+
+
+class TestAdapterRegistry:
+    def _make_pack(self, pack_key: str, display_name: str = "Test Pack") -> AdapterPack:
+        """Helper to create a test pack."""
+        return AdapterPack(
+            pack_key=pack_key,
+            display_name=display_name,
+            version="1.0",
+            trust_level=TrustLevel.LOCAL
+        )
+
+    def test_register_and_list(self):
+        registry = AdapterRegistry()
+        pack1 = self._make_pack("pack1")
+        pack2 = self._make_pack("pack2")
+
+        registry.register(pack1)
+        registry.register(pack2)
+
+        packs = registry.list_packs()
+        assert len(packs) == 2
+        assert packs[0].pack_key == "pack1"
+        assert packs[1].pack_key == "pack2"
+
+    def test_register_duplicate_raises_value_error(self):
+        registry = AdapterRegistry()
+        pack = self._make_pack("duplicate")
+
+        registry.register(pack)
+        with pytest.raises(ValueError, match="already registered"):
+            registry.register(pack)
+
+    def test_activate_deactivate_is_active(self):
+        registry = AdapterRegistry()
+        pack = self._make_pack("test_pack")
+        registry.register(pack)
+
+        # Initially inactive
+        assert registry.is_active("test_pack") is False
+
+        # Activate
+        registry.activate("test_pack")
+        assert registry.is_active("test_pack") is True
+
+        # Deactivate
+        registry.deactivate("test_pack")
+        assert registry.is_active("test_pack") is False
+
+    def test_list_packs_active_only_filter(self):
+        registry = AdapterRegistry()
+        pack1 = self._make_pack("pack1")
+        pack2 = self._make_pack("pack2")
+        pack3 = self._make_pack("pack3")
+
+        registry.register(pack1)
+        registry.register(pack2)
+        registry.register(pack3)
+
+        # Activate pack1 and pack3
+        registry.activate("pack1")
+        registry.activate("pack3")
+
+        all_packs = registry.list_packs(active_only=False)
+        assert len(all_packs) == 3
+
+        active_packs = registry.list_packs(active_only=True)
+        assert len(active_packs) == 2
+        assert active_packs[0].pack_key == "pack1"
+        assert active_packs[1].pack_key == "pack3"
+
+    def test_get_returns_none_for_unknown(self):
+        registry = AdapterRegistry()
+        pack = self._make_pack("test_pack")
+        registry.register(pack)
+
+        # Existing pack
+        retrieved = registry.get("test_pack")
+        assert retrieved is not None
+        assert retrieved.pack_key == "test_pack"
+
+        # Unknown pack
+        assert registry.get("unknown") is None
+
+    def test_unregister_removes_pack(self):
+        registry = AdapterRegistry()
+        pack = self._make_pack("test_pack")
+        registry.register(pack)
+
+        assert registry.get("test_pack") is not None
+        registry.unregister("test_pack")
+        assert registry.get("test_pack") is None
+
+    def test_unregister_unknown_raises_key_error(self):
+        registry = AdapterRegistry()
+        with pytest.raises(KeyError, match="not registered"):
+            registry.unregister("unknown")
+
+    def test_activate_unknown_raises_key_error(self):
+        registry = AdapterRegistry()
+        with pytest.raises(KeyError, match="not registered"):
+            registry.activate("unknown")
+
+    def test_deactivate_unknown_raises_key_error(self):
+        registry = AdapterRegistry()
+        with pytest.raises(KeyError, match="not registered"):
+            registry.deactivate("unknown")
+
+    def test_list_packs_ordered_by_key(self):
+        registry = AdapterRegistry()
+        # Register in non-sorted order
+        for key in ["zebra", "apple", "monkey"]:
+            registry.register(self._make_pack(key))
+
+        packs = registry.list_packs()
+        keys = [p.pack_key for p in packs]
+        assert keys == ["apple", "monkey", "zebra"]
+
+    def test_is_active_returns_false_for_unknown(self):
+        registry = AdapterRegistry()
+        assert registry.is_active("unknown") is False
+
+
+# ---------------------------------------------------------------------------
+# Compatibility checking
+# ---------------------------------------------------------------------------
+
+
+class TestCheckCompatibility:
+    def test_compatible_pack_verified_trust(self):
+        """Compatible pack with VERIFIED trust has no issues or warnings."""
+        adapter = AdapterManifest(
+            adapter_key="test_adapter",
+            display_name="Test",
+            version="1.0",
+            supported_directions=(AdapterDirection.INGEST,),
+        )
+        pack = AdapterPack(
+            pack_key="verified_pack",
+            display_name="Verified Pack",
+            version="1.0",
+            trust_level=TrustLevel.VERIFIED,
+            adapters=(adapter,),
+        )
+        check = check_compatibility(pack, platform_version="1.5.2")
+        assert check.is_compatible is True
+        assert check.issues == ()
+        assert check.warnings == ()
+
+    def test_local_trust_adds_warning(self):
+        """Pack with LOCAL trust level adds warning."""
+        adapter = AdapterManifest(
+            adapter_key="local_adapter",
+            display_name="Local",
+            version="1.0",
+            supported_directions=(AdapterDirection.INGEST,),
+        )
+        pack = AdapterPack(
+            pack_key="local_pack",
+            display_name="Local Pack",
+            version="1.0",
+            trust_level=TrustLevel.LOCAL,
+            adapters=(adapter,),
+        )
+        check = check_compatibility(pack)
+        assert check.is_compatible is True
+        assert len(check.warnings) == 1
+        assert "LOCAL trust level" in check.warnings[0]
+        assert check.issues == ()
+
+    def test_community_trust_adds_warning(self):
+        """Pack with COMMUNITY trust level adds warning."""
+        adapter = AdapterManifest(
+            adapter_key="community_adapter",
+            display_name="Community",
+            version="1.0",
+            supported_directions=(AdapterDirection.PUBLISH,),
+        )
+        pack = AdapterPack(
+            pack_key="community_pack",
+            display_name="Community Pack",
+            version="1.0",
+            trust_level=TrustLevel.COMMUNITY,
+            adapters=(adapter,),
+        )
+        check = check_compatibility(pack)
+        assert check.is_compatible is True
+        assert len(check.warnings) == 1
+        assert "COMMUNITY trust level" in check.warnings[0]
+        assert "review before activating in production" in check.warnings[0]
+        assert check.issues == ()
+
+    def test_empty_pack_adds_issue(self):
+        """Pack with no adapters or renderers is incompatible."""
+        pack = AdapterPack(
+            pack_key="empty_pack",
+            display_name="Empty Pack",
+            version="1.0",
+            trust_level=TrustLevel.VERIFIED,
+        )
+        check = check_compatibility(pack)
+        assert check.is_compatible is False
+        assert len(check.issues) == 1
+        assert "contains no adapters or renderers" in check.issues[0]
+        assert check.warnings == ()
+
+    def test_version_constraint_mismatch_adds_issue(self):
+        """Major version mismatch causes incompatibility."""
+        adapter = AdapterManifest(
+            adapter_key="version_adapter",
+            display_name="Version",
+            version="1.0",
+            supported_directions=(AdapterDirection.INGEST,),
+        )
+        pack = AdapterPack(
+            pack_key="version_pack",
+            display_name="Version Pack",
+            version="1.0",
+            trust_level=TrustLevel.VERIFIED,
+            adapters=(adapter,),
+            requires_platform_version="2.0.0",
+        )
+        check = check_compatibility(pack, platform_version="1.5.2")
+        assert check.is_compatible is False
+        assert len(check.issues) == 1
+        assert "requires platform version '2.0.0'" in check.issues[0]
+        assert "got '1.5.2'" in check.issues[0]
+
+    def test_unknown_platform_version_adds_warning(self):
+        """Empty platform_version with requires_platform_version adds warning."""
+        adapter = AdapterManifest(
+            adapter_key="test_adapter",
+            display_name="Test",
+            version="1.0",
+            supported_directions=(AdapterDirection.INGEST,),
+        )
+        pack = AdapterPack(
+            pack_key="test_pack",
+            display_name="Test Pack",
+            version="1.0",
+            trust_level=TrustLevel.VERIFIED,
+            adapters=(adapter,),
+            requires_platform_version="1.5.0",
+        )
+        check = check_compatibility(pack, platform_version="")
+        assert check.is_compatible is True
+        assert len(check.warnings) == 1
+        assert "Platform version unknown" in check.warnings[0]
+        assert "cannot verify version constraint '1.5.0'" in check.warnings[0]
+        assert check.issues == ()
+
+    def test_version_constraint_matching_major_version(self):
+        """Matching major version passes version check."""
+        adapter = AdapterManifest(
+            adapter_key="test_adapter",
+            display_name="Test",
+            version="1.0",
+            supported_directions=(AdapterDirection.INGEST,),
+        )
+        pack = AdapterPack(
+            pack_key="test_pack",
+            display_name="Test Pack",
+            version="1.0",
+            trust_level=TrustLevel.VERIFIED,
+            adapters=(adapter,),
+            requires_platform_version="1.5.0",
+        )
+        check = check_compatibility(pack, platform_version="1.9.3")
+        assert check.is_compatible is True
+        assert check.issues == ()
+        assert check.warnings == ()
+
+    def test_multiple_warnings_accumulate(self):
+        """Multiple warnings are all included."""
+        adapter = AdapterManifest(
+            adapter_key="test_adapter",
+            display_name="Test",
+            version="1.0",
+            supported_directions=(AdapterDirection.INGEST,),
+        )
+        pack = AdapterPack(
+            pack_key="test_pack",
+            display_name="Test Pack",
+            version="1.0",
+            trust_level=TrustLevel.LOCAL,
+            adapters=(adapter,),
+            requires_platform_version="1.5.0",
+        )
+        check = check_compatibility(pack, platform_version="")
+        assert check.is_compatible is True
+        assert len(check.warnings) == 2
+        assert any("Platform version unknown" in w for w in check.warnings)
+        assert any("LOCAL trust level" in w for w in check.warnings)
+
+
+# ---------------------------------------------------------------------------
+# Adapter pack validation
+# ---------------------------------------------------------------------------
+
+
+class TestValidateAdapterPack:
+    def test_valid_pack_returns_empty_list(self):
+        """Valid pack passes validation."""
+        adapter = AdapterManifest(
+            adapter_key="valid_adapter",
+            display_name="Valid",
+            version="1.0",
+            supported_directions=(AdapterDirection.INGEST,),
+        )
+        pack = AdapterPack(
+            pack_key="valid_pack",
+            display_name="Valid Pack",
+            version="1.0",
+            trust_level=TrustLevel.VERIFIED,
+            adapters=(adapter,),
+        )
+        errors = validate_adapter_pack(pack)
+        assert errors == []
+
+    def test_empty_pack_key_returns_error(self):
+        """Empty pack_key is rejected."""
+        pack = AdapterPack(
+            pack_key="",
+            display_name="Test Pack",
+            version="1.0",
+            trust_level=TrustLevel.LOCAL,
+        )
+        errors = validate_adapter_pack(pack)
+        assert "pack_key must be non-empty" in errors
+
+    def test_empty_display_name_returns_error(self):
+        """Empty display_name is rejected."""
+        pack = AdapterPack(
+            pack_key="test_pack",
+            display_name="",
+            version="1.0",
+            trust_level=TrustLevel.LOCAL,
+        )
+        errors = validate_adapter_pack(pack)
+        assert "display_name must be non-empty" in errors
+
+    def test_empty_version_returns_error(self):
+        """Empty version is rejected."""
+        pack = AdapterPack(
+            pack_key="test_pack",
+            display_name="Test Pack",
+            version="",
+            trust_level=TrustLevel.LOCAL,
+        )
+        errors = validate_adapter_pack(pack)
+        assert "version must be non-empty" in errors
+
+    def test_empty_adapter_key_returns_error(self):
+        """Adapter with empty adapter_key is rejected."""
+        adapter = AdapterManifest(
+            adapter_key="",
+            display_name="Bad Adapter",
+            version="1.0",
+            supported_directions=(AdapterDirection.INGEST,),
+        )
+        pack = AdapterPack(
+            pack_key="test_pack",
+            display_name="Test Pack",
+            version="1.0",
+            trust_level=TrustLevel.LOCAL,
+            adapters=(adapter,),
+        )
+        errors = validate_adapter_pack(pack)
+        assert "adapter '' has empty adapter_key" in errors
+
+    def test_duplicate_adapter_key_returns_error(self):
+        """Duplicate adapter_key is rejected."""
+        adapter1 = AdapterManifest(
+            adapter_key="duplicate",
+            display_name="Adapter 1",
+            version="1.0",
+            supported_directions=(AdapterDirection.INGEST,),
+        )
+        adapter2 = AdapterManifest(
+            adapter_key="duplicate",
+            display_name="Adapter 2",
+            version="1.0",
+            supported_directions=(AdapterDirection.PUBLISH,),
+        )
+        pack = AdapterPack(
+            pack_key="test_pack",
+            display_name="Test Pack",
+            version="1.0",
+            trust_level=TrustLevel.LOCAL,
+            adapters=(adapter1, adapter2),
+        )
+        errors = validate_adapter_pack(pack)
+        assert "duplicate adapter_key: 'duplicate'" in errors
+
+    def test_empty_renderer_key_returns_error(self):
+        """Renderer with empty renderer_key is rejected."""
+        renderer = RendererManifest(
+            renderer_key="",
+            display_name="Bad Renderer",
+            version="1.0",
+            supported_formats=("csv",),
+        )
+        pack = AdapterPack(
+            pack_key="test_pack",
+            display_name="Test Pack",
+            version="1.0",
+            trust_level=TrustLevel.LOCAL,
+            renderers=(renderer,),
+        )
+        errors = validate_adapter_pack(pack)
+        assert "renderer '' has empty renderer_key" in errors
+
+    def test_duplicate_renderer_key_returns_error(self):
+        """Duplicate renderer_key is rejected."""
+        renderer1 = RendererManifest(
+            renderer_key="duplicate",
+            display_name="Renderer 1",
+            version="1.0",
+            supported_formats=("csv",),
+        )
+        renderer2 = RendererManifest(
+            renderer_key="duplicate",
+            display_name="Renderer 2",
+            version="1.0",
+            supported_formats=("json",),
+        )
+        pack = AdapterPack(
+            pack_key="test_pack",
+            display_name="Test Pack",
+            version="1.0",
+            trust_level=TrustLevel.LOCAL,
+            renderers=(renderer1, renderer2),
+        )
+        errors = validate_adapter_pack(pack)
+        assert "duplicate renderer_key: 'duplicate'" in errors
+
+    def test_multiple_errors_accumulate(self):
+        """Multiple errors are all included."""
+        adapter = AdapterManifest(
+            adapter_key="",
+            display_name="Bad",
+            version="1.0",
+            supported_directions=(AdapterDirection.INGEST,),
+        )
+        renderer = RendererManifest(
+            renderer_key="",
+            display_name="Bad",
+            version="1.0",
+            supported_formats=("csv",),
+        )
+        pack = AdapterPack(
+            pack_key="",
+            display_name="",
+            version="",
+            trust_level=TrustLevel.LOCAL,
+            adapters=(adapter,),
+            renderers=(renderer,),
+        )
+        errors = validate_adapter_pack(pack)
+        assert "pack_key must be non-empty" in errors
+        assert "display_name must be non-empty" in errors
+        assert "version must be non-empty" in errors
+        assert any("adapter_key" in e for e in errors)
+        assert any("renderer_key" in e for e in errors)
