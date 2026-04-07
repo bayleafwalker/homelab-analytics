@@ -82,6 +82,14 @@ class PolicyResult:
     input_freshness: ConfidenceSummary | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        input_freshness_dict = None
+        if self.input_freshness is not None:
+            input_freshness_dict = {
+                "verdict": self.input_freshness.verdict,
+                "freshness_state": self.input_freshness.freshness_state,
+                "completeness_pct": self.input_freshness.completeness_pct,
+                "assessed_at": self.input_freshness.assessed_at.isoformat(),
+            }
         return {
             "id": self.id,
             "name": self.name,
@@ -91,6 +99,7 @@ class PolicyResult:
             "evaluated_at": self.evaluated_at,
             "approval_required": self.approval_required,
             "metadata": dict(self.metadata),
+            "input_freshness": input_freshness_dict,
         }
 
 

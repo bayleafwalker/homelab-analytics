@@ -97,6 +97,17 @@ def register_scenario_routes(
             )
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        assumptions_summary = None
+        if result.assumptions_summary is not None:
+            assumptions_summary = [
+                {
+                    "source_asset_id": item.source_asset_id,
+                    "freshness_state": item.freshness_state,
+                    "last_ingest_at": item.last_ingest_at.isoformat() if item.last_ingest_at else None,
+                    "covered_through": item.covered_through.isoformat() if item.covered_through else None,
+                }
+                for item in result.assumptions_summary
+            ]
         return {
             "scenario_id": result.scenario_id,
             "label": result.label,
@@ -105,6 +116,7 @@ def register_scenario_routes(
             "new_payoff_date": result.new_payoff_date.isoformat() if result.new_payoff_date else None,
             "baseline_payoff_date": result.baseline_payoff_date.isoformat() if result.baseline_payoff_date else None,
             "is_stale": result.is_stale,
+            "assumptions_summary": assumptions_summary,
         }
 
     @app.get("/api/scenarios")
@@ -209,6 +221,17 @@ def register_scenario_routes(
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        assumptions_summary = None
+        if result.assumptions_summary is not None:
+            assumptions_summary = [
+                {
+                    "source_asset_id": item.source_asset_id,
+                    "freshness_state": item.freshness_state,
+                    "last_ingest_at": item.last_ingest_at.isoformat() if item.last_ingest_at else None,
+                    "covered_through": item.covered_through.isoformat() if item.covered_through else None,
+                }
+                for item in result.assumptions_summary
+            ]
         return {
             "scenario_id": result.scenario_id,
             "label": result.label,
@@ -218,6 +241,7 @@ def register_scenario_routes(
             "annual_net_change": str(result.annual_net_change),
             "months_until_deficit": result.months_until_deficit,
             "is_stale": result.is_stale,
+            "assumptions_summary": assumptions_summary,
         }
 
     @app.post("/api/scenarios/expense-shock")
@@ -238,6 +262,17 @@ def register_scenario_routes(
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        assumptions_summary = None
+        if result.assumptions_summary is not None:
+            assumptions_summary = [
+                {
+                    "source_asset_id": item.source_asset_id,
+                    "freshness_state": item.freshness_state,
+                    "last_ingest_at": item.last_ingest_at.isoformat() if item.last_ingest_at else None,
+                    "covered_through": item.covered_through.isoformat() if item.covered_through else None,
+                }
+                for item in result.assumptions_summary
+            ]
         return {
             "scenario_id": result.scenario_id,
             "label": result.label,
@@ -247,6 +282,7 @@ def register_scenario_routes(
             "annual_additional_cost": str(result.annual_additional_cost),
             "months_until_deficit": result.months_until_deficit,
             "is_stale": result.is_stale,
+            "assumptions_summary": assumptions_summary,
         }
 
     @app.post("/api/scenarios/tariff-shock")
@@ -268,6 +304,17 @@ def register_scenario_routes(
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        assumptions_summary = None
+        if result.assumptions_summary is not None:
+            assumptions_summary = [
+                {
+                    "source_asset_id": item.source_asset_id,
+                    "freshness_state": item.freshness_state,
+                    "last_ingest_at": item.last_ingest_at.isoformat() if item.last_ingest_at else None,
+                    "covered_through": item.covered_through.isoformat() if item.covered_through else None,
+                }
+                for item in result.assumptions_summary
+            ]
         return {
             "scenario_id": result.scenario_id,
             "label": result.label,
@@ -277,6 +324,7 @@ def register_scenario_routes(
             "annual_additional_cost": str(result.annual_additional_cost),
             "months_until_deficit": result.months_until_deficit,
             "is_stale": result.is_stale,
+            "assumptions_summary": assumptions_summary,
         }
 
     @app.post("/api/scenarios/homelab-cost-benefit")
@@ -300,6 +348,17 @@ def register_scenario_routes(
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        assumptions_summary = None
+        if result.assumptions_summary is not None:
+            assumptions_summary = [
+                {
+                    "source_asset_id": item.source_asset_id,
+                    "freshness_state": item.freshness_state,
+                    "last_ingest_at": item.last_ingest_at.isoformat() if item.last_ingest_at else None,
+                    "covered_through": item.covered_through.isoformat() if item.covered_through else None,
+                }
+                for item in result.assumptions_summary
+            ]
         return {
             "scenario_id": result.scenario_id,
             "label": result.label,
@@ -308,6 +367,7 @@ def register_scenario_routes(
             "new_monthly_cost": str(result.new_monthly_cost),
             "annual_cost_delta": str(result.annual_cost_delta),
             "is_stale": result.is_stale,
+            "assumptions_summary": assumptions_summary,
         }
 
     @app.delete("/api/scenarios/compare-sets/{compare_set_id}")

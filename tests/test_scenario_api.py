@@ -185,6 +185,18 @@ class ScenarioCreateAPITests(unittest.TestCase):
             )
             self.assertEqual(503, resp.status_code)
 
+    def test_post_includes_assumptions_summary_key(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _ = _build_client(tmp)
+            resp = client.post(
+                "/api/scenarios/loan-what-if",
+                json={"loan_id": "loan-001", "extra_repayment": "500.00"},
+            )
+            data = resp.json()
+            self.assertIn("assumptions_summary", data)
+            # When no control plane is wired, assumptions_summary should be None
+            self.assertIsNone(data["assumptions_summary"])
+
 
 class ScenarioGetAPITests(unittest.TestCase):
     def _create_scenario(self, client: TestClient) -> str:

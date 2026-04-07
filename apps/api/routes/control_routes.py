@@ -198,6 +198,39 @@ def register_control_routes(
             "domain_summaries": list(domain_summaries.values()),
         }
 
+    @app.get("/control/confidence/{publication_key}")
+    async def get_confidence_detail(publication_key: str) -> dict[str, Any]:
+        require_unsafe_admin()
+        snapshots = resolved_config_repository.list_publication_confidence_snapshots(
+            publication_key=publication_key
+        )
+        if not snapshots:
+            raise HTTPException(status_code=404, detail="No confidence snapshot found for this publication.")
+        # Return the most recent (list is ordered DESC by assessed_at from storage)
+        snapshot = snapshots[0]
+        source_freshness_dict = None
+        if snapshot.source_freshness_states:
+            source_freshness_dict = {
+                asset_id: {
+                    "source_asset_id": state.get("source_asset_id"),
+                    "freshness_state": state.get("freshness_state"),
+                    "last_ingest_at": state.get("last_ingest_at"),
+                    "covered_through": state.get("covered_through"),
+                }
+                for asset_id, state in snapshot.source_freshness_states.items()
+            }
+        return {
+            "publication_key": snapshot.publication_key,
+            "snapshot_id": snapshot.snapshot_id,
+            "freshness_state": snapshot.freshness_state,
+            "completeness_pct": snapshot.completeness_pct,
+            "confidence_verdict": snapshot.confidence_verdict,
+            "assessed_at": snapshot.assessed_at.isoformat(),
+            "source_freshness_states": source_freshness_dict,
+            "quality_flags": snapshot.quality_flags,
+            "contributing_run_ids": list(snapshot.contributing_run_ids) if snapshot.contributing_run_ids else [],
+        }
+
     @app.get("/control/schedule-dispatches")
     async def list_schedule_dispatches(
         schedule_id: str | None = None,

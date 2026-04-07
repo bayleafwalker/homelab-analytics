@@ -163,6 +163,16 @@ def register_ha_routes(
         results = ha_policy_evaluator.evaluate()
         return {"policies": [r.to_dict() for r in results]}
 
+    @app.get("/api/ha/policies/{policy_id}")
+    async def get_policy_by_id(policy_id: str) -> dict[str, Any]:
+        if ha_policy_evaluator is None:
+            raise HTTPException(status_code=404, detail="Policy evaluator unavailable.")
+        results = ha_policy_evaluator.evaluate()
+        match = next((r for r in results if r.id == policy_id), None)
+        if match is None:
+            raise HTTPException(status_code=404, detail="Policy not found.")
+        return match.to_dict()
+
     @app.post("/api/ha/policies/evaluate")
     async def evaluate_policies() -> dict[str, Any]:
         if ha_policy_evaluator is None:

@@ -762,3 +762,78 @@ def test_control_plane_api_confidence_source_freshness_and_quality_flags() -> No
         assert len(pub["source_freshness_states"]) == 2
         assert "source_a" in pub["source_freshness_states"]
         assert "source_b" in pub["source_freshness_states"]
+
+
+def test_get_confidence_detail_returns_404_when_publication_not_found() -> None:
+    with TemporaryDirectory() as temp_dir:
+        repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+        service = AccountTransactionService(
+            landing_root=Path(temp_dir) / "landing",
+            metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+        )
+        client = TestClient(
+            create_app(
+                service,
+                config_repository=repository,
+                enable_unsafe_admin=True,
+            )
+        )
+
+        response = client.get("/control/confidence/nonexistent_publication")
+        assert response.status_code == 404
+        assert "No confidence snapshot found" in response.json()["detail"]
+
+
+def test_get_confidence_detail_returns_snapshot_when_found() -> None:
+    from packages.storage.control_plane import PublicationConfidenceSnapshotCreate
+    import uuid
+
+    with TemporaryDirectory() as temp_dir:
+        repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+        now = datetime.now(UTC)
+        seeded = seed_source_asset_graph(repository)
+
+        # Create a confidence snapshot
+        snapshot_create = PublicationConfidenceSnapshotCreate(
+            snapshot_id=str(uuid.uuid4()),
+            publication_key="fact_account_transaction",
+            freshness_state="CURRENT",
+            confidence_verdict="TRUSTWORTHY",
+            completeness_pct=100,
+            quality_flags={"validation_errors": 0, "parse_failures": 0},
+            assessed_at=now,
+            source_freshness_states={
+                "source_a": {
+                    "source_asset_id": "source_a",
+                    "freshness_state": "CURRENT",
+                    "last_ingest_at": now.isoformat(),
+                    "covered_through": (now - timedelta(days=1)).date().isoformat(),
+                }
+            },
+            contributing_run_ids=("run-123", "run-124"),
+        )
+        repository.record_publication_confidence_snapshot((snapshot_create,))
+
+        service = AccountTransactionService(
+            landing_root=Path(temp_dir) / "landing",
+            metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+        )
+        client = TestClient(
+            create_app(
+                service,
+                config_repository=repository,
+                enable_unsafe_admin=True,
+            )
+        )
+
+        response = client.get("/control/confidence/fact_account_transaction")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["publication_key"] == "fact_account_transaction"
+        assert data["freshness_state"] == "CURRENT"
+        assert data["confidence_verdict"] == "TRUSTWORTHY"
+        assert data["completeness_pct"] == 100
+        assert data["quality_flags"] == {"validation_errors": 0, "parse_failures": 0}
+        assert data["source_freshness_states"] is not None
+        assert "source_a" in data["source_freshness_states"]
+        assert set(data["contributing_run_ids"]) == {"run-123", "run-124"}

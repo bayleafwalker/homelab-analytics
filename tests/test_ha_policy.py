@@ -180,6 +180,7 @@ class PolicyEvaluatorTests(unittest.TestCase):
             "value",
             "evaluated_at",
             "approval_required",
+            "input_freshness",
         ):
             self.assertIn(key, d)
 
@@ -254,3 +255,36 @@ class PolicyEvaluatorTests(unittest.TestCase):
             result.to_dict()["metadata"]["approval_action"]["domain"],
             "light",
         )
+
+    def test_to_dict_includes_input_freshness_none_when_not_set(self) -> None:
+        evaluator = self._evaluator()
+        results = evaluator.evaluate()
+        # All results should have input_freshness as None when no control_plane_store is set
+        for result in results:
+            d = result.to_dict()
+            self.assertIsNone(d["input_freshness"])
+
+    def test_to_dict_includes_input_freshness_when_set(self) -> None:
+        from packages.pipelines.ha_policy import ConfidenceSummary
+
+        result = PolicyResult(
+            id="test_policy",
+            name="Test Policy",
+            description="Test description",
+            verdict="ok",
+            value="100%",
+            evaluated_at=_NOW.isoformat(),
+            approval_required=False,
+            input_freshness=ConfidenceSummary(
+                verdict="TRUSTWORTHY",
+                freshness_state="CURRENT",
+                completeness_pct=95,
+                assessed_at=_NOW,
+            ),
+        )
+        d = result.to_dict()
+        self.assertIsNotNone(d["input_freshness"])
+        self.assertEqual("TRUSTWORTHY", d["input_freshness"]["verdict"])
+        self.assertEqual("CURRENT", d["input_freshness"]["freshness_state"])
+        self.assertEqual(95, d["input_freshness"]["completeness_pct"])
+        self.assertEqual(_NOW.isoformat(), d["input_freshness"]["assessed_at"])

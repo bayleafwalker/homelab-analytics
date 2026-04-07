@@ -20,6 +20,7 @@ def _build_client(
     bridge: object | None = None,
     proposal_registry: ApprovalActionRegistry | None = None,
     action_dispatcher: object | None = None,
+    ha_policy_evaluator: object | None = None,
 ) -> TestClient:
     from packages.domains.finance.pipelines.account_transaction_service import (
         AccountTransactionService,
@@ -36,6 +37,7 @@ def _build_client(
         ha_bridge=bridge,
         ha_action_dispatcher=action_dispatcher,
         ha_action_proposal_registry=proposal_registry or ApprovalActionRegistry(),
+        ha_policy_evaluator=ha_policy_evaluator,
     )
     return TestClient(app)
 
@@ -301,6 +303,62 @@ class HaStatusAPITests(unittest.TestCase):
                 },
                 actions_response.json(),
             )
+
+
+class HaPoliciesDetailAPITests(unittest.TestCase):
+    def test_get_policy_by_id_returns_404_when_evaluator_unavailable(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.get("/api/ha/policies/budget_status")
+            self.assertEqual(404, resp.status_code)
+            self.assertIn("Policy evaluator unavailable", resp.json()["detail"])
+
+    def test_get_policy_by_id_returns_404_when_policy_not_found(self) -> None:
+        with TemporaryDirectory() as tmp:
+            class MockEvaluator:
+                def evaluate(self):
+                    from packages.pipelines.ha_policy import PolicyResult
+                    return [
+                        PolicyResult(
+                            id="budget_status",
+                            name="Budget Status",
+                            description="Test policy",
+                            verdict="ok",
+                            value="50%",
+                            evaluated_at="2026-03-21T10:00:00+00:00",
+                        )
+                    ]
+
+            client = _build_client(tmp, ha_policy_evaluator=MockEvaluator())
+            resp = client.get("/api/ha/policies/nonexistent_policy")
+            self.assertEqual(404, resp.status_code)
+            self.assertIn("Policy not found", resp.json()["detail"])
+
+    def test_get_policy_by_id_returns_policy_when_found(self) -> None:
+        with TemporaryDirectory() as tmp:
+            class MockEvaluator:
+                def evaluate(self):
+                    from packages.pipelines.ha_policy import PolicyResult
+                    return [
+                        PolicyResult(
+                            id="budget_status",
+                            name="Budget Status",
+                            description="Test policy",
+                            verdict="warning",
+                            value="85%",
+                            evaluated_at="2026-03-21T10:00:00+00:00",
+                        )
+                    ]
+
+            client = _build_client(tmp, ha_policy_evaluator=MockEvaluator())
+            resp = client.get("/api/ha/policies/budget_status")
+            self.assertEqual(200, resp.status_code)
+            data = resp.json()
+            self.assertEqual("budget_status", data["id"])
+            self.assertEqual("Budget Status", data["name"])
+            self.assertEqual("warning", data["verdict"])
+            self.assertEqual("85%", data["value"])
+            self.assertIn("input_freshness", data)
 
 
 if __name__ == "__main__":
