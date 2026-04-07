@@ -15,4 +15,4 @@ Items:  3 total — 3 done, 0 active, 0 pending, 0 blocked
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
   [done    ] #298  Extension registry visibility surface  (assignee: -)
 
-Rendered: 2026-04-07T20:15:05Z
+Rendered: 2026-04-07T20:58:39Z
