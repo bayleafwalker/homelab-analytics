@@ -1235,3 +1235,186 @@ class TestHaAdapterPack:
     def test_renderers_empty(self):
         """HA_ADAPTER_PACK has no renderers."""
         assert HA_ADAPTER_PACK.renderers == ()
+
+
+# ---------------------------------------------------------------------------
+# Adapter pack lifecycle integration tests
+# ---------------------------------------------------------------------------
+
+
+class TestAdapterPackLifecycleIntegration:
+    """Integration-style tests exercising full lifecycle: build, validate, check compatibility,
+    register, activate, and verify in registry queries."""
+
+    def test_register_validate_activate_cycle(self):
+        """Build custom AdapterPack, validate, check compatibility, register, activate, deactivate."""
+        # Build a custom pack
+        custom_manifest = AdapterManifest(
+            adapter_key="custom_adapter",
+            display_name="Custom Test Adapter",
+            version="1.0",
+            supported_directions=(AdapterDirection.INGEST,),
+            supported_entity_classes=("test_entity",),
+            credential_requirements=("test_token",),
+        )
+        custom_pack = AdapterPack(
+            pack_key="custom_pack",
+            display_name="Custom Test Pack",
+            version="1.0",
+            trust_level=TrustLevel.VERIFIED,
+            adapters=(custom_manifest,),
+        )
+
+        # Validate the pack
+        errors = validate_adapter_pack(custom_pack)
+        assert errors == [], f"Pack validation failed: {errors}"
+
+        # Check compatibility
+        compat = check_compatibility(custom_pack, platform_version="1.5.2")
+        assert compat.is_compatible is True
+        assert compat.issues == ()
+        assert compat.warnings == ()
+
+        # Create registry and register
+        registry = AdapterRegistry()
+        registry.register(custom_pack)
+
+        # Initially inactive
+        assert registry.is_active("custom_pack") is False
+
+        # Activate
+        registry.activate("custom_pack")
+        assert registry.is_active("custom_pack") is True
+
+        # Deactivate
+        registry.deactivate("custom_pack")
+        assert registry.is_active("custom_pack") is False
+
+    def test_ha_pack_compatibility(self):
+        """HA_ADAPTER_PACK is VERIFIED with adapters and validates successfully."""
+        # Validate the pack
+        errors = validate_adapter_pack(HA_ADAPTER_PACK)
+        assert errors == [], f"HA_ADAPTER_PACK validation failed: {errors}"
+
+        # Check compatibility
+        compat = check_compatibility(HA_ADAPTER_PACK, platform_version="1.5.2")
+        assert compat.is_compatible is True
+        assert compat.issues == ()
+        assert compat.warnings == ()
+
+    def test_export_renderer_in_registry(self):
+        """Create pack with ExportRenderer, register, and verify in queries."""
+        from packages.adapters.export_renderer import EXPORT_RENDERER_MANIFEST
+
+        # Build a pack wrapping the export renderer
+        renderer_pack = AdapterPack(
+            pack_key="export_pack",
+            display_name="Export Renderer Pack",
+            version="1.0",
+            trust_level=TrustLevel.VERIFIED,
+            renderers=(EXPORT_RENDERER_MANIFEST,),
+        )
+
+        # Register in registry
+        registry = AdapterRegistry()
+        registry.register(renderer_pack)
+
+        # Verify it appears in list_packs()
+        packs = registry.list_packs()
+        assert len(packs) == 1
+        assert packs[0].pack_key == "export_pack"
+
+        # Verify renderers are accessible on the pack
+        assert len(renderer_pack.renderers) == 1
+        assert renderer_pack.renderers[0].renderer_key == "export_csv_json"
+
+        # Verify ExportRenderer conforms to Renderer protocol
+        renderer = ExportRenderer()
+        assert isinstance(renderer, Renderer)
+
+    def test_duplicate_pack_key_across_registries_is_isolated(self):
+        """Two separate registries should be completely independent."""
+        registry1 = AdapterRegistry()
+        registry2 = AdapterRegistry()
+
+        # Register HA_ADAPTER_PACK in both
+        registry1.register(HA_ADAPTER_PACK)
+        registry2.register(HA_ADAPTER_PACK)
+
+        # Activate in registry1
+        registry1.activate("ha_core")
+        assert registry1.is_active("ha_core") is True
+        assert registry2.is_active("ha_core") is False
+
+        # Unregister from registry1
+        registry1.unregister("ha_core")
+        assert registry1.get("ha_core") is None
+        assert registry2.get("ha_core") is not None
+
+    def test_pack_with_mixed_adapters_and_renderers(self):
+        """Build pack with both adapters and renderers, validate, check compatibility."""
+        adapter_manifest = AdapterManifest(
+            adapter_key="mixed_adapter",
+            display_name="Mixed Adapter",
+            version="1.0",
+            supported_directions=(AdapterDirection.PUBLISH,),
+        )
+        renderer_manifest = RendererManifest(
+            renderer_key="mixed_renderer",
+            display_name="Mixed Renderer",
+            version="1.0",
+            supported_formats=("json", "csv"),
+        )
+        mixed_pack = AdapterPack(
+            pack_key="mixed_pack",
+            display_name="Mixed Pack",
+            version="1.0",
+            trust_level=TrustLevel.COMMUNITY,
+            adapters=(adapter_manifest,),
+            renderers=(renderer_manifest,),
+        )
+
+        # Validate
+        errors = validate_adapter_pack(mixed_pack)
+        assert errors == [], f"Mixed pack validation failed: {errors}"
+
+        # Check compatibility (COMMUNITY trust will add warning)
+        compat = check_compatibility(mixed_pack)
+        assert compat.is_compatible is True
+        assert len(compat.warnings) == 1
+        assert "COMMUNITY trust level" in compat.warnings[0]
+
+        # Verify both adapters and renderers are accessible
+        assert len(mixed_pack.adapters) == 1
+        assert mixed_pack.adapters[0].adapter_key == "mixed_adapter"
+        assert len(mixed_pack.renderers) == 1
+        assert mixed_pack.renderers[0].renderer_key == "mixed_renderer"
+
+    def test_compatibility_warning_does_not_block_registration(self):
+        """Pack with LOCAL trust level produces warning but is still compatible for registration."""
+        local_adapter = AdapterManifest(
+            adapter_key="local_test_adapter",
+            display_name="Local Test",
+            version="1.0",
+            supported_directions=(AdapterDirection.INGEST,),
+        )
+        local_pack = AdapterPack(
+            pack_key="local_test_pack",
+            display_name="Local Test Pack",
+            version="1.0",
+            trust_level=TrustLevel.LOCAL,
+            adapters=(local_adapter,),
+        )
+
+        # Check compatibility (LOCAL trust produces warning)
+        compat = check_compatibility(local_pack)
+        assert compat.is_compatible is True
+        assert len(compat.warnings) == 1
+        assert "LOCAL trust level" in compat.warnings[0]
+        assert compat.issues == ()
+
+        # Despite warning, pack should register and activate successfully
+        registry = AdapterRegistry()
+        registry.register(local_pack)
+        registry.activate("local_test_pack")
+        assert registry.is_active("local_test_pack") is True
