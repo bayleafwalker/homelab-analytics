@@ -1,5 +1,7 @@
 # Adapter Governance
 
+**Classification:** PLATFORM
+
 ## Overview
 
 Adapter governance defines the safety and compatibility rules for extending the platform with external integrations. It establishes trust boundaries, structural validation requirements, and operator expectations for third-party and user-defined adapter packs. This framework prevents incompatible or unsafe adapters from being activated while preserving operator control over extension lifecycle.

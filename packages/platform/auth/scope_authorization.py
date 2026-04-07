@@ -209,6 +209,8 @@ def required_permission_for_request(
         return PERMISSION_RUNS_READ
     if path.startswith("/api/homelab/"):
         return PERMISSION_REPORTS_READ
+    if path.startswith("/adapters/"):
+        return PERMISSION_REPORTS_READ if request_method == "GET" else PERMISSION_ADMIN_WRITE
     if path == "/control/source-lineage":
         run_id = (query_params or {}).get("run_id", "").strip()
         if run_id:
@@ -284,6 +286,8 @@ def required_role_for_request(
         return UserRole.READER
     if path.startswith("/api/homelab/"):
         return UserRole.READER
+    if path.startswith("/adapters/"):
+        return UserRole.READER if request_method == "GET" else UserRole.OPERATOR
     return required_role
 
 
@@ -366,6 +370,8 @@ def required_service_token_scope_for_request(
         return SERVICE_TOKEN_SCOPE_RUNS_READ
     if path.startswith("/api/homelab/"):
         return SERVICE_TOKEN_SCOPE_REPORTS_READ
+    if path.startswith("/adapters/"):
+        return SERVICE_TOKEN_SCOPE_REPORTS_READ if request_method == "GET" else SERVICE_TOKEN_SCOPE_ADMIN_WRITE
     return required_scope
 
 
