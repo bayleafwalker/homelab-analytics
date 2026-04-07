@@ -2,23 +2,23 @@ SPRINT: Sprint flint-glass-vow — Semantic Confidence and Operator Trust  [acti
 Goal:   Make every platform output carry explicit freshness, completeness, and lineage signals so stale data degrades visibly instead of silently becoming truth-ish
 Dates:  2026-03-30 to 2026-04-13
 ID:     25
-Items:  15 total — 10 done, 0 active, 5 pending, 0 blocked
+Items:  15 total — 14 done, 0 active, 1 pending, 0 blocked
 
 --- Track: confidence-model ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
   [done    ] #158  Publication confidence model — PublicationConfidenceSnapshot, compute_publication_confidence(), migrations, snap on refresh  (assignee: -)
 
 --- Track: dashboard ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #162  Confidence dashboard — /control/confidence page, per-publication rows, domain summary cards, stale filter  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #162  Confidence dashboard — /control/confidence page, per-publication rows, domain summary cards, stale filter  (assignee: -)
 
 --- Track: freshness ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
   [done    ] #159  Cross-domain freshness aggregation — promote to platform, non-finance configs, enriched API + UI  (assignee: -)
 
 --- Track: lineage ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #160  Bidirectional lineage — contributing_sources reverse lookup, both storage backends, API query mode  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #160  Bidirectional lineage — contributing_sources reverse lookup, both storage backends, API query mode  (assignee: -)
 
 --- Track: publication-metadata ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
@@ -34,9 +34,9 @@ Items:  15 total — 10 done, 0 active, 5 pending, 0 blocked
   [pending ] #163  Assumption and dependency tracing — scenario assumptions_summary, policy input_freshness, detail pages  (assignee: -)
 
 --- Track: auditable-outputs ---
-  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
-  [pending ] #211  Auditable recommendation/action proposal object model with provenance, freshness, assumptions, confidence  (assignee: -)
-  [pending ] #212  Assistant answer composition hooks for source evidence and freshness/confidence notes  (assignee: -)
+  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #211  Auditable recommendation/action proposal object model with provenance, freshness, assumptions, confidence  (assignee: -)
+  [done    ] #212  Assistant answer composition hooks for source evidence and freshness/confidence notes  (assignee: -)
 
 --- Track: runtime-parity ---
   health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
@@ -52,4 +52,4 @@ Items:  15 total — 10 done, 0 active, 5 pending, 0 blocked
   [done    ] #209  Source-health-to-publication-health propagation rules — stale source marks downstream outputs as degraded  (assignee: -)
   [done    ] #210  Derived-output degradation rules and confidence scoring/banding model  (assignee: -)
 
-Rendered: 2026-04-06T17:12:23Z
+Rendered: 2026-04-07T06:49:14Z
