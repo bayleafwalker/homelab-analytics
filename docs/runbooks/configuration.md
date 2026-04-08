@@ -155,6 +155,10 @@ Web workloads only propagate `HOMELAB_ANALYTICS_IDENTITY_MODE` into the Next.js 
 
 The following settings are escape hatches or compatibility shims, not required for the blessed deployment profiles.
 
+`packages.shared.auth` is a frozen compatibility shim for legacy consumers and
+tests. New runtime code should import `packages.platform.auth.*` and
+`packages.shared.auth_modes` directly.
+
 Legacy auth-mode migration policy:
 - warning window: `v0.1.x` (fallback allowed but emits `DeprecationWarning`)
 - error window: `v0.2.x` (enable `HOMELAB_ANALYTICS_AUTH_MODE_LEGACY_STRICT=true` during rollout to pre-flight this posture now)

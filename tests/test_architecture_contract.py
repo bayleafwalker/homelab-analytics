@@ -236,11 +236,19 @@ def test_configuration_doc_separates_supported_defaults_from_overrides() -> None
     assert "## Supported defaults: oidc" in config
     assert "### Compatibility overrides" in config
     assert "The following settings are escape hatches or compatibility shims" in config
+    assert "packages.shared.auth` is a frozen compatibility shim" in config
     assert "Legacy auth-mode migration policy:" in config
     assert "### Power-user override: trusted proxy mode" in config
     assert "### Power-user override: machine jwt federation" in config
     assert "### Power-user override: extensions" in config
     assert "### Secret references" in config
+
+
+def test_security_requirements_freeze_shared_auth_compatibility_path() -> None:
+    requirements = (ROOT / "requirements" / "security-and-operations.md").read_text()
+
+    assert "compatibility-only at the configuration boundary" in requirements
+    assert "frozen as a compatibility-only configuration input" in requirements
 
 
 def test_stage6_adapter_docs_pin_typed_runtime_status_boundaries() -> None:
@@ -820,6 +828,19 @@ def test_shared_does_not_import_from_domains() -> None:
     domain_imports = [imp for imp in imports if imp.startswith("packages.domains.")]
     assert not domain_imports, (
         f"packages/shared must not import from packages.domains.* — found: {domain_imports}"
+    )
+
+
+def test_apps_and_packages_do_not_import_shared_auth_shim() -> None:
+    """Runtime code should import platform/shared contracts directly."""
+    runtime_dirs = [ROOT / "apps", ROOT / "packages"]
+    imports: list[str] = []
+    for directory in runtime_dirs:
+        imports.extend(_collect_imports_in_dir(directory))
+    shim_imports = [imp for imp in imports if imp == "packages.shared.auth"]
+    assert not shim_imports, (
+        "Runtime code must not import packages.shared.auth; use "
+        "packages.platform.auth.* or packages.shared.auth_modes directly."
     )
 
 

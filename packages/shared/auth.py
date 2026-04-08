@@ -1,4 +1,7 @@
-"""Compatibility shim re-exporting public auth symbols from platform modules."""
+"""Frozen compatibility shim re-exporting public auth symbols.
+New runtime code should import platform/shared contracts directly. This module
+exists only to preserve legacy call sites and the public export surface.
+"""
 from __future__ import annotations
 
 from packages.platform.auth.configuration import (
