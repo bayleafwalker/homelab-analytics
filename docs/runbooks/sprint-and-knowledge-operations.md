@@ -69,6 +69,7 @@ Treat the committed files as the shared repo view. The SQLite databases are loca
 
 - run `sprintctl render --output docs/sprint-snapshots/sprint-current.txt`
 - do this only after the DB state is already correct
+- render when the workflow needs a new shared artifact now or a natural batch boundary has been reached; do not treat every item close as a mandatory snapshot commit
 - keep snapshot-only commits separate from unrelated feature work
 
 ## Sprint Close

@@ -1,11 +1,11 @@
 ---
 name: item-done
-description: Use when a sprint item's implementation is complete and verified. Captures knowledge events while context is hot, then commits, marks done, and refreshes the snapshot.
+description: Use when a sprint item's implementation is complete and verified. Captures knowledge events while context is hot, then commits, marks done, and refreshes the snapshot only when the workflow needs a shared state artifact.
 ---
 
 ## Goal
 
-Close a sprint item cleanly: verify the work, capture any durable knowledge before the context cools, commit, and update sprint state — in that order.
+Close a sprint item cleanly: verify the work, capture any durable knowledge before the context cools, commit, update sprint state, and refresh shared snapshot artifacts only at the right boundary.
 
 ## Inputs
 
@@ -83,9 +83,9 @@ SPRINTCTL_DB=... sprintctl item done-from-claim \
 
 This ties the done transition to ownership proof. Do not use `item status done` separately when a claim exists.
 
-### 5. Refresh sprint snapshot
+### 5. Refresh sprint snapshot only when it is needed now
 
-Run the `sprint-snapshot` skill or:
+If the updated sprint state needs to be shared immediately — for example at handoff, end-of-batch, review handoff, or sprint close — run the `sprint-snapshot` skill or:
 
 ```bash
 SPRINTCTL_DB=... sprintctl render > docs/sprint-snapshots/sprint-current.txt
@@ -93,13 +93,15 @@ git add docs/sprint-snapshots/sprint-current.txt
 git commit -m "chore: update sprint snapshot after <item-title>"
 ```
 
+If no immediate shared artifact is needed, stop after `done-from-claim` and batch the snapshot refresh at the next natural milestone instead of creating a mechanical per-item snapshot commit.
+
 ## Output contract
 
 - Tests are green.
 - Any non-obvious decision or lesson is logged as a structured `sprintctl` event with `summary`, `detail`, `tags`, and `confidence`.
 - One commit exists for the item's implementation.
 - The item is in `done` state in `sprintctl`, tied to the claim.
-- `docs/sprint-snapshots/sprint-current.txt` reflects the updated sprint state.
+- `docs/sprint-snapshots/sprint-current.txt` is refreshed when the workflow needs a new shared sprint artifact, not reflexively after every item.
 
 ## Do not
 
@@ -111,3 +113,4 @@ git commit -m "chore: update sprint snapshot after <item-title>"
 - Do not manufacture events if nothing non-obvious happened; one honest event beats three thin ones.
 - Do not batch this item's commit with another item's changes.
 - Do not use `item status done` when a claim exists — use `done-from-claim` to preserve ownership proof.
+- Do not create a snapshot-only commit after every item unless the workflow explicitly needs that shared state artifact immediately.

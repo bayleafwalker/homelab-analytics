@@ -60,7 +60,7 @@ Interpretation rules:
 - log `decision` or `lesson-learned` events when process, coordination, or design rules are clarified during execution; do not wait until sprint close to capture them
 - use sprint docs, requirements, and architecture docs only as implementation context for the selected item
 
-**Close-out artifacts:** updated item state, claim metadata, relevant events, and refreshed snapshot after material state changes.
+**Close-out artifacts:** updated item state, claim metadata, relevant events, and a refreshed snapshot when the state must be shared immediately or at a natural batch boundary.
 
 **Primary references:** `AGENTS.md`, `runbooks/sprint-and-knowledge-operations.md`, `.agents/skills/sprint-resume/SKILL.md`
 
@@ -76,7 +76,7 @@ Interpretation rules:
 - update docs or requirements when behavior, architecture, or scope changes
 - keep sprint state current if the work is sprint-scoped
 - use focused local verification during implementation and broader checks before review or push
-- after adding or modifying any API route or architecture doc, run `pytest tests/test_architecture_contract.py -x --tb=short`
+- after adding or modifying any API route, auth policy, scenario policy mapping, or architecture doc, run `pytest tests/test_architecture_contract.py -x --tb=short`
 
 **Close-out artifacts:** repo change, matching tests or verification, any required requirements/docs updates, and sprint updates when applicable.
 
@@ -147,7 +147,9 @@ Minimum done criteria:
 Minimum done criteria:
 - update or add tests in the same change
 - update requirements or product/docs when externally visible behavior or accepted scope changes
+- for changed Python files, run `ruff check <changed-python-files>` and `mypy <changed-python-files>` in-session before close-out
 - run targeted tests for changed files in-session, foreground, fast-fail: `pytest <files> -x --tb=short`; full suite is a CI gate, not an in-session requirement
+- when API routes, auth policies, or scenario policy mappings change, also run `pytest tests/test_architecture_contract.py -x --tb=short`
 - gate `sprintctl` done transitions on targeted test exit code
 - keep sprint state current if the work is sprint-scoped
 
@@ -172,7 +174,7 @@ Minimum done criteria:
 
 Minimum done criteria:
 - record live sprint state in `sprintctl` first
-- refresh `docs/sprint-snapshots/sprint-current.txt` only after the state change exists in the DB
+- refresh `docs/sprint-snapshots/sprint-current.txt` only after the state change exists in the DB, and only when a shared artifact is needed or a natural batch boundary is reached
 - keep snapshot updates separate from unrelated feature commits when committed
 - add `sprintctl event` or `sprintctl handoff` output when the change materially affects ownership, decisions, blockers, or execution history
 - for multi-agent work, keep ownership transfers explicit through matching claim identity or a handoff artifact before another agent resumes implementation

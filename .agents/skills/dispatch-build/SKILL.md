@@ -25,16 +25,21 @@ Execute approved, spec-complete implementation work by delegating to Haiku subag
       - The specific deliverable and acceptance criteria
       - The implementation mode guide from `docs/agents/implementation.md`
       - The claim ID and item context (but not the claim token — keep that in the orchestrating session and in the local recovery file only)
-      - The local verification command: `pytest <specific-test-files> -x --tb=short` — foreground, blocking, targeting only files changed by this item. Do not run the full suite; do not background pytest.
+      - The local verification commands for the changed surface:
+        - `ruff check <changed-python-files>`
+        - `mypy <changed-python-files>`
+        - `pytest <specific-test-files> -x --tb=short`
+      - Run those checks foreground and blocking, scoped to files changed by this item. Do not run the full suite; do not background pytest.
    c. For independent items: use `run_in_background=true` and dispatch in parallel.
    d. For items touching overlapping files: use `isolation=worktree` to prevent conflicts.
 4. Collect subagent results. If a subagent reports test failures, run up to 5 fix cycles before escalating.
-   - After adding or modifying any API route or architecture doc, run `pytest tests/test_architecture_contract.py -x --tb=short` before closing the item.
+   - After adding or modifying any API route, auth policy, scenario policy mapping, or architecture doc, run `pytest tests/test_architecture_contract.py -x --tb=short` before closing the item.
 5. After each item completes verification, use `item-done` to commit and mark done.
 
 ## Output contract
 
 - Each item implemented with passing tests before close-out.
+- Incremental lint and type failures are caught at the item level instead of batching into `make verify-fast`.
 - One commit per item, not batched.
 - Sprint state updated after each item.
 

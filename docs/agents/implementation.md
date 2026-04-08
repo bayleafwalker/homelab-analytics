@@ -25,12 +25,13 @@ Use `docs/runbooks/project-working-practices.md` for startup order, change-class
 - Follow the implementation loop and the applicable change-class checklist from `docs/runbooks/project-working-practices.md`.
 - Use live `sprintctl` state to decide which existing sprint item is being executed; do not derive active task selection from sprint docs alone when the DB is available.
 - Confirm that any existing exclusive claim either belongs to the current live claim identity or has been handed off before editing repo files.
-- Record material item-state changes in `sprintctl` and refresh the shared sprint snapshot when that state changes.
+- Record material item-state changes in `sprintctl` and refresh the shared sprint snapshot when the workflow needs a new shared artifact or reaches a natural batch boundary.
 - Update requirements or architecture docs when behavior or scope changes.
 - Add or update focused tests and at least one integration path for new behavior.
 - **Commit after each sprint item completes verification. Do not batch multiple items into a single commit.**
+- **For changed Python files, run file-scoped static checks before close-out: `ruff check <changed-python-files>` and `mypy <changed-python-files>`.**
 - **Run targeted tests only — `pytest <changed-test-files> -x --tb=short` — foreground and blocking. Never background pytest for sequential verification. Full suite (`make test`) is a CI gate, not an in-session gate.**
-- **After adding or modifying any API route or architecture doc, run `pytest tests/test_architecture_contract.py -x --tb=short`.**
+- **After adding or modifying any API route, auth policy, scenario policy mapping, or architecture doc, run `pytest tests/test_architecture_contract.py -x --tb=short`.**
 - **Gate `sprintctl` done transitions on targeted test exit code: `pytest <files> -x --tb=short && sprintctl item done-from-claim ...`**
 - **If tests fail after a change, diagnose the root cause, fix, and re-run — up to 5 cycles — before escalating. Only escalate if still failing after 5 attempts or if a design decision is required.**
 
