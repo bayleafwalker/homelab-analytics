@@ -720,12 +720,22 @@ class ApiMainTests(unittest.TestCase):
                 proxy_trusted_cidrs=("10.0.0.0/8",),
             )
 
-            client = TestClient(build_app(settings))
-            response = client.get(
-                "/runs",
-                headers={"x-forwarded-for": "10.2.3.4"},
-            )
-            self.assertEqual(401, response.status_code)
+            with TestClient(build_app(settings)) as direct_client:
+                response = direct_client.get(
+                    "/runs",
+                    headers={"x-forwarded-for": "10.2.3.4"},
+                )
+                self.assertEqual(403, response.status_code)
+
+            with TestClient(
+                build_app(settings),
+                client=("10.0.0.10", 50000),
+            ) as trusted_client:
+                response = trusted_client.get(
+                    "/runs",
+                    headers={"x-forwarded-for": "10.2.3.4"},
+                )
+                self.assertEqual(401, response.status_code)
 
     def test_build_app_requires_explicit_local_bootstrap_flag(self) -> None:
         with TemporaryDirectory() as temp_dir:

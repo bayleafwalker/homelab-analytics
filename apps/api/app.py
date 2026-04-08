@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from ipaddress import ip_network
 from pathlib import Path
 from typing import Any, Union, cast
 
@@ -470,6 +471,11 @@ def create_app(
             await ha_mqtt_publisher.stop()
 
     app = FastAPI(title="Homelab Analytics API", lifespan=_lifespan)
+    app.state.trusted_forwarder_networks = tuple(
+        ip_network(cidr.strip(), strict=False)
+        for cidr in container.settings.proxy_trusted_cidrs
+        if cidr.strip()
+    )
     logger = logging.getLogger("homelab_analytics.api")
     record_auth_event = build_auth_event_recorder(resolved_config_repository)
     locked_out_until = build_lockout_checker(

@@ -140,12 +140,14 @@ Deprecation rollout:
 
 | Variable | Default | Description |
 |---|---|---|
-| `HOMELAB_ANALYTICS_PROXY_TRUSTED_CIDRS` | — | Required for `identity_mode=proxy`. Comma-separated source CIDRs whose forwarded identity headers are trusted. |
+| `HOMELAB_ANALYTICS_PROXY_TRUSTED_CIDRS` | — | Required for `identity_mode=proxy`. Comma-separated source CIDRs whose forwarded identity, address, and scheme headers are trusted. |
 | `HOMELAB_ANALYTICS_PROXY_USERNAME_HEADER` | `x-forwarded-user` | Header name used for proxy-authenticated username. |
 | `HOMELAB_ANALYTICS_PROXY_ROLE_HEADER` | `x-forwarded-role` | Header name used for proxy-authenticated role (`reader`, `operator`, `admin`). |
 | `HOMELAB_ANALYTICS_PROXY_PERMISSIONS_HEADER` | — | Optional comma-separated permission header mapped into in-app authorization grants. |
 
 The architecture direction is external identity by default and in-app authorization semantics. `local_single_user` is the blessed single-user homelab startup story: it requires `HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED=true`, applies TTL-bounded local sessions, enforces internal/CIDR source checks, and surfaces status on `/ready`.
+
+The API only honors `x-forwarded-for` and `x-forwarded-proto` when the immediate TCP peer is in `HOMELAB_ANALYTICS_PROXY_TRUSTED_CIDRS`. Direct clients cannot use those headers to impersonate an internal source or force secure-cookie behavior.
 
 Web workloads only propagate `HOMELAB_ANALYTICS_IDENTITY_MODE` into the Next.js runtime. Legacy `HOMELAB_ANALYTICS_AUTH_MODE` is stripped before launch so the frontend contract stays on the canonical identity-mode input.
 

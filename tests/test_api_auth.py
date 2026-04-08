@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from apps.api.app import create_app
 from apps.api.main import build_app
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
-from packages.shared.auth import SessionManager, build_proxy_provider, hash_password
+from packages.shared.auth import SessionManager, hash_password
 from packages.shared.settings import AppSettings
 from packages.storage.auth_store import LocalUserCreate, UserRole
 from packages.storage.ingestion_config import IngestionConfigRepository
@@ -87,7 +87,11 @@ def _csrf_headers(client: TestClient) -> dict[str, str]:
     return {"x-csrf-token": token}
 
 
-def _build_local_single_user_break_glass_client(temp_dir: str) -> TestClient:
+def _build_local_single_user_break_glass_client(
+    temp_dir: str,
+    *,
+    client: tuple[str, int] = ("testclient", 50000),
+) -> TestClient:
     settings = AppSettings(
         data_dir=Path(temp_dir),
         landing_root=Path(temp_dir) / "landing",
@@ -106,14 +110,19 @@ def _build_local_single_user_break_glass_client(temp_dir: str) -> TestClient:
         break_glass_internal_only=True,
         break_glass_ttl_minutes=5,
         break_glass_allowed_cidrs=("10.0.0.0/8",),
+        proxy_trusted_cidrs=("10.0.0.0/8",),
         enable_bootstrap_local_admin=True,
         bootstrap_admin_username="admin",
         bootstrap_admin_password="admin-password",
     )
-    return TestClient(build_app(settings))
+    return TestClient(build_app(settings), client=client)
 
 
-def _build_proxy_client(temp_dir: str) -> TestClient:
+def _build_proxy_client(
+    temp_dir: str,
+    *,
+    client: tuple[str, int] = ("testclient", 50000),
+) -> TestClient:
     settings = AppSettings(
         data_dir=Path(temp_dir),
         landing_root=Path(temp_dir) / "landing",
@@ -132,20 +141,7 @@ def _build_proxy_client(temp_dir: str) -> TestClient:
         proxy_role_header="x-auth-role",
         proxy_permissions_header="x-auth-permissions",
     )
-    service = AccountTransactionService(
-        landing_root=Path(temp_dir) / "landing",
-        metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
-    )
-    repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
-    return TestClient(
-        create_app(
-            service,
-            config_repository=repository,
-            auth_store=repository,
-            identity_mode="proxy",
-            proxy_provider=build_proxy_provider(settings),
-        )
-    )
+    return TestClient(build_app(settings), client=client)
 
 
 def test_api_local_auth_login_logout_and_me() -> None:
@@ -169,9 +165,11 @@ def test_api_local_auth_login_logout_and_me() -> None:
         login = client.post(
             "/auth/login",
             json={"username": "reader", "password": "reader-password"},
+            headers={"x-forwarded-proto": "https"},
         )
         assert login.status_code == 200
         assert "homelab_analytics_session" in login.headers["set-cookie"]
+        assert "Secure" not in login.headers["set-cookie"]
         assert client.cookies.get("homelab_analytics_csrf")
 
         me = client.get("/auth/me")
@@ -720,40 +718,59 @@ def test_api_local_auth_allows_reader_run_lineage_and_publication_visibility() -
 
 def test_api_local_single_user_break_glass_enforces_cidr_and_ttl_session_cookie() -> None:
     with TemporaryDirectory() as temp_dir:
-        client = _build_local_single_user_break_glass_client(temp_dir)
+        with _build_local_single_user_break_glass_client(temp_dir) as client:
+            blocked = client.post(
+                "/auth/login",
+                json={"username": "admin", "password": "admin-password"},
+                headers={"x-forwarded-for": "10.23.45.67"},
+            )
+            assert blocked.status_code == 403
+            assert "internal addresses" in blocked.json()["detail"]
 
-        blocked = client.post(
-            "/auth/login",
-            json={"username": "admin", "password": "admin-password"},
-            headers={"x-forwarded-for": "198.51.100.14"},
-        )
-        assert blocked.status_code == 403
-        assert "internal addresses" in blocked.json()["detail"]
+        with _build_local_single_user_break_glass_client(
+            temp_dir,
+            client=("10.0.0.10", 50000),
+        ) as trusted_client:
+            login = trusted_client.post(
+                "/auth/login",
+                json={"username": "admin", "password": "admin-password"},
+                headers={
+                    "x-forwarded-for": "10.23.45.67",
+                    "x-forwarded-proto": "https",
+                },
+            )
+            assert login.status_code == 200
+            assert "Max-Age=300" in login.headers["set-cookie"]
+            assert "Secure" in login.headers["set-cookie"]
+            assert login.json()["auth_mode"] == "local_single_user"
 
-        login = client.post(
-            "/auth/login",
-            json={"username": "admin", "password": "admin-password"},
-            headers={"x-forwarded-for": "10.23.45.67"},
-        )
-        assert login.status_code == 200
-        assert "Max-Age=300" in login.headers["set-cookie"]
-        assert login.json()["auth_mode"] == "local_single_user"
+            session_cookie = trusted_client.cookies.get("homelab_analytics_session")
+            assert session_cookie is not None
+            ready = trusted_client.get(
+                "/ready",
+                headers={"x-forwarded-for": "10.23.45.67"},
+            )
+            assert ready.status_code == 200
+            payload = ready.json()
+            assert payload["identity_mode"] == "local_single_user"
+            assert payload["break_glass"]["enabled"] is True
+            assert payload["break_glass"]["active"] is True
+            assert payload["break_glass"]["ttl_minutes"] == 5
 
-        ready = client.get("/ready", headers={"x-forwarded-for": "10.23.45.67"})
-        assert ready.status_code == 200
-        payload = ready.json()
-        assert payload["identity_mode"] == "local_single_user"
-        assert payload["break_glass"]["enabled"] is True
-        assert payload["break_glass"]["active"] is True
-        assert payload["break_glass"]["ttl_minutes"] == 5
-
-        me = client.get("/auth/me", headers={"x-forwarded-for": "10.23.45.67"})
-        assert me.status_code == 200
+            me = trusted_client.get(
+                "/auth/me",
+                headers={"x-forwarded-for": "10.23.45.67"},
+                cookies={"homelab_analytics_session": session_cookie},
+            )
+            assert me.status_code == 200
 
 
 def test_api_local_single_user_disables_multi_user_local_management() -> None:
     with TemporaryDirectory() as temp_dir:
-        client = _build_local_single_user_break_glass_client(temp_dir)
+        client = _build_local_single_user_break_glass_client(
+            temp_dir,
+            client=("10.0.0.10", 50000),
+        )
 
         login = client.post(
             "/auth/login",
@@ -784,72 +801,75 @@ def test_api_local_single_user_disables_multi_user_local_management() -> None:
 
 def test_api_proxy_auth_enforces_trusted_source_and_header_identity() -> None:
     with TemporaryDirectory() as temp_dir:
-        client = _build_proxy_client(temp_dir)
+        with _build_proxy_client(temp_dir) as direct_client:
+            untrusted = direct_client.get(
+                "/runs",
+                headers={
+                    "x-forwarded-for": "10.2.3.4",
+                    "x-auth-user": "reader@example.test",
+                    "x-auth-role": "reader",
+                },
+            )
+            assert untrusted.status_code == 403
 
-        missing_identity = client.get("/runs", headers={"x-forwarded-for": "10.2.3.4"})
-        assert missing_identity.status_code == 401
-        assert "x-auth-user" in missing_identity.json()["detail"]
+        with _build_proxy_client(temp_dir, client=("10.0.0.10", 50000)) as trusted_client:
+            missing_identity = trusted_client.get(
+                "/runs",
+                headers={"x-forwarded-for": "10.2.3.4"},
+            )
+            assert missing_identity.status_code == 401
+            assert "x-auth-user" in missing_identity.json()["detail"]
 
-        untrusted = client.get(
-            "/runs",
-            headers={
-                "x-forwarded-for": "198.51.100.17",
-                "x-auth-user": "reader@example.test",
-                "x-auth-role": "reader",
-            },
-        )
-        assert untrusted.status_code == 403
+            reader_runs = trusted_client.get(
+                "/runs",
+                headers={
+                    "x-forwarded-for": "10.2.3.4",
+                    "x-auth-user": "reader@example.test",
+                    "x-auth-role": "reader",
+                },
+            )
+            assert reader_runs.status_code == 200
 
-        reader_runs = client.get(
-            "/runs",
-            headers={
-                "x-forwarded-for": "10.2.3.4",
-                "x-auth-user": "reader@example.test",
-                "x-auth-role": "reader",
-            },
-        )
-        assert reader_runs.status_code == 200
+            denied_ingest = trusted_client.post(
+                "/ingest",
+                json={
+                    "source_path": str(ACCOUNT_FIXTURES / "account_transactions_valid.csv"),
+                    "source_name": "proxy-reader-upload",
+                },
+                headers={
+                    "x-forwarded-for": "10.2.3.4",
+                    "x-auth-user": "reader@example.test",
+                    "x-auth-role": "reader",
+                },
+            )
+            assert denied_ingest.status_code == 403
 
-        denied_ingest = client.post(
-            "/ingest",
-            json={
-                "source_path": str(ACCOUNT_FIXTURES / "account_transactions_valid.csv"),
-                "source_name": "proxy-reader-upload",
-            },
-            headers={
-                "x-forwarded-for": "10.2.3.4",
-                "x-auth-user": "reader@example.test",
-                "x-auth-role": "reader",
-            },
-        )
-        assert denied_ingest.status_code == 403
+            operator_ingest = trusted_client.post(
+                "/ingest",
+                json={
+                    "source_path": str(ACCOUNT_FIXTURES / "account_transactions_valid.csv"),
+                    "source_name": "proxy-operator-upload",
+                },
+                headers={
+                    "x-forwarded-for": "10.2.3.4",
+                    "x-auth-user": "operator@example.test",
+                    "x-auth-role": "operator",
+                    "x-auth-permissions": "ingest.write,runs.retry",
+                },
+            )
+            assert operator_ingest.status_code == 201
 
-        operator_ingest = client.post(
-            "/ingest",
-            json={
-                "source_path": str(ACCOUNT_FIXTURES / "account_transactions_valid.csv"),
-                "source_name": "proxy-operator-upload",
-            },
-            headers={
-                "x-forwarded-for": "10.2.3.4",
-                "x-auth-user": "operator@example.test",
-                "x-auth-role": "operator",
-                "x-auth-permissions": "ingest.write,runs.retry",
-            },
-        )
-        assert operator_ingest.status_code == 201
-
-        me = client.get(
-            "/auth/me",
-            headers={
-                "x-forwarded-for": "10.2.3.4",
-                "x-auth-user": "operator@example.test",
-                "x-auth-role": "operator",
-                "x-auth-permissions": "ingest.write,runs.retry",
-            },
-        )
-        assert me.status_code == 200
-        payload = me.json()
-        assert payload["auth_mode"] == "proxy"
-        assert payload["principal"]["auth_provider"] == "proxy"
-        assert "ingest.write" in payload["principal"]["permissions"]
+            me = trusted_client.get(
+                "/auth/me",
+                headers={
+                    "x-forwarded-for": "10.2.3.4",
+                    "x-auth-user": "operator@example.test",
+                    "x-auth-role": "operator",
+                    "x-auth-permissions": "ingest.write,runs.retry",
+                },
+            )
+            assert me.status_code == 200
+            payload = me.json()
+            assert payload["auth_mode"] == "proxy"
+            assert payload["principal"]["auth_provider"] == "proxy"
+            assert "ingest.write" in payload["principal"]["permissions"]
