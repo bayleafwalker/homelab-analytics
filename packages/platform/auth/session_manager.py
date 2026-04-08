@@ -10,10 +10,11 @@ from http.cookies import SimpleCookie
 from typing import Any, Literal
 
 from packages.platform.auth._signing import _decode_signed_payload, _encode_signed_payload
+from packages.platform.auth.contracts import UserRole
 from packages.platform.auth.role_hierarchy import AuthenticatedPrincipal
 from packages.shared.auth_modes import is_cookie_auth_mode
 from packages.shared.settings import AppSettings
-from packages.storage.auth_store import AuthStore, LocalUserRecord, UserRole
+from packages.storage.auth_store import AuthStore, LocalUserRecord
 
 SESSION_COOKIE_NAME = "homelab_analytics_session"
 CSRF_COOKIE_NAME = "homelab_analytics_csrf"

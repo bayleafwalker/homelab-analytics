@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import FrozenSet
 
-from packages.storage.auth_store import (
+from packages.platform.auth.contracts import (
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
     SERVICE_TOKEN_SCOPE_INGEST_WRITE,
     SERVICE_TOKEN_SCOPE_REPORTS_READ,

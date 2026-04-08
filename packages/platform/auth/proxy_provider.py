@@ -7,10 +7,10 @@ from ipaddress import IPv4Network, IPv6Network, ip_address, ip_network
 from fastapi import Request
 
 from packages.platform.auth.credential_resolution import request_remote_addr
+from packages.platform.auth.contracts import UserRole
 from packages.platform.auth.permission_registry import normalize_permission_grants
 from packages.platform.auth.role_hierarchy import AuthenticatedPrincipal
 from packages.shared.settings import AppSettings
-from packages.storage.auth_store import UserRole
 
 
 class ProxyAuthenticationError(ValueError):

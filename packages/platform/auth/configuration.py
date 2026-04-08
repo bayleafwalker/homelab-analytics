@@ -6,10 +6,11 @@ import warnings
 from ipaddress import ip_network
 
 from packages.platform.auth.crypto import hash_password
+from packages.platform.auth.contracts import UserRole
 from packages.shared.auth_modes import is_cookie_auth_mode
 from packages.shared.metrics import metrics_registry
 from packages.shared.settings import AppSettings
-from packages.storage.auth_store import AuthStore, LocalUserCreate, LocalUserRecord, UserRole
+from packages.storage.auth_store import AuthStore, LocalUserCreate, LocalUserRecord
 
 LEGACY_AUTH_MODE_WARN_WINDOW = "v0.1.x"
 LEGACY_AUTH_MODE_ERROR_WINDOW = "v0.2.x"

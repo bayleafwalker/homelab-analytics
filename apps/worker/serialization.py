@@ -10,7 +10,8 @@ from packages.pipelines.configured_ingestion_definition import (
     ConfiguredIngestionProcessResult,
 )
 from packages.pipelines.csv_validation import ColumnType
-from packages.storage.auth_store import LocalUserRecord, ServiceTokenRecord, UserRole
+from packages.platform.auth.contracts import UserRole
+from packages.storage.auth_store import LocalUserRecord, ServiceTokenRecord
 from packages.storage.control_plane import (
     AuthAuditEventRecord,
     ControlPlaneSnapshot,

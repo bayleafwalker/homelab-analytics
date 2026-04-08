@@ -17,8 +17,9 @@ from apps.worker.serialization import (
 )
 from packages.pipelines.config_preflight import run_config_preflight
 from packages.platform.auth.crypto import hash_password, issue_service_token
+from packages.platform.auth.contracts import UserRole
 from packages.platform.auth.serialization import serialize_service_token, serialize_user
-from packages.storage.auth_store import LocalUserCreate, ServiceTokenCreate, UserRole
+from packages.storage.auth_store import LocalUserCreate, ServiceTokenCreate
 
 
 def handle_list_runs(args: Namespace, runtime: WorkerRuntime) -> int:

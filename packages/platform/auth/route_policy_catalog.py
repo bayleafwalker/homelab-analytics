@@ -30,7 +30,7 @@ from packages.platform.auth.permission_registry import (
     source_lineage_run_permission,
     transformation_audit_run_permission,
 )
-from packages.storage.auth_store import (
+from packages.platform.auth.contracts import (
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
     SERVICE_TOKEN_SCOPE_INGEST_WRITE,
     SERVICE_TOKEN_SCOPE_REPORTS_READ,

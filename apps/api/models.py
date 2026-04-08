@@ -4,8 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from packages.platform.auth.contracts import UserRole
 from packages.pipelines.csv_validation import ColumnType
-from packages.storage.auth_store import UserRole
 
 
 class SourceSystemRequest(BaseModel):

@@ -4,8 +4,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import cast
 
+from packages.platform.auth.contracts import UserRole
 from packages.platform.auth.route_policy_catalog import lookup_route_policy_value
-from packages.storage.auth_store import UserRole
 
 
 def required_permission_for_path(path: str) -> str | None:

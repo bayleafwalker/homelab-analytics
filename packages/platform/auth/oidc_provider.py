@@ -12,10 +12,10 @@ import httpx
 import jwt
 
 from packages.platform.auth._signing import _decode_signed_payload, _encode_signed_payload
+from packages.platform.auth.contracts import UserRole
 from packages.platform.auth.permission_registry import normalize_permission_grants
 from packages.platform.auth.role_hierarchy import AuthenticatedPrincipal
 from packages.shared.settings import AppSettings
-from packages.storage.auth_store import UserRole
 
 OIDC_STATE_COOKIE_NAME = "homelab_analytics_oidc_state"
 OIDC_STATE_MAX_AGE_SECONDS = 60 * 10

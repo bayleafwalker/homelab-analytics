@@ -7,10 +7,10 @@ from typing import Any
 import httpx
 import jwt
 
+from packages.platform.auth.contracts import SERVICE_TOKEN_SCOPES, UserRole
 from packages.platform.auth.permission_registry import normalize_permission_grants
 from packages.platform.auth.role_hierarchy import AuthenticatedPrincipal
 from packages.shared.settings import AppSettings
-from packages.storage.auth_store import SERVICE_TOKEN_SCOPES, UserRole
 
 
 class MachineJwtAuthenticationError(ValueError):

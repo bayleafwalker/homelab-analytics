@@ -5,8 +5,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
 
+from packages.platform.auth.contracts import UserRole
 from packages.platform.auth.crypto import parse_service_token, verify_service_token_secret
-from packages.storage.auth_store import AuthStore, ServiceTokenRecord, UserRole
+from packages.storage.auth_store import AuthStore, ServiceTokenRecord
 
 _ROLE_ORDER = {
     UserRole.READER: 0,
