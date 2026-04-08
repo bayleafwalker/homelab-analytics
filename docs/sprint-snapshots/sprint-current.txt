@@ -1,8 +1,8 @@
-SPRINT: harbor-policy-seam — App-Owned Authorization Declarations  [active]
+SPRINT: harbor-policy-seam — App-Owned Authorization Declarations  [closed]
 Goal:   Finish the auth kernel/app seam by moving concrete route authorization declarations to app-owned composition while keeping the platform responsible only for generic policy primitives and evaluation.
 Dates:  2026-04-08 to 2026-04-18
 ID:     45
-Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
+Items:  5 total — 5 done, 0 active, 0 pending, 0 blocked
 
 --- Track: policy-engine ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
@@ -20,4 +20,8 @@ Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
   [done    ] #308  Trim touched storage-era auth compatibility imports after policy move  (assignee: -)
 
-Rendered: 2026-04-08T17:53:45Z
+--- Track: workflow-hygiene ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #309  Run adversarial usefulness/conciseness/purpose pass on skills, guides, docs, and hooks  (assignee: -)
+
+Rendered: 2026-04-08T18:30:54Z
