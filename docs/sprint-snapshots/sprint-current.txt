@@ -1,11 +1,23 @@
-SPRINT: sensor-gauge-bridge — HA REST-Sensor Metrics Endpoints  [active]
-Goal:   Expose a minimal set of reporting-backed scalar metrics as Home Assistant REST-sensor friendly responses without widening the reporting or auth boundaries.
+SPRINT: beacon-bridge-ledger — HA Bridge Ingest Foundation  [closed]
+Goal:   Define the platform-side ingest contracts, auth boundaries, and landing/identity path for the Home Assistant bridge without implementing the HA add-on or inbound integration yet.
 Dates:  2026-04-08 to 2026-04-18
-ID:     46
-Items:  1 total — 1 done, 0 active, 0 pending, 0 blocked
+ID:     47
+Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
 
---- Track: ha-rest-metrics ---
+--- Track: landing-contracts ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #310  Expose reporting-backed HA REST-sensor metric endpoints  (assignee: -)
+  [done    ] #313  HA bridge ingest schemas and landing contracts for registry, state, event, statistics, and heartbeat payloads  (assignee: -)
 
-Rendered: 2026-04-08T19:52:29Z
+--- Track: auth-guardrails ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #312  Scoped HA bridge ingest auth, rate limiting, and schema-version rejection path  (assignee: -)
+
+--- Track: docs-verification ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #311  Requirements, architecture docs, and targeted API or contract tests for the HA bridge ingest foundation  (assignee: -)
+
+--- Track: identity-mapping ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #314  Stable HA identity resolution and canonical mapping targets for entity, device, and area payloads  (assignee: -)
+
+Rendered: 2026-04-08T20:45:19Z
