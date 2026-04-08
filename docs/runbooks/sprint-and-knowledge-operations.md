@@ -46,6 +46,20 @@ Leave ad hoc renders or experimental alternate outputs local-only unless the doc
 - use `sprint-resume` when the work item already exists
 - choose or resume sprint work from live `sprintctl` state first, then use docs as implementation context
 
+### Repo-local wrapper targets
+
+The repo now ships a small wrapper layer for the canonical sprint and knowledge flows.
+These targets source `.envrc`, use the repo-local DB paths, and keep repeated command shapes out of ad hoc shell history.
+
+- `make sprint-resume [ITEM=<item-id>]` wraps `sprintctl claim resume --json` using `SPRINTCTL_INSTANCE_ID` when available, otherwise `SPRINTCTL_RUNTIME_SESSION_ID` or `CODEX_THREAD_ID`
+- `make claim-recover ITEM=<item-id>` wraps `sprintctl claim recover --item-id <item-id> --json`
+- `make claim-heartbeat CLAIM_ID=<claim-id> CLAIM_TOKEN=<claim-token> [ACTOR=<actor>] [CLAIM_TTL=300]` wraps the long-item heartbeat flow
+- `make item-verify-auth PY_FILES="path1 path2" TESTS="tests/test_a.py tests/test_b.py"` runs item-scoped `ruff`, `mypy`, targeted `pytest`, and `tests/test_architecture_contract.py`
+- `make snapshot-refresh [SPRINT_ID=<sprint-id>]` renders `docs/sprint-snapshots/sprint-current.txt` for the active sprint or the explicit sprint id
+- `make knowledge-publish CANDIDATE=<id> CATEGORY=<decision|pattern|lesson|risk|reference> BODY="..." [TITLE="..."] [TAGS='[\"workflow\"]'] [COORDINATION=1]` publishes an approved entry and re-renders `docs/knowledge/knowledge-base.md`
+
+Use the raw `sprintctl` and `kctl` commands when you need a flow the wrappers do not cover.
+
 ### 3. Follow the claim lifecycle
 
 - `sprintctl agent-protocol --json` is the authoritative claim-lifecycle reference

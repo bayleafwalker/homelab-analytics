@@ -37,6 +37,12 @@ def test_makefile_contains_required_verification_targets() -> None:
         "compose-smoke:",
         "db-migrate-postgres-control-plane:",
         "db-migrate-postgres-run-metadata:",
+        "sprint-resume:",
+        "claim-recover:",
+        "claim-heartbeat:",
+        "item-verify-auth:",
+        "snapshot-refresh:",
+        "knowledge-publish:",
     ]:
         assert target in content
 
@@ -53,6 +59,24 @@ def test_makefile_contains_required_verification_targets() -> None:
     assert "docker image inspect $(APP_IMAGE)" in content
     assert "docker image inspect $(WEB_IMAGE)" in content
     assert "migrations/postgres_run_metadata" in content
+
+
+def test_workflow_helper_wraps_canonical_sprint_and_knowledge_flows() -> None:
+    content = (ROOT / "tools" / "workflow.sh").read_text()
+
+    for fragment in [
+        "source \"$ROOT/.envrc\"",
+        "args=(claim resume --json)",
+        "sprintctl claim recover --item-id",
+        "args=(claim heartbeat --id \"$CLAIM_ID\" --claim-token \"$CLAIM_TOKEN\" --json)",
+        "args=(render --output \"$ROOT/docs/sprint-snapshots/sprint-current.txt\")",
+        "args=(publish --id \"$CANDIDATE\" --body \"$BODY\" --category \"$CATEGORY\")",
+        "kctl render --output \"$ROOT/docs/knowledge/knowledge-base.md\"",
+        "\"$py\" -m ruff check",
+        "\"$py\" -m mypy",
+        "\"$py\" -m pytest tests/test_architecture_contract.py -x --tb=short",
+    ]:
+        assert fragment in content
 
 
 def test_ci_workflow_runs_blocking_and_advisory_verification() -> None:

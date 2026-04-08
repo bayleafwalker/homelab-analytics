@@ -5,6 +5,7 @@ PYTEST := $(PYTHON) -m pytest
 RUFF := $(PYTHON) -m ruff
 MYPY := $(PYTHON) -m mypy
 PIP_AUDIT := $(PYTHON) -m pip_audit
+WORKFLOW_HELPER := ./tools/workflow.sh
 WEB_DIR := apps/web/frontend
 WEB_NODE_BIN_DIR := $(abspath .tooling/node-v20.20.1-linux-x64/bin)
 COMPOSE_FILE := infra/examples/compose.yaml
@@ -13,9 +14,26 @@ WEB_IMAGE := homelab-analytics-web:latest
 
 TEST ?=
 DOMAIN ?=
+ITEM ?=
+SPRINT_ID ?=
+CLAIM_ID ?=
+CLAIM_TOKEN ?=
+CLAIM_TTL ?=
+ACTOR ?=
+PY_FILES ?=
+TESTS ?=
+CANDIDATE ?=
+CATEGORY ?=
+BODY ?=
+TITLE ?=
+TAGS ?=
+COORDINATION ?=
 VERIFY_CONFIG_ARGS ?=
 CONTRACT_BASE_REF ?=
 CONTRACT_RELEASE_DIR ?= dist/contracts
+
+export ITEM SPRINT_ID CLAIM_ID CLAIM_TOKEN CLAIM_TTL ACTOR PY_FILES TESTS CANDIDATE CATEGORY BODY TITLE TAGS COORDINATION
+export SPRINTCTL_INSTANCE_ID SPRINTCTL_RUNTIME_SESSION_ID CODEX_THREAD_ID
 
 .PHONY: lint typecheck test test-fast test-target test-integration test-e2e-local \
 	test-storage-adapters test-sqlite-adapters test-coverage verify-config verify-docs \
@@ -24,7 +42,8 @@ CONTRACT_RELEASE_DIR ?= dist/contracts
 	db-migrate-postgres-control-plane db-migrate-postgres-run-metadata \
 	web-codegen web-codegen-check web-token-check web-typecheck web-build demo-generate demo-seed \
 	web-ui-test \
-	contract-export-check contract-compat-report contract-release-artifacts
+	contract-export-check contract-compat-report contract-release-artifacts \
+	sprint-resume claim-recover claim-heartbeat item-verify-auth snapshot-refresh knowledge-publish
 
 lint:
 	$(RUFF) check .
@@ -171,3 +190,21 @@ verify-domain:
 		exit 1; \
 	fi
 	$(PYTEST) -q tests/test_local_domain_harness.py -k "$(DOMAIN)"
+
+sprint-resume:
+	$(WORKFLOW_HELPER) sprint-resume
+
+claim-recover:
+	$(WORKFLOW_HELPER) claim-recover
+
+claim-heartbeat:
+	$(WORKFLOW_HELPER) claim-heartbeat
+
+item-verify-auth:
+	$(WORKFLOW_HELPER) item-verify-auth
+
+snapshot-refresh:
+	$(WORKFLOW_HELPER) snapshot-refresh
+
+knowledge-publish:
+	$(WORKFLOW_HELPER) knowledge-publish
