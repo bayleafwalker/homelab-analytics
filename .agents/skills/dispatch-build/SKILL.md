@@ -21,6 +21,7 @@ Execute approved, spec-complete implementation work by delegating to Haiku subag
 3. For each implementation item:
    a. Claim or verify ownership using `sprintctl claim start` before dispatching.
       - Immediately persist the returned `claim_token` to `.sprintctl/claims/claim-<item_id>.token` in the orchestrating session. Keep the token in session memory for normal execution; treat the file as crash recovery and do not pass the token to the subagent.
+      - If the orchestrating session keeps the item open for more than 15 minutes, or the item crosses a long review/remediation boundary before close-out, run `sprintctl claim heartbeat` from the orchestrator to refresh ownership before continuing.
    b. Spawn a subagent: type=general-purpose, model=haiku, with:
       - The specific deliverable and acceptance criteria
       - The implementation mode guide from `docs/agents/implementation.md`
@@ -33,6 +34,7 @@ Execute approved, spec-complete implementation work by delegating to Haiku subag
    c. For independent items: use `run_in_background=true` and dispatch in parallel.
    d. For items touching overlapping files: use `isolation=worktree` to prevent conflicts.
 4. Collect subagent results. If a subagent reports test failures, run up to 5 fix cycles before escalating.
+   - Heartbeat the claim again before entering a long remediation loop or resuming after review if the item is still owned by the current live claim identity.
    - After adding or modifying any API route, auth policy, scenario policy mapping, or architecture doc, run `pytest tests/test_architecture_contract.py -x --tb=short` before closing the item.
 5. After each item completes verification, use `item-done` to commit and mark done.
 
@@ -49,3 +51,4 @@ Execute approved, spec-complete implementation work by delegating to Haiku subag
 - Do not pass the claim token to the subagent; keep it only in the orchestrating session and the local `.sprintctl/claims/claim-<item_id>.token` recovery file.
 - Do not batch multiple items into a single commit.
 - Do not skip the local verification step before marking an item done.
+- Do not heartbeat or reuse a claim whose live identity no longer clearly belongs to the current session.

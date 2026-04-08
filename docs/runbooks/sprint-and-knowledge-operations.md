@@ -29,6 +29,9 @@ These are the shared repo artifacts:
 - `docs/knowledge/knowledge-base.md`
 
 Treat the committed files as the shared repo view. The SQLite databases are local execution state.
+This repo does not use a separate committed coordination artifact such as `docs/knowledge/knowledge-base-ops.md`.
+When approved coordination candidates are intentionally promoted into durable repo knowledge, publish and render them into `docs/knowledge/knowledge-base.md`.
+Leave ad hoc renders or experimental alternate outputs local-only unless the docs are updated first.
 
 ## Daily Use
 
@@ -83,6 +86,7 @@ Treat the committed files as the shared repo view. The SQLite databases are loca
 - use explicit `--event-types ...` when you need deterministic filtering instead of the default event set
 - review candidates with `kctl review list`, `kctl review show`, `kctl review approve`, and `kctl review reject` (use `--kind all` when coordination stream candidates matter)
 - publish intentionally with `kctl publish ...`; use `kctl publish --coordination ...` when an approved coordination candidate should become durable workflow knowledge, then render the committed artifact with `kctl render --output docs/knowledge/knowledge-base.md`
+- do not create or commit a separate `docs/knowledge/knowledge-base-ops.md` unless the shared-artifact policy above is changed first
 
 ## Useful Structured Surfaces
 

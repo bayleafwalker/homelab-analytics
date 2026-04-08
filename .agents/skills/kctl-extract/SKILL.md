@@ -57,7 +57,8 @@ This includes coordination corrections such as claim misuse, handoff rules, or o
 10. If the task explicitly includes promoting approved knowledge into published entries:
    - Use `kctl publish --id <n> --body "<detail>" --category <decision|pattern|lesson|risk|reference>` for the approved entries that should become durable repo knowledge.
    - For approved coordination candidates that should become durable workflow knowledge, use `kctl publish --coordination --id <n> --body "<detail>" --category <decision|pattern|lesson|risk|reference>`.
-   - Render the committed artifact to `docs/knowledge/knowledge-base.md` via `kctl render --output docs/knowledge/knowledge-base.md`.
+   - Publish both durable and coordination entries into the repo's single committed knowledge artifact, `docs/knowledge/knowledge-base.md`.
+   - Render the committed artifact via `kctl render --output docs/knowledge/knowledge-base.md`.
    - Keep the knowledge-base update separate from unrelated feature work.
 
 ## Output contract
@@ -72,4 +73,5 @@ This includes coordination corrections such as claim misuse, handoff rules, or o
 - Do not approve candidates without setting a meaningful title — the default summary is often terse.
 - Do not run extraction before the sprint has events; add events first via `sprintctl event add`.
 - Do not use this skill mid-sprint as a substitute for logging events now; capture the event immediately and leave extraction for sprint close unless immediate review is required.
+- Do not render or commit a separate `docs/knowledge/knowledge-base-ops.md` unless the repo docs are updated first.
 - Do not render repo knowledge artifacts anywhere other than `docs/knowledge/knowledge-base.md` unless the repo docs are updated first.
