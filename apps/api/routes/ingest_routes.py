@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from collections import defaultdict, deque
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from threading import Lock
+from time import monotonic
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -20,6 +25,14 @@ from packages.application.use_cases.ingest_promotion import (
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
+from packages.domains.homelab.pipelines.ha_bridge_ingestion import (
+    HaBridgeEventsPayload,
+    HaBridgeHeartbeatPayload,
+    HaBridgeLandingService,
+    HaBridgeRegistryPayload,
+    HaBridgeStatesPayload,
+    HaBridgeStatisticsPayload,
+)
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
 from packages.pipelines.configured_ingestion_definition import (
     ConfiguredIngestionDefinitionService,
@@ -35,6 +48,85 @@ from packages.pipelines.upload_detection import detect_upload_target
 from packages.pipelines.upload_dry_run import preview_upload_dry_run
 from packages.shared.extensions import ExtensionRegistry
 from packages.storage.control_plane import ConfigCatalogStore
+
+HA_BRIDGE_INGEST_RATE_LIMIT_MAX_REQUESTS = 12
+HA_BRIDGE_INGEST_RATE_LIMIT_WINDOW_SECONDS = 60.0
+
+
+@dataclass(frozen=True)
+class _HaBridgeIngestRateLimitKey:
+    route_path: str
+    bridge_instance_id: str
+    client_host: str
+
+
+class HaBridgeIngestRateLimiter:
+    def __init__(
+        self,
+        *,
+        max_requests: int = HA_BRIDGE_INGEST_RATE_LIMIT_MAX_REQUESTS,
+        window_seconds: float = HA_BRIDGE_INGEST_RATE_LIMIT_WINDOW_SECONDS,
+    ) -> None:
+        self._lock = Lock()
+        self._clock = monotonic
+        self.configure(max_requests=max_requests, window_seconds=window_seconds)
+
+    def configure(self, *, max_requests: int, window_seconds: float) -> None:
+        if max_requests <= 0:
+            raise ValueError("HA bridge ingest rate limit max_requests must be positive.")
+        if window_seconds <= 0:
+            raise ValueError("HA bridge ingest rate limit window_seconds must be positive.")
+        with self._lock:
+            self.max_requests = max_requests
+            self.window_seconds = window_seconds
+            self._request_log: dict[_HaBridgeIngestRateLimitKey, deque[float]] = defaultdict(
+                deque
+            )
+
+    def check_and_record(
+        self,
+        *,
+        route_path: str,
+        bridge_instance_id: str,
+        client_host: str,
+    ) -> int | None:
+        request_key = _HaBridgeIngestRateLimitKey(
+            route_path=route_path,
+            bridge_instance_id=bridge_instance_id.strip().lower(),
+            client_host=client_host.strip().lower() or "unknown",
+        )
+        now = self._clock()
+        cutoff = now - self.window_seconds
+        with self._lock:
+            request_times = self._request_log[request_key]
+            while request_times and request_times[0] <= cutoff:
+                request_times.popleft()
+            if len(request_times) >= self.max_requests:
+                retry_after = max(1, int(request_times[0] + self.window_seconds - now) + 1)
+                return retry_after
+            request_times.append(now)
+        return None
+
+
+def _enforce_ha_bridge_rate_limit(
+    request: Request,
+    *,
+    bridge_instance_id: str,
+) -> None:
+    limiter = request.app.state.ha_bridge_ingest_rate_limiter
+    client_host = request.client.host if request.client is not None else "unknown"
+    retry_after = limiter.check_and_record(
+        route_path=request.url.path,
+        bridge_instance_id=bridge_instance_id,
+        client_host=client_host,
+    )
+    if retry_after is None:
+        return
+    raise HTTPException(
+        status_code=429,
+        detail="HA bridge ingest rate limit exceeded. Retry again later.",
+        headers={"Retry-After": str(retry_after)},
+    )
 
 
 def register_ingest_routes(
@@ -62,6 +154,13 @@ def register_ingest_routes(
     serialize_promotion: Callable[[PromotionResult], dict[str, Any]],
     to_jsonable: Callable[[Any], Any],
 ) -> None:
+    ha_bridge_landing_service = HaBridgeLandingService(
+        service.landing_root,
+        service.metadata_repository,
+        blob_store=service.blob_store,
+    )
+    app.state.ha_bridge_ingest_rate_limiter = HaBridgeIngestRateLimiter()
+
     @app.post("/landing/{extension_key}", status_code=201)
     async def run_landing_extension(
         extension_key: str,
@@ -86,6 +185,81 @@ def register_ingest_routes(
             build_ingest_response=build_ingest_response,
             require_upload=require_upload,
         )
+
+    @app.post("/api/ingest/ha-bridge/registry", status_code=201)
+    async def ingest_ha_bridge_registry(
+        request: Request,
+        payload: HaBridgeRegistryPayload,
+    ) -> JSONResponse:
+        _enforce_ha_bridge_rate_limit(
+            request,
+            bridge_instance_id=payload.bridge_instance_id,
+        )
+        result = ha_bridge_landing_service.ingest_registry_payload(
+            raw_bytes=await request.body(),
+            payload=payload,
+        )
+        return build_run_response(service.get_run(result.run.run_id))
+
+    @app.post("/api/ingest/ha-bridge/states", status_code=201)
+    async def ingest_ha_bridge_states(
+        request: Request,
+        payload: HaBridgeStatesPayload,
+    ) -> JSONResponse:
+        _enforce_ha_bridge_rate_limit(
+            request,
+            bridge_instance_id=payload.bridge_instance_id,
+        )
+        result = ha_bridge_landing_service.ingest_states_payload(
+            raw_bytes=await request.body(),
+            payload=payload,
+        )
+        return build_run_response(service.get_run(result.run.run_id))
+
+    @app.post("/api/ingest/ha-bridge/events", status_code=201)
+    async def ingest_ha_bridge_events(
+        request: Request,
+        payload: HaBridgeEventsPayload,
+    ) -> JSONResponse:
+        _enforce_ha_bridge_rate_limit(
+            request,
+            bridge_instance_id=payload.bridge_instance_id,
+        )
+        result = ha_bridge_landing_service.ingest_events_payload(
+            raw_bytes=await request.body(),
+            payload=payload,
+        )
+        return build_run_response(service.get_run(result.run.run_id))
+
+    @app.post("/api/ingest/ha-bridge/statistics", status_code=201)
+    async def ingest_ha_bridge_statistics(
+        request: Request,
+        payload: HaBridgeStatisticsPayload,
+    ) -> JSONResponse:
+        _enforce_ha_bridge_rate_limit(
+            request,
+            bridge_instance_id=payload.bridge_instance_id,
+        )
+        result = ha_bridge_landing_service.ingest_statistics_payload(
+            raw_bytes=await request.body(),
+            payload=payload,
+        )
+        return build_run_response(service.get_run(result.run.run_id))
+
+    @app.post("/api/ingest/ha-bridge/heartbeat", status_code=201)
+    async def ingest_ha_bridge_heartbeat(
+        request: Request,
+        payload: HaBridgeHeartbeatPayload,
+    ) -> JSONResponse:
+        _enforce_ha_bridge_rate_limit(
+            request,
+            bridge_instance_id=payload.bridge_instance_id,
+        )
+        result = ha_bridge_landing_service.ingest_heartbeat_payload(
+            raw_bytes=await request.body(),
+            payload=payload,
+        )
+        return build_run_response(service.get_run(result.run.run_id))
 
     @app.post("/ingest/account-transactions", status_code=201)
     async def ingest_account_transactions_alias(request: Request) -> JSONResponse:

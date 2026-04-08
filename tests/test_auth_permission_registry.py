@@ -52,6 +52,7 @@ from packages.platform.auth.route_policy_engine import (
 )
 from packages.storage.auth_store import (
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
+    SERVICE_TOKEN_SCOPE_HA_BRIDGE_INGEST,
     SERVICE_TOKEN_SCOPE_INGEST_WRITE,
     SERVICE_TOKEN_SCOPE_REPORTS_READ,
     SERVICE_TOKEN_SCOPE_RUNS_READ,
@@ -81,6 +82,9 @@ def test_service_scope_permissions_map_to_canonical_permissions() -> None:
     ingest_scope = permissions_for_service_token_scopes(
         (SERVICE_TOKEN_SCOPE_INGEST_WRITE,)
     )
+    ha_bridge_scope = permissions_for_service_token_scopes(
+        (SERVICE_TOKEN_SCOPE_HA_BRIDGE_INGEST,)
+    )
     admin_scope = permissions_for_service_token_scopes(
         (SERVICE_TOKEN_SCOPE_ADMIN_WRITE,)
     )
@@ -88,6 +92,7 @@ def test_service_scope_permissions_map_to_canonical_permissions() -> None:
     assert report_scope == {PERMISSION_REPORTS_READ}
     assert PERMISSION_RUNS_READ in run_scope
     assert PERMISSION_RUNS_RETRY in ingest_scope
+    assert ha_bridge_scope == {PERMISSION_INGEST_WRITE}
     assert PERMISSION_CONTROL_CONFIG_READ in admin_scope
     assert PERMISSION_CONTROL_CONFIG_WRITE in admin_scope
 
@@ -739,6 +744,30 @@ def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> Non
     assert (
         required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/ingest", "POST")
         == "ingest:write"
+    )
+    assert (
+        required_role_for_request(
+            API_ROUTE_AUTHORIZATION_LOOKUP,
+            "/api/ingest/ha-bridge/states",
+            "POST",
+        )
+        == UserRole.OPERATOR
+    )
+    assert (
+        required_permission_for_request(
+            API_ROUTE_AUTHORIZATION_LOOKUP,
+            "/api/ingest/ha-bridge/states",
+            method="POST",
+        )
+        == "ingest.write"
+    )
+    assert (
+        required_service_token_scope_for_request(
+            API_ROUTE_AUTHORIZATION_LOOKUP,
+            "/api/ingest/ha-bridge/states",
+            "POST",
+        )
+        == "ha-bridge:ingest"
     )
 
     assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/categories", "GET") == UserRole.READER

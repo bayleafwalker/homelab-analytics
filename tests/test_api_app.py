@@ -5,6 +5,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any, cast
 
 from fastapi.testclient import TestClient
 
@@ -286,7 +287,7 @@ class ApiAppTests(unittest.TestCase):
                             Path(temp_dir) / "runs.db"
                         ),
                     ),
-                    reporting_service=_AssistantStubReportingService(),
+                    reporting_service=cast(Any, _AssistantStubReportingService()),
                     enable_unsafe_admin=True,
                 )
             )
@@ -348,6 +349,36 @@ class ApiAppTests(unittest.TestCase):
             self.assertEqual(
                 "#/components/schemas/HaApprovalProposalCreateModel",
                 schema["paths"]["/api/ha/actions/proposals"]["post"]["requestBody"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+            self.assertEqual(
+                "#/components/schemas/HaBridgeRegistryPayload",
+                schema["paths"]["/api/ingest/ha-bridge/registry"]["post"]["requestBody"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+            self.assertEqual(
+                "#/components/schemas/HaBridgeStatesPayload",
+                schema["paths"]["/api/ingest/ha-bridge/states"]["post"]["requestBody"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+            self.assertEqual(
+                "#/components/schemas/HaBridgeEventsPayload",
+                schema["paths"]["/api/ingest/ha-bridge/events"]["post"]["requestBody"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+            self.assertEqual(
+                "#/components/schemas/HaBridgeStatisticsPayload",
+                schema["paths"]["/api/ingest/ha-bridge/statistics"]["post"]["requestBody"][
+                    "content"
+                ]["application/json"]["schema"]["$ref"],
+            )
+            self.assertEqual(
+                "#/components/schemas/HaBridgeHeartbeatPayload",
+                schema["paths"]["/api/ingest/ha-bridge/heartbeat"]["post"]["requestBody"][
                     "content"
                 ]["application/json"]["schema"]["$ref"],
             )
@@ -887,10 +918,10 @@ class ApiAppTests(unittest.TestCase):
                     dataset_name="household_account_transactions",
                     version=1,
                     allow_extra_columns=False,
-                    columns=[
+                    columns=(
                         DatasetColumnConfig("booked_at", ColumnType.DATE),
                         DatasetColumnConfig("account_id", ColumnType.STRING),
-                    ],
+                    ),
                 )
             )
             client = TestClient(
@@ -2371,14 +2402,14 @@ class ApiAppTests(unittest.TestCase):
                     dataset_name="household_account_transactions",
                     version=1,
                     allow_extra_columns=False,
-                    columns=[
+                    columns=(
                         DatasetColumnConfig("booked_at", ColumnType.DATE),
                         DatasetColumnConfig("account_id", ColumnType.STRING),
                         DatasetColumnConfig("counterparty_name", ColumnType.STRING),
                         DatasetColumnConfig("amount", ColumnType.DECIMAL),
                         DatasetColumnConfig("currency", ColumnType.STRING),
                         DatasetColumnConfig("description", ColumnType.STRING, required=False),
-                    ],
+                    ),
                 )
             )
             config_repository.create_column_mapping(
@@ -2387,14 +2418,14 @@ class ApiAppTests(unittest.TestCase):
                     source_system_id="bank_partner_export",
                     dataset_contract_id="household_account_transactions_v1",
                     version=1,
-                    rules=[
+                    rules=(
                         ColumnMappingRule("booked_at", source_column="booking_date"),
                         ColumnMappingRule("account_id", source_column="account_number"),
                         ColumnMappingRule("counterparty_name", source_column="payee"),
                         ColumnMappingRule("amount", source_column="amount_eur"),
                         ColumnMappingRule("currency", default_value="EUR"),
                         ColumnMappingRule("description", source_column="memo"),
-                    ],
+                    ),
                 )
             )
             config_repository.create_source_asset(

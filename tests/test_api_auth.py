@@ -238,6 +238,7 @@ def test_api_local_auth_enforces_newly_mapped_api_surfaces() -> None:
         assert client.get("/contracts/publications").status_code == 401
         assert client.get("/api/scenarios").status_code == 401
         assert client.get("/api/ha/entities").status_code == 401
+        assert client.post("/api/ingest/ha-bridge/states", json={}).status_code == 401
         assert client.get("/api/ha/metrics/current-month/net-cashflow").status_code == 401
         assert (
             client.get(
@@ -293,6 +294,19 @@ def test_api_local_auth_enforces_newly_mapped_api_surfaces() -> None:
             headers=_csrf_headers(client),
         )
         assert denied_ha_ingest.status_code == 403
+
+        denied_ha_bridge_ingest = client.post(
+            "/api/ingest/ha-bridge/states",
+            json={
+                "schema_version": "1.0",
+                "bridge_instance_id": "bridge-1",
+                "captured_at": "2026-04-08T10:05:00+00:00",
+                "batch_source": "startup",
+                "states": [],
+            },
+            headers=_csrf_headers(client),
+        )
+        assert denied_ha_bridge_ingest.status_code == 403
 
         denied_ha_proposal_create = client.post(
             "/api/ha/actions/proposals",
@@ -706,6 +720,65 @@ def test_api_service_tokens_enforce_scope_boundaries() -> None:
         )
         assert denied.status_code == 403
         assert denied.json()["detail"] == "runs:read scope required."
+
+
+def test_api_service_tokens_isolate_ha_bridge_ingest_scope() -> None:
+    with TemporaryDirectory() as temp_dir:
+        client = _build_client(
+            temp_dir,
+            users=(("admin", "admin-password", UserRole.ADMIN),),
+        )
+        assert (
+            client.post(
+                "/auth/login",
+                json={"username": "admin", "password": "admin-password"},
+            ).status_code
+            == 200
+        )
+        created = client.post(
+            "/auth/service-tokens",
+            json={
+                "token_name": "ha-bridge",
+                "role": "operator",
+                "scopes": ["ha-bridge:ingest"],
+            },
+            headers=_csrf_headers(client),
+        )
+        assert created.status_code == 201
+        token_value = created.json()["token_value"]
+        headers = {"authorization": f"Bearer {token_value}"}
+
+        allowed = client.post(
+            "/api/ingest/ha-bridge/states",
+            json={
+                "schema_version": "1.0",
+                "bridge_instance_id": "bridge-1",
+                "captured_at": "2026-04-08T10:05:00+00:00",
+                "batch_source": "startup",
+                "states": [],
+            },
+            headers=headers,
+        )
+        assert allowed.status_code == 201
+
+        denied_generic_ingest = client.post(
+            "/ingest",
+            json={
+                "source_path": str(ACCOUNT_FIXTURES / "account_transactions_valid.csv"),
+                "source_name": "ha-bridge-scope-upload",
+            },
+            headers=headers,
+        )
+        assert denied_generic_ingest.status_code == 403
+        assert denied_generic_ingest.json()["detail"] == "ingest:write scope required."
+
+        denied_legacy_ha_ingest = client.post(
+            "/api/ha/ingest",
+            json={"states": []},
+            headers=headers,
+        )
+        assert denied_legacy_ha_ingest.status_code == 403
+        assert denied_legacy_ha_ingest.json()["detail"] == "ingest:write scope required."
 
 
 def test_api_local_auth_locks_out_repeated_failed_logins() -> None:

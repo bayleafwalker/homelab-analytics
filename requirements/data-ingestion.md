@@ -116,7 +116,7 @@ The platform must accept data from heterogeneous sources — manual file uploads
 **Rationale:** Homelab infrastructure data enables cluster cost modeling, energy monitoring integration, and automation-driven analytics.
 
 **Phase:** 3
-**Status:** implemented (Prometheus query, Home Assistant states, and Kubernetes resource metrics connectors now land raw JSON bytes unchanged through validated CSV projections)
+**Status:** implemented (Prometheus query, Home Assistant states, and Kubernetes resource metrics connectors now land raw JSON bytes unchanged through validated CSV projections; and the platform-side HA bridge ingest foundation now exposes registry, states, events, statistics, and heartbeat landing contracts under `/api/ingest/ha-bridge/*` with raw JSON preserved, validated canonical CSV projections, dedicated `ha-bridge:ingest` machine scope checks, supported schema-version validation, in-process route guardrails for bursty bridge retries, and explicit canonical entity/device/area mapping targets derived from stable HA registry identifiers)
 
 **Acceptance criteria:**
 - Prometheus connector executes a PromQL query and writes the result matrix to landing as JSON or CSV.

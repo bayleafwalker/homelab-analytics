@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import cast
 from unittest.mock import patch
 
 from packages.pipelines.configured_ingestion_definition import (
@@ -36,10 +37,14 @@ def run_csv_server(
     response_body: bytes,
     expected_authorization: str | None = None,
 ):
+    class _CsvServer(ThreadingHTTPServer):
+        seen_authorization: str | None
+
     class CsvHandler(BaseHTTPRequestHandler):
         def do_GET(self):
             if expected_authorization is not None:
-                self.server.seen_authorization = self.headers.get("Authorization")
+                server = cast(_CsvServer, self.server)
+                server.seen_authorization = self.headers.get("Authorization")
                 if self.headers.get("Authorization") != expected_authorization:
                     self.send_response(401)
                     self.end_headers()
@@ -54,7 +59,7 @@ def run_csv_server(
         def log_message(self, format, *args):
             del format, args
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), CsvHandler)
+    server = _CsvServer(("127.0.0.1", 0), CsvHandler)
     server.seen_authorization = None
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

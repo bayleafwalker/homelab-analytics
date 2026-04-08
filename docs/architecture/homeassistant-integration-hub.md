@@ -46,6 +46,8 @@ Bridge responsibilities:
 - attach confidence and quality metadata to normalized state
 - publish normalized state events to the platform event bus
 
+The implemented landing API contract for this bridge layer is documented separately in [`ha-bridge-ingest-api.md`](ha-bridge-ingest-api.md). That document is the source of truth for the currently shipped `/api/ingest/ha-bridge/*` payload schemas, `ha-bridge:ingest` scope boundary, canonical entity/device/area mapping targets, schema-version rules, and `Retry-After` rate-limit behavior.
+
 ### Layer 3 — Event and history bus
 
 The bridge uses three HA communication paths, each with a distinct role.

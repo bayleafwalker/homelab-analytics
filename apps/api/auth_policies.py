@@ -5,6 +5,7 @@ from collections.abc import Callable, Mapping
 
 from packages.platform.auth.contracts import (
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
+    SERVICE_TOKEN_SCOPE_HA_BRIDGE_INGEST,
     SERVICE_TOKEN_SCOPE_INGEST_WRITE,
     SERVICE_TOKEN_SCOPE_REPORTS_READ,
     SERVICE_TOKEN_SCOPE_RUNS_READ,
@@ -582,6 +583,19 @@ API_ROUTE_POLICY_CATALOG: tuple[RoutePolicy, ...] = (
             role=UserRole.READER,
             permission=PERMISSION_REPORTS_READ,
             scope=SERVICE_TOKEN_SCOPE_REPORTS_READ,
+        ),
+    ),
+    RoutePolicy(
+        prefix_paths=("/api/ingest/ha-bridge/",),
+        path_decision=_static_decision(
+            role=UserRole.OPERATOR,
+            permission=PERMISSION_INGEST_WRITE,
+            scope=SERVICE_TOKEN_SCOPE_HA_BRIDGE_INGEST,
+        ),
+        request_decision=_static_decision(
+            role=UserRole.OPERATOR,
+            permission=PERMISSION_INGEST_WRITE,
+            scope=SERVICE_TOKEN_SCOPE_HA_BRIDGE_INGEST,
         ),
     ),
     RoutePolicy(

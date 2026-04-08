@@ -6,7 +6,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Callable
+from typing import Any, Callable, cast
 
 from fastapi.testclient import TestClient
 
@@ -66,6 +66,40 @@ def _sample_states() -> list[dict]:
             "last_changed": "2026-03-21T10:00:00+00:00",
         },
     ]
+
+
+def _sample_bridge_states_payload() -> dict:
+    return {
+        "schema_version": "1.0",
+        "bridge_instance_id": "bridge-1",
+        "captured_at": "2026-04-08T10:05:00+00:00",
+        "batch_source": "startup",
+        "states": [
+            {
+                "entity_id": "sensor.living_room_temp",
+                "entity_registry_id": "entity-reg-1",
+                "state": "21.3",
+                "attributes": {"unit_of_measurement": "°C", "friendly_name": "LR Temp"},
+                "last_changed": "2026-04-08T10:04:58+00:00",
+                "last_updated": "2026-04-08T10:04:59+00:00",
+            }
+        ],
+    }
+
+
+def _sample_bridge_heartbeat_payload() -> dict:
+    return {
+        "schema_version": "1.0",
+        "bridge_instance_id": "bridge-1",
+        "observed_at": "2026-04-08T10:15:00+00:00",
+        "bridge_version": "0.1.0",
+        "ha_version": "2026.4.0",
+        "connected": True,
+        "buffering": False,
+        "entity_count": 42,
+        "queued_events": 0,
+        "last_delivery_at": "2026-04-08T10:14:59+00:00",
+    }
 
 
 def _seed_metric_reporting(ts: TransformationService) -> None:
@@ -190,6 +224,81 @@ class HaIngestAPITests(unittest.TestCase):
                 json={"states": _sample_states(), "run_id": "test-run-42"},
             )
             self.assertEqual("test-run-42", resp.json()["run_id"])
+
+    def test_post_bridge_states_returns_landed_run(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.post(
+                "/api/ingest/ha-bridge/states",
+                json=_sample_bridge_states_payload(),
+            )
+            self.assertEqual(201, resp.status_code)
+            self.assertEqual("landed", resp.json()["run"]["status"])
+            self.assertEqual("ha_bridge_states", resp.json()["run"]["dataset_name"])
+            self.assertEqual(1, resp.json()["run"]["row_count"])
+
+    def test_post_bridge_heartbeat_returns_landed_run(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.post(
+                "/api/ingest/ha-bridge/heartbeat",
+                json=_sample_bridge_heartbeat_payload(),
+            )
+            self.assertEqual(201, resp.status_code)
+            self.assertEqual("ha_bridge_heartbeat", resp.json()["run"]["dataset_name"])
+            self.assertEqual(1, resp.json()["run"]["row_count"])
+
+    def test_post_bridge_states_invalid_body_returns_422(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.post(
+                "/api/ingest/ha-bridge/states",
+                json={"bridge_instance_id": "bridge-1"},
+            )
+            self.assertEqual(422, resp.status_code)
+
+    def test_post_bridge_states_missing_entity_registry_id_returns_422(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            payload = _sample_bridge_states_payload()
+            del payload["states"][0]["entity_registry_id"]
+
+            resp = client.post("/api/ingest/ha-bridge/states", json=payload)
+
+            self.assertEqual(422, resp.status_code)
+
+    def test_post_bridge_states_schema_version_mismatch_returns_422(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            payload = _sample_bridge_states_payload()
+            payload["schema_version"] = "2.0"
+
+            resp = client.post("/api/ingest/ha-bridge/states", json=payload)
+
+            self.assertEqual(422, resp.status_code)
+            self.assertIn("Unsupported HA bridge schema_version", str(resp.json()["detail"]))
+
+    def test_post_bridge_states_rate_limited_returns_429(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            cast(Any, client.app).state.ha_bridge_ingest_rate_limiter.configure(
+                max_requests=1,
+                window_seconds=60.0,
+            )
+
+            first = client.post(
+                "/api/ingest/ha-bridge/states",
+                json=_sample_bridge_states_payload(),
+            )
+            second = client.post(
+                "/api/ingest/ha-bridge/states",
+                json=_sample_bridge_states_payload(),
+            )
+
+            self.assertEqual(201, first.status_code)
+            self.assertEqual(429, second.status_code)
+            self.assertEqual("HA bridge ingest rate limit exceeded. Retry again later.", second.json()["detail"])
+            self.assertEqual("60", second.headers["retry-after"])
 
 
 class HaEntitiesAPITests(unittest.TestCase):

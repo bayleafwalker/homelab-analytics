@@ -258,6 +258,10 @@ def test_stage6_adapter_docs_pin_typed_runtime_status_boundaries() -> None:
     homeassistant_hub = (
         ROOT / "docs" / "architecture" / "homeassistant-integration-hub.md"
     ).read_text()
+    ha_bridge_ingest_api = (
+        ROOT / "docs" / "architecture" / "ha-bridge-ingest-api.md"
+    ).read_text()
+    docs_readme = (ROOT / "docs" / "README.md").read_text()
     roadmap = (ROOT / "docs" / "plans" / "household-operating-platform-roadmap.md").read_text()
     decisions = (
         ROOT / "docs" / "decisions" / "household-operating-platform-direction.md"
@@ -278,6 +282,12 @@ def test_stage6_adapter_docs_pin_typed_runtime_status_boundaries() -> None:
     assert "The reference mapping is intentionally narrow" in integration_adapters
     assert "one health vocabulary" in homeassistant_hub
     assert "bridge, MQTT, and action endpoints" in homeassistant_hub
+    assert "ha-bridge-ingest-api.md" in homeassistant_hub
+    assert "architecture/ha-bridge-ingest-api.md" in docs_readme
+    assert "/api/ingest/ha-bridge/states" in ha_bridge_ingest_api
+    assert "ha-bridge:ingest" in ha_bridge_ingest_api
+    assert "canonical_entity_id" in ha_bridge_ingest_api
+    assert "Retry-After" in ha_bridge_ingest_api
     assert "shared typed runtime snapshot" in roadmap
     assert "typed health/status" in roadmap
     assert "typed health/status model" in decisions
@@ -654,6 +664,7 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert '"/control/operational-summary"' in control_route_source
     assert '"/ready"' in api_source
     assert '"/ingest/configured-csv"' in ingest_route_source
+    assert '"/api/ingest/ha-bridge/states"' in ingest_route_source
     assert '"/transformations/{extension_key}"' in ingest_route_source
     assert '"/runs/{run_id}/retry"' in run_route_source
     assert "register_auth_routes(" in api_source
@@ -1041,6 +1052,7 @@ def test_request_permission_and_scope_policy_covers_protected_api_routes() -> No
         ("/transformation-audit", "reader"),
         # Operator paths
         ("/ingest/account-transactions", "operator"),
+        ("/api/ingest/ha-bridge/states", "operator"),
         ("/runs/abc-123/retry", "operator"),
         # Admin paths
         ("/auth/users", "admin"),
@@ -1083,6 +1095,7 @@ def test_auth_policy_role_requirement(path: str, expected_role: str | None) -> N
         ("/auth/callback", None),
         # Ingest paths → ingest:write scope
         ("/ingest/account-transactions", "ingest:write"),
+        ("/api/ingest/ha-bridge/states", "ha-bridge:ingest"),
         ("/runs/abc-123/retry", "ingest:write"),
         # Run / audit paths → runs:read scope
         ("/runs", "runs:read"),
