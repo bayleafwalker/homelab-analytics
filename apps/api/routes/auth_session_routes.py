@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Any, Callable, cast
+
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
@@ -12,6 +13,8 @@ from packages.application.use_cases.auth_sessions import (
     complete_oidc_callback,
     perform_local_login,
     perform_logout,
+)
+from packages.application.use_cases.auth_sessions import (
     start_oidc_login as build_oidc_login_start_outcome,
 )
 from packages.platform.auth.break_glass import BreakGlassController
@@ -59,6 +62,7 @@ def register_auth_session_routes(
         assert outcome.user is not None
         assert outcome.principal is not None
         assert outcome.issued_session is not None
+        assert resolved_session_manager is not None
         secure_cookie = cookie_secure_for_request(request)
         response = JSONResponse(
             {
@@ -107,6 +111,7 @@ def register_auth_session_routes(
                 detail=_oidc_start_detail(outcome.status),
             )
         assert outcome.redirect is not None
+        assert resolved_oidc_provider is not None
         secure_cookie = cookie_secure_for_request(request)
         response = RedirectResponse(outcome.redirect.authorization_url, status_code=303)
         response.set_cookie(
@@ -129,6 +134,7 @@ def register_auth_session_routes(
         state: Annotated[str | None, Query()] = None,
         error: Annotated[str | None, Query()] = None,
     ) -> RedirectResponse:
+        oidc_provider = resolved_oidc_provider
         outcome = complete_oidc_callback(
             request,
             auth_mode=resolved_auth_mode,
@@ -136,11 +142,11 @@ def register_auth_session_routes(
             state=state,
             error=error,
             state_cookie_value=(
-                request.cookies.get(resolved_oidc_provider.state_cookie_name)
-                if resolved_oidc_provider is not None
+                request.cookies.get(oidc_provider.state_cookie_name)
+                if oidc_provider is not None
                 else None
             ),
-            oidc_provider=resolved_oidc_provider,
+            oidc_provider=oidc_provider,
             session_manager=resolved_session_manager,
             record_auth_event=record_auth_event,
         )

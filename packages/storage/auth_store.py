@@ -3,16 +3,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Protocol, runtime_checkable
-from packages.platform.auth.contracts import (
-    SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
-    SERVICE_TOKEN_SCOPE_INGEST_WRITE,
-    SERVICE_TOKEN_SCOPE_PERMISSION_MAP,
-    SERVICE_TOKEN_SCOPE_REPORTS_READ,
-    SERVICE_TOKEN_SCOPE_RUNS_READ,
-    SERVICE_TOKEN_SCOPES,
-    UserRole,
-    normalize_service_token_scopes,
-)
+
+from packages.platform.auth import contracts as _auth_contracts
+
+UserRole = _auth_contracts.UserRole
+SERVICE_TOKEN_SCOPE_ADMIN_WRITE = _auth_contracts.SERVICE_TOKEN_SCOPE_ADMIN_WRITE
+SERVICE_TOKEN_SCOPE_INGEST_WRITE = _auth_contracts.SERVICE_TOKEN_SCOPE_INGEST_WRITE
+SERVICE_TOKEN_SCOPE_PERMISSION_MAP = _auth_contracts.SERVICE_TOKEN_SCOPE_PERMISSION_MAP
+SERVICE_TOKEN_SCOPE_REPORTS_READ = _auth_contracts.SERVICE_TOKEN_SCOPE_REPORTS_READ
+SERVICE_TOKEN_SCOPE_RUNS_READ = _auth_contracts.SERVICE_TOKEN_SCOPE_RUNS_READ
+SERVICE_TOKEN_SCOPES = _auth_contracts.SERVICE_TOKEN_SCOPES
+normalize_service_token_scopes = _auth_contracts.normalize_service_token_scopes
 
 
 def normalize_username(username: str) -> str:

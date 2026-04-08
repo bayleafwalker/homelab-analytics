@@ -3,7 +3,15 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from typing import Literal, cast, overload
 
+from packages.platform.auth.contracts import (
+    SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
+    SERVICE_TOKEN_SCOPE_INGEST_WRITE,
+    SERVICE_TOKEN_SCOPE_REPORTS_READ,
+    SERVICE_TOKEN_SCOPE_RUNS_READ,
+    UserRole,
+)
 from packages.platform.auth.permission_registry import (
     PERMISSION_ADMIN_WRITE,
     PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE,
@@ -30,13 +38,6 @@ from packages.platform.auth.permission_registry import (
     source_lineage_run_permission,
     transformation_audit_run_permission,
 )
-from packages.platform.auth.contracts import (
-    SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
-    SERVICE_TOKEN_SCOPE_INGEST_WRITE,
-    SERVICE_TOKEN_SCOPE_REPORTS_READ,
-    SERVICE_TOKEN_SCOPE_RUNS_READ,
-    UserRole,
-)
 
 
 @dataclass(frozen=True)
@@ -53,13 +54,13 @@ class RouteDecision:
     scope: str | Callable[[RouteContext], str | None] | None = None
 
     def resolve_role(self, context: RouteContext) -> UserRole | None:
-        return _resolve_value(self.role, context)
+        return _resolve_role_value(self.role, context)
 
     def resolve_permission(self, context: RouteContext) -> str | None:
-        return _resolve_value(self.permission, context)
+        return _resolve_text_value(self.permission, context)
 
     def resolve_scope(self, context: RouteContext) -> str | None:
-        return _resolve_value(self.scope, context)
+        return _resolve_text_value(self.scope, context)
 
 
 @dataclass(frozen=True)
@@ -75,12 +76,23 @@ class RoutePolicy:
         return any(path.startswith(prefix) for prefix in self.prefix_paths)
 
 
-def _resolve_value(
-    value: UserRole | str | Callable[[RouteContext], UserRole | str | None] | None,
+def _resolve_role_value(
+    value: UserRole | Callable[[RouteContext], UserRole | None] | None,
     context: RouteContext,
-) -> UserRole | str | None:
+) -> UserRole | None:
     if callable(value):
-        return value(context)
+        resolver = cast(Callable[[RouteContext], UserRole | None], value)
+        return resolver(context)
+    return value
+
+
+def _resolve_text_value(
+    value: str | Callable[[RouteContext], str | None] | None,
+    context: RouteContext,
+) -> str | None:
+    if callable(value):
+        resolver = cast(Callable[[RouteContext], str | None], value)
+        return resolver(context)
     return value
 
 
@@ -586,6 +598,8 @@ ROUTE_POLICY_CATALOG: tuple[RoutePolicy, ...] = (
             "/api/scenarios/loan-what-if",
             "/api/scenarios/income-change",
             "/api/scenarios/expense-shock",
+            "/api/scenarios/tariff-shock",
+            "/api/scenarios/homelab-cost-benefit",
         ),
         path_decision=_static_decision(
             role=UserRole.READER,
@@ -886,6 +900,36 @@ ROUTE_POLICY_CATALOG: tuple[RoutePolicy, ...] = (
 )
 
 
+@overload
+def lookup_route_policy_value(
+    path: str,
+    *,
+    field: Literal["role"],
+    method: str | None = None,
+    query_params: Mapping[str, str] | None = None,
+) -> UserRole | None: ...
+
+
+@overload
+def lookup_route_policy_value(
+    path: str,
+    *,
+    field: Literal["permission", "scope"],
+    method: str | None = None,
+    query_params: Mapping[str, str] | None = None,
+) -> str | None: ...
+
+
+@overload
+def lookup_route_policy_value(
+    path: str,
+    *,
+    field: str,
+    method: str | None = None,
+    query_params: Mapping[str, str] | None = None,
+) -> UserRole | str | None: ...
+
+
 def lookup_route_policy_value(
     path: str,
     *,
@@ -906,6 +950,7 @@ def lookup_route_policy_value(
             decision = policy.path_decision
         if decision is None:
             continue
+        value: UserRole | str | None
         if field == "role":
             value = decision.resolve_role(context)
         elif field == "permission":

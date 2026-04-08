@@ -569,6 +569,32 @@ def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> Non
         == "ingest:write"
     )
 
+    assert required_role_for_request("/api/scenarios/tariff-shock", "POST") == UserRole.OPERATOR
+    assert (
+        required_permission_for_request("/api/scenarios/tariff-shock", method="POST")
+        == "ingest.write"
+    )
+    assert (
+        required_service_token_scope_for_request("/api/scenarios/tariff-shock", "POST")
+        == "ingest:write"
+    )
+
+    assert (
+        required_role_for_request("/api/scenarios/homelab-cost-benefit", "POST")
+        == UserRole.OPERATOR
+    )
+    assert (
+        required_permission_for_request("/api/scenarios/homelab-cost-benefit", method="POST")
+        == "ingest.write"
+    )
+    assert (
+        required_service_token_scope_for_request(
+            "/api/scenarios/homelab-cost-benefit",
+            "POST",
+        )
+        == "ingest:write"
+    )
+
     assert required_role_for_request("/api/scenarios/scn-001", "DELETE") == UserRole.OPERATOR
     assert (
         required_permission_for_request("/api/scenarios/scn-001", method="DELETE")

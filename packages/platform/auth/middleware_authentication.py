@@ -28,7 +28,10 @@ from packages.platform.auth.proxy_provider import (
     ProxyAuthorizationError,
     ProxyProvider,
 )
-from packages.platform.auth.role_hierarchy import authenticate_service_token
+from packages.platform.auth.role_hierarchy import (
+    AuthenticatedPrincipal,
+    authenticate_service_token,
+)
 from packages.platform.auth.session_manager import SessionManager
 from packages.storage.auth_store import AuthStore
 
@@ -170,6 +173,7 @@ def _authenticate_cookie_or_proxy_request(
     resolved_session_manager: SessionManager | None,
     resolved_proxy_provider: ProxyProvider | None,
 ) -> AuthenticationOutcome:
+    principal: AuthenticatedPrincipal | None = None
     if resolved_auth_mode == "proxy":
         assert resolved_proxy_provider is not None
         try:

@@ -218,12 +218,17 @@ def test_api_local_auth_enforces_newly_mapped_api_surfaces() -> None:
         scenarios = client.get("/api/scenarios")
         assert scenarios.status_code == 503
 
-        denied_scenario_create = client.post(
-            "/api/scenarios/income-change",
-            json={"monthly_income_delta": "100.00"},
-            headers=_csrf_headers(client),
-        )
-        assert denied_scenario_create.status_code == 403
+        for path, payload in (
+            ("/api/scenarios/income-change", {"monthly_income_delta": "100.00"}),
+            ("/api/scenarios/tariff-shock", {"tariff_pct_delta": "0.10"}),
+            ("/api/scenarios/homelab-cost-benefit", {"monthly_cost_delta": "15.00"}),
+        ):
+            denied_scenario_create = client.post(
+                path,
+                json=payload,
+                headers=_csrf_headers(client),
+            )
+            assert denied_scenario_create.status_code == 403
 
         ha_entities = client.get("/api/ha/entities")
         assert ha_entities.status_code == 503
