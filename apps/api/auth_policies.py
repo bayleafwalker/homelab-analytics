@@ -624,6 +624,19 @@ API_ROUTE_POLICY_CATALOG: tuple[RoutePolicy, ...] = (
         ),
     ),
     RoutePolicy(
+        prefix_paths=("/api/ha/metrics",),
+        path_decision=_static_decision(
+            role=UserRole.READER,
+            permission=PERMISSION_REPORTS_READ,
+            scope=SERVICE_TOKEN_SCOPE_REPORTS_READ,
+        ),
+        request_decision=_static_decision(
+            role=UserRole.READER,
+            permission=PERMISSION_REPORTS_READ,
+            scope=SERVICE_TOKEN_SCOPE_REPORTS_READ,
+        ),
+    ),
+    RoutePolicy(
         prefix_paths=("/api/ha",),
         path_decision=_static_decision(
             role=UserRole.READER,

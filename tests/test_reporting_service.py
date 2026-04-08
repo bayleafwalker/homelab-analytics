@@ -1,11 +1,105 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.extensions import ExtensionPublication, ExtensionRegistry, LayerExtension
 from packages.storage.duckdb_store import DuckDBStore
+
+
+def _seed_metric_reporting(ts: TransformationService) -> None:
+    today = date.today()
+    month_start = today.replace(day=1)
+
+    ts.load_transactions(
+        [
+            {
+                "booked_at": f"{today.year}-{today.month:02d}-03T08:00:00+00:00",
+                "account_id": "checking",
+                "counterparty_name": "Employer",
+                "amount": "2500.00",
+                "currency": "EUR",
+                "description": "salary",
+            },
+            {
+                "booked_at": f"{today.year}-{today.month:02d}-05T08:00:00+00:00",
+                "account_id": "checking",
+                "counterparty_name": "Landlord",
+                "amount": "-900.00",
+                "currency": "EUR",
+                "description": "rent",
+            },
+        ],
+        run_id="txn-001",
+    )
+    ts.refresh_monthly_cashflow()
+    ts.refresh_household_overview()
+
+    ts.load_utility_usage(
+        [
+            {
+                "meter_id": "elec-001",
+                "meter_name": "Main Meter",
+                "utility_type": "electricity",
+                "location": "home",
+                "usage_start": month_start.isoformat(),
+                "usage_end": today.isoformat(),
+                "usage_quantity": "320.50",
+                "usage_unit": "kWh",
+                "reading_source": "smart-meter",
+            }
+        ],
+        run_id="usage-001",
+    )
+    ts.load_bills(
+        [
+            {
+                "meter_id": "elec-001",
+                "meter_name": "Main Meter",
+                "provider": "City Power",
+                "utility_type": "electricity",
+                "location": "home",
+                "billing_period_start": month_start.isoformat(),
+                "billing_period_end": today.isoformat(),
+                "billed_amount": "48.08",
+                "currency": "EUR",
+                "billed_quantity": "320.50",
+                "usage_unit": "kWh",
+                "invoice_date": today.isoformat(),
+            }
+        ],
+        run_id="bill-001",
+    )
+    ts.refresh_utility_cost_summary()
+    ts.refresh_utility_cost_trend_monthly()
+    ts.refresh_household_overview()
+
+    ts.load_loan_repayments(
+        [
+            {
+                "loan_id": "loan-001",
+                "loan_name": "Test Mortgage",
+                "lender": "Test Bank",
+                "loan_type": "mortgage",
+                "principal": "200000.00",
+                "annual_rate": "0.045",
+                "term_months": "240",
+                "start_date": month_start.isoformat(),
+                "payment_frequency": "monthly",
+                "repayment_date": today.isoformat(),
+                "repayment_month": f"{today.year}-{today.month:02d}",
+                "payment_amount": "1265.00",
+                "principal_portion": "515.00",
+                "interest_portion": "750.00",
+                "extra_amount": None,
+                "currency": "EUR",
+            }
+        ],
+        run_id="loan-001",
+    )
+    ts.refresh_loan_schedule_projected()
 
 
 def test_reporting_service_falls_back_to_transformation_service_for_marts() -> None:
@@ -36,6 +130,25 @@ def test_reporting_service_falls_back_to_transformation_service_for_marts() -> N
     reporting_service = ReportingService(transformation_service)
 
     assert reporting_service.get_monthly_cashflow() == transformation_service.get_monthly_cashflow()
+
+
+def test_reporting_service_metric_snapshots_use_reporting_layer_marts() -> None:
+    transformation_service = TransformationService(DuckDBStore.memory())
+    _seed_metric_reporting(transformation_service)
+
+    reporting_service = ReportingService(transformation_service)
+
+    cashflow = reporting_service.get_current_month_net_cashflow()
+    assert cashflow.value == Decimal("1600.0000")
+    assert cashflow.unit == "EUR"
+
+    electricity = reporting_service.get_current_month_electricity_cost()
+    assert electricity.value == Decimal("48.0800")
+    assert electricity.unit == "EUR"
+
+    next_payment = reporting_service.get_next_loan_payment_amount()
+    assert next_payment.value == Decimal("1265.3000")
+    assert next_payment.unit == "EUR"
 
 
 def test_reporting_service_falls_back_to_transformation_service_for_current_dimensions() -> None:

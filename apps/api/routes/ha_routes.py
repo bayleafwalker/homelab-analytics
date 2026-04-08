@@ -3,6 +3,7 @@
   POST /api/ha/ingest                        → batch ingest HA state objects
   GET  /api/ha/entities                      → current state per entity (all or filtered)
   GET  /api/ha/entities/{entity_id}/history  → historian log for one entity
+  GET  /api/ha/metrics/...                   → reporting-backed REST sensor metrics
   GET  /api/ha/bridge/status                 → WebSocket bridge health (Phase 2)
   GET  /api/ha/mqtt/status                   → MQTT publisher health (Phase 3)
   GET  /api/ha/policies                      → evaluate and return policy verdicts (Phase 4)
@@ -28,6 +29,7 @@ from apps.api.response_models import (
     HaMqttStatusModel,
 )
 from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
+from packages.pipelines.reporting_service import ReportingService, ScalarMetricSnapshot
 from packages.pipelines.transformation_service import TransformationService
 
 
@@ -81,10 +83,16 @@ class HaApprovalProposalListModel(BaseModel):
     proposals: list[HaApprovalProposalModel]
 
 
+class HaMetricValueModel(BaseModel):
+    value: float | None
+    unit: str
+
+
 def register_ha_routes(
     app: FastAPI,
     *,
     transformation_service: TransformationService | None,
+    reporting_service: ReportingService | None = None,
     ha_bridge: Any | None = None,
     ha_mqtt_publisher: Any | None = None,
     ha_policy_evaluator: Any | None = None,
@@ -92,6 +100,26 @@ def register_ha_routes(
     ha_action_proposal_registry: ApprovalActionRegistry | None = None,
     to_jsonable: Callable[[Any], Any],
 ) -> None:
+    def _reporting() -> ReportingService:
+        if reporting_service is not None:
+            return reporting_service
+        if transformation_service is not None:
+            return ReportingService(transformation_service)
+        raise HTTPException(
+            status_code=503,
+            detail="HA metrics require a reporting service.",
+        )
+
+    def _metric_response(snapshot: ScalarMetricSnapshot | dict[str, Any]) -> HaMetricValueModel:
+        if isinstance(snapshot, dict):
+            value = snapshot.get("value")
+            unit = str(snapshot.get("unit") or "")
+        else:
+            value = snapshot.value
+            unit = snapshot.unit
+        numeric_value = None if value is None else float(value)
+        return HaMetricValueModel(value=numeric_value, unit=unit)
+
     def _svc() -> TransformationService:
         if transformation_service is not None:
             return transformation_service
@@ -129,6 +157,27 @@ def register_ha_routes(
         svc = _svc()
         rows = svc.get_ha_entity_history(entity_id, limit=limit)
         return {"rows": to_jsonable(rows), "limit": limit}
+
+    @app.get(
+        "/api/ha/metrics/current-month/net-cashflow",
+        response_model=HaMetricValueModel,
+    )
+    async def get_current_month_net_cashflow() -> HaMetricValueModel:
+        return _metric_response(_reporting().get_current_month_net_cashflow())
+
+    @app.get(
+        "/api/ha/metrics/current-month/electricity-cost",
+        response_model=HaMetricValueModel,
+    )
+    async def get_current_month_electricity_cost() -> HaMetricValueModel:
+        return _metric_response(_reporting().get_current_month_electricity_cost())
+
+    @app.get(
+        "/api/ha/metrics/next-loan-payment",
+        response_model=HaMetricValueModel,
+    )
+    async def get_next_loan_payment_amount() -> HaMetricValueModel:
+        return _metric_response(_reporting().get_next_loan_payment_amount())
 
     @app.get("/api/ha/bridge/status", response_model=HaBridgeStatusModel)
     async def get_bridge_status() -> HaBridgeStatusModel:

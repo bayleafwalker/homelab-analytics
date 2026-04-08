@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, cast
@@ -50,6 +51,15 @@ class _StubReportingService:
                 "expected_date": "2026-04-01",
             }
         ]
+
+    def get_current_month_net_cashflow(self):
+        return {"value": Decimal("1600.00"), "unit": "EUR"}
+
+    def get_current_month_electricity_cost(self):
+        return {"value": Decimal("48.08"), "unit": "EUR"}
+
+    def get_next_loan_payment_amount(self):
+        return {"value": Decimal("1265.00"), "unit": "EUR"}
 
 
 def _build_client(
@@ -228,6 +238,7 @@ def test_api_local_auth_enforces_newly_mapped_api_surfaces() -> None:
         assert client.get("/contracts/publications").status_code == 401
         assert client.get("/api/scenarios").status_code == 401
         assert client.get("/api/ha/entities").status_code == 401
+        assert client.get("/api/ha/metrics/current-month/net-cashflow").status_code == 401
         assert (
             client.get(
                 "/api/assistant/answer",
@@ -264,6 +275,9 @@ def test_api_local_auth_enforces_newly_mapped_api_surfaces() -> None:
 
         ha_entities = client.get("/api/ha/entities")
         assert ha_entities.status_code == 503
+        ha_metric = client.get("/api/ha/metrics/current-month/net-cashflow")
+        assert ha_metric.status_code == 200
+        assert ha_metric.json()["unit"] == "EUR"
         assistant = client.get(
             "/api/assistant/answer",
             params={"question": "what is our current monthly burn?"},

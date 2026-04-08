@@ -3,12 +3,17 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any, Callable
 
 from packages.domains.finance.pipelines.contract_price_models import (
     MART_CONTRACT_PRICE_CURRENT_TABLE,
     MART_ELECTRICITY_PRICE_CURRENT_TABLE,
+)
+from packages.domains.finance.pipelines.loan_models import (
+    MART_LOAN_OVERVIEW_TABLE,
+    MART_LOAN_SCHEDULE_PROJECTED_TABLE,
 )
 from packages.domains.finance.pipelines.scenario_service import (
     build_homelab_cost_benefit_baseline_signature,
@@ -78,6 +83,12 @@ class HomelabCostBenefitBaseline:
     service_rows: list[dict[str, Any]]
     workload_rows: list[dict[str, Any]]
     signature: str | None
+
+
+@dataclass(frozen=True)
+class ScalarMetricSnapshot:
+    value: Decimal | None
+    unit: str
 
 
 def publish_promotion_reporting(
@@ -191,6 +202,16 @@ class ReportingService:
             "ORDER BY booking_month",
         )
 
+    def get_current_month_net_cashflow(self) -> ScalarMetricSnapshot:
+        rows = self.get_household_overview()
+        latest_row = _latest_row(rows, "current_month")
+        if latest_row is None:
+            return ScalarMetricSnapshot(value=None, unit="")
+        return ScalarMetricSnapshot(
+            value=_decimal_or_none(latest_row.get("cashflow_net")),
+            unit=str(latest_row.get("currency") or ""),
+        )
+
     def get_monthly_cashflow_by_counterparty(
         self,
         *,
@@ -258,6 +279,52 @@ class ReportingService:
             ("", []),
             "ORDER BY contract_name, price_component, valid_from",
         )
+
+    def get_loan_schedule_projected(
+        self,
+        loan_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_LOAN_SCHEDULE_PROJECTED_TABLE,
+            lambda: self._transformation_service.get_loan_schedule_projected(
+                loan_id=loan_id
+            ),
+            _build_where_clause(("loan_id = %s", loan_id)),
+            "ORDER BY loan_id, period",
+        )
+
+    def get_loan_overview(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_LOAN_OVERVIEW_TABLE,
+            self._transformation_service.get_loan_overview,
+            ("", []),
+            "ORDER BY loan_name",
+        )
+
+    def get_next_loan_payment_amount(self) -> ScalarMetricSnapshot:
+        rows = self.get_loan_schedule_projected()
+        today = date.today()
+        next_payment_date: date | None = None
+        candidate_rows: list[dict[str, Any]] = []
+        for row in rows:
+            payment_date = _coerce_date(row.get("payment_date"))
+            if payment_date is None or payment_date < today:
+                continue
+            if next_payment_date is None or payment_date < next_payment_date:
+                next_payment_date = payment_date
+                candidate_rows = [row]
+            elif payment_date == next_payment_date:
+                candidate_rows.append(row)
+        if not candidate_rows:
+            return ScalarMetricSnapshot(value=None, unit="")
+        unit = _shared_unit(candidate_rows, "currency")
+        if unit is None:
+            return ScalarMetricSnapshot(value=None, unit="")
+        total = sum(
+            (_decimal_or_zero(row.get("payment")) for row in candidate_rows),
+            Decimal("0"),
+        )
+        return ScalarMetricSnapshot(value=total, unit=unit)
 
     def get_utility_cost_summary(
         self,
@@ -357,6 +424,30 @@ class ReportingService:
             """,
             params,
         )
+
+    def get_current_month_electricity_cost(self) -> ScalarMetricSnapshot:
+        rows = self.get_utility_cost_summary(
+            utility_type="electricity",
+            granularity="month",
+        )
+        latest_period = _latest_period(rows, _utility_period_label)
+        if latest_period is None:
+            return ScalarMetricSnapshot(value=None, unit="")
+        selected_rows = [
+            row
+            for row in rows
+            if _utility_period_label(row) == latest_period
+        ]
+        if not selected_rows:
+            return ScalarMetricSnapshot(value=None, unit="")
+        unit = _shared_unit(selected_rows, "currency")
+        if unit is None:
+            return ScalarMetricSnapshot(value=None, unit="")
+        total = sum(
+            (_decimal_or_zero(row.get("billed_amount")) for row in selected_rows),
+            Decimal("0"),
+        )
+        return ScalarMetricSnapshot(value=total, unit=unit)
 
     def get_current_dimension_rows(self, dimension_name: str) -> list[dict[str, Any]]:
         relation_name = CURRENT_DIMENSION_RELATIONS.get(dimension_name)
@@ -769,3 +860,71 @@ def _relation_kind(relation_name: str) -> str:
     if relation_name.startswith("mart_"):
         return "mart"
     return "published_relation"
+
+
+def _latest_row(
+    rows: list[dict[str, Any]],
+    field_name: str,
+) -> dict[str, Any] | None:
+    candidates = [row for row in rows if row.get(field_name) is not None]
+    if not candidates:
+        return rows[0] if rows else None
+    return max(candidates, key=lambda row: str(row.get(field_name) or ""))
+
+
+def _latest_period(
+    rows: list[dict[str, Any]],
+    field_name: str | Callable[[dict[str, Any]], str],
+) -> str | None:
+    if callable(field_name):
+        periods = [field_name(row) for row in rows if field_name(row)]
+    else:
+        periods = [str(row.get(field_name) or "") for row in rows if row.get(field_name)]
+    return max(periods) if periods else None
+
+
+def _utility_period_label(row: dict[str, Any]) -> str:
+    return str(
+        row.get("period_month")
+        or row.get("period")
+        or row.get("billing_month")
+        or ""
+    )
+
+
+def _shared_unit(
+    rows: list[dict[str, Any]],
+    field_name: str,
+) -> str | None:
+    units = {str(row.get(field_name) or "").strip() for row in rows}
+    units.discard("")
+    if not units:
+        return ""
+    if len(units) > 1:
+        return None
+    return next(iter(units))
+
+
+def _decimal_or_none(value: Any) -> Decimal | None:
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except Exception:
+        return None
+
+
+def _decimal_or_zero(value: Any) -> Decimal:
+    parsed = _decimal_or_none(value)
+    return parsed if parsed is not None else Decimal("0")
+
+
+def _coerce_date(value: Any) -> date | None:
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str) and value:
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            return None
+    return None

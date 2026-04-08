@@ -156,7 +156,7 @@ The platform derives household and homelab analytics from normalized canonical m
 **Rationale:** Home Assistant is the most common homelab automation platform. Direct metric exposure enables dashboard integration and automation triggers.
 
 **Phase:** 3
-**Status:** in-progress (HA state ingest/query routes, contract-based HA renderer metadata, and MQTT synthetic-entity publication are implemented; reporting-backed HA summary states can be rendered through `HaContractRenderer`, but dedicated REST-sensor `{\"value\", \"unit\"}` endpoints for household finance measures are still pending)
+**Status:** implemented (HA state ingest/query routes, contract-based HA renderer metadata, MQTT synthetic-entity publication, and dedicated reporting-backed REST-sensor `{\"value\", \"unit\"}` endpoints for current-month net cashflow, current-month electricity cost, and next loan payment are implemented)
 
 **Acceptance criteria:**
 - API endpoints return simple JSON key-value responses (e.g. `{"value": 1234.56, "unit": "EUR"}`).

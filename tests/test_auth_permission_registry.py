@@ -671,6 +671,24 @@ def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> Non
         == "runs:read"
     )
 
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/metrics/current-month/net-cashflow", "GET") == UserRole.READER
+    assert (
+        required_permission_for_request(
+            API_ROUTE_AUTHORIZATION_LOOKUP,
+            "/api/ha/metrics/current-month/net-cashflow",
+            method="GET",
+        )
+        == "reports.read"
+    )
+    assert (
+        required_service_token_scope_for_request(
+            API_ROUTE_AUTHORIZATION_LOOKUP,
+            "/api/ha/metrics/current-month/net-cashflow",
+            "GET",
+        )
+        == "reports:read"
+    )
+
     assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/actions/proposals", "GET") == UserRole.READER
     assert (
         required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/actions/proposals", method="GET")
