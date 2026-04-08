@@ -1,40 +1,25 @@
-"""Session and OIDC authentication route handlers.
+"""Session and OIDC authentication route handlers."""
 
-Covers: POST/GET /auth/login, GET /auth/callback, POST /auth/logout, GET /auth/me
-
-ADR LOC exception: this file exceeds the 250-line review threshold (~354 lines) and is
-accepted as a justified single-concern exception. It handles one logical flow — session
-lifecycle — with local and OIDC variants that share session issuance and cookie management.
-Splitting by auth mechanism would scatter related setup/teardown across files with no
-readability gain. Revisit if a third auth variant is added.
-"""
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Annotated, Any, Callable, cast
-
-import httpx
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from apps.api.models import LoginRequest
+from packages.application.use_cases.auth_sessions import (
+    build_auth_me_payload,
+    complete_oidc_callback,
+    perform_local_login,
+    perform_logout,
+    start_oidc_login as build_oidc_login_start_outcome,
+)
 from packages.platform.auth.break_glass import BreakGlassController
-from packages.platform.auth.crypto import verify_password
-from packages.platform.auth.oidc_provider import (
-    OidcAuthenticationError,
-    OidcAuthorizationError,
-    OidcProvider,
-    normalize_return_to,
-)
+from packages.platform.auth.oidc_provider import OidcProvider
 from packages.platform.auth.role_hierarchy import AuthenticatedPrincipal
-from packages.platform.auth.serialization import (
-    serialize_authenticated_user,
-    serialize_principal,
-    serialize_user,
-)
+from packages.platform.auth.serialization import serialize_principal, serialize_user
 from packages.platform.auth.session_manager import SessionManager
-from packages.shared.metrics import metrics_registry
-from packages.storage.auth_store import AuthStore, normalize_username
+from packages.storage.auth_store import AuthStore
 
 
 def register_auth_session_routes(
@@ -48,142 +33,45 @@ def register_auth_session_routes(
     cookie_secure_for_request: Callable[[Request], bool],
     break_glass_controller: BreakGlassController | None,
     record_auth_event: Callable[..., None],
-    locked_out_until: Callable[[str, datetime], datetime | None],
+    locked_out_until: Callable[[str, Any], Any],
     request_principal_from_user: Callable[..., AuthenticatedPrincipal],
 ) -> None:
     @app.post("/auth/login")
     async def login(request: Request, payload: LoginRequest) -> JSONResponse:
-        if resolved_auth_mode != "local":
-            raise HTTPException(
-                status_code=400,
-                detail="Local authentication is not enabled.",
-            )
-        if resolved_identity_mode == "local_single_user":
-            if break_glass_controller is None or not break_glass_controller.enabled:
-                record_auth_event(
-                    request,
-                    event_type="break_glass_login_blocked",
-                    success=False,
-                    subject_username=payload.username.strip().lower() or None,
-                    detail="Break-glass local login is disabled by configuration.",
-                )
-                raise HTTPException(
-                    status_code=403,
-                    detail="Break-glass local access is disabled.",
-                )
-            if not break_glass_controller.is_request_address_allowed(request):
-                record_auth_event(
-                    request,
-                    event_type="break_glass_login_blocked",
-                    success=False,
-                    subject_username=payload.username.strip().lower() or None,
-                    detail="Break-glass local login requires an internal address.",
-                )
-                raise HTTPException(
-                    status_code=403,
-                    detail="Break-glass local access is limited to internal addresses.",
-                )
-        normalized_username = normalize_username(payload.username)
-        now = datetime.now(UTC)
-        locked_until = locked_out_until(normalized_username, now)
-        if locked_until is not None:
-            metrics_registry.inc(
-                "auth_lockouts_total",
-                1,
-                help_text="Total login lockouts observed by the API.",
-            )
-            record_auth_event(
-                request,
-                event_type="login_blocked",
-                success=False,
-                subject_username=normalized_username,
-                detail=f"Locked out until {locked_until.isoformat()}",
-            )
-            raise HTTPException(
-                status_code=429,
-                detail="Too many failed login attempts. Try again later.",
-            )
-        try:
-            user = resolved_auth_store.get_local_user_by_username(normalized_username)
-        except KeyError as exc:
-            metrics_registry.inc(
-                "auth_failures_total",
-                1,
-                help_text="Total failed login attempts observed by the API.",
-            )
-            record_auth_event(
-                request,
-                event_type="login_failed",
-                success=False,
-                subject_username=normalized_username,
-                detail="Unknown username.",
-            )
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid username or password.",
-            ) from exc
-        if not user.enabled or not verify_password(payload.password, user.password_hash):
-            metrics_registry.inc(
-                "auth_failures_total",
-                1,
-                help_text="Total failed login attempts observed by the API.",
-            )
-            record_auth_event(
-                request,
-                event_type="login_failed",
-                success=False,
-                subject_user_id=user.user_id,
-                subject_username=user.username,
-                detail="Invalid password or disabled user.",
-            )
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid username or password.",
-            )
-        user = resolved_auth_store.record_local_user_login(user.user_id)
-        assert resolved_session_manager is not None
-        break_glass_active_until: datetime | None = None
-        if resolved_identity_mode == "local_single_user" and break_glass_controller is not None:
-            break_glass_active_until = break_glass_controller.activate(now=now)
-            record_auth_event(
-                request,
-                event_type="break_glass_activated",
-                success=True,
-                subject_user_id=user.user_id,
-                subject_username=user.username,
-                detail=f"Break-glass active until {break_glass_active_until.isoformat()}",
-            )
-        record_auth_event(
+        outcome = perform_local_login(
             request,
-            event_type="login_succeeded",
-            success=True,
-            subject_user_id=user.user_id,
-            subject_username=user.username,
-            detail=(
-                f"break_glass_active_until={break_glass_active_until.isoformat()}"
-                if break_glass_active_until is not None
-                else None
-            ),
+            auth_mode=resolved_auth_mode,
+            identity_mode=resolved_identity_mode,
+            username=payload.username,
+            password=payload.password,
+            auth_store=resolved_auth_store,
+            session_manager=resolved_session_manager,
+            break_glass_controller=break_glass_controller,
+            locked_out_until=locked_out_until,
+            record_auth_event=record_auth_event,
+            request_principal_from_user=request_principal_from_user,
         )
-        issued_session = resolved_session_manager.issue_session(user)
+        if outcome.status != "success":
+            raise HTTPException(
+                status_code=_local_login_status_code(outcome.status),
+                detail=_local_login_detail(outcome.status),
+            )
+        assert outcome.user is not None
+        assert outcome.principal is not None
+        assert outcome.issued_session is not None
         secure_cookie = cookie_secure_for_request(request)
         response = JSONResponse(
             {
                 "auth_mode": resolved_identity_mode,
                 "authenticated": True,
-                "user": serialize_user(user),
-                "principal": serialize_principal(
-                    request_principal_from_user(
-                        user,
-                        csrf_token=issued_session.csrf_token,
-                    )
-                ),
+                "user": serialize_user(outcome.user),
+                "principal": serialize_principal(outcome.principal),
             }
         )
         response.headers["Cache-Control"] = "no-store"
         response.set_cookie(
             key=resolved_session_manager.cookie_name,
-            value=issued_session.cookie_value,
+            value=outcome.issued_session.cookie_value,
             httponly=True,
             max_age=resolved_session_manager.max_age_seconds,
             expires=resolved_session_manager.max_age_seconds,
@@ -193,7 +81,7 @@ def register_auth_session_routes(
         )
         response.set_cookie(
             key=resolved_session_manager.csrf_cookie_name,
-            value=issued_session.csrf_token,
+            value=outcome.issued_session.csrf_token,
             httponly=False,
             max_age=resolved_session_manager.max_age_seconds,
             expires=resolved_session_manager.max_age_seconds,
@@ -208,24 +96,22 @@ def register_auth_session_routes(
         request: Request,
         return_to: Annotated[str | None, Query()] = None,
     ) -> RedirectResponse:
-        if resolved_auth_mode != "oidc":
+        outcome = build_oidc_login_start_outcome(
+            auth_mode=resolved_auth_mode,
+            return_to=return_to,
+            oidc_provider=resolved_oidc_provider,
+        )
+        if outcome.status != "success":
             raise HTTPException(
-                status_code=400,
-                detail="OIDC authentication is not enabled.",
+                status_code=_oidc_start_status_code(outcome.status),
+                detail=_oidc_start_detail(outcome.status),
             )
-        assert resolved_oidc_provider is not None
-        try:
-            redirect = resolved_oidc_provider.build_login_redirect(return_to)
-        except (OidcAuthenticationError, httpx.HTTPError) as exc:
-            raise HTTPException(
-                status_code=502,
-                detail="OIDC discovery failed.",
-            ) from exc
+        assert outcome.redirect is not None
         secure_cookie = cookie_secure_for_request(request)
-        response = RedirectResponse(redirect.authorization_url, status_code=303)
+        response = RedirectResponse(outcome.redirect.authorization_url, status_code=303)
         response.set_cookie(
             key=resolved_oidc_provider.state_cookie_name,
-            value=redirect.state_cookie_value,
+            value=outcome.redirect.state_cookie_value,
             httponly=True,
             max_age=resolved_oidc_provider.state_max_age_seconds,
             expires=resolved_oidc_provider.state_max_age_seconds,
@@ -243,101 +129,32 @@ def register_auth_session_routes(
         state: Annotated[str | None, Query()] = None,
         error: Annotated[str | None, Query()] = None,
     ) -> RedirectResponse:
-        if resolved_auth_mode != "oidc":
+        outcome = complete_oidc_callback(
+            request,
+            auth_mode=resolved_auth_mode,
+            code=code,
+            state=state,
+            error=error,
+            state_cookie_value=(
+                request.cookies.get(resolved_oidc_provider.state_cookie_name)
+                if resolved_oidc_provider is not None
+                else None
+            ),
+            oidc_provider=resolved_oidc_provider,
+            session_manager=resolved_session_manager,
+            record_auth_event=record_auth_event,
+        )
+        if outcome.status == "auth_disabled":
             raise HTTPException(
                 status_code=400,
                 detail="OIDC authentication is not enabled.",
             )
-        assert resolved_session_manager is not None
+
         assert resolved_oidc_provider is not None
-        if error or not code or not state:
-            record_auth_event(
-                request,
-                event_type="login_failed",
-                success=False,
-                detail=error or "OIDC callback missing code or state.",
-            )
-            response = RedirectResponse("/login?error=oidc-failed", status_code=303)
-            response.delete_cookie(
-                resolved_oidc_provider.state_cookie_name,
-                path="/",
-                httponly=True,
-                samesite=resolved_oidc_provider.same_site,
-                secure=cookie_secure_for_request(request),
-            )
-            response.headers["Cache-Control"] = "no-store"
-            return response
-        try:
-            principal, return_to = resolved_oidc_provider.authenticate_callback(
-                code=code,
-                state=state,
-                cookie_value=request.cookies.get(resolved_oidc_provider.state_cookie_name),
-            )
-        except OidcAuthorizationError as exc:
-            record_auth_event(
-                request,
-                event_type="login_failed",
-                success=False,
-                detail=str(exc),
-            )
-            response = RedirectResponse("/login?error=oidc-unmapped", status_code=303)
-            response.delete_cookie(
-                resolved_oidc_provider.state_cookie_name,
-                path="/",
-                httponly=True,
-                samesite=resolved_oidc_provider.same_site,
-                secure=cookie_secure_for_request(request),
-            )
-            response.headers["Cache-Control"] = "no-store"
-            return response
-        except (OidcAuthenticationError, httpx.HTTPError) as exc:
-            record_auth_event(
-                request,
-                event_type="login_failed",
-                success=False,
-                detail=str(exc),
-            )
-            response = RedirectResponse("/login?error=oidc-failed", status_code=303)
-            response.delete_cookie(
-                resolved_oidc_provider.state_cookie_name,
-                path="/",
-                httponly=True,
-                samesite=resolved_oidc_provider.same_site,
-                secure=cookie_secure_for_request(request),
-            )
-            response.headers["Cache-Control"] = "no-store"
-            return response
-        record_auth_event(
-            request,
-            event_type="login_succeeded",
-            success=True,
-            subject_user_id=principal.user_id,
-            subject_username=principal.username,
-        )
-        issued_session = resolved_session_manager.issue_session(principal)
+        assert resolved_session_manager is not None
         secure_cookie = cookie_secure_for_request(request)
-        response = RedirectResponse(normalize_return_to(return_to), status_code=303)
+        response = RedirectResponse(outcome.redirect_to, status_code=303)
         response.headers["Cache-Control"] = "no-store"
-        response.set_cookie(
-            key=resolved_session_manager.cookie_name,
-            value=issued_session.cookie_value,
-            httponly=True,
-            max_age=resolved_session_manager.max_age_seconds,
-            expires=resolved_session_manager.max_age_seconds,
-            path="/",
-            samesite=resolved_session_manager.same_site,
-            secure=secure_cookie,
-        )
-        response.set_cookie(
-            key=resolved_session_manager.csrf_cookie_name,
-            value=issued_session.csrf_token,
-            httponly=False,
-            max_age=resolved_session_manager.max_age_seconds,
-            expires=resolved_session_manager.max_age_seconds,
-            path="/",
-            samesite=resolved_session_manager.same_site,
-            secure=secure_cookie,
-        )
         response.delete_cookie(
             resolved_oidc_provider.state_cookie_name,
             path="/",
@@ -345,40 +162,46 @@ def register_auth_session_routes(
             samesite=resolved_oidc_provider.same_site,
             secure=secure_cookie,
         )
+        if outcome.status == "success":
+            assert outcome.principal is not None
+            assert outcome.issued_session is not None
+            response.set_cookie(
+                key=resolved_session_manager.cookie_name,
+                value=outcome.issued_session.cookie_value,
+                httponly=True,
+                max_age=resolved_session_manager.max_age_seconds,
+                expires=resolved_session_manager.max_age_seconds,
+                path="/",
+                samesite=resolved_session_manager.same_site,
+                secure=secure_cookie,
+            )
+            response.set_cookie(
+                key=resolved_session_manager.csrf_cookie_name,
+                value=outcome.issued_session.csrf_token,
+                httponly=False,
+                max_age=resolved_session_manager.max_age_seconds,
+                expires=resolved_session_manager.max_age_seconds,
+                path="/",
+                samesite=resolved_session_manager.same_site,
+                secure=secure_cookie,
+            )
         return response
 
     @app.post("/auth/logout")
     async def logout(request: Request) -> JSONResponse:
+        principal = cast(
+            AuthenticatedPrincipal | None,
+            getattr(request.state, "principal", None),
+        )
+        perform_logout(
+            identity_mode=resolved_identity_mode,
+            principal=principal,
+            break_glass_controller=break_glass_controller,
+            record_auth_event=record_auth_event,
+            request=request,
+        )
         response = JSONResponse({"logged_out": True})
         if resolved_session_manager is not None:
-            principal = cast(
-                AuthenticatedPrincipal | None,
-                getattr(request.state, "principal", None),
-            )
-            if principal is not None:
-                record_auth_event(
-                    request,
-                    event_type="logout",
-                    success=True,
-                    actor=principal,
-                    subject_user_id=principal.user_id,
-                    subject_username=principal.username,
-                )
-                if (
-                    resolved_identity_mode == "local_single_user"
-                    and principal.auth_provider == "local"
-                    and break_glass_controller is not None
-                ):
-                    break_glass_controller.clear()
-                    record_auth_event(
-                        request,
-                        event_type="break_glass_cleared",
-                        success=True,
-                        actor=principal,
-                        subject_user_id=principal.user_id,
-                        subject_username=principal.username,
-                        detail="Break-glass window cleared by logout.",
-                    )
             secure_cookie = cookie_secure_for_request(request)
             response.delete_cookie(
                 resolved_session_manager.cookie_name,
@@ -406,19 +229,48 @@ def register_auth_session_routes(
 
     @app.get("/auth/me")
     async def auth_me(request: Request) -> dict[str, Any]:
-        if resolved_auth_mode == "disabled":
-            return {"auth_mode": "disabled", "authenticated": False}
-        principal = getattr(request.state, "principal", None)
-        if principal is None:
+        payload = build_auth_me_payload(
+            auth_mode=resolved_auth_mode,
+            identity_mode=resolved_identity_mode,
+            principal=cast(AuthenticatedPrincipal | None, getattr(request.state, "principal", None)),
+            auth_store=resolved_auth_store,
+        )
+        if payload is None:
             raise HTTPException(status_code=401, detail="Authentication required.")
-        if principal.auth_provider == "local":
-            user = resolved_auth_store.get_local_user(principal.user_id)
-            serialized_user = serialize_user(user)
-        else:
-            serialized_user = serialize_authenticated_user(principal)
-        return {
-            "auth_mode": resolved_identity_mode,
-            "authenticated": True,
-            "user": serialized_user,
-            "principal": serialize_principal(principal),
-        }
+        return payload
+
+
+def _local_login_status_code(status: str) -> int:
+    if status == "auth_disabled":
+        return 400
+    if status == "break_glass_disabled":
+        return 403
+    if status == "break_glass_internal_only":
+        return 403
+    if status == "locked_out":
+        return 429
+    return 401
+
+
+def _local_login_detail(status: str) -> str:
+    if status == "auth_disabled":
+        return "Local authentication is not enabled."
+    if status == "break_glass_disabled":
+        return "Break-glass local access is disabled."
+    if status == "break_glass_internal_only":
+        return "Break-glass local access is limited to internal addresses."
+    if status == "locked_out":
+        return "Too many failed login attempts. Try again later."
+    return "Invalid username or password."
+
+
+def _oidc_start_status_code(status: str) -> int:
+    if status == "auth_disabled":
+        return 400
+    return 502
+
+
+def _oidc_start_detail(status: str) -> str:
+    if status == "auth_disabled":
+        return "OIDC authentication is not enabled."
+    return "OIDC discovery failed."
