@@ -35,8 +35,10 @@ Review any stale, blocked, or unclaimed items. Decide with the user whether to d
 
 ### 3. Close the sprint in sprintctl
 
+`sprintctl` does not expose a separate `sprint close` command. Close the sprint with:
+
 ```bash
-SPRINTCTL_DB=... sprintctl sprint close --sprint-id <id>
+SPRINTCTL_DB=... sprintctl sprint status --id <id> --status closed
 ```
 
 If the sprint requires a final status comment, add it as an event first:
@@ -105,7 +107,7 @@ Confirm with the user before pushing tags.
 - `docs/sprint-snapshots/sprint-current.txt` reflects the closed sprint state.
 - All knowledge candidates are approved or rejected — none left in `candidate` status.
 - If publication was in scope, `docs/knowledge/knowledge-base.md` is up to date.
-- Sprint is marked closed in `sprintctl`.
+- Sprint is marked closed in `sprintctl` with `sprint status --id <id> --status closed`.
 
 ## Do not
 

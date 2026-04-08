@@ -18,12 +18,14 @@ When sources disagree, follow them in this order:
 2. `docs/sprint-snapshots/sprint-current.txt` for the shared current sprint view when a tracked artifact is needed
 3. runbooks, `AGENTS.md`, mode guides, and skills for durable process rules
 4. requirements, architecture docs, and product docs for intended behavior and design constraints
-5. session notes for local history only
+5. committed training artifacts for curated reusable examples derived from real sessions
+6. session notes for local history only
 
 Interpretation rules:
 - use live `sprintctl` state to choose or resume sprint work when the local DB is available
 - use sprint docs, plans, and session notes to explain work, not to override live execution state
 - promote any repeated rule from a session note into a tracked runbook, skill, or guide
+- promote any reusable worked example or workflow assessment into `docs/training/` instead of leaving it only in `.agents/sessions/`
 
 ## Working Loops
 
@@ -114,7 +116,9 @@ Interpretation rules:
 
 **Close-out artifacts:** verification summary with commands actually run, updated release assumptions, and any handoff material required for the next engineer or reviewer.
 
-**Primary references:** `AGENTS.md`, `docs/runbooks/release-governance.md`, `docs/agents/release-ops.md`, `.agents/skills/code-change-verification/SKILL.md`
+When the session surfaced reusable workflow examples, post-session suitability lessons, or training-worthy coordination patterns, also run `workflow-artifact-capture`.
+
+**Primary references:** `AGENTS.md`, `docs/runbooks/release-governance.md`, `docs/agents/release-ops.md`, `.agents/skills/code-change-verification/SKILL.md`, `.agents/skills/workflow-artifact-capture/SKILL.md`
 
 ### 6. Sprint close
 
@@ -132,7 +136,9 @@ Interpretation rules:
 
 **Close-out artifacts:** correct sprint status, refreshed sprint snapshot, reviewed knowledge candidates, and rendered knowledge base when published.
 
-**Primary references:** `runbooks/sprint-and-knowledge-operations.md`, `.agents/skills/kctl-extract/SKILL.md`
+If sprint-close sessions also produced reusable workflow examples or process lessons that need narrative preservation, capture them in `docs/training/` rather than only in `.agents/sessions/`.
+
+**Primary references:** `runbooks/sprint-and-knowledge-operations.md`, `.agents/skills/kctl-extract/SKILL.md`, `.agents/skills/workflow-artifact-capture/SKILL.md`
 
 ## Done By Change Class
 

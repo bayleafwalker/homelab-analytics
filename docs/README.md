@@ -77,25 +77,13 @@ Use these tags when adding or updating docs so kernel-vs-app ownership stays exp
 
 ## Sprints
 
-- `sprints/auth-identity-cutover-and-machine-federation.md` — Sprint H: auth migration completion and machine federation foundation.
-- `sprints/finance-ingestion-subsystem.md` — Sprint I plan for the finance ingestion subsystem, including the brief ordering and implementation stop points.
-- `sprints/household-operator-product-loop.md` — 4-sprint product delivery plan: Weekly Money View, Budget vs Reality, Debt and Cost Truth, Household Control Panel.
-- `sprints/product-sprint-scope.md` — initial product sprint scope and deliverables.
-- `sprints/product-sprint-remaining.md` — remaining product sprint work.
+Use `docs/sprints/TRACKER.md` for the live sprint index. Keep this section to durable anchors rather than a full sprint catalog.
+
 - `sprints/household-operator-implementation-plan.md` — implementation plan for the household operator product loop.
-- `sprints/finance-loop.md` — finance domain sprint detail.
-- `sprints/budget-variance.md` — budget variance sprint detail.
-- `sprints/utilities-capability-pack-proof.md` — utilities capability pack proof sprint.
-- `sprints/architecture-sprint-scope.md` — architecture sprint scope.
-- `sprints/ingestion-operator-ergonomics.md` — ingestion operator ergonomics sprint.
-- `sprints/homelab-capability-pack.md` — Sprint A: homelab capability pack (4 sources, 4 marts, homelab API routes). Done — PR #7.
-- `sprints/category-governance.md` — Sprint B: category governance Phase 1 (backfill bug fix, budget-spend overlap test). Done — PR #8.
-- `sprints/simulation-engine-sprint.md` — Sprint B: simulation engine (loan what-if first). Done.
-- `sprints/scenarios-page-sprint.md` — Sprint F: scenarios history page and list API. Done.
-- `sprints/expense-shock-sprint.md` — Sprint E+2: expense shock / tariff / cost-of-living scenario. Done.
-- `sprints/ha-integration-hub-phase1.md` — Sprint G: HA integration hub Phase 1 (entity normalization bridge). Done.
+- `sprints/finance-ingestion-subsystem.md` — sprint plan for the finance ingestion subsystem.
+- `sprints/architecture-sprint-scope.md` — architecture sprint scope and baseline decisions.
 - `sprints/documentation-reconciliation-and-adapter-stage.md` — documentation reconciliation, integration adapter stage, and roadmap update.
-- `sprints/agentic-and-assistant-layer.md` — Sprint N: agentic retrieval and safe action proposals.
+- `sprints/agentic-and-assistant-layer.md` — agentic retrieval and safe action proposals.
 
 ## Agents
 
@@ -113,6 +101,7 @@ Use these tags when adding or updating docs so kernel-vs-app ownership stays exp
 - `../.agents/skills/sprint-resume/SKILL.md` — safely resume an already-registered sprint item from live `sprintctl` state, including claim identity checks and handoff behavior.
 - `../.agents/skills/code-change-verification/SKILL.md` — select, run, and report the right local verification.
 - `../.agents/skills/pr-handoff-summary/SKILL.md` — produce a concise reviewer or handoff summary after the change shape is stable.
+- `../.agents/skills/workflow-artifact-capture/SKILL.md` — classify session outputs at workflow close, promote curated examples into `docs/training/`, and route concise durable lessons into `kctl` when appropriate.
 - `../.agents/skills/sprint-snapshot/SKILL.md` — render the active sprint state from sprintctl into the committed plaintext snapshot after live status changes.
 - `../.agents/skills/kctl-extract/SKILL.md` — run sprint-close knowledge extraction and review with kctl.
 
@@ -120,6 +109,11 @@ Use these tags when adding or updating docs so kernel-vs-app ownership stays exp
 
 - `knowledge/README.md` — conventions for committed `kctl` render outputs.
 - `knowledge/knowledge-base.md` — canonical committed knowledge base rendered from published `kctl` entries.
+
+## Training
+
+- `training/README.md` — guidance for committed curated training artifacts derived from sessions and workflow experiments.
+- `training/workflow-artifact-TEMPLATE.md` — template for new workflow training artifacts promoted out of `.agents/sessions/`.
 
 ## Decisions
 

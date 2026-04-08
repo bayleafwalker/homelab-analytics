@@ -28,6 +28,8 @@ These are the shared repo artifacts:
 - `docs/sprint-snapshots/sprint-current.txt`
 - `docs/knowledge/knowledge-base.md`
 
+Curated session-derived training docs under `docs/training/` are also committed shared artifacts, but they are authored manually rather than rendered from `sprintctl` or `kctl`.
+
 Treat the committed files as the shared repo view. The SQLite databases are local execution state.
 This repo does not use a separate committed coordination artifact such as `docs/knowledge/knowledge-base-ops.md`.
 When approved coordination candidates are intentionally promoted into durable repo knowledge, publish and render them into `docs/knowledge/knowledge-base.md`.
@@ -138,3 +140,4 @@ Use skills for task-specific execution:
 - `sprint-resume` for resuming an existing sprint item safely
 - `sprint-snapshot` for refreshing `docs/sprint-snapshots/sprint-current.txt`
 - `kctl-extract` for sprint-close extraction, review, and optional publication
+- `workflow-artifact-capture` for turning `.agents/sessions/` source notes into curated committed training artifacts when the lasting value is narrative workflow guidance rather than only structured knowledge

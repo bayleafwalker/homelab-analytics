@@ -2,26 +2,23 @@
 
 ## Maintenance
 
-Skills are authored and maintained here in `.agents/skills/` — this is the source of truth and works for all agents via `AGENTS.md`.
+`.agents/skills/` is the source of truth for skills. `AGENTS.md` points here so the same guidance works for every agent.
 
-`.claude/skills/` holds only symlinks — never content. To add a skill:
-1. Create the directory and `SKILL.md` here under `.agents/skills/<name>/`.
-2. Add a symlink: `ln -s ../../.agents/skills/<name> .claude/skills/<name>`
-3. Register it in this README.
+`.claude/skills/` should only hold symlinks. To add a skill:
+1. Create `.agents/skills/<name>/SKILL.md`.
+2. Add the matching symlink under `.claude/skills/`.
+3. Register the skill here.
 
-Never copy skill content into `.claude/skills/` — symlinks only.
+Use `docs/runbooks/project-working-practices.md` to choose the right working loop before opening a skill.
 
----
-
-Use `docs/runbooks/project-working-practices.md` to decide which working loop applies before choosing a skill.
-
-- `domain-impact-scan`: use before implementing a new domain, ingestion family, or cross-layer capability. It identifies layer impact, required docs, and blockers.
-- `sprint-packet`: use when accepted scope needs to become a sprint-ready implementation packet with deliverables, acceptance, and verification. Use it to register new scope in sprintctl, not to resume an existing item.
-- `sprint-resume`: use when the work already exists in sprintctl and you need to pick up or continue an item safely. It covers claim identity checks, handoff behavior, event logging, and snapshot expectations.
-- `code-change-verification`: use after repo-tracked changes to standardize what local checks to run and how to report them.
-- `dispatch-review`: use once a code-bearing scope is stable and needs the required findings-first review pass before final handoff or PR prep.
-- `pr-handoff-summary`: use when preparing the final reviewer or handoff summary for stable work.
-- `sprint-snapshot`: use to render and commit the current sprintctl sprint state as a reviewable plaintext snapshot after live state changes, with the project DB loaded explicitly first.
-- `kctl-extract`: use at sprint close to extract decisions, patterns, and lessons from sprintctl events into the kctl knowledge review pipeline, review durable and coordination streams (`--kind all`) with optional JSON output for agent-driven follow-up, then publish and render to `docs/knowledge/knowledge-base.md` when that is in scope.
-- `item-done`: use when a sprint item's implementation is complete and verified. Prompts knowledge event capture while context is hot, then runs `done-from-claim`; commit immediately only when the item closes the current reviewable scope.
-- `sprint-close`: use at end-of-sprint to run the full close-out sequence in order: verify green test suite → confirm item health → close sprint in sprintctl → commit final snapshot → extract and review knowledge candidates → publish approved entries → optional tag. Encodes the complete sequence so it is not reconstructed ad hoc each time.
+- `domain-impact-scan`: map layer impact, contracts, and blockers for a new domain or cross-layer change.
+- `sprint-packet`: turn accepted scope into a sprint-ready packet and register it in `sprintctl`.
+- `sprint-resume`: resume an existing sprint item with claim and handoff checks.
+- `code-change-verification`: pick and report the smallest useful verification for the change.
+- `dispatch-review`: run the findings-first review pass on a stable code-bearing scope.
+- `pr-handoff-summary`: write the compact reviewer or handoff summary.
+- `workflow-artifact-capture`: promote reusable workflow examples into `docs/training/` or `kctl`.
+- `sprint-snapshot`: render the current sprint state into the committed snapshot.
+- `kctl-extract`: extract and review sprint-close knowledge candidates.
+- `item-done`: verify, capture lessons, and close a finished sprint item.
+- `sprint-close`: run the full sprint close-out sequence.

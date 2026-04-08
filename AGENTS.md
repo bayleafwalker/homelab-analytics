@@ -115,7 +115,7 @@ Sprint names use **three-word hyphenated codenames**, not sequential letters.
 
 **Before registering a new sprint:** run `sprintctl sprint list` to check existing IDs and names. Collisions on name or sequential-letter patterns indicate the wrong convention is being used.
 
-Current active sprints (2026-04-03): `#29 hearth-lantern-path phase-2`, `#25 flint-glass-vow`, `#23 iron-grove-atlas`.
+Do not rely on this file for the current sprint roster. Check live `sprintctl` state before registering, resuming, or claiming work.
 
 ## Database migrations
 
