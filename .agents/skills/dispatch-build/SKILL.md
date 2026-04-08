@@ -36,19 +36,21 @@ Execute approved, spec-complete implementation work by delegating to Haiku subag
 4. Collect subagent results. If a subagent reports test failures, run up to 5 fix cycles before escalating.
    - Heartbeat the claim again before entering a long remediation loop or resuming after review if the item is still owned by the current live claim identity.
    - After adding or modifying any API route, auth policy, scenario policy mapping, or architecture doc, run `pytest tests/test_architecture_contract.py -x --tb=short` before closing the item.
-5. After each item completes verification, use `item-done` to commit and mark done.
+5. After each item completes verification, use `item-done` to capture knowledge and mark done. Commit at the enclosing reviewable scope boundary: one commit per scope, where a scope may be one item or a tight group of related items. Once that scope diff is stable, run `dispatch-review` before final handoff or PR preparation.
 
 ## Output contract
 
 - Each item implemented with passing tests before close-out.
 - Incremental lint and type failures are caught at the item level instead of batching into `make verify-fast`.
-- One commit per item, not batched.
+- One commit per reviewable scope, not per unrelated batch.
+- Stable code-bearing scopes are reviewed before handoff.
 - Sprint state updated after each item.
 
 ## Do not
 
 - Do not dispatch to Haiku if the item still has unresolved design decisions — use `dispatch-plan` first.
 - Do not pass the claim token to the subagent; keep it only in the orchestrating session and the local `.sprintctl/claims/claim-<item_id>.token` recovery file.
-- Do not batch multiple items into a single commit.
+- Do not batch unrelated items or scopes into a single commit.
 - Do not skip the local verification step before marking an item done.
+- Do not skip `dispatch-review` once a code-bearing scope is stable enough for handoff or PR prep.
 - Do not heartbeat or reuse a claim whose live identity no longer clearly belongs to the current session.

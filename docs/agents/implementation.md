@@ -28,11 +28,12 @@ Use `docs/runbooks/project-working-practices.md` for startup order, change-class
 - Record material item-state changes in `sprintctl` and refresh the shared sprint snapshot when the workflow needs a new shared artifact or reaches a natural batch boundary.
 - Update requirements or architecture docs when behavior or scope changes.
 - Add or update focused tests and at least one integration path for new behavior.
-- **Commit after each sprint item completes verification. Do not batch multiple items into a single commit.**
+- **Commit at the enclosing reviewable scope boundary. A scope may contain one sprint item or multiple tightly related items that should be reviewed together. Do not batch unrelated scopes into a single commit.**
 - **For changed Python files, run file-scoped static checks before close-out: `ruff check <changed-python-files>` and `mypy <changed-python-files>`.**
 - **Run targeted tests only — `pytest <changed-test-files> -x --tb=short` — foreground and blocking. Never background pytest for sequential verification. Full suite (`make test`) is a CI gate, not an in-session gate.**
 - **After adding or modifying any API route, auth policy, scenario policy mapping, or architecture doc, run `pytest tests/test_architecture_contract.py -x --tb=short`.**
 - **Gate `sprintctl` done transitions on targeted test exit code: `pytest <files> -x --tb=short && sprintctl item done-from-claim ...`**
+- **For stable code-bearing scopes, run `dispatch-review` before final handoff, reviewer summary, PR prep, or CI-triggering push, and resolve blockers before calling the scope complete.**
 - **If tests fail after a change, diagnose the root cause, fix, and re-run — up to 5 cycles — before escalating. Only escalate if still failing after 5 attempts or if a design decision is required.**
 
 ## Required output shape

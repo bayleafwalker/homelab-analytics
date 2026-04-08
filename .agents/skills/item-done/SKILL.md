@@ -1,11 +1,11 @@
 ---
 name: item-done
-description: Use when a sprint item's implementation is complete and verified. Captures knowledge events while context is hot, then commits, marks done, and refreshes the snapshot only when the workflow needs a shared state artifact.
+description: Use when a sprint item's implementation is complete and verified. Captures knowledge events while context is hot, then marks done and refreshes the snapshot only when the workflow needs a shared state artifact; commit immediately only when the item closes the current reviewable scope.
 ---
 
 ## Goal
 
-Close a sprint item cleanly: verify the work, capture any durable knowledge before the context cools, commit, update sprint state, and refresh shared snapshot artifacts only at the right boundary.
+Close a sprint item cleanly: verify the work, capture any durable knowledge before the context cools, update sprint state, and commit at the right scope boundary instead of mechanically per item.
 
 ## Inputs
 
@@ -61,16 +61,18 @@ A bare event with no payload produces a thin candidate at `kctl-extract` time. I
 
 If nothing non-obvious happened, skip this step — don't manufacture events.
 
-### 3. Commit the item
+### 3. Commit now only if this item closes the current scope
 
-One commit per sprint item:
+Use one commit per reviewable scope. If this item is the last item in a tight, related scope that should be reviewed together, commit now:
 
 ```bash
 git add <files>
 git commit -m "<type>(<scope>): <description>"
 ```
 
-Commit message should reference the item work, not the item ID. Tests must be green before this commit.
+Commit message should reference the scope work, not the item ID. Tests must be green before this commit.
+
+If the current scope still includes additional tightly related in-flight items, defer the commit until that scope stabilizes. Do not use deferral to batch unrelated work or to postpone commits until the end of a session without an explicit handoff note.
 
 ### 4. Mark done via claim
 
@@ -99,7 +101,7 @@ If no immediate shared artifact is needed, stop after `done-from-claim` and batc
 
 - Tests are green.
 - Any non-obvious decision or lesson is logged as a structured `sprintctl` event with `summary`, `detail`, `tags`, and `confidence`.
-- One commit exists for the item's implementation.
+- The item's implementation is either committed now or intentionally held in the active scope diff pending a scope-level commit.
 - The item is in `done` state in `sprintctl`, tied to the claim.
 - `docs/sprint-snapshots/sprint-current.txt` is refreshed when the workflow needs a new shared sprint artifact, not reflexively after every item.
 
@@ -111,6 +113,6 @@ If no immediate shared artifact is needed, stop after `done-from-claim` and batc
 - Do not use `sprintctl item status --status done` before the pytest exit code is 0.
 - Do not skip step 2 assuming you'll capture it at sprint close — retroactive logging produces thin knowledge candidates.
 - Do not manufacture events if nothing non-obvious happened; one honest event beats three thin ones.
-- Do not batch this item's commit with another item's changes.
+- Do not batch this item's changes with unrelated work under the guise of a scope-level commit.
 - Do not use `item status done` when a claim exists — use `done-from-claim` to preserve ownership proof.
 - Do not create a snapshot-only commit after every item unless the workflow explicitly needs that shared state artifact immediately.

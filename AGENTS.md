@@ -59,7 +59,7 @@ This application is **not yet deployed** to a cluster. Do not run `kubectl` agai
   - **Full suite (CI gate only):** `make test` is a merge gate, not a sprint-item gate. Push the branch; let CI run it. Do not run the full suite in-session unless debugging a cross-cutting regression.
 - Gate `sprintctl` done transitions on targeted test exit code: `pytest <files> -x --tb=short && sprintctl item done-from-claim ...`
 - **Never commit with failing tests.**
-- **Commit after each sprint item completes — not at the end of a session.** One item = one commit. Run targeted tests before each commit.
+- **Commit at the smallest reviewable scope boundary, not mechanically per sprint item.** A scope may be one item or a tight batch of related items that should be reviewed together. Do not batch unrelated scopes or defer commits until the end of a session. Run targeted tests before each commit.
 - Run `make verify-fast` before any PR or CI-triggering push.
 
 ### Self-healing test loop
@@ -80,6 +80,7 @@ Work is divided across three agent tiers. The orchestrating session (Sonnet) coo
 - **The orchestrating session is a coordinator, not an implementer.** It reads context, dispatches subagents, and collects results. Do not make repo edits for sprint deliverables directly — delegate to `dispatch-build` subagents even for well-scoped items. The only direct edits allowed in the orchestrating session are workflow scaffolding (e.g., setting up dispatch context, updating sprint state).
 - Spawn a `dispatch-plan` subagent before any repo edits when the task involves design decisions not already settled by code, docs, or prior instruction.
 - Spawn `dispatch-build` subagents per sprint item. Use `run_in_background=true` for independent items; use `isolation=worktree` for items touching overlapping files.
+- Run `dispatch-review` once a code-bearing scope diff is stable and before final handoff, reviewer summary, PR prep, or CI-triggering push. Treat review dispatch as a scope-level gate, not an item-level ritual.
 - Do not pass `claim_token` to subagents — keep ownership proof in the orchestrating session.
 - Route back to `dispatch-build` if review surfaces blockers; do not close an item with unresolved findings.
 

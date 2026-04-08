@@ -75,7 +75,7 @@ Interpretation rules:
 - for substantial web UI or renderer work, follow `docs/product/frontend-ui-delivery-playbook.md` and freeze repo-tracked `intent.md`, `baseline.tokens.json`, and `ui-contract.yaml` artifacts before broad publish-lane implementation
 - update docs or requirements when behavior, architecture, or scope changes
 - keep sprint state current if the work is sprint-scoped
-- use focused local verification during implementation and broader checks before review or push
+- use focused local verification during implementation, commit at reviewable scope boundaries, and run broader checks before review or push
 - after adding or modifying any API route, auth policy, scenario policy mapping, or architecture doc, run `pytest tests/test_architecture_contract.py -x --tb=short`
 
 **Close-out artifacts:** repo change, matching tests or verification, any required requirements/docs updates, and sprint updates when applicable.
@@ -84,7 +84,7 @@ Interpretation rules:
 
 ### 4. Review
 
-**Start trigger:** the change shape is stable enough to inspect for defects, regressions, and missing coverage.
+**Start trigger:** the change shape is stable enough to inspect for defects, regressions, and missing coverage. For stable code-bearing scopes, this review pass is required before final handoff or PR preparation.
 
 **Consult first:** diff, relevant requirements and architecture sections, and the applicable change-class checklist below.
 
@@ -92,6 +92,7 @@ Interpretation rules:
 - review findings before summaries
 - check traceability between requirements, implementation, and tests
 - confirm layer boundaries still hold
+- run `dispatch-review` or an equivalent findings-first coordinated review before presenting a stable code-bearing scope as complete
 - note residual risk or verification debt explicitly
 
 **Close-out artifacts:** findings-first review summary or reviewer handoff.
@@ -106,6 +107,7 @@ Interpretation rules:
 
 **While in progress:**
 - run the smallest useful checks first, then broader repo gates
+- confirm the stable code-bearing scope already passed `dispatch-review` and any blockers were addressed
 - run `make verify-fast` before opening a PR or pushing a branch that will trigger CI
 - update release, workflow, or deployment docs when the change affects them
 - keep secrets reference-based and out of tracked files
@@ -150,6 +152,7 @@ Minimum done criteria:
 - for changed Python files, run `ruff check <changed-python-files>` and `mypy <changed-python-files>` in-session before close-out
 - run targeted tests for changed files in-session, foreground, fast-fail: `pytest <files> -x --tb=short`; full suite is a CI gate, not an in-session requirement
 - when API routes, auth policies, or scenario policy mappings change, also run `pytest tests/test_architecture_contract.py -x --tb=short`
+- for stable code-bearing scopes, run a findings-first review pass with `dispatch-review` before final handoff or PR preparation
 - gate `sprintctl` done transitions on targeted test exit code
 - keep sprint state current if the work is sprint-scoped
 

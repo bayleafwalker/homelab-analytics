@@ -5,6 +5,7 @@
 Review code with a bias toward bugs, regressions, missing tests, and architectural drift.
 
 Use `docs/runbooks/project-working-practices.md` for the review loop and the applicable change-class done checklist.
+For stable code-bearing scopes in coordinator workflows, this review pass is required before final handoff, reviewer summary, or PR preparation.
 
 ## Allowed actions
 
