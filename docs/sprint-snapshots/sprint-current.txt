@@ -1,18 +1,35 @@
-SPRINT: surface-glass-bridge - Thin Surfaces and Operator Visibility  [active]
-Goal:   Make surfaces thinner and more honest by exposing reporting truth, terminal tasks, and extension state without widening scope.
-ID:     44
-Items:  3 total — 3 done, 0 active, 0 pending, 0 blocked
+SPRINT: keel-ledger-bond - Kernel Hardening and Runtime Honesty  [active]
+Goal:   Make the kernel boring again by clarifying runtime posture and moving auth policy back into kernel-owned seams.
+ID:     41
+Items:  8 total — 3 done, 0 active, 5 pending, 0 blocked
 
---- Track: operator-tools ---
+--- Track: kernel-runtime ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #297  Terminal task library and command discovery  (assignee: -)
+  [done    ] #289  Postgres-first operator defaults and SQLite guardrails  (assignee: -)
 
---- Track: reporting-truth ---
+--- Track: auth-policy ---
+  health: 2 items — 1 done (50%), 0 active, 1 pending, 0 blocked (0%)
+  [done    ] #290  Auth policy decomposition and thin FastAPI assembly  (assignee: -)
+  [pending ] #301  Decompose auth middleware into thin FastAPI assembly plus policy components  (assignee: -)
+
+--- Track: auth-routing ---
+  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
+  [pending ] #300  Replace path-prefix auth policy trees with declarative route policy catalog  (assignee: -)
+
+--- Track: auth-transport ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #296  Reporting mode disclosure and publication audit summary  (assignee: -)
+  [done    ] #304  Trust forwarded headers only from configured forwarders  (assignee: -)
 
---- Track: registry-visibility ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #298  Extension registry visibility surface  (assignee: -)
+--- Track: auth-use-cases ---
+  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
+  [pending ] #299  Extract local login and OIDC session flows into application use-cases  (assignee: -)
 
-Rendered: 2026-04-07T20:58:39Z
+--- Track: auth-compat ---
+  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
+  [pending ] #303  Freeze shared auth shim and legacy auth-mode compatibility follow-up  (assignee: -)
+
+--- Track: auth-contracts ---
+  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
+  [pending ] #302  Move auth vocabulary out of storage into shared/platform contracts  (assignee: -)
+
+Rendered: 2026-04-08T08:26:04Z
