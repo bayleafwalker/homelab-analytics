@@ -9,9 +9,10 @@ from fastapi.testclient import TestClient
 from apps.api.app import create_app
 from apps.api.main import build_app
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.platform.auth.crypto import hash_password
 from packages.platform.auth.route_policy_engine import RouteDecision, RoutePolicy
 from packages.platform.auth.scope_authorization import build_route_authorization_lookup
-from packages.shared.auth import SessionManager, hash_password
+from packages.platform.auth.session_manager import SessionManager
 from packages.shared.settings import AppSettings
 from packages.storage.auth_store import LocalUserCreate, UserRole
 from packages.storage.ingestion_config import IngestionConfigRepository
