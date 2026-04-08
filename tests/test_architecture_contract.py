@@ -629,14 +629,17 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     scope_authorization_source = (
         ROOT / "packages" / "platform" / "auth" / "scope_authorization.py"
     ).read_text()
+    route_policy_catalog_source = (
+        ROOT / "packages" / "platform" / "auth" / "route_policy_catalog.py"
+    ).read_text()
     assert "register_auth_middleware(" in api_source
     assert "build_auth_event_recorder(" in api_source
     assert "required_role_for_path" in auth_runtime_source
     assert "Authentication required." in auth_runtime_source
     assert "CSRF validation failed." in auth_runtime_source
-    assert '"/auth/users"' in scope_authorization_source
-    assert '"/auth/service-tokens"' in scope_authorization_source
-    assert '"/control/auth-audit"' in scope_authorization_source
+    assert '"/auth/users"' in route_policy_catalog_source
+    assert '"/auth/service-tokens"' in route_policy_catalog_source
+    assert '"/control/auth-audit"' in route_policy_catalog_source
     assert '"/auth/users"' in auth_route_source
     assert '"/auth/service-tokens"' in auth_route_source
     assert '"/control/auth-audit"' in auth_route_source
