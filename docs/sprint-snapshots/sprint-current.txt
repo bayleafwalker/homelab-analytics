@@ -1,7 +1,7 @@
 SPRINT: keel-ledger-bond - Kernel Hardening and Runtime Honesty  [active]
 Goal:   Make the kernel boring again by clarifying runtime posture and moving auth policy back into kernel-owned seams.
 ID:     41
-Items:  8 total — 4 done, 0 active, 4 pending, 0 blocked
+Items:  8 total — 5 done, 0 active, 3 pending, 0 blocked
 
 --- Track: kernel-runtime ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
@@ -21,8 +21,8 @@ Items:  8 total — 4 done, 0 active, 4 pending, 0 blocked
   [done    ] #304  Trust forwarded headers only from configured forwarders  (assignee: -)
 
 --- Track: auth-use-cases ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #299  Extract local login and OIDC session flows into application use-cases  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #299  Extract local login and OIDC session flows into application use-cases  (assignee: -)
 
 --- Track: auth-compat ---
   health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
@@ -32,4 +32,4 @@ Items:  8 total — 4 done, 0 active, 4 pending, 0 blocked
   health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
   [pending ] #302  Move auth vocabulary out of storage into shared/platform contracts  (assignee: -)
 
-Rendered: 2026-04-08T08:33:31Z
+Rendered: 2026-04-08T08:40:10Z
