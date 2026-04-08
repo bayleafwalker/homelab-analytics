@@ -640,6 +640,8 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert "API_ROUTE_AUTHORIZATION_LOOKUP" in auth_runtime_source
     assert "Authentication required." in auth_runtime_source
     assert "CSRF validation failed." in auth_runtime_source
+    assert "API_ROUTE_POLICY_CATALOG" in api_auth_policies_source
+    assert "RouteAuthorizationLookup(API_ROUTE_POLICY_CATALOG)" in api_auth_policies_source
     assert '"/auth/users"' in api_auth_policies_source
     assert '"/auth/service-tokens"' in api_auth_policies_source
     assert '"/control/auth-audit"' in api_auth_policies_source
@@ -953,7 +955,7 @@ def _iter_api_route_method_paths() -> set[tuple[str, str]]:
 
 
 def test_request_auth_policy_covers_all_non_public_api_routes() -> None:
-    from apps.api.auth_policies import required_role_for_request
+    from apps.api.auth_policies import API_ROUTE_AUTHORIZATION_LOOKUP
 
     public_routes = {
         ("/auth/login", "GET"),
@@ -968,7 +970,7 @@ def test_request_auth_policy_covers_all_non_public_api_routes() -> None:
     for path, method in sorted(_iter_api_route_method_paths()):
         if (path, method) in public_routes:
             continue
-        if required_role_for_request(path, method) is None:
+        if API_ROUTE_AUTHORIZATION_LOOKUP.required_role_for_request(path, method) is None:
             uncovered.append((method, path))
     assert uncovered == [], (
         "Every non-public API route must have a request-aware auth role mapping. "
@@ -977,10 +979,7 @@ def test_request_auth_policy_covers_all_non_public_api_routes() -> None:
 
 
 def test_request_permission_and_scope_policy_covers_protected_api_routes() -> None:
-    from apps.api.auth_policies import (
-        required_permission_for_request,
-        required_service_token_scope_for_request,
-    )
+    from apps.api.auth_policies import API_ROUTE_AUTHORIZATION_LOOKUP
 
     public_routes = {
         ("/auth/login", "GET"),
@@ -1001,9 +1000,15 @@ def test_request_permission_and_scope_policy_covers_protected_api_routes() -> No
         route_key = (path, method)
         if route_key in public_routes or route_key in role_only_routes:
             continue
-        if required_permission_for_request(path, method=method) is None:
+        if API_ROUTE_AUTHORIZATION_LOOKUP.required_permission_for_request(
+            path,
+            method=method,
+        ) is None:
             missing_permission.append((method, path))
-        if required_service_token_scope_for_request(path, method) is None:
+        if API_ROUTE_AUTHORIZATION_LOOKUP.required_service_token_scope_for_request(
+            path,
+            method,
+        ) is None:
             missing_scope.append((method, path))
 
     assert missing_permission == [], (
@@ -1049,10 +1054,10 @@ def test_request_permission_and_scope_policy_covers_protected_api_routes() -> No
     ],
 )
 def test_auth_policy_role_requirement(path: str, expected_role: str | None) -> None:
-    from apps.api.auth_policies import required_role_for_path
+    from apps.api.auth_policies import API_ROUTE_AUTHORIZATION_LOOKUP
     from packages.storage.auth_store import UserRole
 
-    result = required_role_for_path(path)
+    result = API_ROUTE_AUTHORIZATION_LOOKUP.required_role_for_path(path)
     if expected_role is None:
         assert result is None, (
             f"Path '{path}' should require no role, but got {result}"
@@ -1098,9 +1103,9 @@ def test_auth_policy_role_requirement(path: str, expected_role: str | None) -> N
 def test_auth_policy_service_token_scope_requirement(
     path: str, expected_scope: str | None
 ) -> None:
-    from apps.api.auth_policies import required_service_token_scope_for_path
+    from apps.api.auth_policies import API_ROUTE_AUTHORIZATION_LOOKUP
 
-    result = required_service_token_scope_for_path(path)
+    result = API_ROUTE_AUTHORIZATION_LOOKUP.required_service_token_scope_for_path(path)
     assert result == expected_scope, (
         f"Path '{path}' expected scope '{expected_scope}', got '{result}'"
     )

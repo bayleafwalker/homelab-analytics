@@ -45,8 +45,11 @@ from packages.platform.auth.permission_registry import (
     source_lineage_run_permission,
     transformation_audit_run_permission,
 )
-from packages.platform.auth.route_policy_engine import RouteDecision, RoutePolicy
-from packages.platform.auth.scope_authorization import build_route_authorization_lookup
+from packages.platform.auth.route_policy_engine import (
+    RouteAuthorizationLookup,
+    RouteDecision,
+    RoutePolicy,
+)
 from packages.storage.auth_store import (
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
     SERVICE_TOKEN_SCOPE_INGEST_WRITE,
@@ -440,7 +443,7 @@ def test_request_permission_mapping_supports_control_asset_scopes() -> None:
 
 
 def test_route_authorization_lookup_supports_injected_policy_catalogs() -> None:
-    lookup = build_route_authorization_lookup(
+    lookup = RouteAuthorizationLookup(
         (
             RoutePolicy(
                 exact_paths=("/custom/report",),
