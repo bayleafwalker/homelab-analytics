@@ -120,7 +120,23 @@ When the session surfaced reusable workflow examples, post-session suitability l
 
 **Primary references:** `AGENTS.md`, `docs/runbooks/release-governance.md`, `docs/agents/release-ops.md`, `.agents/skills/code-change-verification/SKILL.md`, `.agents/skills/workflow-artifact-capture/SKILL.md`
 
-### 6. Sprint close
+### 6. Workflow completion
+
+**Start trigger:** the implementation is verified and the user wants the work taken through review and closeout rather than only code changes.
+
+**Consult first:** the diff, verification output, review findings, and live `sprintctl` state if state mutation is allowed.
+
+**While in progress:**
+- run the findings-first review pass before presenting the scope as complete
+- if sprint state mutation is allowed, close the item with `item-done` and capture any durable workflow lessons before the context cools
+- if sprint state mutation is not allowed, stop after verification and review, and report the exact closeout steps that were blocked
+- keep the completion summary explicit about what was verified, reviewed, closed, or left pending
+
+**Close-out artifacts:** review summary, verification summary, and either a completed closeout sequence or an explicit blocked-closeout report.
+
+**Primary references:** `docs/agents/review.md`, `.agents/skills/dispatch-review/SKILL.md`, `.agents/skills/item-done/SKILL.md`, `.agents/skills/workflow-artifact-capture/SKILL.md`
+
+### 7. Sprint close
 
 **Start trigger:** the sprint is substantially complete or needs formal close-out and carryover decisions.
 

@@ -6,6 +6,7 @@ description: Use when a sprint item's implementation is complete and verified. C
 ## Goal
 
 Close a sprint item cleanly: verify the work, capture any durable knowledge before the context cools, update sprint state, and commit at the right scope boundary instead of mechanically per item.
+If sprintctl mutation is not allowed in the current session, do not try to half-complete this workflow; report the blocked closeout steps explicitly instead.
 
 ## Inputs
 
@@ -116,3 +117,4 @@ If no immediate shared artifact is needed, stop after `done-from-claim` and batc
 - Do not batch this item's changes with unrelated work under the guise of a scope-level commit.
 - Do not use `item status done` when a claim exists — use `done-from-claim` to preserve ownership proof.
 - Do not create a snapshot-only commit after every item unless the workflow explicitly needs that shared state artifact immediately.
+- Do not silently skip `done-from-claim` or snapshot refresh when the workflow requires them; if state mutation is unavailable, report the block instead.

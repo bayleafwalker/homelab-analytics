@@ -6,6 +6,7 @@ description: Use at the end of a workflow or session to classify session outputs
 ## Goal
 
 Turn raw session history into the right permanent artifact instead of leaving everything in `.agents/sessions/`.
+If the current session cannot mutate sprintctl or the repository, classify the artifact and report the intended destination instead of trying to partially capture it.
 
 This skill separates:
 - raw session history
@@ -93,3 +94,4 @@ Keep them curated:
 - Do not copy full prompt transcripts or shell dumps into committed training docs.
 - Do not publish thin or speculative ideas to `kctl` just to preserve them somewhere.
 - Do not create a training artifact when a short `kctl` entry or a small note would do.
+- Do not silently skip capture when the workflow calls for it; if capture is blocked by permissions or session constraints, report that block explicitly.

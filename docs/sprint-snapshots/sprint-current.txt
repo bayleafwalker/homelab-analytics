@@ -2,10 +2,10 @@ SPRINT: sensor-gauge-bridge — HA REST-Sensor Metrics Endpoints  [active]
 Goal:   Expose a minimal set of reporting-backed scalar metrics as Home Assistant REST-sensor friendly responses without widening the reporting or auth boundaries.
 Dates:  2026-04-08 to 2026-04-18
 ID:     46
-Items:  1 total — 0 done, 1 active, 0 pending, 0 blocked
+Items:  1 total — 1 done, 0 active, 0 pending, 0 blocked
 
 --- Track: ha-rest-metrics ---
-  health: 1 items — 0 done (0%), 1 active, 0 pending, 0 blocked (0%)
-  [active  ] #310  Expose reporting-backed HA REST-sensor metric endpoints  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #310  Expose reporting-backed HA REST-sensor metric endpoints  (assignee: -)
 
-Rendered: 2026-04-08T18:37:48Z
+Rendered: 2026-04-08T19:52:29Z
