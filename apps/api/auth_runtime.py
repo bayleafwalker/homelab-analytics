@@ -26,6 +26,8 @@ from packages.platform.auth.middleware_metrics import record_ingestion_duration
 from packages.platform.auth.oidc_provider import OidcProvider
 from packages.platform.auth.proxy_provider import ProxyProvider
 from packages.platform.auth.scope_authorization import (
+    DEFAULT_ROUTE_AUTHORIZATION_LOOKUP,
+    RouteAuthorizationLookup,
     required_permission_for_path,
     required_permission_for_request,
     required_role_for_path,
@@ -74,6 +76,7 @@ def register_auth_middleware(
     enable_unsafe_admin: bool,
     break_glass_controller: BreakGlassController | None,
     record_auth_event: Callable[..., None],
+    route_authorization_lookup: RouteAuthorizationLookup = DEFAULT_ROUTE_AUTHORIZATION_LOOKUP,
 ) -> None:
     @app.middleware("http")
     async def authenticate_and_log_request(
@@ -89,15 +92,15 @@ def register_auth_middleware(
         if resolved_auth_mode != "disabled":
             if is_cookie_auth_mode(resolved_auth_mode):
                 assert resolved_session_manager is not None
-            required_role = required_role_for_request(
+            required_role = route_authorization_lookup.required_role_for_request(
                 request.url.path,
                 request.method,
             )
-            required_scope = required_service_token_scope_for_request(
+            required_scope = route_authorization_lookup.required_service_token_scope_for_request(
                 request.url.path,
                 request.method,
             )
-            required_permission = required_permission_for_request(
+            required_permission = route_authorization_lookup.required_permission_for_request(
                 request.url.path,
                 request.query_params,
                 method=request.method,

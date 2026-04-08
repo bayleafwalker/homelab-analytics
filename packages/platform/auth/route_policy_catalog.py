@@ -1,9 +1,8 @@
-"""Declarative route policy catalog for auth lookups."""
+"""Default route policy catalog for auth lookups."""
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
-from typing import Literal, cast, overload
+from typing import cast
 
 from packages.platform.auth.contracts import (
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
@@ -38,71 +37,15 @@ from packages.platform.auth.permission_registry import (
     source_lineage_run_permission,
     transformation_audit_run_permission,
 )
-
-
-@dataclass(frozen=True)
-class RouteContext:
-    path: str
-    method: str | None = None
-    query_params: Mapping[str, str] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class RouteDecision:
-    role: UserRole | Callable[[RouteContext], UserRole | None] | None = None
-    permission: str | Callable[[RouteContext], str | None] | None = None
-    scope: str | Callable[[RouteContext], str | None] | None = None
-
-    def resolve_role(self, context: RouteContext) -> UserRole | None:
-        return _resolve_role_value(self.role, context)
-
-    def resolve_permission(self, context: RouteContext) -> str | None:
-        return _resolve_text_value(self.permission, context)
-
-    def resolve_scope(self, context: RouteContext) -> str | None:
-        return _resolve_text_value(self.scope, context)
-
-
-@dataclass(frozen=True)
-class RoutePolicy:
-    exact_paths: tuple[str, ...] = ()
-    prefix_paths: tuple[str, ...] = ()
-    path_decision: RouteDecision | None = None
-    request_decision: RouteDecision | None = None
-
-    def matches(self, path: str) -> bool:
-        if path in self.exact_paths:
-            return True
-        return any(path.startswith(prefix) for prefix in self.prefix_paths)
-
-
-def _resolve_role_value(
-    value: UserRole | Callable[[RouteContext], UserRole | None] | None,
-    context: RouteContext,
-) -> UserRole | None:
-    if callable(value):
-        resolver = cast(Callable[[RouteContext], UserRole | None], value)
-        return resolver(context)
-    return value
-
-
-def _resolve_text_value(
-    value: str | Callable[[RouteContext], str | None] | None,
-    context: RouteContext,
-) -> str | None:
-    if callable(value):
-        resolver = cast(Callable[[RouteContext], str | None], value)
-        return resolver(context)
-    return value
-
-
-def _static_decision(
-    *,
-    role: UserRole | None = None,
-    permission: str | None = None,
-    scope: str | None = None,
-) -> RouteDecision:
-    return RouteDecision(role=role, permission=permission, scope=scope)
+from packages.platform.auth.route_policy_engine import (
+    RouteAuthorizationLookup,
+    RouteContext,
+    RouteDecision,
+    RoutePolicy,
+)
+from packages.platform.auth.route_policy_engine import (
+    static_route_decision as _static_decision,
+)
 
 
 def _permission_from_suffix(
@@ -899,35 +842,7 @@ ROUTE_POLICY_CATALOG: tuple[RoutePolicy, ...] = (
     ),
 )
 
-
-@overload
-def lookup_route_policy_value(
-    path: str,
-    *,
-    field: Literal["role"],
-    method: str | None = None,
-    query_params: Mapping[str, str] | None = None,
-) -> UserRole | None: ...
-
-
-@overload
-def lookup_route_policy_value(
-    path: str,
-    *,
-    field: Literal["permission", "scope"],
-    method: str | None = None,
-    query_params: Mapping[str, str] | None = None,
-) -> str | None: ...
-
-
-@overload
-def lookup_route_policy_value(
-    path: str,
-    *,
-    field: str,
-    method: str | None = None,
-    query_params: Mapping[str, str] | None = None,
-) -> UserRole | str | None: ...
+DEFAULT_ROUTE_AUTHORIZATION_LOOKUP = RouteAuthorizationLookup(ROUTE_POLICY_CATALOG)
 
 
 def lookup_route_policy_value(
@@ -937,29 +852,12 @@ def lookup_route_policy_value(
     method: str | None = None,
     query_params: Mapping[str, str] | None = None,
 ) -> UserRole | str | None:
-    context = RouteContext(
-        path=path,
-        method=(method or "").upper() or None,
-        query_params=query_params or {},
+    return cast(
+        UserRole | str | None,
+        DEFAULT_ROUTE_AUTHORIZATION_LOOKUP.lookup(
+            path,
+            field=field,
+            method=method,
+            query_params=query_params,
+        ),
     )
-    for policy in ROUTE_POLICY_CATALOG:
-        if not policy.matches(path):
-            continue
-        decision = policy.request_decision if context.method else policy.path_decision
-        if decision is None:
-            decision = policy.path_decision
-        if decision is None:
-            continue
-        value: UserRole | str | None
-        if field == "role":
-            value = decision.resolve_role(context)
-        elif field == "permission":
-            value = decision.resolve_permission(context)
-        elif field == "scope":
-            value = decision.resolve_scope(context)
-        else:
-            raise ValueError(f"Unknown route policy field: {field}")
-        if value is None:
-            continue
-        return value
-    return None

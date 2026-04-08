@@ -81,6 +81,10 @@ from packages.platform.auth.break_glass import BreakGlassController
 from packages.platform.auth.machine_jwt_provider import MachineJwtProvider
 from packages.platform.auth.oidc_provider import OidcProvider
 from packages.platform.auth.proxy_provider import ProxyProvider
+from packages.platform.auth.scope_authorization import (
+    DEFAULT_ROUTE_AUTHORIZATION_LOOKUP,
+    RouteAuthorizationLookup,
+)
 from packages.platform.auth.session_manager import SessionManager
 from packages.platform.runtime.container import AppContainer
 from packages.shared.auth_modes import (
@@ -364,6 +368,7 @@ def create_app(
     auth_failure_window_seconds: int = 900,
     auth_failure_threshold: int = 5,
     auth_lockout_seconds: int = 900,
+    route_authorization_lookup: RouteAuthorizationLookup | None = None,
     enable_unsafe_admin: bool = False,
     ha_bridge: Any = None,
     ha_mqtt_publisher: Any = None,
@@ -544,6 +549,9 @@ def create_app(
         enable_unsafe_admin=enable_unsafe_admin,
         break_glass_controller=break_glass_controller,
         record_auth_event=record_auth_event,
+        route_authorization_lookup=(
+            route_authorization_lookup or DEFAULT_ROUTE_AUTHORIZATION_LOOKUP
+        ),
     )
     _register_exception_handlers(app)
     _register_base_routes(

@@ -9,6 +9,8 @@ from fastapi.testclient import TestClient
 from apps.api.app import create_app
 from apps.api.main import build_app
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.platform.auth.route_policy_engine import RouteDecision, RoutePolicy
+from packages.platform.auth.scope_authorization import build_route_authorization_lookup
 from packages.shared.auth import SessionManager, hash_password
 from packages.shared.settings import AppSettings
 from packages.storage.auth_store import LocalUserCreate, UserRole
@@ -54,6 +56,7 @@ def _build_client(
     *,
     users: tuple[tuple[str, str, UserRole], ...],
     reporting_service: Any | None = None,
+    route_authorization_lookup: Any | None = None,
 ) -> TestClient:
     service = AccountTransactionService(
         landing_root=Path(temp_dir) / "landing",
@@ -77,6 +80,7 @@ def _build_client(
             identity_mode="local",
             session_manager=SessionManager("test-session-secret"),
             reporting_service=cast(Any, reporting_service),
+            route_authorization_lookup=route_authorization_lookup,
         )
     )
 
@@ -180,6 +184,33 @@ def test_api_local_auth_login_logout_and_me() -> None:
         logout = client.post("/auth/logout", headers=_csrf_headers(client))
         assert logout.status_code == 200
         assert client.get("/auth/me").status_code == 401
+
+
+def test_api_auth_runtime_accepts_injected_route_authorization_lookup() -> None:
+    with TemporaryDirectory() as temp_dir:
+        lookup = build_route_authorization_lookup(
+            (
+                RoutePolicy(
+                    exact_paths=("/ready",),
+                    request_decision=RouteDecision(role=UserRole.READER),
+                ),
+            )
+        )
+        client = _build_client(
+            temp_dir,
+            users=(("reader", "reader-password", UserRole.READER),),
+            route_authorization_lookup=lookup,
+        )
+
+        assert client.get("/ready").status_code == 401
+        assert (
+            client.post(
+                "/auth/login",
+                json={"username": "reader", "password": "reader-password"},
+            ).status_code
+            == 200
+        )
+        assert client.get("/ready").status_code == 200
 
 
 def test_api_local_auth_enforces_newly_mapped_api_surfaces() -> None:

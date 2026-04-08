@@ -38,7 +38,9 @@ from packages.platform.auth.permission_registry import (
     source_lineage_run_permission,
     transformation_audit_run_permission,
 )
+from packages.platform.auth.route_policy_engine import RouteDecision, RoutePolicy
 from packages.platform.auth.scope_authorization import (
+    build_route_authorization_lookup,
     required_permission_for_path,
     required_permission_for_request,
     required_role_for_request,
@@ -427,6 +429,28 @@ def test_request_permission_mapping_supports_control_asset_scopes() -> None:
             {},
         )
         == "transformation.audit.read"
+    )
+
+
+def test_route_authorization_lookup_supports_injected_policy_catalogs() -> None:
+    lookup = build_route_authorization_lookup(
+        (
+            RoutePolicy(
+                exact_paths=("/custom/report",),
+                request_decision=RouteDecision(
+                    role=UserRole.READER,
+                    permission=PERMISSION_REPORTS_READ,
+                    scope=SERVICE_TOKEN_SCOPE_REPORTS_READ,
+                ),
+            ),
+        )
+    )
+
+    assert lookup.required_role_for_request("/custom/report", "GET") == UserRole.READER
+    assert lookup.required_permission_for_request("/custom/report", method="GET") == PERMISSION_REPORTS_READ
+    assert (
+        lookup.required_service_token_scope_for_request("/custom/report", "GET")
+        == SERVICE_TOKEN_SCOPE_REPORTS_READ
     )
 
 
