@@ -1,7 +1,7 @@
 SPRINT: keel-ledger-bond - Kernel Hardening and Runtime Honesty  [active]
 Goal:   Make the kernel boring again by clarifying runtime posture and moving auth policy back into kernel-owned seams.
 ID:     41
-Items:  8 total — 6 done, 0 active, 2 pending, 0 blocked
+Items:  8 total — 7 done, 0 active, 1 pending, 0 blocked
 
 --- Track: kernel-runtime ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
@@ -29,7 +29,7 @@ Items:  8 total — 6 done, 0 active, 2 pending, 0 blocked
   [pending ] #303  Freeze shared auth shim and legacy auth-mode compatibility follow-up  (assignee: -)
 
 --- Track: auth-contracts ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #302  Move auth vocabulary out of storage into shared/platform contracts  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #302  Move auth vocabulary out of storage into shared/platform contracts  (assignee: -)
 
-Rendered: 2026-04-08T08:50:15Z
+Rendered: 2026-04-08T08:56:13Z
