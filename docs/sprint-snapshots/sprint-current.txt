@@ -2,22 +2,22 @@ SPRINT: harbor-policy-seam — App-Owned Authorization Declarations  [active]
 Goal:   Finish the auth kernel/app seam by moving concrete route authorization declarations to app-owned composition while keeping the platform responsible only for generic policy primitives and evaluation.
 Dates:  2026-04-08 to 2026-04-18
 ID:     45
-Items:  4 total — 0 done, 0 active, 4 pending, 0 blocked
+Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
 
 --- Track: policy-engine ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #305  Extract generic route-policy primitives and lookup from platform-owned catalog  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #305  Extract generic route-policy primitives and lookup from platform-owned catalog  (assignee: -)
 
 --- Track: app-declarations ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #306  Move route authorization declarations to app-owned registration  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #306  Move route authorization declarations to app-owned registration  (assignee: -)
 
 --- Track: policy-contracts ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #307  Reframe auth coverage tests around app-owned declarations  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #307  Reframe auth coverage tests around app-owned declarations  (assignee: -)
 
 --- Track: compat-cleanup ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #308  Trim touched storage-era auth compatibility imports after policy move  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #308  Trim touched storage-era auth compatibility imports after policy move  (assignee: -)
 
-Rendered: 2026-04-08T12:53:17Z
+Rendered: 2026-04-08T17:53:45Z
