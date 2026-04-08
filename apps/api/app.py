@@ -547,7 +547,11 @@ def create_app(
         enable_unsafe_admin=enable_unsafe_admin,
         break_glass_controller=break_glass_controller,
         record_auth_event=record_auth_event,
-        route_authorization_lookup=route_authorization_lookup or API_ROUTE_AUTHORIZATION_LOOKUP,
+        route_authorization_lookup=(
+            API_ROUTE_AUTHORIZATION_LOOKUP
+            if route_authorization_lookup is None
+            else route_authorization_lookup
+        ),
     )
     _register_exception_handlers(app)
     _register_base_routes(

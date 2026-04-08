@@ -725,13 +725,40 @@ def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> Non
 
     assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/categories", "GET") == UserRole.READER
     assert required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/categories", method="GET") == "reports.read"
-    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/categories", "POST") == UserRole.ADMIN
-    assert required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/categories", method="POST") == "admin.write"
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/categories", "POST") == UserRole.OPERATOR
+    assert required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/categories", method="POST") == "ingest.write"
     assert (
         required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/categories", "POST")
-        == "admin:write"
+        == "ingest:write"
     )
 
     assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/functions", "GET") == UserRole.ADMIN
     assert required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/functions", method="GET") == "admin.write"
     assert required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/functions", "GET") == "admin:write"
+
+
+def test_route_policy_prefix_matches_require_segment_boundaries() -> None:
+    assert (
+        required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/assistant/answer", "GET")
+        == UserRole.READER
+    )
+    assert (
+        required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/assistant/answer", method="GET")
+        == "reports.read"
+    )
+    assert (
+        required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/assistants", "GET")
+        is None
+    )
+    assert (
+        required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/assistants", method="GET")
+        is None
+    )
+    assert (
+        required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/auth/usersettings", "GET")
+        is None
+    )
+    assert (
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/auth/usersettings", "GET")
+        is None
+    )

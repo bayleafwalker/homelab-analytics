@@ -41,7 +41,13 @@ class RoutePolicy:
     def matches(self, path: str) -> bool:
         if path in self.exact_paths:
             return True
-        return any(path.startswith(prefix) for prefix in self.prefix_paths)
+        return any(_matches_prefix(path, prefix) for prefix in self.prefix_paths)
+
+
+def _matches_prefix(path: str, prefix: str) -> bool:
+    if prefix.endswith("/"):
+        return path.startswith(prefix)
+    return path == prefix or path.startswith(f"{prefix}/")
 
 
 def _resolve_role_value(

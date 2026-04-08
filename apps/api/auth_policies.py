@@ -117,11 +117,11 @@ def _schedule_dispatch_item_role(context: RouteContext) -> UserRole | None:
 
 
 def _categories_request_role(context: RouteContext) -> UserRole | None:
-    return UserRole.READER if context.method == "GET" else UserRole.ADMIN
+    return UserRole.READER if context.method == "GET" else UserRole.OPERATOR
 
 
 def _categories_request_permission(context: RouteContext) -> str | None:
-    return PERMISSION_REPORTS_READ if context.method == "GET" else PERMISSION_ADMIN_WRITE
+    return PERMISSION_REPORTS_READ if context.method == "GET" else PERMISSION_INGEST_WRITE
 
 
 def _categories_rules_request_role(context: RouteContext) -> UserRole | None:
@@ -448,7 +448,7 @@ API_ROUTE_POLICY_CATALOG: tuple[RoutePolicy, ...] = (
             scope=lambda context: (
                 SERVICE_TOKEN_SCOPE_REPORTS_READ
                 if context.method == "GET"
-                else SERVICE_TOKEN_SCOPE_ADMIN_WRITE
+                else SERVICE_TOKEN_SCOPE_INGEST_WRITE
             ),
         ),
     ),
