@@ -634,17 +634,15 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     ).read_text()
     web_main_source = (ROOT / "apps" / "web" / "main.py").read_text()
 
-    route_policy_catalog_source = (
-        ROOT / "packages" / "platform" / "auth" / "route_policy_catalog.py"
-    ).read_text()
+    api_auth_policies_source = (ROOT / "apps" / "api" / "auth_policies.py").read_text()
     assert "register_auth_middleware(" in api_source
     assert "build_auth_event_recorder(" in api_source
-    assert "required_role_for_path" in auth_runtime_source
+    assert "API_ROUTE_AUTHORIZATION_LOOKUP" in auth_runtime_source
     assert "Authentication required." in auth_runtime_source
     assert "CSRF validation failed." in auth_runtime_source
-    assert '"/auth/users"' in route_policy_catalog_source
-    assert '"/auth/service-tokens"' in route_policy_catalog_source
-    assert '"/control/auth-audit"' in route_policy_catalog_source
+    assert '"/auth/users"' in api_auth_policies_source
+    assert '"/auth/service-tokens"' in api_auth_policies_source
+    assert '"/control/auth-audit"' in api_auth_policies_source
     assert '"/auth/users"' in auth_route_source
     assert '"/auth/service-tokens"' in auth_route_source
     assert '"/control/auth-audit"' in auth_route_source
@@ -955,7 +953,7 @@ def _iter_api_route_method_paths() -> set[tuple[str, str]]:
 
 
 def test_request_auth_policy_covers_all_non_public_api_routes() -> None:
-    from packages.platform.auth.scope_authorization import required_role_for_request
+    from apps.api.auth_policies import required_role_for_request
 
     public_routes = {
         ("/auth/login", "GET"),
@@ -979,7 +977,7 @@ def test_request_auth_policy_covers_all_non_public_api_routes() -> None:
 
 
 def test_request_permission_and_scope_policy_covers_protected_api_routes() -> None:
-    from packages.platform.auth.scope_authorization import (
+    from apps.api.auth_policies import (
         required_permission_for_request,
         required_service_token_scope_for_request,
     )
@@ -1051,7 +1049,7 @@ def test_request_permission_and_scope_policy_covers_protected_api_routes() -> No
     ],
 )
 def test_auth_policy_role_requirement(path: str, expected_role: str | None) -> None:
-    from packages.platform.auth.scope_authorization import required_role_for_path
+    from apps.api.auth_policies import required_role_for_path
     from packages.storage.auth_store import UserRole
 
     result = required_role_for_path(path)
@@ -1100,7 +1098,7 @@ def test_auth_policy_role_requirement(path: str, expected_role: str | None) -> N
 def test_auth_policy_service_token_scope_requirement(
     path: str, expected_scope: str | None
 ) -> None:
-    from packages.platform.auth.scope_authorization import required_service_token_scope_for_path
+    from apps.api.auth_policies import required_service_token_scope_for_path
 
     result = required_service_token_scope_for_path(path)
     assert result == expected_scope, (

@@ -7,6 +7,7 @@ from logging import Logger
 from fastapi import FastAPI, Request
 from fastapi.responses import Response
 
+from apps.api.auth_policies import API_ROUTE_AUTHORIZATION_LOOKUP
 from apps.api.support import log_request
 from packages.platform.auth.audit_hooks import build_auth_event_recorder, build_lockout_checker
 from packages.platform.auth.break_glass import BreakGlassController
@@ -25,16 +26,7 @@ from packages.platform.auth.middleware_guards import (
 from packages.platform.auth.middleware_metrics import record_ingestion_duration
 from packages.platform.auth.oidc_provider import OidcProvider
 from packages.platform.auth.proxy_provider import ProxyProvider
-from packages.platform.auth.scope_authorization import (
-    DEFAULT_ROUTE_AUTHORIZATION_LOOKUP,
-    RouteAuthorizationLookup,
-    required_permission_for_path,
-    required_permission_for_request,
-    required_role_for_path,
-    required_role_for_request,
-    required_service_token_scope_for_path,
-    required_service_token_scope_for_request,
-)
+from packages.platform.auth.route_policy_engine import RouteAuthorizationLookup
 from packages.platform.auth.session_manager import SessionManager
 from packages.shared.auth_modes import is_cookie_auth_mode
 from packages.storage.auth_store import (
@@ -48,14 +40,8 @@ __all__ = [
     "build_auth_event_recorder",
     "build_lockout_checker",
     "cookie_secure_for_request",
-    "required_permission_for_request",
     "register_auth_middleware",
     "request_remote_addr",
-    "required_permission_for_path",
-    "required_role_for_path",
-    "required_role_for_request",
-    "required_service_token_scope_for_path",
-    "required_service_token_scope_for_request",
 ]
 
 AUTH_REQUIRED_DETAIL = "Authentication required."
@@ -76,7 +62,7 @@ def register_auth_middleware(
     enable_unsafe_admin: bool,
     break_glass_controller: BreakGlassController | None,
     record_auth_event: Callable[..., None],
-    route_authorization_lookup: RouteAuthorizationLookup = DEFAULT_ROUTE_AUTHORIZATION_LOOKUP,
+    route_authorization_lookup: RouteAuthorizationLookup = API_ROUTE_AUTHORIZATION_LOOKUP,
 ) -> None:
     @app.middleware("http")
     async def authenticate_and_log_request(

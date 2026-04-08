@@ -9,6 +9,7 @@ from typing import Any, Union, cast
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
 
+from apps.api.auth_policies import API_ROUTE_AUTHORIZATION_LOOKUP
 from apps.api.auth_runtime import (
     build_auth_event_recorder,
     build_lockout_checker,
@@ -81,10 +82,7 @@ from packages.platform.auth.break_glass import BreakGlassController
 from packages.platform.auth.machine_jwt_provider import MachineJwtProvider
 from packages.platform.auth.oidc_provider import OidcProvider
 from packages.platform.auth.proxy_provider import ProxyProvider
-from packages.platform.auth.scope_authorization import (
-    DEFAULT_ROUTE_AUTHORIZATION_LOOKUP,
-    RouteAuthorizationLookup,
-)
+from packages.platform.auth.route_policy_engine import RouteAuthorizationLookup
 from packages.platform.auth.session_manager import SessionManager
 from packages.platform.runtime.container import AppContainer
 from packages.shared.auth_modes import (
@@ -549,9 +547,7 @@ def create_app(
         enable_unsafe_admin=enable_unsafe_admin,
         break_glass_controller=break_glass_controller,
         record_auth_event=record_auth_event,
-        route_authorization_lookup=(
-            route_authorization_lookup or DEFAULT_ROUTE_AUTHORIZATION_LOOKUP
-        ),
+        route_authorization_lookup=route_authorization_lookup or API_ROUTE_AUTHORIZATION_LOOKUP,
     )
     _register_exception_handlers(app)
     _register_base_routes(

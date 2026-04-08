@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+from apps.api.auth_policies import (
+    API_ROUTE_AUTHORIZATION_LOOKUP,
+    required_permission_for_path,
+    required_permission_for_request,
+    required_role_for_request,
+    required_service_token_scope_for_request,
+)
 from packages.platform.auth.permission_registry import (
     PERMISSION_ADMIN_WRITE,
     PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE,
@@ -39,13 +46,7 @@ from packages.platform.auth.permission_registry import (
     transformation_audit_run_permission,
 )
 from packages.platform.auth.route_policy_engine import RouteDecision, RoutePolicy
-from packages.platform.auth.scope_authorization import (
-    build_route_authorization_lookup,
-    required_permission_for_path,
-    required_permission_for_request,
-    required_role_for_request,
-    required_service_token_scope_for_request,
-)
+from packages.platform.auth.scope_authorization import build_route_authorization_lookup
 from packages.storage.auth_store import (
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
     SERVICE_TOKEN_SCOPE_INGEST_WRITE,
@@ -382,31 +383,34 @@ def test_admin_role_implies_control_config_resource_permissions() -> None:
 
 
 def test_path_permission_mapping_matches_current_auth_surfaces() -> None:
-    assert required_permission_for_path("/health") is None
-    assert required_permission_for_path("/reports/monthly-cashflow") == publication_read_permission(
+    assert required_permission_for_path(API_ROUTE_AUTHORIZATION_LOOKUP, "/health") is None
+    assert required_permission_for_path(API_ROUTE_AUTHORIZATION_LOOKUP, "/reports/monthly-cashflow") == publication_read_permission(
         "monthly-cashflow"
     )
-    assert required_permission_for_path("/reports/loan-schedule/loan-001") == publication_read_permission(
+    assert required_permission_for_path(API_ROUTE_AUTHORIZATION_LOOKUP, "/reports/loan-schedule/loan-001") == publication_read_permission(
         "loan-schedule"
     )
-    assert required_permission_for_path("/runs") == PERMISSION_RUNS_READ
-    assert required_permission_for_path("/runs/run-1") == run_read_permission("run-1")
-    assert required_permission_for_path("/runs/run-1/retry") == run_retry_permission("run-1")
-    assert required_permission_for_path("/ingest") == PERMISSION_INGEST_WRITE
-    assert required_permission_for_path("/config/source-systems") == PERMISSION_ADMIN_WRITE
+    assert required_permission_for_path(API_ROUTE_AUTHORIZATION_LOOKUP, "/runs") == PERMISSION_RUNS_READ
+    assert required_permission_for_path(API_ROUTE_AUTHORIZATION_LOOKUP, "/runs/run-1") == run_read_permission("run-1")
+    assert required_permission_for_path(API_ROUTE_AUTHORIZATION_LOOKUP, "/runs/run-1/retry") == run_retry_permission("run-1")
+    assert required_permission_for_path(API_ROUTE_AUTHORIZATION_LOOKUP, "/ingest") == PERMISSION_INGEST_WRITE
+    assert required_permission_for_path(API_ROUTE_AUTHORIZATION_LOOKUP, "/config/source-systems") == PERMISSION_ADMIN_WRITE
 
 
 def test_request_permission_mapping_supports_control_asset_scopes() -> None:
     assert required_permission_for_request(
+        API_ROUTE_AUTHORIZATION_LOOKUP,
         "/control/source-lineage",
         {"run_id": "run-001"},
     ) == source_lineage_run_permission("run-001")
     assert required_permission_for_request(
+        API_ROUTE_AUTHORIZATION_LOOKUP,
         "/control/publication-audit",
         {"publication_key": "monthly-cashflow"},
     ) == publication_audit_publication_permission("monthly-cashflow")
     assert (
         required_permission_for_request(
+            API_ROUTE_AUTHORIZATION_LOOKUP,
             "/control/source-lineage",
             {},
         )
@@ -414,17 +418,20 @@ def test_request_permission_mapping_supports_control_asset_scopes() -> None:
     )
     assert (
         required_permission_for_request(
+            API_ROUTE_AUTHORIZATION_LOOKUP,
             "/control/publication-audit",
             {},
         )
         == "control.publication_audit.read"
     )
     assert required_permission_for_request(
+        API_ROUTE_AUTHORIZATION_LOOKUP,
         "/transformation-audit",
         {"run_id": "run-001"},
     ) == transformation_audit_run_permission("run-001")
     assert (
         required_permission_for_request(
+            API_ROUTE_AUTHORIZATION_LOOKUP,
             "/transformation-audit",
             {},
         )
@@ -455,60 +462,66 @@ def test_route_authorization_lookup_supports_injected_policy_catalogs() -> None:
 
 
 def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> None:
-    assert required_role_for_request("/config/source-systems", "GET") == UserRole.ADMIN
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/config/source-systems", "GET") == UserRole.ADMIN
     assert required_permission_for_request(
+        API_ROUTE_AUTHORIZATION_LOOKUP,
         "/config/source-systems",
         method="GET",
     ) == "control.config.read.resource.source-systems"
     assert (
-        required_service_token_scope_for_request("/config/source-systems", "GET")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/config/source-systems", "GET")
         == "admin:write"
     )
 
-    assert required_role_for_request("/config/source-systems/source-001", "PATCH") == UserRole.ADMIN
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/config/source-systems/source-001", "PATCH") == UserRole.ADMIN
     assert required_permission_for_request(
+        API_ROUTE_AUTHORIZATION_LOOKUP,
         "/config/source-systems/source-001",
         method="PATCH",
     ) == "control.config.write.resource.source-systems.source-001"
     assert (
         required_service_token_scope_for_request(
+            API_ROUTE_AUTHORIZATION_LOOKUP,
             "/config/source-systems/source-001",
             "PATCH",
         )
         == "admin:write"
     )
 
-    assert required_role_for_request("/control/schedule-dispatches", "GET") == UserRole.READER
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/control/schedule-dispatches", "GET") == UserRole.READER
     assert required_permission_for_request(
+        API_ROUTE_AUTHORIZATION_LOOKUP,
         "/control/schedule-dispatches",
         {"schedule_id": "sched-001"},
         method="GET",
     ) == schedule_dispatch_read_schedule_permission("sched-001")
     assert (
-        required_service_token_scope_for_request("/control/schedule-dispatches", "GET")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/control/schedule-dispatches", "GET")
         == "runs:read"
     )
 
-    assert required_role_for_request("/control/schedule-dispatches", "POST") == UserRole.OPERATOR
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/control/schedule-dispatches", "POST") == UserRole.OPERATOR
     assert (
-        required_permission_for_request("/control/schedule-dispatches", method="POST")
+        required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/control/schedule-dispatches", method="POST")
         == "control.schedule_dispatches.write"
     )
     assert (
-        required_service_token_scope_for_request("/control/schedule-dispatches", "POST")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/control/schedule-dispatches", "POST")
         == "ingest:write"
     )
 
     assert (
-        required_role_for_request("/control/schedule-dispatches/dispatch-001", "GET")
+        required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/control/schedule-dispatches/dispatch-001", "GET")
         == UserRole.READER
     )
     assert required_permission_for_request(
+        API_ROUTE_AUTHORIZATION_LOOKUP,
         "/control/schedule-dispatches/dispatch-001",
         method="GET",
     ) == schedule_dispatch_read_dispatch_permission("dispatch-001")
     assert (
         required_service_token_scope_for_request(
+            API_ROUTE_AUTHORIZATION_LOOKUP,
             "/control/schedule-dispatches/dispatch-001",
             "GET",
         )
@@ -516,164 +529,168 @@ def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> Non
     )
 
     assert (
-        required_role_for_request("/control/schedule-dispatches/dispatch-001/retry", "POST")
+        required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/control/schedule-dispatches/dispatch-001/retry", "POST")
         == UserRole.OPERATOR
     )
     assert required_permission_for_request(
+        API_ROUTE_AUTHORIZATION_LOOKUP,
         "/control/schedule-dispatches/dispatch-001/retry",
         method="POST",
     ) == schedule_dispatch_write_dispatch_permission("dispatch-001")
     assert (
         required_service_token_scope_for_request(
+            API_ROUTE_AUTHORIZATION_LOOKUP,
             "/control/schedule-dispatches/dispatch-001/retry",
             "POST",
         )
         == "ingest:write"
     )
 
-    assert required_role_for_request("/contracts/publications", "GET") == UserRole.READER
-    assert required_permission_for_request("/contracts/publications", method="GET") == "reports.read"
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/contracts/publications", "GET") == UserRole.READER
+    assert required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/contracts/publications", method="GET") == "reports.read"
     assert (
-        required_service_token_scope_for_request("/contracts/publications", "GET")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/contracts/publications", "GET")
         == "reports:read"
     )
     assert (
-        required_permission_for_request("/contracts/publication-index", method="GET")
+        required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/contracts/publication-index", method="GET")
         == "reports.read"
     )
 
-    assert required_role_for_request("/api/scenarios", "GET") == UserRole.READER
-    assert required_permission_for_request("/api/scenarios", method="GET") == "reports.read"
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios", "GET") == UserRole.READER
+    assert required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios", method="GET") == "reports.read"
     assert (
-        required_service_token_scope_for_request("/api/scenarios", "GET")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios", "GET")
         == "reports:read"
     )
 
-    assert required_role_for_request("/api/scenarios/compare-sets", "GET") == UserRole.READER
-    assert required_permission_for_request("/api/scenarios/compare-sets", method="GET") == "reports.read"
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/compare-sets", "GET") == UserRole.READER
+    assert required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/compare-sets", method="GET") == "reports.read"
     assert (
-        required_service_token_scope_for_request("/api/scenarios/compare-sets", "GET")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/compare-sets", "GET")
         == "reports:read"
     )
-    assert required_role_for_request("/api/scenarios/compare-sets", "POST") == UserRole.OPERATOR
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/compare-sets", "POST") == UserRole.OPERATOR
     assert (
-        required_permission_for_request("/api/scenarios/compare-sets", method="POST")
+        required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/compare-sets", method="POST")
         == "ingest.write"
     )
     assert (
-        required_service_token_scope_for_request("/api/scenarios/compare-sets", "POST")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/compare-sets", "POST")
         == "ingest:write"
     )
-    assert required_role_for_request("/api/scenarios/compare-sets/cs-001", "PATCH") == UserRole.OPERATOR
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/compare-sets/cs-001", "PATCH") == UserRole.OPERATOR
     assert (
-        required_permission_for_request("/api/scenarios/compare-sets/cs-001", method="PATCH")
+        required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/compare-sets/cs-001", method="PATCH")
         == "ingest.write"
     )
     assert (
-        required_service_token_scope_for_request("/api/scenarios/compare-sets/cs-001", "PATCH")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/compare-sets/cs-001", "PATCH")
         == "ingest:write"
     )
-    assert required_role_for_request("/api/scenarios/compare-sets/cs-001/restore", "POST") == UserRole.OPERATOR
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/compare-sets/cs-001/restore", "POST") == UserRole.OPERATOR
     assert (
-        required_permission_for_request("/api/scenarios/compare-sets/cs-001/restore", method="POST")
+        required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/compare-sets/cs-001/restore", method="POST")
         == "ingest.write"
     )
     assert (
-        required_service_token_scope_for_request("/api/scenarios/compare-sets/cs-001/restore", "POST")
-        == "ingest:write"
-    )
-
-    assert required_role_for_request("/api/scenarios/income-change", "POST") == UserRole.OPERATOR
-    assert (
-        required_permission_for_request("/api/scenarios/income-change", method="POST")
-        == "ingest.write"
-    )
-    assert (
-        required_service_token_scope_for_request("/api/scenarios/income-change", "POST")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/compare-sets/cs-001/restore", "POST")
         == "ingest:write"
     )
 
-    assert required_role_for_request("/api/scenarios/tariff-shock", "POST") == UserRole.OPERATOR
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/income-change", "POST") == UserRole.OPERATOR
     assert (
-        required_permission_for_request("/api/scenarios/tariff-shock", method="POST")
+        required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/income-change", method="POST")
         == "ingest.write"
     )
     assert (
-        required_service_token_scope_for_request("/api/scenarios/tariff-shock", "POST")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/income-change", "POST")
+        == "ingest:write"
+    )
+
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/tariff-shock", "POST") == UserRole.OPERATOR
+    assert (
+        required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/tariff-shock", method="POST")
+        == "ingest.write"
+    )
+    assert (
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/tariff-shock", "POST")
         == "ingest:write"
     )
 
     assert (
-        required_role_for_request("/api/scenarios/homelab-cost-benefit", "POST")
+        required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/homelab-cost-benefit", "POST")
         == UserRole.OPERATOR
     )
     assert (
-        required_permission_for_request("/api/scenarios/homelab-cost-benefit", method="POST")
+        required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/homelab-cost-benefit", method="POST")
         == "ingest.write"
     )
     assert (
         required_service_token_scope_for_request(
+            API_ROUTE_AUTHORIZATION_LOOKUP,
             "/api/scenarios/homelab-cost-benefit",
             "POST",
         )
         == "ingest:write"
     )
 
-    assert required_role_for_request("/api/scenarios/scn-001", "DELETE") == UserRole.OPERATOR
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/scn-001", "DELETE") == UserRole.OPERATOR
     assert (
-        required_permission_for_request("/api/scenarios/scn-001", method="DELETE")
+        required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/scn-001", method="DELETE")
         == "ingest.write"
     )
 
-    assert required_role_for_request("/api/scenarios/compare-sets/cs-001", "DELETE") == UserRole.OPERATOR
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/compare-sets/cs-001", "DELETE") == UserRole.OPERATOR
     assert (
-        required_permission_for_request("/api/scenarios/compare-sets/cs-001", method="DELETE")
+        required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/compare-sets/cs-001", method="DELETE")
         == "ingest.write"
     )
     assert (
-        required_service_token_scope_for_request("/api/scenarios/compare-sets/cs-001", "DELETE")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/scenarios/compare-sets/cs-001", "DELETE")
         == "ingest:write"
     )
 
-    assert required_role_for_request("/api/assistant/answer", "GET") == UserRole.READER
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/assistant/answer", "GET") == UserRole.READER
     assert (
-        required_permission_for_request("/api/assistant/answer", method="GET")
+        required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/assistant/answer", method="GET")
         == PERMISSION_REPORTS_READ
     )
     assert (
-        required_service_token_scope_for_request("/api/assistant/answer", "GET")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/assistant/answer", "GET")
         == "reports:read"
     )
 
-    assert required_role_for_request("/api/ha/entities", "GET") == UserRole.READER
-    assert required_permission_for_request("/api/ha/entities", method="GET") == "runs.read"
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/entities", "GET") == UserRole.READER
+    assert required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/entities", method="GET") == "runs.read"
     assert (
-        required_service_token_scope_for_request("/api/ha/entities", "GET")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/entities", "GET")
         == "runs:read"
     )
 
-    assert required_role_for_request("/api/ha/actions/proposals", "GET") == UserRole.READER
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/actions/proposals", "GET") == UserRole.READER
     assert (
-        required_permission_for_request("/api/ha/actions/proposals", method="GET")
+        required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/actions/proposals", method="GET")
         == "runs.read"
     )
     assert (
-        required_service_token_scope_for_request("/api/ha/actions/proposals", "GET")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/actions/proposals", "GET")
         == "runs:read"
     )
 
-    assert required_role_for_request("/api/ha/actions/proposals", "POST") == UserRole.OPERATOR
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/actions/proposals", "POST") == UserRole.OPERATOR
     assert (
-        required_permission_for_request("/api/ha/actions/proposals", method="POST")
+        required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/actions/proposals", method="POST")
         == PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE
     )
     assert (
-        required_service_token_scope_for_request("/api/ha/actions/proposals", "POST")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/actions/proposals", "POST")
         == "admin:write"
     )
 
     assert (
         required_role_for_request(
+            API_ROUTE_AUTHORIZATION_LOOKUP,
             "/api/ha/actions/proposals/approval_device_control/approve",
             "POST",
         )
@@ -681,6 +698,7 @@ def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> Non
     )
     assert (
         required_permission_for_request(
+            API_ROUTE_AUTHORIZATION_LOOKUP,
             "/api/ha/actions/proposals/approval_device_control/approve",
             method="POST",
         )
@@ -688,28 +706,29 @@ def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> Non
     )
     assert (
         required_service_token_scope_for_request(
+            API_ROUTE_AUTHORIZATION_LOOKUP,
             "/api/ha/actions/proposals/approval_device_control/approve",
             "POST",
         )
         == "admin:write"
     )
 
-    assert required_role_for_request("/api/ha/ingest", "POST") == UserRole.OPERATOR
-    assert required_permission_for_request("/api/ha/ingest", method="POST") == "ingest.write"
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/ingest", "POST") == UserRole.OPERATOR
+    assert required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/ingest", method="POST") == "ingest.write"
     assert (
-        required_service_token_scope_for_request("/api/ha/ingest", "POST")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/ingest", "POST")
         == "ingest:write"
     )
 
-    assert required_role_for_request("/api/categories", "GET") == UserRole.READER
-    assert required_permission_for_request("/api/categories", method="GET") == "reports.read"
-    assert required_role_for_request("/api/categories", "POST") == UserRole.ADMIN
-    assert required_permission_for_request("/api/categories", method="POST") == "admin.write"
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/categories", "GET") == UserRole.READER
+    assert required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/categories", method="GET") == "reports.read"
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/categories", "POST") == UserRole.ADMIN
+    assert required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/categories", method="POST") == "admin.write"
     assert (
-        required_service_token_scope_for_request("/api/categories", "POST")
+        required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/categories", "POST")
         == "admin:write"
     )
 
-    assert required_role_for_request("/functions", "GET") == UserRole.ADMIN
-    assert required_permission_for_request("/functions", method="GET") == "admin.write"
-    assert required_service_token_scope_for_request("/functions", "GET") == "admin:write"
+    assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/functions", "GET") == UserRole.ADMIN
+    assert required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/functions", method="GET") == "admin.write"
+    assert required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/functions", "GET") == "admin:write"
