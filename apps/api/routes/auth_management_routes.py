@@ -21,8 +21,8 @@ from apps.api.response_models import (
     ServiceTokenCreateResponseModel,
     ServiceTokenResponseModel,
 )
-from packages.platform.auth.crypto import hash_password, issue_service_token
 from packages.platform.auth.contracts import UserRole, normalize_service_token_scopes
+from packages.platform.auth.crypto import hash_password, issue_service_token
 from packages.platform.auth.role_hierarchy import AuthenticatedPrincipal
 from packages.platform.auth.serialization import serialize_service_token, serialize_user
 from packages.storage.auth_store import (

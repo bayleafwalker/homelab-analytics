@@ -15,6 +15,7 @@ from packages.platform.auth.credential_resolution import (
     cookie_secure_for_request,
     request_remote_addr,
 )
+from packages.platform.auth.machine_jwt_provider import MachineJwtProvider
 from packages.platform.auth.middleware_authentication import authenticate_request
 from packages.platform.auth.middleware_authorization import authorize_request
 from packages.platform.auth.middleware_guards import (
@@ -22,7 +23,6 @@ from packages.platform.auth.middleware_guards import (
     enforce_csrf_protection,
 )
 from packages.platform.auth.middleware_metrics import record_ingestion_duration
-from packages.platform.auth.machine_jwt_provider import MachineJwtProvider
 from packages.platform.auth.oidc_provider import OidcProvider
 from packages.platform.auth.proxy_provider import ProxyProvider
 from packages.platform.auth.scope_authorization import (

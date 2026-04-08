@@ -5,8 +5,8 @@ import uuid
 import warnings
 from ipaddress import ip_network
 
-from packages.platform.auth.crypto import hash_password
 from packages.platform.auth.contracts import UserRole
+from packages.platform.auth.crypto import hash_password
 from packages.shared.auth_modes import is_cookie_auth_mode
 from packages.shared.metrics import metrics_registry
 from packages.shared.settings import AppSettings

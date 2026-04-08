@@ -4,12 +4,12 @@ from __future__ import annotations
 from fastapi.responses import JSONResponse
 
 from packages.platform.auth.contracts import UserRole
+from packages.platform.auth.crypto import has_required_service_token_scope
 from packages.platform.auth.permission_registry import (
     PrincipalAuthorizationContext,
     has_required_permission,
 )
 from packages.platform.auth.role_hierarchy import AuthenticatedPrincipal, has_required_role
-from packages.platform.auth.crypto import has_required_service_token_scope
 
 
 def authorize_request(

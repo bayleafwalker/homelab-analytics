@@ -634,9 +634,6 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     ).read_text()
     web_main_source = (ROOT / "apps" / "web" / "main.py").read_text()
 
-    scope_authorization_source = (
-        ROOT / "packages" / "platform" / "auth" / "scope_authorization.py"
-    ).read_text()
     route_policy_catalog_source = (
         ROOT / "packages" / "platform" / "auth" / "route_policy_catalog.py"
     ).read_text()
