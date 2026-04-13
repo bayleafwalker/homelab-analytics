@@ -40,7 +40,7 @@ export SPRINTCTL_INSTANCE_ID SPRINTCTL_RUNTIME_SESSION_ID CODEX_THREAD_ID
 	verify-agent verify-arch verify-fast verify-all verify-domain helm-lint \
 	docker-build compose-smoke audit-deps db-migrate-sqlite db-migrate-postgres \
 	db-migrate-postgres-control-plane db-migrate-postgres-run-metadata \
-	web-codegen web-codegen-check web-token-check web-typecheck web-build demo-generate demo-seed \
+	web-codegen web-codegen-check web-token-check web-typecheck web-contracts-check web-build demo-generate demo-seed \
 	web-ui-test \
 	contract-export-check contract-compat-report contract-release-artifacts \
 	sprint-resume claim-recover claim-heartbeat item-verify-auth snapshot-refresh knowledge-publish
@@ -129,6 +129,9 @@ web-token-check:
 web-typecheck:
 	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run typecheck
 
+web-contracts-check:
+	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run contracts:check
+
 web-build:
 	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run build
 
@@ -180,7 +183,7 @@ compose-smoke:
 audit-deps:
 	-$(PIP_AUDIT)
 
-verify-fast: lint typecheck test-fast test-sqlite-adapters verify-docs verify-agent verify-arch contract-export-check web-codegen-check web-token-check web-build web-typecheck web-ui-test helm-lint
+verify-fast: lint typecheck test-fast test-sqlite-adapters verify-docs verify-agent verify-arch contract-export-check web-codegen-check web-token-check web-contracts-check web-build web-typecheck web-ui-test helm-lint
 
 verify-all: verify-fast test-integration test-e2e-local docker-build
 

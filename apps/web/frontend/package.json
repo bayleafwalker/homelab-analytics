@@ -6,6 +6,7 @@
     "tokens:check": "node scripts/build-ui-tokens.mjs --check",
     "codegen": "node scripts/codegen.mjs",
     "codegen:check": "node scripts/codegen.mjs --check",
+    "contracts:check": "node scripts/check-transport-contracts.mjs",
     "build": "npm run tokens:build && next build",
     "dev": "npm run tokens:build && next dev",
     "start": "next start",
