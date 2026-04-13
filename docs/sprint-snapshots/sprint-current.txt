@@ -1,4 +1,4 @@
-SPRINT: contract-harbor-gate — Web Client Contract Hardening  [active]
+SPRINT: contract-harbor-gate — Web Client Contract Hardening  [closed]
 Goal:   Replace weak frontend backend-transport seams with generated-operation typed helpers so protected web routes compile against backend-owned contracts.
 Dates:  2026-04-11 to 2026-04-25
 ID:     48
@@ -12,4 +12,4 @@ Items:  2 total — 2 done, 0 active, 0 pending, 0 blocked
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
   [done    ] #315  Generated-operation typed backend read helpers for protected web surfaces  (assignee: -)
 
-Rendered: 2026-04-13T17:14:36Z
+Rendered: 2026-04-13T17:30:01Z
