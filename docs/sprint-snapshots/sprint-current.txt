@@ -1,23 +1,15 @@
-SPRINT: beacon-bridge-ledger — HA Bridge Ingest Foundation  [closed]
-Goal:   Define the platform-side ingest contracts, auth boundaries, and landing/identity path for the Home Assistant bridge without implementing the HA add-on or inbound integration yet.
-Dates:  2026-04-08 to 2026-04-18
-ID:     47
-Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
+SPRINT: contract-harbor-gate — Web Client Contract Hardening  [active]
+Goal:   Replace weak frontend backend-transport seams with generated-operation typed helpers so protected web routes compile against backend-owned contracts.
+Dates:  2026-04-11 to 2026-04-25
+ID:     48
+Items:  2 total — 2 done, 0 active, 0 pending, 0 blocked
 
---- Track: landing-contracts ---
+--- Track: drift-enforcement ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #313  HA bridge ingest schemas and landing contracts for registry, state, event, statistics, and heartbeat payloads  (assignee: -)
+  [done    ] #316  Protected frontend contract drift enforcement and Branch 01 verification  (assignee: -)
 
---- Track: auth-guardrails ---
+--- Track: web-transport ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #312  Scoped HA bridge ingest auth, rate limiting, and schema-version rejection path  (assignee: -)
+  [done    ] #315  Generated-operation typed backend read helpers for protected web surfaces  (assignee: -)
 
---- Track: docs-verification ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #311  Requirements, architecture docs, and targeted API or contract tests for the HA bridge ingest foundation  (assignee: -)
-
---- Track: identity-mapping ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #314  Stable HA identity resolution and canonical mapping targets for entity, device, and area payloads  (assignee: -)
-
-Rendered: 2026-04-08T20:45:19Z
+Rendered: 2026-04-13T17:14:36Z
