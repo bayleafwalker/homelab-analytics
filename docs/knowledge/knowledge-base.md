@@ -1,5 +1,5 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-08T20:45:04Z
+Generated: 2026-04-13T17:32:01Z
 
 ## Decisions
 
@@ -607,6 +607,14 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 
 ## Lessons
 
+### Frontend tsc runs without .bin symlinks via direct node invocation
+Source: sprint: 48
+Tags: frontend, node_modules, typecheck, tsc, blocker-recovery
+
+When apps/web/frontend/node_modules/.bin is absent (symlinks not created) but node_modules/typescript/bin/tsc exists, the TypeScript compiler can still run as: node ../node_modules/typescript/bin/tsc --noEmit from the frontend directory. The hoisted TypeScript package in apps/web/node_modules is also a fallback. This unblocks the typecheck gate without needing npm ci to complete. npm run typecheck will still fail since it needs the .bin symlink, but the compilation check can proceed.
+
+---
+
 ### Key confidence dashboard domain grouping by publication_key
 Source: track: dashboard, sprint: 25
 Tags: control-plane, confidence-dashboard, bug-fix, domain-grouping
@@ -671,6 +679,14 @@ Source-detection behavior is verified through API fixture tests (configured CSV 
 
 ---
 
+### Claim proof handling must preserve claim_token for lifecycle operations
+Source: track: guided-onboarding, sprint: 26
+Tags: claims, coordination, handoff
+
+Claim ownership in sprintctl is enforced by claim_id plus claim_token. If token persistence is lost, lifecycle operations (status updates, handoff, release) can block even when identity metadata matches; preserve token immediately after claim create.
+
+---
+
 ### Require claim token or explicit handoff before mutating exclusively claimed items
 Source: sprint: 5
 Tags: sprintctl, claims, coordination
@@ -692,5 +708,21 @@ Source: sprint: 12
 Tags: sprintctl, workflow, handoff, process
 
 The sprint closeout exposed that duplicate historical packets and stale tracker entries are easy to confuse with active work; future sprint selection should start from live sprintctl state, then use docs and snapshots as supporting context.
+
+---
+
+### Require explicit claim proof for item transitions
+Source: track: stage-9, sprint: 8
+Tags: claims, coordination, ownership
+
+An exclusive claim blocked the transition because no valid claim proof was supplied.
+
+---
+
+### Claimed sprint items require claim proof for status transitions
+Source: track: stage-1, sprint: 4
+Tags: sprintctl, claims, coordination
+
+When a sprint item has an exclusive claim, matching actor or workspace metadata is not enough to mutate its status. Status transitions must carry the originating claim proof, including the claim id and claim token, or the operation should fail and be handed off explicitly.
 
 ---
