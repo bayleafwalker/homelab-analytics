@@ -15,6 +15,8 @@ from datetime import datetime
 from typing import Any
 
 from packages.domains.homelab.pipelines.homelab_models import (
+    CURRENT_DIM_SERVICE_VIEW,
+    CURRENT_DIM_WORKLOAD_VIEW,
     DIM_SERVICE,
     DIM_WORKLOAD,
     FACT_BACKUP_RUN_COLUMNS,
@@ -551,3 +553,11 @@ def _opt_decimal(value: Any) -> float | None:
     if value is None or value == "":
         return None
     return float(value)
+
+
+def get_current_services(store: DuckDBStore) -> list[dict[str, Any]]:
+    return store.fetchall_dicts(f"SELECT * FROM {CURRENT_DIM_SERVICE_VIEW} ORDER BY service_id")
+
+
+def get_current_workloads(store: DuckDBStore) -> list[dict[str, Any]]:
+    return store.fetchall_dicts(f"SELECT * FROM {CURRENT_DIM_WORKLOAD_VIEW} ORDER BY workload_id")

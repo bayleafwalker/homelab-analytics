@@ -14,6 +14,8 @@ from packages.domains.finance.pipelines.account_transaction_service import Accou
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.domains.finance.pipelines.transaction_models import DIM_ACCOUNT
+from packages.domains.homelab.pipelines.homelab_models import DIM_SERVICE, DIM_WORKLOAD
+from packages.domains.homelab.pipelines.infrastructure_models import DIM_DEVICE, DIM_NODE
 from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.promotion_registry import (
     PromotionHandler,
@@ -2097,6 +2099,55 @@ class ApiAppTests(unittest.TestCase):
             self.assertEqual(1, len(asset_body["rows"]))
             self.assertEqual("UPS Rack A", asset_body["rows"][0]["asset_name"])
             self.assertEqual("rack-a", asset_body["rows"][0]["location"])
+
+    def test_homelab_infrastructure_current_dimensions_are_exposed(self) -> None:
+        from datetime import date
+
+        with TemporaryDirectory() as temp_dir:
+            transformation_service = TransformationService(DuckDBStore.memory())
+            transformation_service.store.upsert_dimension_rows(
+                DIM_NODE,
+                [{"hostname": "node-01", "node_name": "Node 01", "role": "worker", "cpu": None, "ram_gb": None, "os": None}],
+                effective_date=date(2026, 1, 1),
+            )
+            transformation_service.store.upsert_dimension_rows(
+                DIM_DEVICE,
+                [{"device_id": "dev-001", "device_name": "Switch A", "device_type": "switch", "location": None, "power_rating_watts": None}],
+                effective_date=date(2026, 1, 1),
+            )
+            transformation_service.store.upsert_dimension_rows(
+                DIM_SERVICE,
+                [{"service_id": "svc-001", "service_name": "Grafana", "service_type": "container", "host": None, "criticality": None, "managed_by": None}],
+                effective_date=date(2026, 1, 1),
+            )
+            transformation_service.store.upsert_dimension_rows(
+                DIM_WORKLOAD,
+                [{"workload_id": "wl-001", "entity_id": None, "display_name": "Grafana Worker", "host": None, "workload_type": "container"}],
+                effective_date=date(2026, 1, 1),
+            )
+
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+                    ),
+                    transformation_service=transformation_service,
+                )
+            )
+
+            for dim_name, expected_key, expected_value in [
+                ("dim_node", "hostname", "node-01"),
+                ("dim_device", "device_id", "dev-001"),
+                ("dim_service", "service_id", "svc-001"),
+                ("dim_workload", "workload_id", "wl-001"),
+            ]:
+                response = client.get(f"/reports/current-dimensions/{dim_name}")
+                self.assertEqual(200, response.status_code, msg=f"{dim_name} endpoint failed")
+                body = response.json()
+                self.assertEqual(dim_name, body["dimension"])
+                self.assertEqual(1, len(body["rows"]))
+                self.assertEqual(expected_value, body["rows"][0][expected_key])
 
 
     def test_runs_endpoint_exposes_pagination_envelope_and_supports_filtering(

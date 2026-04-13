@@ -63,6 +63,10 @@ from packages.domains.homelab.pipelines.home_automation_models import (
     DIM_ENTITY,
 )
 from packages.domains.homelab.pipelines.homelab_models import (
+    CURRENT_DIM_SERVICE_VIEW,
+    CURRENT_DIM_WORKLOAD_VIEW,
+    DIM_SERVICE,
+    DIM_WORKLOAD,
     MART_BACKUP_FRESHNESS_COLUMNS,
     MART_BACKUP_FRESHNESS_TABLE,
     MART_SERVICE_HEALTH_CURRENT_COLUMNS,
@@ -71,6 +75,12 @@ from packages.domains.homelab.pipelines.homelab_models import (
     MART_STORAGE_RISK_TABLE,
     MART_WORKLOAD_COST_7D_COLUMNS,
     MART_WORKLOAD_COST_7D_TABLE,
+)
+from packages.domains.homelab.pipelines.infrastructure_models import (
+    CURRENT_DIM_DEVICE_VIEW,
+    CURRENT_DIM_NODE_VIEW,
+    DIM_DEVICE,
+    DIM_NODE,
 )
 from packages.domains.overview.pipelines.overview_models import (
     MART_AFFORDABILITY_RATIOS_COLUMNS,
@@ -269,6 +279,26 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         columns=_current_dimension_columns(DIM_HOUSEHOLD_MEMBER),
         order_by="member_id",
     ),
+    CURRENT_DIM_NODE_VIEW: PublicationRelation(
+        relation_name=CURRENT_DIM_NODE_VIEW,
+        columns=_current_dimension_columns(DIM_NODE),
+        order_by="hostname",
+    ),
+    CURRENT_DIM_DEVICE_VIEW: PublicationRelation(
+        relation_name=CURRENT_DIM_DEVICE_VIEW,
+        columns=_current_dimension_columns(DIM_DEVICE),
+        order_by="device_id",
+    ),
+    CURRENT_DIM_SERVICE_VIEW: PublicationRelation(
+        relation_name=CURRENT_DIM_SERVICE_VIEW,
+        columns=_current_dimension_columns(DIM_SERVICE),
+        order_by="service_id",
+    ),
+    CURRENT_DIM_WORKLOAD_VIEW: PublicationRelation(
+        relation_name=CURRENT_DIM_WORKLOAD_VIEW,
+        columns=_current_dimension_columns(DIM_WORKLOAD),
+        order_by="workload_id",
+    ),
     MART_BUDGET_VARIANCE_TABLE: PublicationRelation(
         relation_name=MART_BUDGET_VARIANCE_TABLE,
         columns=MART_BUDGET_VARIANCE_COLUMNS,
@@ -373,4 +403,8 @@ CURRENT_DIMENSION_RELATIONS = {
     "dim_asset": CURRENT_DIM_ASSET_VIEW,
     "dim_entity": CURRENT_DIM_ENTITY_VIEW,
     "dim_household_member": CURRENT_DIM_HOUSEHOLD_MEMBER_VIEW,
+    "dim_node": CURRENT_DIM_NODE_VIEW,
+    "dim_device": CURRENT_DIM_DEVICE_VIEW,
+    "dim_service": CURRENT_DIM_SERVICE_VIEW,
+    "dim_workload": CURRENT_DIM_WORKLOAD_VIEW,
 }

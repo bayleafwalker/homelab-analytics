@@ -167,6 +167,8 @@ from packages.domains.homelab.pipelines.transformation_homelab import (
     count_workload_sensor_rows,
     ensure_homelab_storage,
     get_backup_freshness,
+    get_current_services,
+    get_current_workloads,
     get_service_health_current,
     get_storage_risk,
     get_workload_cost_7d,
@@ -671,6 +673,14 @@ class TransformationService:
             return self.get_current_assets()
         if dimension_name == "dim_entity":
             return self.get_current_entities()
+        if dimension_name == "dim_node":
+            return self.get_current_nodes()
+        if dimension_name == "dim_device":
+            return self.get_current_devices()
+        if dimension_name == "dim_service":
+            return self.get_current_services()
+        if dimension_name == "dim_workload":
+            return self.get_current_workloads()
         raise KeyError(f"Unknown current dimension: {dimension_name}")
 
     @property
@@ -1223,6 +1233,12 @@ class TransformationService:
 
     def get_current_devices(self) -> list[dict[str, Any]]:
         return get_current_devices(self._store)
+
+    def get_current_services(self) -> list[dict[str, Any]]:
+        return get_current_services(self._store)
+
+    def get_current_workloads(self) -> list[dict[str, Any]]:
+        return get_current_workloads(self._store)
 
     def get_current_assets(self) -> list[dict[str, Any]]:
         return get_current_assets(self._store)
