@@ -11,21 +11,100 @@ import type {
   SuccessResponseJSON
 } from "openapi-typescript-helpers";
 
-import type { paths } from "../generated/api";
+import type { operations, paths } from "../generated/api";
 
 const API_BASE_URL =
   process.env.HOMELAB_ANALYTICS_API_BASE_URL || "http://127.0.0.1:8080";
 const CSRF_COOKIE_NAME = "homelab_analytics_csrf";
 
 type GetApiPath = PathsWithMethod<paths, "get">;
-type GetOperation<Path extends GetApiPath> = NonNullable<paths[Path]["get"]>;
 type ApiMethod = HttpMethod;
 type ApiPathForMethod<Method extends ApiMethod> = PathsWithMethod<paths, Method>;
 type OperationForMethodPath<
   Method extends ApiMethod,
   Path extends ApiPathForMethod<Method>
 > = NonNullable<paths[Path][Method]>;
-type JsonResponseForPath<Path extends GetApiPath> =
+type GetOperationIdByPath = {
+  "/auth/me": "auth_me_auth_me_get";
+  "/runs": "list_runs_runs_get";
+  "/runs/{run_id}": "get_run_runs__run_id__get";
+  "/reports/household-overview": "get_household_overview_reports_household_overview_get";
+  "/reports/attention-items": "get_attention_items_reports_attention_items_get";
+  "/reports/recent-changes": "get_recent_changes_reports_recent_changes_get";
+  "/reports/spend-by-category-monthly": "get_spend_by_category_monthly_reports_spend_by_category_monthly_get";
+  "/reports/recent-large-transactions": "get_recent_large_transactions_reports_recent_large_transactions_get";
+  "/reports/account-balance-trend": "get_account_balance_trend_reports_account_balance_trend_get";
+  "/reports/transaction-anomalies": "get_transaction_anomalies_reports_transaction_anomalies_get";
+  "/reports/upcoming-fixed-costs": "get_upcoming_fixed_costs_reports_upcoming_fixed_costs_get";
+  "/reports/utility-cost-trend": "get_utility_cost_trend_reports_utility_cost_trend_get";
+  "/reports/utility-cost-summary": "get_utility_cost_summary_reports_utility_cost_summary_get";
+  "/reports/usage-vs-price": "get_usage_vs_price_reports_usage_vs_price_get";
+  "/reports/contract-review-candidates": "get_contract_review_candidates_reports_contract_review_candidates_get";
+  "/reports/contract-renewal-watchlist": "get_contract_renewal_watchlist_reports_contract_renewal_watchlist_get";
+  "/reports/subscription-summary": "get_subscription_summary_reports_subscription_summary_get";
+  "/reports/current-dimensions/{dimension_name}": "get_current_dimension_report_reports_current_dimensions__dimension_name__get";
+  "/reports/monthly-cashflow": "get_monthly_cashflow_reports_monthly_cashflow_get";
+  "/contracts/publications": "list_publication_contracts_contracts_publications_get";
+  "/contracts/publications/{publication_key}": "get_publication_contract_contracts_publications__publication_key__get";
+  "/contracts/ui-descriptors": "list_ui_descriptors_contracts_ui_descriptors_get";
+  "/config/source-systems": "list_source_systems_config_source_systems_get";
+  "/config/dataset-contracts": "list_dataset_contracts_config_dataset_contracts_get";
+  "/config/dataset-contracts/{dataset_contract_id}/diff": "get_dataset_contract_diff_config_dataset_contracts__dataset_contract_id__diff_get";
+  "/config/column-mappings": "list_column_mappings_config_column_mappings_get";
+  "/config/column-mappings/{column_mapping_id}/diff": "get_column_mapping_diff_config_column_mappings__column_mapping_id__diff_get";
+  "/config/transformation-handlers": "list_transformation_handlers_config_transformation_handlers_get";
+  "/config/publication-keys": "list_publication_keys_config_publication_keys_get";
+  "/config/extension-registry-sources": "list_extension_registry_sources_config_extension_registry_sources_get";
+  "/config/extension-registry-revisions": "list_extension_registry_revisions_config_extension_registry_revisions_get";
+  "/config/extension-registry-activations": "list_extension_registry_activations_config_extension_registry_activations_get";
+  "/functions": "list_functions_functions_get";
+  "/api/ha/entities": "get_ha_entities_api_ha_entities_get";
+  "/api/ha/entities/{entity_id}/history": "get_ha_entity_history_api_ha_entities__entity_id__history_get";
+  "/api/ha/bridge/status": "get_bridge_status_api_ha_bridge_status_get";
+  "/api/ha/mqtt/status": "get_mqtt_status_api_ha_mqtt_status_get";
+  "/api/ha/policies": "get_policies_api_ha_policies_get";
+  "/api/ha/actions": "get_actions_api_ha_actions_get";
+  "/api/ha/actions/status": "get_actions_status_api_ha_actions_status_get";
+  "/api/ha/actions/proposals": "get_action_proposals_api_ha_actions_proposals_get";
+  "/api/homelab/services": "get_service_health_api_homelab_services_get";
+  "/api/homelab/workloads": "get_workload_cost_7d_api_homelab_workloads_get";
+  "/config/transformation-packages": "list_transformation_packages_config_transformation_packages_get";
+  "/config/publication-definitions": "list_publication_definitions_config_publication_definitions_get";
+  "/config/source-assets": "list_source_assets_config_source_assets_get";
+  "/config/ingestion-definitions": "list_ingestion_definitions_config_ingestion_definitions_get";
+  "/config/execution-schedules": "list_execution_schedules_config_execution_schedules_get";
+  "/auth/users": "list_auth_users_auth_users_get";
+  "/auth/service-tokens": "list_service_tokens_auth_service_tokens_get";
+  "/control/auth-audit": "list_auth_audit_control_auth_audit_get";
+  "/control/source-lineage": "get_source_lineage_control_source_lineage_get";
+  "/control/publication-audit": "get_publication_audit_control_publication_audit_get";
+  "/control/schedule-dispatches": "list_schedule_dispatches_control_schedule_dispatches_get";
+  "/control/schedule-dispatches/{dispatch_id}": "get_schedule_dispatch_control_schedule_dispatches__dispatch_id__get";
+  "/control/operational-summary": "get_operational_summary_control_operational_summary_get";
+  "/control/terminal/commands": "list_terminal_commands_control_terminal_commands_get";
+  "/control/source-freshness": "get_source_freshness_control_source_freshness_get";
+  "/transformation-audit": "get_transformation_audit_transformation_audit_get";
+  "/reports/budget-variance": "get_budget_variance_reports_budget_variance_get";
+  "/reports/budget-envelopes": "get_budget_envelopes_reports_budget_envelopes_get";
+  "/reports/budget-progress": "get_budget_progress_reports_budget_progress_get";
+  "/reports/loan-overview": "get_loan_overview_reports_loan_overview_get";
+  "/reports/loan-schedule/{loan_id}": "get_loan_schedule_reports_loan_schedule__loan_id__get";
+  "/reports/loan-variance": "get_loan_variance_reports_loan_variance_get";
+  "/reports/household-cost-model": "get_household_cost_model_reports_household_cost_model_get";
+  "/reports/cost-trend": "get_cost_trend_reports_cost_trend_get";
+  "/reports/affordability-ratios": "get_affordability_ratios_reports_affordability_ratios_get";
+  "/reports/homelab-roi": "get_homelab_roi_reports_homelab_roi_get";
+  "/reports/recurring-cost-baseline": "get_recurring_cost_baseline_reports_recurring_cost_baseline_get";
+  "/api/scenarios": "list_scenarios_route_api_scenarios_get";
+  "/api/scenarios/compare-sets": "list_scenario_compare_sets_route_api_scenarios_compare_sets_get";
+  "/api/scenarios/{scenario_id}": "get_scenario_metadata_api_scenarios__scenario_id__get";
+  "/api/scenarios/{scenario_id}/comparison": "get_scenario_comparison_api_scenarios__scenario_id__comparison_get";
+  "/api/scenarios/{scenario_id}/cashflow": "get_income_scenario_cashflow_api_scenarios__scenario_id__cashflow_get";
+};
+type TypedGetApiPath = keyof GetOperationIdByPath & GetApiPath;
+type GetOperationId<Path extends TypedGetApiPath> = GetOperationIdByPath[Path];
+type GetOperation<Path extends TypedGetApiPath> = operations[GetOperationId<Path>];
+type JsonResponseForPath<Path extends TypedGetApiPath> =
   | SuccessResponseJSON<GetOperation<Path>>
   | null;
 export type RequestBodyForMethodPath<
@@ -40,12 +119,12 @@ export type JsonErrorResponseForMethodPath<
   Method extends ApiMethod,
   Path extends ApiPathForMethod<Method>
 > = ErrorResponseJSON<OperationForMethodPath<Method, Path>> | null;
-type ParametersForPath<Path extends GetApiPath> = GetOperation<Path> extends {
+type ParametersForPath<Path extends TypedGetApiPath> = GetOperation<Path> extends {
   parameters: infer Parameters;
 }
   ? Parameters
   : never;
-type BackendGetInit<Path extends GetApiPath> = MaybeOptionalInit<paths[Path], "get">;
+type BackendGetInit<Path extends TypedGetApiPath> = MaybeOptionalInit<paths[Path], "get">;
 type BackendOperationInit<
   Method extends ApiMethod,
   Path extends ApiPathForMethod<Method>
@@ -60,7 +139,9 @@ type BackendOperationRequestInit<
   cookieHeader?: string;
   headers?: HeadersInit;
 };
-type BackendGetArguments<Path extends GetApiPath> = RequiredKeysOf<BackendGetInit<Path>> extends never
+type BackendGetArguments<Path extends TypedGetApiPath> = RequiredKeysOf<
+  BackendGetInit<Path>
+> extends never
   ? [(BackendGetInit<Path> & Record<string, unknown>)?]
   : [BackendGetInit<Path> & Record<string, unknown>];
 type BackendOperationArguments<
@@ -69,22 +150,22 @@ type BackendOperationArguments<
 > = RequiredKeysOf<BackendOperationInit<Method, Path>> extends never
   ? [(BackendOperationRequestInit<Method, Path> & Record<string, unknown>)?]
   : [BackendOperationRequestInit<Method, Path> & Record<string, unknown>];
-type QueryParamsForPath<Path extends GetApiPath> = ParametersForPath<Path> extends {
+type QueryParamsForPath<Path extends TypedGetApiPath> = ParametersForPath<Path> extends {
   query?: infer Query;
 }
   ? Query
   : never;
-type PathParamsForPath<Path extends GetApiPath> = ParametersForPath<Path> extends {
+type PathParamsForPath<Path extends TypedGetApiPath> = ParametersForPath<Path> extends {
   path: infer PathParams;
 }
   ? PathParams
   : never;
 type QueryValue<
-  Path extends GetApiPath,
+  Path extends TypedGetApiPath,
   Key extends keyof QueryParamsForPath<Path>
 > = QueryParamsForPath<Path>[Key];
 type PathValue<
-  Path extends GetApiPath,
+  Path extends TypedGetApiPath,
   Key extends keyof PathParamsForPath<Path>
 > = PathParamsForPath<Path>[Key];
 type ResponseField<Response, Field extends string> = Response extends Record<Field, infer Value>
@@ -416,7 +497,7 @@ function definedValues<T extends Record<string, unknown>>(values: T): DefinedVal
   ) as DefinedValues<T>;
 }
 
-async function backendGet<Path extends GetApiPath>(
+async function backendGet<Path extends TypedGetApiPath>(
   path: Path,
   ...args: BackendGetArguments<Path>
 ): Promise<JsonResponseForPath<Path>> {
