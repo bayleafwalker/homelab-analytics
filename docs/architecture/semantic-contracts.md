@@ -51,7 +51,6 @@ Domain-local does not mean ad hoc. Each still needs reporting-layer publication 
 - `fact_balance_snapshot` is implemented as the Stage 1 point-in-time balance fact across account and loan balances.
 - `dim_counterparty.category` free-text bridge is retained for backward compat; `category_id` is now populated by backfill but full bridge-column removal is deferred.
 - Provider semantics still live inside domain-local string columns such as `dim_contract.provider`; there is no shared provider dimension yet.
-- Infrastructure and homelab current dimensions (`dim_node`, `dim_device`, `dim_service`, `dim_workload`) exist in transformation but are not yet published through the same app-facing current-dimension contract path as the earlier Stage 1 dimensions.
 
 ## Change checklist
 
