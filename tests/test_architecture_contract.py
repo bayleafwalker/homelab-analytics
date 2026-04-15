@@ -31,7 +31,6 @@ def test_transformation_service_does_not_import_application_or_reporting_modules
     imports = _import_names(path)
 
     assert not any(name.startswith("apps") for name in imports)
-    assert not any(name.startswith("packages.analytics") for name in imports)
 
 
 def test_transformation_service_imports_split_domain_modules() -> None:

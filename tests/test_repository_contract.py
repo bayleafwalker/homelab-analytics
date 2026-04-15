@@ -20,7 +20,7 @@ class RepositoryContractTests(unittest.TestCase):
             "packages/connectors",
             "packages/pipelines",
             "packages/storage",
-            "packages/analytics",
+
             "packages/shared",
             "charts/homelab-analytics",
             "infra/docker",

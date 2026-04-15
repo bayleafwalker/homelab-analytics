@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from packages.analytics.cashflow import (
+from packages.domains.finance.pipelines.cashflow_analytics import (
     MonthlyCashflowSummary,
     summarize_monthly_cashflow,
 )
