@@ -228,6 +228,35 @@ class TariffShockProjectionTests(unittest.TestCase):
         self.assertTrue(comparison.is_stale)
 
 
+class TariffShockValidationTests(unittest.TestCase):
+    def test_unknown_utility_type_raises_value_error(self) -> None:
+        store = DuckDBStore.memory()
+        with self.assertRaises(ValueError, msg="unknown utility_type should raise"):
+            create_tariff_shock_scenario(
+                store,
+                tariff_pct_delta=Decimal("0.10"),
+                utility_type="solar",
+            )
+
+    def test_known_utility_type_does_not_raise_on_entry(self) -> None:
+        """Guard passes for known types; downstream ValueError from missing data is fine."""
+        store = DuckDBStore.memory()
+        svc = TransformationService(store)
+        svc.load_transactions(
+            [{"booked_at": "2026-01-03T08:00:00+00:00", "account_id": "checking",
+              "counterparty_name": "Employer", "amount": "3000.00",
+              "currency": "EUR", "description": "salary"}],
+            run_id="run-guard-001",
+        )
+        svc.refresh_monthly_cashflow()
+        # Should raise ValueError for missing utility data, not for invalid utility_type
+        with self.assertRaises(ValueError) as ctx:
+            create_tariff_shock_scenario(
+                store, tariff_pct_delta=Decimal("0.10"), utility_type="gas"
+            )
+        self.assertIn("utility trend", str(ctx.exception).lower())
+
+
 class TariffShockNoUtilityTests(unittest.TestCase):
     def test_no_utility_trend_raises_value_error(self) -> None:
         store = DuckDBStore.memory()

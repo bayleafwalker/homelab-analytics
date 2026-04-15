@@ -37,6 +37,7 @@ from packages.domains.homelab.pipelines.homelab_models import (
     MART_WORKLOAD_COST_7D_TABLE,
 )
 from packages.domains.utilities.pipelines.utility_models import (
+    KNOWN_UTILITY_TYPES,
     MART_UTILITY_COST_TREND_MONTHLY_TABLE,
 )
 from packages.domains.overview.pipelines.scenario_models_overview import (
@@ -509,6 +510,11 @@ def create_tariff_shock_scenario(
     increase).  Income stays flat at the baseline average; the expense delta flows
     through the current household expense total.
     """
+    if utility_type not in KNOWN_UTILITY_TYPES:
+        raise ValueError(
+            f"Unknown utility_type {utility_type!r}. "
+            f"Expected one of: {sorted(KNOWN_UTILITY_TYPES)}"
+        )
     ensure_scenario_storage(store)
 
     baseline_income, baseline_expense = get_baseline_cashflow(store)

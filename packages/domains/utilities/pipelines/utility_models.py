@@ -5,6 +5,8 @@ from typing import Any
 
 from packages.storage.duckdb_store import DimensionColumn, DimensionDefinition
 
+KNOWN_UTILITY_TYPES: frozenset[str] = frozenset({"electricity", "gas", "water"})
+
 DIM_METER = DimensionDefinition(
     table_name="dim_meter",
     natural_key_columns=("meter_id",),
