@@ -126,6 +126,26 @@ def ensure_scenario_storage(store: DuckDBStore) -> None:
     store.ensure_table(PROJ_INCOME_CASHFLOW_TABLE, PROJ_INCOME_CASHFLOW_COLUMNS)
 
 
+def _insert_dim_scenario(
+    store: DuckDBStore,
+    *,
+    scenario_id: str,
+    scenario_type: str,
+    subject_id: str,
+    label: str,
+    baseline_run_id: str | None,
+) -> None:
+    store.insert_rows(DIM_SCENARIO_TABLE, [{
+        "scenario_id": scenario_id,
+        "scenario_type": scenario_type,
+        "subject_id": subject_id,
+        "label": label,
+        "status": "active",
+        "baseline_run_id": baseline_run_id,
+        "created_at": datetime.now(UTC).isoformat(),
+    }])
+
+
 def _get_loan(store: DuckDBStore, loan_id: str) -> dict[str, Any] | None:
     rows = store.fetchall_dicts(
         f"SELECT * FROM {CURRENT_DIM_LOAN_VIEW} WHERE loan_id = ?", [loan_id]
@@ -216,15 +236,14 @@ def create_loan_what_if_scenario(
     auto_label = label or f"What-if: {loan_name}"
 
     # Write dim_scenario
-    store.insert_rows(DIM_SCENARIO_TABLE, [{
-        "scenario_id": scenario_id,
-        "scenario_type": "loan_what_if",
-        "subject_id": loan_id,
-        "label": auto_label,
-        "status": "active",
-        "baseline_run_id": baseline_run_id,
-        "created_at": datetime.now(UTC).isoformat(),
-    }])
+    _insert_dim_scenario(
+        store,
+        scenario_id=scenario_id,
+        scenario_type="loan_what_if",
+        subject_id=loan_id,
+        label=auto_label,
+        baseline_run_id=baseline_run_id,
+    )
 
     # Write assumptions
     assumption_rows: list[dict[str, Any]] = []
@@ -744,15 +763,14 @@ def create_income_change_scenario(
     sign = "+" if monthly_income_delta >= 0 else ""
     auto_label = label or f"Income change: {sign}{monthly_income_delta}"
 
-    store.insert_rows(DIM_SCENARIO_TABLE, [{
-        "scenario_id": scenario_id,
-        "scenario_type": "income_change",
-        "subject_id": "household",
-        "label": auto_label,
-        "status": "active",
-        "baseline_run_id": baseline_run_id,
-        "created_at": datetime.now(UTC).isoformat(),
-    }])
+    _insert_dim_scenario(
+        store,
+        scenario_id=scenario_id,
+        scenario_type="income_change",
+        subject_id="household",
+        label=auto_label,
+        baseline_run_id=baseline_run_id,
+    )
 
     q = Decimal("0.01")
     store.insert_rows(FACT_SCENARIO_ASSUMPTION_TABLE, [{
@@ -829,15 +847,14 @@ def create_expense_shock_scenario(
     sign = "+" if expense_pct_delta >= 0 else ""
     auto_label = label or f"Expense shock: {sign}{pct_display:.1f}%"
 
-    store.insert_rows(DIM_SCENARIO_TABLE, [{
-        "scenario_id": scenario_id,
-        "scenario_type": "expense_shock",
-        "subject_id": "household",
-        "label": auto_label,
-        "status": "active",
-        "baseline_run_id": baseline_run_id,
-        "created_at": datetime.now(UTC).isoformat(),
-    }])
+    _insert_dim_scenario(
+        store,
+        scenario_id=scenario_id,
+        scenario_type="expense_shock",
+        subject_id="household",
+        label=auto_label,
+        baseline_run_id=baseline_run_id,
+    )
 
     q = Decimal("0.0001")
     store.insert_rows(FACT_SCENARIO_ASSUMPTION_TABLE, [{

@@ -25,6 +25,7 @@ from packages.domains.finance.pipelines.scenario_models import (
 )
 from packages.domains.finance.pipelines.scenario_service import (
     IncomeCashflowComparison,
+    _insert_dim_scenario,
     ensure_scenario_storage,
     get_baseline_cashflow,
     get_latest_transaction_run_id,
@@ -367,19 +368,13 @@ def create_homelab_cost_benefit_scenario(
     sign = "+" if monthly_cost_delta >= 0 else ""
     auto_label = label or f"Homelab cost/benefit: {sign}{monthly_cost_delta.quantize(Decimal('0.01'))}"
 
-    store.insert_rows(
-        DIM_SCENARIO_TABLE,
-        [
-            {
-                "scenario_id": scenario_id,
-                "scenario_type": "homelab_cost_benefit",
-                "subject_id": "homelab",
-                "label": auto_label,
-                "status": "active",
-                "baseline_run_id": resolved_baseline_run_id,
-                "created_at": datetime.now(UTC).isoformat(),
-            }
-        ],
+    _insert_dim_scenario(
+        store,
+        scenario_id=scenario_id,
+        scenario_type="homelab_cost_benefit",
+        subject_id="homelab",
+        label=auto_label,
+        baseline_run_id=resolved_baseline_run_id,
     )
 
     q = Decimal("0.01")
@@ -567,15 +562,14 @@ def create_tariff_shock_scenario(
     sign = "+" if tariff_pct_delta >= 0 else ""
     auto_label = label or f"Tariff shock: {sign}{pct_display:.1f}% {utility_type}"
 
-    store.insert_rows(DIM_SCENARIO_TABLE, [{
-        "scenario_id": scenario_id,
-        "scenario_type": "tariff_shock",
-        "subject_id": utility_type,
-        "label": auto_label,
-        "status": "active",
-        "baseline_run_id": baseline_run_id,
-        "created_at": datetime.now(UTC).isoformat(),
-    }])
+    _insert_dim_scenario(
+        store,
+        scenario_id=scenario_id,
+        scenario_type="tariff_shock",
+        subject_id=utility_type,
+        label=auto_label,
+        baseline_run_id=baseline_run_id,
+    )
 
     q = Decimal("0.01")
     store.insert_rows(FACT_SCENARIO_ASSUMPTION_TABLE, [
