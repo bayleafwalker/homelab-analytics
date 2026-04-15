@@ -10,7 +10,7 @@ from __future__ import annotations
 import unittest
 from decimal import Decimal
 
-from packages.domains.finance.pipelines.scenario_service import (
+from packages.domains.overview.pipelines.scenario_service_overview import (
     create_tariff_shock_scenario,
     get_tariff_shock_comparison,
 )

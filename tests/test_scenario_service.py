@@ -18,11 +18,9 @@ from decimal import Decimal
 from packages.domains.finance.pipelines.scenario_service import (
     archive_scenario,
     archive_scenario_compare_set,
-    create_homelab_cost_benefit_scenario,
     create_loan_what_if_scenario,
     create_scenario_compare_set,
     ensure_scenario_storage,
-    get_homelab_cost_benefit_comparison,
     get_scenario,
     get_scenario_assumptions,
     get_scenario_comparison,
@@ -30,6 +28,10 @@ from packages.domains.finance.pipelines.scenario_service import (
     list_scenarios,
     restore_scenario_compare_set,
     update_scenario_compare_set_label,
+)
+from packages.domains.overview.pipelines.scenario_service_overview import (
+    create_homelab_cost_benefit_scenario,
+    get_homelab_cost_benefit_comparison,
 )
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore

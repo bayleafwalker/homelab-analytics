@@ -34,7 +34,7 @@ reference. When strata assignments change, update this file first.
 | `packages/domains/finance/` | Product pack | Finance source definitions, transformation, scenarios, OP contract parsers, invoice PDF parsers. |
 | `packages/domains/utilities/` | Product pack | Utilities source definitions, transformation, contract prices, tariff models. |
 | `packages/domains/homelab/` | Product pack | Homelab source definitions, HA bridge ingestion, homelab models. |
-| `packages/domains/overview/` | Product pack | Cross-domain composition and reporting. Overview is the one product pack that intentionally imports from sibling packs; all other sibling-pack cross-imports are violations unless routed through overview or a shared contract. |
+| `packages/domains/overview/` | Product pack | Cross-domain composition and reporting. Overview is the one product pack that intentionally imports from sibling packs; all other sibling-pack cross-imports are violations unless routed through overview or a shared contract. Includes `scenario_models_overview.py` (cross-domain result types) and `scenario_service_overview.py` (homelab cost/benefit and tariff-shock scenario builders). |
 | `packages/application/` | Surfaces | Use-case entrypoints (`run_ingestion`, `promote_run`, `publish_outputs`, `compute_scenario`, etc.). Mandatory orchestration seam between semantic engine/product packs and surfaces. |
 | `packages/pipelines/` | **Transitional** | See `docs/architecture/pipeline-ambiguity-classification.md`. The classified files (APP, JUSTIFIED-MIXED) are assigned to product-pack or kernel strata individually. The legacy re-export cluster (`from ... import * # noqa: F403`) is a seam-reduction-in-flight hot spot, not an architectural stratum. New files added here must carry an explicit classification before they are merged. |
 | `packages/analytics/` | **Ambiguous / scaffold** | 52 LOC total. `cashflow.py` imports `CanonicalTransaction` from finance domain internals, which makes it behave like finance-pack-internal code. However, the package name suggests cross-cutting intent. This ambiguity is unresolved. Do not add new code here without first deciding whether this package belongs in the semantic engine (cross-cutting kernel helper) or in the finance product pack (pack-internal). The stratum-coherence specialist will flag any addition until the ambiguity is resolved. |
@@ -51,7 +51,6 @@ contract). They pre-date this map and are flagged as watchlist items on every re
 
 | File | Violation |
 |---|---|
-| `packages/domains/finance/pipelines/scenario_service.py` | Imports `packages.domains.homelab.pipelines.homelab_models` and `packages.domains.utilities.pipelines.utility_models` directly. Finance is importing sibling pack internals. |
 | `packages/domains/utilities/pipelines/transformation_utilities.py` | Imports `packages.domains.finance.pipelines.contract_price_models` directly. Historical ownership mismatch — contract prices appear in the utilities pack manifest but the model lives under finance. |
 | `packages/analytics/cashflow.py` | Imports `CanonicalTransaction` from finance domain internals. Stratum ambiguity unresolved. |
 

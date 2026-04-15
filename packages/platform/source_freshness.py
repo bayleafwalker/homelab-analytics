@@ -58,6 +58,16 @@ class SourceFreshnessRunObservation:
     dataset_name: str | None = None
 
 
+@dataclass
+class SourceFreshnessSummary:
+    """Lightweight per-source freshness summary returned alongside scenario results."""
+
+    source_asset_id: str
+    freshness_state: str
+    last_ingest_at: datetime | None = None
+    covered_through: date | None = None
+
+
 @dataclass(frozen=True)
 class SourceFreshnessAssessment:
     state: SourceFreshnessState
