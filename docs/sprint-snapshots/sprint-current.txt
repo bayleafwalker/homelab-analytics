@@ -1,12 +1,15 @@
-SPRINT: dim-ground-wire — Homelab Infrastructure Current-Dimension Contracts  [closed]
-Goal:   Publish dim_node, dim_device, dim_service, and dim_workload through the app-facing current-dimension contract path to close the semantic-contracts governance gap.
-Dates:  2026-04-13 to 2026-04-20
-ID:     49
-Items:  2 total — 2 done, 0 active, 0 pending, 0 blocked
+SPRINT: prism-scan-seam — dispatch-review Specialist Fan-out  [closed]
+Goal:   
+Dates:  2026-04-14 to 2026-04-21
+ID:     50
+Items:  5 total — 5 done, 0 active, 0 pending, 0 blocked
 
---- Track: semantic-contracts ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #317  Register dim_node, dim_device, dim_service, dim_workload in household_reporting PUBLICATION_RELATIONS and CURRENT_DIMENSION_RELATIONS  (assignee: -)
-  [done    ] #318  Test coverage and semantic-contracts.md governance gap closure for homelab infrastructure current dimensions  (assignee: -)
+--- Track: stage-0 ---
+  health: 5 items — 5 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #319  Create docs/architecture/stratum-map.md (precondition for stratum-coherence and repetition specialists)  (assignee: -)
+  [done    ] #320  Author 7 specialist prompt files under .agents/skills/dispatch-review/specialists/  (assignee: -)
+  [done    ] #321  Rewrite .agents/skills/dispatch-review/SKILL.md: parallel fan-out orchestration and consolidation  (assignee: -)
+  [done    ] #322  Update docs/agents/review.md: add Internal specialist fan-out section  (assignee: -)
+  [done    ] #323  Run dry-run against scenario_service.py and capture docs/agents/examples/concept-review-dry-run.md  (assignee: -)
 
-Rendered: 2026-04-13T18:10:25Z
+Rendered: 2026-04-15T07:54:37Z
