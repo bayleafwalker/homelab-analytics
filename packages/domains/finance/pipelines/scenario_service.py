@@ -126,6 +126,26 @@ def ensure_scenario_storage(store: DuckDBStore) -> None:
     store.ensure_table(PROJ_INCOME_CASHFLOW_TABLE, PROJ_INCOME_CASHFLOW_COLUMNS)
 
 
+def _build_assumptions_summary(
+    control_plane_store: Any | None,
+) -> list[SourceFreshnessSummary] | None:
+    """Build a per-source freshness summary from the control-plane store, or return None."""
+    if control_plane_store is None:
+        return None
+    try:
+        snapshots = control_plane_store.list_publication_confidence_snapshots()
+        return [
+            SourceFreshnessSummary(
+                source_asset_id=snap.publication_key,
+                freshness_state=snap.freshness_state,
+                last_ingest_at=snap.assessed_at,
+            )
+            for snap in snapshots
+        ]
+    except Exception:
+        return None
+
+
 def _insert_dim_scenario(
     store: DuckDBStore,
     *,
@@ -424,22 +444,7 @@ def get_scenario_comparison(
 
     stale = _is_stale(store, scenario_id, loan_id)
 
-    # Build assumptions_summary if control plane is available
-    assumptions_summary = None
-    if control_plane_store is not None:
-        try:
-            snapshots = control_plane_store.list_publication_confidence_snapshots()
-            assumptions_summary = [
-                SourceFreshnessSummary(
-                    source_asset_id=snap.publication_key,
-                    freshness_state=snap.freshness_state,
-                    last_ingest_at=snap.assessed_at,
-                )
-                for snap in snapshots
-            ]
-        except Exception:
-            # Gracefully skip if confidence data unavailable
-            pass
+    assumptions_summary = _build_assumptions_summary(control_plane_store)
 
     return ComparisonResult(
         scenario_id=scenario_id,
@@ -945,21 +950,7 @@ def get_income_scenario_comparison(
         [scenario_id],
     )
 
-    # Build assumptions_summary if control plane is available
-    assumptions_summary = None
-    if control_plane_store is not None:
-        try:
-            snapshots = control_plane_store.list_publication_confidence_snapshots()
-            assumptions_summary = [
-                SourceFreshnessSummary(
-                    source_asset_id=snap.publication_key,
-                    freshness_state=snap.freshness_state,
-                    last_ingest_at=snap.assessed_at,
-                )
-                for snap in snapshots
-            ]
-        except Exception:
-            pass
+    assumptions_summary = _build_assumptions_summary(control_plane_store)
 
     return IncomeCashflowComparison(
         scenario_id=scenario_id,

@@ -25,6 +25,7 @@ from packages.domains.finance.pipelines.scenario_models import (
 )
 from packages.domains.finance.pipelines.scenario_service import (
     IncomeCashflowComparison,
+    _build_assumptions_summary,
     _insert_dim_scenario,
     ensure_scenario_storage,
     get_baseline_cashflow,
@@ -43,7 +44,6 @@ from packages.domains.overview.pipelines.scenario_models_overview import (
     HomelabCostBenefitResult,
     TariffShockResult,
 )
-from packages.platform.source_freshness import SourceFreshnessSummary
 from packages.storage.duckdb_store import DuckDBStore
 
 _DEFAULT_PROJECTION_MONTHS = 12
@@ -433,20 +433,7 @@ def get_homelab_cost_benefit_comparison(
         [scenario_id],
     )
 
-    assumptions_summary = None
-    if control_plane_store is not None:
-        try:
-            snapshots = control_plane_store.list_publication_confidence_snapshots()
-            assumptions_summary = [
-                SourceFreshnessSummary(
-                    source_asset_id=snap.publication_key,
-                    freshness_state=snap.freshness_state,
-                    last_ingest_at=snap.assessed_at,
-                )
-                for snap in snapshots
-            ]
-        except Exception:
-            pass
+    assumptions_summary = _build_assumptions_summary(control_plane_store)
 
     return HomelabCostBenefitComparison(
         scenario_id=scenario_id,
@@ -651,20 +638,7 @@ def get_tariff_shock_comparison(
         [scenario_id],
     )
 
-    assumptions_summary = None
-    if control_plane_store is not None:
-        try:
-            snapshots = control_plane_store.list_publication_confidence_snapshots()
-            assumptions_summary = [
-                SourceFreshnessSummary(
-                    source_asset_id=snap.publication_key,
-                    freshness_state=snap.freshness_state,
-                    last_ingest_at=snap.assessed_at,
-                )
-                for snap in snapshots
-            ]
-        except Exception:
-            pass
+    assumptions_summary = _build_assumptions_summary(control_plane_store)
 
     return IncomeCashflowComparison(
         scenario_id=scenario_id,
