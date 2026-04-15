@@ -1,7 +1,23 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-13T17:32:01Z
+Generated: 2026-04-15T11:37:38Z
 
 ## Decisions
+
+### Promote shared types to platform/kernel when two packs both need them
+Source: sprint: 51
+Tags: platform, type-sharing, source-freshness, stratum
+
+SourceFreshnessSummary was needed by both finance-staying result types (ScenarioResult etc.) and overview-moving result types (TariffShockResult etc.). Neither could own it without creating a new import violation. Solution: promote to packages/platform/source_freshness.py — both packs import from platform, which is the correct stratum for primitives used by multiple layers. General rule: when a type is needed by two packs at the same stratum and neither can own it without violation, promote to platform/kernel.
+
+---
+
+### Cross-domain scenario builders belong in overview, not a new semantic-engine package
+Source: sprint: 51
+Tags: scenarios, stratum, pack-isolation, overview
+
+Finance scenario_service.py was importing from homelab and utilities sibling packs (violation). The cross-domain builders (tariff shock, homelab cost/benefit) moved to packages/domains/overview/ because overview is the designated cross-domain composition layer. A new packages/scenarios/ semantic-engine package was rejected — it would have required stratum assignment, architectural registration, and added complexity without benefit. Rule: if a scenario builder spans multiple domain packs, it belongs in overview, not in any single pack and not in a new engine package.
+
+---
 
 ### Derive canonical HA bridge ids from bridge instance and stable registry identifiers
 Source: track: identity-mapping, sprint: 47
@@ -588,6 +604,22 @@ Balance snapshots belong in the transformation layer as DuckDB-backed facts deri
 ---
 
 ## Patterns
+
+### RSA helper extraction direction: add to finance, import into overview
+Source: sprint: 51
+Tags: helpers, rsa, import-direction, finance, overview
+
+The 4 RSA helpers (_insert_dim_scenario, _build_assumptions_summary, _get_scenario_baseline_run_id, _project_cashflow_rows) were defined in scenario_service.py and imported into scenario_service_overview.py. This direction is correct: overview already imports from finance, so adding helpers to finance and importing them in overview is valid. The reverse (overview exporting to finance) would create a circular import since finance is a lower stratum. General rule: shared helpers between finance and overview should live in finance and be imported by overview.
+
+---
+
+### Expose finance helpers to overview by renaming _ to public, not duplicating
+Source: sprint: 51
+Tags: helpers, pack-boundary, naming
+
+When a finance-internal helper (_prefixed) is needed by overview for cross-domain builders, rename it to public (remove underscore) rather than duplicating logic or creating a new public wrapper. The public name signals intentional shared API surface. Applied to _get_baseline_cashflow -> get_baseline_cashflow and _get_latest_transaction_run_id -> get_latest_transaction_run_id.
+
+---
 
 ### Adapter pack registration and activation are decoupled; only active packs are operator-visible
 Source: track: verification, sprint: 23
