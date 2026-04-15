@@ -14,8 +14,6 @@ from decimal import Decimal
 from typing import Any
 
 from packages.domains.finance.pipelines.scenario_models import (
-    DIM_SCENARIO_COLUMNS,
-    DIM_SCENARIO_TABLE,
     FACT_SCENARIO_ASSUMPTION_COLUMNS,
     FACT_SCENARIO_ASSUMPTION_TABLE,
     PROJ_HOMELAB_COST_BENEFIT_SUMMARY_COLUMNS,
@@ -26,6 +24,7 @@ from packages.domains.finance.pipelines.scenario_models import (
 from packages.domains.finance.pipelines.scenario_service import (
     IncomeCashflowComparison,
     _build_assumptions_summary,
+    _get_scenario_baseline_run_id,
     _insert_dim_scenario,
     ensure_scenario_storage,
     get_baseline_cashflow,
@@ -184,19 +183,13 @@ def _is_homelab_cost_benefit_stale(
     *,
     current_baseline_run_id: str | None = None,
 ) -> bool:
-    scenario_rows = store.fetchall_dicts(
-        f"SELECT baseline_run_id FROM {DIM_SCENARIO_TABLE} WHERE scenario_id = ?",
-        [scenario_id],
-    )
-    if not scenario_rows:
-        return False
-    baseline_run_id = scenario_rows[0]["baseline_run_id"]
+    baseline_run_id = _get_scenario_baseline_run_id(store, scenario_id)
     current_run_id = current_baseline_run_id
     if current_run_id is None:
         current_run_id = _get_latest_homelab_run_signature(store)
     if baseline_run_id is None or current_run_id is None:
         return False
-    return str(baseline_run_id) != current_run_id
+    return baseline_run_id != current_run_id
 
 
 def _homelab_summary_rows(
@@ -498,20 +491,14 @@ def _is_tariff_scenario_stale(
     scenario_id: str,
     utility_type: str,
 ) -> bool:
-    scenario_rows = store.fetchall_dicts(
-        f"SELECT baseline_run_id FROM {DIM_SCENARIO_TABLE} WHERE scenario_id = ?",
-        [scenario_id],
-    )
-    if not scenario_rows:
+    baseline_run_id = _get_scenario_baseline_run_id(store, scenario_id)
+    if baseline_run_id is None:
         return False
-    baseline_run_id = scenario_rows[0]["baseline_run_id"]
     current_signature = (
         f"transactions:{get_latest_transaction_run_id(store) or 'none'}|"
         f"utility:{_get_latest_utility_snapshot_signature(store, utility_type=utility_type) or 'none'}"
     )
-    if baseline_run_id is None:
-        return False
-    return str(baseline_run_id) != current_signature
+    return baseline_run_id != current_signature
 
 
 def create_tariff_shock_scenario(

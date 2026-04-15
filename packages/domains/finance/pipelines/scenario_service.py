@@ -146,6 +146,20 @@ def _build_assumptions_summary(
         return None
 
 
+def _get_scenario_baseline_run_id(
+    store: DuckDBStore,
+    scenario_id: str,
+) -> str | None:
+    """Return the stored baseline_run_id for scenario_id, or None if not found."""
+    rows = store.fetchall_dicts(
+        f"SELECT baseline_run_id FROM {DIM_SCENARIO_TABLE} WHERE scenario_id = ?",
+        [scenario_id],
+    )
+    if not rows:
+        return None
+    return str(rows[0]["baseline_run_id"]) if rows[0]["baseline_run_id"] is not None else None
+
+
 def _insert_dim_scenario(
     store: DuckDBStore,
     *,
@@ -185,13 +199,7 @@ def _get_latest_run_id(store: DuckDBStore, loan_id: str) -> str | None:
 
 def _is_stale(store: DuckDBStore, scenario_id: str, loan_id: str) -> bool:
     """True if the canonical run_id for this loan has changed since scenario was computed."""
-    scenario_rows = store.fetchall_dicts(
-        f"SELECT baseline_run_id FROM {DIM_SCENARIO_TABLE} WHERE scenario_id = ?",
-        [scenario_id],
-    )
-    if not scenario_rows:
-        return False
-    baseline_run_id = scenario_rows[0]["baseline_run_id"]
+    baseline_run_id = _get_scenario_baseline_run_id(store, scenario_id)
     current_run_id = _get_latest_run_id(store, loan_id)
     if baseline_run_id is None or current_run_id is None:
         return False
@@ -707,17 +715,11 @@ def get_latest_transaction_run_id(store: DuckDBStore) -> str | None:
 
 def _is_income_scenario_stale(store: DuckDBStore, scenario_id: str) -> bool:
     """True if the latest transaction run_id has advanced since the scenario was computed."""
-    scenario_rows = store.fetchall_dicts(
-        f"SELECT baseline_run_id FROM {DIM_SCENARIO_TABLE} WHERE scenario_id = ?",
-        [scenario_id],
-    )
-    if not scenario_rows:
-        return False
-    baseline_run_id = scenario_rows[0]["baseline_run_id"]
+    baseline_run_id = _get_scenario_baseline_run_id(store, scenario_id)
     current_run_id = get_latest_transaction_run_id(store)
     if baseline_run_id is None or current_run_id is None:
         return False
-    return str(baseline_run_id) != current_run_id
+    return baseline_run_id != current_run_id
 
 
 def get_baseline_cashflow(store: DuckDBStore) -> tuple[Decimal, Decimal]:
