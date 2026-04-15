@@ -28,6 +28,14 @@ from packages.domains.finance.pipelines.loan_models import (
     MART_LOAN_SCHEDULE_PROJECTED_COLUMNS,
     MART_LOAN_SCHEDULE_PROJECTED_TABLE,
 )
+from packages.domains.finance.pipelines.scenario_models import (
+    PROJ_HOMELAB_COST_BENEFIT_SUMMARY_COLUMNS,
+    PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE,
+    PROJ_INCOME_CASHFLOW_COLUMNS,
+    PROJ_INCOME_CASHFLOW_TABLE,
+    PROJ_LOAN_SCHEDULE_COLUMNS,
+    PROJ_LOAN_SCHEDULE_TABLE,
+)
 from packages.domains.finance.pipelines.subscription_models import (
     CURRENT_DIM_CATEGORY_VIEW,
     CURRENT_DIM_CONTRACT_VIEW,
@@ -388,6 +396,24 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         relation_name=MART_WORKLOAD_COST_7D_TABLE,
         columns=MART_WORKLOAD_COST_7D_COLUMNS,
         order_by="est_monthly_cost DESC NULLS LAST",
+    ),
+    # Scenario projection tables — ephemeral per-scenario rows written by the
+    # scenario service and read back via scenario comparison endpoints.
+    # Registered here so column-shape changes are caught by the CI contract gate.
+    PROJ_LOAN_SCHEDULE_TABLE: PublicationRelation(
+        relation_name=PROJ_LOAN_SCHEDULE_TABLE,
+        columns=PROJ_LOAN_SCHEDULE_COLUMNS,
+        order_by="scenario_id, period",
+    ),
+    PROJ_INCOME_CASHFLOW_TABLE: PublicationRelation(
+        relation_name=PROJ_INCOME_CASHFLOW_TABLE,
+        columns=PROJ_INCOME_CASHFLOW_COLUMNS,
+        order_by="scenario_id, period",
+    ),
+    PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE: PublicationRelation(
+        relation_name=PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE,
+        columns=PROJ_HOMELAB_COST_BENEFIT_SUMMARY_COLUMNS,
+        order_by="scenario_id, metric_key",
     ),
 }
 

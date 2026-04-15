@@ -61,8 +61,13 @@ FACT_SCENARIO_ASSUMPTION_COLUMNS: list[tuple[str, str]] = [
 # currency code (e.g. "GBP", "USD") rather than the word "currency".
 ALLOWED_UNITS: tuple[str, ...] = ("%", "months")
 
+# Schema version for all scenario projection tables (proj_loan_schedule,
+# proj_income_cashflow, proj_homelab_cost_benefit_summary).  Increment when
+# any projection column list changes so migration tracking stays consistent.
+SCENARIO_PROJECTION_SCHEMA_VERSION = "1.0.0"
+
 # ---------------------------------------------------------------------------
-# Projection: proj_loan_schedule
+# Projection: proj_loan_schedule  [schema: SCENARIO_PROJECTION_SCHEMA_VERSION]
 # (mirrors mart_loan_schedule_projected columns + scenario_id)
 # ---------------------------------------------------------------------------
 
@@ -103,7 +108,8 @@ PROJ_LOAN_REPAYMENT_VARIANCE_COLUMNS: list[tuple[str, str]] = [
 ]
 
 # ---------------------------------------------------------------------------
-# Projection: proj_income_cashflow (income_change scenario)
+# Projection: proj_income_cashflow  [schema: SCENARIO_PROJECTION_SCHEMA_VERSION]
+# (income_change and expense_shock scenarios)
 # ---------------------------------------------------------------------------
 
 PROJ_INCOME_CASHFLOW_TABLE = "proj_income_cashflow"
@@ -122,7 +128,7 @@ PROJ_INCOME_CASHFLOW_COLUMNS: list[tuple[str, str]] = [
 ]
 
 # ---------------------------------------------------------------------------
-# Projection summary: proj_homelab_cost_benefit_summary
+# Projection summary: proj_homelab_cost_benefit_summary  [schema: SCENARIO_PROJECTION_SCHEMA_VERSION]
 # ---------------------------------------------------------------------------
 
 PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE = "proj_homelab_cost_benefit_summary"

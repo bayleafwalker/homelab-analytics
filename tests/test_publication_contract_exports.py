@@ -147,6 +147,41 @@ def test_publication_contract_catalog_maps_columns_and_scalar_types() -> None:
     assert homelab_descriptor.renderer_hints["web_nav_group"] == "Operations"
 
 
+def test_scenario_projection_tables_in_publication_catalog() -> None:
+    """proj_* tables must appear in the catalog so CI catches column-shape regressions."""
+    catalog = build_publication_contract_catalog(
+        (FINANCE_PACK, UTILITIES_PACK, OVERVIEW_PACK, HOMELAB_PACK),
+        publication_relations=PUBLICATION_RELATIONS,
+        current_dimension_relations=CURRENT_DIMENSION_RELATIONS,
+        current_dimension_contracts=CURRENT_DIMENSION_CONTRACTS,
+    )
+    publication_contracts = _publication_contract_map(catalog)
+
+    proj_loan = publication_contracts["proj_loan_schedule"]
+    assert proj_loan.relation_name == "proj_loan_schedule"
+    loan_col_names = [c.name for c in proj_loan.columns]
+    assert "scenario_id" in loan_col_names
+    assert "period" in loan_col_names
+    assert "payment" in loan_col_names
+    assert "currency" in loan_col_names
+
+    proj_cashflow = publication_contracts["proj_income_cashflow"]
+    assert proj_cashflow.relation_name == "proj_income_cashflow"
+    cashflow_col_names = [c.name for c in proj_cashflow.columns]
+    assert "scenario_id" in cashflow_col_names
+    assert "period" in cashflow_col_names
+    assert "baseline_income" in cashflow_col_names
+    assert "net_delta" in cashflow_col_names
+
+    proj_homelab = publication_contracts["proj_homelab_cost_benefit_summary"]
+    assert proj_homelab.relation_name == "proj_homelab_cost_benefit_summary"
+    homelab_col_names = [c.name for c in proj_homelab.columns]
+    assert "scenario_id" in homelab_col_names
+    assert "metric_key" in homelab_col_names
+    assert "baseline_value" in homelab_col_names
+    assert "delta_value" in homelab_col_names
+
+
 def test_publication_contract_catalog_requires_reporting_relations() -> None:
     orphan_pack = CapabilityPack(
         name="orphan",
