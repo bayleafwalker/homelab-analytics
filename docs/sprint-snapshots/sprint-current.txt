@@ -1,21 +1,23 @@
-SPRINT: seam-extract-pass — Scenario Boundary Split and Internal Helper Extractions  [closed]
+SPRINT: chalk-hollow-pass — Stratum Cleanup and Scenario Boundary Tightening  [closed]
 Goal:   
 Dates:  2026-04-15 to 2026-04-22
-ID:     51
-Items:  8 total — 8 done, 0 active, 0 pending, 0 blocked
+ID:     52
+Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
 
---- Track: scenario-placement ---
-  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #324  Move TariffShockResult, HomelabCostBenefitResult to packages/domains/overview/pipelines/scenario_models_overview.py  (assignee: -)
-  [done    ] #325  Move create_tariff_shock_scenario, create_homelab_cost_benefit_scenario to packages/domains/overview/pipelines/scenario_service_overview.py  (assignee: -)
-  [done    ] #326  Update callers (transformation_service.py, test_tariff_shock_service.py) to import from overview; remove sibling imports from scenario_service.py  (assignee: -)
-  [done    ] #327  Update stratum-map.md: remove scenario_service.py from violations table; add overview/scenario_service_overview.py annotation  (assignee: -)
+--- Track: analytics-relocation ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #332  Move packages/analytics/cashflow.py to finance domain; remove analytics/ scaffold; update stratum-map.md  (assignee: -)
 
---- Track: helper-extractions ---
-  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #328  Extract _insert_dim_scenario() helper (RSA-001, x5 call sites) in scenario_service.py  (assignee: -)
-  [done    ] #329  Extract _build_assumptions_summary() helper (RSA-002, x4 call sites) in scenario_service.py  (assignee: -)
-  [done    ] #330  Extract _get_scenario_baseline_run_id() helper (RSA-003, x4 call sites) in scenario_service.py  (assignee: -)
-  [done    ] #331  Extract _project_cashflow_rows() helper (RSA-004, x3 call sites) in scenario_service.py  (assignee: -)
+--- Track: utility-governance ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #333  Add KNOWN_UTILITY_TYPES to utility_models.py; add entry guard in create_tariff_shock_scenario  (assignee: -)
 
-Rendered: 2026-04-15T11:34:13Z
+--- Track: scenario-cleanup ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #335  Extract _get_income_cashflow_comparison_impl(); route get_income_scenario_comparison and get_tariff_shock_comparison through it (RSA-006)  (assignee: -)
+
+--- Track: type-tightening ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #334  Tighten SourceFreshnessSummary.freshness_state from str to SourceFreshnessState StrEnum  (assignee: -)
+
+Rendered: 2026-04-15T19:41:20Z
