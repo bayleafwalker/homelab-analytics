@@ -1,7 +1,15 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-15T11:37:38Z
+Generated: 2026-04-15T19:42:30Z
 
 ## Decisions
+
+### packages/analytics/ resolved as finance-internal; moved to finance domain (Option 1)
+Source: sprint: 52
+Tags: analytics, stratum, finance
+
+analytics/cashflow.py imported CanonicalTransaction from finance domain internals with no evidence of cross-domain intent. Option 1 (move to packages/domains/finance/pipelines/cashflow_analytics.py, delete scaffold) was chosen over Option 2 (promote to semantic engine). Callers updated: account_transaction_service, api/support, extensions.py (string reference), test files. Repository and architecture contract tests updated. General rule: when a scaffold package has exactly one file and that file imports only from one domain, place it in that domain.
+
+---
 
 ### Promote shared types to platform/kernel when two packs both need them
 Source: sprint: 51
@@ -604,6 +612,14 @@ Balance snapshots belong in the transformation layer as DuckDB-backed facts deri
 ---
 
 ## Patterns
+
+### Pass scenario row to is_stale_fn to avoid re-querying in comparison impl helpers
+Source: sprint: 52
+Tags: helpers, stale-check, impl-pattern
+
+Comparison impl helpers (like _get_income_cashflow_comparison_impl) pass the scenario dict to is_stale_fn(store, scenario_id, scenario_row) so that callers with extra context (e.g. tariff utility_type from scenario["subject_id"]) can use it without a second get_scenario query. Callers that dont need scenario fields use lambda s, sid, _sc: .... Generalises to any impl helper where dispatch depends on a scenario field.
+
+---
 
 ### RSA helper extraction direction: add to finance, import into overview
 Source: sprint: 51
