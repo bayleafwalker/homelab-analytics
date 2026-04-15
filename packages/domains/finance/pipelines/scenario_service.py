@@ -746,6 +746,46 @@ def _add_months(d: date, n: int) -> date:
     return d.replace(year=year, month=month, day=1)
 
 
+def _project_cashflow_rows(
+    *,
+    scenario_id: str,
+    baseline_income: Decimal,
+    baseline_expense: Decimal,
+    scenario_income: Decimal,
+    scenario_expense: Decimal,
+    projection_months: int,
+    q: Decimal = Decimal("0.01"),
+) -> tuple[list[dict[str, Any]], int | None]:
+    """Build projected cashflow rows and return (rows, months_until_deficit)."""
+    today = date.today()
+    proj_rows: list[dict[str, Any]] = []
+    months_until_deficit: int | None = None
+
+    for i in range(1, projection_months + 1):
+        projected_month = _add_months(today, i).strftime("%Y-%m")
+        baseline_net = baseline_income - baseline_expense
+        scenario_net = scenario_income - scenario_expense
+        net_delta = scenario_net - baseline_net
+
+        if scenario_net < Decimal("0") and months_until_deficit is None:
+            months_until_deficit = i
+
+        proj_rows.append({
+            "scenario_id": scenario_id,
+            "period": i,
+            "projected_month": projected_month,
+            "baseline_income": str(baseline_income.quantize(q)),
+            "scenario_income": str(scenario_income.quantize(q)),
+            "baseline_expense": str(baseline_expense.quantize(q)),
+            "scenario_expense": str(scenario_expense.quantize(q)),
+            "baseline_net": str(baseline_net.quantize(q)),
+            "scenario_net": str(scenario_net.quantize(q)),
+            "net_delta": str(net_delta.quantize(q)),
+        })
+
+    return proj_rows, months_until_deficit
+
+
 def create_income_change_scenario(
     store: DuckDBStore,
     *,
@@ -788,32 +828,14 @@ def create_income_change_scenario(
         "unit": "currency",
     }])
 
-    today = date.today()
-    proj_rows: list[dict[str, Any]] = []
-    months_until_deficit: int | None = None
-
-    for i in range(1, projection_months + 1):
-        projected_month = _add_months(today, i).strftime("%Y-%m")
-        baseline_net = baseline_income - baseline_expense
-        scenario_net = new_monthly_income - baseline_expense
-        net_delta = scenario_net - baseline_net
-
-        if scenario_net < Decimal("0") and months_until_deficit is None:
-            months_until_deficit = i
-
-        proj_rows.append({
-            "scenario_id": scenario_id,
-            "period": i,
-            "projected_month": projected_month,
-            "baseline_income": str(baseline_income.quantize(q)),
-            "scenario_income": str(new_monthly_income.quantize(q)),
-            "baseline_expense": str(baseline_expense.quantize(q)),
-            "scenario_expense": str(baseline_expense.quantize(q)),
-            "baseline_net": str(baseline_net.quantize(q)),
-            "scenario_net": str(scenario_net.quantize(q)),
-            "net_delta": str(net_delta.quantize(q)),
-        })
-
+    proj_rows, months_until_deficit = _project_cashflow_rows(
+        scenario_id=scenario_id,
+        baseline_income=baseline_income,
+        baseline_expense=baseline_expense,
+        scenario_income=new_monthly_income,
+        scenario_expense=baseline_expense,
+        projection_months=projection_months,
+    )
     store.insert_rows(PROJ_INCOME_CASHFLOW_TABLE, proj_rows)
 
     return IncomeScenarioResult(
@@ -872,33 +894,14 @@ def create_expense_shock_scenario(
         "unit": "%",
     }])
 
-    today = date.today()
-    q2 = Decimal("0.01")
-    proj_rows: list[dict[str, Any]] = []
-    months_until_deficit: int | None = None
-
-    for i in range(1, projection_months + 1):
-        projected_month = _add_months(today, i).strftime("%Y-%m")
-        baseline_net = baseline_income - baseline_expense
-        scenario_net = baseline_income - new_monthly_expense
-        net_delta = scenario_net - baseline_net
-
-        if scenario_net < Decimal("0") and months_until_deficit is None:
-            months_until_deficit = i
-
-        proj_rows.append({
-            "scenario_id": scenario_id,
-            "period": i,
-            "projected_month": projected_month,
-            "baseline_income": str(baseline_income.quantize(q2)),
-            "scenario_income": str(baseline_income.quantize(q2)),  # income unchanged
-            "baseline_expense": str(baseline_expense.quantize(q2)),
-            "scenario_expense": str(new_monthly_expense.quantize(q2)),
-            "baseline_net": str(baseline_net.quantize(q2)),
-            "scenario_net": str(scenario_net.quantize(q2)),
-            "net_delta": str(net_delta.quantize(q2)),
-        })
-
+    proj_rows, months_until_deficit = _project_cashflow_rows(
+        scenario_id=scenario_id,
+        baseline_income=baseline_income,
+        baseline_expense=baseline_expense,
+        scenario_income=baseline_income,
+        scenario_expense=new_monthly_expense,
+        projection_months=projection_months,
+    )
     store.insert_rows(PROJ_INCOME_CASHFLOW_TABLE, proj_rows)
 
     return ExpenseShockResult(

@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -26,6 +26,7 @@ from packages.domains.finance.pipelines.scenario_service import (
     _build_assumptions_summary,
     _get_scenario_baseline_run_id,
     _insert_dim_scenario,
+    _project_cashflow_rows,
     ensure_scenario_storage,
     get_baseline_cashflow,
     get_latest_transaction_run_id,
@@ -52,14 +53,6 @@ def _ensure_homelab_scenario_storage(store: DuckDBStore) -> None:
     """Extend scenario storage with the homelab-specific projection table."""
     ensure_scenario_storage(store)
     store.ensure_table(PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE, PROJ_HOMELAB_COST_BENEFIT_SUMMARY_COLUMNS)
-
-
-def _add_months(d: date, n: int) -> date:
-    """Return date shifted forward by n calendar months."""
-    month = d.month - 1 + n
-    year = d.year + month // 12
-    month = month % 12 + 1
-    return d.replace(year=year, month=month, day=1)
 
 
 # ---------------------------------------------------------------------------
@@ -563,31 +556,14 @@ def create_tariff_shock_scenario(
         },
     ])
 
-    today = date.today()
-    proj_rows: list[dict[str, Any]] = []
-    months_until_deficit: int | None = None
-    for i in range(1, projection_months + 1):
-        projected_month = _add_months(today, i).strftime("%Y-%m")
-        baseline_net = baseline_income - baseline_expense
-        scenario_net = baseline_income - new_monthly_expense
-        net_delta = scenario_net - baseline_net
-
-        if scenario_net < Decimal("0") and months_until_deficit is None:
-            months_until_deficit = i
-
-        proj_rows.append({
-            "scenario_id": scenario_id,
-            "period": i,
-            "projected_month": projected_month,
-            "baseline_income": str(baseline_income.quantize(q)),
-            "scenario_income": str(baseline_income.quantize(q)),
-            "baseline_expense": str(baseline_expense.quantize(q)),
-            "scenario_expense": str(new_monthly_expense.quantize(q)),
-            "baseline_net": str(baseline_net.quantize(q)),
-            "scenario_net": str(scenario_net.quantize(q)),
-            "net_delta": str(net_delta.quantize(q)),
-        })
-
+    proj_rows, months_until_deficit = _project_cashflow_rows(
+        scenario_id=scenario_id,
+        baseline_income=baseline_income,
+        baseline_expense=baseline_expense,
+        scenario_income=baseline_income,
+        scenario_expense=new_monthly_expense,
+        projection_months=projection_months,
+    )
     store.insert_rows(PROJ_INCOME_CASHFLOW_TABLE, proj_rows)
 
     return TariffShockResult(
