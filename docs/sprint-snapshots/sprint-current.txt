@@ -1,15 +1,21 @@
-SPRINT: prism-scan-seam — dispatch-review Specialist Fan-out  [closed]
+SPRINT: seam-extract-pass — Scenario Boundary Split and Internal Helper Extractions  [closed]
 Goal:   
-Dates:  2026-04-14 to 2026-04-21
-ID:     50
-Items:  5 total — 5 done, 0 active, 0 pending, 0 blocked
+Dates:  2026-04-15 to 2026-04-22
+ID:     51
+Items:  8 total — 8 done, 0 active, 0 pending, 0 blocked
 
---- Track: stage-0 ---
-  health: 5 items — 5 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #319  Create docs/architecture/stratum-map.md (precondition for stratum-coherence and repetition specialists)  (assignee: -)
-  [done    ] #320  Author 7 specialist prompt files under .agents/skills/dispatch-review/specialists/  (assignee: -)
-  [done    ] #321  Rewrite .agents/skills/dispatch-review/SKILL.md: parallel fan-out orchestration and consolidation  (assignee: -)
-  [done    ] #322  Update docs/agents/review.md: add Internal specialist fan-out section  (assignee: -)
-  [done    ] #323  Run dry-run against scenario_service.py and capture docs/agents/examples/concept-review-dry-run.md  (assignee: -)
+--- Track: scenario-placement ---
+  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #324  Move TariffShockResult, HomelabCostBenefitResult to packages/domains/overview/pipelines/scenario_models_overview.py  (assignee: -)
+  [done    ] #325  Move create_tariff_shock_scenario, create_homelab_cost_benefit_scenario to packages/domains/overview/pipelines/scenario_service_overview.py  (assignee: -)
+  [done    ] #326  Update callers (transformation_service.py, test_tariff_shock_service.py) to import from overview; remove sibling imports from scenario_service.py  (assignee: -)
+  [done    ] #327  Update stratum-map.md: remove scenario_service.py from violations table; add overview/scenario_service_overview.py annotation  (assignee: -)
 
-Rendered: 2026-04-15T07:54:37Z
+--- Track: helper-extractions ---
+  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #328  Extract _insert_dim_scenario() helper (RSA-001, x5 call sites) in scenario_service.py  (assignee: -)
+  [done    ] #329  Extract _build_assumptions_summary() helper (RSA-002, x4 call sites) in scenario_service.py  (assignee: -)
+  [done    ] #330  Extract _get_scenario_baseline_run_id() helper (RSA-003, x4 call sites) in scenario_service.py  (assignee: -)
+  [done    ] #331  Extract _project_cashflow_rows() helper (RSA-004, x3 call sites) in scenario_service.py  (assignee: -)
+
+Rendered: 2026-04-15T11:34:13Z
