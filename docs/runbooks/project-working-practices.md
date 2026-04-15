@@ -27,6 +27,21 @@ Interpretation rules:
 - promote any repeated rule from a session note into a tracked runbook, skill, or guide
 - promote any reusable worked example or workflow assessment into `docs/training/` instead of leaving it only in `.agents/sessions/`
 
+## Tooling Maintenance
+
+`sprintctl` and `kctl` are private source-installed user tools, not PyPI dependencies.
+
+Refresh them from source when a session depends on newly available CLI behavior, when either command is missing, or when the installed command may be stale relative to the local source checkout:
+
+```bash
+uv tool install --force --reinstall /projects/dev/sprintctl --python python3
+uv tool install --force --reinstall /projects/dev/kctl --python python3
+```
+
+Use `/workspace/dev/...` only on environments where that is the actual source checkout root. The install target is the user tool directory, normally `~/.local/bin`; refreshing the tool does not change the repo-local `.sprintctl/` or `.kctl/` databases.
+
+After a refresh, load `.envrc` and confirm both the executable path and the project-scoped DBs before reading or mutating sprint or knowledge state.
+
 ## Working Loops
 
 ### 1. New scope registration

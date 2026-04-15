@@ -29,17 +29,17 @@ Working practices: `docs/runbooks/project-working-practices.md`.
 
 **Load:** `source .envrc` or `direnv allow` from repo root before using `sprintctl` or `kctl`.
 
-**If `sprintctl` or `kctl` is not found** (e.g. on a fresh devbox), install from source — these are private tools, not on PyPI:
+**If `sprintctl` or `kctl` is missing or stale** (e.g. on a fresh devbox or after a source update), install from source — these are private tools, not on PyPI:
 ```bash
-uv tool install /workspace/dev/sprintctl/ --python python3
-uv tool install /workspace/dev/kctl/ --python python3
+uv tool install --force --reinstall /projects/dev/sprintctl --python python3
+uv tool install --force --reinstall /projects/dev/kctl --python python3
 ```
-This is a one-time step per PVC; tools land in `~/.local/bin` which is on PATH.
+Use `/workspace/dev/...` only on environments where that is the actual source checkout root. Tools land in `~/.local/bin` which is on PATH.
 
 **Validate before use:**
 ```bash
 echo $SPRINTCTL_DB   # must contain the repo path, not ~/
-SPRINTCTL_DB=/workspace/dev/homelab-analytics/.sprintctl/sprintctl.db sprintctl sprint list
+SPRINTCTL_DB="$PWD/.sprintctl/sprintctl.db" sprintctl sprint list
 ```
 
 Using the home-directory default (`~/`) silently produces stale or wrong sprint state.

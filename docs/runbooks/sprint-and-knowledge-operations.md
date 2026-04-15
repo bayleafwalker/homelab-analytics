@@ -42,6 +42,29 @@ Leave ad hoc renders or experimental alternate outputs local-only unless the doc
 - load `.envrc` before using either CLI
 - confirm `SPRINTCTL_DB` and `KCTL_DB` point at the repo-local DBs, not home-directory defaults
 
+### Tool refresh from source
+
+`sprintctl` and `kctl` are private source-installed user tools. They are not installed from PyPI.
+
+When the command is missing, or when local source changes need to be reflected in the executable, reinstall from the source checkouts:
+
+```bash
+uv tool install --force --reinstall /projects/dev/sprintctl --python python3
+uv tool install --force --reinstall /projects/dev/kctl --python python3
+```
+
+Use `/workspace/dev/...` only on environments where that is the actual checkout root. The commands install into the user tool directory, normally `~/.local/bin`, and do not alter `.sprintctl/sprintctl.db` or `.kctl/kctl.db`.
+
+After reinstalling, verify the active command and scoped state:
+
+```bash
+source .envrc
+command -v sprintctl
+command -v kctl
+sprintctl sprint list
+kctl status --kind all
+```
+
 ### 2. Register or resume work
 
 - use `sprint-packet` when accepted scope is not yet represented in `sprintctl`
