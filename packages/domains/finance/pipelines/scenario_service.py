@@ -790,6 +790,7 @@ def create_income_change_scenario(
     store: DuckDBStore,
     *,
     monthly_income_delta: Decimal,
+    currency: str = "GBP",
     label: str | None = None,
     projection_months: int = _DEFAULT_PROJECTION_MONTHS,
 ) -> IncomeScenarioResult:
@@ -825,7 +826,7 @@ def create_income_change_scenario(
         "assumption_key": "monthly_income_delta",
         "baseline_value": "0",
         "override_value": str(monthly_income_delta.quantize(q)),
-        "unit": "currency",
+        "unit": currency,
     }])
 
     proj_rows, months_until_deficit = _project_cashflow_rows(

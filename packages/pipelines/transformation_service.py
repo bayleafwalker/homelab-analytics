@@ -1366,12 +1366,14 @@ class TransformationService:
         self,
         *,
         monthly_income_delta: Decimal,
+        currency: str = "GBP",
         label: str | None = None,
         projection_months: int = 12,
     ) -> IncomeScenarioResult:
         return create_income_change_scenario(
             self._store,
             monthly_income_delta=monthly_income_delta,
+            currency=currency,
             label=label,
             projection_months=projection_months,
         )

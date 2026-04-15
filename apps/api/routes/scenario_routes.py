@@ -32,6 +32,7 @@ class LoanWhatIfRequest(BaseModel):
 
 class IncomeChangeRequest(BaseModel):
     monthly_income_delta: str            # decimal string, may be negative e.g. "-500.00"
+    currency: str = "GBP"               # ISO 4217 code for the delta amount
     label: str | None = None
     projection_months: int | None = None  # default 12
 
@@ -216,6 +217,7 @@ def register_scenario_routes(
         try:
             result = svc.create_income_change_scenario(
                 monthly_income_delta=delta,
+                currency=body.currency,
                 label=body.label,
                 projection_months=body.projection_months or 12,
             )

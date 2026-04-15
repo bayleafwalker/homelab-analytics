@@ -54,8 +54,12 @@ FACT_SCENARIO_ASSUMPTION_COLUMNS: list[tuple[str, str]] = [
     ("assumption_key", "VARCHAR NOT NULL"),  # extra_repayment | annual_rate | term_months
     ("baseline_value", "VARCHAR"),           # stringified original value
     ("override_value", "VARCHAR NOT NULL"),  # stringified override value
-    ("unit", "VARCHAR"),                     # e.g. currency code, "%" etc.
+    ("unit", "VARCHAR"),                     # ISO 4217 code for monetary fields (e.g. "GBP"), "%" for rates, "months" for durations
 ]
+
+# Valid non-currency unit tokens.  Monetary fields must store an ISO 4217
+# currency code (e.g. "GBP", "USD") rather than the word "currency".
+ALLOWED_UNITS: tuple[str, ...] = ("%", "months")
 
 # ---------------------------------------------------------------------------
 # Projection: proj_loan_schedule
