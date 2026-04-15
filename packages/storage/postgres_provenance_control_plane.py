@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import cast
+from typing import Any, cast
 
 import psycopg
 from psycopg.rows import dict_row
@@ -19,10 +19,10 @@ from packages.storage.control_plane_support import (
 )
 
 
-def _coerce_row_mapping(row: object) -> dict[str, object]:
+def _coerce_row_mapping(row: object) -> dict[str, Any]:
     if not isinstance(row, dict):
         raise TypeError(f"Unsupported row value: {row!r}")
-    return cast(dict[str, object], row)
+    return cast(dict[str, Any], row)
 
 
 class PostgresProvenanceControlPlaneMixin:
@@ -238,9 +238,9 @@ class PostgresProvenanceControlPlaneMixin:
                 PublicationConfidenceSnapshotRecord(
                     snapshot_id=str(row_dict["snapshot_id"]),
                     publication_key=str(row_dict["publication_key"]),
-                    assessed_at=row_dict["assessed_at"],  # type: ignore
+                    assessed_at=row_dict["assessed_at"],
                     freshness_state=str(row_dict["freshness_state"]),
-                    completeness_pct=int(row_dict["completeness_pct"]),  # type: ignore
+                    completeness_pct=int(row_dict["completeness_pct"]),
                     confidence_verdict=str(row_dict["confidence_verdict"]),
                     quality_flags=json.loads(quality_flags_raw)
                     if isinstance(quality_flags_raw, (str, bytes, bytearray))
@@ -251,7 +251,7 @@ class PostgresProvenanceControlPlaneMixin:
                     source_freshness_states=json.loads(source_freshness_states_raw)
                     if isinstance(source_freshness_states_raw, (str, bytes, bytearray))
                     else None,
-                    created_at=row_dict["created_at"],  # type: ignore
+                    created_at=row_dict["created_at"],
                 )
             )
         return records

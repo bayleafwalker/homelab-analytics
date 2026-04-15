@@ -322,7 +322,7 @@ def load_op_gold_credit_card_invoice_bytes(source_bytes: bytes) -> list[dict[str
 
 def _extract_pdf_text(source_bytes: bytes) -> tuple[str, str]:
     try:
-        from pdfplumber import open as pdfplumber_open  # type: ignore
+        from pdfplumber import open as pdfplumber_open  # type: ignore[import-untyped]
     except Exception:
                 return _fallback_extract_pdf_text(source_bytes), "fallback-text"
 

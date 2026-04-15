@@ -911,7 +911,7 @@ def create_expense_shock_scenario(
         expense_pct_delta=expense_pct_delta,
         new_monthly_expense=new_monthly_expense,
         baseline_monthly_expense=baseline_expense,
-        annual_additional_cost=((new_monthly_expense - baseline_expense) * 12).quantize(q2),
+        annual_additional_cost=((new_monthly_expense - baseline_expense) * 12).quantize(Decimal("0.01")),
         months_until_deficit=months_until_deficit,
         is_stale=False,
     )

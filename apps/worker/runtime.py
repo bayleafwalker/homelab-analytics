@@ -10,6 +10,7 @@ from packages.pipelines.composition.builtin_packs import BUILTIN_CAPABILITY_PACK
 from packages.pipelines.configured_ingestion_definition import (
     ConfiguredIngestionDefinitionService,
 )
+from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.pipelines.transformation_domain_registry import TransformationDomainRegistry
 from packages.pipelines.transformation_refresh_registry import PublicationRefreshRegistry
 from packages.platform.runtime.builder import (
@@ -17,7 +18,9 @@ from packages.platform.runtime.builder import (
 )
 from packages.platform.runtime.container import AppContainer
 from packages.shared.extensions import ExtensionRegistry
+from packages.shared.function_registry import FunctionRegistry
 from packages.shared.settings import AppSettings
+from packages.storage.control_plane import ControlPlaneStore
 
 
 @dataclass(frozen=True)
@@ -42,7 +45,7 @@ class WorkerRuntime:
         return self.container.settings
 
     @property
-    def config_repository(self):  # type: ignore[return]
+    def config_repository(self) -> ControlPlaneStore:
         return self.container.control_plane_store
 
     @property
@@ -50,11 +53,11 @@ class WorkerRuntime:
         return self.container.extension_registry
 
     @property
-    def function_registry(self):  # type: ignore[return]
+    def function_registry(self) -> FunctionRegistry:
         return self.container.function_registry
 
     @property
-    def promotion_handler_registry(self):  # type: ignore[return]
+    def promotion_handler_registry(self) -> PromotionHandlerRegistry:
         return self.container.promotion_handler_registry
 
     @property
