@@ -40,7 +40,7 @@ from packages.domains.finance.pipelines.transaction_models import (
     MART_MONTHLY_CASHFLOW_COLUMNS,
     MART_MONTHLY_CASHFLOW_TABLE,
 )
-from packages.platform.source_freshness import SourceFreshnessSummary
+from packages.platform.source_freshness import SourceFreshnessSummary, SourceFreshnessState
 from packages.storage.duckdb_store import DuckDBStore
 
 
@@ -137,7 +137,7 @@ def _build_assumptions_summary(
         return [
             SourceFreshnessSummary(
                 source_asset_id=snap.publication_key,
-                freshness_state=snap.freshness_state,
+                freshness_state=SourceFreshnessState(snap.freshness_state),
                 last_ingest_at=snap.assessed_at,
             )
             for snap in snapshots
@@ -932,13 +932,20 @@ def get_expense_shock_comparison(
     )
 
 
-def get_income_scenario_comparison(
+def _get_income_cashflow_comparison_impl(
     store: DuckDBStore,
     scenario_id: str,
     *,
+    is_stale_fn: Any,
     control_plane_store: Any | None = None,
 ) -> IncomeCashflowComparison | None:
-    """Return projected cashflow rows + assumptions for an income_change scenario."""
+    """Shared implementation for income-cashflow comparison getters.
+
+    Fetches assumptions and projected cashflow rows for any scenario type that
+    stores its projection in proj_income_cashflow. The caller supplies is_stale_fn,
+    a callable(store, scenario_id, scenario_row) -> bool so that callers with
+    extra context (e.g. tariff utility_type from scenario["subject_id"]) can use it.
+    """
     ensure_scenario_storage(store)
 
     scenario = get_scenario(store, scenario_id)
@@ -955,13 +962,26 @@ def get_income_scenario_comparison(
         [scenario_id],
     )
 
-    assumptions_summary = _build_assumptions_summary(control_plane_store)
-
     return IncomeCashflowComparison(
         scenario_id=scenario_id,
         label=scenario["label"],
         assumptions=assumptions,
         cashflow_rows=cashflow_rows,
-        is_stale=_is_income_scenario_stale(store, scenario_id),
-        assumptions_summary=assumptions_summary,
+        is_stale=is_stale_fn(store, scenario_id, scenario),
+        assumptions_summary=_build_assumptions_summary(control_plane_store),
+    )
+
+
+def get_income_scenario_comparison(
+    store: DuckDBStore,
+    scenario_id: str,
+    *,
+    control_plane_store: Any | None = None,
+) -> IncomeCashflowComparison | None:
+    """Return projected cashflow rows + assumptions for an income_change scenario."""
+    return _get_income_cashflow_comparison_impl(
+        store,
+        scenario_id,
+        is_stale_fn=lambda s, sid, _sc: _is_income_scenario_stale(s, sid),
+        control_plane_store=control_plane_store,
     )

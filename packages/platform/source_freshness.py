@@ -63,7 +63,7 @@ class SourceFreshnessSummary:
     """Lightweight per-source freshness summary returned alongside scenario results."""
 
     source_asset_id: str
-    freshness_state: str
+    freshness_state: SourceFreshnessState
     last_ingest_at: datetime | None = None
     covered_through: date | None = None
 

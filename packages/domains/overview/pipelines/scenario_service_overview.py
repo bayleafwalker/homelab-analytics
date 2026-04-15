@@ -24,6 +24,7 @@ from packages.domains.finance.pipelines.scenario_models import (
 from packages.domains.finance.pipelines.scenario_service import (
     IncomeCashflowComparison,
     _build_assumptions_summary,
+    _get_income_cashflow_comparison_impl,
     _get_scenario_baseline_run_id,
     _insert_dim_scenario,
     _project_cashflow_rows,
@@ -591,29 +592,9 @@ def get_tariff_shock_comparison(
     control_plane_store: Any | None = None,
 ) -> IncomeCashflowComparison | None:
     """Return projected cashflow rows + assumptions for a tariff_shock scenario."""
-    ensure_scenario_storage(store)
-
-    scenario = get_scenario(store, scenario_id)
-    if scenario is None:
-        return None
-
-    assumptions = store.fetchall_dicts(
-        f"SELECT * FROM {FACT_SCENARIO_ASSUMPTION_TABLE} WHERE scenario_id = ?",
-        [scenario_id],
-    )
-    cashflow_rows = store.fetchall_dicts(
-        f"SELECT * FROM {PROJ_INCOME_CASHFLOW_TABLE} WHERE scenario_id = ?"
-        " ORDER BY period",
-        [scenario_id],
-    )
-
-    assumptions_summary = _build_assumptions_summary(control_plane_store)
-
-    return IncomeCashflowComparison(
-        scenario_id=scenario_id,
-        label=scenario["label"],
-        assumptions=assumptions,
-        cashflow_rows=cashflow_rows,
-        is_stale=_is_tariff_scenario_stale(store, scenario_id, scenario["subject_id"]),
-        assumptions_summary=assumptions_summary,
+    return _get_income_cashflow_comparison_impl(
+        store,
+        scenario_id,
+        is_stale_fn=lambda s, sid, sc: _is_tariff_scenario_stale(s, sid, sc["subject_id"]),
+        control_plane_store=control_plane_store,
     )
