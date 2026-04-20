@@ -39,7 +39,7 @@ from packages.pipelines.identity_strategy import (
     IdentityStrategy,
     resolve_entity_key,
 )
-from packages.pipelines.reconciliation import (
+from packages.domains.finance.pipelines.reconciliation import (
     ReconciliationResult,
     ensure_entity_storage,
     reconcile_batch,
