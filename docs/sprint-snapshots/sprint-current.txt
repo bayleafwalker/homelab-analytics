@@ -1,23 +1,21 @@
-SPRINT: chalk-hollow-pass — Stratum Cleanup and Scenario Boundary Tightening  [closed]
+SPRINT: suppression-cleanup — Suppression Cluster Remediation (D)  [closed]
 Goal:   
 Dates:  2026-04-15 to 2026-04-22
-ID:     52
-Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
+ID:     55
+Items:  5 total — 5 done, 0 active, 0 pending, 0 blocked
 
---- Track: analytics-relocation ---
+--- Track: stage-1 ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #332  Move packages/analytics/cashflow.py to finance domain; remove analytics/ scaffold; update stratum-map.md  (assignee: -)
+  [done    ] #344  Scope pdfplumber type: ignore to [import-untyped] in op_gold_invoice_pdf_v1.py  (assignee: -)
 
---- Track: utility-governance ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #333  Add KNOWN_UTILITY_TYPES to utility_models.py; add entry guard in create_tariff_shock_scenario  (assignee: -)
+--- Track: stage-2 ---
+  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #345  Change _coerce_row_mapping return type to dict[str, Any]; remove 3 suppressions in postgres_provenance_control_plane.py  (assignee: -)
+  [done    ] #346  Add return type annotations to 3 WorkerRuntime properties; remove type: ignore[return] in runtime.py  (assignee: -)
 
---- Track: scenario-cleanup ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #335  Extract _get_income_cashflow_comparison_impl(); route get_income_scenario_comparison and get_tariff_shock_comparison through it (RSA-006)  (assignee: -)
+--- Track: actionq-smoke ---
+  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #347  Add docs/notes/actionq-dispatch-smoke.md for the homelab analytics dispatch smoke  (assignee: -)
+  [done    ] #348  Add docs/notes/actionq-dispatch-smoke.md for the homelab analytics dispatch smoke retry  (assignee: -)
 
---- Track: type-tightening ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #334  Tighten SourceFreshnessSummary.freshness_state from str to SourceFreshnessState StrEnum  (assignee: -)
-
-Rendered: 2026-04-15T19:41:20Z
+Rendered: 2026-04-20T18:46:02Z
