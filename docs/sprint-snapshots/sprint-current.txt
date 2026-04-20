@@ -1,21 +1,20 @@
-SPRINT: suppression-cleanup — Suppression Cluster Remediation (D)  [closed]
+SPRINT: asset-seam-move — Finance Asset and Reconciliation Domain Move (WP-1a)  [closed]
 Goal:   
-Dates:  2026-04-15 to 2026-04-22
-ID:     55
-Items:  5 total — 5 done, 0 active, 0 pending, 0 blocked
+Dates:  2026-04-20 to 2026-04-24
+ID:     56
+Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
 
 --- Track: stage-1 ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #344  Scope pdfplumber type: ignore to [import-untyped] in op_gold_invoice_pdf_v1.py  (assignee: -)
+  [done    ] #349  Move asset_models.py to packages/domains/finance/pipelines/; replace packages/pipelines/ original with shim  (assignee: -)
 
 --- Track: stage-2 ---
   health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #345  Change _coerce_row_mapping return type to dict[str, Any]; remove 3 suppressions in postgres_provenance_control_plane.py  (assignee: -)
-  [done    ] #346  Add return type annotations to 3 WorkerRuntime properties; remove type: ignore[return] in runtime.py  (assignee: -)
+  [done    ] #350  Move asset_register.py + asset_register_service.py to finance domain; replace with shims; update internal cross-reference  (assignee: -)
+  [done    ] #351  Move reconciliation.py to finance domain; replace with shim; update transformation_transactions.py intra-domain import  (assignee: -)
 
---- Track: actionq-smoke ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #347  Add docs/notes/actionq-dispatch-smoke.md for the homelab analytics dispatch smoke  (assignee: -)
-  [done    ] #348  Add docs/notes/actionq-dispatch-smoke.md for the homelab analytics dispatch smoke retry  (assignee: -)
+--- Track: stage-3 ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #352  Move transformation_assets.py to finance domain; replace with shim; update internal asset_models import to domain path  (assignee: -)
 
-Rendered: 2026-04-20T18:46:02Z
+Rendered: 2026-04-20T19:28:27Z
