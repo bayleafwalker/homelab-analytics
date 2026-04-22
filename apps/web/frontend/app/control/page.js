@@ -10,7 +10,8 @@ import {
   getLocalUsers,
   getOperationalSummary,
   getPublicationAudit,
-  getServiceTokens
+  getServiceTokens,
+  getTerminalCommands,
 } from "@/lib/backend";
 
 function noticeCopy(notice) {
@@ -45,12 +46,13 @@ export default async function ControlPage({ searchParams }) {
     redirect("/");
   }
 
-  const [users, authAuditEvents, serviceTokens, operationalSummary, publicationAuditSummary] = await Promise.all([
+  const [users, authAuditEvents, serviceTokens, operationalSummary, publicationAuditSummary, terminalCommands] = await Promise.all([
     getLocalUsers(),
     getAuthAuditEvents(40),
     getServiceTokens({ includeRevoked: true }),
     getOperationalSummary(),
-    getPublicationAudit({ summary: true })
+    getPublicationAudit({ summary: true }),
+    getTerminalCommands(),
   ]);
   const tokenSummary = operationalSummary.auth?.service_tokens || {
     active: serviceTokens.filter((token) => !token.revoked && !token.expired).length,
@@ -333,6 +335,53 @@ export default async function ControlPage({ searchParams }) {
                       <td>{record.publication_key}</td>
                       <td>{record.run_id || "n/a"}</td>
                       <td>{record.published_at || "n/a"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
+
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Operator Tools</div>
+              <h2>Terminal command library</h2>
+            </div>
+            <Link className="ghostButton" href="/retro/terminal">
+              Open terminal
+            </Link>
+          </div>
+          <div className="muted" style={{ marginBottom: "12px" }}>
+            Allowlisted read-only and narrow mutating commands available via the retro terminal. No shell access or arbitrary execution.
+          </div>
+          {terminalCommands.length === 0 ? (
+            <div className="empty">No terminal commands registered.</div>
+          ) : (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Command</th>
+                    <th>Description</th>
+                    <th>Kind</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {terminalCommands.map((cmd) => (
+                    <tr key={cmd.name}>
+                      <td>
+                        <code style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
+                          {cmd.usage}
+                        </code>
+                      </td>
+                      <td>{cmd.description}</td>
+                      <td>
+                        <span className={`statusPill ${cmd.mutating ? "status-pending" : "status-landed"}`}>
+                          {cmd.mutating ? "mutating" : "read-only"}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

@@ -22,6 +22,7 @@ function navItemsForUser(user) {
   if (hasRequiredRole(user, "operator")) {
     items.push({ href: "/sources", label: "Sources" });
     items.push({ href: "/upload", label: "Upload" });
+    items.push({ href: "/onboarding", label: "Onboarding" });
   }
   if (user?.role === "admin") {
     items.push({ href: "/control", label: "Control" });

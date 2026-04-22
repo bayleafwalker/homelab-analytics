@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
+import { ONBOARDING_SOURCES } from "@/lib/onboarding-sources";
 import {
   getCurrentUser,
   getPublicationAudit,
@@ -8,6 +9,10 @@ import {
   getSourceLineage,
   getTransformationAudit
 } from "@/lib/backend";
+
+const DATASET_UPLOAD_PATH = Object.fromEntries(
+  ONBOARDING_SOURCES.map((s) => [s.dataset, s.uploadPath])
+);
 
 function noticeCopy(notice) {
   switch (notice) {
@@ -52,6 +57,8 @@ export default async function RunDetailPage({ params, searchParams }) {
   const contextRows = contextEntries(run.context);
   const retrySupported = Boolean(run.recovery?.retry_supported);
   const canRetry = retrySupported && user.role !== "reader";
+  const runFailed = run.status === "rejected" || run.status === "failed";
+  const uploadPath = runFailed && run.dataset_name ? DATASET_UPLOAD_PATH[run.dataset_name] : null;
 
   return (
     <AppShell
@@ -74,6 +81,16 @@ export default async function RunDetailPage({ params, searchParams }) {
                 Retry run
               </button>
             </form>
+          ) : null}
+          {uploadPath ? (
+            <Link className="primaryButton" href={uploadPath}>
+              Upload corrected file
+            </Link>
+          ) : null}
+          {runFailed ? (
+            <Link className="ghostButton" href="/sources">
+              Source remediation
+            </Link>
           ) : null}
         </div>
 
