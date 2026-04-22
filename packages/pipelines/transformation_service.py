@@ -236,7 +236,7 @@ from packages.domains.utilities.pipelines.utility_models import (
     CURRENT_DIM_METER_VIEW,
     DIM_METER,
 )
-from packages.pipelines.asset_models import (
+from packages.domains.finance.pipelines.asset_models import (
     CURRENT_DIM_ASSET_VIEW,
     DIM_ASSET,
 )
@@ -247,8 +247,8 @@ from packages.pipelines.normalization import (
 from packages.pipelines.publication_confidence_service import (
     compute_and_record_publication_confidence,
 )
-from packages.pipelines.reconciliation import reconcile_batch
-from packages.pipelines.transformation_assets import (
+from packages.domains.finance.pipelines.reconciliation import reconcile_batch
+from packages.domains.finance.pipelines.transformation_assets import (
     count_asset_event_rows,
     ensure_asset_storage,
     get_current_assets,

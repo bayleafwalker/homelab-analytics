@@ -21,7 +21,7 @@ from packages.domains.finance.pipelines.transformation_transactions import (
     load_transactions as _low_load,
 )
 from packages.pipelines.normalization import normalize_currency_code, normalize_timestamp_utc
-from packages.pipelines.reconciliation import ReconciliationResult, reconcile_batch
+from packages.domains.finance.pipelines.reconciliation import ReconciliationResult, reconcile_batch
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 

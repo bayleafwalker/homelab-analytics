@@ -82,8 +82,7 @@ BUILTIN_EXTENSIONS = (
         module="packages.domains.finance.pipelines.account_transaction_inbox",
         source="builtin",
         handler=lambda *, service, inbox_dir, processed_dir, failed_dir, source_name="folder-watch": (
-            _run_account_transaction_folder_watch(
-                service=service,
+            service.process_inbox(
                 inbox_dir=Path(inbox_dir),
                 processed_dir=Path(processed_dir),
                 failed_dir=Path(failed_dir),
@@ -339,23 +338,3 @@ def _validate_publication_relation_uniqueness(
         duplicate_names = ", ".join(sorted(duplicates))
         raise ValueError(f"Reporting publication relations already registered: {duplicate_names}")
 
-
-def _run_account_transaction_folder_watch(
-    *,
-    service,
-    inbox_dir: Path,
-    processed_dir: Path,
-    failed_dir: Path,
-    source_name: str,
-):
-    from packages.pipelines.account_transaction_inbox import (
-        process_account_transaction_inbox,
-    )
-
-    return process_account_transaction_inbox(
-        service=service,
-        inbox_dir=inbox_dir,
-        processed_dir=processed_dir,
-        failed_dir=failed_dir,
-        source_name=source_name,
-    )

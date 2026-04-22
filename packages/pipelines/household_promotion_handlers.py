@@ -10,7 +10,7 @@ from packages.domains.finance.pipelines.loan_service import LoanService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.domains.utilities.pipelines.utility_bill_service import UtilityBillService
 from packages.domains.utilities.pipelines.utility_usage_service import UtilityUsageService
-from packages.pipelines.asset_register_service import AssetRegisterService
+from packages.domains.finance.pipelines.asset_register_service import AssetRegisterService
 from packages.pipelines.household_packages import (
     BuiltinTransformationPackageSpec,
     get_builtin_transformation_package_spec,

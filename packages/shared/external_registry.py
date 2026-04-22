@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any, Mapping
 from uuid import uuid4
 
-from packages.pipelines.extension_registries import load_pipeline_registries
 from packages.platform.capability_registry import load_capability_packs
 from packages.platform.capability_types import CapabilityPack
 from packages.platform.current_dimension_contracts import CurrentDimensionContractDefinition
@@ -418,10 +417,6 @@ def _validate_manifest_modules(
     extension_paths = tuple((source_root / import_path).resolve() for import_path in manifest.import_paths)
     if manifest.extension_modules:
         extension_registry = load_extension_registry(
-            extension_paths=extension_paths,
-            extension_modules=manifest.extension_modules,
-        )
-        load_pipeline_registries(
             extension_paths=extension_paths,
             extension_modules=manifest.extension_modules,
         )

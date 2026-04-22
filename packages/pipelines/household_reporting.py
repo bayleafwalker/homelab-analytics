@@ -124,7 +124,7 @@ from packages.domains.utilities.pipelines.utility_models import (
     MART_UTILITY_COST_TREND_MONTHLY_COLUMNS,
     MART_UTILITY_COST_TREND_MONTHLY_TABLE,
 )
-from packages.pipelines.asset_models import (
+from packages.domains.finance.pipelines.asset_models import (
     CURRENT_DIM_ASSET_VIEW,
     DIM_ASSET,
 )

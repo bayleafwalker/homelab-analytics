@@ -68,10 +68,12 @@ def test_ambiguous_pipeline_files_have_explicit_wp1e_classification() -> None:
         ROOT / "docs" / "architecture" / "pipeline-ambiguity-classification.md"
     ).read_text()
 
-    assert "`packages/pipelines/asset_models.py`" in source
-    assert "`packages/pipelines/asset_register.py`" in source
-    assert "`packages/pipelines/asset_register_service.py`" in source
-    assert "`packages/pipelines/transformation_assets.py`" in source
+    # APP files completed migration to packages/domains/finance/pipelines/ in sprint #56-57
+    assert "packages/domains/finance/pipelines/asset_models.py" in source
+    assert "packages/domains/finance/pipelines/asset_register.py" in source
+    assert "packages/domains/finance/pipelines/asset_register_service.py" in source
+    assert "packages/domains/finance/pipelines/transformation_assets.py" in source
+    # contracts.py remains a JUSTIFIED-MIXED kernel-adjacent helper
     assert "`packages/pipelines/contracts.py`" in source
     assert "JUSTIFIED-MIXED" in source
 
@@ -835,6 +837,16 @@ def test_shared_does_not_import_from_domains() -> None:
     domain_imports = [imp for imp in imports if imp.startswith("packages.domains.")]
     assert not domain_imports, (
         f"packages/shared must not import from packages.domains.* — found: {domain_imports}"
+    )
+
+
+def test_shared_does_not_import_from_pipelines() -> None:
+    """Shared layer must not import from the mixed-pipeline layer (WP-7)."""
+    shared_dir = ROOT / "packages" / "shared"
+    imports = _collect_imports_in_dir(shared_dir)
+    pipeline_imports = [imp for imp in imports if imp.startswith("packages.pipelines.")]
+    assert not pipeline_imports, (
+        f"packages/shared must not import from packages.pipelines.* — found: {pipeline_imports}"
     )
 
 

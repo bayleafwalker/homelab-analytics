@@ -103,3 +103,21 @@ class AccountTransactionService:
 
     def get_monthly_cashflow(self, run_id: str) -> list[MonthlyCashflowSummary]:
         return summarize_monthly_cashflow(self.get_canonical_transactions(run_id))
+
+    def process_inbox(
+        self,
+        inbox_dir: Path,
+        processed_dir: Path,
+        failed_dir: Path,
+        source_name: str = "folder-watch",
+    ):
+        from packages.domains.finance.pipelines.account_transaction_inbox import (
+            process_account_transaction_inbox,
+        )
+        return process_account_transaction_inbox(
+            self,
+            inbox_dir=inbox_dir,
+            processed_dir=processed_dir,
+            failed_dir=failed_dir,
+            source_name=source_name,
+        )
