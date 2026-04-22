@@ -1,5 +1,5 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-22T15:12:58Z
+Generated: 2026-04-22T15:13:39Z
 
 ## Decisions
 
@@ -654,6 +654,14 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 ---
 
 ## Lessons
+
+### Single-file parallel dispatch produces no isolation benefit
+Source: track: ui, sprint: 59
+Tags: dispatch, frontend, worktree, coordination
+
+Dispatching two agents to edit the same file in parallel worktrees does not produce actual isolation — both agents resolve the given absolute path to the same file in the main working tree and interleave writes. Parallel dispatch only pays for frontend work when agents own strictly separate files (e.g. separate component files per feature). Single-file changes should be serialised or handled by one agent. For multi-agent UI work: split by file boundary, not by section of the same file.
+
+---
 
 ### SQLite + shared auth is a hard guardrail, not a warning
 Source: track: guardrail, sprint: 58
