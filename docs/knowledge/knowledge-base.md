@@ -1,5 +1,5 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-15T19:42:30Z
+Generated: 2026-04-22T15:12:58Z
 
 ## Decisions
 
@@ -654,6 +654,14 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 ---
 
 ## Lessons
+
+### SQLite + shared auth is a hard guardrail, not a warning
+Source: track: guardrail, sprint: 58
+Tags: storage, guardrails, postgres-first
+
+When auth mode is oidc or proxy (shared deployment postures), using SQLite as the control-plane backend should be a hard ValueError, not a RuntimeWarning. A warning can be silently swallowed in production startup logs; a ValueError surfaces immediately. The generic postgres_dsn (shared with reporting) intentionally does not trigger automatic postgres inference for the control plane — operators must set HOMELAB_ANALYTICS_CONTROL_PLANE_DSN explicitly. Advisory warnings for this gap are appropriate; errors are not.
+
+---
 
 ### Frontend tsc runs without .bin symlinks via direct node invocation
 Source: sprint: 48
