@@ -1,5 +1,5 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-22T15:13:39Z
+Generated: 2026-04-22T19:40:49Z
 
 ## Decisions
 
@@ -613,6 +613,14 @@ Balance snapshots belong in the transformation layer as DuckDB-backed facts deri
 
 ## Patterns
 
+### Surface terminal command allowlist in the main control panel so admins can discover without entering the retro shell
+Source: track: operator-tools, sprint: 34
+Tags: frontend, terminal, control, discovery, admin-ux
+
+Admin-facing command libraries are only useful if operators can find them without first knowing where to look. The terminal command allowlist (getTerminalCommands()) was already exposed via backend.ts and consumed in the retro shell. Adding it to the main /control page Promise.all (with .catch(() => []) for graceful degradation) and rendering a usage/description/mutating table gives admins a reference in their primary workflow context. Link to /retro/terminal for actual execution. Use .catch(() => []) on non-critical API calls within Promise.all to prevent degraded-endpoint failures from 500ing the whole admin page.
+
+---
+
 ### Pass scenario row to is_stale_fn to avoid re-querying in comparison impl helpers
 Source: sprint: 52
 Tags: helpers, stale-check, impl-pattern
@@ -654,6 +662,22 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 ---
 
 ## Lessons
+
+### Completed page implementations need explicit nav integration — /onboarding was fully built but unreachable
+Source: track: onboarding, sprint: 34
+Tags: frontend, onboarding, nav, operator-ux
+
+A page can be fully implemented — complete with wizard, checklist, and progressive disclosure — yet still be effectively unreachable if it is not added to the navigation. When closing operator-facing onboarding work, verify that all new or substantially updated pages are wired into navItemsForUser() at the appropriate role threshold. The /onboarding page was gated at operator level (hasRequiredRole(user, 'operator')) and needed to be added alongside Sources and Upload.
+
+---
+
+### Re-use ONBOARDING_SOURCES upload-path map at the run detail boundary for failed-run remediation
+Source: track: remediation, sprint: 34
+Tags: frontend, remediation, run-detail, operator-ux
+
+When a run fails or is rejected, the run detail page needs a direct path back to the correct upload form. ONBOARDING_SOURCES already contains the dataset→uploadPath mapping used by /onboarding and /sources. Derive DATASET_UPLOAD_PATH from it at module scope in the run detail page and show 'Upload corrected file' when run.status is rejected or failed. Also add a fallback 'Source remediation' ghost button pointing to /sources for datasets without a known upload path. Button priority: if retry is also available (canRetry), demote 'Upload corrected file' to ghostButton to avoid competing primary actions.
+
+---
 
 ### Single-file parallel dispatch produces no isolation benefit
 Source: track: ui, sprint: 59
