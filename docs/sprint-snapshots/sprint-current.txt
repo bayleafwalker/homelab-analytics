@@ -1,16 +1,16 @@
-SPRINT: reporting-trust-surface  [active]
-Goal:   Surface reporting backend posture and publication audit summary in the operator control UI
-Dates:  2026-04-22 to 2026-04-23
-ID:     59
+SPRINT: postgres-guard  [closed]
+Goal:   Postgres-first operator defaults and SQLite guardrails
+Dates:  2026-04-22 to 2026-04-24
+ID:     58
 Items:  3 total — 3 done, 0 active, 0 pending, 0 blocked
 
---- Track: client-fix ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #362  Add summary param to getPublicationAudit in backend.ts and regenerate API types  (assignee: -)
-
---- Track: ui ---
+--- Track: guardrail ---
   health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #363  Reporting posture card: surface reporting_mode_label in /control page  (assignee: -)
-  [done    ] #364  Publication audit summary panel: latest audit per publication in /control page  (assignee: -)
+  [done    ] #359  Warn when postgres_dsn set but control-plane defaults to SQLite  (assignee: -)
+  [done    ] #360  SQLite capability guard: refuse scheduling and lineage ops when postgres available  (assignee: -)
 
-Rendered: 2026-04-22T15:09:57Z
+--- Track: tests ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #361  Tests: postgres-first inference and SQLite warning coverage  (assignee: -)
+
+Rendered: 2026-04-22T15:12:27Z
