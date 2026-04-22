@@ -83,7 +83,7 @@ export default async function RunDetailPage({ params, searchParams }) {
             </form>
           ) : null}
           {uploadPath ? (
-            <Link className="primaryButton" href={uploadPath}>
+            <Link className={canRetry ? "ghostButton" : "primaryButton"} href={uploadPath}>
               Upload corrected file
             </Link>
           ) : null}

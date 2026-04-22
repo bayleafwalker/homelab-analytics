@@ -52,7 +52,7 @@ export default async function ControlPage({ searchParams }) {
     getServiceTokens({ includeRevoked: true }),
     getOperationalSummary(),
     getPublicationAudit({ summary: true }),
-    getTerminalCommands(),
+    getTerminalCommands().catch(() => []),
   ]);
   const tokenSummary = operationalSummary.auth?.service_tokens || {
     active: serviceTokens.filter((token) => !token.revoked && !token.expired).length,
@@ -346,7 +346,7 @@ export default async function ControlPage({ searchParams }) {
         <article className="panel section">
           <div className="sectionHeader">
             <div>
-              <div className="eyebrow">Operator Tools</div>
+              <div className="eyebrow">Admin Tools</div>
               <h2>Terminal command library</h2>
             </div>
             <Link className="ghostButton" href="/retro/terminal">
