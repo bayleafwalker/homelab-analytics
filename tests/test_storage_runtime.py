@@ -324,3 +324,70 @@ def test_build_control_plane_stores_reject_unknown_backend() -> None:
 
         with pytest.raises(ValueError, match="Unsupported control-plane backend"):
             build_run_metadata_store(settings)
+
+
+def test_sqlite_forced_with_specific_control_dsn_emits_warning() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(
+            temp_dir,
+            control_plane_backend="sqlite",
+            control_plane_dsn="postgresql://control:control@postgres:5432/homelab",
+        )
+
+        with pytest.warns(RuntimeWarning, match="HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND=postgres"):
+            build_config_store(settings)
+
+
+def test_sqlite_with_generic_postgres_dsn_emits_descriptive_warning() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(
+            temp_dir,
+            postgres_dsn="postgresql://shared:shared@postgres:5432/homelab",
+        )
+
+        with pytest.warns(RuntimeWarning, match="HOMELAB_ANALYTICS_CONTROL_PLANE_DSN"):
+            build_config_store(settings)
+
+
+def test_sqlite_with_no_dsn_and_disabled_auth_emits_no_warning() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(temp_dir)
+
+        import warnings as _warnings
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error", RuntimeWarning)
+            build_config_store(settings)
+
+
+def test_sqlite_with_local_auth_emits_no_error() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(temp_dir, auth_mode="local")
+
+        import warnings as _warnings
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error", RuntimeWarning)
+            build_config_store(settings)
+
+
+def test_sqlite_with_oidc_auth_raises_value_error() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(
+            temp_dir,
+            auth_mode="oidc",
+            control_plane_backend="sqlite",
+        )
+
+        with pytest.raises(ValueError, match="auth mode is 'oidc'"):
+            build_config_store(settings)
+
+
+def test_sqlite_with_proxy_auth_raises_value_error() -> None:
+    with TemporaryDirectory() as temp_dir:
+        settings = _build_settings(
+            temp_dir,
+            auth_mode="proxy",
+            control_plane_backend="sqlite",
+        )
+
+        with pytest.raises(ValueError, match="auth mode is 'proxy'"):
+            build_config_store(settings)

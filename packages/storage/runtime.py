@@ -22,20 +22,37 @@ def _resolve_control_plane_backend(settings: AppSettings) -> str:
         )
     if backend == "sqlite":
         auth_mode = getattr(settings, "resolved_auth_mode", None)
-        has_dsn = bool(
+        _SHARED_AUTH_MODES = {"oidc", "proxy"}
+        if auth_mode in _SHARED_AUTH_MODES:
+            raise ValueError(
+                f"Control-plane backend is SQLite but auth mode is {auth_mode!r}, "
+                "which requires a shared deployment. "
+                "Set HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND=postgres and "
+                "HOMELAB_ANALYTICS_CONTROL_PLANE_DSN for shared deployments."
+            )
+        has_specific_control_dsn = bool(
             getattr(settings, "control_plane_dsn", None)
             or getattr(settings, "control_postgres_dsn", None)
             or getattr(settings, "metadata_postgres_dsn", None)
         )
-        if auth_mode not in (None, "disabled") or has_dsn:
+        has_generic_postgres_dsn = bool(getattr(settings, "postgres_dsn", None))
+        if has_specific_control_dsn or has_generic_postgres_dsn:
             import warnings
-            warnings.warn(
-                "Control-plane backend is SQLite but deployment posture suggests "
-                "a shared environment (auth is enabled or a Postgres DSN is set). "
-                "Set HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND=postgres for shared deployments.",
-                RuntimeWarning,
-                stacklevel=2,
-            )
+            if has_specific_control_dsn:
+                msg = (
+                    "Control-plane backend is SQLite but a Postgres control-plane DSN is set. "
+                    "Set HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND=postgres for shared deployments."
+                )
+            else:
+                msg = (
+                    "Control-plane backend is SQLite but HOMELAB_ANALYTICS_POSTGRES_DSN is set. "
+                    "The control plane will NOT use Postgres unless "
+                    "HOMELAB_ANALYTICS_CONTROL_PLANE_DSN is also set "
+                    "(HOMELAB_ANALYTICS_POSTGRES_DSN is shared with reporting only). "
+                    "Set HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND=postgres and "
+                    "HOMELAB_ANALYTICS_CONTROL_PLANE_DSN to use Postgres for the control plane."
+                )
+            warnings.warn(msg, RuntimeWarning, stacklevel=2)
     return backend
 
 
