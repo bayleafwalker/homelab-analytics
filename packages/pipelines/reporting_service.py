@@ -15,9 +15,6 @@ from packages.domains.finance.pipelines.loan_models import (
     MART_LOAN_OVERVIEW_TABLE,
     MART_LOAN_SCHEDULE_PROJECTED_TABLE,
 )
-from packages.domains.overview.pipelines.scenario_service_overview import (
-    build_homelab_cost_benefit_baseline_signature,
-)
 from packages.domains.finance.pipelines.subscription_models import (
     MART_SUBSCRIPTION_SUMMARY_TABLE,
     MART_UPCOMING_FIXED_COSTS_30D_TABLE,
@@ -43,6 +40,9 @@ from packages.domains.overview.pipelines.overview_models import (
     MART_HOUSEHOLD_OVERVIEW_TABLE,
     MART_OPEN_ATTENTION_ITEMS_TABLE,
     MART_RECENT_SIGNIFICANT_CHANGES_TABLE,
+)
+from packages.domains.overview.pipelines.scenario_service_overview import (
+    build_homelab_cost_benefit_baseline_signature,
 )
 from packages.domains.utilities.pipelines.utility_models import (
     MART_CONTRACT_RENEWAL_WATCHLIST_TABLE,

@@ -3,13 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from packages.domains.finance.pipelines.cashflow_analytics import (
-    MonthlyCashflowSummary,
-    summarize_monthly_cashflow,
-)
 from packages.domains.finance.pipelines.account_transactions import (
     CanonicalTransaction,
     load_canonical_transactions_bytes,
+)
+from packages.domains.finance.pipelines.cashflow_analytics import (
+    MonthlyCashflowSummary,
+    summarize_monthly_cashflow,
 )
 from packages.pipelines.csv_validation import ColumnContract, ColumnType, DatasetContract
 from packages.pipelines.run_context import RunControlContext

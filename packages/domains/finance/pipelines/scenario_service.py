@@ -40,7 +40,7 @@ from packages.domains.finance.pipelines.transaction_models import (
     MART_MONTHLY_CASHFLOW_COLUMNS,
     MART_MONTHLY_CASHFLOW_TABLE,
 )
-from packages.platform.source_freshness import SourceFreshnessSummary, SourceFreshnessState
+from packages.platform.source_freshness import SourceFreshnessState, SourceFreshnessSummary
 from packages.storage.duckdb_store import DuckDBStore
 
 

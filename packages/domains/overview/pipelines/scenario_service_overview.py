@@ -9,16 +9,13 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
-from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
 from packages.domains.finance.pipelines.scenario_models import (
-    FACT_SCENARIO_ASSUMPTION_COLUMNS,
     FACT_SCENARIO_ASSUMPTION_TABLE,
     PROJ_HOMELAB_COST_BENEFIT_SUMMARY_COLUMNS,
     PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE,
-    PROJ_INCOME_CASHFLOW_COLUMNS,
     PROJ_INCOME_CASHFLOW_TABLE,
 )
 from packages.domains.finance.pipelines.scenario_service import (
@@ -37,14 +34,14 @@ from packages.domains.homelab.pipelines.homelab_models import (
     MART_SERVICE_HEALTH_CURRENT_TABLE,
     MART_WORKLOAD_COST_7D_TABLE,
 )
-from packages.domains.utilities.pipelines.utility_models import (
-    KNOWN_UTILITY_TYPES,
-    MART_UTILITY_COST_TREND_MONTHLY_TABLE,
-)
 from packages.domains.overview.pipelines.scenario_models_overview import (
     HomelabCostBenefitComparison,
     HomelabCostBenefitResult,
     TariffShockResult,
+)
+from packages.domains.utilities.pipelines.utility_models import (
+    KNOWN_UTILITY_TYPES,
+    MART_UTILITY_COST_TREND_MONTHLY_TABLE,
 )
 from packages.storage.duckdb_store import DuckDBStore
 

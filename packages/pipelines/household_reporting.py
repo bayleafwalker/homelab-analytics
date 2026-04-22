@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from packages.domains.finance.pipelines.asset_models import (
+    CURRENT_DIM_ASSET_VIEW,
+    DIM_ASSET,
+)
 from packages.domains.finance.pipelines.budget_models import (
     CURRENT_DIM_BUDGET_VIEW,
     DIM_BUDGET,
@@ -123,10 +127,6 @@ from packages.domains.utilities.pipelines.utility_models import (
     MART_UTILITY_COST_SUMMARY_TABLE,
     MART_UTILITY_COST_TREND_MONTHLY_COLUMNS,
     MART_UTILITY_COST_TREND_MONTHLY_TABLE,
-)
-from packages.domains.finance.pipelines.asset_models import (
-    CURRENT_DIM_ASSET_VIEW,
-    DIM_ASSET,
 )
 from packages.pipelines.household_models import (
     CURRENT_DIM_HOUSEHOLD_MEMBER_VIEW,

@@ -4,13 +4,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.asset_register_service import AssetRegisterService
 from packages.domains.finance.pipelines.budget_service import BudgetService
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
 from packages.domains.finance.pipelines.loan_service import LoanService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.domains.utilities.pipelines.utility_bill_service import UtilityBillService
 from packages.domains.utilities.pipelines.utility_usage_service import UtilityUsageService
-from packages.domains.finance.pipelines.asset_register_service import AssetRegisterService
 from packages.pipelines.household_packages import (
     BuiltinTransformationPackageSpec,
     get_builtin_transformation_package_spec,

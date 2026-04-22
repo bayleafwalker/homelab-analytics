@@ -2,8 +2,8 @@ import unittest
 from decimal import Decimal
 from pathlib import Path
 
-from packages.domains.finance.pipelines.cashflow_analytics import summarize_monthly_cashflow
 from packages.domains.finance.pipelines.account_transactions import load_canonical_transactions
+from packages.domains.finance.pipelines.cashflow_analytics import summarize_monthly_cashflow
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
