@@ -1,16 +1,18 @@
-SPRINT: reporting-trust-surface  [closed]
-Goal:   Surface reporting backend posture and publication audit summary in the operator control UI
-Dates:  2026-04-22 to 2026-04-23
-ID:     59
+SPRINT: operator-path-forge — First Source and Remediation Loop  [planned]
+Goal:   Make source onboarding and broken-run recovery coherent for a solo operator.
+ID:     34
 Items:  3 total — 3 done, 0 active, 0 pending, 0 blocked
 
---- Track: client-fix ---
+--- Track: onboarding ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #362  Add summary param to getPublicationAudit in backend.ts and regenerate API types  (assignee: -)
+  [done    ] #275  First-source onboarding flow closure  (assignee: -)
 
---- Track: ui ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #363  Reporting posture card: surface reporting_mode_label in /control page  (assignee: -)
-  [done    ] #364  Publication audit summary panel: latest audit per publication in /control page  (assignee: -)
+--- Track: operator-tools ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #277  Terminal task library and command discovery  (assignee: -)
 
-Rendered: 2026-04-22T15:13:09Z
+--- Track: remediation ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #276  Failed-run to remediation action path  (assignee: -)
+
+Rendered: 2026-04-22T19:03:38Z
