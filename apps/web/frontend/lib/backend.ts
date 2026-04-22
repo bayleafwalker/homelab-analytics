@@ -926,17 +926,20 @@ export async function getSourceLineage({
 type PublicationAuditOptions = {
   runId?: QueryValue<"/control/publication-audit", "run_id">;
   publicationKey?: QueryValue<"/control/publication-audit", "publication_key">;
+  summary?: boolean;
 };
 
 export async function getPublicationAudit({
   runId,
-  publicationKey
+  publicationKey,
+  summary
 }: PublicationAuditOptions = {}) {
   const payload = await backendGet("/control/publication-audit", {
     params: {
       query: definedValues({
         run_id: runId,
-        publication_key: publicationKey
+        publication_key: publicationKey,
+        summary
       })
     }
   });

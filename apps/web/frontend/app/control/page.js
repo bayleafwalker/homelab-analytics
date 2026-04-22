@@ -9,6 +9,7 @@ import {
   getCurrentUser,
   getLocalUsers,
   getOperationalSummary,
+  getPublicationAudit,
   getServiceTokens
 } from "@/lib/backend";
 
@@ -44,11 +45,12 @@ export default async function ControlPage({ searchParams }) {
     redirect("/");
   }
 
-  const [users, authAuditEvents, serviceTokens, operationalSummary] = await Promise.all([
+  const [users, authAuditEvents, serviceTokens, operationalSummary, publicationAuditSummary] = await Promise.all([
     getLocalUsers(),
     getAuthAuditEvents(40),
     getServiceTokens({ includeRevoked: true }),
-    getOperationalSummary()
+    getOperationalSummary(),
+    getPublicationAudit({ summary: true })
   ]);
   const tokenSummary = operationalSummary.auth?.service_tokens || {
     active: serviceTokens.filter((token) => !token.revoked && !token.expired).length,
@@ -101,6 +103,17 @@ export default async function ControlPage({ searchParams }) {
             <div className="metricLabel">Token audit events</div>
             <div className="metricValue">{tokenAuditSummary.service_token_events_last_7d}</div>
             <div className="muted">Create, revoke, and failed-token events seen in the last 7 days.</div>
+          </article>
+          <article className="panel metricCard">
+            <div className="metricLabel">Reporting backend</div>
+            <div className="metricValue">{operationalSummary.reporting_mode_label || "—"}</div>
+            <div className="muted">
+              {operationalSummary.reporting_mode === "postgres"
+                ? "Published mode — reporting reads from Postgres marts."
+                : operationalSummary.reporting_mode === "duckdb"
+                  ? "Warehouse mode — reporting reads directly from DuckDB."
+                  : null}
+            </div>
           </article>
         </section>
 
@@ -287,6 +300,39 @@ export default async function ControlPage({ searchParams }) {
                       <td>{event.subject_username || event.subject_user_id || "n/a"}</td>
                       <td>{event.remote_addr || "n/a"}</td>
                       <td>{event.detail || "n/a"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
+
+        <article className="panel section">
+          <div className="sectionHeader">
+            <div>
+              <div className="eyebrow">Data Integrity</div>
+              <h2>Publication audit</h2>
+            </div>
+          </div>
+          {publicationAuditSummary.length === 0 ? (
+            <p className="muted">No audit records yet.</p>
+          ) : (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Publication</th>
+                    <th>Last run</th>
+                    <th>Published at</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {publicationAuditSummary.map((record) => (
+                    <tr key={record.publication_key}>
+                      <td>{record.publication_key}</td>
+                      <td>{record.run_id || "n/a"}</td>
+                      <td>{record.published_at || "n/a"}</td>
                     </tr>
                   ))}
                 </tbody>

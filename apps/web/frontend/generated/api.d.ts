@@ -7989,6 +7989,7 @@ export interface operations {
             query?: {
                 run_id?: string | null;
                 publication_key?: string | null;
+                summary?: boolean;
             };
             header?: never;
             path?: never;
