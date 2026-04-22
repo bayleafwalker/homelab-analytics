@@ -1,20 +1,22 @@
-SPRINT: asset-seam-move — Finance Asset and Reconciliation Domain Move (WP-1a)  [closed]
+SPRINT: seam-boundary-close — Seam Boundary Enforcement and WP-1a Shim Retirement  [closed]
 Goal:   
-Dates:  2026-04-20 to 2026-04-24
-ID:     56
-Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
+Dates:  2026-04-22 to 2026-04-25
+ID:     57
+Items:  6 total — 6 done, 0 active, 0 pending, 0 blocked
 
---- Track: stage-1 ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #349  Move asset_models.py to packages/domains/finance/pipelines/; replace packages/pipelines/ original with shim  (assignee: -)
-
---- Track: stage-2 ---
+--- Track: wp4-fix ---
   health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #350  Move asset_register.py + asset_register_service.py to finance domain; replace with shims; update internal cross-reference  (assignee: -)
-  [done    ] #351  Move reconciliation.py to finance domain; replace with shim; update transformation_transactions.py intra-domain import  (assignee: -)
+  [done    ] #353  Remove load_pipeline_registries import and discarded call from packages/shared/external_registry.py (WP-4)  (assignee: -)
+  [done    ] #354  Fix extensions.py lazy import to use domain path; retire packages/pipelines/account_transaction_inbox.py shim (WP-4)  (assignee: -)
 
---- Track: stage-3 ---
+--- Track: wp7-enforcement ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #352  Move transformation_assets.py to finance domain; replace with shim; update internal asset_models import to domain path  (assignee: -)
+  [done    ] #355  Add test_shared_does_not_import_from_pipelines() enforcement test to architecture contract (WP-7)  (assignee: -)
 
-Rendered: 2026-04-20T19:28:27Z
+--- Track: shim-retirement ---
+  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #356  Retire WP-1a shim imports in transformation_service.py — update to packages.domains.finance.pipelines.* paths  (assignee: -)
+  [done    ] #357  Retire WP-1a shim imports in household_reporting.py and household_promotion_handlers.py — update to domain paths  (assignee: -)
+  [done    ] #358  Update test files to domain import paths; delete five shim files; update WP-1e classification doc and architecture test  (assignee: -)
+
+Rendered: 2026-04-22T06:31:10Z
