@@ -75,10 +75,11 @@ When creating or registering sprints:
 **Correct examples:** `hearth-lantern-path`, `iron-grove-atlas`, `flint-glass-vow`, `seam-finish-pass`
 **Wrong:** `Sprint R`, `Sprint Q`, `sprint-S`
 
-Current sprint state (as of 2026-04-23): **active** — sprint #62 `drift-close-pass`.
-Goal: clear stale backlog drift and verify/close operating surfaces already built in code.
-19 items: stale-close (7), operating-picture (5), onboarding-progress (3), source-remediation (4).
-Sprint #61 guided-land-surface: 17/18 done (#381 screenshots in progress via separate agent).
+Current sprint state (as of 2026-04-23): **clean close** — sprints #61 and #62 both closed.
+Sprint #61 guided-land-surface: 17/18 done (#381 screenshots delegated to separate agent).
+Sprint #62 drift-close-pass: 19/19 done — 22 stale items closed, operating surfaces verified,
+  recovery preview added to /sources, onboarding-progress confirmed complete.
+Next scope: Batch B — publication confidence plumbing (sprint-packet to register).
 
 Sprint workflow:
 - Use `sprint-packet` to register scope, `sprint-resume` to pick up existing work, `sprint-snapshot` to refresh the shared artifact.
