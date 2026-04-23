@@ -11,6 +11,7 @@ from apps.api.app import create_app
 from apps.api.main import build_app
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.platform.auth.crypto import hash_password
+from packages.platform.auth.proxy_provider import ProxyProvider
 from packages.platform.auth.route_policy_engine import RouteDecision, RoutePolicy
 from packages.platform.auth.scope_authorization import build_route_authorization_lookup
 from packages.platform.auth.session_manager import SessionManager
@@ -138,25 +139,31 @@ def _build_proxy_client(
     *,
     client: tuple[str, int] = ("testclient", 50000),
 ) -> TestClient:
-    settings = AppSettings(
-        data_dir=Path(temp_dir),
+    # build_app enforces SQLite+proxy as invalid (correct for production).
+    # Tests assemble storage directly and call create_app to stay in-process.
+    service = AccountTransactionService(
         landing_root=Path(temp_dir) / "landing",
-        metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
-        account_transactions_inbox_dir=Path(temp_dir) / "inbox" / "account-transactions",
-        processed_files_dir=Path(temp_dir) / "processed" / "account-transactions",
-        failed_files_dir=Path(temp_dir) / "failed" / "account-transactions",
-        api_host="127.0.0.1",
-        api_port=8080,
-        web_host="127.0.0.1",
-        web_port=8081,
-        worker_poll_interval_seconds=30,
-        identity_mode="proxy",
-        proxy_trusted_cidrs=("10.0.0.0/8",),
-        proxy_username_header="x-auth-user",
-        proxy_role_header="x-auth-role",
-        proxy_permissions_header="x-auth-permissions",
+        metadata_repository=RunMetadataRepository(
+            Path(temp_dir) / "metadata" / "runs.db"
+        ),
     )
-    return TestClient(build_app(settings), client=client)
+    repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+    proxy_provider = ProxyProvider(
+        username_header="x-auth-user",
+        role_header="x-auth-role",
+        permissions_header="x-auth-permissions",
+        trusted_cidrs=("10.0.0.0/8",),
+    )
+    return TestClient(
+        create_app(
+            service,
+            config_repository=repository,
+            auth_store=repository,
+            identity_mode="proxy",
+            proxy_provider=proxy_provider,
+        ),
+        client=client,
+    )
 
 
 def test_api_local_auth_login_logout_and_me() -> None:
