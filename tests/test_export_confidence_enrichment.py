@@ -50,9 +50,9 @@ def test_export_contracts_enriches_with_confidence_fields_when_snapshot_exists()
             snapshot_id="test-snapshot-001",
             publication_key="monthly_cashflow",
             assessed_at=now,
-            freshness_state="CURRENT",
+            freshness_state="current",
             completeness_pct=100,
-            confidence_verdict="TRUSTWORTHY",
+            confidence_verdict="trustworthy",
             quality_flags=None,
             contributing_run_ids=("run-001", "run-002"),
         )
@@ -78,8 +78,8 @@ def test_export_contracts_enriches_with_confidence_fields_when_snapshot_exists()
         assert monthly_cashflow is not None, "monthly_cashflow publication not found in catalog"
 
         # 5. Assert confidence fields are non-null and match the snapshot
-        assert monthly_cashflow.confidence_verdict == "TRUSTWORTHY"
-        assert monthly_cashflow.freshness_state == "CURRENT"
+        assert monthly_cashflow.confidence_verdict == "trustworthy"
+        assert monthly_cashflow.freshness_state == "current"
         assert monthly_cashflow.completeness_pct == 100
         assert monthly_cashflow.assessed_at == now.isoformat()
 
@@ -137,17 +137,17 @@ def test_export_contracts_with_multiple_publication_snapshots() -> None:
                 snapshot_id="snap-cashflow",
                 publication_key="monthly_cashflow",
                 assessed_at=now,
-                freshness_state="CURRENT",
+                freshness_state="current",
                 completeness_pct=100,
-                confidence_verdict="TRUSTWORTHY",
+                confidence_verdict="trustworthy",
             ),
             PublicationConfidenceSnapshotCreate(
                 snapshot_id="snap-balance",
                 publication_key="account_balance_trend",
                 assessed_at=now,
-                freshness_state="DUE_SOON",
+                freshness_state="due_soon",
                 completeness_pct=85,
-                confidence_verdict="DEGRADED",
+                confidence_verdict="degraded",
             ),
         )
         control_plane_store.record_publication_confidence_snapshot(snapshots)
@@ -167,14 +167,14 @@ def test_export_contracts_with_multiple_publication_snapshots() -> None:
 
         monthly_cashflow = contracts_by_key.get("monthly_cashflow")
         assert monthly_cashflow is not None
-        assert monthly_cashflow.confidence_verdict == "TRUSTWORTHY"
-        assert monthly_cashflow.freshness_state == "CURRENT"
+        assert monthly_cashflow.confidence_verdict == "trustworthy"
+        assert monthly_cashflow.freshness_state == "current"
         assert monthly_cashflow.completeness_pct == 100
 
         account_balance = contracts_by_key.get("account_balance_trend")
         assert account_balance is not None
-        assert account_balance.confidence_verdict == "DEGRADED"
-        assert account_balance.freshness_state == "DUE_SOON"
+        assert account_balance.confidence_verdict == "degraded"
+        assert account_balance.freshness_state == "due_soon"
         assert account_balance.completeness_pct == 85
 
 

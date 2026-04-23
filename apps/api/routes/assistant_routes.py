@@ -19,12 +19,12 @@ from packages.pipelines.composition.publication_contract_inputs import (
     HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS,
     build_household_publication_relation_map,
 )
-from packages.pipelines.publication_confidence_service import (
-    get_latest_publication_confidence,
-)
 from packages.pipelines.reporting_service import ReportingService
 from packages.platform.capability_types import CapabilityPack
-from packages.platform.publication_confidence import PublicationConfidenceSnapshot
+from packages.platform.publication_confidence import (
+    PublicationConfidenceSnapshot,
+    get_latest_publication_confidence,
+)
 from packages.platform.publication_contracts import (
     build_publication_contracts,
     build_ui_descriptor_contracts,

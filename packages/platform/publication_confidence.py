@@ -11,9 +11,12 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Mapping
+from typing import TYPE_CHECKING, Mapping
 
 from packages.platform.source_freshness import SourceFreshnessState
+
+if TYPE_CHECKING:
+    from packages.storage.control_plane import ControlPlaneStore
 
 
 class ConfidenceVerdict(StrEnum):
@@ -168,3 +171,37 @@ def compute_publication_freshness_state(
 
     # Otherwise unavailable
     return FreshnessState.UNAVAILABLE
+
+
+def get_latest_publication_confidence(
+    publication_key: str,
+    control_plane: ControlPlaneStore,
+) -> PublicationConfidenceSnapshot | None:
+    """Retrieve the latest confidence snapshot for a publication.
+
+    Args:
+        publication_key: The publication key to look up
+        control_plane: Control plane to query snapshots
+
+    Returns:
+        Latest PublicationConfidenceSnapshot, or None if not found
+    """
+    records = control_plane.list_publication_confidence_snapshots(
+        publication_key=publication_key,
+        limit=1,
+    )
+    if not records:
+        return None
+
+    record = records[0]
+    return PublicationConfidenceSnapshot(
+        snapshot_id=record.snapshot_id,
+        publication_key=record.publication_key,
+        assessed_at=record.assessed_at,
+        freshness_state=str(record.freshness_state),  # type: ignore
+        completeness_pct=record.completeness_pct,
+        source_freshness_states={},  # Could hydrate from record if needed
+        contributing_run_ids=list(record.contributing_run_ids),
+        quality_flags=record.quality_flags or {},
+        confidence_verdict=str(record.confidence_verdict),  # type: ignore
+    )

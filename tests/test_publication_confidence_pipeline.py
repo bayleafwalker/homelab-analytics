@@ -110,15 +110,10 @@ def test_refresh_publications_records_confidence_and_api_returns_verdict() -> No
         )
 
         # Verify the snapshot has a non-null confidence verdict
-        # (may be unavailable or degraded since no real source data)
+        # (unavailable since no real source lineage data configured)
         assert "confidence_verdict" in monthly_cashflow_pub
         assert monthly_cashflow_pub["confidence_verdict"] is not None
-        assert monthly_cashflow_pub["confidence_verdict"].lower() in [
-            "unavailable",
-            "degraded",
-            "unreliable",
-            "trustworthy",
-        ]
+        assert monthly_cashflow_pub["confidence_verdict"] == "unavailable"
 
         # Verify assessed_at is present (proof snapshot was computed)
         assert "assessed_at" in monthly_cashflow_pub

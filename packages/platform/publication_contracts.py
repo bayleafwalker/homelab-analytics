@@ -588,7 +588,7 @@ def build_publication_contract_catalog(
 
     # Enrich contracts with latest confidence metadata if control_plane is available
     if control_plane is not None:
-        from packages.pipelines.publication_confidence_service import (
+        from packages.platform.publication_confidence import (
             get_latest_publication_confidence,
         )
 
