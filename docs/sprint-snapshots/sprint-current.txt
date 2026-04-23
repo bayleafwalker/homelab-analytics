@@ -1,46 +1,13 @@
-SPRINT: guided-land-surface — First-Contact UX Loop Closure  [active]
+SPRINT: confidence-export-seam — Batch B: Publication Confidence Plumbing  [active]
 Goal:   
 Dates:  2026-04-23 to 2026-05-07
-ID:     61
-Items:  18 total — 18 done, 0 active, 0 pending, 0 blocked
+ID:     63
+Items:  3 total — 3 done, 0 active, 0 pending, 0 blocked
 
---- Track: guided-onboarding ---
-  health: 5 items — 5 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #365  Verify and close: source type detection wizard (file drop, format detect, confidence display)  (assignee: -)
-  [done    ] #366  Verify and close: mapping preview (canonical field match, missing fields, source column coverage)  (assignee: -)
-  [done    ] #367  Verify and close: publication preview (direct publications, derived views, transformation package)  (assignee: -)
-  [done    ] #368  Verify and close: validation dry-run (parse without landing, row count, date range, issues, accept/retry)  (assignee: -)
-  [done    ] #369  Verify and close: upload form wired to ingest-summary post-success redirect  (assignee: -)
-
---- Track: first-answer ---
+--- Track: plumbing ---
   health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #370  Verify and close: ingest-summary post-upload landing (run detail, publication audit, cashflow inline)  (assignee: -)
-  [done    ] #371  Verify and close: first-answer composition (cashflow, recurring baseline, affordability, attention items)  (assignee: -)
-  [done    ] #372  Verify and close: progressive disclosure (pending sources with unlock previews and upload links)  (assignee: -)
+  [done    ] #402  B1 (XS): Attach AppContainer to FastAPI app in apps/api/app.py — wire app.container so export_contracts.py enrichment picks up control-plane, regenerate publication-contracts.json/ts with confidence fields populated  (assignee: -)
+  [done    ] #403  B2 (XS): Test: export_contracts end-to-end with pre-seeded snapshot asserts non-null confidence_verdict, freshness_state, assessed_at, completeness_pct in generated artifact  (assignee: -)
+  [done    ] #404  B3 (S): Integration test: TransformationService.refresh_publications hook → snapshot stored → /control/confidence API returns correct verdict (hook path only, no direct snapshot inserts)  (assignee: -)
 
---- Track: bugs ---
-  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #373  Fix transaction-anomalies 500: reporting_service ORDER BY booked_at but Postgres column is booking_date  (assignee: -)
-  [done    ] #375  Publish mart_household_overview, mart_open_attention_items, mart_recent_significant_changes, mart_current_operating_baseline to Postgres — dashboard, review, retro crash without them  (assignee: -)
-  [done    ] #376  Fix /runs page 422: definedValues in backend.ts passes empty strings, FastAPI rejects empty-string datetime params — filter empty strings alongside undefined  (assignee: -)
-  [done    ] #382  Demo data: mart_budget_progress_current, mart_recent_large_transactions empty after seed — check mart query time-window thresholds vs demo data date range  (assignee: -)
-
---- Track: tests ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #374  Integration test: guided upload → ingest-summary → first-answer flow (backend: detect, dry-run, land, summary API)  (assignee: -)
-
---- Track: build ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #377  Fix control/confidence/page.js webpack error: 'use client' page imports getCurrentUser from backend.ts which uses next/headers (server-only) — move user check into useEffect fetch  (assignee: -)
-
---- Track: docs ---
-  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #378  Update CLAUDE.md active sprint list — sprints #23, #25, #29 listed as active but all closed; current sprint is #61 guided-land-surface  (assignee: -)
-  [done    ] #379  Clarify login page description: 'temporary break-glass mode' is misleading for local_single_user which is the intended single-user homelab mode, not a fallback  (assignee: -)
-  [done    ] #380  Fix web /ready identity_mode reporting: web container reports 'disabled' but API reports 'local_single_user' — misleading for operator health checks  (assignee: -)
-
---- Track: screenshots ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #381  Capture and commit screenshots of key UI views to docs/product/screenshots/ — budgets, costs, loans, utilities, scenarios, retro, control, upload pages with demo data  (assignee: -)
-
-Rendered: 2026-04-23T11:37:12Z
+Rendered: 2026-04-23T15:36:51Z
