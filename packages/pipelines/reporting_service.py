@@ -71,6 +71,17 @@ _AUDIT_TRIGGER_MARTS = frozenset(
     {"mart_monthly_cashflow", "mart_monthly_cashflow_by_counterparty"}
 )
 
+# Overview composition marts are refreshed via refresh_publication_keys in each
+# capability pack but never listed in publication_keys, so they are never pushed
+# to Postgres by publish_publications. Detect them in marts_refreshed and push
+# them as auxiliary relations so the PUBLISHED access mode can serve them.
+_OVERVIEW_COMPOSITION_MARTS = frozenset({
+    MART_HOUSEHOLD_OVERVIEW_TABLE,
+    MART_OPEN_ATTENTION_ITEMS_TABLE,
+    MART_RECENT_SIGNIFICANT_CHANGES_TABLE,
+    MART_CURRENT_OPERATING_BASELINE_TABLE,
+})
+
 
 class ReportingAccessMode(StrEnum):
     PREFER_PUBLISHED = "prefer_published"
@@ -118,6 +129,21 @@ def publish_promotion_reporting(
                 reporting_service.publish_auxiliary_relations(
                     [TRANSFORMATION_AUDIT_TABLE]
                 )
+            )
+    overview_mats_to_push = sorted(
+        _OVERVIEW_COMPOSITION_MARTS & set(promotion.marts_refreshed)
+    )
+    if overview_mats_to_push:
+        try:
+            published.extend(
+                reporting_service.publish_auxiliary_relations(
+                    overview_mats_to_push,
+                    run_id=promotion.run_id,
+                )
+            )
+        except TypeError:
+            published.extend(
+                reporting_service.publish_auxiliary_relations(overview_mats_to_push)
             )
     if hasattr(reporting_service, "record_reporting_lineage"):
         reporting_service.record_reporting_lineage(
