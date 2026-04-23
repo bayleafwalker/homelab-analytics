@@ -2,31 +2,32 @@ SPRINT: guided-land-surface — First-Contact UX Loop Closure  [active]
 Goal:   
 Dates:  2026-04-23 to 2026-05-07
 ID:     61
-Items:  16 total — 0 done, 0 active, 16 pending, 0 blocked
+Items:  18 total — 11 done, 0 active, 7 pending, 0 blocked
 
 --- Track: guided-onboarding ---
-  health: 5 items — 0 done (0%), 0 active, 5 pending, 0 blocked (0%)
-  [pending ] #365  Verify and close: source type detection wizard (file drop, format detect, confidence display)  (assignee: -)
-  [pending ] #366  Verify and close: mapping preview (canonical field match, missing fields, source column coverage)  (assignee: -)
-  [pending ] #367  Verify and close: publication preview (direct publications, derived views, transformation package)  (assignee: -)
-  [pending ] #368  Verify and close: validation dry-run (parse without landing, row count, date range, issues, accept/retry)  (assignee: -)
-  [pending ] #369  Verify and close: upload form wired to ingest-summary post-success redirect  (assignee: -)
+  health: 5 items — 5 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #365  Verify and close: source type detection wizard (file drop, format detect, confidence display)  (assignee: -)
+  [done    ] #366  Verify and close: mapping preview (canonical field match, missing fields, source column coverage)  (assignee: -)
+  [done    ] #367  Verify and close: publication preview (direct publications, derived views, transformation package)  (assignee: -)
+  [done    ] #368  Verify and close: validation dry-run (parse without landing, row count, date range, issues, accept/retry)  (assignee: -)
+  [done    ] #369  Verify and close: upload form wired to ingest-summary post-success redirect  (assignee: -)
 
 --- Track: first-answer ---
-  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
-  [pending ] #370  Verify and close: ingest-summary post-upload landing (run detail, publication audit, cashflow inline)  (assignee: -)
-  [pending ] #371  Verify and close: first-answer composition (cashflow, recurring baseline, affordability, attention items)  (assignee: -)
-  [pending ] #372  Verify and close: progressive disclosure (pending sources with unlock previews and upload links)  (assignee: -)
+  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #370  Verify and close: ingest-summary post-upload landing (run detail, publication audit, cashflow inline)  (assignee: -)
+  [done    ] #371  Verify and close: first-answer composition (cashflow, recurring baseline, affordability, attention items)  (assignee: -)
+  [done    ] #372  Verify and close: progressive disclosure (pending sources with unlock previews and upload links)  (assignee: -)
 
 --- Track: bugs ---
-  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
-  [pending ] #373  Fix transaction-anomalies 500: reporting_service ORDER BY booked_at but Postgres column is booking_date  (assignee: -)
-  [pending ] #375  Publish mart_household_overview, mart_open_attention_items, mart_recent_significant_changes, mart_current_operating_baseline to Postgres — dashboard, review, retro crash without them  (assignee: -)
+  health: 4 items — 2 done (50%), 0 active, 2 pending, 0 blocked (0%)
+  [done    ] #373  Fix transaction-anomalies 500: reporting_service ORDER BY booked_at but Postgres column is booking_date  (assignee: -)
+  [done    ] #375  Publish mart_household_overview, mart_open_attention_items, mart_recent_significant_changes, mart_current_operating_baseline to Postgres — dashboard, review, retro crash without them  (assignee: -)
   [pending ] #376  Fix /runs page 422: definedValues in backend.ts passes empty strings, FastAPI rejects empty-string datetime params — filter empty strings alongside undefined  (assignee: -)
+  [pending ] #382  Demo data: mart_budget_progress_current, mart_recent_large_transactions empty after seed — check mart query time-window thresholds vs demo data date range  (assignee: -)
 
 --- Track: tests ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #374  Integration test: guided upload → ingest-summary → first-answer flow (backend: detect, dry-run, land, summary API)  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #374  Integration test: guided upload → ingest-summary → first-answer flow (backend: detect, dry-run, land, summary API)  (assignee: -)
 
 --- Track: build ---
   health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
@@ -38,4 +39,8 @@ Items:  16 total — 0 done, 0 active, 16 pending, 0 blocked
   [pending ] #379  Clarify login page description: 'temporary break-glass mode' is misleading for local_single_user which is the intended single-user homelab mode, not a fallback  (assignee: -)
   [pending ] #380  Fix web /ready identity_mode reporting: web container reports 'disabled' but API reports 'local_single_user' — misleading for operator health checks  (assignee: -)
 
-Rendered: 2026-04-23T06:23:38Z
+--- Track: screenshots ---
+  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
+  [pending ] #381  Capture and commit screenshots of key UI views to docs/product/screenshots/ — budgets, costs, loans, utilities, scenarios, retro, control, upload pages with demo data  (assignee: -)
+
+Rendered: 2026-04-23T06:50:42Z

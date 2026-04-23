@@ -77,8 +77,8 @@ When creating or registering sprints:
 
 Current sprint state (as of 2026-04-23): **active** — sprint #61 `guided-land-surface`.
 Goal: close the guided-upload → ingest-summary → first-answer loop.
-11 items: guided-onboarding (5 verify/close), first-answer (3 verify/close),
-tests (1 integration test), bugs (2 blocking fixes). 0/11 done.
+18 items: 11 done (original scope complete), 7 pending (bugs, docs, build, screenshots).
+Original scope complete: guided-onboarding ✓, first-answer ✓, integration test ✓, 2 blocking bugs ✓.
 
 Sprint workflow:
 - Use `sprint-packet` to register scope, `sprint-resume` to pick up existing work, `sprint-snapshot` to refresh the shared artifact.
