@@ -1,18 +1,88 @@
-SPRINT: operator-path-forge — First Source and Remediation Loop  [planned]
-Goal:   Make source onboarding and broken-run recovery coherent for a solo operator.
-ID:     34
+SPRINT: keel-ledger-bond - Kernel Hardening and Runtime Honesty  [active]
+Goal:   Make the kernel boring again by clarifying runtime posture and moving auth policy back into kernel-owned seams.
+ID:     41
+Items:  8 total — 8 done, 0 active, 0 pending, 0 blocked
+
+--- Track: kernel-runtime ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #289  Postgres-first operator defaults and SQLite guardrails  (assignee: -)
+
+--- Track: auth-policy ---
+  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #290  Auth policy decomposition and thin FastAPI assembly  (assignee: -)
+  [done    ] #301  Decompose auth middleware into thin FastAPI assembly plus policy components  (assignee: -)
+
+--- Track: auth-routing ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #300  Replace path-prefix auth policy trees with declarative route policy catalog  (assignee: -)
+
+--- Track: auth-transport ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #304  Trust forwarded headers only from configured forwarders  (assignee: -)
+
+--- Track: auth-use-cases ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #299  Extract local login and OIDC session flows into application use-cases  (assignee: -)
+
+--- Track: auth-compat ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #303  Freeze shared auth shim and legacy auth-mode compatibility follow-up  (assignee: -)
+
+--- Track: auth-contracts ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #302  Move auth vocabulary out of storage into shared/platform contracts  (assignee: -)
+
+Rendered: 2026-04-23T05:04:09Z
+
+SPRINT: semantic-seam-forge - Semantic Engine Contracts and Application Seams  [active]
+Goal:   Make the semantic engine explicit and stop surfaces from carrying workflow order.
+ID:     42
+Items:  2 total — 2 done, 0 active, 0 pending, 0 blocked
+
+--- Track: semantic-contracts ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #291  Publish remaining homelab and infrastructure current-dimension contracts  (assignee: -)
+
+--- Track: orchestration-seam ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #292  Extract explicit application/use-case entrypoints for ingest, publish, scenario, and policy flows  (assignee: -)
+
+Rendered: 2026-04-23T05:04:10Z
+
+SPRINT: pack-loop-harbor - Product Pack Ownership and Workflow Closure  [active]
+Goal:   Make first-source onboarding and first broken-run recovery feel like one pack-owned product loop.
+ID:     43
 Items:  3 total — 3 done, 0 active, 0 pending, 0 blocked
 
 --- Track: onboarding ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #275  First-source onboarding flow closure  (assignee: -)
+  [done    ] #293  First-source onboarding flow closure  (assignee: -)
 
---- Track: operator-tools ---
+--- Track: pack-ownership ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #277  Terminal task library and command discovery  (assignee: -)
+  [done    ] #295  Keep onboarding and remediation sequencing under pack/application ownership  (assignee: -)
 
 --- Track: remediation ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #276  Failed-run to remediation action path  (assignee: -)
+  [done    ] #294  Failed-run to remediation action path  (assignee: -)
 
-Rendered: 2026-04-22T19:03:38Z
+Rendered: 2026-04-23T05:04:10Z
+
+SPRINT: surface-glass-bridge - Thin Surfaces and Operator Visibility  [active]
+Goal:   Make surfaces thinner and more honest by exposing reporting truth, terminal tasks, and extension state without widening scope.
+ID:     44
+Items:  3 total — 3 done, 0 active, 0 pending, 0 blocked
+
+--- Track: operator-tools ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #297  Terminal task library and command discovery  (assignee: -)
+
+--- Track: reporting-truth ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #296  Reporting mode disclosure and publication audit summary  (assignee: -)
+
+--- Track: registry-visibility ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #298  Extension registry visibility surface  (assignee: -)
+
+Rendered: 2026-04-23T05:04:10Z
