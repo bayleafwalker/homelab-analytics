@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 
 import { AppShell } from '@/components/app-shell';
 import { ControlNav } from '@/components/control-nav';
-import { getCurrentUser } from '@/lib/backend';
 
 const VERDICT_COLORS = {
   'TRUSTWORTHY': { bg: '#e8f5e9', text: '#2e7d32', label: 'Trustworthy' },
@@ -104,8 +103,11 @@ export default function ConfidencePage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const currentUser = await getCurrentUser();
-        if (currentUser.role === 'reader') {
+        const meResponse = await fetch('/auth/me');
+        if (!meResponse.ok) { router.push('/login'); return; }
+        const mePayload = await meResponse.json();
+        const currentUser = mePayload?.user;
+        if (!currentUser || currentUser.role === 'reader') {
           router.push('/');
           return;
         }
