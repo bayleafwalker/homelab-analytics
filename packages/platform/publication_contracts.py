@@ -612,6 +612,7 @@ def build_publication_contract_catalog(
 
     ui_descriptors = build_ui_descriptor_contracts(capability_packs)
     return {
+        "catalog_schema_version": "1.1.0",
         "publication_contracts": contracts,
         "ui_descriptors": ui_descriptors,
     }

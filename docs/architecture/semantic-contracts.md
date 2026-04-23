@@ -52,6 +52,22 @@ Domain-local does not mean ad hoc. Each still needs reporting-layer publication 
 - `dim_counterparty.category` free-text bridge is retained for backward compat; `category_id` is now populated by backfill but full bridge-column removal is deferred.
 - Provider semantics still live inside domain-local string columns such as `dim_contract.provider`; there is no shared provider dimension yet.
 
+## Publication confidence metadata
+
+**Trust source:** `publication_confidence_snapshot` table in the control plane store (Postgres or SQLite).
+
+**Fields:** 
+- `freshness_state` (lowercase StrEnum: current, due_soon, overdue, missing_period, unconfigured)
+- `completeness_pct` (integer 0 or 100, binary presence flag — TODO: replace with proportional)
+- `confidence_verdict` (lowercase StrEnum: trustworthy, degraded, unreliable, unavailable)
+- `assessed_at` (ISO 8601 UTC timestamp string)
+
+**Where exposed:** `PublicationContract` dataclass (`packages/platform/publication_contracts.py`), `GET /contracts/publications`, exported `publication-contracts.json` artifact.
+
+**Casing convention:** All enum string values are lowercase, matching `ConfidenceVerdict` and `FreshnessState` StrEnums in `packages/platform/publication_confidence.py`.
+
+**Catalog versioning:** The `publication-contracts.json` artifact includes a top-level `catalog_schema_version` field that bumps when confidence metadata fields are added or modified (current: `1.1.0`).
+
 ## Change checklist
 
 When adding or changing semantic contracts:
