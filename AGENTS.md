@@ -56,7 +56,7 @@ This application is **not yet deployed** to a cluster. Do not run `kubectl` agai
 - Primary language: **Python**. Testing: `pytest`.
 - **Two-tier testing model:**
   - **In-session (blocking, targeted):** Run only the tests covering changed files: `pytest tests/test_foo.py tests/test_bar.py -x --tb=short`. Run foreground and wait — never background `pytest` for sequential verification. This is the signal needed to mark items done.
-  - **Full suite (CI gate only):** `make test` is a merge gate, not a sprint-item gate. Push the branch; let CI run it. Do not run the full suite in-session unless debugging a cross-cutting regression.
+  - **Broader validation (operator-initiated):** There is no blocking full-suite CI job in this repo today. Run `make test` when you want the full Python suite, or `make verify-all` when you want the broader local verification path. Neither is a sprint-item gate. Do not run the full suite in-session unless debugging a cross-cutting regression.
 - Gate `sprintctl` done transitions on targeted test exit code: `pytest <files> -x --tb=short && sprintctl item done-from-claim ...`
 - **Never commit with failing tests.**
 - **Commit at the smallest reviewable scope boundary, not mechanically per sprint item.** A scope may be one item or a tight batch of related items that should be reviewed together. Do not batch unrelated scopes or defer commits until the end of a session. Run targeted tests before each commit.
@@ -123,9 +123,9 @@ Do not rely on this file for the current sprint roster. Check live `sprintctl` s
 
 | Store | Latest migration | File count |
 |---|---|---|
-| `migrations/postgres/` | `0007_dim_household_member` | 7 |
-| `migrations/duckdb/` | `0008_counterparty_category_id` | 3 (DuckDB-only subset — gaps are intentional) |
-| `migrations/sqlite/` | `0005_reference_fact` | 5 |
+| `migrations/postgres/` | `0008_publication_confidence_snapshot` | 8 |
+| `migrations/duckdb/` | `0009_publication_confidence_snapshot` | 4 (DuckDB-only subset — gaps are intentional) |
+| `migrations/sqlite/` | `0006_publication_confidence_snapshot` | 6 |
 | `migrations/postgres_run_metadata/` | `0001_run_metadata_initial_schema` | 1 |
 
 ### Schema versions

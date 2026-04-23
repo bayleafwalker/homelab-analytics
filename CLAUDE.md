@@ -50,10 +50,10 @@ This application is **not yet deployed** to a cluster. Do not run `kubectl` agai
 
 1. **Two-tier testing model:**
    - **In-session (blocking, targeted):** Run only the tests covering changed files: `pytest tests/test_foo.py -x --tb=short`. Run foreground and wait — never background `pytest` for sequential work.
-   - **Full suite (CI gate only):** `make test` is a merge gate, not a sprint-item gate. Push the branch; let CI run it.
+   - **Broader validation (operator-initiated):** There is no blocking full-suite CI job in this repo today. Run `make test` when you want the full Python suite, or `make verify-all` when you want the broader local verification path. Neither is a sprint-item gate.
 2. Gate done transitions on targeted test exit code: `pytest <files> -x --tb=short && sprintctl item done-from-claim ...`
 3. **Never commit with failing tests.**
-4. **Commit after each sprint item completes — not at the end of a session.** One item = one commit. Run targeted tests before each commit.
+4. **Commit at the smallest reviewable scope boundary, not mechanically per sprint item.** A scope may be one item or a tight batch of related items that should be reviewed together. Run targeted tests before each commit.
 5. Run `make verify-fast` before opening a PR or pushing a branch that will trigger CI.
 6. Behavior changes must include updated or new tests in the same commit.
 
@@ -75,27 +75,22 @@ When creating or registering sprints:
 **Correct examples:** `hearth-lantern-path`, `iron-grove-atlas`, `flint-glass-vow`, `seam-finish-pass`
 **Wrong:** `Sprint R`, `Sprint Q`, `sprint-S`
 
-Current sprint state (as of 2026-04-23): **clean close** — sprints #61 and #62 both closed.
-Sprint #61 guided-land-surface: 17/18 done (#381 screenshots delegated to separate agent).
-Sprint #62 drift-close-pass: 19/19 done — 22 stale items closed, operating surfaces verified,
-  recovery preview added to /sources, onboarding-progress confirmed complete.
-Next scope: Batch B — publication confidence plumbing (sprint-packet to register).
-
 Sprint workflow:
 - Use `sprint-packet` to register scope, `sprint-resume` to pick up existing work, `sprint-snapshot` to refresh the shared artifact.
+- Check live `sprintctl` state and `docs/sprint-snapshots/sprint-current.txt` for current sprint status instead of relying on this file.
 - Record sprint state in `sprintctl` first; refresh `docs/sprint-snapshots/sprint-current.txt` afterward.
 
 ---
 
 ## Database & Migrations
 
-### Current migration state (2026-04-03)
+### Current migration state (2026-04-23)
 
 | Store | Latest migration | Count |
 |---|---|---|
-| `migrations/postgres/` | `0007_dim_household_member` | 7 |
-| `migrations/duckdb/` | `0008_counterparty_category_id` | 3 (gaps: DuckDB-only subset) |
-| `migrations/sqlite/` | `0005_reference_fact` | 5 |
+| `migrations/postgres/` | `0008_publication_confidence_snapshot` | 8 |
+| `migrations/duckdb/` | `0009_publication_confidence_snapshot` | 4 (gaps: DuckDB-only subset) |
+| `migrations/sqlite/` | `0006_publication_confidence_snapshot` | 6 |
 | `migrations/postgres_run_metadata/` | `0001_run_metadata_initial_schema` | 1 |
 
 ### Schema versions

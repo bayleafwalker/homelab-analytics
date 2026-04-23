@@ -2,7 +2,7 @@ SPRINT: confidence-export-seam — Batch B: Publication Confidence Plumbing  [ac
 Goal:   
 Dates:  2026-04-23 to 2026-05-07
 ID:     63
-Items:  8 total — 8 done, 0 active, 0 pending, 0 blocked
+Items:  12 total — 12 done, 0 active, 0 pending, 0 blocked
 
 --- Track: plumbing ---
   health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
@@ -21,4 +21,17 @@ Items:  8 total — 8 done, 0 active, 0 pending, 0 blocked
   [done    ] #408  B7 (XS): Add catalog_schema_version to build_publication_contract_catalog output and document confidence metadata as new shared semantic surface in semantic-contracts.md  (assignee: -)
   [done    ] #409  B8 (XS): Extract control_plane_store fixture and build_test_catalog helper in test_export_confidence_enrichment.py — remove repeated 7-line setup block across 3 of 4 tests  (assignee: -)
 
-Rendered: 2026-04-23T15:49:43Z
+--- Track: ci-hygiene ---
+  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #412  B11 (S): Add scheduled/manual full-suite CI workflow and update gate language to distinguish PR verify-fast from background full verification  (assignee: -)
+  [done    ] #413  B12 (XS): Replace full-suite CI wording with operator-run guidance and drop added full-verify workflow/test  (assignee: -)
+
+--- Track: docs-hygiene ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #411  B10 (XS): Refresh AGENTS.md and CLAUDE.md migration-state tables and stale anchor date for publication-confidence migrations  (assignee: -)
+
+--- Track: hygiene ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #410  B9 (XS): Remove committed apps/web/node_modules symlink and add repository contract test forbidding symlinks that escape the repo  (assignee: -)
+
+Rendered: 2026-04-23T17:29:47Z

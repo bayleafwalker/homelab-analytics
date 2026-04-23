@@ -1,3 +1,4 @@
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -78,6 +79,35 @@ class RepositoryContractTests(unittest.TestCase):
 
         missing = [path for path in expected if not (ROOT / path).is_file()]
         self.assertEqual([], missing, f"Missing frontend contract artifacts: {missing}")
+
+    def test_tracked_symlinks_stay_within_repository(self) -> None:
+        repo_root = ROOT.resolve()
+        result = subprocess.run(
+            ["git", "ls-files", "-s"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        tracked_symlinks = [
+            Path(line.split(maxsplit=3)[3])
+            for line in result.stdout.splitlines()
+            if line.startswith("120000 ")
+        ]
+
+        escaped = []
+        for path in tracked_symlinks:
+            resolved = (ROOT / path).resolve(strict=False)
+            try:
+                resolved.relative_to(repo_root)
+            except ValueError:
+                escaped.append(f"{path} -> {resolved}")
+
+        self.assertEqual(
+            [],
+            escaped,
+            f"Tracked symlinks must not resolve outside the repository: {escaped}",
+        )
 
     def test_architecture_doc_covers_core_layers(self) -> None:
         content = (ROOT / "docs/architecture/data-platform-architecture.md").read_text()
