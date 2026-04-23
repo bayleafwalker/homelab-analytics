@@ -28,12 +28,15 @@ from apps.api.main import (
     build_transformation_service,
     main,
 )
+from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.composition.builtin_packs import BUILTIN_CAPABILITY_PACKS
 from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.reporting_service import ReportingAccessMode
+from packages.platform.auth.proxy_provider import ProxyProvider
 from packages.platform.runtime.builder import build_container
 from packages.shared.external_registry import sync_extension_registry_source
 from packages.shared.settings import AppSettings
+from packages.storage.run_metadata import RunMetadataRepository
 from packages.storage.ingestion_config import (
     ColumnMappingCreate,
     ColumnMappingRule,
@@ -703,34 +706,40 @@ class ApiMainTests(unittest.TestCase):
                 build_app(settings)
 
     def test_build_app_accepts_proxy_auth_mode_with_trusted_cidrs(self) -> None:
+        # build_app enforces SQLite+proxy as invalid (correct for production).
+        # Tests assemble storage directly and call create_app to stay in-process.
         with TemporaryDirectory() as temp_dir:
-            settings = AppSettings(
-                data_dir=Path(temp_dir),
+            service = AccountTransactionService(
                 landing_root=Path(temp_dir) / "landing",
-                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
-                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
-                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
-                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
-                api_host="127.0.0.1",
-                api_port=8090,
-                web_host="127.0.0.1",
-                web_port=8091,
-                worker_poll_interval_seconds=1,
+                metadata_repository=RunMetadataRepository(
+                    Path(temp_dir) / "metadata" / "runs.db"
+                ),
+            )
+            repository = IngestionConfigRepository(
+                Path(temp_dir) / "config.db"
+            )
+            proxy_provider = ProxyProvider(
+                username_header="x-forwarded-user",
+                role_header="x-forwarded-role",
+                permissions_header=None,
+                trusted_cidrs=("10.0.0.0/8",),
+            )
+            app = create_app(
+                service,
+                config_repository=repository,
+                auth_store=repository,
                 identity_mode="proxy",
-                proxy_trusted_cidrs=("10.0.0.0/8",),
+                proxy_provider=proxy_provider,
             )
 
-            with TestClient(build_app(settings)) as direct_client:
+            with TestClient(app) as direct_client:
                 response = direct_client.get(
                     "/runs",
                     headers={"x-forwarded-for": "10.2.3.4"},
                 )
                 self.assertEqual(403, response.status_code)
 
-            with TestClient(
-                build_app(settings),
-                client=("10.0.0.10", 50000),
-            ) as trusted_client:
+            with TestClient(app, client=("10.0.0.10", 50000)) as trusted_client:
                 response = trusted_client.get(
                     "/runs",
                     headers={"x-forwarded-for": "10.2.3.4"},
