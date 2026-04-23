@@ -2,7 +2,7 @@ SPRINT: guided-land-surface — First-Contact UX Loop Closure  [active]
 Goal:   
 Dates:  2026-04-23 to 2026-05-07
 ID:     61
-Items:  18 total — 11 done, 0 active, 7 pending, 0 blocked
+Items:  18 total — 17 done, 0 active, 1 pending, 0 blocked
 
 --- Track: guided-onboarding ---
   health: 5 items — 5 done (100%), 0 active, 0 pending, 0 blocked (0%)
@@ -19,28 +19,28 @@ Items:  18 total — 11 done, 0 active, 7 pending, 0 blocked
   [done    ] #372  Verify and close: progressive disclosure (pending sources with unlock previews and upload links)  (assignee: -)
 
 --- Track: bugs ---
-  health: 4 items — 2 done (50%), 0 active, 2 pending, 0 blocked (0%)
+  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
   [done    ] #373  Fix transaction-anomalies 500: reporting_service ORDER BY booked_at but Postgres column is booking_date  (assignee: -)
   [done    ] #375  Publish mart_household_overview, mart_open_attention_items, mart_recent_significant_changes, mart_current_operating_baseline to Postgres — dashboard, review, retro crash without them  (assignee: -)
-  [pending ] #376  Fix /runs page 422: definedValues in backend.ts passes empty strings, FastAPI rejects empty-string datetime params — filter empty strings alongside undefined  (assignee: -)
-  [pending ] #382  Demo data: mart_budget_progress_current, mart_recent_large_transactions empty after seed — check mart query time-window thresholds vs demo data date range  (assignee: -)
+  [done    ] #376  Fix /runs page 422: definedValues in backend.ts passes empty strings, FastAPI rejects empty-string datetime params — filter empty strings alongside undefined  (assignee: -)
+  [done    ] #382  Demo data: mart_budget_progress_current, mart_recent_large_transactions empty after seed — check mart query time-window thresholds vs demo data date range  (assignee: -)
 
 --- Track: tests ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
   [done    ] #374  Integration test: guided upload → ingest-summary → first-answer flow (backend: detect, dry-run, land, summary API)  (assignee: -)
 
 --- Track: build ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #377  Fix control/confidence/page.js webpack error: 'use client' page imports getCurrentUser from backend.ts which uses next/headers (server-only) — move user check into useEffect fetch  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #377  Fix control/confidence/page.js webpack error: 'use client' page imports getCurrentUser from backend.ts which uses next/headers (server-only) — move user check into useEffect fetch  (assignee: -)
 
 --- Track: docs ---
-  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
-  [pending ] #378  Update CLAUDE.md active sprint list — sprints #23, #25, #29 listed as active but all closed; current sprint is #61 guided-land-surface  (assignee: -)
-  [pending ] #379  Clarify login page description: 'temporary break-glass mode' is misleading for local_single_user which is the intended single-user homelab mode, not a fallback  (assignee: -)
-  [pending ] #380  Fix web /ready identity_mode reporting: web container reports 'disabled' but API reports 'local_single_user' — misleading for operator health checks  (assignee: -)
+  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #378  Update CLAUDE.md active sprint list — sprints #23, #25, #29 listed as active but all closed; current sprint is #61 guided-land-surface  (assignee: -)
+  [done    ] #379  Clarify login page description: 'temporary break-glass mode' is misleading for local_single_user which is the intended single-user homelab mode, not a fallback  (assignee: -)
+  [done    ] #380  Fix web /ready identity_mode reporting: web container reports 'disabled' but API reports 'local_single_user' — misleading for operator health checks  (assignee: -)
 
 --- Track: screenshots ---
   health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
   [pending ] #381  Capture and commit screenshots of key UI views to docs/product/screenshots/ — budgets, costs, loans, utilities, scenarios, retro, control, upload pages with demo data  (assignee: -)
 
-Rendered: 2026-04-23T06:50:42Z
+Rendered: 2026-04-23T10:18:17Z
