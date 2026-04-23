@@ -2,7 +2,7 @@ SPRINT: confidence-export-seam — Batch B: Publication Confidence Plumbing  [ac
 Goal:   
 Dates:  2026-04-23 to 2026-05-07
 ID:     63
-Items:  3 total — 3 done, 0 active, 0 pending, 0 blocked
+Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
 
 --- Track: plumbing ---
   health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
@@ -10,4 +10,8 @@ Items:  3 total — 3 done, 0 active, 0 pending, 0 blocked
   [done    ] #403  B2 (XS): Test: export_contracts end-to-end with pre-seeded snapshot asserts non-null confidence_verdict, freshness_state, assessed_at, completeness_pct in generated artifact  (assignee: -)
   [done    ] #404  B3 (S): Integration test: TransformationService.refresh_publications hook → snapshot stored → /control/confidence API returns correct verdict (hook path only, no direct snapshot inserts)  (assignee: -)
 
-Rendered: 2026-04-23T15:36:51Z
+--- Track: remediation ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #405  B4 (S): Fix review blockers — lock lowercase casing for confidence fields, move get_latest_publication_confidence to platform layer, remove .lower() normalisation from pipeline test  (assignee: -)
+
+Rendered: 2026-04-23T15:44:36Z
