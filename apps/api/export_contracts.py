@@ -61,7 +61,7 @@ def export_contracts(output_dir: Path = DEFAULT_GENERATED_DIR) -> None:
         extension_registry = build_extension_registry(settings)
 
         # Extract control_plane_store from app for confidence enrichment
-        control_plane_store = app.container.control_plane_store if hasattr(app, "container") else None
+        control_plane_store = app.state.control_plane_store if hasattr(app.state, "control_plane_store") else None
 
         publication_catalog = build_publication_contract_catalog(
             capability_packs,

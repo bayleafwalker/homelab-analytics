@@ -474,7 +474,7 @@ def create_app(
             await ha_mqtt_publisher.stop()
 
     app = FastAPI(title="Homelab Analytics API", lifespan=_lifespan)
-    app.container = container
+    app.state.control_plane_store = container.control_plane_store
     app.state.trusted_forwarder_networks = tuple(
         ip_network(cidr.strip(), strict=False)
         for cidr in container.settings.proxy_trusted_cidrs
