@@ -1,88 +1,41 @@
-SPRINT: keel-ledger-bond - Kernel Hardening and Runtime Honesty  [closed]
-Goal:   Make the kernel boring again by clarifying runtime posture and moving auth policy back into kernel-owned seams.
-ID:     41
-Items:  8 total — 8 done, 0 active, 0 pending, 0 blocked
+SPRINT: guided-land-surface — First-Contact UX Loop Closure  [active]
+Goal:   
+Dates:  2026-04-23 to 2026-05-07
+ID:     61
+Items:  16 total — 0 done, 0 active, 16 pending, 0 blocked
 
---- Track: kernel-runtime ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #289  Postgres-first operator defaults and SQLite guardrails  (assignee: -)
+--- Track: guided-onboarding ---
+  health: 5 items — 0 done (0%), 0 active, 5 pending, 0 blocked (0%)
+  [pending ] #365  Verify and close: source type detection wizard (file drop, format detect, confidence display)  (assignee: -)
+  [pending ] #366  Verify and close: mapping preview (canonical field match, missing fields, source column coverage)  (assignee: -)
+  [pending ] #367  Verify and close: publication preview (direct publications, derived views, transformation package)  (assignee: -)
+  [pending ] #368  Verify and close: validation dry-run (parse without landing, row count, date range, issues, accept/retry)  (assignee: -)
+  [pending ] #369  Verify and close: upload form wired to ingest-summary post-success redirect  (assignee: -)
 
---- Track: auth-policy ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #290  Auth policy decomposition and thin FastAPI assembly  (assignee: -)
-  [done    ] #301  Decompose auth middleware into thin FastAPI assembly plus policy components  (assignee: -)
+--- Track: first-answer ---
+  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
+  [pending ] #370  Verify and close: ingest-summary post-upload landing (run detail, publication audit, cashflow inline)  (assignee: -)
+  [pending ] #371  Verify and close: first-answer composition (cashflow, recurring baseline, affordability, attention items)  (assignee: -)
+  [pending ] #372  Verify and close: progressive disclosure (pending sources with unlock previews and upload links)  (assignee: -)
 
---- Track: auth-routing ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #300  Replace path-prefix auth policy trees with declarative route policy catalog  (assignee: -)
+--- Track: bugs ---
+  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
+  [pending ] #373  Fix transaction-anomalies 500: reporting_service ORDER BY booked_at but Postgres column is booking_date  (assignee: -)
+  [pending ] #375  Publish mart_household_overview, mart_open_attention_items, mart_recent_significant_changes, mart_current_operating_baseline to Postgres — dashboard, review, retro crash without them  (assignee: -)
+  [pending ] #376  Fix /runs page 422: definedValues in backend.ts passes empty strings, FastAPI rejects empty-string datetime params — filter empty strings alongside undefined  (assignee: -)
 
---- Track: auth-transport ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #304  Trust forwarded headers only from configured forwarders  (assignee: -)
+--- Track: tests ---
+  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
+  [pending ] #374  Integration test: guided upload → ingest-summary → first-answer flow (backend: detect, dry-run, land, summary API)  (assignee: -)
 
---- Track: auth-use-cases ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #299  Extract local login and OIDC session flows into application use-cases  (assignee: -)
+--- Track: build ---
+  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
+  [pending ] #377  Fix control/confidence/page.js webpack error: 'use client' page imports getCurrentUser from backend.ts which uses next/headers (server-only) — move user check into useEffect fetch  (assignee: -)
 
---- Track: auth-compat ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #303  Freeze shared auth shim and legacy auth-mode compatibility follow-up  (assignee: -)
+--- Track: docs ---
+  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
+  [pending ] #378  Update CLAUDE.md active sprint list — sprints #23, #25, #29 listed as active but all closed; current sprint is #61 guided-land-surface  (assignee: -)
+  [pending ] #379  Clarify login page description: 'temporary break-glass mode' is misleading for local_single_user which is the intended single-user homelab mode, not a fallback  (assignee: -)
+  [pending ] #380  Fix web /ready identity_mode reporting: web container reports 'disabled' but API reports 'local_single_user' — misleading for operator health checks  (assignee: -)
 
---- Track: auth-contracts ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #302  Move auth vocabulary out of storage into shared/platform contracts  (assignee: -)
-
-Rendered: 2026-04-23T05:07:08Z
-
-SPRINT: semantic-seam-forge - Semantic Engine Contracts and Application Seams  [closed]
-Goal:   Make the semantic engine explicit and stop surfaces from carrying workflow order.
-ID:     42
-Items:  2 total — 2 done, 0 active, 0 pending, 0 blocked
-
---- Track: semantic-contracts ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #291  Publish remaining homelab and infrastructure current-dimension contracts  (assignee: -)
-
---- Track: orchestration-seam ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #292  Extract explicit application/use-case entrypoints for ingest, publish, scenario, and policy flows  (assignee: -)
-
-Rendered: 2026-04-23T05:07:10Z
-
-SPRINT: pack-loop-harbor - Product Pack Ownership and Workflow Closure  [closed]
-Goal:   Make first-source onboarding and first broken-run recovery feel like one pack-owned product loop.
-ID:     43
-Items:  3 total — 3 done, 0 active, 0 pending, 0 blocked
-
---- Track: onboarding ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #293  First-source onboarding flow closure  (assignee: -)
-
---- Track: pack-ownership ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #295  Keep onboarding and remediation sequencing under pack/application ownership  (assignee: -)
-
---- Track: remediation ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #294  Failed-run to remediation action path  (assignee: -)
-
-Rendered: 2026-04-23T05:07:10Z
-
-SPRINT: surface-glass-bridge - Thin Surfaces and Operator Visibility  [closed]
-Goal:   Make surfaces thinner and more honest by exposing reporting truth, terminal tasks, and extension state without widening scope.
-ID:     44
-Items:  3 total — 3 done, 0 active, 0 pending, 0 blocked
-
---- Track: operator-tools ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #297  Terminal task library and command discovery  (assignee: -)
-
---- Track: reporting-truth ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #296  Reporting mode disclosure and publication audit summary  (assignee: -)
-
---- Track: registry-visibility ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #298  Extension registry visibility surface  (assignee: -)
-
-Rendered: 2026-04-23T05:07:10Z
+Rendered: 2026-04-23T06:23:38Z
