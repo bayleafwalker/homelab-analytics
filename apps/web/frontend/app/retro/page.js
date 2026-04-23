@@ -48,6 +48,11 @@ const MODULE_META = {
   }
 };
 const MODULE_ORDER = ["Overview", "Money", "Utilities", "Operations", "Control", "Terminal"];
+const EMPTY_DISCOVERY = { overview: [], reports: [], homelab: [] };
+
+function optionalPanelData(promise, fallback) {
+  return promise.catch(() => fallback);
+}
 
 function retroPathForModule(group, descriptor) {
   if (group === "Money") {
@@ -128,15 +133,15 @@ export default async function RetroDashboardPage() {
     utilityTrend,
     subscriptions,
   ] = await Promise.all([
-    getWebRendererDiscovery(),
-    getMonthlyCashflow(),
-    getHouseholdOverview(),
-    getAttentionItems(),
-    getRecentChanges(),
-    getRuns(6),
-    getRecurringCostBaseline(),
-    getUtilityCostTrend(undefined),
-    getSubscriptionSummary(),
+    optionalPanelData(getWebRendererDiscovery(), EMPTY_DISCOVERY),
+    optionalPanelData(getMonthlyCashflow(), []),
+    optionalPanelData(getHouseholdOverview(), null),
+    optionalPanelData(getAttentionItems(), []),
+    optionalPanelData(getRecentChanges(), []),
+    optionalPanelData(getRuns(6), []),
+    optionalPanelData(getRecurringCostBaseline(), []),
+    optionalPanelData(getUtilityCostTrend(undefined), []),
+    optionalPanelData(getSubscriptionSummary(), []),
   ]);
   const modules = buildLauncherModules(discovery, user);
   const latestCashflow = cashflowRows.at(-1);

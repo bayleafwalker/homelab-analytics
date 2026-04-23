@@ -815,8 +815,12 @@ def test_nextjs_frontend_exposes_parallel_retro_shell_and_terminal_boundary() ->
     globals_source = (FRONTEND_ROOT / "app" / "globals.css").read_text()
 
     assert 'href="/retro"' in app_shell_source
+    assert "{user ? (" in app_shell_source
     assert 'className="retroRoot"' in retro_layout_source
     assert "getWebRendererDiscovery()" in retro_page_source
+    assert "optionalPanelData(getHouseholdOverview(), null)" in retro_page_source
+    assert "optionalPanelData(getAttentionItems(), [])" in retro_page_source
+    assert "optionalPanelData(getRecentChanges(), [])" in retro_page_source
     assert "MODULE_ORDER" in retro_page_source
     assert 'user.role === "admin"' in retro_page_source
     assert 'href: "/retro/money"' in retro_page_source

@@ -10,6 +10,23 @@ Database support model: Postgres is the canonical operational database for contr
 
 Architecture posture: keep one repo and one deployment story. The codebase is being hardened around four internal stability strata: kernel, semantic engine, product packs, and surfaces. The useful boundary is change rate and conceptual ownership, not API vs worker vs web as separate service products.
 
+## Example outcomes
+
+The demo bundle now produces publish-backed product surfaces that show the intended operator outcomes:
+
+<table>
+  <tr>
+    <td><img src="docs/product/screenshots/budgets.png" alt="Budget progress and variance view"></td>
+    <td><img src="docs/product/screenshots/costs.png" alt="Household cost model view"></td>
+    <td><img src="docs/product/screenshots/retro.png" alt="Retro operating deck"></td>
+  </tr>
+  <tr>
+    <td>Budget progress</td>
+    <td>Cost model</td>
+    <td>Retro operating deck</td>
+  </tr>
+</table>
+
 ## Product direction
 
 The project follows an 11-stage roadmap from analytics platform to household operating platform:

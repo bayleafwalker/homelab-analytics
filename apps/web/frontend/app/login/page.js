@@ -35,7 +35,7 @@ export default function LoginPage({ searchParams }) {
             : isProxy
               ? "Proxy-Managed Sign-In"
             : identityMode === "local_single_user"
-              ? "Break-Glass Local Auth"
+              ? "Single-User Local Auth"
               : "Bootstrap Local Auth"}
         </div>
         <h1>Sign In</h1>
@@ -45,7 +45,7 @@ export default function LoginPage({ searchParams }) {
             : isProxy
               ? "This deployment trusts upstream proxy identity headers. Authenticate through your ingress proxy."
             : identityMode === "local_single_user"
-              ? "This frontend only consumes the API. Local auth is running in temporary break-glass mode."
+              ? "This frontend only consumes the API. Local auth is enabled for the intended single-user homelab mode."
               : "This frontend only consumes the API. Local auth remains available for bootstrap and break-glass access."}
         </p>
         {errorMessage ? <div className="errorBanner">{errorMessage}</div> : null}

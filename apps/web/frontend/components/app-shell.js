@@ -53,17 +53,21 @@ export function AppShell({ currentPath, user, title, eyebrow, lede, children }) 
               </Link>
             ))}
           </nav>
-          <Link className="ghostButton" href="/retro">
-            Retro
-          </Link>
-          <span className="userBadge">
-            {user.username} / {user.role}
-          </span>
-          <form action="/auth/logout" method="post">
-            <button className="ghostButton" type="submit">
-              Sign Out
-            </button>
-          </form>
+          {user ? (
+            <>
+              <Link className="ghostButton" href="/retro">
+                Retro
+              </Link>
+              <span className="userBadge">
+                {user.username} / {user.role}
+              </span>
+              <form action="/auth/logout" method="post">
+                <button className="ghostButton" type="submit">
+                  Sign Out
+                </button>
+              </form>
+            </>
+          ) : null}
         </div>
       </header>
       {children}
