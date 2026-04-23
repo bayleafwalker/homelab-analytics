@@ -2754,5 +2754,118 @@ class ApiAppTests(unittest.TestCase):
             )
 
 
+class GuidedUploadToFirstAnswerIntegrationTests(unittest.TestCase):
+    """Integration test for the guided-upload → ingest-summary → first-answer backend flow.
+
+    Covers: detect-source, dry-run, land, run summary API, and cashflow reporting.
+    """
+
+    def _make_client(self, temp_root: Path) -> TestClient:
+        return TestClient(
+            create_app(
+                AccountTransactionService(
+                    landing_root=temp_root / "landing",
+                    metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
+                ),
+                config_repository=IngestionConfigRepository(temp_root / "config.db"),
+                transformation_service=TransformationService(DuckDBStore.memory()),
+                enable_unsafe_admin=True,
+            )
+        )
+
+    def test_detect_source_identifies_account_transactions_csv(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_client(Path(temp_dir))
+            csv_bytes = (FIXTURES / "account_transactions_valid.csv").read_bytes()
+
+            response = client.post(
+                "/ingest/detect-source",
+                files={"file": ("account_transactions_valid.csv", csv_bytes, "text/csv")},
+            )
+
+            self.assertEqual(200, response.status_code)
+            body = response.json()
+            self.assertIn("detection", body)
+            candidate = body["detection"]["candidate"]
+            self.assertIsNotNone(candidate)
+            self.assertEqual("builtin", candidate["kind"])
+            self.assertEqual("/upload/account-transactions", candidate["upload_path"])
+            self.assertIn("booked_at", candidate["matched_columns"])
+
+    def test_dry_run_returns_preview_without_landing(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_client(Path(temp_dir))
+            csv_bytes = (FIXTURES / "account_transactions_valid.csv").read_bytes()
+
+            response = client.post(
+                "/ingest/dry-run",
+                data={"upload_path": "/upload/account-transactions"},
+                files={"file": ("account_transactions_valid.csv", csv_bytes, "text/csv")},
+            )
+
+            self.assertEqual(200, response.status_code)
+            preview = response.json()["preview"]
+            self.assertIsNotNone(preview)
+            self.assertGreater(preview["row_count"], 0)
+            self.assertIsNotNone(preview["date_range"])
+            self.assertEqual(0, len(preview.get("issues", [])))
+
+            # Dry-run must not land: no runs created
+            runs_response = client.get("/runs")
+            self.assertEqual(200, runs_response.status_code)
+            self.assertEqual(0, len(runs_response.json()["runs"]))
+
+    def test_guided_upload_land_to_run_summary_to_cashflow(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = self._make_client(Path(temp_dir))
+            csv_bytes = (FIXTURES / "account_transactions_valid.csv").read_bytes()
+
+            # Step 1: detect
+            detect_response = client.post(
+                "/ingest/detect-source",
+                files={"file": ("account_transactions_valid.csv", csv_bytes, "text/csv")},
+            )
+            self.assertEqual(200, detect_response.status_code)
+            detect_candidate = detect_response.json()["detection"]["candidate"]
+            self.assertIsNotNone(detect_candidate)
+            self.assertEqual("/upload/account-transactions", detect_candidate["upload_path"])
+
+            # Step 2: dry-run
+            dry_run_response = client.post(
+                "/ingest/dry-run",
+                data={"upload_path": "/upload/account-transactions"},
+                files={"file": ("account_transactions_valid.csv", csv_bytes, "text/csv")},
+            )
+            self.assertEqual(200, dry_run_response.status_code)
+            self.assertEqual(0, len(dry_run_response.json()["preview"].get("issues", [])))
+
+            # Step 3: land (accepted by operator after dry-run)
+            land_response = client.post(
+                "/ingest/account-transactions",
+                data={"source_name": "manual-upload"},
+                files={"file": ("account_transactions_valid.csv", csv_bytes, "text/csv")},
+            )
+            self.assertEqual(201, land_response.status_code)
+            run = land_response.json()["run"]
+            self.assertEqual("landed", run["status"])
+            run_id = run["run_id"]
+
+            # Step 4: ingest-summary API — run is retrievable by ID
+            run_response = client.get(f"/runs/{run_id}")
+            self.assertEqual(200, run_response.status_code)
+            self.assertEqual(run_id, run_response.json()["run"]["run_id"])
+
+            # Step 5: first-answer composition — cashflow report is servable
+            cashflow_response = client.get("/reports/monthly-cashflow")
+            self.assertEqual(200, cashflow_response.status_code)
+            cashflow_rows = cashflow_response.json()["rows"]
+            self.assertGreater(len(cashflow_rows), 0)
+            first_row = cashflow_rows[0]
+            self.assertIn("booking_month", first_row)
+            self.assertIn("income", first_row)
+            self.assertIn("expense", first_row)
+            self.assertIn("net", first_row)
+
+
 if __name__ == "__main__":
     unittest.main()
