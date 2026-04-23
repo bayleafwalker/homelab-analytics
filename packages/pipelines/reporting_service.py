@@ -541,7 +541,7 @@ class ReportingService:
             MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
             self._transformation_service.get_transaction_anomalies_current,
             ("", []),
-            "ORDER BY booked_at DESC",
+            "ORDER BY booking_date DESC",
         )
 
     # ------------------------------------------------------------------
