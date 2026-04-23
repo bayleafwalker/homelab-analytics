@@ -128,6 +128,7 @@ Use `docs/sprints/TRACKER.md` for the live sprint index. Keep this section to du
 
 - `plans/household-operating-platform-roadmap.md` — 11-stage roadmap from analytics platform to household operating platform, with stage descriptions, dependencies, and phase-to-stage mapping.
 - `plans/2026-04-backlog-refinement.md` — bounded next-backlog recommendation: execution posture, priority items, parked work, anti-backlog, and sprint packaging for the next planning cycle.
+- `plans/cinder-ledger-path-flagship-finance-operator-loop.md` — authoritative kickoff packet for sprint `#64`, including the route-neutral finance journey, source-freshness vs publication-trust boundary, and thin-surface application seam.
 - `plans/ha-addon-and-integration-design.md` — design plan for the HA add-on (outbound bridge) and HA integration (inbound semantic surface): architecture, entity model, update model, API contracts, security model, and documentation outputs.
 - `plans/homelab-analytics-platform-plan.md` — strategic decisions and rationale from the bootstrap phase. Detailed requirements now live in `requirements/` at the repository root.
 - `plans/additional-data-domains.md` — planned data domains beyond account transactions, with source systems, canonical models, and marts for each.
