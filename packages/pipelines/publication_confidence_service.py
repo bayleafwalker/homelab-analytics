@@ -107,7 +107,7 @@ def compute_and_record_publication_confidence(
             else None,
         )
 
-    # Calculate completeness: for now assume 100% if we have lineage, else 0
+    # Binary presence flag until proportional calculation is implemented (TODO)
     completeness_pct = 100 if lineage_records else 0
 
     # Derive publication-level freshness state

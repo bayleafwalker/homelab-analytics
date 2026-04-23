@@ -55,7 +55,8 @@ class PublicationConfidenceSnapshot:
     publication_key: str
     assessed_at: datetime
     freshness_state: FreshnessState
-    completeness_pct: int  # 0-100: fraction of expected source runs that contributed
+    completeness_pct: int  # 0 or 100: binary presence flag (lineage records exist or not).
+    # TODO: replace with genuine proportional calculation (contributing runs / expected runs)
     source_freshness_states: Mapping[str, SourceFreshnessSnapshot] = field(
         default_factory=dict
     )
