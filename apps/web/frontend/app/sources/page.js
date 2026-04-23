@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
 import { getCurrentUser, getSourceFreshness, getRuns } from "@/lib/backend";
+import { ONBOARDING_SOURCES } from "@/lib/onboarding-sources";
 
 const BUILTIN_UPLOAD_PATH = {
   account_transactions: "/upload/account-transactions",
@@ -83,6 +84,11 @@ export default async function SourcesPage() {
 
   const staleCount = rows.filter((r) => r.staleness.indicator === "red").length;
   const warnCount = rows.filter((r) => r.staleness.indicator === "yellow").length;
+
+  // Recovery preview: map each dataset to the publications it unlocks
+  const recoveryPreviewByDataset = Object.fromEntries(
+    ONBOARDING_SOURCES.map((s) => [s.dataset, s.unlocksDetail || []])
+  );
 
   return (
     <AppShell
@@ -229,18 +235,32 @@ export default async function SourcesPage() {
             Upload a new file directly for a stale or failed dataset. The detection wizard on the
             upload page will identify the target and validate before ingestion.
           </div>
-          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-            {rows
-              .filter((r) => r.uploadPath && r.staleness.indicator !== "green")
-              .map((r) => (
-                <Link key={r.dataset_name} className="ghostButton" href={`${r.uploadPath}`}>
-                  Upload {formatDatasetLabel(r.dataset_name)}
-                </Link>
-              ))}
-            {rows.filter((r) => r.uploadPath && r.staleness.indicator !== "green").length === 0 && (
-              <div className="muted">All uploadable sources are fresh.</div>
-            )}
-          </div>
+          {rows.filter((r) => r.uploadPath && r.staleness.indicator !== "green").length === 0 ? (
+            <div className="muted">All uploadable sources are fresh.</div>
+          ) : (
+            <div className="stack compactStack">
+              {rows
+                .filter((r) => r.uploadPath && r.staleness.indicator !== "green")
+                .map((r) => {
+                  const preview = recoveryPreviewByDataset[r.dataset_name] || [];
+                  return (
+                    <div key={r.dataset_name} style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600 }}>{formatDatasetLabel(r.dataset_name)}</div>
+                        {preview.length > 0 && (
+                          <div className="muted" style={{ fontSize: "0.82rem", marginTop: "2px" }}>
+                            Refreshing unlocks: {preview.join(" · ")}
+                          </div>
+                        )}
+                      </div>
+                      <Link className="ghostButton" href={r.uploadPath}>
+                        Upload
+                      </Link>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
         </article>
       </section>
     </AppShell>
