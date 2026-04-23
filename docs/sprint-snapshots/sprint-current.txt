@@ -1,46 +1,38 @@
-SPRINT: guided-land-surface — First-Contact UX Loop Closure  [active]
+SPRINT: drift-close-pass — Stale-Close and Operating Surfaces Audit  [active]
 Goal:   
-Dates:  2026-04-23 to 2026-05-07
-ID:     61
-Items:  18 total — 17 done, 0 active, 1 pending, 0 blocked
+Dates:  2026-04-23 to 2026-05-05
+ID:     62
+Items:  19 total — 0 done, 0 active, 19 pending, 0 blocked
 
---- Track: guided-onboarding ---
-  health: 5 items — 5 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #365  Verify and close: source type detection wizard (file drop, format detect, confidence display)  (assignee: -)
-  [done    ] #366  Verify and close: mapping preview (canonical field match, missing fields, source column coverage)  (assignee: -)
-  [done    ] #367  Verify and close: publication preview (direct publications, derived views, transformation package)  (assignee: -)
-  [done    ] #368  Verify and close: validation dry-run (parse without landing, row count, date range, issues, accept/retry)  (assignee: -)
-  [done    ] #369  Verify and close: upload form wired to ingest-summary post-success redirect  (assignee: -)
+--- Track: stale-close ---
+  health: 7 items — 0 done (0%), 0 active, 7 pending, 0 blocked (0%)
+  [pending ] #383  Close stale guided-onboarding/first-answer items #133-140, #155 (implemented in sprint 61 as #365-372, #374)  (assignee: -)
+  [pending ] #384  Close stale boundary-hardening/kernel-runtime items #272, #279, #287 (implemented in sprint 41)  (assignee: -)
+  [pending ] #385  Close stale semantic-parity items #273, #280 (implemented in sprint 42)  (assignee: -)
+  [pending ] #386  Close stale reporting-trust items #274, #281 (implemented in sprint 44)  (assignee: -)
+  [pending ] #387  Close stale registry-visibility items #278, #285 (implemented in sprint 44)  (assignee: -)
+  [pending ] #388  Close stale onboarding/remediation/terminal items #282, #283, #284 (implemented in sprint 43)  (assignee: -)
+  [pending ] #389  Close stale auth-policy item #288 (implemented in sprint 41)  (assignee: -)
 
---- Track: first-answer ---
-  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #370  Verify and close: ingest-summary post-upload landing (run detail, publication audit, cashflow inline)  (assignee: -)
-  [done    ] #371  Verify and close: first-answer composition (cashflow, recurring baseline, affordability, attention items)  (assignee: -)
-  [done    ] #372  Verify and close: progressive disclosure (pending sources with unlock previews and upload links)  (assignee: -)
+--- Track: operating-picture ---
+  health: 5 items — 0 done (0%), 0 active, 5 pending, 0 blocked (0%)
+  [pending ] #390  Verify and close: structured operating-picture layout — domain cards with headline metric, trend, top attention (#145)  (assignee: -)
+  [pending ] #391  Verify and close: confidence band — freshness/confidence indicator per domain card (#146)  (assignee: -)
+  [pending ] #392  Verify and close: upcoming actions strip — next 7 days obligations, renewals, approvals (#147)  (assignee: -)
+  [pending ] #393  Verify and close: cross-domain attention queue — unified items ranked by urgency with detail links (#148)  (assignee: -)
+  [pending ] #394  Verify and close: recent changes feed — last 5 material changes across all domains (#149)  (assignee: -)
 
---- Track: bugs ---
-  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #373  Fix transaction-anomalies 500: reporting_service ORDER BY booked_at but Postgres column is booking_date  (assignee: -)
-  [done    ] #375  Publish mart_household_overview, mart_open_attention_items, mart_recent_significant_changes, mart_current_operating_baseline to Postgres — dashboard, review, retro crash without them  (assignee: -)
-  [done    ] #376  Fix /runs page 422: definedValues in backend.ts passes empty strings, FastAPI rejects empty-string datetime params — filter empty strings alongside undefined  (assignee: -)
-  [done    ] #382  Demo data: mart_budget_progress_current, mart_recent_large_transactions empty after seed — check mart query time-window thresholds vs demo data date range  (assignee: -)
+--- Track: onboarding-progress ---
+  health: 3 items — 0 done (0%), 0 active, 3 pending, 0 blocked (0%)
+  [pending ] #395  Verify and close: onboarding checklist widget — source types onboarded, pending, what each unlocks (#150)  (assignee: -)
+  [pending ] #396  Verify and close: suggested next source — recommend next most valuable source based on current state (#151)  (assignee: -)
+  [pending ] #397  Verify and close: dismissable checklist — collapse to compact badge once all core sources active (#152)  (assignee: -)
 
---- Track: tests ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #374  Integration test: guided upload → ingest-summary → first-answer flow (backend: detect, dry-run, land, summary API)  (assignee: -)
+--- Track: source-remediation ---
+  health: 4 items — 0 done (0%), 0 active, 4 pending, 0 blocked (0%)
+  [pending ] #398  Verify and close: upload-in-context — file upload directly from freshness row (#142)  (assignee: -)
+  [pending ] #399  Verify and close: inline remediation actions — contextual upload/retry/inspect per stale source (#141)  (assignee: -)
+  [pending ] #400  Verify and close: recovery preview — show which publications recover once stale source refreshed (#143)  (assignee: -)
+  [pending ] #401  Verify and close: promote freshness to top-level /sources route for operators (#144)  (assignee: -)
 
---- Track: build ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #377  Fix control/confidence/page.js webpack error: 'use client' page imports getCurrentUser from backend.ts which uses next/headers (server-only) — move user check into useEffect fetch  (assignee: -)
-
---- Track: docs ---
-  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #378  Update CLAUDE.md active sprint list — sprints #23, #25, #29 listed as active but all closed; current sprint is #61 guided-land-surface  (assignee: -)
-  [done    ] #379  Clarify login page description: 'temporary break-glass mode' is misleading for local_single_user which is the intended single-user homelab mode, not a fallback  (assignee: -)
-  [done    ] #380  Fix web /ready identity_mode reporting: web container reports 'disabled' but API reports 'local_single_user' — misleading for operator health checks  (assignee: -)
-
---- Track: screenshots ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #381  Capture and commit screenshots of key UI views to docs/product/screenshots/ — budgets, costs, loans, utilities, scenarios, retro, control, upload pages with demo data  (assignee: -)
-
-Rendered: 2026-04-23T10:18:17Z
+Rendered: 2026-04-23T11:26:01Z

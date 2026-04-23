@@ -75,10 +75,10 @@ When creating or registering sprints:
 **Correct examples:** `hearth-lantern-path`, `iron-grove-atlas`, `flint-glass-vow`, `seam-finish-pass`
 **Wrong:** `Sprint R`, `Sprint Q`, `sprint-S`
 
-Current sprint state (as of 2026-04-23): **active** — sprint #61 `guided-land-surface`.
-Goal: close the guided-upload → ingest-summary → first-answer loop.
-18 items: 17 done, 1 pending (#381 screenshots — requires running UI).
-Blocked only on screenshot capture; all code items complete.
+Current sprint state (as of 2026-04-23): **active** — sprint #62 `drift-close-pass`.
+Goal: clear stale backlog drift and verify/close operating surfaces already built in code.
+19 items: stale-close (7), operating-picture (5), onboarding-progress (3), source-remediation (4).
+Sprint #61 guided-land-surface: 17/18 done (#381 screenshots in progress via separate agent).
 
 Sprint workflow:
 - Use `sprint-packet` to register scope, `sprint-resume` to pick up existing work, `sprint-snapshot` to refresh the shared artifact.
