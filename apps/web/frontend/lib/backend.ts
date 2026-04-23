@@ -493,7 +493,7 @@ function getFirstResponseArrayItem<Response, Field extends string>(
 
 function definedValues<T extends Record<string, unknown>>(values: T): DefinedValues<T> {
   return Object.fromEntries(
-    Object.entries(values).filter(([, value]) => value !== undefined)
+    Object.entries(values).filter(([, value]) => value !== undefined && value !== "")
   ) as DefinedValues<T>;
 }
 
