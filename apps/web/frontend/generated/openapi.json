@@ -1310,6 +1310,18 @@
                 },
                 {
                   "$ref": "#/components/schemas/DimHouseholdMemberRow"
+                },
+                {
+                  "$ref": "#/components/schemas/DimNodeRow"
+                },
+                {
+                  "$ref": "#/components/schemas/DimDeviceRow"
+                },
+                {
+                  "$ref": "#/components/schemas/DimServiceRow"
+                },
+                {
+                  "$ref": "#/components/schemas/DimWorkloadRow"
                 }
               ]
             },
@@ -1787,6 +1799,68 @@
         "title": "DimCounterpartyRow",
         "type": "object"
       },
+      "DimDeviceRow": {
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "device_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Name"
+          },
+          "device_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Type"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "power_rating_watts": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Rating Watts"
+          },
+          "sk": {
+            "title": "Sk",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sk",
+          "device_id"
+        ],
+        "title": "DimDeviceRow",
+        "type": "object"
+      },
       "DimEntityRow": {
         "properties": {
           "area": {
@@ -2110,6 +2184,214 @@
           "meter_id"
         ],
         "title": "DimMeterRow",
+        "type": "object"
+      },
+      "DimNodeRow": {
+        "properties": {
+          "cpu": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu"
+          },
+          "hostname": {
+            "title": "Hostname",
+            "type": "string"
+          },
+          "node_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Name"
+          },
+          "os": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Os"
+          },
+          "ram_gb": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ram Gb"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "sk": {
+            "title": "Sk",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sk",
+          "hostname"
+        ],
+        "title": "DimNodeRow",
+        "type": "object"
+      },
+      "DimServiceRow": {
+        "properties": {
+          "criticality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Criticality"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "managed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managed By"
+          },
+          "service_id": {
+            "title": "Service Id",
+            "type": "string"
+          },
+          "service_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Name"
+          },
+          "service_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Type"
+          },
+          "sk": {
+            "title": "Sk",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sk",
+          "service_id"
+        ],
+        "title": "DimServiceRow",
+        "type": "object"
+      },
+      "DimWorkloadRow": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "sk": {
+            "title": "Sk",
+            "type": "string"
+          },
+          "workload_id": {
+            "title": "Workload Id",
+            "type": "string"
+          },
+          "workload_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workload Type"
+          }
+        },
+        "required": [
+          "sk",
+          "workload_id"
+        ],
+        "title": "DimWorkloadRow",
         "type": "object"
       },
       "ElectricityPriceCurrentResponse": {
@@ -2726,6 +3008,704 @@
         "title": "HaApprovalProposalModel",
         "type": "object"
       },
+      "HaBridgeAreaRegistryRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "area_id": {
+            "title": "Area Id",
+            "type": "string"
+          },
+          "floor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Floor Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "area_id",
+          "name"
+        ],
+        "title": "HaBridgeAreaRegistryRecord",
+        "type": "object"
+      },
+      "HaBridgeDeviceRegistryRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "area_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Id"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "entry_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Type"
+          },
+          "integration": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Integration"
+          },
+          "manufacturer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manufacturer"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "device_id"
+        ],
+        "title": "HaBridgeDeviceRegistryRecord",
+        "type": "object"
+      },
+      "HaBridgeEntityRegistryRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "area_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Id"
+          },
+          "device_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Class"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "disabled_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disabled By"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "entity_registry_id": {
+            "title": "Entity Registry Id",
+            "type": "string"
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform"
+          },
+          "state_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Class"
+          },
+          "unique_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unique Id"
+          },
+          "unit_of_measurement": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Of Measurement"
+          }
+        },
+        "required": [
+          "entity_id",
+          "entity_registry_id"
+        ],
+        "title": "HaBridgeEntityRegistryRecord",
+        "type": "object"
+      },
+      "HaBridgeEventRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "attributes": {
+            "additionalProperties": true,
+            "title": "Attributes",
+            "type": "object"
+          },
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "entity_registry_id": {
+            "title": "Entity Registry Id",
+            "type": "string"
+          },
+          "event_fired_at": {
+            "format": "date-time",
+            "title": "Event Fired At",
+            "type": "string"
+          },
+          "event_type": {
+            "default": "state_changed",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "last_changed": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Changed"
+          },
+          "last_updated": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Updated"
+          },
+          "old_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old State"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_fired_at",
+          "entity_id",
+          "entity_registry_id",
+          "state"
+        ],
+        "title": "HaBridgeEventRecord",
+        "type": "object"
+      },
+      "HaBridgeEventsPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "bridge_instance_id": {
+            "title": "Bridge Instance Id",
+            "type": "string"
+          },
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/HaBridgeEventRecord"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "schema_version": {
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bridge_instance_id",
+          "captured_at"
+        ],
+        "title": "HaBridgeEventsPayload",
+        "type": "object"
+      },
+      "HaBridgeHeartbeatPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "bridge_instance_id": {
+            "title": "Bridge Instance Id",
+            "type": "string"
+          },
+          "bridge_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bridge Version"
+          },
+          "buffering": {
+            "default": false,
+            "title": "Buffering",
+            "type": "boolean"
+          },
+          "connected": {
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "entity_count": {
+            "default": 0,
+            "title": "Entity Count",
+            "type": "integer"
+          },
+          "ha_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Version"
+          },
+          "last_delivery_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Delivery At"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "oldest_queued_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Queued At"
+          },
+          "queued_events": {
+            "default": 0,
+            "title": "Queued Events",
+            "type": "integer"
+          },
+          "schema_version": {
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bridge_instance_id",
+          "observed_at",
+          "connected"
+        ],
+        "title": "HaBridgeHeartbeatPayload",
+        "type": "object"
+      },
+      "HaBridgeRegistryPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "areas": {
+            "items": {
+              "$ref": "#/components/schemas/HaBridgeAreaRegistryRecord"
+            },
+            "title": "Areas",
+            "type": "array"
+          },
+          "bridge_instance_id": {
+            "title": "Bridge Instance Id",
+            "type": "string"
+          },
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/HaBridgeDeviceRegistryRecord"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/HaBridgeEntityRegistryRecord"
+            },
+            "title": "Entities",
+            "type": "array"
+          },
+          "schema_version": {
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bridge_instance_id",
+          "captured_at"
+        ],
+        "title": "HaBridgeRegistryPayload",
+        "type": "object"
+      },
+      "HaBridgeStateRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "attributes": {
+            "additionalProperties": true,
+            "title": "Attributes",
+            "type": "object"
+          },
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "entity_registry_id": {
+            "title": "Entity Registry Id",
+            "type": "string"
+          },
+          "last_changed": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Changed"
+          },
+          "last_updated": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Updated"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity_id",
+          "entity_registry_id",
+          "state"
+        ],
+        "title": "HaBridgeStateRecord",
+        "type": "object"
+      },
+      "HaBridgeStatesPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "batch_source": {
+            "default": "snapshot",
+            "title": "Batch Source",
+            "type": "string"
+          },
+          "bridge_instance_id": {
+            "title": "Bridge Instance Id",
+            "type": "string"
+          },
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "states": {
+            "items": {
+              "$ref": "#/components/schemas/HaBridgeStateRecord"
+            },
+            "title": "States",
+            "type": "array"
+          }
+        },
+        "required": [
+          "bridge_instance_id",
+          "captured_at"
+        ],
+        "title": "HaBridgeStatesPayload",
+        "type": "object"
+      },
+      "HaBridgeStatisticRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "bucket_end": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bucket End"
+          },
+          "bucket_start": {
+            "format": "date-time",
+            "title": "Bucket Start",
+            "type": "string"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "entity_registry_id": {
+            "title": "Entity Registry Id",
+            "type": "string"
+          },
+          "maximum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum"
+          },
+          "mean": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean"
+          },
+          "minimum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum"
+          },
+          "statistic_id": {
+            "title": "Statistic Id",
+            "type": "string"
+          },
+          "sum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sum"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity_registry_id",
+          "statistic_id",
+          "unit",
+          "bucket_start"
+        ],
+        "title": "HaBridgeStatisticRecord",
+        "type": "object"
+      },
+      "HaBridgeStatisticsPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "bridge_instance_id": {
+            "title": "Bridge Instance Id",
+            "type": "string"
+          },
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "statistics": {
+            "items": {
+              "$ref": "#/components/schemas/HaBridgeStatisticRecord"
+            },
+            "title": "Statistics",
+            "type": "array"
+          }
+        },
+        "required": [
+          "bridge_instance_id",
+          "captured_at"
+        ],
+        "title": "HaBridgeStatisticsPayload",
+        "type": "object"
+      },
       "HaBridgeStatusModel": {
         "additionalProperties": false,
         "properties": {
@@ -2797,6 +3777,31 @@
           "states"
         ],
         "title": "HaIngestRequest",
+        "type": "object"
+      },
+      "HaMetricValueModel": {
+        "properties": {
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "unit"
+        ],
+        "title": "HaMetricValueModel",
         "type": "object"
       },
       "HaMqttStatusModel": {
@@ -3189,6 +4194,11 @@
       },
       "IncomeChangeRequest": {
         "properties": {
+          "currency": {
+            "default": "GBP",
+            "title": "Currency",
+            "type": "string"
+          },
           "label": {
             "anyOf": [
               {
@@ -7111,6 +8121,60 @@
         "summary": "Ingest Ha States"
       }
     },
+    "/api/ha/metrics/current-month/electricity-cost": {
+      "get": {
+        "operationId": "get_current_month_electricity_cost_api_ha_metrics_current_month_electricity_cost_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HaMetricValueModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Current Month Electricity Cost"
+      }
+    },
+    "/api/ha/metrics/current-month/net-cashflow": {
+      "get": {
+        "operationId": "get_current_month_net_cashflow_api_ha_metrics_current_month_net_cashflow_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HaMetricValueModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Current Month Net Cashflow"
+      }
+    },
+    "/api/ha/metrics/next-loan-payment": {
+      "get": {
+        "operationId": "get_next_loan_payment_amount_api_ha_metrics_next_loan_payment_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HaMetricValueModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Next Loan Payment Amount"
+      }
+    },
     "/api/ha/mqtt/status": {
       "get": {
         "operationId": "get_mqtt_status_api_ha_mqtt_status_get",
@@ -7288,6 +8352,186 @@
           }
         },
         "summary": "Get Workload Cost 7D"
+      }
+    },
+    "/api/ingest/ha-bridge/events": {
+      "post": {
+        "operationId": "ingest_ha_bridge_events_api_ingest_ha_bridge_events_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HaBridgeEventsPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ingest Ha Bridge Events"
+      }
+    },
+    "/api/ingest/ha-bridge/heartbeat": {
+      "post": {
+        "operationId": "ingest_ha_bridge_heartbeat_api_ingest_ha_bridge_heartbeat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HaBridgeHeartbeatPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ingest Ha Bridge Heartbeat"
+      }
+    },
+    "/api/ingest/ha-bridge/registry": {
+      "post": {
+        "operationId": "ingest_ha_bridge_registry_api_ingest_ha_bridge_registry_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HaBridgeRegistryPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ingest Ha Bridge Registry"
+      }
+    },
+    "/api/ingest/ha-bridge/states": {
+      "post": {
+        "operationId": "ingest_ha_bridge_states_api_ingest_ha_bridge_states_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HaBridgeStatesPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ingest Ha Bridge States"
+      }
+    },
+    "/api/ingest/ha-bridge/statistics": {
+      "post": {
+        "operationId": "ingest_ha_bridge_statistics_api_ingest_ha_bridge_statistics_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HaBridgeStatisticsPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ingest Ha Bridge Statistics"
       }
     },
     "/api/scenarios": {
