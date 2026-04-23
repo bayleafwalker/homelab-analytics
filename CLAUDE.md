@@ -75,10 +75,10 @@ When creating or registering sprints:
 **Correct examples:** `hearth-lantern-path`, `iron-grove-atlas`, `flint-glass-vow`, `seam-finish-pass`
 **Wrong:** `Sprint R`, `Sprint Q`, `sprint-S`
 
-Current active sprints (as of 2026-04-03):
-- `#29` hearth-lantern-path phase-2 — First-Answer and Remediation Closure
-- `#25` flint-glass-vow — Semantic Confidence and Operator Trust
-- `#23` iron-grove-atlas — Adapter Ecosystem and Renderer Contracts
+Current sprint state (as of 2026-04-23): **clean close** — no active sprints.
+Sprints #41–44 (keel-ledger-bond, semantic-seam-forge, pack-loop-harbor,
+surface-glass-bridge) closed 2026-04-23 with 16/16 items done. Next scope
+to be defined via `sprint-packet`.
 
 Sprint workflow:
 - Use `sprint-packet` to register scope, `sprint-resume` to pick up existing work, `sprint-snapshot` to refresh the shared artifact.
