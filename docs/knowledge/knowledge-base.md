@@ -1,5 +1,5 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-22T19:40:49Z
+Generated: 2026-04-23T05:08:31Z
 
 ## Decisions
 
@@ -613,6 +613,38 @@ Balance snapshots belong in the transformation layer as DuckDB-backed facts deri
 
 ## Patterns
 
+### Move auth vocabulary to platform contracts; storage re-exports for caller compatibility
+Source: track: auth-contracts, sprint: 41
+Tags: auth, contracts, compatibility, layer-boundary
+
+A dedicated platform auth contracts module owns UserRole and service-token scope vocabulary. storage/auth_store imports and re-exports the same symbols so existing callers remain compatible while platform auth no longer depends on storage for core vocabulary.
+
+---
+
+### Freeze shared auth shim with a runtime-import guard in architecture contracts
+Source: track: auth-compat, sprint: 41
+Tags: auth, compat-shim, architecture-guard, legacy-mode
+
+A new architecture guard fails if runtime modules import packages.shared.auth directly, preserving the shim as compatibility-only. Canary tests cover its stable export surface so regressions are caught before the shim is eventually retired.
+
+---
+
+### Declare route authorization as a catalog module rather than nested path-prefix branching
+Source: track: auth-routing, sprint: 41
+Tags: auth, policy-catalog, maintainability, tests
+
+Replacing nested path-prefix branching with a shared route-policy catalog preserved existing auth behavior while making additions auditable and testable in one place. Contract tests retarget catalog declarations to avoid coupling to wrapper internals.
+
+---
+
+### Auth session use-cases return typed outcomes; routes handle only HTTP concerns
+Source: track: auth-use-cases, sprint: 41
+Tags: auth, use-cases, http-boundary, layering
+
+Session and OIDC orchestration lives in application use-cases that return typed success/failure outcomes. Route handlers then map those outcomes to FastAPI responses, redirects, and cookie operations. This keeps layering clean without changing endpoint contracts.
+
+---
+
 ### Surface terminal command allowlist in the main control panel so admins can discover without entering the retro shell
 Source: track: operator-tools, sprint: 34
 Tags: frontend, terminal, control, discovery, admin-ux
@@ -662,6 +694,22 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 ---
 
 ## Lessons
+
+### Trusted-forwarder tests need explicit cookie replay when Secure flag is set over HTTP
+Source: track: auth-transport, sprint: 41
+Tags: auth, testing, forwarded-headers, cookies
+
+The hardening change correctly marks session cookies Secure when x-forwarded-proto=https comes from a trusted peer, but TestClient over HTTP will not replay that cookie automatically. Assert the Secure flag first, then pass the session cookie explicitly in the follow-up request.
+
+---
+
+### Preserve architecture-contract literals in the assembly module during auth decomposition
+Source: track: auth-policy, sprint: 41
+Tags: auth, refactor, architecture-tests, incremental-delivery
+
+During auth middleware decomposition, preserving a few contract-sensitive literals and re-exports in apps/api/auth_runtime.py allowed extraction into platform modules without brittle source-string contract failures. This keeps behavior stable while permitting incremental tightening of architecture tests later.
+
+---
 
 ### Completed page implementations need explicit nav integration — /onboarding was fully built but unreachable
 Source: track: onboarding, sprint: 34
