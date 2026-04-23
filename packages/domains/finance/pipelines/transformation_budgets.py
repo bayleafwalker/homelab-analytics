@@ -237,7 +237,10 @@ def refresh_budget_progress_current(store: DuckDBStore) -> int:
             END AS state,
             currency
         FROM {MART_BUDGET_VARIANCE_TABLE}
-        WHERE period_label = STRFTIME(CURRENT_DATE, '%Y-%m')
+        WHERE period_label = (
+            SELECT COALESCE(MAX(period_label), STRFTIME(CURRENT_DATE, '%Y-%m'))
+            FROM {MART_BUDGET_VARIANCE_TABLE}
+        )
         ORDER BY budget_name, category_id
         """
     )

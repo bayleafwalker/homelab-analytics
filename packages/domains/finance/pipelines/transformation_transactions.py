@@ -418,7 +418,7 @@ def refresh_recent_large_transactions(
     store: DuckDBStore,
     *,
     threshold: Decimal = Decimal("100"),
-    lookback_months: int = 3,
+    lookback_months: int = 18,
 ) -> int:
     store.execute(f"DELETE FROM {MART_RECENT_LARGE_TRANSACTIONS_TABLE}")
     store.execute(
