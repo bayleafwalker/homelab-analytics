@@ -2,7 +2,7 @@ SPRINT: confidence-export-seam — Batch B: Publication Confidence Plumbing  [ac
 Goal:   
 Dates:  2026-04-23 to 2026-05-07
 ID:     63
-Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
+Items:  8 total — 8 done, 0 active, 0 pending, 0 blocked
 
 --- Track: plumbing ---
   health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
@@ -14,4 +14,11 @@ Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
   [done    ] #405  B4 (S): Fix review blockers — lock lowercase casing for confidence fields, move get_latest_publication_confidence to platform layer, remove .lower() normalisation from pipeline test  (assignee: -)
 
-Rendered: 2026-04-23T15:44:36Z
+--- Track: advisory-remediation ---
+  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #406  B5 (XS): Move app.container to app.state.container — use FastAPI-idiomatic state attachment, update export_contracts.py guard to match  (assignee: -)
+  [done    ] #407  B6 (XS): Document completeness_pct binary semantics — update field description in PublicationConfidenceSnapshot and publication_confidence_service to say current binary (0 or 100) is intentional/temporary, add TODO for real proportional calculation  (assignee: -)
+  [done    ] #408  B7 (XS): Add catalog_schema_version to build_publication_contract_catalog output and document confidence metadata as new shared semantic surface in semantic-contracts.md  (assignee: -)
+  [done    ] #409  B8 (XS): Extract control_plane_store fixture and build_test_catalog helper in test_export_confidence_enrichment.py — remove repeated 7-line setup block across 3 of 4 tests  (assignee: -)
+
+Rendered: 2026-04-23T15:49:43Z
