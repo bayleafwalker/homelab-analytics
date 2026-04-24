@@ -11,6 +11,8 @@ from packages.platform.capability_types import (
 from packages.platform.current_dimension_contracts import CurrentDimensionContractDefinition
 from packages.shared.extensions import ExtensionRegistry
 
+from packages.platform.publication_confidence import get_latest_publication_confidence
+
 if TYPE_CHECKING:
     from packages.storage.control_plane import ControlPlaneStore
 
@@ -588,10 +590,6 @@ def build_publication_contract_catalog(
 
     # Enrich contracts with latest confidence metadata if control_plane is available
     if control_plane is not None:
-        from packages.platform.publication_confidence import (
-            get_latest_publication_confidence,
-        )
-
         enriched_contracts = []
         for contract in contracts:
             latest_confidence = get_latest_publication_confidence(

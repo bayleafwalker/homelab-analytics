@@ -66,7 +66,7 @@ Domain-local does not mean ad hoc. Each still needs reporting-layer publication 
 
 **Casing convention:** All enum string values are lowercase, matching `ConfidenceVerdict` and `FreshnessState` StrEnums in `packages/platform/publication_confidence.py`.
 
-**Catalog versioning:** The `publication-contracts.json` artifact includes a top-level `catalog_schema_version` field that bumps when confidence metadata fields are added or modified (current: `1.1.0`).
+**Catalog versioning:** The `publication-contracts.json` artifact includes a top-level `catalog_schema_version` field that bumps when confidence metadata fields are added or modified (current: `1.1.0`). This field is **artifact-only** — it is not surfaced by the live `GET /contracts/publications` API, which uses `build_publication_contracts()` rather than the catalog builder.
 
 ## Change checklist
 

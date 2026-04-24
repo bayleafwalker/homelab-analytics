@@ -15,17 +15,15 @@ from packages.storage.control_plane import ControlPlaneAdminStore
 def _worst_case_verdict(verdict1: str, verdict2: str) -> str:
     """Return the worst case verdict between two verdicts.
 
-    Verdict severity order: UNAVAILABLE > UNRELIABLE > DEGRADED > TRUSTWORTHY
+    Verdict severity order: unavailable > unreliable > degraded > trustworthy
     """
     severity = {
-        "TRUSTWORTHY": 1,
-        "DEGRADED": 2,
-        "UNRELIABLE": 3,
-        "UNAVAILABLE": 4,
+        "trustworthy": 1,
+        "degraded": 2,
+        "unreliable": 3,
+        "unavailable": 4,
     }
-    v1 = verdict1.upper()
-    v2 = verdict2.upper()
-    return verdict1 if severity.get(v1, 0) >= severity.get(v2, 0) else verdict2
+    return verdict1 if severity.get(verdict1, 0) >= severity.get(verdict2, 0) else verdict2
 
 
 def register_control_routes(
