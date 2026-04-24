@@ -1,4 +1,4 @@
-SPRINT: confidence-export-seam — Batch B: Publication Confidence Plumbing  [active]
+SPRINT: confidence-export-seam — Batch B: Publication Confidence Plumbing  [closed]
 Goal:   
 Dates:  2026-04-23 to 2026-05-07
 ID:     63
@@ -34,4 +34,4 @@ Items:  12 total — 12 done, 0 active, 0 pending, 0 blocked
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
   [done    ] #410  B9 (XS): Remove committed apps/web/node_modules symlink and add repository contract test forbidding symlinks that escape the repo  (assignee: -)
 
-Rendered: 2026-04-23T17:29:47Z
+Rendered: 2026-04-24T07:38:16Z
