@@ -23,17 +23,23 @@ export default async function OnboardingPage() {
 
   const freshDatasets = new Set(
     freshnessDatasets
-      .filter((ds) => {
-        if (!ds.landed_at) return false;
-        const diffDays = (Date.now() - new Date(ds.landed_at)) / (1000 * 60 * 60 * 24);
-        return diffDays < 7;
-      })
+      .filter((ds) => ds.freshness_state === "current")
       .map((ds) => ds.dataset_name)
   );
+
+  // Pick the worst freshness_state across all source assets for a given dataset_name.
+  const freshnessStateByDataset = {};
+  for (const ds of freshnessDatasets) {
+    const prev = freshnessStateByDataset[ds.dataset_name];
+    if (!prev || ds.freshness_state !== "current") {
+      freshnessStateByDataset[ds.dataset_name] = ds.freshness_state;
+    }
+  }
 
   const onboardingRows = ONBOARDING_SOURCES.map((src) => ({
     ...src,
     status: freshDatasets.has(src.dataset) ? "active" : "pending",
+    freshnessState: freshnessStateByDataset[src.dataset] ?? null,
   }));
 
   const activeCount = onboardingRows.filter((r) => r.status === "active").length;
@@ -173,51 +179,30 @@ export default async function OnboardingPage() {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>Account transactions</td>
-                  <td>Monthly cashflow, category spend, anomalies, attention items</td>
-                  <td>
-                    <span className={`statusPill ${freshDatasets.has("account_transactions") ? "status-landed" : "status-pending"}`}>
-                      {freshDatasets.has("account_transactions") ? "active" : "needed"}
-                    </span>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Subscriptions</td>
-                  <td>Recurring cost baseline, subscription review, cost model</td>
-                  <td>
-                    <span className={`statusPill ${freshDatasets.has("subscriptions") ? "status-landed" : "status-pending"}`}>
-                      {freshDatasets.has("subscriptions") ? "active" : "needed"}
-                    </span>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Contract prices</td>
-                  <td>Affordability ratios, contract renewal watchlist, utility contracts</td>
-                  <td>
-                    <span className={`statusPill ${freshDatasets.has("contract_prices") ? "status-landed" : "status-pending"}`}>
-                      {freshDatasets.has("contract_prices") ? "active" : "optional"}
-                    </span>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Budgets</td>
-                  <td>Budget variance, envelope tracking, spend-vs-target</td>
-                  <td>
-                    <span className={`statusPill ${freshDatasets.has("budgets") ? "status-landed" : "status-pending"}`}>
-                      {freshDatasets.has("budgets") ? "active" : "optional"}
-                    </span>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Loan repayments</td>
-                  <td>Loan overview, debt service ratio, loan schedule</td>
-                  <td>
-                    <span className={`statusPill ${freshDatasets.has("loan_repayments") ? "status-landed" : "status-pending"}`}>
-                      {freshDatasets.has("loan_repayments") ? "active" : "optional"}
-                    </span>
-                  </td>
-                </tr>
+                {onboardingRows.map((src) => {
+                  const state = src.freshnessState;
+                  let pillClass = "status-pending";
+                  let pillLabel = src.required ? "needed" : "optional";
+                  if (state === "current") {
+                    pillClass = "status-landed";
+                    pillLabel = "active";
+                  } else if (state === "overdue" || state === "missing_period" || state === "parse_failed") {
+                    pillClass = "status-failed";
+                    pillLabel = state === "overdue" ? "overdue" : state === "missing_period" ? "missing" : "failed";
+                  } else if (state === "due_soon") {
+                    pillClass = "status-warning";
+                    pillLabel = "due soon";
+                  }
+                  return (
+                    <tr key={src.dataset}>
+                      <td>{src.label}</td>
+                      <td>{src.unlocks}</td>
+                      <td>
+                        <span className={`statusPill ${pillClass}`}>{pillLabel}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

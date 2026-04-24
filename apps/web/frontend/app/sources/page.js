@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
 import { getCurrentUser, getSourceFreshness, getRuns } from "@/lib/backend";
-import { ONBOARDING_SOURCES } from "@/lib/onboarding-sources";
 
 const BUILTIN_UPLOAD_PATH = {
   account_transactions: "/upload/account-transactions",
@@ -29,16 +28,16 @@ function formatDatasetLabel(datasetName) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function remediationActions(dataset, status, uploadPath) {
+function remediationActions(status, uploadPath) {
   const actions = [];
   if (status === "rejected" || status === "failed") {
-    actions.push({ label: "Open failed run", kind: "run" });
+    actions.push({ label: "Inspect run", kind: "run" });
   }
   if (uploadPath) {
-    actions.push({ label: "Upload new file", kind: "upload", href: uploadPath });
+    actions.push({ label: "Upload corrected file", kind: "upload", href: uploadPath });
   }
   if (!uploadPath) {
-    actions.push({ label: "Review schedule", kind: "schedule", href: "/control/execution" });
+    actions.push({ label: "Open run history", kind: "history", href: "/runs" });
   }
   return actions;
 }
@@ -69,7 +68,7 @@ export default async function SourcesPage() {
     const lastRun = lastRunByDataset[ds.dataset_name];
     const uploadPath = BUILTIN_UPLOAD_PATH[ds.dataset_name] || null;
     const staleness = stalenessLabel(ds.landed_at);
-    const actions = remediationActions(ds.dataset_name, ds.status, uploadPath);
+    const actions = remediationActions(ds.status, uploadPath);
     return { ...ds, lastRun, uploadPath, staleness, actions };
   });
 
@@ -85,18 +84,13 @@ export default async function SourcesPage() {
   const staleCount = rows.filter((r) => r.staleness.indicator === "red").length;
   const warnCount = rows.filter((r) => r.staleness.indicator === "yellow").length;
 
-  // Recovery preview: map each dataset to the publications it unlocks
-  const recoveryPreviewByDataset = Object.fromEntries(
-    ONBOARDING_SOURCES.map((s) => [s.dataset, s.unlocksDetail || []])
-  );
-
   return (
     <AppShell
       currentPath="/sources"
       user={user}
       title="Data Sources"
       eyebrow="Operator Access"
-      lede="Freshness and remediation for all active data sources. Upload directly from this view to recover stale or failed datasets."
+      lede="Freshness and remediation for operational sources. Use this page to upload corrected files, inspect failed runs, and clear stale source state before it reaches reporting."
     >
       <section className="stack">
         <section className="cards">
@@ -125,11 +119,11 @@ export default async function SourcesPage() {
               <h2>Source status &amp; remediation</h2>
             </div>
             <Link className="ghostButton" href="/upload">
-              Bulk upload
+              Upload files
             </Link>
           </div>
           {rows.length === 0 ? (
-            <div className="empty">No source freshness data available. Run an ingestion first.</div>
+            <div className="empty">No source freshness data available. Run an upload or retry first.</div>
           ) : (
             <div className="tableWrap">
               <table>
@@ -228,12 +222,12 @@ export default async function SourcesPage() {
           <div className="sectionHeader">
             <div>
               <div className="eyebrow">Recovery</div>
-              <h2>Upload in context</h2>
+              <h2>Recover stale sources</h2>
             </div>
           </div>
           <div className="muted" style={{ marginBottom: "12px" }}>
-            Upload a new file directly for a stale or failed dataset. The detection wizard on the
-            upload page will identify the target and validate before ingestion.
+            Upload a corrected file for a stale or failed source, or open the latest run to inspect
+            validation, parser, and retry context. Publication trust stays in reporting surfaces.
           </div>
           {rows.filter((r) => r.uploadPath && r.staleness.indicator !== "green").length === 0 ? (
             <div className="muted">All uploadable sources are fresh.</div>
@@ -242,20 +236,34 @@ export default async function SourcesPage() {
               {rows
                 .filter((r) => r.uploadPath && r.staleness.indicator !== "green")
                 .map((r) => {
-                  const preview = recoveryPreviewByDataset[r.dataset_name] || [];
                   return (
                     <div key={r.dataset_name} style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 600 }}>{formatDatasetLabel(r.dataset_name)}</div>
-                        {preview.length > 0 && (
-                          <div className="muted" style={{ fontSize: "0.82rem", marginTop: "2px" }}>
-                            Refreshing unlocks: {preview.join(" · ")}
+                        <div className="muted" style={{ fontSize: "0.82rem", marginTop: "2px" }}>
+                          {r.latest_run_id
+                            ? "Open the latest run to inspect validation and remediation context."
+                            : "Upload first, then inspect the resulting run when it appears."}
+                        </div>
+                        {r.latest_run_id ? (
+                          <div className="muted" style={{ fontSize: "0.82rem", marginTop: "4px" }}>
+                            Latest run:{" "}
+                            <Link className="inlineLink" href={`/runs/${r.latest_run_id}`}>
+                              {r.latest_run_id}
+                            </Link>
                           </div>
                         )}
                       </div>
-                      <Link className="ghostButton" href={r.uploadPath}>
-                        Upload
-                      </Link>
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        {r.latest_run_id ? (
+                          <Link className="ghostButton" href={`/runs/${r.latest_run_id}`}>
+                            Inspect run
+                          </Link>
+                        ) : null}
+                        <Link className="ghostButton" href={r.uploadPath}>
+                          Upload
+                        </Link>
+                      </div>
                     </div>
                   );
                 })}
