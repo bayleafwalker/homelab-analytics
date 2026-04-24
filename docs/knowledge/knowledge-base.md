@@ -1,7 +1,31 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-23T05:08:31Z
+Generated: 2026-04-24T07:37:46Z
 
 ## Decisions
+
+### CLAUDE.md is a delta doc — point to canonical sources, do not duplicate sprint or workflow state
+Source: track: docs-hygiene, sprint: 63
+Tags: docs-hygiene, source-of-truth, claude-md
+
+CLAUDE.md is a delta doc: it records what is unique to this repo and what overrides the workspace defaults. It should not duplicate sprint status, workflow state, or information that is authoritative in another tool (sprintctl, kctl, docs/runbooks/). When in doubt, put a pointer in CLAUDE.md and keep the canonical content where it belongs. Duplicating sprint state in CLAUDE.md leads to drift and confusion about the source of truth.
+
+---
+
+### PR fast gate is targeted test subset; full suite is operator-initiated, not a sprint-close requirement
+Source: track: ci-hygiene, sprint: 63
+Tags: ci, verification, workflow
+
+The sprint-close fast gate (pytest tests/test_architecture_contract.py) is the only blocking test requirement for sprint close. The full suite (make test / make verify-all) is operator-initiated and is not a sprint-close gate. This distinction is intentional: the full suite is too slow to block every sprint close and covers regression scenarios outside the sprint scope. Record full-suite runs separately when they are run.
+
+---
+
+### Move get_latest_publication_confidence to platform layer — platform must not import from pipelines
+Source: track: remediation, sprint: 63
+Tags: layer-boundary, platform, pipelines, confidence
+
+get_latest_publication_confidence reads from the control plane store and returns a PublicationConfidenceSnapshot — a pure platform-layer concern. It was originally placed in packages/pipelines/publication_confidence_service.py, causing publication_contracts.py (platform) to import from pipelines (transitional/app). Fixed by moving the function to packages/platform/publication_confidence.py. The TYPE_CHECKING guard on ControlPlaneStore prevents circular import at module load; callers pass the store at runtime. Rule: read-path functions that return platform types and accept storage protocols belong in platform, not pipelines.
+
+---
 
 ### packages/analytics/ resolved as finance-internal; moved to finance domain (Option 1)
 Source: sprint: 52
@@ -613,6 +637,22 @@ Balance snapshots belong in the transformation layer as DuckDB-backed facts deri
 
 ## Patterns
 
+### Tracked repo symlinks must stay inside the checkout — external targets break git tracking
+Source: track: hygiene, sprint: 63
+Tags: repo-hygiene, gitignore, symlink
+
+Git-tracked symlinks must resolve within the repository checkout. Symlinks pointing to paths outside the checkout (e.g. absolute paths or ../.. traversals into the home directory) break on clone, in CI, and in container environments. When a symlink target is outside the repo, either copy the file into the repo or generate it from a script. The .gitignore should not be used to hide broken external-target symlinks — fix the target instead.
+
+---
+
+### Test build_publication_contract_catalog directly; testing via export_contracts requires full app assembly
+Source: track: plumbing, sprint: 63
+Tags: testing, confidence, publication-contracts
+
+build_publication_contract_catalog is a pure function that takes capability packs and an optional control_plane. Test it directly with a tmp_path-scoped IngestionConfigRepository. Testing through export_contracts() requires instantiating a full FastAPI app (settings, lifespan, etc.) and is fragile. Use the direct function for unit/integration tests; reserve export_contracts() tests for smoke-testing the CLI path only.
+
+---
+
 ### Move auth vocabulary to platform contracts; storage re-exports for caller compatibility
 Source: track: auth-contracts, sprint: 41
 Tags: auth, contracts, compatibility, layer-boundary
@@ -694,6 +734,30 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 ---
 
 ## Lessons
+
+### TransformationService confidence hook silently no-ops when control_plane_store is None
+Source: track: plumbing, sprint: 63
+Tags: testing, confidence, silent-failure
+
+TransformationService.refresh_publications() only records a confidence snapshot when control_plane_store is set on the instance. When control_plane_store is None (the default), the confidence hook is skipped with no warning or log line. Unit tests that instantiate TransformationService without a control_plane will silently skip the snapshot recording path. Always pass a real or in-memory IngestionConfigRepository when testing confidence-related behavior.
+
+---
+
+### Confidence enrichment wiring was dead — app.container was never assigned in create_app()
+Source: track: plumbing, sprint: 63
+Tags: wiring, confidence, export
+
+The confidence enrichment path in export_contracts.py was guarded by hasattr(app, 'container'), but app.container was never assigned anywhere in create_app(). The enrichment was silently skipped on every export run. Fix: wire app.state.control_plane_store = container.control_plane_store in create_app() and update the guard to hasattr(app.state, 'control_plane_store'). When enrichment fields come back null in generated artifacts, check the wiring guard before investigating the data path.
+
+---
+
+### /retro route is not a stable screenshot target in demo compose stack
+Source: track: screenshots, sprint: 61
+Tags: screenshots, demo, retro
+
+The /retro page in the demo compose stack requires active data and browser rendering to produce a stable screenshot. Running screenshot automation against it in a bare demo environment produces blank or partial captures. Use a route that renders with static or seeded data (e.g. /reports or /dashboard) when testing screenshot pipeline stability.
+
+---
 
 ### Trusted-forwarder tests need explicit cookie replay when Secure flag is set over HTTP
 Source: track: auth-transport, sprint: 41
