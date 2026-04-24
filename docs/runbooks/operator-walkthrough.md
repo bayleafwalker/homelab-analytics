@@ -1,6 +1,6 @@
-# Operator Walkthrough — Product Loop from Upload to Operating Picture
+# Operator Walkthrough — Canonical Finance Loop from Upload to /reports
 
-**Purpose:** Prove the product loop end-to-end using demo data.  
+**Purpose:** Prove the canonical finance operator journey end-to-end using demo data.
 **Time:** ~10 minutes with the demo bundle pre-generated.  
 **Audience:** Operators and developers validating the first-week onboarding experience.
 
@@ -28,12 +28,10 @@ The demo bundle contains 12 months of realistic household data (2025) across thr
 ## The Product Loop
 
 ```
-Upload source file
-  → Wizard detects format + shows publication preview
-    → Dry-run validates row count, date range, issues
-      → Ingest lands data
-        → Promotion runs transformation
-          → Operating Picture updates
+Upload or refresh source file
+  → Source freshness and remediation in /sources and /runs
+    → /reports monthly operating view
+      → Expense-shock action
 ```
 
 ---
@@ -50,7 +48,7 @@ Upload source file
 
 **What you see after ingest:**
 - Post-ingest summary: 144 rows, Jan–Dec 2025, 0 issues.
-- Reports page: Monthly Cashflow now shows 12 months of income and spending.
+- `/reports`: Monthly Cashflow now shows 12 months of income and spending.
 - Salary visible: Employer Corp, EUR 3 200/month.
 - Regular transfers out to shared account and Revolut.
 
@@ -63,10 +61,10 @@ Upload source file
 3. Confirm ingest.
 
 **What you see:**
-- Household overview enriched — shared spending now visible.
-- Grocery spend: Supermarket Plus, ~EUR 250–320/month.
-- Utility payments via direct debit: City Power (~EUR 38–63/month).
-- Transport: Metro Transport (~EUR 54–68/month).
+- Household overview enriched - shared spending now visible.
+- Grocery spend: Supermarket Plus, ~EUR 250-320/month.
+- Utility payments via direct debit: City Power (~EUR 38-63/month).
+- Transport: Metro Transport (~EUR 54-68/month).
 
 ---
 
@@ -79,18 +77,16 @@ Upload source file
 **What you see:**
 - Entertainment spend appears: Netflix EUR 15.99/month.
 - Health spend: Pharmacy Central.
-- Revolut top-up amounts reconcile with OP personal account outflows — proof of account closure.
+- Revolut top-up amounts reconcile with OP personal account outflows - proof of account closure.
 
-At this point the **Money** domain card on the Operating Picture is fully populated.
+At this point `/reports` has the monthly finance inputs needed for the canonical operating view.
 
 ---
 
 ### Step 4 — Utility bills
 
 1. Go to **Upload** → drop `canonical/utility_bills.csv`.
-2. Upload via the **utility bills** upload form (`/upload` → select Utility Bills, or use the
-   direct ingest endpoint `/ingest/utility-bills`). Note: utility bills use their own ingest
-   endpoint and are not covered by the configured-CSV dry-run wizard.
+2. Upload via the **utility bills** upload form (`/upload` → select Utility Bills, or use the direct ingest endpoint `/ingest/utility-bills`). Note: utility bills use their own ingest endpoint and are not covered by the configured-CSV dry-run wizard.
 3. Confirm ingest.
 
 **What you see:**
@@ -99,6 +95,7 @@ At this point the **Money** domain card on the Operating Picture is fully popula
 - Total annual electricity: ~3 762 kWh.
 
 The **Utilities** domain card now has a headline metric and trend indicator.
+The monthly finance view in `/reports` now includes utility context alongside cashflow.
 
 ---
 
@@ -124,13 +121,21 @@ Upload the remaining canonical files in any order:
 | `canonical/loan_repayments.csv` | `/upload/loan-repayments` |
 
 After all three:
-- Budget Variance table populated — compare planned vs actual by category.
+- Budget Variance table populated - compare planned vs actual by category.
 - Loan Overview: outstanding balance and monthly payment visible.
 - Affordability ratio with debt service included in household overview.
 
+With those uploads complete, `/reports` is the stable monthly finance read surface.
+
+### Step 7 — Expense shock
+
+1. Open `/reports`.
+2. Launch the expense-shock action from the monthly finance view.
+3. Confirm the baseline, projected value, and delta are visible before you proceed.
+
 ---
 
-## Operating Picture — Expected State After All Uploads
+## Operating Picture - Expected State After All Uploads
 
 | Domain | Headline | Key Attention |
 |--------|----------|---------------|
@@ -144,10 +149,10 @@ After all three:
 
 The control terminal (`/control/terminal`) is a deliberate operator aid, not an undocumented escape hatch. Commands are grouped by task:
 
-- **diagnostics** — inspect live state: `status`, `runs`, `dispatches`, `heartbeats`, `freshness`
-- **remediation** — trace and validate: `publication-audit`, `lineage`, `verify-config`
-- **configuration** — review registered entities: `source-systems`, `source-assets`, `ingestion-definitions`, `publication-definitions`, `schedules`
-- **admin** — users, tokens, audit trail, and queue operations: `users`, `tokens`, `audit`, `enqueue-due`
+- **diagnostics** - inspect live state: `status`, `runs`, `dispatches`, `heartbeats`, `freshness`
+- **remediation** - trace and validate: `publication-audit`, `lineage`, `verify-config`
+- **configuration** - review registered entities: `source-systems`, `source-assets`, `ingestion-definitions`, `publication-definitions`, `schedules`
+- **admin** - users, tokens, audit trail, and queue operations: `users`, `tokens`, `audit`, `enqueue-due`
 
 Use `help` to list all commands. The `/control/terminal/commands` endpoint returns each command with its `group`, `usage`, and `mutating` flag.
 
@@ -155,11 +160,12 @@ Use `help` to list all commands. The `/control/terminal/commands` endpoint retur
 
 ## Freshness and Remediation
 
-1. Go to **Sources** (`/sources`).
-2. All datasets should show green (fresh) status after all uploads.
-3. To test remediation: wait for one source to show as stale, or simulate by uploading a bad file.
-4. The **Upload in context** section at the bottom of Sources shows quick-upload buttons for each stale dataset — no navigation required.
-5. After re-upload, the freshness indicator recovers and the Operating Picture confidence band updates.
+1. Use **Sources** (`/sources`) to inspect freshness and source-level remediation.
+2. Use **Runs** (`/runs`) to inspect run-level remediation such as retry or re-upload guidance.
+3. All datasets should show green (fresh) status after all uploads.
+4. To test remediation: wait for one source to show as stale, or simulate by uploading a bad file.
+5. The **Upload in context** section at the bottom of Sources shows quick-upload buttons for each stale dataset.
+6. After re-upload, the freshness indicator recovers and the monthly finance view in `/reports` reflects the refreshed input.
 
 ### Remediation actions
 
@@ -167,7 +173,7 @@ When a run fails or a source goes stale, the platform surfaces a specific action
 
 | Action | When it appears | What to do |
 |---|---|---|
-| `retry` | Run failed but payload is intact | POST `/runs/{run_id}/retry` — no re-upload needed |
+| `retry` | Run failed but payload is intact | POST `/runs/{run_id}/retry` - no re-upload needed |
 | `upload_missing_period` | Run failed, payload unavailable or rejected | Correct and re-upload the source file for the affected period |
 | `inspect_binding` | Run passed but promotion was skipped | Check source system / dataset contract / column mapping in Sources config |
 | `fix_contract` | Run rejected due to schema or column violations | Fix the source file or update the dataset contract, then re-upload |
@@ -184,29 +190,57 @@ The active reporting backend (DuckDB warehouse or Postgres published-reporting) 
 
 | Check | Where |
 |-------|-------|
-| Monthly Cashflow populated | `/reports` → Monthly Cashflow |
-| Budget Variance shows overage in groceries | `/reports` → Budget Variance |
-| Loan overview shows balance | `/reports` → Loan Overview |
-| Operating Picture: all domain cards green | `/` (dashboard) |
+| Monthly Cashflow populated | `/reports` |
+| Budget Variance shows overage in groceries | `/reports` |
+| Loan overview shows balance | `/reports` |
+| Expense-shock action is reachable | `/reports` |
 | Sources: all fresh | `/sources` |
 | Runs: all landed | `/runs` |
 
 ---
 
+<!-- BEGIN DEMO BUNDLE MACHINE REFERENCE -->
+
 ## Demo Bundle Machine Reference
 
-The demo bundle is generated deterministically from a fixed seed. The `journey.json` file in the bundle root contains the machine-readable journey with 8 individual steps (one per data-source artifact), including artifact IDs, upload paths, what each step unlocks, and attention items. This walkthrough groups steps 6–8 into one section for readability; `journey.json` lists each separately.
+Generated from `packages/demo/bundle.py` and `infra/examples/demo-data/manifest.json`.
+Run `python scripts/generate_walkthrough_reference.py` to regenerate after bundle changes.
+
+**Bundle layout after `make demo-generate`:**
 
 ```
 /tmp/homelab-demo/
-  manifest.json          — artifact index
-  journey.json           — scripted journey metadata
-  canonical/             — canonical CSV artifacts (direct upload)
-  sources/               — source-format artifacts (wizard upload)
+  manifest.json          — artifact index (17 artifacts, seed 20260324)
+  journey.json           — scripted journey metadata (8 steps)
+  canonical/             — canonical CSV artifacts
+  sources/               — source-format artifacts
 ```
 
-To seed the full dataset programmatically:
+**Upload sequence (operator journey):**
 
-```
-python -m apps.worker.main seed-demo-data --input-dir /tmp/homelab-demo
-```
+| Step | Artifact ID | File | Upload path | Routability |
+|------|-------------|------|-------------|-------------|
+| 1 | `op_personal_account_csv` | `sources/personal account/tapahtumat20250101-20251231.csv` | `/upload` | `supported_now` |
+| 2 | `op_common_account_csv` | `sources/common account/tapahtumat20250101-20251231.csv` | `/upload` | `supported_now` |
+| 3 | `revolut_account_csv` | `sources/revolut/account-statement_2025-01-01_2025-12-31_en-us_demo.csv` | `/upload` | `supported_now` |
+| 4 | `utility_bills_canonical_csv` | `canonical/utility_bills.csv` | `/upload/utility-bills` | `supported_now` |
+| 5 | `subscriptions_canonical_csv` | `canonical/subscriptions.csv` | `/upload/subscriptions` | `supported_now` |
+| 6 | `contract_prices_canonical_csv` | `canonical/contract_prices.csv` | `/upload/contract-prices` | `supported_now` |
+| 7 | `budgets_canonical_csv` | `canonical/budgets.csv` | `/upload/budgets` | `supported_now` |
+| 8 | `loan_repayments_canonical_csv` | `canonical/loan_repayments.csv` | `/upload/loan-repayments` | `supported_now` |
+
+**Template-only artifacts (reference; not yet routable for direct upload):**
+
+| Artifact ID | File | Format |
+|-------------|------|--------|
+| `account_transactions_canonical_csv` | `canonical/account_transactions.csv` | `csv` |
+| `credit_card_statement_2026_01` | `sources/credit card/Lasku_01012026.pdf` | `pdf` |
+| `credit_card_statement_2026_01_summary` | `sources/credit card/Lasku_01012026.summary.json` | `json` |
+| `credit_card_statement_2026_02` | `sources/credit card/Lasku_01022026.pdf` | `pdf` |
+| `credit_card_statement_2026_02_summary` | `sources/credit card/Lasku_01022026.summary.json` | `json` |
+| `credit_card_statement_2026_03` | `sources/credit card/Lasku_01032026.pdf` | `pdf` |
+| `credit_card_statement_2026_03_summary` | `sources/credit card/Lasku_01032026.summary.json` | `json` |
+| `loan_registry_html` | `sources/loans/Luottotietorekisteriote - Positiivinen luottotietorekisteri.html` | `html` |
+| `loan_registry_text` | `sources/loans/luottorekisteriote.txt` | `txt` |
+
+<!-- END DEMO BUNDLE MACHINE REFERENCE -->
