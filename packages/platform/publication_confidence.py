@@ -199,10 +199,10 @@ def get_latest_publication_confidence(
         snapshot_id=record.snapshot_id,
         publication_key=record.publication_key,
         assessed_at=record.assessed_at,
-        freshness_state=str(record.freshness_state),  # type: ignore
+        freshness_state=FreshnessState(record.freshness_state),
         completeness_pct=record.completeness_pct,
         source_freshness_states={},  # Could hydrate from record if needed
         contributing_run_ids=list(record.contributing_run_ids),
         quality_flags=record.quality_flags or {},
-        confidence_verdict=str(record.confidence_verdict),  # type: ignore
+        confidence_verdict=ConfidenceVerdict(record.confidence_verdict),
     )

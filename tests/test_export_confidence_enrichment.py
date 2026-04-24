@@ -150,7 +150,7 @@ def test_export_contracts_with_multiple_publication_snapshots(
             publication_key="account_balance_trend",
             assessed_at=now,
             freshness_state="due_soon",
-            completeness_pct=85,
+            completeness_pct=0,
             confidence_verdict="degraded",
         ),
     )
@@ -173,7 +173,7 @@ def test_export_contracts_with_multiple_publication_snapshots(
     assert account_balance is not None
     assert account_balance.confidence_verdict == "degraded"
     assert account_balance.freshness_state == "due_soon"
-    assert account_balance.completeness_pct == 85
+    assert account_balance.completeness_pct == 0
 
 
 def test_export_contracts_gracefully_handles_none_control_plane() -> None:
