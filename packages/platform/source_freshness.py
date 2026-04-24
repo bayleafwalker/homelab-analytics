@@ -78,6 +78,23 @@ class SourceFreshnessAssessment:
     detail: str | None = None
 
 
+@dataclass(frozen=True)
+class SourceFreshnessView:
+    """Unified per-source-asset freshness view consumed by /control/source-freshness,
+    /sources, and confidence snapshots."""
+
+    source_asset_id: str
+    dataset_name: str
+    name: str
+    freshness_state: SourceFreshnessState
+    latest_run_id: str | None
+    status: str | None
+    landed_at: datetime | None
+    next_expected_at: datetime | None
+    covered_through: date | None
+    suggested_action: str
+
+
 def evaluate_source_freshness(
     config: SourceFreshnessConfigLike | None,
     observations: Sequence[SourceFreshnessRunObservation],

@@ -79,17 +79,22 @@ def compute_and_record_publication_confidence(
             )
             continue
 
-        # Query run observations for this source asset from lineage
-        # (For now: assume all contributing runs are successful; a future enhancement
-        # can enhance this to query run_metadata for actual status)
-        observations = [
-            SourceFreshnessRunObservation(
-                status="success",
-                observed_at=as_of,
-                covered_from=None,
-                covered_through=None,
-            )
-        ]
+        run_id = source_runs.get(source_system)
+        if run_id and hasattr(control_plane, "get_run"):
+            try:
+                run = control_plane.get_run(run_id)
+                observations = [
+                    SourceFreshnessRunObservation(
+                        status=str(run.status),
+                        observed_at=run.created_at,
+                        covered_from=None,
+                        covered_through=None,
+                    )
+                ]
+            except (KeyError, AttributeError):
+                observations = []
+        else:
+            observations = []
 
         # Evaluate freshness using the source freshness engine
         assessment = evaluate_source_freshness(

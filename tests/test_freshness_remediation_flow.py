@@ -36,13 +36,20 @@ def _build_client(temp_dir: str) -> TestClient:
     )
 
 
-def test_freshness_shows_no_datasets_before_any_ingest() -> None:
+def test_freshness_shows_registered_source_assets_before_any_ingest() -> None:
     with TemporaryDirectory() as temp_dir:
         client = _build_client(temp_dir)
 
         response = client.get("/control/source-freshness")
         assert response.status_code == 200
-        assert response.json()["datasets"] == []
+        datasets = response.json()["datasets"]
+        assert len(datasets) == 1, "One registered source asset should appear even with no runs"
+        asset = datasets[0]
+        assert asset["dataset_name"] == "household_account_transactions"
+        assert asset["freshness_state"] == "unconfigured"
+        assert asset["latest_run_id"] is None
+        assert asset["status"] is None
+        assert asset["landed_at"] is None
 
 
 def test_detect_source_identifies_upload_target_and_previews_publications() -> None:
@@ -84,12 +91,13 @@ def test_upload_in_context_recovers_stale_source() -> None:
     with TemporaryDirectory() as temp_dir:
         client = _build_client(temp_dir)
 
-        # Step 1: confirm stale state — no ingest history
+        # Step 1: source asset is registered but has no run history yet
         before = client.get("/control/source-freshness")
         assert before.status_code == 200
-        assert before.json()["datasets"] == [], (
-            "Expected no freshness records before any ingest"
-        )
+        before_datasets = before.json()["datasets"]
+        assert len(before_datasets) == 1
+        assert before_datasets[0]["freshness_state"] == "unconfigured"
+        assert before_datasets[0]["latest_run_id"] is None
 
         # Step 2: detect source type as upload-in-context preflight
         detect_response = client.post(
@@ -135,9 +143,11 @@ def test_upload_in_context_recovers_stale_source() -> None:
         assert len(datasets) == 1
         recovered = datasets[0]
         assert recovered["dataset_name"] == "household_account_transactions"
+        assert recovered["source_asset_id"] == "bank_partner_transactions"
         assert recovered["status"] == "landed"
         assert recovered["latest_run_id"] == run_id
         assert recovered["landed_at"] is not None
+        assert "freshness_state" in recovered
 
 
 def test_failed_ingest_shows_rejected_state_before_remediation() -> None:
@@ -224,6 +234,7 @@ def test_dry_run_previews_file_before_committing_upload() -> None:
 
         # Confirm that the dry run did not create any ingest records
         freshness = client.get("/control/source-freshness")
-        assert freshness.json()["datasets"] == [], (
+        datasets = freshness.json()["datasets"]
+        assert all(d["latest_run_id"] is None for d in datasets), (
             "Dry run must not land any data"
         )

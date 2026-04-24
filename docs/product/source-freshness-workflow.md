@@ -1,10 +1,10 @@
-# Source Freshness and Reminder Workflow
+# Source Freshness and Remediation Workflow
 
 ## What this is
 
 Many personal finance sources will remain manual for a long time — monthly bank exports, periodic credit card invoices, occasional credit registry snapshots. The platform should "remember" these sources operationally and tell the operator when something is overdue, missing, or broken.
 
-This document defines the freshness model, operator workflow, and integration points.
+This document defines the freshness model, operator workflow, and control-surface integration points. It stays focused on source freshness and remediation, while publication trust remains a reporting concern.
 
 **Architecture reference:** `docs/architecture/finance-ingestion-model.md`
 
@@ -185,7 +185,7 @@ Operator can backfill by uploading the missing export
 
 ## Integration points
 
-### Dashboard / admin surface
+### Dashboard / control surface
 
 - Source freshness summary view: list of configured sources with current state badges
 - Per-source detail: last ingest date, covered period, next expected date, state
@@ -195,7 +195,7 @@ Operator can backfill by uploading the missing export
 
 ### API
 
-- `GET /api/sources/freshness` — returns freshness state for all configured sources
+- `GET /control/source-freshness` — returns freshness state for all configured sources
 - Response includes: source_asset_id, name, state, last_ingest_at, next_expected_at, covered_through
 
 ### Webhook / event output
