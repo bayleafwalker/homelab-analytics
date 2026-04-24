@@ -36,7 +36,6 @@ from packages.platform.auth.proxy_provider import ProxyProvider
 from packages.platform.runtime.builder import build_container
 from packages.shared.external_registry import sync_extension_registry_source
 from packages.shared.settings import AppSettings
-from packages.storage.run_metadata import RunMetadataRepository
 from packages.storage.ingestion_config import (
     ColumnMappingCreate,
     ColumnMappingRule,
@@ -47,6 +46,7 @@ from packages.storage.ingestion_config import (
     SourceAssetCreate,
     SourceSystemCreate,
 )
+from packages.storage.run_metadata import RunMetadataRepository
 from tests.account_test_support import (
     ACCOUNT_CONTRACT_ID,
     ACCOUNT_MAPPING_ID,

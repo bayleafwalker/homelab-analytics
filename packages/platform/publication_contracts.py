@@ -9,9 +9,8 @@ from packages.platform.capability_types import (
     PublicationFieldDefinition,
 )
 from packages.platform.current_dimension_contracts import CurrentDimensionContractDefinition
-from packages.shared.extensions import ExtensionRegistry
-
 from packages.platform.publication_confidence import get_latest_publication_confidence
+from packages.shared.extensions import ExtensionRegistry
 
 if TYPE_CHECKING:
     from packages.storage.control_plane import ControlPlaneStore
