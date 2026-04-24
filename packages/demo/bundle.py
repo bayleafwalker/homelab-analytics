@@ -470,6 +470,11 @@ def build_journey() -> dict[str, object]:
                     "Spend by Category baseline",
                     "Salary detection: Employer Corp, EUR 3 200/month",
                 ],
+                "publication_keys": [
+                    "monthly_cashflow",
+                    "spend_by_category_monthly",
+                    "household_overview",
+                ],
                 "attention_items": [
                     "Card payment to OP-Korttiyhtiö each month (~EUR 260–320) — credit card loop",
                     "Regular transfer to Demo Shared Household — shared account contribution",
@@ -487,6 +492,10 @@ def build_journey() -> dict[str, object]:
                     "Grocery and utilities spend visible",
                     "Counterparty categories: Supermarket Plus, City Power, Metro Transport",
                 ],
+                "publication_keys": [
+                    "household_overview",
+                    "spend_by_category_monthly",
+                ],
                 "attention_items": [
                     "Utilities spend (City Power): EUR 35–63/month with clear seasonal pattern",
                     "Grocery spend: EUR 250–320/month — largest discretionary line",
@@ -503,6 +512,10 @@ def build_journey() -> dict[str, object]:
                     "Health spend: Pharmacy Central",
                     "Full cashflow with all three account streams reconciled",
                 ],
+                "publication_keys": [
+                    "monthly_cashflow",
+                    "account_balance_trend",
+                ],
                 "attention_items": [
                     "Revolut top-ups match exactly to OP personal account outflows — reconciliation proof",
                 ],
@@ -517,6 +530,10 @@ def build_journey() -> dict[str, object]:
                     "Utility Cost Summary (electricity + water, 12 months)",
                     "kWh and liter usage trends",
                     "Unit price comparison across periods",
+                ],
+                "publication_keys": [
+                    "utility_cost_summary",
+                    "utility_cost_trend_monthly",
                 ],
                 "attention_items": [
                     "Electricity peaks in winter (Dec: 421 kWh vs summer trough Jun: 257 kWh)",
@@ -533,6 +550,10 @@ def build_journey() -> dict[str, object]:
                     "Subscription Summary: recurring monthly obligations",
                     "Renewal calendar in Operating Picture upcoming-actions strip",
                 ],
+                "publication_keys": [
+                    "subscription_summary",
+                    "upcoming_fixed_costs_30d",
+                ],
                 "attention_items": [
                     "Review subscription list against Revolut spend for unregistered recurring charges",
                 ],
@@ -547,6 +568,9 @@ def build_journey() -> dict[str, object]:
                     "Contract Price Current: active tariffs and unit costs",
                     "Cost model comparison in Operating Picture",
                 ],
+                "publication_keys": [
+                    "contract_price_current",
+                ],
                 "attention_items": [],
             },
             {
@@ -559,6 +583,7 @@ def build_journey() -> dict[str, object]:
                     "Budget Variance: planned vs actual by category",
                     "Budget status synthetic sensor in Home Assistant",
                 ],
+                "publication_keys": [],
                 "attention_items": [
                     "Compare groceries budget to actual — expect overage in most months",
                 ],
@@ -573,6 +598,7 @@ def build_journey() -> dict[str, object]:
                     "Loan Overview: outstanding balance and amortisation schedule",
                     "Affordability ratio with debt service included",
                 ],
+                "publication_keys": [],
                 "attention_items": [
                     "Monthly payment visible — appears in upcoming obligations strip",
                 ],
