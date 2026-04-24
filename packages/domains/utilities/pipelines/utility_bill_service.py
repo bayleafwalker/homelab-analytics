@@ -34,6 +34,7 @@ UTILITY_BILL_CONTRACT = DatasetContract(
 
 
 class UtilityBillService:
+    """Dev/demo shortcut for utility bill ingestion. Operator path is configured-CSV (/upload)."""
     def __init__(
         self,
         landing_root: Path,

@@ -3,6 +3,8 @@
 Mirrors ``SubscriptionService``'s structure: validates against a
 dataset contract, stores the raw bytes in the blob store, records run
 metadata, and can load canonical rows for promotion.
+
+Dev/demo shortcut. Operator path is configured-CSV (/upload).
 """
 
 from __future__ import annotations

@@ -41,7 +41,7 @@ Upload or refresh source file
 ### Step 1 — Personal account transactions
 
 1. Go to **Upload** (`/upload`).
-2. Drop `sources/personal account/op_personal_account_2025.csv` from the demo bundle.
+2. Drop `sources/personal account/tapahtumat20250101-20251231.csv` from the demo bundle.
 3. The detection wizard identifies the source as **OP personal account** with high confidence.
 4. Review the publication preview: it shows **Monthly Cashflow** and **Household Overview** as direct publications.
 5. Confirm ingest.
@@ -56,7 +56,7 @@ Upload or refresh source file
 
 ### Step 2 — Common household account
 
-1. Go to **Upload** → drop `sources/common account/op_common_account_2025.csv`.
+1. Go to **Upload** → drop `sources/common account/tapahtumat20250101-20251231.csv`.
 2. Detection: **OP common account**.
 3. Confirm ingest.
 
@@ -70,7 +70,7 @@ Upload or refresh source file
 
 ### Step 3 — Revolut card account
 
-1. Go to **Upload** → drop `sources/revolut/revolut_2025.csv`.
+1. Go to **Upload** → drop `sources/revolut/account-statement_2025-01-01_2025-12-31_en-us_demo.csv`.
 2. Detection: **Revolut personal** format.
 3. Confirm ingest.
 
@@ -85,9 +85,8 @@ At this point `/reports` has the monthly finance inputs needed for the canonical
 
 ### Step 4 — Utility bills
 
-1. Go to **Upload** → drop `canonical/utility_bills.csv`.
-2. Upload via the **utility bills** upload form (`/upload` → select Utility Bills, or use the direct ingest endpoint `/ingest/utility-bills`). Note: utility bills use their own ingest endpoint and are not covered by the configured-CSV dry-run wizard.
-3. Confirm ingest.
+1. Go to **Upload** (`/upload`) → drop `canonical/utility_bills.csv`.
+2. The wizard detects the utility bill format. Confirm ingest.
 
 **What you see:**
 - Utility Cost Summary: electricity (City Power) and water (City Water) for 12 months.
@@ -101,7 +100,7 @@ The monthly finance view in `/reports` now includes utility context alongside ca
 
 ### Step 5 — Subscriptions
 
-1. Go to **Upload** → drop `canonical/subscriptions.csv` → upload via `/upload/subscriptions`.
+1. Go to **Upload** (`/upload`) → drop `canonical/subscriptions.csv`.
 2. Confirm ingest.
 
 **What you see:**
@@ -116,9 +115,9 @@ Upload the remaining canonical files in any order:
 
 | File | Upload path |
 |------|------------|
-| `canonical/contract_prices.csv` | `/upload/contract-prices` |
-| `canonical/budgets.csv` | `/upload/budgets` |
-| `canonical/loan_repayments.csv` | `/upload/loan-repayments` |
+| `canonical/contract_prices.csv` | `/upload` |
+| `canonical/budgets.csv` | `/upload` |
+| `canonical/loan_repayments.csv` | `/upload` |
 
 After all three:
 - Budget Variance table populated - compare planned vs actual by category.
@@ -223,11 +222,11 @@ Run `python scripts/generate_walkthrough_reference.py` to regenerate after bundl
 | 1 | `op_personal_account_csv` | `sources/personal account/tapahtumat20250101-20251231.csv` | `/upload` | `supported_now` |
 | 2 | `op_common_account_csv` | `sources/common account/tapahtumat20250101-20251231.csv` | `/upload` | `supported_now` |
 | 3 | `revolut_account_csv` | `sources/revolut/account-statement_2025-01-01_2025-12-31_en-us_demo.csv` | `/upload` | `supported_now` |
-| 4 | `utility_bills_canonical_csv` | `canonical/utility_bills.csv` | `/upload/utility-bills` | `supported_now` |
-| 5 | `subscriptions_canonical_csv` | `canonical/subscriptions.csv` | `/upload/subscriptions` | `supported_now` |
-| 6 | `contract_prices_canonical_csv` | `canonical/contract_prices.csv` | `/upload/contract-prices` | `supported_now` |
-| 7 | `budgets_canonical_csv` | `canonical/budgets.csv` | `/upload/budgets` | `supported_now` |
-| 8 | `loan_repayments_canonical_csv` | `canonical/loan_repayments.csv` | `/upload/loan-repayments` | `supported_now` |
+| 4 | `utility_bills_canonical_csv` | `canonical/utility_bills.csv` | `/upload` | `supported_now` |
+| 5 | `subscriptions_canonical_csv` | `canonical/subscriptions.csv` | `/upload` | `supported_now` |
+| 6 | `contract_prices_canonical_csv` | `canonical/contract_prices.csv` | `/upload` | `supported_now` |
+| 7 | `budgets_canonical_csv` | `canonical/budgets.csv` | `/upload` | `supported_now` |
+| 8 | `loan_repayments_canonical_csv` | `canonical/loan_repayments.csv` | `/upload` | `supported_now` |
 
 **Template-only artifacts (reference; not yet routable for direct upload):**
 

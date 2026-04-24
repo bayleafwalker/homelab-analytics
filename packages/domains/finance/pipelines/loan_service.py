@@ -98,7 +98,7 @@ def load_canonical_loan_repayments_bytes(source_bytes: bytes) -> list[CanonicalL
 
 
 class LoanService:
-    """Ingest loan repayment CSVs and expose canonical rows for promotion."""
+    """Dev/demo shortcut for loan repayment ingestion. Operator path is configured-CSV (/upload)."""
 
     def __init__(
         self,

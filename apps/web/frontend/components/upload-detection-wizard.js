@@ -4,10 +4,6 @@ import React, { useMemo, useRef, useState } from "react";
 
 const MANUAL_TARGETS = [
   { uploadPath: "/upload/account-transactions", label: "Account transactions" },
-  { uploadPath: "/upload/subscriptions", label: "Subscriptions" },
-  { uploadPath: "/upload/contract-prices", label: "Contract prices" },
-  { uploadPath: "/upload/budgets", label: "Budgets" },
-  { uploadPath: "/upload/loan-repayments", label: "Loan repayments" },
   { uploadPath: "/upload/ha-states", label: "HA states (JSON)" },
   {
     uploadPath: "/upload/configured-csv",

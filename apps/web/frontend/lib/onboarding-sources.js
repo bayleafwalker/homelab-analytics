@@ -22,7 +22,7 @@ export const ONBOARDING_SOURCES = [
     dataset: "subscriptions",
     label: "Subscriptions",
     description: "Recurring cost baseline",
-    uploadPath: "/upload/subscriptions",
+    uploadPath: "/upload",
     required: true,
     unlocks: "recurring cost baseline, subscription review",
     unlocksDetail: [
@@ -35,7 +35,7 @@ export const ONBOARDING_SOURCES = [
     dataset: "contract_prices",
     label: "Contract prices",
     description: "Affordability ratios, contract watchlist",
-    uploadPath: "/upload/contract-prices",
+    uploadPath: "/upload",
     required: false,
     unlocks: "affordability ratios, contract watchlist",
     unlocksDetail: [
@@ -48,7 +48,7 @@ export const ONBOARDING_SOURCES = [
     dataset: "budgets",
     label: "Budgets",
     description: "Budget variance, envelopes",
-    uploadPath: "/upload/budgets",
+    uploadPath: "/upload",
     required: false,
     unlocks: "budget variance, envelope tracking",
     unlocksDetail: [
@@ -60,7 +60,7 @@ export const ONBOARDING_SOURCES = [
     dataset: "loan_repayments",
     label: "Loan repayments",
     description: "Debt service ratio, loan schedule",
-    uploadPath: "/upload/loan-repayments",
+    uploadPath: "/upload",
     required: false,
     unlocks: "loan overview, debt service ratio",
     unlocksDetail: [
