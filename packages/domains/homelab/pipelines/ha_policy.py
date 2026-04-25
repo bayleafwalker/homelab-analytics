@@ -8,14 +8,14 @@ verdict.  Verdicts:
     breach      — threshold exceeded
     unavailable — insufficient data to evaluate
 
-Built-in demo policies (hardcoded, not operator-authored):
+Built-in demo policies (hardcoded, seeded defaults):
     budget_status        — current month max utilization across all categories
     monthly_spend_rate   — spending pace vs days elapsed in the current month
     bridge_health        — WebSocket bridge last_sync_at freshness (5 min threshold)
     kitchen_light_request — approval-gated device action via HA helper state
 
-These built-ins exercise the evaluation loop. The operator-facing policy model
-(persisted registry, rule schema, CRUD API) is not yet implemented.
+Operator-authored policies are loaded from the policy registry at evaluation
+time alongside these built-in seeds.
 """
 from __future__ import annotations
 
@@ -238,36 +238,132 @@ _BUILTIN_POLICIES: list[_PolicyDef] = [
     ),
 ]
 
-# ---------------------------------------------------------------------------
-# Design note: operator-authored policy registry (not yet implemented)
-#
-# _BUILTIN_POLICIES is the only source of policies today. A future policy
-# engine would replace or augment it with:
-#   - a DB-backed PolicyRegistry persisting operator-authored PolicyDef rows
-#   - a rule schema or expression DSL so thresholds and conditions are
-#     configurable without editing Python source
-#   - CRUD API endpoints for policy definitions
-#   - HaPolicyEvaluator loading from the registry at runtime
-#
-# Until those exist, the evaluator is working infrastructure against demo
-# policies, not an operator-facing feature.
-# ---------------------------------------------------------------------------
-
 # Type alias for the context-fetch callable.
 FetchFn = Callable[[], dict[str, Any]]
 
 
+def _compare_values(left: float, operator: str, right: float) -> bool:
+    if operator == "gt":
+        return left > right
+    if operator == "gte":
+        return left >= right
+    if operator == "lt":
+        return left < right
+    if operator == "lte":
+        return left <= right
+    if operator == "eq":
+        return left == right
+    if operator == "neq":
+        return left != right
+    return False
+
+
+def _evaluate_declarative_rule(
+    rule_doc: dict[str, Any],
+    context: dict[str, Any],
+    now: datetime,
+    control_plane_store: Any | None,
+) -> tuple[PolicyVerdict, str | None]:
+    """Evaluate a declarative rule document against the current context.
+
+    Context keys consumed:
+      ``publication_<key>`` — list[dict] for publication_value_comparison
+      ``ha_entities``       — list[dict] with ``entity_id`` + ``state`` for
+                              ha_helper_state_comparison
+    Freshness comparisons fall back to the control_plane_store confidence
+    snapshots when available.
+    """
+    from packages.platform.policy_schema import (
+        HaHelperStateComparisonRule,
+        PublicationFreshnessComparisonRule,
+        PublicationValueComparisonRule,
+        parse_rule_document,
+    )
+    from pydantic import ValidationError
+
+    try:
+        rule = parse_rule_document(rule_doc)
+    except (ValueError, ValidationError) as exc:
+        logger.warning("Invalid registry rule document", extra={"error": str(exc)})
+        return "unavailable", None
+
+    if isinstance(rule, PublicationValueComparisonRule):
+        rows: list[dict] = context.get(f"publication_{rule.publication_key}", [])
+        if not rows:
+            return "unavailable", None
+        row = rows[0] if isinstance(rows, list) else rows
+        raw = row.get(rule.field_name)
+        if raw is None:
+            return "unavailable", None
+        try:
+            value = float(raw)
+            threshold = float(rule.threshold)
+        except (ValueError, TypeError):
+            return "unavailable", None
+        verdict: PolicyVerdict = "breach" if _compare_values(value, rule.operator, threshold) else "ok"
+        return verdict, str(value)
+
+    if isinstance(rule, PublicationFreshnessComparisonRule):
+        if control_plane_store is None:
+            return "unavailable", None
+        try:
+            snapshots = control_plane_store.list_publication_confidence_snapshots(
+                publication_key=rule.publication_key, limit=1
+            )
+        except Exception:
+            return "unavailable", None
+        if not snapshots:
+            return "unavailable", None
+        snap = snapshots[0]
+        try:
+            assessed_at = snap.assessed_at if isinstance(snap.assessed_at, datetime) else datetime.fromisoformat(str(snap.assessed_at))
+            age_hours = (now - assessed_at.replace(tzinfo=UTC) if assessed_at.tzinfo is None else now - assessed_at).total_seconds() / 3600
+        except Exception:
+            return "unavailable", None
+        verdict = "breach" if _compare_values(age_hours, rule.operator, rule.threshold_hours) else "ok"
+        return verdict, f"{age_hours:.1f}h"
+
+    if isinstance(rule, HaHelperStateComparisonRule):
+        entities: list[dict] = context.get("ha_entities", [])
+        entity_state: str | None = None
+        for entity in entities:
+            if entity.get("entity_id") == rule.entity_id:
+                entity_state = str(entity.get("state", ""))
+                break
+        if entity_state is None:
+            return "unavailable", None
+        expected = str(rule.expected_value)
+        if rule.operator == "eq":
+            verdict = "ok" if entity_state == expected else "breach"
+        elif rule.operator == "neq":
+            verdict = "ok" if entity_state != expected else "breach"
+        else:
+            try:
+                verdict = "ok" if _compare_values(float(entity_state), rule.operator, float(expected)) else "breach"
+            except (ValueError, TypeError):
+                verdict = "unavailable"
+        return verdict, entity_state
+
+    return "unavailable", None
+
+
 class HaPolicyEvaluator:
-    """Evaluates built-in policies against current platform state.
+    """Evaluates built-in seed policies and operator-authored registry policies.
 
     Parameters
     ----------
     fetch_fn:
-        Callable with no arguments that returns a context dict.
-        Expected keys:
-            ``bridge_connected``    (bool)
-            ``bridge_last_sync_at`` (str | None) — ISO timestamp
-            ``budget_rows``         (list[dict]) — mart_budget_progress_current rows
+        Callable returning a context dict. Expected keys:
+            ``bridge_connected``             (bool)
+            ``bridge_last_sync_at``          (str | None)
+            ``budget_rows``                  (list[dict])
+            ``ha_entities``                  (list[dict])
+            ``publication_<key>``            (list[dict]) — optional, for
+                                             publication_value_comparison rules
+    policy_registry_store:
+        Optional store implementing ``list_policy_definitions``. When provided,
+        enabled operator-authored policies are loaded and evaluated alongside
+        the built-in seeds.
     """
 
     def __init__(
@@ -275,9 +371,11 @@ class HaPolicyEvaluator:
         fetch_fn: FetchFn,
         *,
         control_plane_store: Any | None = None,
+        policy_registry_store: Any | None = None,
     ) -> None:
         self._fetch_fn = fetch_fn
         self._control_plane_store = control_plane_store
+        self._policy_registry_store = policy_registry_store
         self._last_results: list[PolicyResult] = []
 
     def evaluate(self) -> list[PolicyResult]:
@@ -343,6 +441,41 @@ class HaPolicyEvaluator:
                 metadata=dict(policy.metadata),
                 input_freshness=input_freshness,
             ))
+
+        if self._policy_registry_store is not None:
+            try:
+                import json as _json
+                registry_policies = self._policy_registry_store.list_policy_definitions(
+                    enabled_only=True
+                )
+                for reg_policy in registry_policies:
+                    try:
+                        rule_doc = _json.loads(reg_policy.rule_document)
+                        verdict, value = _evaluate_declarative_rule(
+                            rule_doc, context, now, self._control_plane_store
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "Registry policy evaluation error",
+                            extra={"policy_id": reg_policy.policy_id, "error": str(exc)},
+                        )
+                        verdict, value = "unavailable", None
+                    results.append(PolicyResult(
+                        id=reg_policy.policy_id,
+                        name=reg_policy.display_name,
+                        description=reg_policy.description or "",
+                        verdict=verdict,
+                        value=value,
+                        evaluated_at=now.isoformat(),
+                        approval_required=False,
+                        metadata={"source_kind": reg_policy.source_kind},
+                        input_freshness=input_freshness,
+                    ))
+            except Exception as exc:
+                logger.warning(
+                    "Failed to load registry policies",
+                    extra={"error": str(exc)},
+                )
 
         self._last_results = results
         return results

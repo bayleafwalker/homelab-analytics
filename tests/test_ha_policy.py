@@ -16,6 +16,7 @@ from packages.pipelines.ha_policy import (
     _evaluate_bridge_health,
     _evaluate_budget_status,
     _evaluate_monthly_spend_rate,
+    _evaluate_declarative_rule,
     _PolicyDef,
 )
 
@@ -288,3 +289,157 @@ class PolicyEvaluatorTests(unittest.TestCase):
         self.assertEqual("CURRENT", d["input_freshness"]["freshness_state"])
         self.assertEqual(95, d["input_freshness"]["completeness_pct"])
         self.assertEqual(_NOW.isoformat(), d["input_freshness"]["assessed_at"])
+
+
+# ---------------------------------------------------------------------------
+# Registry integration tests
+# ---------------------------------------------------------------------------
+
+import json
+from packages.storage.control_plane import PolicyDefinitionCreate, PolicyDefinitionRecord
+
+
+def _make_record(
+    policy_id: str,
+    rule_doc: dict,
+    *,
+    enabled: bool = True,
+    source_kind: str = "operator",
+) -> PolicyDefinitionRecord:
+    now = datetime.now(UTC)
+    return PolicyDefinitionRecord(
+        policy_id=policy_id,
+        display_name=f"Policy {policy_id}",
+        policy_kind=rule_doc.get("rule_kind", "unknown"),
+        rule_schema_version="1.0",
+        rule_document=json.dumps(rule_doc),
+        enabled=enabled,
+        source_kind=source_kind,
+        description=None,
+        creator=None,
+        created_at=now,
+        updated_at=now,
+    )
+
+
+class _FakeRegistryStore:
+    def __init__(self, records: list[PolicyDefinitionRecord]) -> None:
+        self._records = records
+
+    def list_policy_definitions(
+        self, *, source_kind: str | None = None, enabled_only: bool = False
+    ) -> list[PolicyDefinitionRecord]:
+        result = self._records
+        if enabled_only:
+            result = [r for r in result if r.enabled]
+        if source_kind is not None:
+            result = [r for r in result if r.source_kind == source_kind]
+        return result
+
+
+_VALUE_RULE = {
+    "rule_kind": "publication_value_comparison",
+    "publication_key": "monthly_cashflow",
+    "field_name": "net",
+    "operator": "lt",
+    "threshold": 0,
+}
+
+_HA_RULE = {
+    "rule_kind": "ha_helper_state_comparison",
+    "entity_id": "input_boolean.kitchen",
+    "operator": "eq",
+    "expected_value": "on",
+}
+
+
+class RegistryIntegrationTests(unittest.TestCase):
+    def test_no_registry_store_returns_only_builtins(self) -> None:
+        evaluator = HaPolicyEvaluator(lambda: {})
+        results = evaluator.evaluate()
+        ids = {r.id for r in results}
+        self.assertEqual({"budget_status", "monthly_spend_rate", "bridge_health", "kitchen_light_request"}, ids)
+
+    def test_registry_policy_appended_to_results(self) -> None:
+        store = _FakeRegistryStore([_make_record("my_registry_policy", _VALUE_RULE)])
+        evaluator = HaPolicyEvaluator(
+            lambda: {"publication_monthly_cashflow": [{"net": -100}]},
+            policy_registry_store=store,
+        )
+        results = evaluator.evaluate()
+        ids = {r.id for r in results}
+        self.assertIn("my_registry_policy", ids)
+        reg_result = next(r for r in results if r.id == "my_registry_policy")
+        self.assertEqual("breach", reg_result.verdict)
+
+    def test_disabled_registry_policy_not_evaluated(self) -> None:
+        store = _FakeRegistryStore([_make_record("disabled_policy", _VALUE_RULE, enabled=False)])
+        evaluator = HaPolicyEvaluator(lambda: {}, policy_registry_store=store)
+        results = evaluator.evaluate()
+        self.assertNotIn("disabled_policy", {r.id for r in results})
+
+    def test_registry_store_failure_is_graceful(self) -> None:
+        class _BrokenStore:
+            def list_policy_definitions(self, **_):
+                raise RuntimeError("store offline")
+
+        evaluator = HaPolicyEvaluator(lambda: {}, policy_registry_store=_BrokenStore())
+        results = evaluator.evaluate()
+        self.assertEqual(len(_BUILTIN_POLICIES), len(results))
+
+    def test_registry_policy_with_invalid_rule_returns_unavailable(self) -> None:
+        record = _make_record("bad_rule", {"rule_kind": "exec_python", "code": "bad"})
+        store = _FakeRegistryStore([record])
+        evaluator = HaPolicyEvaluator(lambda: {}, policy_registry_store=store)
+        results = evaluator.evaluate()
+        reg = next(r for r in results if r.id == "bad_rule")
+        self.assertEqual("unavailable", reg.verdict)
+
+
+class DeclarativeRuleEvaluationTests(unittest.TestCase):
+    _NOW = datetime.now(UTC)
+
+    def test_publication_value_comparison_breach(self) -> None:
+        rule = {"rule_kind": "publication_value_comparison", "publication_key": "monthly_cashflow", "field_name": "net", "operator": "lt", "threshold": 0}
+        ctx = {"publication_monthly_cashflow": [{"net": "-500"}]}
+        verdict, value = _evaluate_declarative_rule(rule, ctx, self._NOW, None)
+        self.assertEqual("breach", verdict)
+
+    def test_publication_value_comparison_ok(self) -> None:
+        # operator "lt 0" is the breach condition; net=1200 does not breach it
+        rule = {"rule_kind": "publication_value_comparison", "publication_key": "monthly_cashflow", "field_name": "net", "operator": "lt", "threshold": 0}
+        ctx = {"publication_monthly_cashflow": [{"net": "1200"}]}
+        verdict, value = _evaluate_declarative_rule(rule, ctx, self._NOW, None)
+        self.assertEqual("ok", verdict)
+
+    def test_publication_value_comparison_missing_data_unavailable(self) -> None:
+        rule = {"rule_kind": "publication_value_comparison", "publication_key": "monthly_cashflow", "field_name": "net", "operator": "lt", "threshold": 0}
+        verdict, _ = _evaluate_declarative_rule(rule, {}, self._NOW, None)
+        self.assertEqual("unavailable", verdict)
+
+    def test_ha_helper_state_eq_ok(self) -> None:
+        rule = {"rule_kind": "ha_helper_state_comparison", "entity_id": "input_boolean.kitchen", "operator": "eq", "expected_value": "on"}
+        ctx = {"ha_entities": [{"entity_id": "input_boolean.kitchen", "state": "on"}]}
+        verdict, value = _evaluate_declarative_rule(rule, ctx, self._NOW, None)
+        self.assertEqual("ok", verdict)
+        self.assertEqual("on", value)
+
+    def test_ha_helper_state_eq_breach(self) -> None:
+        rule = {"rule_kind": "ha_helper_state_comparison", "entity_id": "input_boolean.kitchen", "operator": "eq", "expected_value": "on"}
+        ctx = {"ha_entities": [{"entity_id": "input_boolean.kitchen", "state": "off"}]}
+        verdict, _ = _evaluate_declarative_rule(rule, ctx, self._NOW, None)
+        self.assertEqual("breach", verdict)
+
+    def test_ha_helper_entity_missing_unavailable(self) -> None:
+        rule = {"rule_kind": "ha_helper_state_comparison", "entity_id": "input_boolean.kitchen", "operator": "eq", "expected_value": "on"}
+        verdict, _ = _evaluate_declarative_rule(rule, {"ha_entities": []}, self._NOW, None)
+        self.assertEqual("unavailable", verdict)
+
+    def test_freshness_comparison_no_store_unavailable(self) -> None:
+        rule = {"rule_kind": "publication_freshness_comparison", "publication_key": "monthly_cashflow", "operator": "lt", "threshold_hours": 48.0}
+        verdict, _ = _evaluate_declarative_rule(rule, {}, self._NOW, None)
+        self.assertEqual("unavailable", verdict)
+
+    def test_unknown_rule_kind_unavailable(self) -> None:
+        verdict, _ = _evaluate_declarative_rule({"rule_kind": "exec_python"}, {}, self._NOW, None)
+        self.assertEqual("unavailable", verdict)
