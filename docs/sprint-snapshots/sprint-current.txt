@@ -1,37 +1,30 @@
-SPRINT: confidence-export-seam — Batch B: Publication Confidence Plumbing  [closed]
+SPRINT: boring-first-run-pass — Fresh-User Product Spine Repair  [active]
 Goal:   
-Dates:  2026-04-23 to 2026-05-07
-ID:     63
-Items:  12 total — 12 done, 0 active, 0 pending, 0 blocked
+Dates:  2026-04-24 to 2026-05-08
+ID:     65
+Items:  8 total — 8 done, 0 active, 0 pending, 0 blocked
 
---- Track: plumbing ---
-  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #402  B1 (XS): Attach AppContainer to FastAPI app in apps/api/app.py — wire app.container so export_contracts.py enrichment picks up control-plane, regenerate publication-contracts.json/ts with confidence fields populated  (assignee: -)
-  [done    ] #403  B2 (XS): Test: export_contracts end-to-end with pre-seeded snapshot asserts non-null confidence_verdict, freshness_state, assessed_at, completeness_pct in generated artifact  (assignee: -)
-  [done    ] #404  B3 (S): Integration test: TransformationService.refresh_publications hook → snapshot stored → /control/confidence API returns correct verdict (hook path only, no direct snapshot inserts)  (assignee: -)
-
---- Track: remediation ---
+--- Track: wip-triage ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #405  B4 (S): Fix review blockers — lock lowercase casing for confidence fields, move get_latest_publication_confidence to platform layer, remove .lower() normalisation from pipeline test  (assignee: -)
+  [done    ] #419  Baseline WIP triage: classify 10 uncommitted files, keep aligned hunks, revert/park unrelated, record provenance  (assignee: -)
 
---- Track: advisory-remediation ---
-  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #406  B5 (XS): Move app.container to app.state.container — use FastAPI-idiomatic state attachment, update export_contracts.py guard to match  (assignee: -)
-  [done    ] #407  B6 (XS): Document completeness_pct binary semantics — update field description in PublicationConfidenceSnapshot and publication_confidence_service to say current binary (0 or 100) is intentional/temporary, add TODO for real proportional calculation  (assignee: -)
-  [done    ] #408  B7 (XS): Add catalog_schema_version to build_publication_contract_catalog output and document confidence metadata as new shared semantic surface in semantic-contracts.md  (assignee: -)
-  [done    ] #409  B8 (XS): Extract control_plane_store fixture and build_test_catalog helper in test_export_confidence_enrichment.py — remove repeated 7-line setup block across 3 of 4 tests  (assignee: -)
-
---- Track: ci-hygiene ---
+--- Track: walkthrough-truth ---
   health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #412  B11 (S): Add scheduled/manual full-suite CI workflow and update gate language to distinguish PR verify-fast from background full verification  (assignee: -)
-  [done    ] #413  B12 (XS): Replace full-suite CI wording with operator-run guidance and drop added full-verify workflow/test  (assignee: -)
+  [done    ] #420  Generated 'Demo bundle machine reference' section in operator-walkthrough.md, sourced from manifest.json + journey.json, with CI drift test  (assignee: -)
+  [done    ] #421  Demo journey verification pytest: artifact IDs, file paths, supported_now routability, PublicationDefinition coverage  (assignee: -)
 
---- Track: docs-hygiene ---
+--- Track: golden-path ---
+  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #422  Retire /ingest/utility-bills, /upload/budgets, /upload/loan-repayments from walkthrough + onboarding; route through configured-CSV; label domain services as dev/demo shortcuts  (assignee: -)
+  [done    ] #426  docs/product/golden-ingestion-and-publication-track.md describing blessed path; docstring labels on non-golden worker CLI + domain services  (assignee: -)
+
+--- Track: freshness-unify ---
+  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #423  Unified SourceFreshnessView DTO; /control/source-freshness calls evaluate_source_freshness at source-asset grain; /sources + confidence snapshots consume it  (assignee: -)
+  [done    ] #424  /onboarding drops diffDays<7 rule; status pills derived from unified DTO backend freshness state  (assignee: -)
+
+--- Track: first-run-entry ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #411  B10 (XS): Refresh AGENTS.md and CLAUDE.md migration-state tables and stale anchor date for publication-confidence migrations  (assignee: -)
+  [done    ] #425  make first-run target (demo-generate + compose up + seed + print onboarding URL); README top-of-file one-liner above architecture prose  (assignee: -)
 
---- Track: hygiene ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #410  B9 (XS): Remove committed apps/web/node_modules symlink and add repository contract test forbidding symlinks that escape the repo  (assignee: -)
-
-Rendered: 2026-04-24T07:38:16Z
+Rendered: 2026-04-25T04:56:45Z
