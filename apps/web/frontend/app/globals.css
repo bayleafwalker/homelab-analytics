@@ -288,6 +288,11 @@ th {
   background: rgba(201, 106, 61, 0.14);
 }
 
+.status-unconfigured {
+  color: var(--muted);
+  background: rgba(95, 110, 117, 0.12);
+}
+
 .issue {
   color: var(--warn);
   font-size: 0.82rem;

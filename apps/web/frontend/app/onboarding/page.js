@@ -186,6 +186,9 @@ export default async function OnboardingPage() {
                   if (state === "current") {
                     pillClass = "status-landed";
                     pillLabel = "active";
+                  } else if (state === "unconfigured") {
+                    pillClass = "status-unconfigured";
+                    pillLabel = "unconfigured";
                   } else if (state === "overdue" || state === "missing_period" || state === "parse_failed") {
                     pillClass = "status-failed";
                     pillLabel = state === "overdue" ? "overdue" : state === "missing_period" ? "missing" : "failed";
