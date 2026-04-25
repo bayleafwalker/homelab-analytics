@@ -1,30 +1,23 @@
-SPRINT: boring-first-run-pass — Fresh-User Product Spine Repair  [active]
+SPRINT: finish-pass-followthrough — Post-Sprint Closure and Debt Registration  [active]
 Goal:   
-Dates:  2026-04-24 to 2026-05-08
-ID:     65
-Items:  8 total — 8 done, 0 active, 0 pending, 0 blocked
+Dates:  2026-04-25 to 2026-05-09
+ID:     66
+Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
 
---- Track: wip-triage ---
+--- Track: pack-coverage ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #419  Baseline WIP triage: classify 10 uncommitted files, keep aligned hunks, revert/park unrelated, record provenance  (assignee: -)
+  [done    ] #427  Add PublicationDefinition entries to FINANCE_PACK for budget_variance and loan_overview; update CI assertion from 'gap is steps 7+8' to covered  (assignee: -)
 
---- Track: walkthrough-truth ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #420  Generated 'Demo bundle machine reference' section in operator-walkthrough.md, sourced from manifest.json + journey.json, with CI drift test  (assignee: -)
-  [done    ] #421  Demo journey verification pytest: artifact IDs, file paths, supported_now routability, PublicationDefinition coverage  (assignee: -)
-
---- Track: golden-path ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #422  Retire /ingest/utility-bills, /upload/budgets, /upload/loan-repayments from walkthrough + onboarding; route through configured-CSV; label domain services as dev/demo shortcuts  (assignee: -)
-  [done    ] #426  docs/product/golden-ingestion-and-publication-track.md describing blessed path; docstring labels on non-golden worker CLI + domain services  (assignee: -)
-
---- Track: freshness-unify ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #423  Unified SourceFreshnessView DTO; /control/source-freshness calls evaluate_source_freshness at source-asset grain; /sources + confidence snapshots consume it  (assignee: -)
-  [done    ] #424  /onboarding drops diffDays<7 rule; status pills derived from unified DTO backend freshness state  (assignee: -)
-
---- Track: first-run-entry ---
+--- Track: freshness-ux ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #425  make first-run target (demo-generate + compose up + seed + print onboarding URL); README top-of-file one-liner above architecture prose  (assignee: -)
+  [done    ] #428  Onboarding: render unconfigured sources with distinct 'unconfigured' pill state, not fallback to needed/optional  (assignee: -)
 
-Rendered: 2026-04-25T04:56:45Z
+--- Track: deprecation ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #429  Add HTTP Deprecation header + log warning to /ingest/subscriptions and /ingest/contract-prices; register removal backlog item  (assignee: -)
+
+--- Track: data-validity ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #430  Add demo bundle data validity tests: schema/shape assertions on infra/examples/demo-data files; format-level not value-pinning  (assignee: -)
+
+Rendered: 2026-04-25T05:57:32Z
