@@ -1,8 +1,10 @@
 # homelab-analytics
 
-Self-hosted household operating platform for ingesting heterogeneous personal datasets, normalizing them into reusable canonical models, and publishing household operating views through dashboards, APIs, and automation surfaces.
+Self-hosted household operating platform for ingesting heterogeneous personal datasets, normalizing them into reusable canonical models, and publishing household operating views through `/reports`, APIs, and automation surfaces.
 
 The platform answers recurring household questions about money, utilities, and infrastructure operations through a composable Household Operating Picture built on explicit bronze/silver/gold data boundaries, canonical facts and dimensions, and stable publication contracts.
+
+**Get started:** `make first-run` — builds images, starts services, seeds demo data, and prints the onboarding URL.
 
 This is not a Home Assistant add-on. Home Assistant is a first-class integration partner: it is the edge runtime, device hub, family-facing operational UI, and primary actuation surface. This platform provides what a HA add-on cannot — canonical cross-domain household semantics spanning finance, utilities, assets, contracts, loans, and homelab telemetry; long-horizon history; planning, simulation, and policy evaluation logic; trust and lineage; and multi-surface publishing. Platform outputs flow back to HA as synthetic entities for visualization, voice responses, and automation triggers. See `docs/product/homeassistant-and-smart-home-hub.md` for the product boundary and `docs/architecture/homeassistant-integration-hub.md` for the integration architecture.
 
@@ -49,6 +51,7 @@ Stage 2 is complete. Stage 3 is partially complete. Stage 4 is partially complet
 
 - Four built-in capability packs: finance, utilities, homelab, and cross-domain overview
 - Stable publication-backed operating views across cashflow, planning, utility, homelab, and overview questions
+- Stable monthly finance read surface at `/reports` for monthly cashflow, budget variance, loan overview, and expense-shock follow-through
 - Full data pipeline: landing (bronze) → transformation (silver) → reporting (gold)
 - Budget vs Reality: per-category budget targets against actual spend with variance and utilisation tracking
 - Debt and Cost Truth: amortization engine, loan schedule projection, repayment variance, and balance estimates
@@ -59,8 +62,8 @@ Stage 2 is complete. Stage 3 is partially complete. Stage 4 is partially complet
 - SCD Type 2 dimensions with current-dimension reporting views
 - Authentication: OIDC-first external identity, app-local authorization, scoped service tokens, and narrow local break-glass fallback
 - FastAPI-based REST API with Prometheus metrics and structured JSON logging
-- Next.js web shell with dashboard, budgets, loans, costs, upload, and control-plane admin
-- Source freshness operator view: staleness indicators and quick-action upload links
+- Next.js web shell with `/reports`, budgets, loans, costs, upload, and control-plane admin
+- Source freshness and remediation surfaces: `/sources` and `/runs` expose staleness, retry, and quick-action upload links
 - Worker CLI with schedule dispatch, lease renewal, and stale-dispatch recovery
 - Docker Compose and Helm/Kubernetes deployment paths
 - Extension model for external connectors, transformations, and marts

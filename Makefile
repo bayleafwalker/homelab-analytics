@@ -41,7 +41,7 @@ export SPRINTCTL_INSTANCE_ID SPRINTCTL_RUNTIME_SESSION_ID CODEX_THREAD_ID
 	docker-build compose-smoke audit-deps db-migrate-sqlite db-migrate-postgres \
 	db-migrate-postgres-control-plane db-migrate-postgres-run-metadata \
 	web-codegen web-codegen-check web-token-check web-typecheck web-contracts-check web-build demo-generate demo-seed \
-	web-ui-test \
+	web-ui-test first-run \
 	contract-export-check contract-compat-report contract-release-artifacts \
 	sprint-resume claim-recover claim-heartbeat item-verify-auth snapshot-refresh knowledge-publish
 
@@ -143,6 +143,30 @@ demo-generate:
 
 demo-seed:
 	$(PYTHON) -m apps.worker.main seed-demo-data --input-dir infra/examples/demo-data
+
+first-run:
+	@set -euo pipefail; \
+	if ! docker image inspect $(APP_IMAGE) >/dev/null 2>&1 || ! docker image inspect $(WEB_IMAGE) >/dev/null 2>&1; then \
+		$(MAKE) docker-build; \
+	fi; \
+	docker compose -f $(COMPOSE_FILE) up -d api web; \
+	echo "Waiting for API..."; \
+	for attempt in $$(seq 1 30); do \
+		if curl -fsS http://127.0.0.1:8080/health >/dev/null 2>&1; then break; fi; \
+		if [ "$$attempt" -eq 30 ]; then echo "API did not become ready"; exit 1; fi; \
+		sleep 2; \
+	done; \
+	echo "Waiting for web..."; \
+	for attempt in $$(seq 1 30); do \
+		if curl -fsS http://127.0.0.1:8081/health >/dev/null 2>&1; then break; fi; \
+		if [ "$$attempt" -eq 30 ]; then echo "Web did not become ready"; exit 1; fi; \
+		sleep 2; \
+	done; \
+	docker compose -f $(COMPOSE_FILE) --profile worker run --rm \
+		--volume "$$(pwd)/infra/examples/demo-data:/demo-data:ro" \
+		worker seed-demo-data --input-dir /demo-data; \
+	echo ""; \
+	echo "Ready. Open: http://localhost:8081/onboarding"
 
 helm-lint:
 	helm lint charts/homelab-analytics
