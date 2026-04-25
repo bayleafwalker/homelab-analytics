@@ -891,6 +891,7 @@ class ControlPlaneAdminStore(
     PublicationAuditStore,
     PublicationConfidenceSnapshotStore,
     AuthAuditStore,
+    PolicyRegistryStore,
     Protocol,
 ):
     ...

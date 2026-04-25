@@ -23,6 +23,7 @@ from apps.api.routes.category_routes import register_category_routes
 from apps.api.routes.config_routes import register_config_routes
 from apps.api.routes.contract_routes import register_contract_routes
 from apps.api.routes.control_routes import register_control_routes
+from apps.api.routes.policy_routes import register_policy_routes
 from apps.api.routes.control_terminal_routes import register_control_terminal_routes
 from apps.api.routes.ha_routes import register_ha_routes
 from apps.api.routes.homelab_routes import register_homelab_routes
@@ -595,6 +596,10 @@ def create_app(
         app,
         capability_packs=container.capability_packs,
         extension_registry=container.extension_registry,
+    )
+    register_policy_routes(
+        app,
+        resolved_config_repository=resolved_config_repository,
     )
     register_control_routes(
         app,

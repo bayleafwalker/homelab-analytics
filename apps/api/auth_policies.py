@@ -16,6 +16,8 @@ from packages.platform.auth.permission_registry import (
     PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE,
     PERMISSION_CONTROL_CONFIG_READ,
     PERMISSION_CONTROL_CONFIG_WRITE,
+    PERMISSION_CONTROL_POLICY_READ,
+    PERMISSION_CONTROL_POLICY_WRITE,
     PERMISSION_CONTROL_PUBLICATION_AUDIT_READ,
     PERMISSION_CONTROL_SCHEDULE_DISPATCHES_READ,
     PERMISSION_CONTROL_SCHEDULE_DISPATCHES_WRITE,
@@ -770,6 +772,20 @@ API_ROUTE_POLICY_CATALOG: tuple[RoutePolicy, ...] = (
             role=_config_request_role,
             permission=_config_request_permission,
             scope=lambda context: SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
+        ),
+    ),
+    RoutePolicy(
+        exact_paths=("/control/policies",),
+        prefix_paths=("/control/policies/",),
+        path_decision=_static_decision(
+            role=UserRole.ADMIN,
+            permission=PERMISSION_CONTROL_POLICY_READ,
+            scope=SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
+        ),
+        request_decision=lambda context: (
+            PERMISSION_CONTROL_POLICY_READ
+            if context.method in ("GET", "HEAD")
+            else PERMISSION_CONTROL_POLICY_WRITE
         ),
     ),
     RoutePolicy(
