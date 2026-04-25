@@ -55,6 +55,10 @@ from packages.adapters.export_renderer import EXPORT_RENDERER_MANIFEST
 from packages.adapters.ha_adapters import HA_ADAPTER_PACK
 from packages.adapters.prometheus_adapter import PROMETHEUS_ADAPTER_PACK
 from packages.adapters.registry import AdapterRegistry
+from packages.application.use_cases.run_management import (
+    build_run_detail,
+    load_run_manifest_and_context as _uc_load_run_manifest_and_context,
+)
 from packages.application.use_cases.run_recovery import build_run_recovery
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
@@ -73,11 +77,7 @@ from packages.pipelines.reporting_service import (
     ReportingService,
     publish_promotion_reporting,
 )
-from packages.pipelines.run_context import (
-    RunControlContext,
-    read_run_manifest,
-    run_context_from_manifest,
-)
+from packages.pipelines.run_context import RunControlContext
 from packages.platform.auth.break_glass import BreakGlassController
 from packages.platform.auth.machine_jwt_provider import MachineJwtProvider
 from packages.platform.auth.oidc_provider import OidcProvider
@@ -163,16 +163,7 @@ def _load_run_manifest_and_context(
     blob_store: Any,
     logger: logging.Logger,
 ) -> tuple[dict[str, Any] | None, RunControlContext | None]:
-    """Read a run's manifest from blob storage and parse its control context."""
-    try:
-        manifest = read_run_manifest(blob_store, run.manifest_path)
-    except (KeyError, OSError, ValueError) as exc:
-        logger.warning(
-            "run manifest unavailable",
-            extra={"run_id": run.run_id, "manifest_path": run.manifest_path, "error": str(exc)},
-        )
-        return None, None
-    return manifest, run_context_from_manifest(manifest)
+    return _uc_load_run_manifest_and_context(run, blob_store=blob_store, logger=logger)
 
 
 def _build_run_recovery_payload(
@@ -509,30 +500,14 @@ def create_app(
         return _load_run_manifest_and_context(run, blob_store=container.blob_store, logger=logger)
 
     def serialize_run_detail(run: IngestionRunRecord) -> dict[str, Any]:
-        _, context = load_run_manifest_and_context(run)
-        recovery = _build_run_recovery_payload(
+        return build_run_detail(
             run,
-            context,
+            blob_store=container.blob_store,
             has_subscription_service=resolved_subscription_service is not None,
             has_contract_price_service=resolved_contract_price_service is not None,
-        )
-        has_binding = context is not None and (
-            context.source_asset_id is not None
-            or (
-                context.source_system_id is not None
-                and context.dataset_contract_id is not None
-                and context.column_mapping_id is not None
-            )
-        )
-        return serialize_run(
-            run,
-            context=context,
-            recovery=recovery,
-            remediation=build_run_remediation(
-                run,
-                recovery=recovery,
-                has_source_asset_binding=has_binding,
-            ),
+            serialize_run_fn=serialize_run,
+            build_run_remediation_fn=build_run_remediation,
+            logger=logger,
         )
 
     register_auth_middleware(
@@ -585,7 +560,6 @@ def create_app(
         configured_ingestion_service=configured_ingestion_service,
         resolved_config_repository=resolved_config_repository,
         transformation_service=transformation_service,
-        resolved_reporting_service=reporting_service,
         subscription_service=resolved_subscription_service,
         contract_price_service=resolved_contract_price_service,
         registry=container.extension_registry,
@@ -600,7 +574,6 @@ def create_app(
         serialize_run=serialize_run,
         serialize_run_detail=serialize_run_detail,
         build_run_response=build_run_response,
-        build_ingest_response=build_ingest_response,
         publish_reporting=publish_reporting,
     )
     register_config_routes(

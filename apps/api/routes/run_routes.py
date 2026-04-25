@@ -7,18 +7,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
 from apps.api.response_models import RunMutationResponseModel
-from packages.application.use_cases.ingest_promotion import (
-    promote_and_publish_configured_csv,
-    promote_and_publish_contract_prices,
-    promote_and_publish_subscription,
-)
+from packages.application.use_cases.run_management import retry_ingest_run
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
 from packages.pipelines.promotion import PromotionResult
 from packages.pipelines.promotion_registry import PromotionHandlerRegistry
-from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.run_context import merge_run_context
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.extensions import ExtensionRegistry
@@ -33,7 +28,6 @@ def register_run_routes(
     configured_ingestion_service: ConfiguredCsvIngestionService,
     resolved_config_repository: ConfigCatalogStore,
     transformation_service: TransformationService | None,
-    resolved_reporting_service: ReportingService | None,
     subscription_service: SubscriptionService | None,
     contract_price_service: ContractPriceService | None,
     registry: ExtensionRegistry,
@@ -43,7 +37,6 @@ def register_run_routes(
     serialize_run: Callable[..., dict[str, Any]],
     serialize_run_detail: Callable[[IngestionRunRecord], dict[str, Any]],
     build_run_response: Callable[..., JSONResponse],
-    build_ingest_response: Callable[..., JSONResponse],
     publish_reporting: Callable[[PromotionResult | None], None],
 ) -> None:
     @app.get("/runs")
@@ -102,8 +95,9 @@ def register_run_routes(
 
         retry_context = merge_run_context(context, retry_of_run_id=original_run.run_id)
         retry_kind = recovery["retry_kind"]
-        promotion: PromotionResult | None = None
 
+        # Source asset validation for configured_csv stays in the route (raises HTTPException).
+        source_asset = None
         if retry_kind == "configured_csv":
             assert context is not None
             if (
@@ -115,7 +109,6 @@ def register_run_routes(
                     status_code=400,
                     detail="Configured retry is missing required binding context.",
                 )
-            source_asset = None
             if context.source_asset_id is not None:
                 source_asset = resolved_config_repository.get_source_asset(context.source_asset_id)
                 if source_asset.archived:
@@ -129,79 +122,20 @@ def register_run_routes(
                         detail=f"Source asset is disabled: {source_asset.source_asset_id}",
                     )
 
-            retried_run = configured_ingestion_service.ingest_bytes(
-                source_bytes=source_bytes,
-                file_name=original_run.file_name,
-                source_system_id=context.source_system_id,
-                dataset_contract_id=context.dataset_contract_id,
-                column_mapping_id=context.column_mapping_id,
-                source_asset_id=context.source_asset_id,
-                ingestion_definition_id=context.ingestion_definition_id,
-                source_name=original_run.source_name,
-                run_context=retry_context,
-            )
-            if retried_run.passed:
-                promotion = promote_and_publish_configured_csv(
-                    retried_run.run_id,
-                    source_asset=source_asset,
-                    config_repository=resolved_config_repository,
-                    service=configured_ingestion_service,
-                    transformation_service=transformation_service,
-                    registry=registry,
-                    promotion_handler_registry=promotion_handler_registry,
-                    publish_reporting=publish_reporting,
-                    source_system_id=context.source_system_id,
-                    dataset_contract_id=context.dataset_contract_id,
-                    column_mapping_id=context.column_mapping_id,
-                )
-            return build_run_response(retried_run, promotion=promotion)
-
-        if retry_kind == "account_transactions":
-            retried_run = service.ingest_bytes(
-                source_bytes=source_bytes,
-                file_name=original_run.file_name,
-                source_name=original_run.source_name,
-                run_context=retry_context,
-            )
-            return build_ingest_response(
-                retried_run,
-                service,
-                transformation_service,
-                resolved_reporting_service,
-            )
-
-        if retry_kind == "subscriptions":
-            assert subscription_service is not None
-            retried_run = subscription_service.ingest_bytes(
-                source_bytes=source_bytes,
-                file_name=original_run.file_name,
-                source_name=original_run.source_name,
-                run_context=retry_context,
-            )
-            if retried_run.passed:
-                promotion = promote_and_publish_subscription(
-                    retried_run.run_id,
-                    subscription_service=subscription_service,
-                    transformation_service=transformation_service,
-                    publish_reporting=publish_reporting,
-                )
-            return build_run_response(retried_run, promotion=promotion)
-
-        if retry_kind == "contract_prices":
-            assert contract_price_service is not None
-            retried_run = contract_price_service.ingest_bytes(
-                source_bytes=source_bytes,
-                file_name=original_run.file_name,
-                source_name=original_run.source_name,
-                run_context=retry_context,
-            )
-            if retried_run.passed:
-                promotion = promote_and_publish_contract_prices(
-                    retried_run.run_id,
-                    contract_price_service=contract_price_service,
-                    transformation_service=transformation_service,
-                    publish_reporting=publish_reporting,
-                )
-            return build_run_response(retried_run, promotion=promotion)
-
-        raise HTTPException(status_code=400, detail="Run retry is not supported.")
+        retried_run, promotion = retry_ingest_run(
+            original_run,
+            retry_kind,
+            source_bytes,
+            retry_context,
+            service=service,
+            configured_ingestion_service=configured_ingestion_service,
+            subscription_service=subscription_service,
+            contract_price_service=contract_price_service,
+            config_repository=resolved_config_repository,
+            source_asset=source_asset,
+            transformation_service=transformation_service,
+            registry=registry,
+            promotion_handler_registry=promotion_handler_registry,
+            publish_reporting=publish_reporting,
+        )
+        return build_run_response(retried_run, promotion=promotion)
