@@ -62,8 +62,8 @@ export default async function IngestSummaryPage({ params }) {
           <Link className="ghostButton" href="/sources">
             Source freshness
           </Link>
-          <Link className="ghostButton" href="/">
-            Dashboard
+          <Link className="ghostButton" href="/reports">
+            Monthly finance
           </Link>
         </div>
 
@@ -163,8 +163,8 @@ export default async function IngestSummaryPage({ params }) {
                 </div>
               )}
               <div style={{ marginTop: "12px" }}>
-                <Link className="inlineLink" href="/">
-                  Full dashboard
+                <Link className="inlineLink" href="/reports#expense-shock">
+                  Open monthly finance
                 </Link>
               </div>
             </article>
@@ -207,8 +207,8 @@ export default async function IngestSummaryPage({ params }) {
                   ))}
                 </div>
                 <div style={{ marginTop: "12px" }}>
-                  <Link className="inlineLink" href="/">
-                    Dashboard
+                  <Link className="inlineLink" href="/reports#expense-shock">
+                    Expense shock handoff
                   </Link>
                 </div>
               </article>
@@ -253,6 +253,9 @@ export default async function IngestSummaryPage({ params }) {
           </Link>
           <Link className="ghostButton" href="/sources">
             Source freshness
+          </Link>
+          <Link className="ghostButton" href="/reports#expense-shock">
+            Expense shock handoff
           </Link>
           <Link className="ghostButton" href="/onboarding">
             Onboarding

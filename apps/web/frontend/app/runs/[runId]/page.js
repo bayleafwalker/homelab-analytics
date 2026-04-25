@@ -17,9 +17,9 @@ const DATASET_UPLOAD_PATH = Object.fromEntries(
 function noticeCopy(notice) {
   switch (notice) {
     case "upload-created":
-      return "Upload received. Review validation, lineage, and publication state below.";
+      return "Upload received. Review validation, lineage, and source remediation below.";
     case "retry-created":
-      return "Retry landed successfully. Review the new run context and downstream state below.";
+      return "Retry landed successfully. Review the new run context and source freshness signals below.";
     default:
       return "";
   }
@@ -28,7 +28,7 @@ function noticeCopy(notice) {
 function errorCopy(error) {
   switch (error) {
     case "retry-failed":
-      return "Could not retry this run. Check the saved binding context and source-asset state.";
+      return "Could not retry this run. Check the saved binding context and source freshness state.";
     default:
       return "";
   }
@@ -66,7 +66,7 @@ export default async function RunDetailPage({ params, searchParams }) {
       user={user}
       title="Run Detail"
       eyebrow="Reader Access"
-      lede="Run detail stays API-backed so operators can inspect validation, transformation lineage, publication outcomes, and retry context without exposing warehouse internals in the web workload."
+      lede="Run detail stays API-backed so operators can inspect validation, transformation lineage, and retry context. Source freshness remediation belongs on /sources, while publication trust stays in reporting surfaces."
     >
       <section className="stack">
         {notice ? <div className="successBanner">{notice}</div> : null}

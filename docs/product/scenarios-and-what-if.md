@@ -55,7 +55,20 @@ The highest-value scenario type. The amortization engine already exists; this wr
 
 ---
 
-### 3. Utility tariff shock
+### 3. Expense shock
+
+**Questions it answers:**
+- "If household expenses rise by 10%, what happens to monthly cashflow?"
+- "How long until the projected expense change pushes the budget negative?"
+
+**Operator workflow:**
+1. Navigate to `/reports` and open the expense shock handoff from the monthly finance surface.
+2. Enter a percentage expense change and optional label.
+3. Review baseline monthly expense, projected monthly expense, annual additional cost, and cashflow baseline/projected/delta rows.
+
+---
+
+### 4. Utility tariff shock
 
 **Questions it answers:**
 - "If electricity unit rate increases by 30%, what is the annual impact?"
@@ -69,7 +82,7 @@ The highest-value scenario type. The amortization engine already exists; this wr
 
 ---
 
-### 4. Homelab cost/benefit
+### 5. Homelab cost/benefit
 
 **Questions it answers:**
 - "If I change the monthly cost of the homelab stack, how does the value loop shift?"

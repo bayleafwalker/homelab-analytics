@@ -63,6 +63,7 @@ def _serialize_promotion_payload(promotion: PromotionResult) -> dict[str, object
 
 
 def handle_ingest_account_transactions(args: Namespace, runtime: WorkerRuntime) -> int:
+    # Dev/demo shortcut. Operator path is ingest-configured-csv.
     run = runtime.service.ingest_file(
         Path(args.source_path),
         source_name=args.source_name,

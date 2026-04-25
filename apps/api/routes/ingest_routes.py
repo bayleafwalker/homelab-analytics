@@ -177,6 +177,7 @@ def register_ingest_routes(
 
     @app.post("/ingest", status_code=201)
     async def ingest_account_transactions(request: Request) -> JSONResponse:
+        # Dev/demo shortcut. Operator path is /upload → /ingest/configured-csv.
         return await _handle_account_transaction_ingest(
             request,
             service=service,
@@ -263,6 +264,7 @@ def register_ingest_routes(
 
     @app.post("/ingest/account-transactions", status_code=201)
     async def ingest_account_transactions_alias(request: Request) -> JSONResponse:
+        # Dev/demo shortcut. Operator path is /upload → /ingest/configured-csv.
         return await _handle_account_transaction_ingest(
             request,
             service=service,
@@ -400,6 +402,7 @@ def register_ingest_routes(
 
     @app.post("/ingest/subscriptions", status_code=201)
     async def ingest_subscriptions(request: Request) -> JSONResponse:
+        # Dev/demo shortcut. Operator path is /upload → /ingest/configured-csv.
         if subscription_service is None:
             raise KeyError("subscription ingestion is not configured")
         content_type = request.headers.get("content-type", "")
@@ -440,6 +443,7 @@ def register_ingest_routes(
 
     @app.post("/ingest/contract-prices", status_code=201)
     async def ingest_contract_prices(request: Request) -> JSONResponse:
+        # Dev/demo shortcut. Operator path is /upload → /ingest/configured-csv.
         if contract_price_service is None:
             raise KeyError("contract-price ingestion is not configured")
         content_type = request.headers.get("content-type", "")

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { AppShell } from "@/components/app-shell";
 import { RendererDiscovery } from "@/components/renderer-discovery";
 import { SparklineChart } from "@/components/sparkline-chart";
@@ -7,23 +9,41 @@ import {
   getAccountBalanceTrend,
   getCurrentUser,
   getMonthlyCashflow,
+  getPublicationConfidenceDetail,
   getSpendByCategoryMonthly,
   getSubscriptionSummary,
   getUtilityCostTrend,
 } from "@/lib/backend";
 import { getWebRendererDiscovery } from "@/lib/renderer-discovery";
 
+function formatConfidenceLabel(value) {
+  if (!value) return "Unknown";
+  return String(value)
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default async function ReportsPage() {
   const user = await getCurrentUser();
-  const [discovery, rows, balanceTrend, spendByCategory, subscriptions, utilityTrend] =
-    await Promise.all([
-      getWebRendererDiscovery(),
-      getMonthlyCashflow(),
-      getAccountBalanceTrend(),
-      getSpendByCategoryMonthly(),
-      getSubscriptionSummary(),
-      getUtilityCostTrend(),
-    ]);
+  const [
+    discovery,
+    rows,
+    balanceTrend,
+    spendByCategory,
+    subscriptions,
+    utilityTrend,
+    monthlyCashflowTrust,
+  ] = await Promise.all([
+    getWebRendererDiscovery(),
+    getMonthlyCashflow(),
+    getAccountBalanceTrend(),
+    getSpendByCategoryMonthly(),
+    getSubscriptionSummary(),
+    getUtilityCostTrend(),
+    getPublicationConfidenceDetail("monthly_cashflow").catch(() => null),
+  ]);
+
   const descriptorByKey = Object.fromEntries(
     discovery.reports.map((descriptor) => [descriptor.key, descriptor])
   );
@@ -60,9 +80,9 @@ export default async function ReportsPage() {
     <AppShell
       currentPath="/reports"
       user={user}
-      title="Published Reports"
-      eyebrow="Published Access"
-      lede="The web renderer discovers report views from backend-owned publication and UI descriptor contracts before it renders any page-local detail."
+      title="Monthly Finance"
+      eyebrow="Finance Read Surface"
+      lede="This is the stable monthly finance read surface. Review cashflow here first, then hand off into the expense shock scenario when you need baseline, projected, and delta outcomes."
     >
       <section className="stack">
         <RendererDiscovery
@@ -70,6 +90,42 @@ export default async function ReportsPage() {
           eyebrow="Web renderer discovery"
           descriptors={discovery.reports}
         />
+
+        {monthlyCashflowTrust && (
+          <article className="panel section">
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">Publication trust</div>
+                <h2>Monthly cashflow snapshot</h2>
+              </div>
+              <Link className="inlineLink" href="/control/confidence">
+                Open confidence view
+              </Link>
+            </div>
+            <div className="metaGrid">
+              <div className="metaItem">
+                <div className="metricLabel">Verdict</div>
+                <div>{formatConfidenceLabel(monthlyCashflowTrust.confidence_verdict)}</div>
+              </div>
+              <div className="metaItem">
+                <div className="metricLabel">Freshness</div>
+                <div>{formatConfidenceLabel(monthlyCashflowTrust.freshness_state)}</div>
+              </div>
+              <div className="metaItem">
+                <div className="metricLabel">Completeness</div>
+                <div>{monthlyCashflowTrust.completeness_pct ?? "—"}%</div>
+              </div>
+              <div className="metaItem">
+                <div className="metricLabel">Assessed</div>
+                <div>
+                  {monthlyCashflowTrust.assessed_at
+                    ? new Date(monthlyCashflowTrust.assessed_at).toLocaleString()
+                    : "—"}
+                </div>
+              </div>
+            </div>
+          </article>
+        )}
 
         <article
           id={cashflowDescriptor?.anchor || "cashflow"}
@@ -109,7 +165,14 @@ export default async function ReportsPage() {
               </table>
             </div>
           )}
+          <div style={{ marginTop: "12px" }}>
+            <Link className="inlineLink" href="#expense-shock">
+              Expense shock handoff
+            </Link>
+          </div>
         </article>
+
+        <ExpenseShockPanel />
 
         {balanceTrend.length > 0 && (
           <article
@@ -276,8 +339,17 @@ export default async function ReportsPage() {
             </div>
           </article>
         )}
+
         <IncomeScenarioPanel />
-        <ExpenseShockPanel />
+
+        <div className="buttonRow">
+          <Link className="ghostButton" href="#expense-shock">
+            Expense shock handoff
+          </Link>
+          <Link className="ghostButton" href="/control/confidence">
+            Publication confidence
+          </Link>
+        </div>
       </section>
     </AppShell>
   );

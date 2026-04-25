@@ -64,10 +64,10 @@ export function ExpenseShockPanel() {
   const isIncrease = !isNaN(pctNum) && pctNum > 0;
 
   return (
-    <article className="panel section">
+    <article id="expense-shock" className="panel section">
       <div className="sectionHeader">
         <div>
-          <div className="eyebrow">Simulation</div>
+          <div className="eyebrow">Monthly finance handoff</div>
           <h2>Expense shock what-if</h2>
         </div>
         <button
@@ -81,7 +81,7 @@ export function ExpenseShockPanel() {
 
       {!open && (
         <p className="lede">
-          Model the cashflow impact of a tariff increase, energy price spike, or general cost-of-living rise across all household expenses.
+          Start here from the monthly finance surface to model how a broad expense change moves baseline, projected, and delta cashflow outcomes.
         </p>
       )}
 

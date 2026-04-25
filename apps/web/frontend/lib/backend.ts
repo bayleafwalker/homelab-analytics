@@ -78,6 +78,8 @@ type GetOperationIdByPath = {
   "/control/auth-audit": "list_auth_audit_control_auth_audit_get";
   "/control/source-lineage": "get_source_lineage_control_source_lineage_get";
   "/control/publication-audit": "get_publication_audit_control_publication_audit_get";
+  "/control/confidence": "get_confidence_control_confidence_get";
+  "/control/confidence/{publication_key}": "get_confidence_detail_control_confidence__publication_key__get";
   "/control/schedule-dispatches": "list_schedule_dispatches_control_schedule_dispatches_get";
   "/control/schedule-dispatches/{dispatch_id}": "get_schedule_dispatch_control_schedule_dispatches__dispatch_id__get";
   "/control/operational-summary": "get_operational_summary_control_operational_summary_get";
@@ -944,6 +946,37 @@ export async function getPublicationAudit({
     }
   });
   return getResponseArray(payload, "publication_audit");
+}
+
+type PublicationConfidenceOptions = {
+  staleOnly?: QueryValue<"/control/confidence", "stale_only">;
+};
+
+export async function getPublicationConfidence({
+  staleOnly = false
+}: PublicationConfidenceOptions = {}) {
+  return backendGet("/control/confidence", {
+    params: {
+      query: definedValues({
+        stale_only: staleOnly
+      })
+    }
+  });
+}
+
+export async function getPublicationConfidenceDetail(
+  publicationKey: PathValue<
+    "/control/confidence/{publication_key}",
+    "publication_key"
+  >
+) {
+  return backendGet("/control/confidence/{publication_key}", {
+    params: {
+      path: {
+        publication_key: publicationKey
+      }
+    }
+  });
 }
 
 type ScheduleDispatchOptions = {
