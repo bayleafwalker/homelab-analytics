@@ -782,10 +782,14 @@ API_ROUTE_POLICY_CATALOG: tuple[RoutePolicy, ...] = (
             permission=PERMISSION_CONTROL_POLICY_READ,
             scope=SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
         ),
-        request_decision=lambda context: (
-            PERMISSION_CONTROL_POLICY_READ
-            if context.method in ("GET", "HEAD")
-            else PERMISSION_CONTROL_POLICY_WRITE
+        request_decision=RouteDecision(
+            role=UserRole.ADMIN,
+            permission=lambda context: (
+                PERMISSION_CONTROL_POLICY_READ
+                if (context.method or "").upper() in ("GET", "HEAD")
+                else PERMISSION_CONTROL_POLICY_WRITE
+            ),
+            scope=SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
         ),
     ),
     RoutePolicy(
