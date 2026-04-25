@@ -22,6 +22,7 @@ if TYPE_CHECKING:
         ConfiguredIngestionProcessResult,
     )
     from packages.pipelines.promotion_registry import PromotionHandlerRegistry
+    from packages.pipelines.run_context import RunControlContext
     from packages.pipelines.transformation_service import TransformationService
     from packages.shared.extensions import ExtensionRegistry
     from packages.storage.control_plane import ConfigCatalogStore
@@ -37,11 +38,13 @@ def ingest_account_transaction_bytes(
     service: "AccountTransactionService",
     transformation_service: "TransformationService | None",
     publish_reporting: PublishReporting,
+    run_context: "RunControlContext | None" = None,
 ) -> "tuple[IngestionRunRecord, PromotionResult | None]":
     run = service.ingest_bytes(
         source_bytes=source_bytes,
         file_name=file_name,
         source_name=source_name,
+        run_context=run_context,
     )
     promotion: PromotionResult | None = None
     if transformation_service is not None and run.passed:
@@ -61,8 +64,9 @@ def ingest_account_transaction_file(
     service: "AccountTransactionService",
     transformation_service: "TransformationService | None",
     publish_reporting: PublishReporting,
+    run_context: "RunControlContext | None" = None,
 ) -> "tuple[IngestionRunRecord, PromotionResult | None]":
-    run = service.ingest_file(source_path, source_name=source_name)
+    run = service.ingest_file(source_path, source_name=source_name, run_context=run_context)
     promotion: PromotionResult | None = None
     if transformation_service is not None and run.passed:
         promotion = promote_run(
@@ -90,6 +94,8 @@ def ingest_configured_csv_bytes(
     registry: "ExtensionRegistry | None",
     promotion_handler_registry: "PromotionHandlerRegistry | None",
     publish_reporting: PublishReporting,
+    ingestion_definition_id: "str | None" = None,
+    run_context: "RunControlContext | None" = None,
 ) -> "tuple[IngestionRunRecord, PromotionResult | None]":
     run = service.ingest_bytes(
         source_bytes=source_bytes,
@@ -99,6 +105,8 @@ def ingest_configured_csv_bytes(
         column_mapping_id=column_mapping_id,
         source_asset_id=source_asset_id,
         source_name=source_name,
+        ingestion_definition_id=ingestion_definition_id,
+        run_context=run_context,
     )
     promotion: PromotionResult | None = None
     if run.passed:
@@ -133,6 +141,8 @@ def ingest_configured_csv_file(
     registry: "ExtensionRegistry | None",
     promotion_handler_registry: "PromotionHandlerRegistry | None",
     publish_reporting: PublishReporting,
+    ingestion_definition_id: "str | None" = None,
+    run_context: "RunControlContext | None" = None,
 ) -> "tuple[IngestionRunRecord, PromotionResult | None]":
     run = service.ingest_file(
         source_path,
@@ -141,6 +151,8 @@ def ingest_configured_csv_file(
         column_mapping_id=column_mapping_id,
         source_asset_id=source_asset_id,
         source_name=source_name,
+        ingestion_definition_id=ingestion_definition_id,
+        run_context=run_context,
     )
     promotion: PromotionResult | None = None
     if run.passed:
@@ -168,11 +180,13 @@ def ingest_subscription_bytes(
     subscription_service: "SubscriptionService",
     transformation_service: "TransformationService | None",
     publish_reporting: PublishReporting,
+    run_context: "RunControlContext | None" = None,
 ) -> "tuple[IngestionRunRecord, PromotionResult | None]":
     run = subscription_service.ingest_bytes(
         source_bytes=source_bytes,
         file_name=file_name,
         source_name=source_name,
+        run_context=run_context,
     )
     promotion: PromotionResult | None = None
     if run.passed:
@@ -192,8 +206,9 @@ def ingest_subscription_file(
     subscription_service: "SubscriptionService",
     transformation_service: "TransformationService | None",
     publish_reporting: PublishReporting,
+    run_context: "RunControlContext | None" = None,
 ) -> "tuple[IngestionRunRecord, PromotionResult | None]":
-    run = subscription_service.ingest_file(source_path, source_name=source_name)
+    run = subscription_service.ingest_file(source_path, source_name=source_name, run_context=run_context)
     promotion: PromotionResult | None = None
     if run.passed:
         promotion = promote_and_publish_subscription(
@@ -213,11 +228,13 @@ def ingest_contract_prices_bytes(
     contract_price_service: "ContractPriceService",
     transformation_service: "TransformationService | None",
     publish_reporting: PublishReporting,
+    run_context: "RunControlContext | None" = None,
 ) -> "tuple[IngestionRunRecord, PromotionResult | None]":
     run = contract_price_service.ingest_bytes(
         source_bytes=source_bytes,
         file_name=file_name,
         source_name=source_name,
+        run_context=run_context,
     )
     promotion: PromotionResult | None = None
     if run.passed:
@@ -237,8 +254,9 @@ def ingest_contract_prices_file(
     contract_price_service: "ContractPriceService",
     transformation_service: "TransformationService | None",
     publish_reporting: PublishReporting,
+    run_context: "RunControlContext | None" = None,
 ) -> "tuple[IngestionRunRecord, PromotionResult | None]":
-    run = contract_price_service.ingest_file(source_path, source_name=source_name)
+    run = contract_price_service.ingest_file(source_path, source_name=source_name, run_context=run_context)
     promotion: PromotionResult | None = None
     if run.passed:
         promotion = promote_and_publish_contract_prices(
