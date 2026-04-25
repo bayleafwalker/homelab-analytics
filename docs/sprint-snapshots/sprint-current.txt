@@ -1,18 +1,23 @@
-SPRINT: policy-truth-boundary — Roadmap Honesty and Policy Scaffold Separation  [planned]
+SPRINT: finish-pass-followthrough — Post-Sprint Closure and Debt Registration  [closed]
 Goal:   
-Dates:  2026-05-10 to 2026-05-23
-ID:     67
-Items:  5 total — 4 done, 0 active, 1 pending, 0 blocked
+Dates:  2026-04-25 to 2026-05-09
+ID:     66
+Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
 
---- Track: roadmap-truth ---
-  health: 3 items — 2 done (66%), 0 active, 1 pending, 0 blocked (0%)
-  [done    ] #431  Change Stage 5 status from 'substantially complete' to 'scaffolded with working examples'; document what is and is not done  (assignee: -)
-  [done    ] #432  Add Stage 6 status note: current state relative to adapter extraction goal  (assignee: -)
-  [pending ] #442  Remove /ingest/subscriptions and /ingest/contract-prices (deprecated 2026-04-25, sunset 2026-08-01)  (assignee: -)
+--- Track: pack-coverage ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #427  Add PublicationDefinition entries to FINANCE_PACK for budget_variance and loan_overview; update CI assertion from 'gap is steps 7+8' to covered  (assignee: -)
 
---- Track: policy-separation ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #433  Separate ha_policy.py built-in demo policies from future operator-authored policy model; add design note for policy registry  (assignee: -)
-  [done    ] #434  Define 'policy engine done' acceptance criteria in roadmap Stage 5 section  (assignee: -)
+--- Track: freshness-ux ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #428  Onboarding: render unconfigured sources with distinct 'unconfigured' pill state, not fallback to needed/optional  (assignee: -)
 
-Rendered: 2026-04-25T06:07:04Z
+--- Track: deprecation ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #429  Add HTTP Deprecation header + log warning to /ingest/subscriptions and /ingest/contract-prices; register removal backlog item  (assignee: -)
+
+--- Track: data-validity ---
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #430  Add demo bundle data validity tests: schema/shape assertions on infra/examples/demo-data files; format-level not value-pinning  (assignee: -)
+
+Rendered: 2026-04-25T06:15:16Z
