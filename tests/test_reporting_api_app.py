@@ -506,6 +506,14 @@ class ReportingApiAppTests(unittest.TestCase):
             reporting_service.publications,
         )
         self.assertEqual(
-            [["transformation_audit"]],
+            [
+                ["transformation_audit"],
+                [
+                    "mart_current_operating_baseline",
+                    "mart_household_overview",
+                    "mart_open_attention_items",
+                    "mart_recent_significant_changes",
+                ],
+            ],
             reporting_service.auxiliary_relations,
         )
