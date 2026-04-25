@@ -2,20 +2,20 @@ SPRINT: thin-transform-facade — Use-Case Seam Completion  [active]
 Goal:   
 Dates:  2026-04-26 to 2026-05-09
 ID:     71
-Items:  5 total — 0 done, 0 active, 5 pending, 0 blocked
+Items:  5 total — 5 done, 0 active, 0 pending, 0 blocked
 
 --- Track: ingest-seam ---
-  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
-  [pending ] #443  Extract upload→ingest→promote→publish flows from ingest_routes.py into packages/application/use_cases/source_ingestion.py  (assignee: -)
-  [pending ] #444  Update ingest_routes.py to call new use-case entrypoints; remove direct packages.pipelines orchestration imports  (assignee: -)
+  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #443  Extract upload→ingest→promote→publish flows from ingest_routes.py into packages/application/use_cases/source_ingestion.py  (assignee: -)
+  [done    ] #444  Update ingest_routes.py to call new use-case entrypoints; remove direct packages.pipelines orchestration imports  (assignee: -)
 
 --- Track: run-seam ---
-  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
-  [pending ] #445  Extract serialize_run_detail and retry orchestration from app.py/run_routes.py into packages/application/use_cases/run_management.py  (assignee: -)
-  [pending ] #446  Update run_routes.py and app.py to call use-case entrypoints; remove direct pipeline sequencing  (assignee: -)
+  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #445  Extract serialize_run_detail and retry orchestration from app.py/run_routes.py into packages/application/use_cases/run_management.py  (assignee: -)
+  [done    ] #446  Update run_routes.py and app.py to call use-case entrypoints; remove direct pipeline sequencing  (assignee: -)
 
 --- Track: contract ---
-  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
-  [pending ] #447  Add architecture contract assertion for surface/orchestration boundary; add targeted unit tests for new use-case functions  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #447  Add architecture contract assertion for surface/orchestration boundary; add targeted unit tests for new use-case functions  (assignee: -)
 
-Rendered: 2026-04-25T06:42:04Z
+Rendered: 2026-04-25T12:02:26Z
