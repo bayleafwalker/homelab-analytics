@@ -248,7 +248,15 @@ Scaffolded with working examples. The HA integration infrastructure is functiona
 
 **What is not done:** The policy engine is not operator-facing. Policies are hardcoded in `ha_policy.py` as private `_PolicyDef` entries — there is no user-authored policy model, no persisted policy registry, and no rule DSL or schema for defining policies outside of Python code. The evaluation loop is working infrastructure, not a shipped policy feature.
 
-Acceptance criteria for calling Stage 5 complete must be defined before the next round of policy work begins.
+### Policy engine acceptance criteria
+
+Stage 5 is not complete until all of these are met:
+
+1. **Persisted policy registry** — a `PolicyRegistry` stores operator-authored policy definitions in the database. At least one policy can be created, updated, and deleted without editing Python source.
+2. **Rule schema** — a machine-readable schema (JSON or YAML) defines policy thresholds and conditions. The evaluator resolves rules from the schema at runtime; hardcoded thresholds exist only in built-ins, not in operator-authored policies.
+3. **CRUD API** — API endpoints for policy definition CRUD exist, are authenticated, and are covered by integration tests.
+4. **Runtime loading** — `HaPolicyEvaluator` loads from the persisted registry at evaluation time. `_BUILTIN_POLICIES` is demoted to a seeded default set that ships with the platform, not the exclusive policy source.
+5. **End-to-end verification** — at least one test covers the full path: operator creates a policy → evaluator runs it → `PolicyResult` is produced → result is published back to HA as a synthetic entity.
 
 ---
 
