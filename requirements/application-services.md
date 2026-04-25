@@ -93,7 +93,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** The primary user interaction surface. Dashboards must present derived analytics clearly.
 
 **Phase:** 2
-**Status:** in-progress (the Next.js shell now covers local login, OIDC sign-in/callback, dashboard, reporting, auth/security admin for local users and service tokens, token expiry/usage summaries, control-plane catalog edit/deactivate flows, execution-control queue actions, and filterable run views; it consumes the API only and replaces the old server-rendered Python dashboard; a parallel `/retro` CRT shell now ships as a route-scoped alternate renderer for the same reporting and control-plane APIs, with dedicated `/retro/money`, `/retro/utilities`, and `/retro/operations` detail routes in addition to the retro overview, and renderer-discovered launcher entries now deep-link into anchored sections on those retro detail pages, but broader product surface work is still pending)
+**Status:** in-progress (the Next.js shell now covers local login, OIDC sign-in/callback, dashboard, reporting, auth/security admin for local users and service tokens, token expiry/usage summaries, control-plane catalog edit/deactivate flows, execution-control queue actions, and filterable run views; it consumes the API only and replaces the old server-rendered Python dashboard; a parallel `/retro` CRT shell now ships as a route-scoped alternate renderer for the same reporting and control-plane APIs, with dedicated `/retro/money`, `/retro/utilities`, and `/retro/operations` detail routes in addition to the retro overview, and renderer-discovered launcher entries now deep-link into anchored sections on those retro detail pages, but broader product surface work is still pending; `/retro` remains experimental until the web-surface decision gate in `docs/product/retro-crt-shell.md` chooses primary, experimental, or harvest-and-freeze status)
 
 **Acceptance criteria:**
 - Dashboard pages render from reporting API data.
@@ -101,6 +101,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 - UI is responsive on desktop and tablet.
 - Built with React/Next.js (replaces current server-rendered HTML).
 - Tests verify component rendering with mock API data.
+- The default shell remains the canonical product path unless a documented web-surface decision promotes `/retro` or harvests it into the default shell.
 
 **Dependencies:** APP-03
 
@@ -298,7 +299,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Agent-heavy frontend work drifts quickly unless taste, reuse, and validation are all explicit and reviewable.
 
 **Phase:** 4
-**Status:** in-progress (the frontend now carries publish-lane contract artifacts for the default and retro shells, generated token CSS, Storybook review surfaces, MSW-backed mock scaffolding, and Playwright plus axe checks against curated stories; raw-style linting and broader story coverage still remain)
+**Status:** in-progress (the frontend now carries publish-lane contract artifacts for the default and retro shells, generated token CSS, Storybook review surfaces, MSW-backed mock scaffolding, and Playwright plus axe checks against curated stories; raw-style linting, broader story coverage, and the default-versus-retro support decision still remain)
 
 **Acceptance criteria:**
 - Each publish-lane UI direction has a repo-tracked `intent.md`, `baseline.tokens.json`, and `ui-contract.yaml`.
@@ -307,10 +308,31 @@ The platform exposes its capabilities through three application workloads: a JSO
 - Shared mock fixtures or handlers are reusable across component review and browser tests.
 - Curated browser checks cover interaction flows, screenshot baselines, and semantic/accessibility drift for stable product surfaces.
 - Draft-lane experiments are explicitly marked as draft and do not bypass publish-lane requirements when promoted.
+- Parallel shell contracts document whether each shell is primary, experimental, or frozen so publication-backed pages cannot quietly diverge.
 
 **Dependencies:** APP-05
 
 **Notes:** See `docs/product/frontend-ui-delivery-playbook.md`, `apps/web/README.md`, and `apps/web/frontend/ui-contracts/`.
+
+---
+
+### APP-17: REST API - operator-authored policy definitions
+
+**Description:** The API exposes authenticated CRUD for operator-authored policy definitions backed by a persisted policy registry, while built-in HA policy examples remain seeded defaults rather than the exclusive policy catalog.
+
+**Rationale:** Stage 5 has working policy/action plumbing, but it is not a finished operator-facing policy engine until policies can be authored and evaluated without editing Python source.
+
+**Phase:** 4
+**Status:** not-started (current `HaPolicyEvaluator` evaluates hardcoded built-in policies in `ha_policy.py`; no persisted `PolicyRegistry`, rule schema, CRUD routes, or runtime registry loading exists yet)
+
+**Acceptance criteria:**
+- Operators can create, update, disable, and delete at least one policy definition through authenticated API endpoints.
+- Policy definitions are stored in the control plane with lifecycle/provenance metadata and a versioned rule document.
+- The rule schema validates publication threshold, freshness threshold, and HA helper-state comparisons without arbitrary code execution.
+- Runtime evaluation loads enabled registry policies plus seeded built-ins and produces `PolicyResult` outputs.
+- At least one end-to-end test covers create policy -> evaluate policy -> produce `PolicyResult` -> publish the result to HA as synthetic state.
+
+**Dependencies:** APP-04, APP-14, ANA-08
 
 ---
 
@@ -334,3 +356,4 @@ The platform exposes its capabilities through three application workloads: a JSO
 | APP-14 | `apps/api/routes/ha_routes.py`, `packages/pipelines/ha_action_proposals.py`, `packages/platform/auth/permission_registry.py`, `packages/platform/auth/scope_authorization.py` | `tests/test_api_app.py`, `tests/test_api_auth.py`, `tests/test_auth_permission_registry.py`, `tests/test_ha_action_proposals.py`, `tests/test_ha_api.py`, `tests/test_ha_action_dispatcher.py` |
 | APP-15 | `apps/api/app.py`, `apps/api/response_models.py`, `apps/api/routes/assistant_routes.py`, `packages/platform/auth/scope_authorization.py` | `tests/test_api_app.py`, `tests/test_api_auth.py`, `tests/test_auth_permission_registry.py` |
 | APP-16 | `apps/web/frontend/ui-contracts/default-shell/intent.md`, `apps/web/frontend/ui-contracts/default-shell/baseline.tokens.json`, `apps/web/frontend/ui-contracts/default-shell/ui-contract.yaml`, `apps/web/frontend/ui-contracts/retro-shell/intent.md`, `apps/web/frontend/ui-contracts/retro-shell/baseline.tokens.json`, `apps/web/frontend/ui-contracts/retro-shell/ui-contract.yaml`, `apps/web/frontend/scripts/build-ui-tokens.mjs`, `apps/web/frontend/app/generated/ui-tokens.css`, `apps/web/frontend/.storybook/main.ts`, `apps/web/frontend/.storybook/preview.js`, `apps/web/frontend/stories/app-shell.stories.jsx`, `apps/web/frontend/stories/retro-shell.stories.jsx`, `apps/web/frontend/stories/sparkline-chart.stories.jsx`, `apps/web/frontend/stories/mock-status-card.stories.jsx`, `apps/web/frontend/playwright.config.js`, `apps/web/frontend/playwright/storybook-ui.spec.js` | `tests/test_web_ui_contract_tooling.py` |
+| APP-17 | `packages/domains/homelab/pipelines/ha_policy.py`, future policy registry store, future policy definition routes | future policy registry/API/e2e tests |

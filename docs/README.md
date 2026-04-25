@@ -48,6 +48,7 @@ Use these tags when adding or updating docs so kernel-vs-app ownership stays exp
 - `architecture/contract-governance.md` — stale-artifact checks, contract compatibility policy, and CI/release contract bundle workflow.
 - `architecture/publication-contracts.md` — backend-owned publication and UI descriptor contract model, semantic field metadata, renderer expectations, and generated frontend publication types.
 - `architecture/semantic-contracts.md` — shared-dimension promotion rules, publication semantic-contract expectations, and Stage 1 cross-domain governance guidance.
+- `architecture/policy-and-automation.md` — Stage 5 boundary between built-in HA policy/action examples and the unfinished operator-authored policy registry, rule schema, CRUD API, runtime evaluator, and HA publication path.
 - `architecture/homeassistant-integration-hub.md` — six-layer integration hub architecture: entity normalization bridge, bidirectional event/command fabric, synthetic entity publication model, and resilience model.
 - `architecture/ha-bridge-ingest-api.md` — implemented HA bridge landing API surface: typed payload contracts, `ha-bridge:ingest` auth boundary, canonical entity/device/area mapping targets, schema versioning, and route guardrails.
 - `architecture/integration-adapters.md` — Stage 6 adapter contract packet: `AdapterManifest`, ingest/publish/action contracts, lifecycle model, HA-as-reference mapping, and candidate external integration surfaces.
@@ -61,6 +62,7 @@ Use these tags when adding or updating docs so kernel-vs-app ownership stays exp
 - `product/source-freshness-workflow.md` — source freshness model, operator workflow, and next-action remediation guidance for manual sources.
 - `product/manual-reference-inputs.md` — operator-maintained sparse-fact pathway for loan policy, account metadata, and transaction overrides.
 - `product/homeassistant-and-smart-home-hub.md` — Home Assistant as edge runtime and actuation layer, platform's role beyond HA, integration principle, and roadmap alignment.
+- `product/retro-crt-shell.md` — route-scoped `/retro` renderer purpose, terminal scope, and the decision gate before retro becomes primary, stays experimental, or is harvested into the default shell.
 - `product/core-household-operating-picture.md` — core product definition: the Household Operating Picture, four core views (Overview, Money, Utilities, Operations), product principles, and acceptance criteria.
 - `product/initial-capability-packs-and-publications.md` — domain pack definitions, publication sets, insight types, and priority ordering for finance, utilities, homelab, and overview.
 - `product/core-product-design-workflow.md` — product design intake process and workflow.

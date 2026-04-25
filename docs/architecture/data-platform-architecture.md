@@ -474,6 +474,8 @@ Roadmap reference: Stages 3–4 in `docs/plans/household-operating-platform-road
 
 The platform should be able to act on observed state, not just report it. The policy and automation layer defines how.
 
+The current Stage 5 implementation is scaffolded with working HA examples. The architecture boundary for the unfinished operator-authored policy engine is defined in `docs/architecture/policy-and-automation.md`.
+
 Policy model:
 
 - a policy is a named rule with a condition, a threshold or comparison, and one or more actions
@@ -493,7 +495,7 @@ Safety boundary:
 - **alerting** actions notify the operator without changing system state
 - **automation** actions trigger external effects and require explicit operator approval or policy-level authorization
 
-The policy layer should treat the existing execution substrate (APIs, service tokens, schedules, worker dispatch) as its delivery mechanism rather than building a parallel execution model.
+The policy layer should treat the existing execution substrate (APIs, service tokens, schedules, worker dispatch) as its delivery mechanism rather than building a parallel execution model. Built-in policy definitions may seed examples, but operator-authored policies require a persisted registry, versioned rule schema, authenticated CRUD API, and runtime evaluator loading before Stage 5 can be considered product-complete.
 
 Roadmap reference: Stage 5 in `docs/plans/household-operating-platform-roadmap.md`.
 

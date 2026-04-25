@@ -236,7 +236,7 @@ Stage 2 operating views provide the observed state that policies evaluate. Stage
 
 ### Planned documentation
 
-- `docs/architecture/policy-and-automation.md` — policy model, action dispatch, integration surface, safety boundaries
+- `docs/architecture/policy-and-automation.md` — policy model, action dispatch, integration surface, safety boundaries, and operator-authored policy registry acceptance criteria
 - `docs/product/actions-and-alerts.md` — what the platform recommends vs. alerts vs. automates
 - `docs/plans/ha-addon-and-integration-design.md` — high-level design plan for the HA add-on (outbound bridge) and HA integration (inbound semantic surface); inputs for later implementation decomposition
 
