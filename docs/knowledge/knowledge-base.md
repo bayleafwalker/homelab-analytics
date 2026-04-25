@@ -1,7 +1,15 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-24T07:37:46Z
+Generated: 2026-04-25T12:06:52Z
 
 ## Decisions
+
+### Use-case ingest functions must expose run_context and ingestion_definition_id for retry paths
+Source: track: run-seam, sprint: 71
+Tags: use-case-seam, retry, run-context
+
+When creating use-case functions that wrap ingest service calls (e.g. ingest_configured_csv_bytes), include optional run_context and ingestion_definition_id parameters even if the primary ingest path does not use them. The retry path (run_routes.py) must pass run_context to link retried runs to their originals; configured-CSV retries also need ingestion_definition_id from the original run's manifest context. Discovered during thin-transform-facade sprint #71 item #445 when designing retry_ingest_run in run_management.py.
+
+---
 
 ### CLAUDE.md is a delta doc — point to canonical sources, do not duplicate sprint or workflow state
 Source: track: docs-hygiene, sprint: 63
