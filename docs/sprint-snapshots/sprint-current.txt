@@ -1,23 +1,21 @@
-SPRINT: finish-pass-followthrough — Post-Sprint Closure and Debt Registration  [closed]
+SPRINT: thin-transform-facade — Use-Case Seam Completion  [active]
 Goal:   
-Dates:  2026-04-25 to 2026-05-09
-ID:     66
-Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
+Dates:  2026-04-26 to 2026-05-09
+ID:     71
+Items:  5 total — 0 done, 0 active, 5 pending, 0 blocked
 
---- Track: pack-coverage ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #427  Add PublicationDefinition entries to FINANCE_PACK for budget_variance and loan_overview; update CI assertion from 'gap is steps 7+8' to covered  (assignee: -)
+--- Track: ingest-seam ---
+  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
+  [pending ] #443  Extract upload→ingest→promote→publish flows from ingest_routes.py into packages/application/use_cases/source_ingestion.py  (assignee: -)
+  [pending ] #444  Update ingest_routes.py to call new use-case entrypoints; remove direct packages.pipelines orchestration imports  (assignee: -)
 
---- Track: freshness-ux ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #428  Onboarding: render unconfigured sources with distinct 'unconfigured' pill state, not fallback to needed/optional  (assignee: -)
+--- Track: run-seam ---
+  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
+  [pending ] #445  Extract serialize_run_detail and retry orchestration from app.py/run_routes.py into packages/application/use_cases/run_management.py  (assignee: -)
+  [pending ] #446  Update run_routes.py and app.py to call use-case entrypoints; remove direct pipeline sequencing  (assignee: -)
 
---- Track: deprecation ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #429  Add HTTP Deprecation header + log warning to /ingest/subscriptions and /ingest/contract-prices; register removal backlog item  (assignee: -)
+--- Track: contract ---
+  health: 1 items — 0 done (0%), 0 active, 1 pending, 0 blocked (0%)
+  [pending ] #447  Add architecture contract assertion for surface/orchestration boundary; add targeted unit tests for new use-case functions  (assignee: -)
 
---- Track: data-validity ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #430  Add demo bundle data validity tests: schema/shape assertions on infra/examples/demo-data files; format-level not value-pinning  (assignee: -)
-
-Rendered: 2026-04-25T06:15:16Z
+Rendered: 2026-04-25T06:42:04Z
