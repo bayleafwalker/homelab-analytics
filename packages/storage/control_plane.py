@@ -189,6 +189,47 @@ class PublicationConfidenceSnapshotRecord:
 
 
 @dataclass(frozen=True)
+class PolicyDefinitionCreate:
+    policy_id: str
+    display_name: str
+    policy_kind: str
+    rule_schema_version: str
+    rule_document: str
+    enabled: bool = True
+    source_kind: str = "operator"
+    description: str | None = None
+    creator: str | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass(frozen=True)
+class PolicyDefinitionRecord:
+    policy_id: str
+    display_name: str
+    policy_kind: str
+    rule_schema_version: str
+    rule_document: str
+    enabled: bool
+    source_kind: str
+    description: str | None
+    creator: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True)
+class PolicyDefinitionUpdate:
+    display_name: str | None = None
+    description: str | None = None
+    policy_kind: str | None = None
+    rule_schema_version: str | None = None
+    rule_document: str | None = None
+    enabled: bool | None = None
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass(frozen=True)
 class AuthAuditEventCreate:
     event_id: str
     event_type: str
@@ -746,6 +787,32 @@ class PublicationConfidenceSnapshotStore(Protocol):
         publication_key: str | None = None,
         limit: int | None = None,
     ) -> list[PublicationConfidenceSnapshotRecord]:
+        ...
+
+
+class PolicyRegistryStore(Protocol):
+    def create_policy_definition(
+        self, policy: PolicyDefinitionCreate
+    ) -> PolicyDefinitionRecord:
+        ...
+
+    def get_policy_definition(self, policy_id: str) -> PolicyDefinitionRecord:
+        ...
+
+    def list_policy_definitions(
+        self,
+        *,
+        source_kind: str | None = None,
+        enabled_only: bool = False,
+    ) -> list[PolicyDefinitionRecord]:
+        ...
+
+    def update_policy_definition(
+        self, policy_id: str, update: PolicyDefinitionUpdate
+    ) -> PolicyDefinitionRecord:
+        ...
+
+    def delete_policy_definition(self, policy_id: str) -> None:
         ...
 
 

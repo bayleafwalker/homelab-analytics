@@ -8,6 +8,9 @@ from typing import cast
 from packages.storage.control_plane import (
     ControlPlaneSnapshot,
     ControlPlaneStore,
+    PolicyDefinitionCreate,
+    PolicyDefinitionRecord,
+    PolicyDefinitionUpdate,
 )
 from packages.storage.control_plane_snapshot import (
     export_control_plane_snapshot,
@@ -73,11 +76,15 @@ from packages.storage.sqlite_reference_fact_catalog import (
 from packages.storage.sqlite_source_contract_catalog import (
     SQLiteSourceContractCatalogMixin,
 )
+from packages.storage.sqlite_policy_registry import SQLitePolicyRegistryMixin
 from packages.storage.sqlite_source_freshness_catalog import (
     SQLiteSourceFreshnessCatalogMixin,
 )
 
 __all__ = [
+    "PolicyDefinitionCreate",
+    "PolicyDefinitionRecord",
+    "PolicyDefinitionUpdate",
     "ColumnMappingCreate",
     "ColumnMappingRecord",
     "ColumnMappingRule",
@@ -125,6 +132,7 @@ class IngestionConfigRepository(
     SQLiteExecutionControlPlaneMixin,
     SQLiteProvenanceControlPlaneMixin,
     SQLiteAuthControlPlaneMixin,
+    SQLitePolicyRegistryMixin,
 ):
     def __init__(self, database_path: Path) -> None:
         self.database_path = database_path
