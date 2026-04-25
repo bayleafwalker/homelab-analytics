@@ -242,7 +242,13 @@ Stage 2 operating views provide the observed state that policies evaluate. Stage
 
 ### Status
 
-Substantially complete in the worktree. HA Phases 1–6 are complete: batch entity ingest, WebSocket live subscription, MQTT synthetic entity publication, policy/automation evaluation engine, outbound action dispatcher, approval-gated device control, approval queue publication/UI controls, and expanded tariff/cost/maintenance synthetic entities. The next step is boundary hardening and adapter extraction rather than another round of HA feature sprawl.
+Scaffolded with working examples. The HA integration infrastructure is functional: batch entity ingest, WebSocket live subscription, MQTT synthetic entity publication, outbound action dispatcher, approval-gated device control, approval queue publication/UI controls, and tariff/cost/maintenance synthetic entities are all in place.
+
+**What is done:** The policy evaluation loop runs. `HaPolicyEvaluator` iterates over a set of `_PolicyDef` entries and produces `PolicyResult` outputs. Four built-in demo policies cover budget status, monthly spend rate, bridge health, and an approval-gated device action.
+
+**What is not done:** The policy engine is not operator-facing. Policies are hardcoded in `ha_policy.py` as private `_PolicyDef` entries — there is no user-authored policy model, no persisted policy registry, and no rule DSL or schema for defining policies outside of Python code. The evaluation loop is working infrastructure, not a shipped policy feature.
+
+Acceptance criteria for calling Stage 5 complete must be defined before the next round of policy work begins.
 
 ---
 
