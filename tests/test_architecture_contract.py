@@ -1285,3 +1285,30 @@ def test_platform_auth_modules_exist() -> None:
     ]
     for path in expected:
         assert path.exists(), f"Expected platform auth module not found: {path}"
+
+
+def test_ingest_and_run_routes_delegate_orchestration_to_use_case_layer() -> None:
+    """Surface routes must not contain ingest+promote pipeline sequencing inline.
+
+    After the thin-transform-facade seam work, ingest_routes.py and run_routes.py
+    delegate all ingest→promote→publish orchestration to packages/application/use_cases/.
+    This test guards the boundary so future edits don't silently bypass the seam.
+    """
+    ingest_imports = _import_names(ROOT / "apps" / "api" / "routes" / "ingest_routes.py")
+    run_imports = _import_names(ROOT / "apps" / "api" / "routes" / "run_routes.py")
+    ingest_source = (ROOT / "apps" / "api" / "routes" / "ingest_routes.py").read_text()
+    run_source = (ROOT / "apps" / "api" / "routes" / "run_routes.py").read_text()
+
+    # Routes must delegate to the use-case layer.
+    assert "packages.application.use_cases.source_ingestion" in ingest_imports
+    assert "packages.application.use_cases.run_management" in run_imports
+
+    # Routes must not re-import the old direct promotion helper (seam is use_cases.source_ingestion).
+    assert "packages.application.use_cases.ingest_promotion" not in ingest_imports
+    assert "packages.application.use_cases.ingest_promotion" not in run_imports
+
+    # Routes must not contain inline ingest+promote sequencing.
+    assert "promote_and_publish_" not in ingest_source
+    assert "promote_and_publish_" not in run_source
+    assert ".ingest_bytes(" not in ingest_source
+    assert ".ingest_bytes(" not in run_source
