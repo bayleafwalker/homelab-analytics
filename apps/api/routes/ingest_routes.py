@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections import defaultdict, deque
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -7,6 +8,8 @@ from pathlib import Path
 from threading import Lock
 from time import monotonic
 from typing import Any
+
+_log = logging.getLogger(__name__)
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -400,9 +403,20 @@ def register_ingest_routes(
         )
         return {"preview": to_jsonable(preview)}
 
+    _DEPRECATION_HEADERS = {
+        "Deprecation": "true",
+        "Sunset": "Sat, 01 Aug 2026 00:00:00 GMT",
+        "Link": '</upload>; rel="successor-version"',
+    }
+
     @app.post("/ingest/subscriptions", status_code=201)
     async def ingest_subscriptions(request: Request) -> JSONResponse:
-        # Dev/demo shortcut. Operator path is /upload → /ingest/configured-csv.
+        # Deprecated dev/demo shortcut. Operator path is /upload → /ingest/configured-csv.
+        _log.warning(
+            "Deprecated endpoint /ingest/subscriptions called. "
+            "Use /upload (configured-CSV path) instead. "
+            "This endpoint will be removed; see Sunset header."
+        )
         if subscription_service is None:
             raise KeyError("subscription ingestion is not configured")
         content_type = request.headers.get("content-type", "")
@@ -439,11 +453,16 @@ def register_ingest_routes(
             if any(i.code == "duplicate_file" for i in run.issues)
             else (201 if run.passed else 400)
         )
-        return JSONResponse(status_code=status_code, content=body)
+        return JSONResponse(status_code=status_code, content=body, headers=_DEPRECATION_HEADERS)
 
     @app.post("/ingest/contract-prices", status_code=201)
     async def ingest_contract_prices(request: Request) -> JSONResponse:
-        # Dev/demo shortcut. Operator path is /upload → /ingest/configured-csv.
+        # Deprecated dev/demo shortcut. Operator path is /upload → /ingest/configured-csv.
+        _log.warning(
+            "Deprecated endpoint /ingest/contract-prices called. "
+            "Use /upload (configured-CSV path) instead. "
+            "This endpoint will be removed; see Sunset header."
+        )
         if contract_price_service is None:
             raise KeyError("contract-price ingestion is not configured")
         content_type = request.headers.get("content-type", "")
@@ -480,7 +499,7 @@ def register_ingest_routes(
             if any(i.code == "duplicate_file" for i in run.issues)
             else (201 if run.passed else 400)
         )
-        return JSONResponse(status_code=status_code, content=body)
+        return JSONResponse(status_code=status_code, content=body, headers=_DEPRECATION_HEADERS)
 
     @app.post(
         "/ingest/ingestion-definitions/{ingestion_definition_id}/process",
