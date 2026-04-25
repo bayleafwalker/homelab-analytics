@@ -110,11 +110,10 @@ def test_journey_steps_with_no_publication_key_coverage_are_documented(journey):
         for step in journey["steps"]
         if not step.get("publication_keys")
     ]
-    assert uncovered == [7, 8], (
-        f"Expected steps 7 and 8 to have no CapabilityPack publication coverage "
-        f"(budget_variance and loan_overview are pipeline-internal, not yet in a pack). "
+    assert uncovered == [], (
+        f"All journey steps should have CapabilityPack publication coverage. "
         f"Got uncovered steps: {uncovered}. "
-        f"If new publications were added to a pack, update publication_keys in build_journey()."
+        f"Add PublicationDefinition entries to the relevant pack and update publication_keys in build_journey()."
     )
 
 

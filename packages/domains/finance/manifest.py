@@ -329,6 +329,110 @@ FINANCE_PACK = CapabilityPack(
                 ),
             },
         ),
+        PublicationDefinition(
+            key="budget_variance",
+            schema_name="budget_variance",
+            schema_version="1.0.0",
+            display_name="Budget Variance",
+            description="Planned vs actual spend by category and period, with variance and budget state.",
+            visibility="public",
+            lineage_required=True,
+            retention_policy="indefinite",
+            field_semantics={
+                "budget_name": dimension_field(
+                    "Name of the budget envelope being evaluated."
+                ),
+                "category_id": identifier_field(
+                    "Stable category slug used to join with spend data."
+                ),
+                "period_label": dimension_field(
+                    "Human-readable period label for the budget row such as a month slug."
+                ),
+                "target_amount": measure_field(
+                    "Budgeted target amount for the category and period.",
+                    aggregation="none",
+                    unit="currency",
+                ),
+                "actual_amount": measure_field(
+                    "Actual spend for the category and period.",
+                    aggregation="sum",
+                    unit="currency",
+                ),
+                "variance": measure_field(
+                    "Signed difference between actual and target amounts.",
+                    aggregation="none",
+                    unit="currency",
+                ),
+                "variance_pct": measure_field(
+                    "Variance as a percentage of the target amount.",
+                    aggregation="none",
+                    unit="percent",
+                ),
+                "status": status_field(
+                    "Budget status: under_budget, on_budget, or over_budget."
+                ),
+                "state": status_field(
+                    "Operator-facing state: good, warning, or needs_action."
+                ),
+                "currency": dimension_field(
+                    "ISO currency code for the budget amounts."
+                ),
+            },
+        ),
+        PublicationDefinition(
+            key="loan_overview",
+            schema_name="loan_overview",
+            schema_version="1.0.0",
+            display_name="Loan Overview",
+            description="Outstanding loan balances with amortisation progress and projected interest costs.",
+            visibility="public",
+            lineage_required=True,
+            retention_policy="indefinite",
+            field_semantics={
+                "loan_id": identifier_field(
+                    "Stable loan identifier derived from loan name and source."
+                ),
+                "loan_name": dimension_field(
+                    "Human-readable loan name as provided in the repayment data."
+                ),
+                "lender": dimension_field(
+                    "Name of the lending institution."
+                ),
+                "original_principal": measure_field(
+                    "Original principal amount at loan origination.",
+                    aggregation="none",
+                    unit="currency",
+                ),
+                "current_balance_estimate": measure_field(
+                    "Estimated outstanding balance derived from repayment history.",
+                    aggregation="latest",
+                    unit="currency",
+                ),
+                "monthly_payment": measure_field(
+                    "Regular monthly repayment amount.",
+                    aggregation="none",
+                    unit="currency",
+                ),
+                "total_interest_projected": measure_field(
+                    "Total interest projected over the remaining loan term.",
+                    aggregation="none",
+                    unit="currency",
+                ),
+                "total_interest_paid": measure_field(
+                    "Total interest paid to date based on repayment history.",
+                    aggregation="sum",
+                    unit="currency",
+                ),
+                "remaining_months": measure_field(
+                    "Estimated number of monthly payments remaining.",
+                    aggregation="none",
+                    unit="count",
+                ),
+                "currency": dimension_field(
+                    "ISO currency code for the loan amounts."
+                ),
+            },
+        ),
     ),
     ui_descriptors=(
         UiDescriptor(

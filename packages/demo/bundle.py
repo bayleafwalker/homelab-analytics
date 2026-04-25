@@ -583,7 +583,7 @@ def build_journey() -> dict[str, object]:
                     "Budget Variance: planned vs actual by category",
                     "Budget status synthetic sensor in Home Assistant",
                 ],
-                "publication_keys": [],
+                "publication_keys": ["budget_variance"],
                 "attention_items": [
                     "Compare groceries budget to actual — expect overage in most months",
                 ],
@@ -598,7 +598,7 @@ def build_journey() -> dict[str, object]:
                     "Loan Overview: outstanding balance and amortisation schedule",
                     "Affordability ratio with debt service included",
                 ],
-                "publication_keys": [],
+                "publication_keys": ["loan_overview"],
                 "attention_items": [
                     "Monthly payment visible — appears in upcoming obligations strip",
                 ],
