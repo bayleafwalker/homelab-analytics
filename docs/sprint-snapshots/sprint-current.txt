@@ -2,15 +2,15 @@ SPRINT: policy-registry-boundary — Operator-Authored Policy Engine Foundation 
 Goal:
 Dates:  2026-04-25 to 2026-05-08
 ID:     72
-Items:  6 total — 0 done, 0 active, 6 pending, 0 blocked
+Items:  6 total — 6 done, 0 active, 0 pending, 0 blocked
 
 --- Track: stage-5 ---
-  health: 6 items — 0 done (0%), 0 active, 6 pending, 0 blocked (0%)
-  [pending ] #448  SQLite migration 0007_policy_registry — policy_definitions table with policy_id, display_name, policy_kind, rule_schema_version, rule_document, enabled, source_kind, created_at, updated_at  (assignee: -)
-  [pending ] #449  PolicyRegistryStore Protocol + SQLite implementation — CRUD for operator-authored policy definitions  (assignee: -)
-  [pending ] #450  Rule schema models — Pydantic rule document for publication_value_comparison, publication_freshness_comparison, ha_helper_state_comparison; validated on write  (assignee: -)
-  [pending ] #451  Permissions + CRUD routes — control.policy.read/write in permission_registry; /control/policies list/get/create/update/delete routes, authenticated  (assignee: -)
-  [pending ] #452  HaPolicyEvaluator registry integration — load enabled registry policies + built-in seeds at runtime; _BUILTIN_POLICIES becomes seeded defaults  (assignee: -)
-  [pending ] #453  End-to-end test — create operator policy → evaluate → PolicyResult produced → synthetic HA state published  (assignee: -)
+  health: 6 items — 6 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #448  SQLite migration 0007_policy_registry — policy_definitions table with policy_id, display_name, policy_kind, rule_schema_version, rule_document, enabled, source_kind, created_at, updated_at  (assignee: -)
+  [done    ] #449  PolicyRegistryStore Protocol + SQLite implementation — CRUD for operator-authored policy definitions  (assignee: -)
+  [done    ] #450  Rule schema models — Pydantic rule document for publication_value_comparison, publication_freshness_comparison, ha_helper_state_comparison; validated on write  (assignee: -)
+  [done    ] #451  Permissions + CRUD routes — control.policy.read/write in permission_registry; /control/policies list/get/create/update/delete routes, authenticated  (assignee: -)
+  [done    ] #452  HaPolicyEvaluator registry integration — load enabled registry policies + built-in seeds at runtime; _BUILTIN_POLICIES becomes seeded defaults  (assignee: -)
+  [done    ] #453  End-to-end test — create operator policy → evaluate → PolicyResult produced → synthetic HA state published  (assignee: -)
 
-Rendered: 2026-04-25T12:14:14Z
+Rendered: 2026-04-25T17:46:59Z
