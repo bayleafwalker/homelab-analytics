@@ -19,11 +19,16 @@ from starlette.datastructures import UploadFile
 from apps.api.models import ConfiguredCsvIngestRequest
 from apps.api.response_models import ConfiguredIngestionProcessResponseModel
 from apps.api.support import read_upload_limited
-from packages.application.use_cases.ingest_promotion import (
-    promote_and_publish_configured_csv,
-    promote_and_publish_configured_csv_batch,
-    promote_and_publish_contract_prices,
-    promote_and_publish_subscription,
+from packages.application.use_cases.source_ingestion import (
+    ingest_account_transaction_bytes,
+    ingest_account_transaction_file,
+    ingest_configured_csv_bytes,
+    ingest_configured_csv_file,
+    ingest_contract_prices_bytes,
+    ingest_contract_prices_file,
+    ingest_subscription_bytes,
+    ingest_subscription_file,
+    process_and_promote_ingestion_definition,
 )
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
@@ -45,7 +50,6 @@ from packages.pipelines.promotion import (
 )
 from packages.pipelines.promotion_registry import PromotionHandlerRegistry
 from packages.pipelines.publication_preview import attach_publication_preview
-from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.pipelines.upload_detection import detect_upload_target
 from packages.pipelines.upload_dry_run import preview_upload_dry_run
@@ -141,7 +145,6 @@ def register_ingest_routes(
     configured_definition_service: ConfiguredIngestionDefinitionService,
     resolved_config_repository: ConfigCatalogStore,
     transformation_service: TransformationService | None,
-    resolved_reporting_service: ReportingService | None,
     subscription_service: SubscriptionService | None,
     contract_price_service: ContractPriceService | None,
     require_unsafe_admin: Callable[[], None],
@@ -151,7 +154,6 @@ def register_ingest_routes(
         [ConfiguredCsvIngestRequest], tuple[Any, str, str, str]
     ],
     build_run_response: Callable[..., JSONResponse],
-    build_ingest_response: Callable[..., JSONResponse],
     require_upload: Callable[[object], UploadFile],
     serialize_run: Callable[..., dict[str, Any]],
     serialize_promotion: Callable[[PromotionResult], dict[str, Any]],
@@ -185,8 +187,8 @@ def register_ingest_routes(
             request,
             service=service,
             transformation_service=transformation_service,
-            reporting_service=resolved_reporting_service,
-            build_ingest_response=build_ingest_response,
+            publish_reporting=publish_reporting,
+            build_run_response=build_run_response,
             require_upload=require_upload,
         )
 
@@ -272,8 +274,8 @@ def register_ingest_routes(
             request,
             service=service,
             transformation_service=transformation_service,
-            reporting_service=resolved_reporting_service,
-            build_ingest_response=build_ingest_response,
+            publish_reporting=publish_reporting,
+            build_run_response=build_run_response,
             require_upload=require_upload,
         )
 
@@ -296,14 +298,21 @@ def register_ingest_routes(
             )
             source_bytes = await read_upload_limited(upload)
             await upload.close()
-            run = configured_ingestion_service.ingest_bytes(
-                source_bytes=source_bytes,
-                file_name=getattr(upload, "filename", None) or "configured-upload.csv",
+            run, promotion = ingest_configured_csv_bytes(
+                source_bytes,
+                getattr(upload, "filename", None) or "configured-upload.csv",
+                service=configured_ingestion_service,
                 source_system_id=source_system_id,
                 dataset_contract_id=dataset_contract_id,
                 column_mapping_id=column_mapping_id,
                 source_asset_id=source_asset.source_asset_id if source_asset else None,
                 source_name=payload.source_name,
+                source_asset=source_asset,
+                config_repository=resolved_config_repository,
+                transformation_service=transformation_service,
+                registry=registry,
+                promotion_handler_registry=promotion_handler_registry,
+                publish_reporting=publish_reporting,
             )
         else:
             try:
@@ -313,28 +322,20 @@ def register_ingest_routes(
             source_asset, source_system_id, dataset_contract_id, column_mapping_id = (
                 resolve_configured_ingest_binding(payload)
             )
-            run = configured_ingestion_service.ingest_file(
-                source_path=Path(payload.source_path),
+            run, promotion = ingest_configured_csv_file(
+                Path(payload.source_path),
+                service=configured_ingestion_service,
                 source_system_id=source_system_id,
                 dataset_contract_id=dataset_contract_id,
                 column_mapping_id=column_mapping_id,
                 source_asset_id=source_asset.source_asset_id if source_asset else None,
                 source_name=payload.source_name,
-            )
-        promotion: PromotionResult | None = None
-        if run.passed:
-            promotion = promote_and_publish_configured_csv(
-                run.run_id,
                 source_asset=source_asset,
                 config_repository=resolved_config_repository,
-                service=configured_ingestion_service,
                 transformation_service=transformation_service,
                 registry=registry,
                 promotion_handler_registry=promotion_handler_registry,
                 publish_reporting=publish_reporting,
-                source_system_id=source_system_id,
-                dataset_contract_id=dataset_contract_id,
-                column_mapping_id=column_mapping_id,
             )
         return build_run_response(run, promotion=promotion)
 
@@ -426,21 +427,19 @@ def register_ingest_routes(
             source_name = str(form.get("source_name") or "manual-upload")
             source_bytes = await read_upload_limited(upload)
             await upload.close()
-            run = subscription_service.ingest_bytes(
-                source_bytes=source_bytes,
-                file_name=getattr(upload, "filename", None) or "subscriptions.csv",
-                source_name=source_name,
+            run, promotion = ingest_subscription_bytes(
+                source_bytes,
+                getattr(upload, "filename", None) or "subscriptions.csv",
+                source_name,
+                subscription_service=subscription_service,
+                transformation_service=transformation_service,
+                publish_reporting=publish_reporting,
             )
         else:
             payload = await request.json()
-            run = subscription_service.ingest_file(
+            run, promotion = ingest_subscription_file(
                 Path(payload["source_path"]),
-                source_name=payload.get("source_name", "manual-upload"),
-            )
-        promotion: PromotionResult | None = None
-        if run.passed:
-            promotion = promote_and_publish_subscription(
-                run.run_id,
+                payload.get("source_name", "manual-upload"),
                 subscription_service=subscription_service,
                 transformation_service=transformation_service,
                 publish_reporting=publish_reporting,
@@ -472,21 +471,19 @@ def register_ingest_routes(
             source_name = str(form.get("source_name") or "manual-upload")
             source_bytes = await read_upload_limited(upload)
             await upload.close()
-            run = contract_price_service.ingest_bytes(
-                source_bytes=source_bytes,
-                file_name=getattr(upload, "filename", None) or "contract-prices.csv",
-                source_name=source_name,
+            run, promotion = ingest_contract_prices_bytes(
+                source_bytes,
+                getattr(upload, "filename", None) or "contract-prices.csv",
+                source_name,
+                contract_price_service=contract_price_service,
+                transformation_service=transformation_service,
+                publish_reporting=publish_reporting,
             )
         else:
             payload = await request.json()
-            run = contract_price_service.ingest_file(
+            run, promotion = ingest_contract_prices_file(
                 Path(payload["source_path"]),
-                source_name=payload.get("source_name", "manual-upload"),
-            )
-        promotion: PromotionResult | None = None
-        if run.passed:
-            promotion = promote_and_publish_contract_prices(
-                run.run_id,
+                payload.get("source_name", "manual-upload"),
                 contract_price_service=contract_price_service,
                 transformation_service=transformation_service,
                 publish_reporting=publish_reporting,
@@ -510,25 +507,18 @@ def register_ingest_routes(
         ingestion_definition_id: str,
     ) -> dict[str, Any]:
         require_unsafe_admin()
-        result = configured_definition_service.process_ingestion_definition(ingestion_definition_id)
+        result, promotions = process_and_promote_ingestion_definition(
+            ingestion_definition_id,
+            configured_definition_service=configured_definition_service,
+            configured_ingestion_service=configured_ingestion_service,
+            config_repository=resolved_config_repository,
+            transformation_service=transformation_service,
+            registry=registry,
+            promotion_handler_registry=promotion_handler_registry,
+            publish_reporting=publish_reporting,
+        )
         body: dict[str, Any] = {"result": to_jsonable(result)}
-        if transformation_service is not None:
-            ingestion_definition = resolved_config_repository.get_ingestion_definition(
-                ingestion_definition_id
-            )
-            source_asset = resolved_config_repository.get_source_asset(
-                ingestion_definition.source_asset_id
-            )
-            promotions = promote_and_publish_configured_csv_batch(
-                result.run_ids,
-                source_asset=source_asset,
-                config_repository=resolved_config_repository,
-                service=configured_ingestion_service,
-                transformation_service=transformation_service,
-                registry=registry,
-                promotion_handler_registry=promotion_handler_registry,
-                publish_reporting=publish_reporting,
-            )
+        if promotions:
             body["promotions"] = to_jsonable(promotions)
         return body
 
@@ -554,8 +544,8 @@ async def _handle_account_transaction_ingest(
     *,
     service: AccountTransactionService,
     transformation_service: TransformationService | None,
-    reporting_service: ReportingService | None,
-    build_ingest_response: Callable[..., JSONResponse],
+    publish_reporting: Callable[..., None],
+    build_run_response: Callable[..., JSONResponse],
     require_upload: Callable[[object], UploadFile],
 ) -> JSONResponse:
     content_type = request.headers.get("content-type", "")
@@ -565,26 +555,22 @@ async def _handle_account_transaction_ingest(
         source_name = str(form.get("source_name") or "manual-upload")
         source_bytes = await read_upload_limited(upload)
         await upload.close()
-        run = service.ingest_bytes(
-            source_bytes=source_bytes,
-            file_name=upload.filename or "upload.csv",
-            source_name=source_name,
+        run, promotion = ingest_account_transaction_bytes(
+            source_bytes,
+            upload.filename or "upload.csv",
+            source_name,
+            service=service,
+            transformation_service=transformation_service,
+            publish_reporting=publish_reporting,
         )
-        return build_ingest_response(
-            run,
-            service,
-            transformation_service,
-            reporting_service,
-        )
+        return build_run_response(run, promotion=promotion)
 
     payload = await request.json()
-    run = service.ingest_file(
+    run, promotion = ingest_account_transaction_file(
         Path(payload["source_path"]),
-        source_name=payload.get("source_name", "manual-upload"),
+        payload.get("source_name", "manual-upload"),
+        service=service,
+        transformation_service=transformation_service,
+        publish_reporting=publish_reporting,
     )
-    return build_ingest_response(
-        run,
-        service,
-        transformation_service,
-        reporting_service,
-    )
+    return build_run_response(run, promotion=promotion)
