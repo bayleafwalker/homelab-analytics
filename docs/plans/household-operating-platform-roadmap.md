@@ -322,6 +322,12 @@ Stage 5 HA integration (at least Phases 1–5) provides the concrete implementat
 
 - `docs/architecture/integration-adapters.md` — adapter contracts, registration model, lifecycle, extension points, and HA-as-reference-implementation walkthrough
 
+### Status
+
+Contracts and registry scaffolded; HA wired as reference implementation. `packages/adapters/contracts.py` defines `AdapterManifest`, `IngestAdapter`, `PublishAdapter`, and `ActionAdapter` protocols. An in-memory `AdapterRegistry` exists in `packages/adapters/registry.py`. Thin HA adapter wrappers in `packages/adapters/ha_adapters.py` position the existing HA workers as conforming implementations. Renderer contracts are also defined and two renderers exist (Prometheus scrape format, export). `docs/architecture/integration-adapters.md` and `docs/architecture/adapter-governance.md` are written.
+
+**What is not done:** No credential management abstraction. No multi-adapter entity correlation or deduplication strategy. No second full integration adapter beyond the HA reference wrappers (Prometheus implements the Renderer contract, not the IngestAdapter/ActionAdapter contract). The "What this stage does NOT build" scope note is still accurate — each additional adapter is a separate task.
+
 ---
 
 ## Stage 7 — Multi-renderer and semantic delivery layer
