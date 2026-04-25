@@ -10,7 +10,7 @@ import unittest
 from datetime import UTC, datetime, timedelta
 
 from packages.pipelines.ha_policy import (
-    _POLICIES,
+    _BUILTIN_POLICIES,
     HaPolicyEvaluator,
     PolicyResult,
     _evaluate_bridge_health,
@@ -207,7 +207,7 @@ class PolicyEvaluatorTests(unittest.TestCase):
 
     def test_policy_count_matches_registry(self) -> None:
         evaluator = self._evaluator()
-        self.assertEqual(len(_POLICIES), len(evaluator.evaluate()))
+        self.assertEqual(len(_BUILTIN_POLICIES), len(evaluator.evaluate()))
 
     def test_policy_registry_propagates_approval_required(self) -> None:
         def eval_ok(context: dict, now: datetime) -> tuple[str, str | None]:
@@ -220,12 +220,12 @@ class PolicyEvaluatorTests(unittest.TestCase):
             evaluate_fn=eval_ok,
             approval_required=True,
         )
-        original = list(_POLICIES)
+        original = list(_BUILTIN_POLICIES)
         try:
-            _POLICIES.append(sentinel)
+            _BUILTIN_POLICIES.append(sentinel)
             results = self._evaluator({}).evaluate()
         finally:
-            _POLICIES[:] = original
+            _BUILTIN_POLICIES[:] = original
 
         match = next(r for r in results if r.id == "device_control")
         self.assertIsInstance(match, PolicyResult)

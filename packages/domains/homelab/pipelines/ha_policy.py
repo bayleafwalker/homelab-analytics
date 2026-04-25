@@ -8,10 +8,14 @@ verdict.  Verdicts:
     breach      — threshold exceeded
     unavailable — insufficient data to evaluate
 
-Built-in policies:
+Built-in demo policies (hardcoded, not operator-authored):
     budget_status        — current month max utilization across all categories
     monthly_spend_rate   — spending pace vs days elapsed in the current month
     bridge_health        — WebSocket bridge last_sync_at freshness (5 min threshold)
+    kitchen_light_request — approval-gated device action via HA helper state
+
+These built-ins exercise the evaluation loop. The operator-facing policy model
+(persisted registry, rule schema, CRUD API) is not yet implemented.
 """
 from __future__ import annotations
 
@@ -186,7 +190,7 @@ def _evaluate_kitchen_light_request(
 
 
 # ---------------------------------------------------------------------------
-# Policy registry
+# Built-in policy definitions
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -199,7 +203,7 @@ class _PolicyDef:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-_POLICIES: list[_PolicyDef] = [
+_BUILTIN_POLICIES: list[_PolicyDef] = [
     _PolicyDef(
         id="budget_status",
         name="Budget Status",
@@ -233,6 +237,21 @@ _POLICIES: list[_PolicyDef] = [
         },
     ),
 ]
+
+# ---------------------------------------------------------------------------
+# Design note: operator-authored policy registry (not yet implemented)
+#
+# _BUILTIN_POLICIES is the only source of policies today. A future policy
+# engine would replace or augment it with:
+#   - a DB-backed PolicyRegistry persisting operator-authored PolicyDef rows
+#   - a rule schema or expression DSL so thresholds and conditions are
+#     configurable without editing Python source
+#   - CRUD API endpoints for policy definitions
+#   - HaPolicyEvaluator loading from the registry at runtime
+#
+# Until those exist, the evaluator is working infrastructure against demo
+# policies, not an operator-facing feature.
+# ---------------------------------------------------------------------------
 
 # Type alias for the context-fetch callable.
 FetchFn = Callable[[], dict[str, Any]]
@@ -304,7 +323,7 @@ class HaPolicyEvaluator:
                 pass
 
         results: list[PolicyResult] = []
-        for policy in _POLICIES:
+        for policy in _BUILTIN_POLICIES:
             try:
                 verdict, value = policy.evaluate_fn(context, now)
             except Exception as exc:
