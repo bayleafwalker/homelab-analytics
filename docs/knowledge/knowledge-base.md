@@ -1,7 +1,15 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-25T12:06:52Z
+Generated: 2026-04-26T06:10:28Z
 
 ## Decisions
+
+### /ready should disclose active backend posture as observable fields
+Source: sprint: 77
+Tags: kernel, observability, api
+
+Operators diagnosing a misbehaving deployment need to know whether the app booted against SQLite or Postgres without SSH access or env inspection. /ready is already the liveness endpoint operators and probes watch; adding backend fields there costs nothing and makes backend posture observable at the HTTP layer. Fields are sourced from container.settings resolved values so they reflect the actual runtime choice, not the raw env string.
+
+---
 
 ### Use-case ingest functions must expose run_context and ingestion_definition_id for retry paths
 Source: track: run-seam, sprint: 71
@@ -645,6 +653,14 @@ Balance snapshots belong in the transformation layer as DuckDB-backed facts deri
 
 ## Patterns
 
+### Auth guards belong in a factory, not inline in create_app()
+Source: sprint: 77
+Tags: auth, kernel, factory-pattern
+
+The inline if/raise provider guards in create_app() were untestable in isolation and made FastAPI assembly read as policy logic. Extracting to a typed AuthContext factory in auth_runtime.py enables contract tests for each invalid combination and keeps app.py as composition-only. The factory owns the cast and break_glass_controller construction. Pattern: any 'raise if precondition missing' cluster in an assembly function is a factory extraction candidate.
+
+---
+
 ### Tracked repo symlinks must stay inside the checkout — external targets break git tracking
 Source: track: hygiene, sprint: 63
 Tags: repo-hygiene, gitignore, symlink
@@ -742,6 +758,14 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 ---
 
 ## Lessons
+
+### SQLite default must be flagged as bootstrap/demo-only in operator docs
+Source: sprint: 77
+Tags: docs, postgres, sqlite, operator-guidance
+
+The env var default (sqlite) is correct for first-run convenience but is a support trap if left in place: SQLite has no schema evolution guarantee for future migrations and the runtime warns when a Postgres DSN is present but the backend is still SQLite. The runbook now surfaces this as a named operator decision point. The SQLite code path itself is unchanged; this is a documentation posture correction only.
+
+---
 
 ### TransformationService confidence hook silently no-ops when control_plane_store is None
 Source: track: plumbing, sprint: 63
