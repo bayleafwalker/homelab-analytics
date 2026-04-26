@@ -1,7 +1,15 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-26T06:10:28Z
+Generated: 2026-04-26T06:20:38Z
 
 ## Decisions
+
+### Policy rule verdict semantics: comparison-true means breach (threshold-alert framing, not health-check)
+Source: track: stage-5, sprint: 72
+Tags: policy-schema, rule-evaluation
+
+Policy rule schemas use comparison-true = breach semantics consistently across publication_value_comparison, publication_freshness_comparison, and ha_helper_state_comparison types. This aligns with threshold-alert framing (value exceeds limit → breach) rather than health-check framing (comparison-true → healthy). Rule consumers must not invert this.
+
+---
 
 ### /ready should disclose active backend posture as observable fields
 Source: sprint: 77
@@ -758,6 +766,22 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 ---
 
 ## Lessons
+
+### SQLitePolicyRegistryMixin in-memory connections must not be closed between calls — use no-close context manager
+Source: track: stage-5, sprint: 72
+Tags: sqlite, mixin-testing, in-memory
+
+SQLitePolicyRegistryMixin._connect() in tests must not close an in-memory SQLite connection between calls. Using contextlib.closing() on an in-memory connection destroys the database on exit — subsequent calls see an empty schema. Use a no-close context manager (e.g. nullcontext) that yields the connection without closing it when the mixin owns the connection lifecycle for a test session.
+
+---
+
+### RoutePolicy.request_decision must be RouteDecision object, not callable — bare lambda breaks dispatch
+Source: track: stage-5, sprint: 72
+Tags: auth, route-policy, RouteDecision
+
+RoutePolicy.request_decision must be assigned a RouteDecision object (e.g. RouteDecision.ALLOW), not a bare callable or lambda. Assigning a raw function does not implement the RouteDecision protocol and breaks resolve_role/resolve_permission dispatch silently — requests pass or fail incorrectly without a clear error. Always verify the value is a RouteDecision enum member in route policy construction.
+
+---
 
 ### SQLite default must be flagged as bootstrap/demo-only in operator docs
 Source: sprint: 77
