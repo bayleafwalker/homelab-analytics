@@ -1,14 +1,16 @@
-SPRINT: keel-ledger-bond — Kernel Runtime Posture and Auth Seam  [closed]
+SPRINT: policy-registry-boundary — Operator-Authored Policy Engine Foundation  [closed]
 Goal:   
-Dates:  2026-04-25 to 2026-05-09
-ID:     77
-Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
+Dates:  2026-04-25 to 2026-05-08
+ID:     72
+Items:  6 total — 6 done, 0 active, 0 pending, 0 blocked
 
---- Track: kernel ---
-  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #484  Configuration runbook update — HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND default documented as bootstrap/demo-only; operator deployment tables default to Postgres canonical  (assignee: -)
-  [done    ] #485  /ready backend posture disclosure — add control_plane_backend and reporting_backend keys to /ready response via _register_base_routes() in support.py; container provides values from resolved settings  (assignee: -)
-  [done    ] #486  Auth assembly factory — build_auth_context() in apps/api/auth_runtime.py; takes resolved identity mode + provider arguments; raises on invalid config; returns typed AuthContext; create_app() calls factory, no inline guard assertions  (assignee: -)
-  [done    ] #487  Tests — /ready discloses backend fields; build_auth_context() raises correctly for each invalid combination; make verify-fast passes  (assignee: -)
+--- Track: stage-5 ---
+  health: 6 items — 6 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #448  SQLite migration 0007_policy_registry — policy_definitions table with policy_id, display_name, policy_kind, rule_schema_version, rule_document, enabled, source_kind, created_at, updated_at  (assignee: -)
+  [done    ] #449  PolicyRegistryStore Protocol + SQLite implementation — CRUD for operator-authored policy definitions  (assignee: -)
+  [done    ] #450  Rule schema models — Pydantic rule document for publication_value_comparison, publication_freshness_comparison, ha_helper_state_comparison; validated on write  (assignee: -)
+  [done    ] #451  Permissions + CRUD routes — control.policy.read/write in permission_registry; /control/policies list/get/create/update/delete routes, authenticated  (assignee: -)
+  [done    ] #452  HaPolicyEvaluator registry integration — load enabled registry policies + built-in seeds at runtime; _BUILTIN_POLICIES becomes seeded defaults  (assignee: -)
+  [done    ] #453  End-to-end test — create operator policy → evaluate → PolicyResult produced → synthetic HA state published  (assignee: -)
 
-Rendered: 2026-04-26T06:08:32Z
+Rendered: 2026-04-26T06:18:15Z
