@@ -1312,3 +1312,29 @@ def test_ingest_and_run_routes_delegate_orchestration_to_use_case_layer() -> Non
     assert "promote_and_publish_" not in run_source
     assert ".ingest_bytes(" not in ingest_source
     assert ".ingest_bytes(" not in run_source
+
+
+def test_scenario_routes_delegate_to_use_case_layer() -> None:
+    """scenario_routes.py must not call TransformationService scenario methods directly.
+
+    After the semantic-seam-forge seam work, scenario_routes.py delegates all
+    scenario orchestration to packages/application/use_cases/scenario_management.
+    This test guards the boundary so future edits don't silently bypass the seam.
+    """
+    scenario_imports = _import_names(ROOT / "apps" / "api" / "routes" / "scenario_routes.py")
+    scenario_source = (ROOT / "apps" / "api" / "routes" / "scenario_routes.py").read_text()
+
+    # Route must import from the use-case layer.
+    assert "packages.application.use_cases.scenario_management" in scenario_imports
+
+    # Route must not call TransformationService scenario methods directly.
+    assert "svc.create_loan_what_if_scenario(" not in scenario_source
+    assert "svc.create_income_change_scenario(" not in scenario_source
+    assert "svc.create_expense_shock_scenario(" not in scenario_source
+    assert "svc.create_tariff_shock_scenario(" not in scenario_source
+    assert "svc.create_homelab_cost_benefit_scenario(" not in scenario_source
+    assert "svc.get_homelab_cost_benefit_comparison(" not in scenario_source
+    assert "svc.get_income_scenario_comparison(" not in scenario_source
+    assert "svc.archive_scenario(" not in scenario_source
+    assert "svc.archive_scenario_compare_set(" not in scenario_source
+    assert "svc.restore_scenario_compare_set(" not in scenario_source
