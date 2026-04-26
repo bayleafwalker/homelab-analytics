@@ -24,6 +24,7 @@ docs/sprints
 .sprintctl/
 .sprintctl/claims/
 .kctl/
+.auditctl/
 sprint-*.json
 handoff-*.json
 handoff-*.txt
