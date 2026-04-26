@@ -126,6 +126,27 @@ class ApiAppTests(unittest.TestCase):
                     identity_mode="local_single_user",
                 )
 
+    def test_ready_discloses_control_plane_and_reporting_backends(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            client = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(temp_dir) / "landing",
+                        metadata_repository=RunMetadataRepository(
+                            Path(temp_dir) / "runs.db"
+                        ),
+                    ),
+                    enable_unsafe_admin=True,
+                )
+            )
+
+            response = client.get("/ready")
+
+            self.assertEqual(200, response.status_code)
+            body = response.json()
+            self.assertIn("control_plane_backend", body)
+            self.assertIn("reporting_backend", body)
+
     def test_health_endpoint_returns_ok(self) -> None:
         with TemporaryDirectory() as temp_dir:
             client = TestClient(

@@ -4,13 +4,14 @@ import logging
 from contextlib import asynccontextmanager
 from ipaddress import ip_network
 from pathlib import Path
-from typing import Any, Union, cast
+from typing import Any, Union
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from apps.api.auth_policies import API_ROUTE_AUTHORIZATION_LOOKUP
 from apps.api.auth_runtime import (
+    build_auth_context,
     build_auth_event_recorder,
     build_lockout_checker,
     cookie_secure_for_request,
@@ -203,6 +204,8 @@ def _register_base_routes(
     identity_mode: str,
     break_glass_controller: BreakGlassController | None,
     config_repository: ControlPlaneStore,
+    control_plane_backend: str = "sqlite",
+    reporting_backend: str = "duckdb",
 ) -> None:
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -213,6 +216,8 @@ def _register_base_routes(
         payload: dict[str, Any] = {
             "status": "ready",
             "identity_mode": identity_mode,
+            "control_plane_backend": control_plane_backend,
+            "reporting_backend": reporting_backend,
         }
         if break_glass_controller is not None:
             status = break_glass_controller.status()
@@ -423,27 +428,19 @@ def create_app(
         container.settings.landing_root.parent / "external-registry-cache"
     )
 
-    if is_cookie_auth_mode(resolved_auth_mode) and session_manager is None:
-        raise ValueError("Cookie-backed auth requires a configured session manager.")
-    if resolved_auth_mode == "oidc" and oidc_provider is None:
-        raise ValueError("OIDC auth requires a configured OIDC provider.")
-    if resolved_auth_mode == "proxy" and proxy_provider is None:
-        raise ValueError("Proxy auth requires a configured proxy provider.")
-
-    resolved_auth_store_candidate = auth_store or resolved_config_repository
-    if is_cookie_auth_mode(resolved_auth_mode) and not isinstance(
-        resolved_auth_store_candidate, AuthStore
-    ):
-        raise ValueError("Configured auth requires an auth-capable control-plane store.")
-    resolved_auth_store = cast(AuthStore, resolved_auth_store_candidate)
-    break_glass_controller = (
-        BreakGlassController.from_settings(container.settings)
-        if (
-            resolved_identity_mode == "local_single_user"
-            and isinstance(service_or_container, AppContainer)
-        )
-        else None
+    auth_ctx = build_auth_context(
+        resolved_auth_mode=resolved_auth_mode,
+        resolved_identity_mode=resolved_identity_mode,
+        session_manager=session_manager,
+        oidc_provider=oidc_provider,
+        proxy_provider=proxy_provider,
+        auth_store_candidate=auth_store or resolved_config_repository,
+        app_settings=(
+            container.settings if isinstance(service_or_container, AppContainer) else None
+        ),
     )
+    resolved_auth_store = auth_ctx.resolved_auth_store
+    break_glass_controller = auth_ctx.break_glass_controller
 
     configured_ingestion_service = ConfiguredCsvIngestionService(
         landing_root=container.settings.landing_root,
@@ -536,6 +533,8 @@ def create_app(
         identity_mode=resolved_identity_mode,
         break_glass_controller=break_glass_controller,
         config_repository=resolved_config_repository,
+        control_plane_backend=container.settings.resolved_control_plane_backend,
+        reporting_backend=container.settings.reporting_backend,
     )
 
     register_auth_routes(

@@ -214,7 +214,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 **Rationale:** Automated quality gates prevent regressions and enable reliable releases.
 
 **Phase:** 4
-**Status:** in-progress (blocking verify-fast CI, Docker build smoke, advisory dependency audit, backend contract export-sync checks, and uploaded contract artifact bundles with compatibility summaries are implemented; publish-on-tag image/chart release steps and README badges are still pending)
+**Status:** in-progress (blocking verify-fast CI, Docker build smoke, advisory dependency audit, backend contract export-sync checks, and uploaded contract artifact bundles with compatibility summaries are implemented; publish-on-tag image/chart release steps and README badges are still pending. The current compatibility implementation still lives in `apps/api/contract_artifacts.py`; `docs/architecture/contract-governance.md` tracks the planned extraction into `packages/platform/contract_compat/` without changing CLI or Make target behavior.)
 
 **Acceptance criteria:**
 - Push to main runs `pytest` and `helm lint`.

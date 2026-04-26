@@ -54,6 +54,7 @@ The current product direction is defined by these documents:
 - `finance-source-contracts.md`
 - `source-freshness-workflow.md`
 - `manual-reference-inputs.md`
+- `retro-crt-shell.md`
 
 For UI-heavy work, pair the product workflow with `frontend-ui-delivery-playbook.md` and the example artifact bundle in `docs/examples/ui-contracts/`.
 

@@ -159,6 +159,33 @@ class ApiMainTests(unittest.TestCase):
             self.assertEqual(200, ready.status_code)
             self.assertEqual("ready", ready.json()["status"])
 
+    def test_ready_discloses_control_plane_and_reporting_backends(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+            )
+            container = build_container(settings, capability_packs=())
+            app = create_app(container)
+            with TestClient(app) as client:
+                ready = client.get("/ready")
+
+            self.assertEqual(200, ready.status_code)
+            body = ready.json()
+            self.assertIn("control_plane_backend", body)
+            self.assertIn("reporting_backend", body)
+            self.assertEqual("sqlite", body["control_plane_backend"])
+            self.assertEqual("duckdb", body["reporting_backend"])
+
     def test_main_logs_resolved_identity_mode_on_startup_failure(self) -> None:
         with TemporaryDirectory() as temp_dir:
             settings = AppSettings(

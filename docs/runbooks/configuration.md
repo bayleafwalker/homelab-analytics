@@ -57,15 +57,18 @@ Use the profile that matches the operator posture you want to support. The fresh
 
 ## Supported defaults: backend selection
 
+> **Operator note — set this before you start using the platform for real:**
+> The default `HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND=sqlite` is intentional for local demo and smoke-test convenience only. For the single-user homelab and shared OIDC profiles, set `HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND=postgres` and provide `HOMELAB_ANALYTICS_POSTGRES_DSN` (or `HOMELAB_ANALYTICS_CONTROL_PLANE_DSN`). Leaving SQLite in place after the demo stage is a support trap: SQLite has no schema evolution guarantee for future migrations and the runtime will warn if a Postgres DSN is present but the backend is still SQLite.
+
 | Variable | Default | Description |
 |---|---|---|
-| `HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND` | `sqlite` | Canonical backend selector for control-plane configuration, auth/control metadata, and run-metadata state. `postgres` is the canonical shared-deployment target; `sqlite` is retained for local bootstrap fallback only. |
+| `HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND` | `sqlite` (demo/dev only) | Control-plane backend for configuration, auth/control metadata, and run-metadata state. `postgres` is the canonical target for all ongoing operator deployments. `sqlite` is retained only for local bootstrap and smoke tests — it is not a feature-parity guarantee for future schema evolution. |
 | `HOMELAB_ANALYTICS_REPORTING_BACKEND` | `duckdb` | Reporting read path selector. `duckdb` keeps worker/local warehouse reads available; `postgres` selects published reporting relations for shared app-facing reads. |
 | `HOMELAB_ANALYTICS_BLOB_BACKEND` | `filesystem` | Landed payload storage: `filesystem` or `s3` |
 
 Deprecated backend aliases remain supported for compatibility: `HOMELAB_ANALYTICS_CONFIG_BACKEND` and `HOMELAB_ANALYTICS_METADATA_BACKEND`.
 
-When `HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND=sqlite`, the runtime uses one SQLite file (`HOMELAB_ANALYTICS_CONFIG_DATABASE_PATH`, default `<data_dir>/config.db`) for both control-plane state and run metadata.
+When `HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND=sqlite`, the runtime uses one SQLite file (`HOMELAB_ANALYTICS_CONFIG_DATABASE_PATH`, default `<data_dir>/config.db`) for both control-plane state and run metadata. This is the correct posture for local demo runs and CI smoke tests; it is not appropriate for ongoing homelab operation.
 
 Schema-evolution contract:
 

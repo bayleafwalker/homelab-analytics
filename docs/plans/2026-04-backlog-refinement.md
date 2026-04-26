@@ -128,11 +128,13 @@ That seam is the main missing boundary keeping `apps/api/app.py` and other surfa
 | must do now | Kernel | Auth policy decomposition and thin FastAPI assembly | architecture integrity | M | Auth is kernel policy, but the current API assembly still carries too much policy branching and middleware detail inline. | none | Credential resolution, principal authentication, CSRF and session checks, permission evaluation, scope evaluation, break-glass policy, and audit or metrics hooks have explicit homes; FastAPI assembly becomes composition only. | Wrong choice if it becomes a framework rewrite instead of a seam cleanup. |
 | must do now | Semantic engine | Publish remaining homelab and infrastructure current-dimension contracts | semantic closure | S | `docs/architecture/semantic-contracts.md` still calls out unpublished app-facing parity gaps for `dim_node`, `dim_device`, `dim_service`, and `dim_workload`. Leaving those implicit invites ad hoc partner-surface reads. | none | Reporting-layer current snapshots and explicit semantic metadata exist for the remaining homelab and infrastructure current dimensions; app-facing access goes through the reporting contract path; focused contract tests cover the new exposures. | Confirm names and intended reuse before publishing. |
 | must do now | Semantic engine | Extract explicit application/use-case entrypoints for run, publish, scenario, and policy flows | boundary hardening | M | The most important missing seam is still orchestration. Surfaces should not continue to own sequencing. | none | Surface code calls stable use-cases for ingest, promotion, publication, retry, scenario compute, policy evaluation, and action dispatch; route or worker composition stops embedding workflow order. | This is a seam, not a fifth platform. Keep it boring. |
+| should do soon | Semantic engine | Thin TransformationService domain pass-throughs | boundary hardening | M | `TransformationService` already has registries for domain loading and publication refresh, but still exposes many direct domain getters, refresh wrappers, and scenario methods. That keeps pack ownership centralized in one facade. | explicit application/use-case entrypoints | Scenario creation/comparison and domain getter/refresh paths move behind registries or use-cases; `TransformationService` remains schema/bootstrap, transaction/lineage, registry dispatch, and confidence hooks; tests prevent new app-facing direct transformation pass-throughs. | Do not split by file size. Preserve public behavior and move one behavior family at a time. |
 | should do soon | Product packs | First-source onboarding flow closure | product usability | M | The repo has enough onboarding pieces to help a real operator, but not enough coherence to make first-time setup feel finished. | Kernel posture should be settled first for non-demo guidance. | A first representative source can be created, previewed, uploaded, and verified from the main operator surface without CLI fallbacks; onboarding points into source asset setup, preview, upload, and freshness follow-up; docs and UI tell the same story. | Keep the slice focused on a golden path, not a generic pipeline builder. |
 | should do soon | Product packs | Failed-run to remediation action path | product usability | S | Run detail, source freshness, and retry context already exist, but they do not yet consistently tell the operator what to do next. | First-source onboarding flow closure | Failed and stale states link to the right action: retry, upload missing period, inspect binding, or fix contract; source-freshness docs and run detail surfaces use the same action vocabulary. | It should close the loop on existing signals, not add a new orchestration surface. |
 | should do soon | Product packs | Keep onboarding and remediation sequencing under pack or application ownership | boundary hardening | S | The product loop is still at risk of leaking back into route modules and shell code. | Explicit use-case entrypoints | Pack-local source setup, preview, remediation vocabulary, and follow-up actions are defined once and consumed by surfaces rather than rederived per UI. | Avoid inventing a second registry just for UX metadata. |
 | should do soon | Surfaces | Reporting mode disclosure and publication audit summary | operational reliability | S | Operators still have to infer too much about whether a view is warehouse-backed or publication-backed and why it should be trusted. | publication confidence and audit plumbing already shipped | Control-plane surfaces show reporting backend mode, publication freshness, last refresh or publish status, and drill-down to publication audit; runbooks explain when to stay warehouse-backed and when to move to published reporting. | Keep the backend choice explicit, not abstracted away. |
 | should do soon | Surfaces | Terminal task library and command discovery | developer ergonomics | XS | The allowlisted terminal is strategically useful, but today it feels like an undocumented escape hatch rather than a deliberate operator aid. | Failed-run to remediation action path | `/control/terminal/commands` is surfaced in grouped, task-oriented language; control and remediation surfaces link to common commands; `docs/runbooks/operations.md` names the exact jobs the terminal is for. | It should bridge operator gaps, not become a shell product. |
+| should do soon | Kernel | Contract compatibility package extraction | maintainability | S | `apps/api/contract_artifacts.py` now owns artifact loading, OpenAPI comparison, publication/UI comparison, schema diffing, report writing, and release bundle packaging. The behavior is platform contract governance, not API route assembly. | none | Contract compatibility logic moves under `packages/platform/contract_compat/`; `apps/api/contract_artifacts.py` remains a thin CLI compatibility entrypoint; `make contract-*` targets and `tests/test_contract_artifacts.py` behavior stay stable. | Mechanical extraction only. Do not change compatibility policy in the same sprint. |
 | later, once surface truth is in place | Surfaces | Extension registry visibility surface | capability expansion | S | The extension registry is too far along architecturally to remain developer-only, but it is not important enough to outrank base hardening and product-loop closure. | Reporting mode disclosure and publication audit summary | Admin UI exposes registry sources, revisions, sync or validation state, discovered handlers, publication keys, function keys, and active revision without implying hot reload; operator-facing docs explain activation posture. | Keep this read-only. Activation and rollback workflows belong in a later sprint. |
 
 ## 5. Parked backlog
@@ -187,6 +189,8 @@ That seam is the main missing boundary keeping `apps/api/app.py` and other surfa
 
 **Why it is wrong for the current repo state:** The main operator path is not finished enough to justify parallel surface expansion. Another renderer lane would spend product energy on presentation multiplicity before the core workflows are coherent.
 
+**Allowed exception:** A narrow web-surface decision pass may evaluate whether `/retro` remains experimental, becomes primary, or is harvested into the default shell. That pass should not add new workflows or routes; it should document the canonical operator navigation model and decide the support posture for existing routes.
+
 ### Distributed workflow or task-queue platformization
 
 **Why it is seductive:** A queue, scheduler, or orchestration layer can look like the next natural move for a growing data platform.
@@ -231,6 +235,16 @@ The next planning cycle should supersede earlier operator-theme packaging with s
 
 **Rollback / containment notes:** preserve existing APIs and worker commands; do not introduce a second generic orchestration framework.
 
+### Sprint `transform-dispatch-forge`
+
+**Objective:** Continue the semantic seam work inside `TransformationService` so product packs own domain behavior and the facade owns orchestration boundaries.
+
+**Included items:** Move scenario dispatch, domain getter/refresh wrappers, and publication refresh paths toward registries or use-cases; keep schema/bootstrap, transaction/lineage, registry dispatch, and confidence hooks in the facade.
+
+**Expected repo impact:** focused refactors in transformation registries/use-cases and tests that exercise unchanged public behavior.
+
+**Rollback / containment notes:** do not rewrite transformation storage, reporting contracts, or domain pack internals in one pass. Move one behavior family at a time and keep `ReportingService` as the app-facing read contract.
+
 ### Sprint `pack-loop-harbor`
 
 **Objective:** Make the first-source and first-broken-run loop feel like one product owned by packs and application use-cases instead of by whatever surface the operator touched first.
@@ -245,8 +259,18 @@ The next planning cycle should supersede earlier operator-theme packaging with s
 
 **Objective:** Make surfaces thinner and more honest by exposing reporting truth, terminal task discovery, and extension state without widening platform scope.
 
-**Included items:** Reporting mode disclosure and publication audit summary; terminal task library and command discovery; extension registry visibility surface.
+**Included items:** Reporting mode disclosure and publication audit summary; terminal task library and command discovery; extension registry visibility surface; web-surface decision gate for default shell versus `/retro`.
 
 **Expected repo impact:** control-plane and admin UI work, read-only registry visibility, runbook updates, minimal runtime changes.
 
-**Rollback / containment notes:** keep registry work read-only and keep backend choices explicit. Do not introduce hot reload, marketplace flows, or a new renderer lane in this sprint.
+**Rollback / containment notes:** keep registry work read-only and keep backend choices explicit. Do not introduce hot reload, marketplace flows, or a new renderer lane in this sprint. The web-surface decision is a product/documentation gate only unless a follow-on implementation sprint is accepted.
+
+### Sprint `contract-compat-extract`
+
+**Objective:** Move contract compatibility from an API-owned module into a platform package without changing release behavior.
+
+**Included items:** Extract artifact loading, OpenAPI comparison, publication/UI descriptor comparison, schema diffing, report writing, and release bundle packaging into `packages/platform/contract_compat/`; keep `apps/api/contract_artifacts.py` as the CLI and Makefile compatibility entrypoint.
+
+**Expected repo impact:** package-only refactor plus import updates and focused tests around `tests/test_contract_artifacts.py`.
+
+**Rollback / containment notes:** preserve all existing command names, generated artifact names, summary JSON/Markdown shape, and compatibility classifications. Policy changes belong in a later governance sprint, not in the extraction.

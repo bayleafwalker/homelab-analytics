@@ -47,6 +47,13 @@ Semantic-engine responsibilities:
 - scenario storage and compute
 - policy evaluation primitives
 
+Transformation facade boundary:
+
+- `TransformationService` may own schema/bootstrap coordination, transaction and lineage helpers, registry dispatch, and publication-confidence hooks.
+- Product-pack transformations should own domain-specific load, count, refresh, getter, and scenario implementation details.
+- New domain behavior should prefer transformation domain registries, publication refresh registries, or application use-cases over adding more direct pass-through methods to `TransformationService`.
+- Reporting-facing reads should continue through `ReportingService` and publication contracts rather than through transformation getters in API or web surfaces.
+
 ### 3. Product packs
 
 Finance, utilities, homelab, and overview are product packs attached to the semantic engine rather than proofs that the kernel is generic.

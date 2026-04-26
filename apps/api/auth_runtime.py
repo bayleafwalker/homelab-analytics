@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from logging import Logger
+from typing import TYPE_CHECKING, Any, cast
 
 from fastapi import FastAPI, Request
 from fastapi.responses import Response
@@ -33,16 +35,64 @@ from packages.storage.auth_store import (
     AuthStore,
 )
 
+if TYPE_CHECKING:
+    from packages.shared.settings import AppSettings
+
 # Re-export platform helpers so existing callers in auth_routes.py, app.py, etc.
 # don't need to update their imports in this PR.
 __all__ = [
+    "AuthContext",
     "bearer_token_from_request",
+    "build_auth_context",
     "build_auth_event_recorder",
     "build_lockout_checker",
     "cookie_secure_for_request",
     "register_auth_middleware",
     "request_remote_addr",
 ]
+
+
+@dataclass
+class AuthContext:
+    resolved_auth_store: AuthStore
+    break_glass_controller: BreakGlassController | None
+
+
+def build_auth_context(
+    *,
+    resolved_auth_mode: str,
+    resolved_identity_mode: str,
+    session_manager: SessionManager | None,
+    oidc_provider: OidcProvider | None,
+    proxy_provider: ProxyProvider | None,
+    auth_store_candidate: Any,
+    app_settings: AppSettings | None = None,
+) -> AuthContext:
+    """Validate provider arguments and return a resolved AuthContext.
+
+    Raises ValueError for any invalid auth configuration combination.
+    create_app() calls this factory; no inline guard branches should remain there.
+    """
+    if is_cookie_auth_mode(resolved_auth_mode) and session_manager is None:
+        raise ValueError("Cookie-backed auth requires a configured session manager.")
+    if resolved_auth_mode == "oidc" and oidc_provider is None:
+        raise ValueError("OIDC auth requires a configured OIDC provider.")
+    if resolved_auth_mode == "proxy" and proxy_provider is None:
+        raise ValueError("Proxy auth requires a configured proxy provider.")
+    if is_cookie_auth_mode(resolved_auth_mode) and not isinstance(
+        auth_store_candidate, AuthStore
+    ):
+        raise ValueError("Configured auth requires an auth-capable control-plane store.")
+    resolved_auth_store = cast(AuthStore, auth_store_candidate)
+    break_glass_controller = (
+        BreakGlassController.from_settings(app_settings)
+        if resolved_identity_mode == "local_single_user" and app_settings is not None
+        else None
+    )
+    return AuthContext(
+        resolved_auth_store=resolved_auth_store,
+        break_glass_controller=break_glass_controller,
+    )
 
 AUTH_REQUIRED_DETAIL = "Authentication required."
 CSRF_VALIDATION_FAILED_DETAIL = "CSRF validation failed."

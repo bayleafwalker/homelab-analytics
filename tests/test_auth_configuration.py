@@ -1,8 +1,16 @@
 import warnings
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import Mock
 
+import pytest
+
+from apps.api.auth_runtime import AuthContext, build_auth_context
 from packages.platform.auth.configuration import validate_auth_configuration
+from packages.shared.auth_modes import is_cookie_auth_mode
 from packages.shared.metrics import metrics_registry
 from packages.shared.settings import AppSettings
+from packages.storage.ingestion_config import IngestionConfigRepository
 
 
 def test_validate_auth_configuration_warns_on_legacy_auth_mode_fallback() -> None:
@@ -139,3 +147,96 @@ def test_validate_auth_configuration_requires_machine_jwt_issuer_and_audience() 
         assert "HOMELAB_ANALYTICS_MACHINE_JWT_AUDIENCE" in str(exc)
     else:
         raise AssertionError("Expected missing machine JWT settings to raise ValueError.")
+
+
+# ---------------------------------------------------------------------------
+# build_auth_context() contract tests
+# ---------------------------------------------------------------------------
+
+def _disabled_context(auth_store_candidate=None):
+    with TemporaryDirectory() as tmp:
+        store = auth_store_candidate or IngestionConfigRepository(Path(tmp) / "config.db")
+        return build_auth_context(
+            resolved_auth_mode="disabled",
+            resolved_identity_mode="disabled",
+            session_manager=None,
+            oidc_provider=None,
+            proxy_provider=None,
+            auth_store_candidate=store,
+        )
+
+
+def test_build_auth_context_returns_auth_context_for_disabled_mode() -> None:
+    ctx = _disabled_context()
+    assert isinstance(ctx, AuthContext)
+    assert ctx.break_glass_controller is None
+
+
+def test_build_auth_context_raises_for_cookie_auth_without_session_manager() -> None:
+    with TemporaryDirectory() as tmp:
+        store = IngestionConfigRepository(Path(tmp) / "config.db")
+        with pytest.raises(ValueError, match="session manager"):
+            build_auth_context(
+                resolved_auth_mode="local",
+                resolved_identity_mode="local",
+                session_manager=None,
+                oidc_provider=None,
+                proxy_provider=None,
+                auth_store_candidate=store,
+            )
+
+
+def test_build_auth_context_raises_for_oidc_without_provider() -> None:
+    with TemporaryDirectory() as tmp:
+        store = IngestionConfigRepository(Path(tmp) / "config.db")
+        with pytest.raises(ValueError, match="configured OIDC provider"):
+            build_auth_context(
+                resolved_auth_mode="oidc",
+                resolved_identity_mode="oidc",
+                session_manager=Mock(),
+                oidc_provider=None,
+                proxy_provider=None,
+                auth_store_candidate=store,
+            )
+
+
+def test_build_auth_context_raises_for_proxy_without_provider() -> None:
+    with TemporaryDirectory() as tmp:
+        store = IngestionConfigRepository(Path(tmp) / "config.db")
+        with pytest.raises(ValueError, match="configured proxy provider"):
+            build_auth_context(
+                resolved_auth_mode="proxy",
+                resolved_identity_mode="proxy",
+                session_manager=None,
+                oidc_provider=None,
+                proxy_provider=None,
+                auth_store_candidate=store,
+            )
+
+
+def test_build_auth_context_raises_when_cookie_auth_store_not_auth_capable() -> None:
+    non_auth_store = object()
+    with pytest.raises(ValueError, match="auth-capable control-plane store"):
+        build_auth_context(
+            resolved_auth_mode="local",
+            resolved_identity_mode="local",
+            session_manager=Mock(),
+            oidc_provider=None,
+            proxy_provider=None,
+            auth_store_candidate=non_auth_store,
+        )
+
+
+def test_build_auth_context_omits_break_glass_without_app_settings() -> None:
+    with TemporaryDirectory() as tmp:
+        store = IngestionConfigRepository(Path(tmp) / "config.db")
+        ctx = build_auth_context(
+            resolved_auth_mode="disabled",
+            resolved_identity_mode="local_single_user",
+            session_manager=None,
+            oidc_provider=None,
+            proxy_provider=None,
+            auth_store_candidate=store,
+            app_settings=None,
+        )
+    assert ctx.break_glass_controller is None

@@ -81,3 +81,18 @@ When changing API or publication contracts:
 5. if the change is breaking, review `dist/contracts/compatibility-summary.md` from `make contract-release-artifacts CONTRACT_BASE_REF=<baseline>`
 
 That keeps stale-artifact failures separate from real compatibility decisions.
+
+## Extraction Boundary
+
+The current compatibility implementation lives in `apps/api/contract_artifacts.py` because it grew out of API contract export tooling. That file now owns more than API assembly: artifact loading, Git-ref reads, export-sync checks, OpenAPI comparison, publication/UI descriptor comparison, schema diffing, markdown/JSON report writing, and release bundle packaging.
+
+That behavior should move behind a platform package boundary when the next contract-governance refactor is scheduled:
+
+- `packages/platform/contract_compat/artifacts.py` for snapshot loading, Git-ref reads, and export-sync checks
+- `packages/platform/contract_compat/openapi_compare.py` for route/request/response compatibility
+- `packages/platform/contract_compat/publication_compare.py` for publication and UI descriptor compatibility
+- `packages/platform/contract_compat/schema_compare.py` for shared JSON-schema diffing
+- `packages/platform/contract_compat/report.py` for JSON and markdown summaries
+- `packages/platform/contract_compat/release_bundle.py` for manifest and release artifact packaging
+
+`apps/api/contract_artifacts.py` should remain as the compatibility CLI entrypoint so `python -m apps.api.contract_artifacts`, `make contract-export-check`, `make contract-compat-report`, and `make contract-release-artifacts` keep their public behavior. The extraction is successful only if `tests/test_contract_artifacts.py` still exercises the same compatibility policy through the preserved entrypoint.

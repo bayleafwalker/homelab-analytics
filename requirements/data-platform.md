@@ -193,12 +193,13 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Tight coupling between transformation and reporting prevents reuse and forces rework when dashboards change.
 
 **Phase:** 1
-**Status:** implemented (transformation modules remain independent of application/reporting modules, and reporting marts are exercised through shared fact tables)
+**Status:** implemented with follow-up (transformation modules remain independent of application/reporting modules, and reporting marts are exercised through shared fact tables. The remaining structural debt is facade shape: `TransformationService` still exposes many direct domain getter, refresh, and scenario pass-throughs that should move behind transformation registries or application use-cases while preserving the service as the schema/bootstrap, transaction/lineage, registry-dispatch, and confidence-hook boundary.)
 
 **Acceptance criteria:**
 - No transformation module imports from reporting modules.
 - Fact and dimension schemas are documented independently of any specific mart.
 - At least two different reporting marts consume the same fact table in tests.
+- New app-facing read or scenario behavior should not add direct `TransformationService` pass-through methods when a registry, use-case, or `ReportingService` contract can own the boundary.
 
 **Dependencies:** none
 
