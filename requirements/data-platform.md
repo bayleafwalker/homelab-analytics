@@ -127,6 +127,8 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 | `dim_meter` | Utility meters | 3 |
 | `dim_node` | Cluster nodes | 3 |
 | `dim_device` | Physical infrastructure devices | 3 |
+| `dim_service` | Homelab services: containers, VMs, add-ons, integrations | 3 |
+| `dim_workload` | Homelab workloads: containers, VMs, and processes running across hosts | 3 |
 | `dim_loan` | Loan instruments with terms | 3 |
 | `dim_asset` | Physical and digital assets | 3 |
 | `dim_entity` | Home automation entities | 3 |
@@ -137,7 +139,7 @@ The platform implements a three-layer data architecture — landing (bronze), tr
 **Rationale:** Canonical dimensions enable consistent attribution across all facts and support SCD-based historical analysis.
 
 **Phase:** 1–3
-**Status:** in-progress (`dim_account`, `dim_counterparty` with `category_id` FK, `dim_contract`, `dim_category`, `dim_meter`, `dim_node`, `dim_device`, `dim_asset`, `dim_budget`, `dim_loan`, `dim_entity`, and `dim_household_member` all implemented with SCD-2 and reporting-layer current snapshots; all Stage 1 canonical dimensions now shipped; future shared-dimension promotions continue to follow the semantic-contract rules in `docs/architecture/semantic-contracts.md`)
+**Status:** in-progress (`dim_account`, `dim_counterparty` with `category_id` FK, `dim_contract`, `dim_category`, `dim_meter`, `dim_node`, `dim_device`, `dim_service`, `dim_workload`, `dim_asset`, `dim_budget`, `dim_loan`, `dim_entity`, and `dim_household_member` all implemented with SCD-2 and reporting-layer current snapshots; explicit `CurrentDimensionContractDefinition` entries published for all 14 dimensions; all Stage 1 canonical dimensions now shipped; future shared-dimension promotions continue to follow the semantic-contract rules in `docs/architecture/semantic-contracts.md`)
 
 **Acceptance criteria:**
 - Each dimension is persisted with SCD Type 2 handling (see PLT-07).

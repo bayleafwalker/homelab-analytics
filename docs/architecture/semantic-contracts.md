@@ -34,23 +34,26 @@ They sit between the transformation-layer model and the reporting/publication su
 
 These are canonical, but they are still domain-owned rather than cross-domain registries:
 
-- `dim_account`
-- `dim_budget`
-- `dim_loan`
-- `dim_asset`
-- `dim_entity`
-- `dim_node`
-- `dim_device`
-- `dim_service`
-- `dim_workload`
+| Dimension | Domain | Contract status |
+|---|---|---|
+| `dim_account` | Finance | Explicit contract; `CurrentDimensionContractDefinition` published |
+| `dim_budget` | Finance | Explicit contract; `CurrentDimensionContractDefinition` published |
+| `dim_loan` | Finance | Explicit contract; `CurrentDimensionContractDefinition` published |
+| `dim_asset` | Finance / inventory | Explicit contract; `CurrentDimensionContractDefinition` published |
+| `dim_entity` | Home automation | Explicit contract; `CurrentDimensionContractDefinition` published |
+| `dim_node` | Homelab infrastructure | Explicit contract; `CurrentDimensionContractDefinition` published |
+| `dim_device` | Homelab infrastructure | Explicit contract; `CurrentDimensionContractDefinition` published |
+| `dim_service` | Homelab services | Explicit contract; `CurrentDimensionContractDefinition` published |
+| `dim_workload` | Homelab services | Explicit contract; `CurrentDimensionContractDefinition` published |
 
-Domain-local does not mean ad hoc. Each still needs reporting-layer publication semantics when exposed to apps or renderer consumers.
+Domain-local does not mean ad hoc. All nine dimensions have explicit `CurrentDimensionContractDefinition` entries in `packages/pipelines/composition/current_dimension_contracts.py` and are accessible via `ReportingService.get_current_dimension_rows()` through `CURRENT_DIMENSION_RELATIONS`.
 
 ## Known governance gaps
 
 - `fact_balance_snapshot` is implemented as the Stage 1 point-in-time balance fact across account and loan balances.
 - `dim_counterparty.category` free-text bridge is retained for backward compat; `category_id` is now populated by backfill but full bridge-column removal is deferred.
 - Provider semantics still live inside domain-local string columns such as `dim_contract.provider`; there is no shared provider dimension yet.
+- `publication_confidence_snapshot.completeness_pct` is a binary presence flag (0 or 100) rather than proportional; tracked for a future governance pass.
 
 ## Publication confidence metadata
 
