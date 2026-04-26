@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Homelab Analytics — UI concepts</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* lifted from ui-tokens.css */
+    --ink: #132833;
+    --paper: #fffaf1;
+    --bg: #f2ecdf;
+    --line: rgba(19, 40, 51, 0.14);
+    --line-strong: rgba(19, 40, 51, 0.28);
+    --muted: #5f6e75;
+    --accent: #0f766e;
+    --accent-cool: #0b5f83;
+    --accent-warm: #c96a3d;
+    --ok: #2a9d8f;
+    --warn: #d1495b;
+    --shadow: 0 24px 70px rgba(19, 40, 51, 0.14);
+
+    --retro-bg: #08110c;
+    --retro-panel: rgba(9, 21, 15, 0.9);
+    --retro-text: #d9ffd7;
+    --retro-muted: rgba(199, 244, 204, 0.72);
+    --retro-line: rgba(136, 255, 164, 0.28);
+    --retro-ok: #88ffa4;
+    --retro-warn: #f6c76d;
+    --retro-accent: #8ae6ff;
+
+    --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --font-sans: "Inter", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #e8e2d4; font-family: var(--font-sans); color: var(--ink); }
+
+  /* shared building blocks used across concepts */
+  .panel-warm {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 30px rgba(19,40,51,0.06);
+  }
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .display {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.02;
+  }
+  .num-mono {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum" 1, "ss01" 1;
+  }
+
+  /* placeholder striped art (used sparingly in concepts) */
+  .placeholder {
+    background-image: repeating-linear-gradient(135deg,
+      rgba(19,40,51,0.06) 0 6px, transparent 6px 14px);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="concepts/shared.jsx"></script>
+<script type="text/babel" src="concepts/c1-operating-picture.jsx"></script>
+<script type="text/babel" src="concepts/c2-ops-console.jsx"></script>
+<script type="text/babel" src="concepts/c3-briefing.jsx"></script>
+<script type="text/babel" src="concepts/c4-cashflow-map.jsx"></script>
+<script type="text/babel" src="concepts/c5-wallboard.jsx"></script>
+
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+  function App() {
+    const DC  = window.DesignCanvas;
+    const Sec = window.DCSection;
+    const Art = window.DCArtboard;
+    return (
+      <DC title="Homelab Analytics — UI Concepts" subtitle="5 directions for the household analytics surface. Click any artboard to focus it.">
+        <Sec id="refined" title="Refined existing shell">
+          <Art id="op2" label="01  Operating Picture v2  ·  warm shell, refined" width={1280} height={1480}>
+            <window.OperatingPictureV2 />
+          </Art>
+        </Sec>
+
+        <Sec id="new" title="New surfaces">
+          <Art id="ops" label="02  Ops Console  ·  dense terminal grid" width={1440} height={900}>
+            <window.OpsConsole />
+          </Art>
+          <Art id="brief" label="03  Morning Briefing  ·  editorial calm" width={1280} height={1480}>
+            <window.MorningBriefing />
+          </Art>
+          <Art id="flow" label="04  Cashflow Map  ·  Sankey of household money" width={1280} height={900}>
+            <window.CashflowMap />
+          </Art>
+          <Art id="wall" label="05  Homelab Wallboard  ·  services + devices, retro" width={1440} height={900}>
+            <window.Wallboard />
+          </Art>
+        </Sec>
+      </DC>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+</body>
+</html>

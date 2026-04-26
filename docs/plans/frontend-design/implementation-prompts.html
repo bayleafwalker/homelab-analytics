@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Homelab Analytics — implementation prompts</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:#132833; --paper:#fffaf1; --bg:#f2ecdf;
+    --line:rgba(19,40,51,0.14); --line-strong:rgba(19,40,51,0.28);
+    --muted:#5f6e75; --accent:#0f766e; --accent-cool:#0b5f83; --accent-warm:#c96a3d;
+    --ok:#2a9d8f; --warn:#d1495b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background: radial-gradient(circle at 8% 0%, rgba(201,106,61,0.14), transparent 36%), radial-gradient(circle at 96% 4%, rgba(15,118,110,0.12), transparent 38%), linear-gradient(180deg,#f7f3eb,var(--bg)); color: var(--ink); font-family: "Inter", "Avenir Next", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .page { max-width: 980px; margin: 0 auto; padding: 56px 28px 96px; }
+  .display { font-family: "Fraunces","Iowan Old Style",Georgia,serif; font-weight: 500; letter-spacing: -0.01em; }
+  .eyebrow { font-size: 11px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); }
+  h1.title { font-size: 56px; line-height: 1; margin: 10px 0 18px; }
+  p.lede { font-size: 18px; line-height: 1.55; color: var(--ink); max-width: 62ch; margin: 0; }
+
+  .toc { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 36px 0 56px; padding: 22px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,250,241,0.7); }
+  .toc a { color: var(--ink); text-decoration: none; display: grid; grid-template-columns: 36px 1fr; gap: 10px; padding: 10px 12px; border-radius: 12px; }
+  .toc a:hover { background: rgba(15,118,110,0.06); }
+  .toc .num { font-family: "IBM Plex Mono",monospace; color: var(--accent-warm); font-weight: 700; font-size: 13px; }
+  .toc .name { font-weight: 600; font-size: 14px; }
+  .toc .name small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; margin-top: 2px; }
+
+  section.concept { margin-bottom: 64px; padding-top: 28px; border-top: 1px solid var(--line); }
+  section.concept .hd { display: flex; gap: 16px; align-items: baseline; margin-bottom: 18px; }
+  section.concept .hd .num { font-family: "IBM Plex Mono",monospace; color: var(--accent-warm); font-size: 14px; font-weight: 700; padding-top: 6px; }
+  section.concept h2 { font-family: "Fraunces",serif; font-weight: 500; font-size: 36px; margin: 0; line-height: 1.05; }
+  section.concept .meta { color: var(--muted); font-size: 13px; margin-top: 4px; font-family: "IBM Plex Mono",monospace; }
+
+  h3 { font-family: "Fraunces",serif; font-weight: 500; font-size: 20px; margin: 24px 0 10px; }
+  ul.do, ul.dont, ul.steps { margin: 8px 0 0; padding-left: 22px; }
+  ul li { font-size: 14.5px; line-height: 1.55; margin-bottom: 6px; }
+  ul.dont li::marker { color: var(--warn); }
+  ul.do li::marker { color: var(--ok); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .card { background: rgba(255,250,241,0.78); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; }
+  .card .eyebrow { color: var(--accent-cool); }
+
+  pre { background: #0f1f17; color: #d9ffd7; border-radius: 12px; padding: 16px 18px; overflow-x: auto; font-family: "IBM Plex Mono",monospace; font-size: 12.5px; line-height: 1.55; margin: 12px 0 0; border: 1px solid rgba(136,255,164,0.18); }
+  pre .c { color: #f6c76d; }   /* yellow tag */
+  pre .s { color: #88ffa4; }   /* string-ish */
+  pre .m { color: rgba(199,244,204,0.7); }
+  code.inline { font-family: "IBM Plex Mono",monospace; font-size: 12.5px; background: rgba(19,40,51,0.06); padding: 1px 6px; border-radius: 4px; }
+
+  .pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; }
+  .pill.warm  { background: rgba(201,106,61,0.14); color: var(--accent-warm); }
+  .pill.cool  { background: rgba(11,95,131,0.12); color: var(--accent-cool); }
+  .pill.ok    { background: rgba(42,157,143,0.14); color: var(--ok); }
+  .pill.ink   { background: rgba(19,40,51,0.08); color: var(--ink); }
+
+  .pillrow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+  .footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; font-family: "IBM Plex Mono",monospace; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <div class="eyebrow">Implementation guide</div>
+  <h1 class="title display">Building the five concepts.</h1>
+  <p class="lede">One brief per concept &mdash; intent, the components and APIs to wire, the visual moves that matter, and a short prompt you can paste into your IDE / Claude Code to scaffold the work. Copy lifts directly from your existing tokens, components, and route shapes.</p>
+
+  <nav class="toc">
+    <a href="#c1"><span class="num">01</span><span class="name">Operating Picture v2 <small>refine the warm shell</small></span></a>
+    <a href="#c2"><span class="num">02</span><span class="name">Ops Console <small>dense terminal grid</small></span></a>
+    <a href="#c3"><span class="num">03</span><span class="name">Morning Briefing <small>editorial calm</small></span></a>
+    <a href="#c4"><span class="num">04</span><span class="name">Cashflow Map <small>Sankey of household money</small></span></a>
+    <a href="#c5"><span class="num">05</span><span class="name">Homelab Wallboard <small>services + devices</small></span></a>
+    <a href="#shared"><span class="num">★</span><span class="name">Shared groundwork <small>tokens, primitives, motion</small></span></a>
+  </nav>
+
+  <!-- ─────────────────────────────────────── C1 -->
+  <section class="concept" id="c1">
+    <div class="hd">
+      <div class="num">01</div>
+      <div>
+        <h2>Operating Picture v2</h2>
+        <div class="meta">target: <code class="inline">apps/web/frontend/app/operating-picture/page.js</code></div>
+      </div>
+    </div>
+
+    <p class="lede">Same warm DNA, more rhythm. The current page lists everything; v2 picks one number, one trend, one decision, then a freshness pulse and a 7-day horizon.</p>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="eyebrow">Build order</div>
+        <ul class="steps">
+          <li>Replace the hero with a single big-number net + 12-month sparkline.</li>
+          <li>Lift the freshness logic out of the table into a <code class="inline">&lt;FreshnessPulse /&gt;</code> with one card per domain.</li>
+          <li>Promote <code class="inline">getUpcomingFixedCosts()</code> to a 7-day strip with toned backgrounds per kind.</li>
+          <li>Re-render <code class="inline">attentionItems</code> as an editorial list (severity pill + numbered).</li>
+          <li>Move ratios + top categories into a single right-rail panel; keep them in <code class="inline">tabular-nums</code>.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="eyebrow">Reuse / change</div>
+        <ul class="do">
+          <li>Reuse <code class="inline">SparklineChart</code>, <code class="inline">stateIndicatorBadge</code>, <code class="inline">domainFreshnessBand</code>.</li>
+          <li>Add <code class="inline">--font-display</code> token (Fraunces or Iowan) for the hero number only.</li>
+          <li>Keep <code class="inline">.statusPill</code> classes; rename one-off inline styles into <code class="inline">.heroNumber</code>, <code class="inline">.pulseCard</code>, <code class="inline">.horizonCell</code>.</li>
+        </ul>
+        <div class="eyebrow" style="margin-top:14px">Avoid</div>
+        <ul class="dont">
+          <li>Repeating freshness as both pills <em>and</em> a table &mdash; pick one place.</li>
+          <li>More than one accent per panel.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Prompt</h3>
+<pre><span class="m">// Paste into Claude Code, scoped to apps/web/frontend</span>
+<span class="c">@operating-picture/page.js</span>
+
+Refactor this page into the "Operating Picture v2" layout.
+
+Hero (replaces the four domain cards at the top):
+  - eyebrow "Household Intelligence — &lt;current month&gt;"
+  - one big serif number = latestCashflow.net (font-family: var(--font-display))
+  - one paragraph of plain-language summary built from
+    cashflowRows + recurringTotal + utilityDelta
+  - SparklineChart of net for the last 12 months on the right
+
+Freshness pulse (replaces the source-confidence table):
+  - 5 cards in a single grid: Finance, Recurring, Utilities, Loans, Budgets
+  - each card = name, dot color from domainFreshnessBand(), thin progress
+    track (green=92% full, yellow=54%, red=12%), mono caption with last
+    landed_at relative time
+
+Horizon strip (next 7 days):
+  - 7 day cells from getUpcomingFixedCosts() filtered to now..+7d
+  - tone the background by cost_type: utility=cool, mortgage=accent,
+    contract review=warm, others=neutral
+
+Attention queue (replaces existing list):
+  - render rankedAttention as numbered rows (01, 02, ...) with a
+    severity pill (urgent/soon/watch) and a "Review →" link
+
+Keep all existing data fetches in Promise.all. Do not introduce a new
+state library &mdash; keep the page server-rendered.</pre>
+
+    <div class="pillrow">
+      <span class="pill warm">component: FreshnessPulse</span>
+      <span class="pill warm">component: HorizonStrip</span>
+      <span class="pill warm">component: AttentionList</span>
+      <span class="pill cool">api: getUpcomingFixedCosts</span>
+      <span class="pill cool">api: getSourceFreshness</span>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────── C2 -->
+  <section class="concept" id="c2">
+    <div class="hd">
+      <div class="num">02</div>
+      <div>
+        <h2>Ops Console</h2>
+        <div class="meta">new route: <code class="inline">apps/web/frontend/app/console/page.js</code></div>
+      </div>
+    </div>
+
+    <p class="lede">A power-user terminal sibling to the retro shell. Single screen, 6 panels, no scrolling. Built on the same retro tokens; aimed at people who already live in <code class="inline">retro-shell</code>.</p>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="eyebrow">Build order</div>
+        <ul class="steps">
+          <li>Add a <code class="inline">&lt;ConsoleShell&gt;</code> that mirrors <code class="inline">RetroShell</code> but locks to a 3&times;2 CSS Grid panel layout.</li>
+          <li>Each panel = <code class="inline">&lt;Panel title right&gt;</code> with a thin top header row.</li>
+          <li>Panels: cashflow ticker, spend heatmap (DOW &times; hour), attention, runs tail, category bars + ratios, command stub.</li>
+          <li>Wire heatmap from a new endpoint or a transform of <code class="inline">spendByCategoryMonthly</code> grouped by booked timestamp.</li>
+          <li>Keyboard: <code class="inline">F1..F5</code> jump panel, <code class="inline">⌘K</code> opens command.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="eyebrow">Visual rules</div>
+        <ul class="do">
+          <li>One font: <code class="inline">var(--retro-font-mono)</code>. One size scale: 10/11/12/14/18/38.</li>
+          <li>Colors only ok / warn / accent / muted; no decorative hues.</li>
+          <li>Numbers right-aligned, <code class="inline">tabular-nums</code>, no thousands separators inside panels.</li>
+          <li>Panel headers all caps, <code class="inline">letter-spacing: 0.16em</code>.</li>
+        </ul>
+        <div class="eyebrow" style="margin-top:14px">Avoid</div>
+        <ul class="dont">
+          <li>CRT vignette &amp; scanlines on top of bar charts &mdash; reserve them for the Wallboard.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Prompt</h3>
+<pre><span class="c">@retro-shell.js</span> <span class="c">@components/sparkline-chart.js</span>
+
+Create a new route /console that uses a "ConsoleShell" derived from
+RetroShell, but laid out as a strict CSS grid:
+
+  grid-template-columns: 1.1fr 1.4fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 10px;
+
+Six panels, in order:
+  1. Cashflow ticker     &mdash; latest net + 12m sparkline + Δ12M %
+  2. Spend heatmap       &mdash; 7 rows (dow) &times; 24 cols (hour);
+                            cell intensity = sum(account_transactions.amount)
+                            for the last 28 days; needs a new endpoint
+                            getSpendHeatmap(window=28)
+  3. Attention           &mdash; rankedAttention list with S1/S2/S3 markers
+  4. Runs tail           &mdash; getRuns(8); table with run_id/source/file/rows/status
+  5. Categories + ratios &mdash; horizontal bars from getSpendByCategoryMonthly
+                            for current month; ratios under a dashed divider
+  6. Command stub        &mdash; non-interactive scrollback of recent
+                            assistant_confidence calls; bottom-line cursor
+
+Use existing retro-* CSS variables. Do not import any new fonts.
+Add hotkeys F1-F5 to focus panels via querySelector(`[data-panel-id="${n}"]`).
+Add ⌘K to focus the command stub.</pre>
+
+    <div class="pillrow">
+      <span class="pill warm">new component: ConsoleShell</span>
+      <span class="pill warm">new component: HeatGrid</span>
+      <span class="pill cool">new endpoint: getSpendHeatmap(window)</span>
+      <span class="pill ink">a11y: keyboard map documented in panel</span>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────── C3 -->
+  <section class="concept" id="c3">
+    <div class="hd">
+      <div class="num">03</div>
+      <div>
+        <h2>Morning Briefing</h2>
+        <div class="meta">new route: <code class="inline">apps/web/frontend/app/briefing/page.js</code> (also good as the email digest)</div>
+      </div>
+    </div>
+
+    <p class="lede">A daily front page assembled from the same data sources. Calm, narrative, share-friendly; uses Fraunces (or Iowan) for display and Inter for body. Should also serialize cleanly to PDF/email.</p>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="eyebrow">Build order</div>
+        <ul class="steps">
+          <li>Compose the lede string server-side from cashflow + utility + recurring totals.</li>
+          <li>Render the chart-of-the-week as one wide SVG with three series and an explicit caption.</li>
+          <li>Three columns: <strong>Decisions</strong> (top 3 attention), <strong>Trends</strong> (3 sparklines with deltas), <strong>Quiet</strong> (3 sentences from rules).</li>
+          <li>Add a <code class="inline">/briefing.json</code> response so the worker can email it daily.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="eyebrow">Visual rules</div>
+        <ul class="do">
+          <li>Two horizontal rules only: under the masthead, above the columns.</li>
+          <li>Eyebrow color encodes column intent: <span class="pill warm">warm = lede</span> <span class="pill cool">cool = chart</span> <span class="pill ok">ok = quiet</span>.</li>
+          <li>Body type 19px / 1.55, max <code class="inline">52ch</code>.</li>
+        </ul>
+        <div class="eyebrow" style="margin-top:14px">Avoid</div>
+        <ul class="dont">
+          <li>Decorative imagery &mdash; the chart <em>is</em> the image.</li>
+          <li>Anything below the fold that isn't text or one chart.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Prompt</h3>
+<pre><span class="c">@app/briefing/page.js (new)</span>
+
+Build a server component "Briefing" that renders an editorial daily
+view. Sections, in order:
+
+  Masthead   &mdash; "The Briefing" + ISO date + issue number
+                (issue_number = days since 2026-01-01)
+  Lede       &mdash; eyebrow "Lead story", h1 generated from rules:
+                  if net &gt; 0 for 6+ months: "Net positive for the &lt;n&gt;th month"
+                  else if net &lt; 0: "April closes net-negative"
+                  else: "April closes flat"
+                Body 2-3 sentences citing income, expense, utility delta.
+  By the numbers &mdash; right rail, 4 stats with one-line meta
+  Chart of the week &mdash; one SVG, income/expense/net for last 12 months
+  Decisions / Trends / Quiet &mdash; 3 equal columns, 3 items each
+  Footer     &mdash; sources used, txn count, refresh age
+
+Add an alternate response at /briefing.json that returns the same
+content as a typed object so apps/worker can use it for the email
+digest.</pre>
+
+    <div class="pillrow">
+      <span class="pill warm">new route: /briefing</span>
+      <span class="pill cool">new endpoint: /briefing.json</span>
+      <span class="pill ok">worker integration: daily email</span>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────── C4 -->
+  <section class="concept" id="c4">
+    <div class="hd">
+      <div class="num">04</div>
+      <div>
+        <h2>Cashflow Map</h2>
+        <div class="meta">new route: <code class="inline">apps/web/frontend/app/cashflow/page.js</code></div>
+      </div>
+    </div>
+
+    <p class="lede">Sankey of where the money actually goes: income sources → allocation buckets → endpoints. Useful for sharing with a partner, and for spotting drift between months.</p>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="eyebrow">Build order</div>
+        <ul class="steps">
+          <li>Add <code class="inline">getCashflowSankey(month)</code> on the API; it returns <code class="inline">{ nodes, links }</code> with three layers (source/bucket/end).</li>
+          <li>Compute layout server-side &mdash; node y from cumulative share, link height from value.</li>
+          <li>Render with plain SVG; the prototype's <code class="inline">SankeyLink</code> bezier is sufficient.</li>
+          <li>Add a month picker; persist selection in URL <code class="inline">?m=2026-04</code>.</li>
+          <li>Below the diagram, four KPI cards (fixed share, discretionary, saved, buffer).</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="eyebrow">Data shape</div>
+<pre><span class="m">// /api/reports/cashflow-sankey?m=2026-04</span>
+{
+  nodes: [
+    { id: <span class="s">"salary"</span>, layer: <span class="s">"source"</span>, label: <span class="s">"Salary"</span>, amount: 4820 },
+    { id: <span class="s">"fixed"</span>,  layer: <span class="s">"bucket"</span>, label: <span class="s">"Fixed costs"</span>, amount: 1793 },
+    { id: <span class="s">"mortgage"</span>, layer: <span class="s">"end"</span>, label: <span class="s">"Mortgage"</span>, amount: 1284 }
+  ],
+  links: [
+    { from: <span class="s">"salary"</span>, to: <span class="s">"fixed"</span>, value: 1793 },
+    { from: <span class="s">"fixed"</span>,  to: <span class="s">"mortgage"</span>, value: 1284 }
+  ]
+}</pre>
+      </div>
+    </div>
+
+    <h3>Prompt</h3>
+<pre><span class="c">@packages/application</span> <span class="c">@apps/api</span> <span class="c">@apps/web/frontend</span>
+
+Add an endpoint /api/reports/cashflow-sankey?m=YYYY-MM that joins
+account_transactions, subscriptions, contract_prices, and loan_repayments
+into a 3-layer node/link graph as described in the data-shape block.
+
+On the frontend create /cashflow:
+  &lt;CashflowSankey nodes={nodes} links={links} width={1280} height={720} /&gt;
+
+Use plain SVG. Each link is a closed bezier: M(ax,ay)
+C(mx,ay) (mx,by) (bx,by) L(bx, by+w) C(mx, by+w) (mx, ay+w) (ax, ay+w) Z
+Fill = source-node color at 0.32 opacity.
+
+Below the chart, render 4 KPI cards: fixed share, discretionary share,
+saved+invested share, buffer growth. All values derived client-side
+from the same nodes array.</pre>
+  </section>
+
+  <!-- ─────────────────────────────────────── C5 -->
+  <section class="concept" id="c5">
+    <div class="hd">
+      <div class="num">05</div>
+      <div>
+        <h2>Homelab Wallboard</h2>
+        <div class="meta">new route: <code class="inline">apps/web/frontend/app/wallboard/page.js</code> (intended for a wall display)</div>
+      </div>
+    </div>
+
+    <p class="lede">An always-on status board for the homelab itself &mdash; services, hosts, devices, and a 24h power chart. It shares tokens with the retro shell and the Ops Console, but is built to be readable from across the room.</p>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="eyebrow">Build order</div>
+        <ul class="steps">
+          <li>Wire to the existing HA bridge (<code class="inline">test_ha_bridge*</code> tells us the endpoints).</li>
+          <li>Add <code class="inline">getServiceHealth()</code> &mdash; returns name, host, status, uptime, cpu, mem.</li>
+          <li>Add <code class="inline">getDeviceReadings()</code> &mdash; per-room temperature, humidity, instantaneous power.</li>
+          <li>Add <code class="inline">getEventFeed(since=12h)</code> &mdash; merge ingestion runs + HA action proposals + alerts.</li>
+          <li>Auto-refresh every 30s with <code class="inline">SWR</code> or a simple interval; freeze on hover.</li>
+          <li>Add a <code class="inline">?compact=1</code> mode for 1080p TVs (drop the event feed, double the device tile size).</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="eyebrow">Visual rules</div>
+        <ul class="do">
+          <li>Minimum readable size = 14px; numbers 18px+; status text 24px+.</li>
+          <li>Use scanlines &amp; vignette; they're the wallboard signature.</li>
+          <li>Colors: ok green, warn amber, info cyan. Errors red &mdash; bold, no background.</li>
+          <li>Keep one and only one ticker line at the bottom.</li>
+        </ul>
+        <div class="eyebrow" style="margin-top:14px">Avoid</div>
+        <ul class="dont">
+          <li>Animations beyond the cursor blink and ticker scroll.</li>
+          <li>Mixing serif type into the wallboard &mdash; mono only.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Prompt</h3>
+<pre><span class="c">@apps/web/frontend</span> <span class="c">@packages/connectors</span>
+
+Create /wallboard. Layout (CSS grid):
+
+  row 1: [services 1.4fr] [event-feed 1fr]
+  row 2: [devices 1fr]    [power-24h 1fr]
+  row 3: [single-line ticker, full width]
+
+Data sources (add adapters where missing):
+  services    -&gt; getServiceHealth()
+  events      -&gt; getEventFeed(since=12h) merging runs + ha_action_proposals
+  devices     -&gt; getDeviceReadings() via the HA MQTT publisher
+  power24h    -&gt; getPowerSeries(window=24h) &mdash; 24 buckets, kWh
+
+Auto-refresh every 30s; pause when document.hasFocus() is false.
+Add ?compact=1 query flag that hides the event feed, doubles device
+tile font sizes, and drops the ticker hotkey hint.
+
+Inherit retro-* CSS variables; add a body-level "scanlines" pseudo
+element exactly as in retroRoot::before.</pre>
+
+    <div class="pillrow">
+      <span class="pill warm">new endpoint: getServiceHealth</span>
+      <span class="pill warm">new endpoint: getDeviceReadings</span>
+      <span class="pill warm">new endpoint: getEventFeed(since)</span>
+      <span class="pill warm">new endpoint: getPowerSeries(window)</span>
+      <span class="pill ink">deploys to: TV / kiosk mode</span>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────── shared -->
+  <section class="concept" id="shared">
+    <div class="hd">
+      <div class="num">★</div>
+      <div>
+        <h2>Shared groundwork</h2>
+        <div class="meta">do this once; every concept benefits</div>
+      </div>
+    </div>
+
+    <p class="lede">Three small additions to the design system unblock all five concepts and keep the existing pages from drifting.</p>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="eyebrow">1. Tokens</div>
+        <ul class="do">
+          <li>Add <code class="inline">--font-display</code> (Fraunces or Iowan) alongside the existing sans/mono pair.</li>
+          <li>Add a <code class="inline">--line-strong</code> at <code class="inline">rgba(19,40,51,0.28)</code> for editorial rules.</li>
+          <li>Document a 6-step type scale: 11 / 13 / 15 / 19 / 28 / 56.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="eyebrow">2. Primitives</div>
+        <ul class="do">
+          <li><code class="inline">&lt;Pill tone&gt;</code> &mdash; replaces the ad-hoc <code class="inline">.statusPill</code> chains.</li>
+          <li><code class="inline">&lt;Spark values&gt;</code> &mdash; lightweight wrapper around <code class="inline">SparklineChart</code>.</li>
+          <li><code class="inline">&lt;NumMono&gt;</code> &mdash; tabular numbers, used everywhere a money value renders.</li>
+          <li><code class="inline">&lt;Eyebrow color&gt;</code> &mdash; the small caps line every panel uses.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="eyebrow">3. Motion</div>
+        <ul class="do">
+          <li>One transition only: <code class="inline">120ms ease</code> on color/border/transform.</li>
+          <li>Wallboard cursor blink is the only timed animation.</li>
+          <li>Respect <code class="inline">prefers-reduced-motion</code>.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="eyebrow">4. Storybook</div>
+        <ul class="do">
+          <li>Add a story per new component (Pulse, Horizon, ConsolePanel, Sankey, ServiceTile).</li>
+          <li>Use the existing <code class="inline">app-shell.stories.jsx</code> as the template.</li>
+          <li>Snapshot each new top-level page (operating-picture, briefing, console, cashflow, wallboard).</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <span>Homelab Analytics &mdash; UI concept implementation guide</span>
+    <span>v1 · 2026-04-25</span>
+  </div>
+
+</main>
+</body>
+</html>
