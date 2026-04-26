@@ -1,16 +1,18 @@
-SPRINT: policy-registry-boundary — Operator-Authored Policy Engine Foundation  [closed]
+SPRINT: semantic-seam-forge — Semantic Contract Closure and Scenario Use-Case Extraction  [active]
 Goal:   
-Dates:  2026-04-25 to 2026-05-08
-ID:     72
-Items:  6 total — 6 done, 0 active, 0 pending, 0 blocked
+Dates:  2026-04-26 to 2026-05-10
+ID:     78
+Items:  5 total — 5 done, 0 active, 0 pending, 0 blocked
 
---- Track: stage-5 ---
-  health: 6 items — 6 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #448  SQLite migration 0007_policy_registry — policy_definitions table with policy_id, display_name, policy_kind, rule_schema_version, rule_document, enabled, source_kind, created_at, updated_at  (assignee: -)
-  [done    ] #449  PolicyRegistryStore Protocol + SQLite implementation — CRUD for operator-authored policy definitions  (assignee: -)
-  [done    ] #450  Rule schema models — Pydantic rule document for publication_value_comparison, publication_freshness_comparison, ha_helper_state_comparison; validated on write  (assignee: -)
-  [done    ] #451  Permissions + CRUD routes — control.policy.read/write in permission_registry; /control/policies list/get/create/update/delete routes, authenticated  (assignee: -)
-  [done    ] #452  HaPolicyEvaluator registry integration — load enabled registry policies + built-in seeds at runtime; _BUILTIN_POLICIES becomes seeded defaults  (assignee: -)
-  [done    ] #453  End-to-end test — create operator policy → evaluate → PolicyResult produced → synthetic HA state published  (assignee: -)
+--- Track: contracts ---
+  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #488  PLT-06 requirements update — add dim_service and dim_workload to dimension table; update semantic-contracts.md to reflect published contract status for all four homelab dimensions  (assignee: -)
+  [done    ] #489  Focused contract tests — tests/test_current_dim_contracts.py: each homelab dimension (dim_node, dim_device, dim_service, dim_workload) has CurrentDimensionContractDefinition with display_name, description, field_overrides; accessible via ReportingService.get_current_dimension_rows()  (assignee: -)
 
-Rendered: 2026-04-26T06:18:15Z
+--- Track: scenario-seam ---
+  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #490  Create packages/application/use_cases/scenario_management.py — stable callables for loan-what-if, income-change, homelab cost-benefit creation; scenario comparison, cashflow, assumptions reads; archive/restore; compare-set CRUD  (assignee: -)
+  [done    ] #491  Update scenario_routes.py to call scenario_management use-cases — no direct TransformationService orchestration calls remain; extend architecture contract test to assert boundary  (assignee: -)
+  [done    ] #492  Update scenario_routes.py to call scenario_management use-cases — no direct TransformationService orchestration calls remain; extend architecture contract test to assert boundary  (assignee: -)
+
+Rendered: 2026-04-26T06:46:54Z
