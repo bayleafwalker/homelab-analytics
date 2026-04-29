@@ -22,6 +22,28 @@ What does not belong in this repo:
 - agent-cockpit frontend implementation.
 - Kubernetes deployment source of truth for sprintctl Postgres, actionq, or agent-cockpit.
 
+## Current State
+
+Migrated to remote mode on 2026-04-29.
+
+- Sprint state migrated from local SQLite to `sprintctl-postgres` (CNPG) in the appservice cluster.
+- Local SQLite archived at `.sprintctl/.sprintctl.db.frozen-20260429T153118Z`.
+- Backend marker written to `.sprintctl/backend.json` (`remote`, repo_id `homelab-analytics`).
+- `.envrc` updated with `SPRINTCTL_BACKEND=remote`; `SPRINTCTL_URL` is expected from injected session environment or a local secret, not committed in-repo.
+- `homelab-analytics` now appears in the cockpit `/cockpit/api/repos` response with active sprint `#365 semantic-seam-forge`.
+- Active sprint is `5/5` items done, `0` active claims.
+- Migration required two fixes to `sprintctl`: `--remap-ids` CLI flag (shared postgres has conflicting global integer IDs), and correct FK column name for `dep` table (`item_id` not `work_item_id`).
+- Audit artifact path is live: `/projects/dev/_artifacts/homelab-analytics/audit/events-2026-04-26.ndjson`.
+
+## Pilot Readiness Gates
+
+The pilot should not be treated as the place where substrate unknowns are solved ad hoc.
+
+- ✅ Workstream B: `sprintctl` remote backend and migration path — shipped.
+- ✅ `appservice`: `sprintctl-postgres` deployment — live.
+- The actionq integration surface is explicit enough for cockpit claims/session enrichment and eventual dispatch.
+- The rollout plan states whether migration happens between sprints or mid-sprint and how rollback is handled for this repo.
+
 ## Acceptance
 
 The pilot is successful when:
