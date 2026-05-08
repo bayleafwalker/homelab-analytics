@@ -832,6 +832,32 @@ class ReportingService:
             "ORDER BY est_monthly_cost DESC NULLS LAST",
         )
 
+    # ------------------------------------------------------------------
+    # HA entity reads — DuckDB-only, no published mart
+    # ------------------------------------------------------------------
+
+    def ingest_ha_states(
+        self,
+        states: list[dict[str, Any]],
+        *,
+        run_id: str | None = None,
+        source_system: str = "home_assistant",
+    ) -> int:
+        return self._transformation_service.ingest_ha_states(
+            states, run_id=run_id, source_system=source_system
+        )
+
+    def get_ha_entities(self) -> list[dict[str, Any]]:
+        return self._transformation_service.get_ha_entities()
+
+    def get_ha_entity_history(
+        self,
+        entity_id: str,
+        *,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        return self._transformation_service.get_ha_entity_history(entity_id, limit=limit)
+
     def get_homelab_cost_benefit_baseline(self) -> HomelabCostBenefitBaseline:
         service_rows = self.get_service_health_current()
         workload_rows = self.get_workload_cost_7d()

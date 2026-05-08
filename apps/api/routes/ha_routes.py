@@ -28,9 +28,9 @@ from apps.api.response_models import (
     HaBridgeStatusModel,
     HaMqttStatusModel,
 )
+import packages.application.use_cases.ha_state_ingestion as ha_state_ingestion
 from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
 from packages.pipelines.reporting_service import ReportingService, ScalarMetricSnapshot
-from packages.pipelines.transformation_service import TransformationService
 
 
 class HaStateObject(BaseModel):
@@ -91,7 +91,6 @@ class HaMetricValueModel(BaseModel):
 def register_ha_routes(
     app: FastAPI,
     *,
-    transformation_service: TransformationService | None,
     reporting_service: ReportingService | None = None,
     ha_bridge: Any | None = None,
     ha_mqtt_publisher: Any | None = None,
@@ -103,8 +102,6 @@ def register_ha_routes(
     def _reporting() -> ReportingService:
         if reporting_service is not None:
             return reporting_service
-        if transformation_service is not None:
-            return ReportingService(transformation_service)
         raise HTTPException(
             status_code=503,
             detail="HA metrics require a reporting service.",
@@ -120,19 +117,11 @@ def register_ha_routes(
         numeric_value = None if value is None else float(value)
         return HaMetricValueModel(value=numeric_value, unit=unit)
 
-    def _svc() -> TransformationService:
-        if transformation_service is not None:
-            return transformation_service
-        raise HTTPException(
-            status_code=503,
-            detail="HA service requires a transformation service.",
-        )
-
     @app.post("/api/ha/ingest")
     async def ingest_ha_states(body: HaIngestRequest) -> dict[str, Any]:
-        svc = _svc()
         states = [s.model_dump() for s in body.states]
-        count = svc.ingest_ha_states(
+        count = ha_state_ingestion.ingest_ha_states(
+            _reporting(),
             states,
             run_id=body.run_id,
             source_system=body.source_system or "home_assistant",
@@ -143,8 +132,7 @@ def register_ha_routes(
     async def get_ha_entities(
         entity_class: str | None = Query(default=None),
     ) -> dict[str, Any]:
-        svc = _svc()
-        rows = svc.get_ha_entities()
+        rows = _reporting().get_ha_entities()
         if entity_class:
             rows = [r for r in rows if r.get("entity_class") == entity_class]
         return {"rows": to_jsonable(rows)}
@@ -154,8 +142,7 @@ def register_ha_routes(
         entity_id: str,
         limit: int = Query(default=50, ge=1, le=500),
     ) -> dict[str, Any]:
-        svc = _svc()
-        rows = svc.get_ha_entity_history(entity_id, limit=limit)
+        rows = _reporting().get_ha_entity_history(entity_id, limit=limit)
         return {"rows": to_jsonable(rows), "limit": limit}
 
     @app.get(

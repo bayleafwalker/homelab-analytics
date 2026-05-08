@@ -700,7 +700,6 @@ def create_app(
     )
     register_ha_routes(
         app,
-        transformation_service=transformation_service,
         reporting_service=reporting_service,
         ha_bridge=ha_bridge,
         ha_mqtt_publisher=ha_mqtt_publisher,
