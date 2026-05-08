@@ -11,8 +11,14 @@ from packages.domains.finance.pipelines.contract_price_models import (
     MART_CONTRACT_PRICE_CURRENT_TABLE,
     MART_ELECTRICITY_PRICE_CURRENT_TABLE,
 )
+from packages.domains.finance.pipelines.budget_models import (
+    MART_BUDGET_ENVELOPE_DRIFT_TABLE,
+    MART_BUDGET_PROGRESS_CURRENT_TABLE,
+    MART_BUDGET_VARIANCE_TABLE,
+)
 from packages.domains.finance.pipelines.loan_models import (
     MART_LOAN_OVERVIEW_TABLE,
+    MART_LOAN_REPAYMENT_VARIANCE_TABLE,
     MART_LOAN_SCHEDULE_PROJECTED_TABLE,
 )
 from packages.domains.finance.pipelines.subscription_models import (
@@ -35,11 +41,15 @@ from packages.domains.homelab.pipelines.homelab_models import (
     MART_WORKLOAD_COST_7D_TABLE,
 )
 from packages.domains.overview.pipelines.overview_models import (
+    MART_AFFORDABILITY_RATIOS_TABLE,
+    MART_COST_TREND_12M_TABLE,
     MART_CURRENT_OPERATING_BASELINE_TABLE,
     MART_HOMELAB_ROI_TABLE,
+    MART_HOUSEHOLD_COST_MODEL_TABLE,
     MART_HOUSEHOLD_OVERVIEW_TABLE,
     MART_OPEN_ATTENTION_ITEMS_TABLE,
     MART_RECENT_SIGNIFICANT_CHANGES_TABLE,
+    MART_RECURRING_COST_BASELINE_TABLE,
 )
 from packages.domains.overview.pipelines.scenario_service_overview import (
     build_homelab_cost_benefit_baseline_signature,
@@ -325,6 +335,19 @@ class ReportingService:
             self._transformation_service.get_loan_overview,
             ("", []),
             "ORDER BY loan_name",
+        )
+
+    def get_loan_repayment_variance(
+        self,
+        loan_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_LOAN_REPAYMENT_VARIANCE_TABLE,
+            lambda: self._transformation_service.get_loan_repayment_variance(
+                loan_id=loan_id
+            ),
+            _build_where_clause(("loan_id = %s", loan_id)),
+            "ORDER BY loan_id, repayment_month",
         )
 
     def get_next_loan_payment_amount(self) -> ScalarMetricSnapshot:
@@ -672,6 +695,105 @@ class ReportingService:
             self._transformation_service.get_current_operating_baseline,
             ("", []),
             "ORDER BY baseline_type",
+        )
+
+    def get_household_cost_model(
+        self,
+        *,
+        period_label: str | None = None,
+        cost_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_HOUSEHOLD_COST_MODEL_TABLE,
+            lambda: self._transformation_service.get_household_cost_model(
+                period_label=period_label,
+                cost_type=cost_type,
+            ),
+            _build_where_clause(
+                ("period_label = %s", period_label),
+                ("cost_type = %s", cost_type),
+            ),
+            "ORDER BY period_label, cost_type",
+        )
+
+    def get_cost_trend_12m(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_COST_TREND_12M_TABLE,
+            self._transformation_service.get_cost_trend_12m,
+            ("", []),
+            "ORDER BY period_label, cost_type",
+        )
+
+    def get_affordability_ratios(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_AFFORDABILITY_RATIOS_TABLE,
+            self._transformation_service.get_affordability_ratios,
+            ("", []),
+            "ORDER BY ratio_name",
+        )
+
+    def get_recurring_cost_baseline(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_RECURRING_COST_BASELINE_TABLE,
+            self._transformation_service.get_recurring_cost_baseline,
+            ("", []),
+            "ORDER BY cost_source, counterparty_or_contract",
+        )
+
+    # ------------------------------------------------------------------
+    # Budget
+    # ------------------------------------------------------------------
+
+    def get_budget_variance(
+        self,
+        *,
+        budget_name: str | None = None,
+        category_id: str | None = None,
+        period_label: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_BUDGET_VARIANCE_TABLE,
+            lambda: self._transformation_service.get_budget_variance(
+                budget_name=budget_name,
+                category_id=category_id,
+                period_label=period_label,
+            ),
+            _build_where_clause(
+                ("budget_name = %s", budget_name),
+                ("category_id = %s", category_id),
+                ("period_label = %s", period_label),
+            ),
+            "ORDER BY budget_name, category_id, period_label",
+        )
+
+    def get_budget_envelope_drift(
+        self,
+        *,
+        budget_name: str | None = None,
+        category_id: str | None = None,
+        period_label: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_BUDGET_ENVELOPE_DRIFT_TABLE,
+            lambda: self._transformation_service.get_budget_envelope_drift(
+                budget_name=budget_name,
+                category_id=category_id,
+                period_label=period_label,
+            ),
+            _build_where_clause(
+                ("budget_name = %s", budget_name),
+                ("category_id = %s", category_id),
+                ("period_label = %s", period_label),
+            ),
+            "ORDER BY budget_name, category_id, period_label",
+        )
+
+    def get_budget_progress_current(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_BUDGET_PROGRESS_CURRENT_TABLE,
+            self._transformation_service.get_budget_progress_current,
+            ("", []),
+            "ORDER BY budget_name, category_id",
         )
 
     # ------------------------------------------------------------------

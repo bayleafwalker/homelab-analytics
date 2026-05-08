@@ -5,6 +5,7 @@ from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException
 
+import packages.application.use_cases.category_management as category_management
 from apps.api.response_models import (
     build_object_response_model,
     build_row_model,
@@ -624,9 +625,9 @@ def register_report_routes(
         category_id: str | None = None,
         period_label: str | None = None,
     ) -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        rows = transformation_service.get_budget_variance(
+        rows = resolved_reporting_service.get_budget_variance(
             budget_name=budget_name,
             category_id=category_id,
             period_label=period_label,
@@ -639,9 +640,9 @@ def register_report_routes(
         category_id: str | None = None,
         period_label: str | None = None,
     ) -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        rows = transformation_service.get_budget_envelope_drift(
+        rows = resolved_reporting_service.get_budget_envelope_drift(
             budget_name=budget_name,
             category_id=category_id,
             period_label=period_label,
@@ -650,9 +651,9 @@ def register_report_routes(
 
     @app.get("/reports/budget-progress", response_model=BUDGET_PROGRESS_RESPONSE_MODEL)
     async def get_budget_progress() -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(transformation_service.get_budget_progress_current())}
+        return {"rows": to_jsonable(resolved_reporting_service.get_budget_progress_current())}
 
     # ------------------------------------------------------------------
     # Loans: dedicated endpoints
@@ -660,22 +661,22 @@ def register_report_routes(
 
     @app.get("/reports/loan-overview", response_model=LOAN_OVERVIEW_RESPONSE_MODEL)
     async def get_loan_overview() -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(transformation_service.get_loan_overview())}
+        return {"rows": to_jsonable(resolved_reporting_service.get_loan_overview())}
 
     @app.get("/reports/loan-schedule/{loan_id}", response_model=LOAN_SCHEDULE_RESPONSE_MODEL)
     async def get_loan_schedule(loan_id: str) -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        rows = transformation_service.get_loan_schedule_projected(loan_id=loan_id)
+        rows = resolved_reporting_service.get_loan_schedule_projected(loan_id=loan_id)
         return {"loan_id": loan_id, "rows": to_jsonable(rows)}
 
     @app.get("/reports/loan-variance", response_model=LOAN_VARIANCE_RESPONSE_MODEL)
     async def get_loan_variance(loan_id: str | None = None) -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        rows = transformation_service.get_loan_repayment_variance(loan_id=loan_id)
+        rows = resolved_reporting_service.get_loan_repayment_variance(loan_id=loan_id)
         return {"rows": to_jsonable(rows)}
 
     # ------------------------------------------------------------------
@@ -690,9 +691,9 @@ def register_report_routes(
         period_label: str | None = None,
         cost_type: str | None = None,
     ) -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        rows = transformation_service.get_household_cost_model(
+        rows = resolved_reporting_service.get_household_cost_model(
             period_label=period_label,
             cost_type=cost_type,
         )
@@ -700,9 +701,9 @@ def register_report_routes(
 
     @app.get("/reports/cost-trend", response_model=COST_TREND_RESPONSE_MODEL)
     async def get_cost_trend() -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(transformation_service.get_cost_trend_12m())}
+        return {"rows": to_jsonable(resolved_reporting_service.get_cost_trend_12m())}
 
     # ------------------------------------------------------------------
     # Overview: new dedicated endpoints
@@ -746,29 +747,31 @@ def register_report_routes(
         response_model=AFFORDABILITY_RATIOS_RESPONSE_MODEL,
     )
     async def get_affordability_ratios() -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(transformation_service.get_affordability_ratios())}
+        return {"rows": to_jsonable(resolved_reporting_service.get_affordability_ratios())}
 
     @app.get(
         "/reports/recurring-cost-baseline",
         response_model=RECURRING_COST_BASELINE_RESPONSE_MODEL,
     )
     async def get_recurring_cost_baseline() -> dict[str, Any]:
-        if transformation_service is None:
+        if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(transformation_service.get_recurring_cost_baseline())}
+        return {"rows": to_jsonable(resolved_reporting_service.get_recurring_cost_baseline())}
 
     # ------------------------------------------------------------------
     # Category rules and overrides
     # ------------------------------------------------------------------
 
+    def _cat_svc() -> TransformationService:
+        if transformation_service is not None:
+            return transformation_service
+        raise HTTPException(status_code=404, detail="Requires a transformation service.")
+
     @app.get("/categories/rules", response_model=CATEGORY_RULES_RESPONSE_MODEL)
     async def get_category_rules() -> dict[str, Any]:
-        if transformation_service is None:
-            raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        rules = to_jsonable(transformation_service.list_category_rules())
-        return {"rows": rules}
+        return {"rows": to_jsonable(category_management.list_rules(_cat_svc()))}
 
     @app.post("/categories/rules", status_code=201, response_model=CATEGORY_RULE_CREATE_RESPONSE_MODEL)
     async def create_category_rule(
@@ -777,26 +780,19 @@ def register_report_routes(
         category: str,
         priority: int = 0,
     ) -> dict[str, Any]:
-        if transformation_service is None:
-            raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        transformation_service.add_category_rule(
-            rule_id=rule_id, pattern=pattern, category=category, priority=priority,
+        category_management.add_rule(
+            _cat_svc(), rule_id=rule_id, pattern=pattern, category=category, priority=priority,
         )
         return {"rule_id": rule_id, "pattern": pattern, "category": category, "priority": priority}
 
     @app.delete("/categories/rules/{rule_id}", response_model=CATEGORY_DELETE_RESPONSE_MODEL)
     async def delete_category_rule(rule_id: str) -> dict[str, str]:
-        if transformation_service is None:
-            raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        transformation_service.remove_category_rule(rule_id=rule_id)
+        category_management.remove_rule(_cat_svc(), rule_id=rule_id)
         return {"status": "deleted", "rule_id": rule_id}
 
     @app.get("/categories/overrides", response_model=CATEGORY_OVERRIDES_RESPONSE_MODEL)
     async def get_category_overrides() -> dict[str, Any]:
-        if transformation_service is None:
-            raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        overrides = to_jsonable(transformation_service.list_category_overrides())
-        return {"rows": overrides}
+        return {"rows": to_jsonable(category_management.list_overrides(_cat_svc()))}
 
     @app.put(
         "/categories/overrides/{counterparty_name}",
@@ -806,10 +802,8 @@ def register_report_routes(
         counterparty_name: str,
         category: str,
     ) -> dict[str, str]:
-        if transformation_service is None:
-            raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        transformation_service.set_category_override(
-            counterparty_name=counterparty_name, category=category,
+        category_management.set_override(
+            _cat_svc(), counterparty_name=counterparty_name, category=category,
         )
         return {"counterparty_name": counterparty_name, "category": category}
 
@@ -818,9 +812,7 @@ def register_report_routes(
         response_model=CATEGORY_OVERRIDE_DELETE_RESPONSE_MODEL,
     )
     async def delete_category_override(counterparty_name: str) -> dict[str, str]:
-        if transformation_service is None:
-            raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        transformation_service.remove_category_override(counterparty_name=counterparty_name)
+        category_management.remove_override(_cat_svc(), counterparty_name=counterparty_name)
         return {"status": "deleted", "counterparty_name": counterparty_name}
 
     # ------------------------------------------------------------------
