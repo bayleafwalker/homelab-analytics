@@ -254,9 +254,51 @@ class CompatibilityCheck:
     warnings: tuple[str, ...]   # Non-blocking concerns
 
 
+PACK_KIND_ADAPTER = "adapter"
+PACK_KIND_DOMAIN = "domain"
+PACK_KIND_REPORTING = "reporting"
+PACK_KIND_AUTOMATION = "automation"
+
+VALID_PACK_KINDS: frozenset[str] = frozenset(
+    {PACK_KIND_ADAPTER, PACK_KIND_DOMAIN, PACK_KIND_REPORTING, PACK_KIND_AUTOMATION}
+)
+
+
+@dataclass(frozen=True)
+class PackManifest:
+    """Unified identity, versioning, and dependency declaration for a pack.
+
+    ``PackManifest`` names any capability pack — adapter, domain,
+    reporting, or automation — with a stable pack_key, a version, a
+    trust level, an optional platform-version constraint, declared
+    pack-level dependencies, and the publication keys the pack
+    contributes or requires.
+
+    An ``AdapterPack`` is the adapter-flavoured specialization that
+    additionally carries adapter and renderer manifests; ``AdapterPack``
+    exposes ``to_pack_manifest()`` so lifecycle and compatibility
+    checkers can treat every pack uniformly.
+    """
+
+    pack_key: str
+    display_name: str
+    version: str
+    trust_level: TrustLevel
+    pack_kind: str = PACK_KIND_ADAPTER
+    description: str = ""
+    requires_platform_version: str = ""
+    dependencies: tuple[str, ...] = field(default_factory=tuple)
+    publication_relations: tuple[str, ...] = field(default_factory=tuple)
+
+
 @dataclass(frozen=True)
 class AdapterPack:
-    """A named, versioned bundle of adapters and/or renderers."""
+    """A named, versioned bundle of adapters and/or renderers.
+
+    ``AdapterPack`` is the adapter-flavoured specialization of
+    :class:`PackManifest`. Call ``to_pack_manifest()`` to obtain the
+    unified manifest view used by lifecycle and compatibility checks.
+    """
 
     pack_key: str                                        # Stable identifier
     display_name: str
@@ -266,3 +308,18 @@ class AdapterPack:
     renderers: tuple[RendererManifest, ...] = field(default_factory=tuple)
     description: str = ""
     requires_platform_version: str = ""                 # Semver constraint, "" = any
+    dependencies: tuple[str, ...] = field(default_factory=tuple)
+    publication_relations: tuple[str, ...] = field(default_factory=tuple)
+
+    def to_pack_manifest(self) -> PackManifest:
+        return PackManifest(
+            pack_key=self.pack_key,
+            display_name=self.display_name,
+            version=self.version,
+            trust_level=self.trust_level,
+            pack_kind=PACK_KIND_ADAPTER,
+            description=self.description,
+            requires_platform_version=self.requires_platform_version,
+            dependencies=self.dependencies,
+            publication_relations=self.publication_relations,
+        )
