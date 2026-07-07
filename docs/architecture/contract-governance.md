@@ -84,15 +84,14 @@ That keeps stale-artifact failures separate from real compatibility decisions.
 
 ## Extraction Boundary
 
-The current compatibility implementation lives in `apps/api/contract_artifacts.py` because it grew out of API contract export tooling. That file now owns more than API assembly: artifact loading, Git-ref reads, export-sync checks, OpenAPI comparison, publication/UI descriptor comparison, schema diffing, markdown/JSON report writing, and release bundle packaging.
+The compatibility implementation lives under `packages/platform/contract_compat/` because contract compatibility is platform governance rather than API route assembly. The package owns artifact loading, Git-ref reads, export-sync checks, OpenAPI comparison, publication/UI descriptor comparison, schema diffing, markdown/JSON report writing, and release bundle packaging.
 
-That behavior should move behind a platform package boundary when the next contract-governance refactor is scheduled:
+The package boundary is:
 
-- `packages/platform/contract_compat/artifacts.py` for snapshot loading, Git-ref reads, and export-sync checks
+- `packages/platform/contract_compat/report.py` for snapshot loading, Git-ref reads, export-sync checks, JSON summaries, and markdown summaries
 - `packages/platform/contract_compat/openapi_compare.py` for route/request/response compatibility
 - `packages/platform/contract_compat/publication_compare.py` for publication and UI descriptor compatibility
 - `packages/platform/contract_compat/schema_compare.py` for shared JSON-schema diffing
-- `packages/platform/contract_compat/report.py` for JSON and markdown summaries
 - `packages/platform/contract_compat/release_bundle.py` for manifest and release artifact packaging
 
-`apps/api/contract_artifacts.py` should remain as the compatibility CLI entrypoint so `python -m apps.api.contract_artifacts`, `make contract-export-check`, `make contract-compat-report`, and `make contract-release-artifacts` keep their public behavior. The extraction is successful only if `tests/test_contract_artifacts.py` still exercises the same compatibility policy through the preserved entrypoint.
+`apps/api/contract_artifacts.py` remains the compatibility CLI entrypoint so `python -m apps.api.contract_artifacts`, `make contract-export-check`, `make contract-compat-report`, and `make contract-release-artifacts` keep their public behavior. `tests/test_contract_artifacts.py` exercises the same compatibility policy through the preserved entrypoint and focused platform comparator imports.

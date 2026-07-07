@@ -6,6 +6,10 @@ from pathlib import Path
 import pytest
 
 from apps.api import contract_artifacts
+from packages.platform.contract_compat.models import ContractChange
+from packages.platform.contract_compat.openapi_compare import compare_openapi_contracts
+from packages.platform.contract_compat.publication_compare import compare_publication_contracts
+from packages.platform.contract_compat.schema_compare import compare_schema
 
 
 def _artifact_snapshot(
@@ -17,6 +21,78 @@ def _artifact_snapshot(
         openapi=openapi,
         publication_contracts=publication_contracts,
     )
+
+
+def test_openapi_compare_module_marks_removed_route_as_breaking() -> None:
+    changes: list[ContractChange] = []
+
+    compare_openapi_contracts(
+        {"paths": {"/reports/example": {"get": {"responses": {"200": {}}}}}},
+        {"paths": {}},
+        changes,
+    )
+
+    assert changes == [
+        ContractChange(
+            severity="breaking",
+            scope="route",
+            identifier="GET /reports/example",
+            detail="route operation was removed",
+        )
+    ]
+
+
+def test_schema_compare_module_marks_request_required_property_as_breaking() -> None:
+    changes: list[ContractChange] = []
+
+    compare_schema(
+        {},
+        {"type": "object", "properties": {"id": {"type": "string"}}},
+        {},
+        {
+            "type": "object",
+            "required": ["id"],
+            "properties": {"id": {"type": "string"}},
+        },
+        scope="route-request",
+        identifier="POST /reports/example",
+        direction="request",
+        changes=changes,
+    )
+
+    assert changes == [
+        ContractChange(
+            severity="breaking",
+            scope="route-request",
+            identifier="POST /reports/example.id",
+            detail="property became required",
+        )
+    ]
+
+
+def test_publication_compare_module_marks_new_ui_descriptor_as_additive() -> None:
+    changes: list[ContractChange] = []
+    policy_warnings: list[str] = []
+
+    compare_publication_contracts(
+        {"publication_contracts": [], "ui_descriptors": []},
+        {
+            "publication_contracts": [],
+            "ui_descriptors": [{"key": "overview", "publication_keys": []}],
+        },
+        changes,
+        policy_warnings,
+    )
+
+    assert changes == [
+        ContractChange(
+            severity="additive",
+            scope="ui-descriptor",
+            identifier="overview",
+            detail="new UI descriptor was added",
+        )
+    ]
+    assert policy_warnings == []
 
 
 def test_contract_report_marks_new_response_field_as_additive() -> None:
