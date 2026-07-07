@@ -9,6 +9,13 @@ from __future__ import annotations
 
 from packages.adapters.contracts import RenderedOutput, Renderer
 from packages.adapters.registry import AdapterRegistry
+from packages.adapters.renderer_negotiation import (
+    NEGOTIATION_ERROR_NO_ACCEPTABLE_FORMAT,
+    NEGOTIATION_ERROR_NO_ELIGIBLE_RENDERER,
+    NEGOTIATION_ERROR_UNSUPPORTED_PUBLICATION_VERSION,
+    RendererNegotiationResult,
+    resolve_format_from_accept,
+)
 
 
 class RendererRouter:
@@ -123,6 +130,65 @@ class RendererRouter:
             output = renderer.render(publication_key, rows)
             outputs.append(output)
         return outputs
+
+    def negotiate(
+        self,
+        publication_key: str,
+        accept: str,
+        publication_version: str | None = None,
+    ) -> RendererNegotiationResult:
+        """Content-negotiate a renderer for a publication.
+
+        Accept-header semantics follow ``resolve_format_from_accept``:
+        wildcards prefer JSON, ``text/*`` prefers CSV, unknown media
+        types drop out. If a publication_version is supplied, renderers
+        whose ``supported_publication_versions`` is non-empty must
+        include that version. Empty ``supported_publication_versions``
+        matches any version.
+
+        Returns a ``RendererNegotiationResult``. Callers translate a
+        result with a non-None ``error_reason`` into HTTP 406.
+        """
+        chosen_format, chosen_media_type = resolve_format_from_accept(accept)
+        if chosen_format is None:
+            return RendererNegotiationResult(
+                renderers=(),
+                chosen_format=None,
+                chosen_media_type=None,
+                error_reason=NEGOTIATION_ERROR_NO_ACCEPTABLE_FORMAT,
+            )
+
+        eligible = self.resolve(publication_key, chosen_format)
+        if not eligible:
+            return RendererNegotiationResult(
+                renderers=(),
+                chosen_format=chosen_format,
+                chosen_media_type=chosen_media_type,
+                error_reason=NEGOTIATION_ERROR_NO_ELIGIBLE_RENDERER,
+            )
+
+        if publication_version is not None:
+            version_ok = [
+                renderer
+                for renderer in eligible
+                if not renderer.manifest.supported_publication_versions
+                or publication_version in renderer.manifest.supported_publication_versions
+            ]
+            if not version_ok:
+                return RendererNegotiationResult(
+                    renderers=(),
+                    chosen_format=chosen_format,
+                    chosen_media_type=chosen_media_type,
+                    error_reason=NEGOTIATION_ERROR_UNSUPPORTED_PUBLICATION_VERSION,
+                )
+            eligible = version_ok
+
+        return RendererNegotiationResult(
+            renderers=tuple(eligible),
+            chosen_format=chosen_format,
+            chosen_media_type=chosen_media_type,
+            error_reason=None,
+        )
 
     def render_first(
         self, publication_key: str, format: str, rows: list[dict]

@@ -175,6 +175,8 @@ class RendererManifest:
     supported_formats: tuple[str, ...]     # e.g. ("csv", "json")
     supported_publication_keys: tuple[str, ...] = field(default_factory=tuple)
     # Empty means "all publications"
+    supported_publication_versions: tuple[str, ...] = field(default_factory=tuple)
+    # Empty means "any publication schema_version"
 
 
 @runtime_checkable
