@@ -1,11 +1,11 @@
 ---
 name: dispatch-plan
-description: Use when a request requires architecture decisions, new scope definition, or a planning pass before any repo edits. Spawns an Opus subagent in read-only planning mode and returns a decision-complete implementation brief. Do not use for direct implementation, resuming an existing sprint item, or narrowly scoped edits that don't require design decisions.
+description: Use when a request requires architecture decisions, new scope definition, or a planning pass before any repo edits. Delegates a read-only planning pass to the available planning subagent/model and returns a decision-complete implementation brief. Do not use for direct implementation, resuming an existing sprint item, or narrowly scoped edits that don't require design decisions.
 ---
 
 ## Goal
 
-Produce a decision-complete implementation brief by delegating the planning pass to an Opus subagent, without any repo mutations in this step.
+Produce a decision-complete implementation brief by delegating the planning pass to an available high-reasoning planning subagent, without any repo mutations in this step.
 
 ## Inputs
 
@@ -19,7 +19,7 @@ Produce a decision-complete implementation brief by delegating the planning pass
 2. If the work is already registered in sprintctl as a pending item, stop and use `dispatch-build` or `sprint-resume` instead.
 3. Load `.envrc` and read live sprintctl state to check for existing scope overlap.
 4. Read the planning mode guide at `docs/agents/planning.md`.
-5. Spawn a subagent: type=Plan, model=opus, with this brief:
+5. Spawn a read-only planning subagent using the strongest available planning model for the current toolchain, with this brief:
    - The user's goal and success criteria
    - The relevant mode guide content from `docs/agents/planning.md`
    - Current sprintctl sprint/item state (summarised, not full JSON)
@@ -39,4 +39,4 @@ Produce a decision-complete implementation brief by delegating the planning pass
 
 - Do not proceed to implementation within this skill.
 - Do not invent product decisions not present in requirements or user instruction.
-- Do not spawn the Opus subagent if the scope is already fully decided by existing code and the task is routine implementation.
+- Do not spawn a planning subagent if the scope is already fully decided by existing code and the task is routine implementation.

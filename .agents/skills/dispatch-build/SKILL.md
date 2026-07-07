@@ -1,11 +1,11 @@
 ---
 name: dispatch-build
-description: Use when an approved plan or well-scoped sprint item is ready for implementation. Spawns one or more Haiku subagents to execute discrete items, optionally in parallel with worktree isolation. Do not use for planning, review, or items that require design decisions not already settled.
+description: Use when an approved plan or well-scoped sprint item is ready for implementation. Delegates one or more discrete implementation items to available build worker subagents, optionally in parallel with worktree isolation where the current toolchain supports it. Do not use for planning, review, or items that require design decisions not already settled.
 ---
 
 ## Goal
 
-Execute approved, spec-complete implementation work by delegating to Haiku subagents, keeping frontier token spend on decisions rather than on mechanical code production.
+Execute approved, spec-complete implementation work by delegating to implementation-focused worker subagents, keeping frontier token spend on decisions rather than on mechanical code production.
 
 ## Inputs
 
@@ -22,7 +22,7 @@ Execute approved, spec-complete implementation work by delegating to Haiku subag
    a. Claim or verify ownership using `sprintctl claim start` before dispatching.
       - Immediately persist the returned `claim_token` to `.sprintctl/claims/claim-<item_id>.token` in the orchestrating session. Keep the token in session memory for normal execution; treat the file as crash recovery and do not pass the token to the subagent.
       - If the orchestrating session keeps the item open for more than 15 minutes, or the item crosses a long review/remediation boundary before close-out, run `sprintctl claim heartbeat` from the orchestrator to refresh ownership before continuing.
-   b. Spawn a subagent: type=general-purpose, model=haiku, with:
+   b. Spawn an implementation worker subagent using the available build-worker profile/model for the current toolchain, with:
       - The specific deliverable and acceptance criteria
       - The implementation mode guide from `docs/agents/implementation.md`
       - The claim ID and item context (but not the claim token — keep that in the orchestrating session and in the local recovery file only)

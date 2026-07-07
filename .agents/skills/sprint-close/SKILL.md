@@ -1,6 +1,6 @@
 ---
 name: sprint-close
-description: Use at the end of a sprint to run the full close-out sequence: verify the sprint-close fast gate, snapshot sprint state, extract and review knowledge candidates, publish approved entries, and tag the sprint boundary.
+description: "Use at the end of a sprint to run the full close-out sequence: verify the sprint-close fast gate, snapshot sprint state, extract and review knowledge candidates, publish approved entries, and tag the sprint boundary."
 ---
 
 ## Goal

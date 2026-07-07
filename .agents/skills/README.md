@@ -12,6 +12,8 @@
 Use `docs/runbooks/project-working-practices.md` to choose the right working loop before opening a skill.
 
 - `domain-impact-scan`: map layer impact, contracts, and blockers for a new domain or cross-layer change.
+- `dispatch-plan`: delegate read-only planning for new scope or unresolved architecture decisions.
+- `dispatch-build`: delegate spec-complete sprint items or approved implementation slices to build workers.
 - `sprint-packet`: turn accepted scope into a sprint-ready packet and register it in `sprintctl`.
 - `sprint-resume`: resume an existing sprint item with claim and handoff checks.
 - `code-change-verification`: pick and report the smallest useful verification for the change.
