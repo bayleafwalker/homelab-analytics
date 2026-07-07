@@ -679,7 +679,7 @@ API_ROUTE_POLICY_CATALOG: tuple[RoutePolicy, ...] = (
         ),
     ),
     RoutePolicy(
-        prefix_paths=("/adapters/", "/api/adapters/"),
+        prefix_paths=("/adapters/", "/api/adapters/", "/api/lineage/"),
         path_decision=_static_decision(
             role=UserRole.READER,
             permission=PERMISSION_REPORTS_READ,

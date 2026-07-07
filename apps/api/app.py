@@ -28,6 +28,7 @@ from apps.api.routes.control_terminal_routes import register_control_terminal_ro
 from apps.api.routes.ha_routes import register_ha_routes
 from apps.api.routes.homelab_routes import register_homelab_routes
 from apps.api.routes.ingest_routes import register_ingest_routes
+from apps.api.routes.lineage_routes import register_lineage_routes
 from apps.api.routes.policy_routes import register_policy_routes
 from apps.api.routes.report_routes import register_report_routes
 from apps.api.routes.run_routes import register_run_routes
@@ -718,6 +719,10 @@ def create_app(
         ha_action_dispatcher=ha_action_dispatcher,
         ha_action_proposal_registry=ha_action_proposal_registry,
         to_jsonable=to_jsonable,
+    )
+    register_lineage_routes(
+        app,
+        control_plane_store=resolved_config_repository,
     )
     adapter_registry = _build_default_adapter_registry()
     adapter_instances = AdapterInstanceRegistry()

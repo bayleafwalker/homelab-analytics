@@ -73,6 +73,7 @@ function PublicationRow({ pub, hideStale }) {
   const assessedAt = new Date(pub.assessed_at);
   const now = new Date();
   const hoursAgo = Math.floor((now - assessedAt) / (1000 * 60 * 60));
+  const lineageHref = `/control/lineage?publication_key=${encodeURIComponent(pub.publication_key)}`;
 
   return (
     <tr style={{ borderBottom: '1px solid #e0e0e0' }}>
@@ -88,6 +89,11 @@ function PublicationRow({ pub, hideStale }) {
       </td>
       <td style={{ padding: '12px', fontSize: '11px', color: '#666' }}>
         {hoursAgo < 1 ? 'just now' : hoursAgo < 24 ? `${hoursAgo}h ago` : `${Math.floor(hoursAgo / 24)}d ago`}
+      </td>
+      <td style={{ padding: '12px', textAlign: 'center', fontSize: '12px' }}>
+        <Link href={lineageHref} data-testid={`lineage-link-${pub.publication_key}`}>
+          Lineage
+        </Link>
       </td>
     </tr>
   );
@@ -185,6 +191,7 @@ export default function ConfidencePage() {
                 <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>Freshness</th>
                 <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>Complete</th>
                 <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Assessed</th>
+                <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>Lineage</th>
               </tr>
             </thead>
             <tbody>
@@ -198,7 +205,7 @@ export default function ConfidencePage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: '#666' }}>
+                  <td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: '#666' }}>
                     No publications found
                   </td>
                 </tr>
