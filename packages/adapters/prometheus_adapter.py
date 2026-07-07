@@ -1,13 +1,77 @@
-"""Prometheus metrics adapter — renders platform metrics in Prometheus text format.
+"""Prometheus adapter pack — federation ingest and metrics renderer.
 
-Implements the Renderer protocol so Prometheus scrape output can be routed
-through the standard adapter/renderer pipeline.
+Two adapters share the ``prometheus_core`` pack:
+
+- :class:`PrometheusIngestAdapter` wraps a
+  :class:`~packages.domains.homelab.pipelines.prometheus_federation.PrometheusFederationWorker`
+  and lands cluster metrics into ``fact_cluster_metric``.
+- :class:`PrometheusRenderer` implements the Renderer protocol so platform
+  metrics can be rendered in the Prometheus text exposition format.
 """
 
 from __future__ import annotations
 
-from packages.adapters.contracts import AdapterPack, RenderedOutput, RendererManifest, TrustLevel
+from typing import TYPE_CHECKING, Any
+
+from packages.adapters.contracts import (
+    AdapterDirection,
+    AdapterManifest,
+    AdapterPack,
+    RenderedOutput,
+    RendererManifest,
+    TrustLevel,
+)
+from packages.platform.adapter_runtime_status import AdapterRuntimeStatus
 from packages.shared.metrics import MetricsRegistry
+
+if TYPE_CHECKING:
+    from packages.domains.homelab.pipelines.prometheus_federation import (
+        PrometheusFederationWorker,
+    )
+
+
+PROMETHEUS_INGEST_MANIFEST = AdapterManifest(
+    adapter_key="prom_ingest",
+    display_name="Prometheus — Ingest (federation)",
+    version="1.0",
+    supported_directions=(AdapterDirection.INGEST,),
+    supported_entity_classes=("cluster_metric",),
+    credential_requirements=("prom_url",),
+    health_check_contract=(
+        "connected=True after the most recent federate poll succeeded; "
+        "last_activity_at reflects the last completed sync"
+    ),
+    target_capabilities=("federation", "text_exposition"),
+)
+
+
+class PrometheusIngestAdapter:
+    """IngestAdapter wrapping :class:`PrometheusFederationWorker`.
+
+    Conforms to the ``IngestAdapter`` protocol from
+    :mod:`packages.adapters.contracts`.
+    """
+
+    manifest: AdapterManifest = PROMETHEUS_INGEST_MANIFEST
+
+    def __init__(self, worker: PrometheusFederationWorker) -> None:
+        self._worker = worker
+
+    def get_status(self) -> AdapterRuntimeStatus:
+        raw: dict[str, Any] = self._worker.get_status()
+        return AdapterRuntimeStatus(
+            enabled=True,
+            connected=raw.get("connected", False),
+            last_activity_at=raw.get("last_sync_at"),
+            error_count=raw.get("error_count", 0),
+            extra={
+                "sync_count": raw.get("sync_count", 0),
+                "last_sample_count": raw.get("last_sample_count", 0),
+                "last_row_count": raw.get("last_row_count", 0),
+                "last_error": raw.get("last_error"),
+            },
+        )
+
 
 PROMETHEUS_RENDERER_MANIFEST = RendererManifest(
     renderer_key="prometheus_metrics",
@@ -64,10 +128,14 @@ class PrometheusRenderer:
 
 PROMETHEUS_ADAPTER_PACK = AdapterPack(
     pack_key="prometheus_core",
-    display_name="Prometheus Metrics",
-    version="1.0",
+    display_name="Prometheus Core",
+    version="1.1",
     trust_level=TrustLevel.VERIFIED,
-    adapters=(),
+    adapters=(PROMETHEUS_INGEST_MANIFEST,),
     renderers=(PROMETHEUS_RENDERER_MANIFEST,),
-    description="Platform-shipped Prometheus metrics renderer. Renders MetricsRegistry state as Prometheus text exposition format.",
+    description=(
+        "Platform-shipped Prometheus adapter pack. Covers federation ingest "
+        "into fact_cluster_metric and metrics renderer for Prometheus text "
+        "exposition."
+    ),
 )

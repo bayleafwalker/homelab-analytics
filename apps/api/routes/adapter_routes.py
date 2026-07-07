@@ -1,10 +1,12 @@
 """Adapter ecosystem API routes — contract exposure and registry metadata.
 
 Endpoints:
-  GET /adapters/packs              → list all registered packs (manifests, trust level, active state)
-  GET /adapters/packs/{pack_key}   → detail for one pack
-  GET /adapters/renderers          → list all renderer manifests across active packs
-  GET /adapters/contracts          → contract surface summary (directions, capability vocabulary)
+  GET /adapters/packs                       → list all registered packs (manifests, trust level, active state)
+  GET /adapters/packs/{pack_key}            → detail for one pack
+  GET /adapters/renderers                   → list all renderer manifests across active packs
+  GET /adapters/contracts                   → contract surface summary (directions, capability vocabulary)
+  GET /api/adapters/status                  → typed live status for every registered adapter instance
+  GET /api/adapters/{adapter_key}/status    → typed live status for a single adapter instance
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ from fastapi import FastAPI, HTTPException
 
 from packages.adapters.compatibility import check_compatibility
 from packages.adapters.contracts import AdapterDirection, TrustLevel
+from packages.adapters.instance_registry import AdapterInstanceRegistry
 from packages.adapters.registry import AdapterRegistry
 
 
@@ -23,6 +26,7 @@ def register_adapter_routes(
     *,
     adapter_registry: AdapterRegistry,
     require_unsafe_admin: Callable[[], None],
+    adapter_instances: AdapterInstanceRegistry | None = None,
 ) -> None:
     """Register adapter ecosystem API routes.
 
@@ -34,6 +38,10 @@ def register_adapter_routes(
         Registry of registered adapter packs.
     require_unsafe_admin : Callable[[], None]
         Callable that raises HTTPException if unsafe admin is not enabled.
+    adapter_instances : AdapterInstanceRegistry | None
+        Optional registry of live adapter instances. When present, exposes
+        the typed status endpoints. When ``None``, the status endpoints are
+        omitted — used by tests that only exercise the pack-metadata routes.
     """
 
     @app.get("/adapters/packs")
@@ -292,3 +300,33 @@ def register_adapter_routes(
             "adapter_count": len(pack.adapters),
             "renderer_count": len(pack.renderers),
         }
+
+    if adapter_instances is not None:
+
+        @app.get("/api/adapters/status")
+        async def list_adapter_instance_statuses() -> dict[str, Any]:
+            """List typed runtime status for every registered adapter instance."""
+            statuses = adapter_instances.statuses()
+            return {
+                "adapters": [
+                    {"adapter_key": key, **statuses[key].as_dict()}
+                    for key in sorted(statuses.keys())
+                ]
+            }
+
+        @app.get("/api/adapters/{adapter_key}/status")
+        async def get_adapter_instance_status(adapter_key: str) -> dict[str, Any]:
+            """Return the typed runtime status for a single adapter instance.
+
+            Raises
+            ------
+            HTTPException
+                404 if the adapter_key is not registered as a live instance.
+            """
+            status = adapter_instances.status(adapter_key)
+            if status is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Adapter '{adapter_key}' is not registered as a live instance",
+                )
+            return {"adapter_key": adapter_key, **status.as_dict()}

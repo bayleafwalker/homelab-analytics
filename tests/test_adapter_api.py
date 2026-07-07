@@ -253,5 +253,79 @@ class AdapterOperatorAPITests(unittest.TestCase):
             self.assertEqual(creds, sorted(creds))
 
 
+class AdapterInstanceStatusAPITests(unittest.TestCase):
+    """Live-status endpoints backed by AdapterInstanceRegistry."""
+
+    def _client_with_prom_worker(self, tmp: str) -> TestClient:
+        """Build a client with a fake Prometheus federation worker attached."""
+        from unittest.mock import MagicMock
+
+        from packages.domains.finance.pipelines.account_transaction_service import (
+            AccountTransactionService,
+        )
+
+        service = AccountTransactionService(
+            landing_root=Path(tmp) / "landing",
+            metadata_repository=RunMetadataRepository(Path(tmp) / "runs.db"),
+        )
+        ts = TransformationService(DuckDBStore.memory())
+        prom_worker = MagicMock()
+        prom_worker.get_status.return_value = {
+            "connected": True,
+            "last_sync_at": "2026-06-01T12:00:00+00:00",
+            "sync_count": 4,
+            "last_sample_count": 42,
+            "last_row_count": 42,
+            "error_count": 0,
+            "last_error": None,
+        }
+        app = create_app(
+            service,
+            transformation_service=ts,
+            enable_unsafe_admin=True,
+            prom_federation_worker=prom_worker,
+        )
+        return TestClient(app)
+
+    def test_get_prom_ingest_status_returns_typed_shape(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = self._client_with_prom_worker(tmp)
+            resp = client.get("/api/adapters/prom_ingest/status")
+            self.assertEqual(200, resp.status_code)
+            data = resp.json()
+            self.assertEqual("prom_ingest", data["adapter_key"])
+            self.assertTrue(data["enabled"])
+            self.assertTrue(data["connected"])
+            self.assertEqual("2026-06-01T12:00:00+00:00", data["last_activity_at"])
+            self.assertEqual(0, data["error_count"])
+            self.assertEqual(4, data["sync_count"])
+            self.assertEqual(42, data["last_row_count"])
+
+    def test_list_adapter_statuses_includes_prom_ingest(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = self._client_with_prom_worker(tmp)
+            resp = client.get("/api/adapters/status")
+            self.assertEqual(200, resp.status_code)
+            adapters = resp.json()["adapters"]
+            keys = {a["adapter_key"] for a in adapters}
+            self.assertIn("prom_ingest", keys)
+
+    def test_get_unknown_adapter_returns_404(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = self._client_with_prom_worker(tmp)
+            resp = client.get("/api/adapters/not_a_real_adapter/status")
+            self.assertEqual(404, resp.status_code)
+
+    def test_status_endpoints_omitted_when_no_worker_wired(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.get("/api/adapters/status")
+            self.assertEqual(200, resp.status_code)
+            # No live workers wired in the default test app, so no adapters.
+            self.assertEqual([], resp.json()["adapters"])
+            resp404 = client.get("/api/adapters/prom_ingest/status")
+            self.assertEqual(404, resp404.status_code)
+
+
 if __name__ == "__main__":
     unittest.main()

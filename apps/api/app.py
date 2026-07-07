@@ -24,11 +24,11 @@ from apps.api.routes.category_routes import register_category_routes
 from apps.api.routes.config_routes import register_config_routes
 from apps.api.routes.contract_routes import register_contract_routes
 from apps.api.routes.control_routes import register_control_routes
-from apps.api.routes.policy_routes import register_policy_routes
 from apps.api.routes.control_terminal_routes import register_control_terminal_routes
 from apps.api.routes.ha_routes import register_ha_routes
 from apps.api.routes.homelab_routes import register_homelab_routes
 from apps.api.routes.ingest_routes import register_ingest_routes
+from apps.api.routes.policy_routes import register_policy_routes
 from apps.api.routes.report_routes import register_report_routes
 from apps.api.routes.run_routes import register_run_routes
 from apps.api.routes.scenario_routes import register_scenario_routes
@@ -42,7 +42,6 @@ from apps.api.runtime_state import (
 from apps.api.support import (
     build_column_mapping_diff,
     build_dataset_contract_diff,
-    build_ingest_response,
     build_run_remediation,
     build_run_response,
     request_principal_from_user,
@@ -54,11 +53,23 @@ from apps.api.support import (
 )
 from packages.adapters.contracts import AdapterPack, TrustLevel
 from packages.adapters.export_renderer import EXPORT_RENDERER_MANIFEST
-from packages.adapters.ha_adapters import HA_ADAPTER_PACK
-from packages.adapters.prometheus_adapter import PROMETHEUS_ADAPTER_PACK
+from packages.adapters.ha_adapters import (
+    HA_ADAPTER_PACK,
+    HaActionAdapter,
+    HaIngestAdapter,
+    HaMqttPublishAdapter,
+)
+from packages.adapters.instance_registry import AdapterInstanceRegistry
+from packages.adapters.prometheus_adapter import (
+    PROMETHEUS_ADAPTER_PACK,
+    PROMETHEUS_INGEST_MANIFEST,
+    PrometheusIngestAdapter,
+)
 from packages.adapters.registry import AdapterRegistry
 from packages.application.use_cases.run_management import (
     build_run_detail,
+)
+from packages.application.use_cases.run_management import (
     load_run_manifest_and_context as _uc_load_run_manifest_and_context,
 )
 from packages.application.use_cases.run_recovery import build_run_recovery
@@ -88,7 +99,6 @@ from packages.platform.auth.route_policy_engine import RouteAuthorizationLookup
 from packages.platform.auth.session_manager import SessionManager
 from packages.platform.runtime.container import AppContainer
 from packages.shared.auth_modes import (
-    is_cookie_auth_mode,
     normalize_auth_mode,
     normalize_identity_mode,
 )
@@ -370,6 +380,7 @@ def create_app(
     ha_policy_evaluator: Any = None,
     ha_action_dispatcher: Any = None,
     ha_action_proposal_registry: ApprovalActionRegistry | None = None,
+    prom_federation_worker: Any = None,
 ) -> FastAPI:
     # Support both the new AppContainer-first call and the legacy
     # AccountTransactionService-first call from existing tests.
@@ -709,10 +720,27 @@ def create_app(
         to_jsonable=to_jsonable,
     )
     adapter_registry = _build_default_adapter_registry()
+    adapter_instances = AdapterInstanceRegistry()
+    if ha_bridge is not None:
+        adapter_instances.register("ha_ingest", HaIngestAdapter(ha_bridge))
+    if ha_mqtt_publisher is not None:
+        adapter_instances.register(
+            "ha_mqtt_publish", HaMqttPublishAdapter(ha_mqtt_publisher)
+        )
+    if ha_action_dispatcher is not None:
+        adapter_instances.register(
+            "ha_action", HaActionAdapter(ha_action_dispatcher)
+        )
+    if prom_federation_worker is not None:
+        adapter_instances.register(
+            PROMETHEUS_INGEST_MANIFEST.adapter_key,
+            PrometheusIngestAdapter(prom_federation_worker),
+        )
     register_adapter_routes(
         app,
         adapter_registry=adapter_registry,
         require_unsafe_admin=require_unsafe_admin,
+        adapter_instances=adapter_instances,
     )
 
     return app

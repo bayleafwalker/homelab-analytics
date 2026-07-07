@@ -1496,7 +1496,92 @@ class TestPrometheusAdapter:
         assert len(PROMETHEUS_ADAPTER_PACK.renderers) == 1
         assert PROMETHEUS_ADAPTER_PACK.renderers[0].renderer_key == "prometheus_metrics"
 
-    def test_prometheus_adapter_pack_has_no_adapters(self):
-        """Test that the adapter pack has no adapters."""
-        from packages.adapters.prometheus_adapter import PROMETHEUS_ADAPTER_PACK
-        assert PROMETHEUS_ADAPTER_PACK.adapters == ()
+    def test_prometheus_adapter_pack_carries_ingest_manifest(self):
+        """The prometheus_core pack now bundles the federation ingest adapter."""
+        from packages.adapters.prometheus_adapter import (
+            PROMETHEUS_ADAPTER_PACK,
+            PROMETHEUS_INGEST_MANIFEST,
+        )
+        assert PROMETHEUS_INGEST_MANIFEST in PROMETHEUS_ADAPTER_PACK.adapters
+
+
+class TestPrometheusIngestAdapter:
+    """Tests for the Prometheus federation ingest adapter wrapper."""
+
+    def _mock_worker(
+        self,
+        *,
+        connected=True,
+        last_sync_at="2026-06-01T00:00:00+00:00",
+        sync_count=3,
+        last_sample_count=25,
+        last_row_count=25,
+        error_count=0,
+        last_error=None,
+    ):
+        worker = MagicMock()
+        worker.get_status.return_value = {
+            "connected": connected,
+            "last_sync_at": last_sync_at,
+            "sync_count": sync_count,
+            "last_sample_count": last_sample_count,
+            "last_row_count": last_row_count,
+            "error_count": error_count,
+            "last_error": last_error,
+        }
+        return worker
+
+    def test_manifest_is_prom_ingest(self):
+        from packages.adapters.prometheus_adapter import (
+            PROMETHEUS_INGEST_MANIFEST,
+            PrometheusIngestAdapter,
+        )
+        adapter = PrometheusIngestAdapter(self._mock_worker())
+        assert adapter.manifest is PROMETHEUS_INGEST_MANIFEST
+
+    def test_manifest_declares_ingest_direction(self):
+        from packages.adapters.prometheus_adapter import PROMETHEUS_INGEST_MANIFEST
+        assert AdapterDirection.INGEST in PROMETHEUS_INGEST_MANIFEST.supported_directions
+        assert PROMETHEUS_INGEST_MANIFEST.supported_entity_classes == ("cluster_metric",)
+
+    def test_conforms_to_ingest_protocol(self):
+        from packages.adapters.prometheus_adapter import PrometheusIngestAdapter
+        adapter = PrometheusIngestAdapter(self._mock_worker())
+        assert isinstance(adapter, IngestAdapter)
+
+    def test_get_status_connected(self):
+        from packages.adapters.prometheus_adapter import PrometheusIngestAdapter
+        adapter = PrometheusIngestAdapter(
+            self._mock_worker(
+                connected=True,
+                last_sync_at="2026-06-01T00:00:00+00:00",
+                sync_count=7,
+                last_sample_count=100,
+                last_row_count=95,
+            )
+        )
+        status = adapter.get_status()
+        assert status.enabled is True
+        assert status.connected is True
+        assert status.last_activity_at == "2026-06-01T00:00:00+00:00"
+        assert status.error_count == 0
+        assert status.extra["sync_count"] == 7
+        assert status.extra["last_sample_count"] == 100
+        assert status.extra["last_row_count"] == 95
+        assert status.extra["last_error"] is None
+
+    def test_get_status_after_error(self):
+        from packages.adapters.prometheus_adapter import PrometheusIngestAdapter
+        adapter = PrometheusIngestAdapter(
+            self._mock_worker(
+                connected=False,
+                last_sync_at=None,
+                error_count=2,
+                last_error="http_error:ConnectError",
+            )
+        )
+        status = adapter.get_status()
+        assert status.connected is False
+        assert status.last_activity_at is None
+        assert status.error_count == 2
+        assert status.extra["last_error"] == "http_error:ConnectError"
