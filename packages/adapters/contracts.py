@@ -166,6 +166,49 @@ class RenderedOutput:
 
 
 @dataclass(frozen=True)
+class CanonicalEntityId:
+    """Canonical identifier for a physical or logical household entity.
+
+    Adapters may see the same real-world entity through different source
+    identifiers (``sensor.heat_pump_power`` in Home Assistant,
+    ``hp_power_watts`` in Prometheus). A ``CanonicalEntityId`` names the
+    entity once so cross-adapter reads and cross-domain reasoning share
+    a single identity. ``entity_class`` maps to the vocabulary listed in
+    ``AdapterManifest.supported_entity_classes``.
+    """
+
+    entity_class: str
+    canonical_key: str
+
+
+@dataclass(frozen=True)
+class EntityAlias:
+    """One adapter's binding of a source identifier to a canonical entity.
+
+    Aliases are declarative: an adapter says "in my namespace,
+    ``source_entity_id`` refers to ``CanonicalEntityId(entity_class,
+    canonical_key)``". Multiple adapters may register aliases for the
+    same canonical entity and that is exactly the correlation. Two
+    registrations with the same ``(adapter_key, entity_class,
+    source_entity_id)`` are a conflict and are resolved by trust: a
+    higher-trust alias replaces a lower-trust one; equal trust favours
+    the latest registration.
+    """
+
+    adapter_key: str
+    entity_class: str
+    source_entity_id: str
+    canonical_key: str
+    trust_level: "TrustLevel"
+
+    @property
+    def canonical_id(self) -> CanonicalEntityId:
+        return CanonicalEntityId(
+            entity_class=self.entity_class, canonical_key=self.canonical_key
+        )
+
+
+@dataclass(frozen=True)
 class RendererManifest:
     """Static declaration of a renderer's identity and output formats."""
 
