@@ -1,14 +1,14 @@
-SPRINT: prom-ingest-second — Prometheus Federation IngestAdapter as Second Reference  [closed]
-Goal:   Stage 6 — implement a second concrete IngestAdapter beyond HA. Land Prometheus federation/remote-read as an IngestAdapter that lands fact_cluster_metric and reports typed health through the shared adapter status pattern.
-ID:     390
+SPRINT: lineage-graph-lantern — End-to-End Lineage Graph Traversal and Viewer  [closed]
+Goal:   Stage 9 — build a lineage graph query API traversing SourceLineageRecord and PublicationAuditRecord from source run to publication, and add a minimal in-shell viewer reachable from a publication tile.
+ID:     394
 Items:  2 total — 2 done, 0 active, 0 pending, 0 blocked
 
---- Track: ingest ---
+--- Track: graph ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #1026  Implement PrometheusIngestAdapter (federation or remote-read) that lands fact_cluster_metric; passes standard adapter contract tests; smoke run against a fixture Prometheus  (assignee: -)
+  [done    ] #1035  Implement /api/lineage/publication/{key} returning the transitive graph with typed edges across source→landing→transformation→publication  (assignee: -)
 
---- Track: wiring ---
+--- Track: viewer ---
   health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #1027  Register PrometheusIngestAdapter in the extension registry; expose typed health via /api/adapters/*/status matching HA adapter shape  (assignee: -)
+  [done    ] #1036  Minimal lineage viewer in the web shell; from a publication tile an operator reaches the originating source run  (assignee: -)
 
-Rendered: 2026-07-07T17:18:20Z
+Rendered: 2026-07-07T17:32:08Z
