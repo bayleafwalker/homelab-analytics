@@ -252,7 +252,7 @@ export default async function SourcesPage() {
                               {r.latest_run_id}
                             </Link>
                           </div>
-                        )}
+                        ) : null}
                       </div>
                       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                         {r.latest_run_id ? (
