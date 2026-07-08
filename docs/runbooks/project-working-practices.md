@@ -42,6 +42,28 @@ Use `/workspace/dev/...` only on environments where that is the actual source ch
 
 After a refresh, load `.envrc` and confirm both the executable path and the project-scoped DBs before reading or mutating sprint or knowledge state.
 
+For agent sessions, prefer the single repo preflight before dispatch:
+
+```bash
+make agent-preflight
+```
+
+If the Python verification environment is incomplete, avoid repeated `uv run` or
+`uv sync` attempts after the first hang or unresolved install. Use the known-good
+direct path first:
+
+```bash
+source .envrc
+.venv/bin/python -m pytest <targeted-tests> -x --tb=short
+```
+
+Use a lightweight dependency repair command only for missing verification imports,
+then rerun `make agent-preflight`:
+
+```bash
+.venv/bin/python -m pip install pytest pluggy ruff mypy mypy_extensions botocore duckdb psycopg
+```
+
 ## Working Loops
 
 ### 1. New scope registration
@@ -94,6 +116,8 @@ After a refresh, load `.envrc` and confirm both the executable path and the proj
 - keep sprint state current if the work is sprint-scoped
 - use focused local verification during implementation, commit at reviewable scope boundaries, and run broader checks before review or push
 - after adding or modifying any API route, auth policy, scenario policy mapping, or architecture doc, run `pytest tests/test_architecture_contract.py -x --tb=short`
+- for FastAPI route serialization tests where transport behavior is not under test, use `tests.api_route_test_support.call_route(app, path, **params)` instead of `TestClient`; keep `TestClient` for auth, middleware, cookies, headers, and real transport behavior
+- at dispatch time, write down the intended scope file list; use it to select targeted verification and staging, and keep unrelated dirty files out of review
 
 **Close-out artifacts:** repo change, matching tests or verification, any required requirements/docs updates, and sprint updates when applicable.
 
@@ -209,6 +233,15 @@ Minimum done criteria:
 - verify the changed local and CI path as far as the environment allows
 - run `make verify-fast` before PR or CI-triggering push
 - state clearly which checks are blocking and which remain advisory or unrun
+
+Default verification order for local sessions:
+1. `source .envrc`
+2. `make agent-preflight` or equivalent import/version checks
+3. `ruff` on changed Python files
+4. `node --check` for changed JavaScript files
+5. targeted `pytest <files> -x --tb=short`
+6. `pytest tests/test_architecture_contract.py -x --tb=short` when routes, auth policy, scenario policy, or architecture changed
+7. `mypy` only after environment sanity passes
 
 ### Sprint-state change
 

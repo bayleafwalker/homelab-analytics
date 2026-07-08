@@ -76,6 +76,10 @@ kctl status --kind all
 The repo now ships a small wrapper layer for the canonical sprint and knowledge flows.
 These targets source `.envrc`, use the repo-local DB paths, and keep repeated command shapes out of ad hoc shell history.
 
+- `make agent-preflight` checks the repo Python verification environment, `sprintctl[remote]` support, DuckDB import under `.envrc`, Node availability, and remote sprintctl reachability before dispatch
+- `make sprintctl-health [ITEM=<item-id>]` checks `SPRINTCTL_URL` TCP reachability, then runs `sprintctl item show --id <item-id> --json` or `sprintctl sprint list --json`
+- `make sprintctl-preflight ITEM=<item-id> ACTOR=<actor> [CLAIM_TTL=300]` runs the health check, starts the claim, and persists `.sprintctl/claims/claim-<item_id>.token`
+- `make sprintctl-close ITEM=<item-id> CLAIM=<claim-id> [TOKEN_FILE=.sprintctl/claims/claim-<item_id>.token]` runs the health check, closes with `item done-from-claim`, and removes the token file after success
 - `make sprint-resume [ITEM=<item-id>]` wraps `sprintctl claim resume --json` using `SPRINTCTL_INSTANCE_ID` when available, otherwise `SPRINTCTL_RUNTIME_SESSION_ID` or `CODEX_THREAD_ID`
 - `make claim-recover ITEM=<item-id>` wraps `sprintctl claim recover --item-id <item-id> --json`
 - `make claim-heartbeat CLAIM_ID=<claim-id> CLAIM_TOKEN=<claim-token> [ACTOR=<actor>] [CLAIM_TTL=300]` wraps the long-item heartbeat flow
@@ -84,6 +88,30 @@ These targets source `.envrc`, use the repo-local DB paths, and keep repeated co
 - `make knowledge-publish CANDIDATE=<id> CATEGORY=<decision|pattern|lesson|risk|reference> BODY="..." [TITLE="..."] [TAGS='[\"workflow\"]'] [COORDINATION=1]` publishes an approved entry and re-renders `docs/knowledge/knowledge-base.md`
 
 Use the raw `sprintctl` and `kctl` commands when you need a flow the wrappers do not cover.
+
+### Remote sprintctl unavailable mode
+
+Before dispatching implementation workers for sprint-scoped work, run:
+
+```bash
+make agent-preflight
+make sprintctl-preflight ITEM=<item-id> ACTOR=<actor>
+```
+
+This performs the ordered gate that avoids brittle late-session failures: TCP check
+for `SPRINTCTL_URL`, `sprintctl item show`, then `sprintctl claim start`.
+
+If remote sprintctl is unavailable, stop before worker dispatch. Only continue when
+the user or operator explicitly chooses offline implementation with deferred
+sprintctl closeout. In that mode:
+- set `ALLOW_OFFLINE_SPRINTCTL=1` only for the command that is allowed to degrade
+- do not mark items done, render snapshots, or claim live ownership until remote access returns
+- record the final handoff as "offline implementation with deferred sprintctl closeout"
+- when access returns, run `make sprintctl-preflight`, replay any required events, run the targeted verification gate, then run `make sprintctl-close`
+
+Do not retry remote sprintctl commands repeatedly with different timeout flags
+inside the implementation loop. Fix connectivity, enter the explicit offline mode,
+or stop.
 
 ### 3. Follow the claim lifecycle
 
@@ -113,6 +141,15 @@ Use the raw `sprintctl` and `kctl` commands when you need a flow the wrappers do
 - do this only after the DB state is already correct
 - render when the workflow needs a new shared artifact now or a natural batch boundary has been reached; do not treat every item close as a mandatory snapshot commit
 - keep snapshot-only commits separate from unrelated feature work
+
+## Session Closeout Checklist
+
+Before handoff, verify and report:
+- verification summary: exact commands run and pass/fail result
+- sprintctl state: claim id, item status, whether closeout completed or is deferred
+- snapshot render: refreshed only after live sprint state changed and a shared artifact is needed
+- token cleanup: `.sprintctl/claims/claim-<item_id>.token` removed after successful release or done
+- unrelated dirty files: excluded from staging/review unless intentionally in scope
 
 ## Sprint Close
 

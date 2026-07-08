@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Lint staged Python before a commit lands.
+#
+# Committed under githooks/ and activated by `make hooks-install`
+# (git config core.hooksPath githooks), so every committer — human, Claude,
+# Codex — runs the same gate rather than each agent hand-running ruff.
+#
+# Scope is deliberately fast: ruff on the staged files only. Heavier checks
+# (typecheck, tests, arch, web) stay in `make verify-fast` at PR time, per the
+# two-tier model in AGENTS.md. Bypass with `git commit --no-verify` only when
+# intentional.
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+# Only Python files staged for this commit (added / copied / modified).
+mapfile -t py_files < <(git diff --cached --name-only --diff-filter=ACM -- '*.py')
+[ "${#py_files[@]}" -eq 0 ] && exit 0
+
+if [ -x .venv/bin/python ]; then
+  python=.venv/bin/python
+else
+  python="$(command -v python || true)"
+fi
+if [ -z "${python}" ]; then
+  echo "✗ pre-commit: no python found to run ruff — sync the venv (uv sync) or bypass with --no-verify" >&2
+  exit 1
+fi
+
+echo "pre-commit: ruff check on ${#py_files[@]} staged Python file(s)"
+"${python}" -m ruff check "${py_files[@]}"

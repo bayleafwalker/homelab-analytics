@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source tools/project-env.sh)",
+      "Bash(source tools/project-env.sh *)",
+      "Bash(direnv exec . kubectl get *)",
+      "Bash(direnv exec . flux get *)",
+      "Bash(sops -d *)"
+    ]
+  }
+}

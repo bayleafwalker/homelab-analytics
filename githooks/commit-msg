@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Enforce the Conventional Commits subject the repo already follows, so commits
+# from every agent (Claude, Codex) and humans stay consistent. This codifies the
+# commit step of the add → sprintctl-status → commit workflow at the point it
+# actually matters — the commit — rather than relying on each agent to remember
+# the format.
+#
+# Activated by `make hooks-install`. Bypass with `git commit --no-verify` only
+# when intentional.
+set -euo pipefail
+
+msg_file="$1"
+
+# Subject = first non-empty, non-comment line.
+subject="$(grep -vE '^[[:space:]]*#' "${msg_file}" | grep -vE '^[[:space:]]*$' | head -1 || true)"
+
+# Let git-generated and autosquash subjects through untouched.
+case "${subject}" in
+  Merge*|Revert*|"fixup! "*|"squash! "*|"amend! "*) exit 0 ;;
+esac
+
+pattern='^(feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert)(\([a-z0-9 ._+/-]+\))?!?: .+'
+if ! printf '%s' "${subject}" | grep -qE "${pattern}"; then
+  cat >&2 <<EOF
+✗ commit-msg: subject must follow Conventional Commits:
+    <type>(<scope>)?: <description>
+  type ∈ feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert
+  e.g.  feat(adapters): add prometheus federation ingest
+  got:  ${subject}
+  (bypass with --no-verify only when intentional)
+EOF
+  exit 1
+fi

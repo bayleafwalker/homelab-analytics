@@ -46,6 +46,15 @@ Run this once per stable reviewable scope, not once per sprint item.
    - `specialists/test-quality.md` — model: haiku
    - `specialists/suppression-drift.md` — model: haiku
 
+   If the fan-out cannot run because subagent capacity, model quota, or account
+   limits block specialist dispatch, explicitly enter degraded review mode instead
+   of skipping review. Record "review degraded" in the final handoff and run:
+   - `pytest tests/test_architecture_contract.py -x --tb=short`
+   - the targeted tests selected for the changed surface
+   - a manual findings-first checklist for the seven specialist categories:
+     pack-boundary, stratum-coherence, semantic-ownership, god-class-file-size,
+     repetition-vs-abstraction, test-quality, and suppression-drift
+
 5. Collect results. For each specialist:
    - If the specialist returns valid JSON, parse the findings array.
    - If the specialist returns malformed JSON or non-JSON text, log a warning

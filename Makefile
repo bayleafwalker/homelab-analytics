@@ -1,6 +1,18 @@
 SHELL := /usr/bin/bash
 
 PYTHON := $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else command -v python; fi)
+
+# duckdb loads libstdc++, which is not on the default loader path when the venv
+# is built against the workstation Python. Glob for a current gcc-lib store (the
+# hash rotates on nix updates) and export it, so `make test*`/`lint`/`typecheck`
+# run without a manual `source .envrc` / `LD_LIBRARY_PATH=...` prefix. On non-nix
+# hosts (e.g. CI with a system libstdc++) the glob is empty and we leave the
+# loader path untouched. Mirrors tools/project-env.sh.
+GCC_LIB := $(shell for d in /nix/store/*-gcc-*-lib/lib; do [ -f "$$d/libstdc++.so.6" ] && printf '%s' "$$d" && break; done)
+ifneq ($(GCC_LIB),)
+export LD_LIBRARY_PATH := $(GCC_LIB)$(if $(LD_LIBRARY_PATH),:$(LD_LIBRARY_PATH))
+endif
+
 PYTEST := $(PYTHON) -m pytest
 RUFF := $(PYTHON) -m ruff
 MYPY := $(PYTHON) -m mypy
@@ -17,7 +29,9 @@ DOMAIN ?=
 ITEM ?=
 SPRINT_ID ?=
 CLAIM_ID ?=
+CLAIM ?=
 CLAIM_TOKEN ?=
+TOKEN_FILE ?=
 CLAIM_TTL ?=
 ACTOR ?=
 PY_FILES ?=
@@ -32,7 +46,7 @@ VERIFY_CONFIG_ARGS ?=
 CONTRACT_BASE_REF ?=
 CONTRACT_RELEASE_DIR ?= dist/contracts
 
-export ITEM SPRINT_ID CLAIM_ID CLAIM_TOKEN CLAIM_TTL ACTOR PY_FILES TESTS CANDIDATE CATEGORY BODY TITLE TAGS COORDINATION
+export ITEM SPRINT_ID CLAIM_ID CLAIM CLAIM_TOKEN TOKEN_FILE CLAIM_TTL ACTOR PY_FILES TESTS CANDIDATE CATEGORY BODY TITLE TAGS COORDINATION
 export SPRINTCTL_INSTANCE_ID SPRINTCTL_RUNTIME_SESSION_ID CODEX_THREAD_ID
 
 .PHONY: lint typecheck test test-fast test-target test-integration test-e2e-local \
@@ -41,9 +55,15 @@ export SPRINTCTL_INSTANCE_ID SPRINTCTL_RUNTIME_SESSION_ID CODEX_THREAD_ID
 	docker-build compose-smoke audit-deps db-migrate-sqlite db-migrate-postgres \
 	db-migrate-postgres-control-plane db-migrate-postgres-run-metadata \
 	web-codegen web-codegen-check web-token-check web-typecheck web-contracts-check web-build demo-generate demo-seed \
-	web-ui-test first-run \
+	web-ui-test first-run hooks-install \
 	contract-export-check contract-compat-report contract-release-artifacts \
+	agent-preflight sprintctl-health sprintctl-preflight sprintctl-close \
 	sprint-resume claim-recover claim-heartbeat item-verify-auth snapshot-refresh knowledge-publish
+
+hooks-install:
+	@git config core.hooksPath githooks
+	@chmod +x githooks/* 2>/dev/null || true
+	@echo "Installed git hooks from githooks/ (core.hooksPath=githooks): pre-commit lint + commit-msg convention."
 
 lint:
 	$(RUFF) check .
@@ -217,6 +237,18 @@ verify-domain:
 		exit 1; \
 	fi
 	$(PYTEST) -q tests/test_local_domain_harness.py -k "$(DOMAIN)"
+
+agent-preflight:
+	$(WORKFLOW_HELPER) agent-preflight
+
+sprintctl-health:
+	$(WORKFLOW_HELPER) sprintctl-health
+
+sprintctl-preflight:
+	$(WORKFLOW_HELPER) sprintctl-preflight
+
+sprintctl-close:
+	$(WORKFLOW_HELPER) sprintctl-close
 
 sprint-resume:
 	$(WORKFLOW_HELPER) sprint-resume

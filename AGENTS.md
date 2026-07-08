@@ -29,6 +29,12 @@ Working practices: `docs/runbooks/project-working-practices.md`.
 
 **Load:** `source .envrc` or `direnv allow` from repo root before using `sprintctl` or `kctl`.
 
+**Do not hand-prefix env into every command.** The project env (the two vars above plus the duckdb `libstdc++` loader path) is defined once in `tools/project-env.sh` and consumed by three surfaces so no agent — Claude, Codex, or otherwise — needs to paste `source .envrc &&` or `LD_LIBRARY_PATH=/nix/store/<hash>...` ahead of commands:
+
+- **`make` targets are env-self-sufficient.** `make lint`, `make typecheck`, `make test-fast`, `make test-target TEST="tests/test_foo.py -x --tb=short"`, and `make verify-fast` set the duckdb loader path themselves. Prefer these for tests and lint — no prefix needed.
+- **Direct CLI use** (`sprintctl`, `kctl`, a raw `pytest`) needs the vars in the shell: `source tools/project-env.sh` (safe from any cwd, idempotent, no hard-fail) or `source .envrc` (adds the `SPRINTCTL_URL` fail-fast assertion for humans). Source once per shell, not per command.
+- Never paste a pinned `/nix/store/<hash>-gcc-*-lib` path — the hash rotates on nix updates; the glob in `tools/project-env.sh` and the Makefile finds the current one.
+
 **If `sprintctl` or `kctl` is missing or stale** (e.g. on a fresh devbox or after a source update), install from source — these are private tools, not on PyPI:
 ```bash
 uv tool install --force --reinstall /projects/dev/sprintctl --python python3
@@ -55,12 +61,24 @@ This application is **not yet deployed** to a cluster. Do not run `kubectl` agai
 
 - Primary language: **Python**. Testing: `pytest`.
 - **Two-tier testing model:**
-  - **In-session (blocking, targeted):** Run only the tests covering changed files: `pytest tests/test_foo.py tests/test_bar.py -x --tb=short`. Run foreground and wait — never background `pytest` for sequential verification. This is the signal needed to mark items done.
+  - **In-session (blocking, targeted):** Run only the tests covering changed files via the env-self-sufficient target: `make test-target TEST="tests/test_foo.py tests/test_bar.py -x --tb=short"`. Run foreground and wait — never background it for sequential verification. This is the signal needed to mark items done.
   - **Broader validation (operator-initiated):** There is no blocking full-suite CI job in this repo today. Run `make test` when you want the full Python suite, or `make verify-all` when you want the broader local verification path. Neither is a sprint-item gate. Do not run the full suite in-session unless debugging a cross-cutting regression.
 - Gate `sprintctl` done transitions on targeted test exit code: `pytest <files> -x --tb=short && sprintctl item done-from-claim ...`
 - **Never commit with failing tests.**
 - **Commit at the smallest reviewable scope boundary, not mechanically per sprint item.** A scope may be one item or a tight batch of related items that should be reviewed together. Do not batch unrelated scopes or defer commits until the end of a session. Run targeted tests before each commit.
 - Run `make verify-fast` before any PR or CI-triggering push.
+
+### Commit gates (git hooks)
+
+Commit-time gates live in `githooks/` and apply to every committer — human, Claude, Codex — so no agent has to remember to hand-run lint or match the message format. Activate once per clone:
+
+```bash
+make hooks-install    # sets core.hooksPath=githooks
+```
+
+- **`pre-commit`** runs `ruff check` on the staged Python files (fast; heavier checks stay in `make verify-fast` at PR time).
+- **`commit-msg`** enforces Conventional Commits: `<type>(<scope>)?: <desc>`, type ∈ `feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert`. Merge/revert/fixup subjects pass through.
+- Bypass with `git commit --no-verify` only when intentional. These gates complement — do not replace — the targeted-test signal that gates `sprintctl` done transitions.
 
 ### Self-healing test loop
 
