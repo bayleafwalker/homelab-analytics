@@ -1,14 +1,20 @@
-SPRINT: confidence-canvas-glow — Operator Confidence Dashboard and Scenario Decision Lineage  [active]
-Goal:   Stage 9 — surface PublicationConfidenceIndex as an operator-facing confidence dashboard and persist scenario assumption→projection edges so every projection can name the assumptions that produced it.
-ID:     395
-Items:  2 total — 2 done, 0 active, 0 pending, 0 blocked
+SPRINT: shell-token-pulse — Shared Design Groundwork and Operating Picture v2  [closed]
+Goal:   Land shared tokens, four primitive components, motion rules, and the Operating Picture v2 refactor without adding any new routes.
+ID:     360
+Items:  8 total — 8 done, 0 active, 0 pending, 0 blocked
 
---- Track: dashboard ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #1037  Confidence dashboard listing every publication with freshness, completeness, verdict; filters cover verdict and staleness  (assignee: -)
+--- Track: design-system ---
+  health: 5 items — 5 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #730  Add --font-display (Fraunces/Iowan) and --line-strong tokens; document 6-step type scale (11/13/15/19/28/56) in ui-tokens.css  (assignee: -)
+  [done    ] #731  <Pill tone> primitive — replaces ad-hoc .statusPill chains; tones: neutral/ok/warn/cool/accent/warm  (assignee: -)
+  [done    ] #732  <Spark values> — lightweight wrapper around existing SparklineChart with sensible defaults; no new chart logic  (assignee: -)
+  [done    ] #733  <NumMono> (tabular-nums span) and <Eyebrow color> (small-caps line) primitives  (assignee: -)
+  [done    ] #734  Motion standard: 120ms ease on color/border/transform in globals; prefers-reduced-motion guard; wallboard cursor blink is the only timed animation  (assignee: -)
 
---- Track: decision-lineage ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #1038  Persist scenario assumption→projection edges; scenario output surface exposes the assumption set that produced each projection  (assignee: -)
+--- Track: operating-picture ---
+  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #735  Operating Picture v2 layout refactor (operating-picture/page.js): hero big-number net + sparkline; freshness pulse 5-domain cards; 7-day horizon strip; numbered attention queue; ratios + categories in right rail  (assignee: -)
+  [done    ] #736  <FreshnessPulse> and <HorizonStrip> components extracted from v2 page once layout is stable  (assignee: -)
+  [done    ] #737  Storybook stories: Pill, Spark, NumMono, Eyebrow, FreshnessPulse, HorizonStrip, operating-picture page snapshot  (assignee: -)
 
-Rendered: 2026-07-08T14:10:58Z
+Rendered: 2026-07-08T19:39:41Z
