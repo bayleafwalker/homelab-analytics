@@ -24,6 +24,10 @@
     "$value": "rgba(19, 40, 51, 0.14)",
     "$type": "color"
   },
+  "line-strong": {
+    "$value": "rgba(19, 40, 51, 0.28)",
+    "$type": "color"
+  },
   "accent": {
     "$value": "#0f766e",
     "$type": "color"
@@ -56,6 +60,10 @@
     "$value": "\"Iowan Old Style\", \"Palatino Linotype\", Georgia, serif",
     "$type": "fontFamily"
   },
+  "font-display": {
+    "$value": "\"Fraunces\", \"Iowan Old Style\", Georgia, serif",
+    "$type": "fontFamily"
+  },
   "radius-pill": {
     "$value": "999px",
     "$type": "dimension"
@@ -63,5 +71,15 @@
   "radius-panel": {
     "$value": "24px",
     "$type": "dimension"
+  },
+  "type": {
+    "scale": {
+      "1": { "$value": "11px", "$type": "dimension" },
+      "2": { "$value": "13px", "$type": "dimension" },
+      "3": { "$value": "15px", "$type": "dimension" },
+      "4": { "$value": "19px", "$type": "dimension" },
+      "5": { "$value": "28px", "$type": "dimension" },
+      "6": { "$value": "56px", "$type": "dimension" }
+    }
   }
 }

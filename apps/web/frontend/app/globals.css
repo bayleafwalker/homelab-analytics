@@ -24,6 +24,44 @@ a {
   text-decoration: none;
 }
 
+/*
+ * Motion standard: one transition, everywhere it applies — 120ms ease on
+ * color/border/transform for interactive elements. Do not add bespoke
+ * durations or easing curves elsewhere; do not add new looping/keyframe
+ * animations here. The wallboard's cursor blink (future surface) is the
+ * only timed animation permitted in this design system.
+ */
+a,
+button,
+input,
+select,
+textarea,
+.navLink,
+.subnavLink,
+.ghostButton,
+.primaryButton,
+.pill,
+.inlineLink,
+.dropZone,
+.checkboxRow {
+  transition:
+    color 120ms ease,
+    border-color 120ms ease,
+    background-color 120ms ease,
+    transform 120ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 .page {
   max-width: 1200px;
   margin: 0 auto;
@@ -245,6 +283,59 @@ th {
   font-size: 0.78rem;
   font-weight: 800;
   text-transform: lowercase;
+}
+
+/*
+ * <Pill tone> primitive. Tones: neutral, ok, warn, cool, accent, warm.
+ * New surfaces should reach for this instead of a fresh ad-hoc statusPill
+ * chain; existing .status-* usages are migrated by later sprints.
+ */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-pill);
+  padding: 0.2rem 0.62rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+.pill[data-tone="neutral"] {
+  color: var(--muted);
+  background: rgba(19, 40, 51, 0.06);
+}
+
+.pill[data-tone="ok"] {
+  color: var(--ok);
+  background: rgba(42, 157, 143, 0.14);
+}
+
+.pill[data-tone="warn"] {
+  color: var(--warn);
+  background: rgba(209, 73, 91, 0.12);
+}
+
+.pill[data-tone="cool"] {
+  color: var(--accent-cool);
+  background: rgba(11, 95, 131, 0.12);
+}
+
+.pill[data-tone="accent"] {
+  color: var(--accent);
+  background: rgba(15, 118, 110, 0.12);
+}
+
+.pill[data-tone="warm"] {
+  color: var(--accent-warm);
+  background: rgba(201, 106, 61, 0.14);
+}
+
+/* <NumMono> primitive — tabular numerals for money/ratio/count values. */
+.numMono {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
 }
 
 .status-landed {
@@ -623,6 +714,261 @@ th {
 .chartLegendItem { display: flex; align-items: center; gap: 5px;
                    font-size: 0.78rem; font-weight: 700; color: var(--muted); }
 .chartLegendDot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* Operating Picture v2 — hero */
+.heroPicture {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 32px;
+  align-items: end;
+  padding: 32px;
+}
+
+.heroPictureCopy {
+  display: grid;
+  gap: 10px;
+}
+
+.heroNumber {
+  font-family: var(--font-display, var(--font-serif));
+  font-size: clamp(2.6rem, 5vw, 4.4rem);
+  line-height: 1;
+  margin: 4px 0 0;
+}
+
+.heroPictureSummary {
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.55;
+  max-width: 52ch;
+  margin: 4px 0 0;
+}
+
+.heroPictureSpark {
+  display: grid;
+  gap: 8px;
+}
+
+/* Operating Picture v2 — freshness pulse */
+.pulseGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pulseCard {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 14px 16px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.pulseCardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pulseCardName {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.pulseDot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pulseTrack {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(19, 40, 51, 0.06);
+  overflow: hidden;
+}
+
+.pulseTrackFill {
+  height: 100%;
+}
+
+.pulseCaption {
+  font-family: var(--retro-font-mono, "SFMono-Regular", Consolas, monospace);
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+/* Operating Picture v2 — horizon strip */
+.horizonGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.horizonCell {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  min-height: 92px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 12px 14px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.horizonCell[data-tone="empty"] {
+  border-color: transparent;
+  background: transparent;
+}
+
+.horizonCell[data-tone="cool"] {
+  border-color: var(--accent-cool);
+  background: rgba(11, 95, 131, 0.08);
+}
+
+.horizonCell[data-tone="accent"] {
+  border-color: var(--accent);
+  background: rgba(15, 118, 110, 0.1);
+}
+
+.horizonCell[data-tone="warm"] {
+  border-color: var(--accent-warm);
+  background: rgba(201, 106, 61, 0.12);
+}
+
+.horizonDate {
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.horizonLabel {
+  font-weight: 600;
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.horizonAmount {
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.horizonMore {
+  font-size: 0.7rem;
+}
+
+/* Operating Picture v2 — attention queue */
+.attentionList {
+  display: grid;
+}
+
+.attentionRow {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 14px;
+  align-items: start;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.attentionRow:first-child {
+  border-top: none;
+}
+
+.attentionIndex {
+  font-family: var(--retro-font-mono, "SFMono-Regular", Consolas, monospace);
+  font-size: 0.68rem;
+  color: var(--muted);
+  padding-top: 3px;
+}
+
+.attentionRowHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.attentionDomain {
+  font-family: var(--retro-font-mono, "SFMono-Regular", Consolas, monospace);
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.attentionTitle {
+  font-weight: 600;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.attentionDetail {
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+/* Operating Picture v2 — right rail (ratios + categories) */
+.ratioList {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.ratioRowHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.ratioTrack {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(19, 40, 51, 0.06);
+  overflow: hidden;
+}
+
+.ratioTrackFill {
+  height: 100%;
+}
+
+.categoryList {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.categoryRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 14px;
+  align-items: center;
+  font-size: 0.82rem;
+}
+
+.categoryDelta {
+  font-size: 0.78rem;
+}
+
+.recentChangeRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+
+.recentChangeRow:first-child {
+  border-top: none;
+}
 
 .retroRoot {
   position: relative;
@@ -1071,10 +1417,16 @@ th {
   .hero,
   .cards,
   .layout,
-  .topbar {
+  .topbar,
+  .heroPicture,
+  .pulseGrid {
     grid-template-columns: 1fr;
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .horizonGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .adminFormGrid,
