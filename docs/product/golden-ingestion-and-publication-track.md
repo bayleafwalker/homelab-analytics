@@ -60,8 +60,10 @@ They bypass the configured-CSV detection wizard and are not exercised by the wal
 |----------|------|
 | `POST /ingest` | Legacy direct ingest; superseded by `/ingest/configured-csv` |
 | `POST /ingest/account-transactions` | Legacy typed ingest; dev/demo shortcut |
-| `POST /ingest/subscriptions` | Domain-specific endpoint; operator path is configured-CSV |
-| `POST /ingest/contract-prices` | Domain-specific endpoint; operator path is configured-CSV |
+
+Removed domain-specific endpoints:
+- `POST /ingest/subscriptions` was deprecated on 2026-04-25 and removed after the 2026-08-01 sunset. Use `/upload` or `POST /ingest/configured-csv` with `/upload/subscriptions` as `upload_path`.
+- `POST /ingest/contract-prices` was deprecated on 2026-04-25 and removed after the 2026-08-01 sunset. Use `/upload` or `POST /ingest/configured-csv` with `/upload/contract-prices` as `upload_path`.
 
 ### Worker CLI commands
 

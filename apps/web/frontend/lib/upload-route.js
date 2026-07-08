@@ -44,10 +44,16 @@ export async function proxyUploadRequest(
   request,
   {
     backendPath,
-    failureCode
+    failureCode,
+    fields = {}
   }
 ) {
   const formData = await request.formData();
+  for (const [name, value] of Object.entries(fields)) {
+    if (value !== undefined && value !== null) {
+      formData.set(name, String(value));
+    }
+  }
   const response = await backendRequest(backendPath, {
     method: "POST",
     cookieHeader: request.headers.get("cookie") || "",

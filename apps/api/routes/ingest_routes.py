@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from collections import defaultdict, deque
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -8,8 +7,6 @@ from pathlib import Path
 from threading import Lock
 from time import monotonic
 from typing import Any
-
-_log = logging.getLogger(__name__)
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -25,9 +22,7 @@ from packages.application.use_cases.source_ingestion import (
     ingest_configured_csv_bytes,
     ingest_configured_csv_file,
     ingest_contract_prices_bytes,
-    ingest_contract_prices_file,
     ingest_subscription_bytes,
-    ingest_subscription_file,
     process_and_promote_ingestion_definition,
 )
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
@@ -58,6 +53,10 @@ from packages.storage.control_plane import ConfigCatalogStore
 
 HA_BRIDGE_INGEST_RATE_LIMIT_MAX_REQUESTS = 12
 HA_BRIDGE_INGEST_RATE_LIMIT_WINDOW_SECONDS = 60.0
+_BUILTIN_CONFIGURED_UPLOAD_PATHS = {
+    "/upload/subscriptions",
+    "/upload/contract-prices",
+}
 
 
 @dataclass(frozen=True)
@@ -285,6 +284,41 @@ def register_ingest_routes(
         if content_type.startswith("multipart/form-data"):
             form = await request.form()
             upload = require_upload(form.get("file"))
+            upload_path = str(form.get("upload_path") or "")
+            if (
+                upload_path in _BUILTIN_CONFIGURED_UPLOAD_PATHS
+                and not form.get("source_asset_id")
+                and not form.get("source_system_id")
+                and not form.get("dataset_contract_id")
+                and not form.get("column_mapping_id")
+            ):
+                source_name = str(form.get("source_name") or "configured-upload")
+                source_bytes = await read_upload_limited(upload)
+                file_name = getattr(upload, "filename", None) or "configured-upload.csv"
+                await upload.close()
+                if upload_path == "/upload/subscriptions":
+                    if subscription_service is None:
+                        raise KeyError("subscription ingestion is not configured")
+                    run, promotion = ingest_subscription_bytes(
+                        source_bytes,
+                        file_name,
+                        source_name,
+                        subscription_service=subscription_service,
+                        transformation_service=transformation_service,
+                        publish_reporting=publish_reporting,
+                    )
+                else:
+                    if contract_price_service is None:
+                        raise KeyError("contract-price ingestion is not configured")
+                    run, promotion = ingest_contract_prices_bytes(
+                        source_bytes,
+                        file_name,
+                        source_name,
+                        contract_price_service=contract_price_service,
+                        transformation_service=transformation_service,
+                        publish_reporting=publish_reporting,
+                    )
+                return build_run_response(run, promotion=promotion)
             payload = ConfiguredCsvIngestRequest(
                 source_path="",
                 source_asset_id=str(form.get("source_asset_id") or "") or None,
@@ -403,100 +437,6 @@ def register_ingest_routes(
             },
         )
         return {"preview": to_jsonable(preview)}
-
-    _DEPRECATION_HEADERS = {
-        "Deprecation": "true",
-        "Sunset": "Sat, 01 Aug 2026 00:00:00 GMT",
-        "Link": '</upload>; rel="successor-version"',
-    }
-
-    @app.post("/ingest/subscriptions", status_code=201)
-    async def ingest_subscriptions(request: Request) -> JSONResponse:
-        # Deprecated dev/demo shortcut. Operator path is /upload → /ingest/configured-csv.
-        _log.warning(
-            "Deprecated endpoint /ingest/subscriptions called. "
-            "Use /upload (configured-CSV path) instead. "
-            "This endpoint will be removed; see Sunset header."
-        )
-        if subscription_service is None:
-            raise KeyError("subscription ingestion is not configured")
-        content_type = request.headers.get("content-type", "")
-        if content_type.startswith("multipart/form-data"):
-            form = await request.form()
-            upload = require_upload(form.get("file"))
-            source_name = str(form.get("source_name") or "manual-upload")
-            source_bytes = await read_upload_limited(upload)
-            await upload.close()
-            run, promotion = ingest_subscription_bytes(
-                source_bytes,
-                getattr(upload, "filename", None) or "subscriptions.csv",
-                source_name,
-                subscription_service=subscription_service,
-                transformation_service=transformation_service,
-                publish_reporting=publish_reporting,
-            )
-        else:
-            payload = await request.json()
-            run, promotion = ingest_subscription_file(
-                Path(payload["source_path"]),
-                payload.get("source_name", "manual-upload"),
-                subscription_service=subscription_service,
-                transformation_service=transformation_service,
-                publish_reporting=publish_reporting,
-            )
-        body: dict[str, Any] = {"run": serialize_run(run)}
-        if promotion is not None:
-            body["promotion"] = serialize_promotion(promotion)
-        status_code = (
-            409
-            if any(i.code == "duplicate_file" for i in run.issues)
-            else (201 if run.passed else 400)
-        )
-        return JSONResponse(status_code=status_code, content=body, headers=_DEPRECATION_HEADERS)
-
-    @app.post("/ingest/contract-prices", status_code=201)
-    async def ingest_contract_prices(request: Request) -> JSONResponse:
-        # Deprecated dev/demo shortcut. Operator path is /upload → /ingest/configured-csv.
-        _log.warning(
-            "Deprecated endpoint /ingest/contract-prices called. "
-            "Use /upload (configured-CSV path) instead. "
-            "This endpoint will be removed; see Sunset header."
-        )
-        if contract_price_service is None:
-            raise KeyError("contract-price ingestion is not configured")
-        content_type = request.headers.get("content-type", "")
-        if content_type.startswith("multipart/form-data"):
-            form = await request.form()
-            upload = require_upload(form.get("file"))
-            source_name = str(form.get("source_name") or "manual-upload")
-            source_bytes = await read_upload_limited(upload)
-            await upload.close()
-            run, promotion = ingest_contract_prices_bytes(
-                source_bytes,
-                getattr(upload, "filename", None) or "contract-prices.csv",
-                source_name,
-                contract_price_service=contract_price_service,
-                transformation_service=transformation_service,
-                publish_reporting=publish_reporting,
-            )
-        else:
-            payload = await request.json()
-            run, promotion = ingest_contract_prices_file(
-                Path(payload["source_path"]),
-                payload.get("source_name", "manual-upload"),
-                contract_price_service=contract_price_service,
-                transformation_service=transformation_service,
-                publish_reporting=publish_reporting,
-            )
-        body: dict[str, Any] = {"run": serialize_run(run)}
-        if promotion is not None:
-            body["promotion"] = serialize_promotion(promotion)
-        status_code = (
-            409
-            if any(i.code == "duplicate_file" for i in run.issues)
-            else (201 if run.passed else 400)
-        )
-        return JSONResponse(status_code=status_code, content=body, headers=_DEPRECATION_HEADERS)
 
     @app.post(
         "/ingest/ingestion-definitions/{ingestion_definition_id}/process",

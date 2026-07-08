@@ -2671,12 +2671,18 @@ class ApiAppTests(unittest.TestCase):
                 )
             )
 
-            # Ingest subscriptions
             ingest_response = client.post(
-                "/ingest/subscriptions",
-                json={
-                    "source_path": str(FIXTURES / "subscriptions_valid.csv"),
+                "/ingest/configured-csv",
+                data={
+                    "upload_path": "/upload/subscriptions",
                     "source_name": "manual-upload",
+                },
+                files={
+                    "file": (
+                        "subscriptions_valid.csv",
+                        (FIXTURES / "subscriptions_valid.csv").read_bytes(),
+                        "text/csv",
+                    )
                 },
             )
             self.assertEqual(201, ingest_response.status_code)
@@ -2749,10 +2755,17 @@ class ApiAppTests(unittest.TestCase):
             )
 
             ingest_response = client.post(
-                "/ingest/contract-prices",
-                json={
-                    "source_path": str(FIXTURES / "contract_prices_valid.csv"),
+                "/ingest/configured-csv",
+                data={
+                    "upload_path": "/upload/contract-prices",
                     "source_name": "manual-upload",
+                },
+                files={
+                    "file": (
+                        "contract_prices_valid.csv",
+                        (FIXTURES / "contract_prices_valid.csv").read_bytes(),
+                        "text/csv",
+                    )
                 },
             )
             self.assertEqual(201, ingest_response.status_code)

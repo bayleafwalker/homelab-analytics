@@ -433,8 +433,10 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert 'action="/upload/configured-csv"' in upload_page
     assert "proxyUploadRequest" in upload_account_route
     assert 'backendPath: "/ingest/account-transactions"' in upload_account_route
-    assert 'backendPath: "/ingest/subscriptions"' in upload_subscription_route
-    assert 'backendPath: "/ingest/contract-prices"' in upload_contract_price_route
+    assert 'backendPath: "/ingest/configured-csv"' in upload_subscription_route
+    assert 'upload_path: "/upload/subscriptions"' in upload_subscription_route
+    assert 'backendPath: "/ingest/configured-csv"' in upload_contract_price_route
+    assert 'upload_path: "/upload/contract-prices"' in upload_contract_price_route
     assert 'backendPath: "/ingest/configured-csv"' in upload_configured_route
     assert 'fetch("/control/catalog/preview"' in mapping_preview_component
     assert "getRun" in run_detail_page

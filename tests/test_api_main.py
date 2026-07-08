@@ -56,12 +56,16 @@ from tests.account_test_support import (
 from tests.account_test_support import (
     FIXTURES as ACCOUNT_FIXTURES,
 )
-from tests.contract_price_test_support import FIXTURES as CONTRACT_PRICE_FIXTURES
+from tests.contract_price_test_support import (
+    FIXTURES as CONTRACT_PRICE_FIXTURES,
+)
 from tests.external_registry_test_support import (
     create_path_capability_pack_extension,
     create_path_function_extension,
 )
-from tests.subscription_test_support import FIXTURES as SUBSCRIPTION_FIXTURES
+from tests.subscription_test_support import (
+    FIXTURES as SUBSCRIPTION_FIXTURES,
+)
 
 
 class ApiMainTests(unittest.TestCase):
@@ -1099,14 +1103,25 @@ class ApiMainTests(unittest.TestCase):
             client = TestClient(build_app(settings))
 
             ingest_response = client.post(
-                "/ingest/subscriptions",
-                json={
-                    "source_path": str(SUBSCRIPTION_FIXTURES / "subscriptions_valid.csv"),
+                "/ingest/configured-csv",
+                data={
+                    "upload_path": "/upload/subscriptions",
                     "source_name": "manual-upload",
+                },
+                files={
+                    "file": (
+                        "subscriptions_valid.csv",
+                        (SUBSCRIPTION_FIXTURES / "subscriptions_valid.csv").read_bytes(),
+                        "text/csv",
+                    )
                 },
             )
 
             self.assertEqual(201, ingest_response.status_code)
+            self.assertIn(
+                "mart_subscription_summary",
+                ingest_response.json()["promotion"]["marts_refreshed"],
+            )
             report_response = client.get("/reports/subscription-summary")
             self.assertEqual(200, report_response.status_code)
             self.assertEqual(5, len(report_response.json()["rows"]))
@@ -1129,20 +1144,60 @@ class ApiMainTests(unittest.TestCase):
             client = TestClient(build_app(settings))
 
             ingest_response = client.post(
-                "/ingest/contract-prices",
-                json={
-                    "source_path": str(CONTRACT_PRICE_FIXTURES / "contract_prices_valid.csv"),
+                "/ingest/configured-csv",
+                data={
+                    "upload_path": "/upload/contract-prices",
                     "source_name": "manual-upload",
+                },
+                files={
+                    "file": (
+                        "contract_prices_valid.csv",
+                        (
+                            CONTRACT_PRICE_FIXTURES / "contract_prices_valid.csv"
+                        ).read_bytes(),
+                        "text/csv",
+                    )
                 },
             )
 
             self.assertEqual(201, ingest_response.status_code)
+            self.assertIn(
+                "mart_contract_price_current",
+                ingest_response.json()["promotion"]["marts_refreshed"],
+            )
+            self.assertIn(
+                "mart_electricity_price_current",
+                ingest_response.json()["promotion"]["marts_refreshed"],
+            )
             contract_response = client.get("/reports/contract-prices")
             electricity_response = client.get("/reports/electricity-prices")
             self.assertEqual(200, contract_response.status_code)
             self.assertEqual(200, electricity_response.status_code)
             self.assertEqual(3, len(contract_response.json()["rows"]))
             self.assertEqual(2, len(electricity_response.json()["rows"]))
+
+    def test_built_app_does_not_register_removed_subscription_and_price_routes(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            settings = AppSettings(
+                data_dir=Path(temp_dir),
+                landing_root=Path(temp_dir) / "landing",
+                metadata_database_path=Path(temp_dir) / "metadata" / "runs.db",
+                account_transactions_inbox_dir=(Path(temp_dir) / "inbox" / "account-transactions"),
+                processed_files_dir=(Path(temp_dir) / "processed" / "account-transactions"),
+                failed_files_dir=(Path(temp_dir) / "failed" / "account-transactions"),
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+            )
+            client = TestClient(build_app(settings))
+
+            subscription_response = client.post("/ingest/subscriptions", json={})
+            contract_price_response = client.post("/ingest/contract-prices", json={})
+
+            self.assertEqual(404, subscription_response.status_code)
+            self.assertEqual(404, contract_price_response.status_code)
 
     def test_build_ha_startup_runtime_wires_optional_components_when_configured(self) -> None:
         with TemporaryDirectory() as temp_dir:
