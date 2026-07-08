@@ -1,4 +1,300 @@
 export interface paths {
+    "/adapters/contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Contract Vocabulary
+         * @description Get contract vocabulary summary (directions and trust levels).
+         *
+         *     Returns
+         *     -------
+         *     dict[str, Any]
+         *         Response with 'directions' and 'trust_levels' keys.
+         */
+        get: operations["get_contract_vocabulary_adapters_contracts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adapters/packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Adapter Packs
+         * @description List all registered adapter packs with summary metadata.
+         *
+         *     Returns
+         *     -------
+         *     dict[str, Any]
+         *         Response with 'packs' key containing list of pack summaries.
+         */
+        get: operations["list_adapter_packs_adapters_packs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adapters/packs/{pack_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Adapter Pack
+         * @description Get detailed information about a specific adapter pack.
+         *
+         *     Parameters
+         *     ----------
+         *     pack_key : str
+         *         The pack key to retrieve.
+         *
+         *     Returns
+         *     -------
+         *     dict[str, Any]
+         *         Response with pack details including adapters and renderers.
+         *
+         *     Raises
+         *     ------
+         *     HTTPException
+         *         404 if the pack is not found.
+         */
+        get: operations["get_adapter_pack_adapters_packs__pack_key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adapters/packs/{pack_key}/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pack Config
+         * @description Get configuration requirements for a pack.
+         *
+         *     Parameters
+         *     ----------
+         *     pack_key : str
+         *         The pack key to check.
+         *
+         *     Returns
+         *     -------
+         *     dict[str, Any]
+         *         Response with credential_requirements (deduplicated and sorted),
+         *         adapter_count, and renderer_count.
+         *
+         *     Raises
+         *     ------
+         *     HTTPException
+         *         404 if the pack is not registered.
+         */
+        get: operations["get_pack_config_adapters_packs__pack_key__config_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adapters/packs/{pack_key}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable Pack
+         * @description Disable (deactivate) an adapter pack.
+         *
+         *     Parameters
+         *     ----------
+         *     pack_key : str
+         *         The pack key to disable.
+         *
+         *     Returns
+         *     -------
+         *     dict[str, Any]
+         *         Response with pack_key and active=false.
+         *
+         *     Raises
+         *     ------
+         *     HTTPException
+         *         404 if the pack is not registered.
+         */
+        post: operations["disable_pack_adapters_packs__pack_key__disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adapters/packs/{pack_key}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable Pack
+         * @description Enable (activate) an adapter pack.
+         *
+         *     Parameters
+         *     ----------
+         *     pack_key : str
+         *         The pack key to enable.
+         *
+         *     Returns
+         *     -------
+         *     dict[str, Any]
+         *         Response with pack_key and active=true.
+         *
+         *     Raises
+         *     ------
+         *     HTTPException
+         *         404 if the pack is not registered.
+         */
+        post: operations["enable_pack_adapters_packs__pack_key__enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adapters/packs/{pack_key}/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pack Health
+         * @description Get health status and compatibility check for a pack.
+         *
+         *     Parameters
+         *     ----------
+         *     pack_key : str
+         *         The pack key to check.
+         *
+         *     Returns
+         *     -------
+         *     dict[str, Any]
+         *         Response with pack_key, active state, and compatibility check results.
+         *
+         *     Raises
+         *     ------
+         *     HTTPException
+         *         404 if the pack is not registered.
+         */
+        get: operations["get_pack_health_adapters_packs__pack_key__health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adapters/renderers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Renderer Manifests
+         * @description List all renderer manifests from registered packs.
+         *
+         *     Returns
+         *     -------
+         *     dict[str, Any]
+         *         Response with 'renderers' key containing list of renderer manifests.
+         */
+        get: operations["list_renderer_manifests_adapters_renderers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/adapters/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Adapter Instance Statuses
+         * @description List typed runtime status for every registered adapter instance.
+         */
+        get: operations["list_adapter_instance_statuses_api_adapters_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/adapters/{adapter_key}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Adapter Instance Status
+         * @description Return the typed runtime status for a single adapter instance.
+         *
+         *     Raises
+         *     ------
+         *     HTTPException
+         *         404 if the adapter_key is not registered as a live instance.
+         */
+        get: operations["get_adapter_instance_status_api_adapters__adapter_key__status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assistant/answer": {
         parameters: {
             query?: never;
@@ -205,6 +501,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ha/metrics/current-month/electricity-cost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Current Month Electricity Cost */
+        get: operations["get_current_month_electricity_cost_api_ha_metrics_current_month_electricity_cost_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ha/metrics/current-month/net-cashflow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Current Month Net Cashflow */
+        get: operations["get_current_month_net_cashflow_api_ha_metrics_current_month_net_cashflow_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ha/metrics/next-loan-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Next Loan Payment Amount */
+        get: operations["get_next_loan_payment_amount_api_ha_metrics_next_loan_payment_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ha/mqtt/status": {
         parameters: {
             query?: never;
@@ -250,6 +597,23 @@ export interface paths {
         put?: never;
         /** Evaluate Policies */
         post: operations["evaluate_policies_api_ha_policies_evaluate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ha/policies/{policy_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Policy By Id */
+        get: operations["get_policy_by_id_api_ha_policies__policy_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -316,6 +680,108 @@ export interface paths {
         };
         /** Get Workload Cost 7D */
         get: operations["get_workload_cost_7d_api_homelab_workloads_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/ha-bridge/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ingest Ha Bridge Events */
+        post: operations["ingest_ha_bridge_events_api_ingest_ha_bridge_events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/ha-bridge/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ingest Ha Bridge Heartbeat */
+        post: operations["ingest_ha_bridge_heartbeat_api_ingest_ha_bridge_heartbeat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/ha-bridge/registry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ingest Ha Bridge Registry */
+        post: operations["ingest_ha_bridge_registry_api_ingest_ha_bridge_registry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/ha-bridge/states": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ingest Ha Bridge States */
+        post: operations["ingest_ha_bridge_states_api_ingest_ha_bridge_states_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/ha-bridge/statistics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ingest Ha Bridge Statistics */
+        post: operations["ingest_ha_bridge_statistics_api_ingest_ha_bridge_statistics_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/lineage/publication/{publication_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Publication Lineage */
+        get: operations["get_publication_lineage_api_lineage_publication__publication_key__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1501,6 +1967,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/control/confidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Confidence */
+        get: operations["get_confidence_control_confidence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/confidence/{publication_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Confidence Detail */
+        get: operations["get_confidence_detail_control_confidence__publication_key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/lineage/downstream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Lineage Downstream */
+        get: operations["get_lineage_downstream_control_lineage_downstream_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/lineage/upstream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Lineage Upstream */
+        get: operations["get_lineage_upstream_control_lineage_upstream_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/control/operational-summary": {
         parameters: {
             query?: never;
@@ -1518,6 +2052,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/control/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Policies */
+        get: operations["list_policies_control_policies_get"];
+        put?: never;
+        /** Create Policy */
+        post: operations["create_policy_control_policies_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/policies/{policy_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Policy */
+        get: operations["get_policy_control_policies__policy_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Policy */
+        delete: operations["delete_policy_control_policies__policy_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Policy */
+        patch: operations["update_policy_control_policies__policy_id__patch"];
+        trace?: never;
+    };
     "/control/publication-audit": {
         parameters: {
             query?: never;
@@ -1527,6 +2098,23 @@ export interface paths {
         };
         /** Get Publication Audit */
         get: operations["get_publication_audit_control_publication_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/registry/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Registry Summary */
+        get: operations["get_registry_summary_control_registry_summary_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1757,23 +2345,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/ingest/contract-prices": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Ingest Contract Prices */
-        post: operations["ingest_contract_prices_ingest_contract_prices_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/ingest/detect-source": {
         parameters: {
             query?: never;
@@ -1819,23 +2390,6 @@ export interface paths {
         put?: never;
         /** Process Ingestion Definition */
         post: operations["process_ingestion_definition_ingest_ingestion_definitions__ingestion_definition_id__process_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/ingest/subscriptions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Ingest Subscriptions */
-        post: operations["ingest_subscriptions_ingest_subscriptions_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2585,6 +3139,17 @@ export interface components {
             /** State */
             state: string;
         };
+        /** AnswerConfidenceSummary */
+        AnswerConfidenceSummary: {
+            /** Note */
+            note?: string | null;
+            /** Overall Verdict */
+            overall_verdict: string | null;
+            /** Stale Source Count */
+            stale_source_count: number;
+            /** Total Source Count */
+            total_source_count: number;
+        };
         /** ArchivedStateRequest */
         ArchivedStateRequest: {
             /** Archived */
@@ -2594,6 +3159,7 @@ export interface components {
         AssistantAnswerResponseModel: {
             /** Answer */
             answer: string;
+            answer_confidence?: components["schemas"]["AnswerConfidenceSummary"] | null;
             /** Evidence */
             evidence: {
                 [key: string]: {
@@ -2613,6 +3179,12 @@ export interface components {
         };
         /** AssistantSourceModel */
         AssistantSourceModel: {
+            /** Assessed At */
+            assessed_at?: string | null;
+            /** Confidence Verdict */
+            confidence_verdict?: string | null;
+            /** Freshness State */
+            freshness_state?: string | null;
             /** Publication Display Name */
             publication_display_name: string;
             /** Publication Index Path */
@@ -2960,7 +3532,7 @@ export interface components {
             /** Dimension */
             dimension: string;
             /** Rows */
-            rows: (components["schemas"]["DimAccountRow"] | components["schemas"]["DimCounterpartyRow"] | components["schemas"]["DimContractRow"] | components["schemas"]["DimCategoryRow"] | components["schemas"]["DimMeterRow"] | components["schemas"]["DimBudgetRow"] | components["schemas"]["DimLoanRow"] | components["schemas"]["DimAssetRow"] | components["schemas"]["DimEntityRow"])[];
+            rows: (components["schemas"]["DimAccountRow"] | components["schemas"]["DimCounterpartyRow"] | components["schemas"]["DimContractRow"] | components["schemas"]["DimCategoryRow"] | components["schemas"]["DimMeterRow"] | components["schemas"]["DimBudgetRow"] | components["schemas"]["DimLoanRow"] | components["schemas"]["DimAssetRow"] | components["schemas"]["DimEntityRow"] | components["schemas"]["DimHouseholdMemberRow"] | components["schemas"]["DimNodeRow"] | components["schemas"]["DimDeviceRow"] | components["schemas"]["DimServiceRow"] | components["schemas"]["DimWorkloadRow"])[];
         };
         /** CurrentOperatingBaselineRow */
         CurrentOperatingBaselineRow: {
@@ -3089,6 +3661,21 @@ export interface components {
             /** Sk */
             sk: string;
         };
+        /** DimDeviceRow */
+        DimDeviceRow: {
+            /** Device Id */
+            device_id: string;
+            /** Device Name */
+            device_name?: string | null;
+            /** Device Type */
+            device_type?: string | null;
+            /** Location */
+            location?: string | null;
+            /** Power Rating Watts */
+            power_rating_watts?: string | null;
+            /** Sk */
+            sk: string;
+        };
         /** DimEntityRow */
         DimEntityRow: {
             /** Area */
@@ -3109,6 +3696,19 @@ export interface components {
             sk: string;
             /** Unit */
             unit?: string | null;
+        };
+        /** DimHouseholdMemberRow */
+        DimHouseholdMemberRow: {
+            /** Active */
+            active?: boolean | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Member Id */
+            member_id: string;
+            /** Role */
+            role?: string | null;
+            /** Sk */
+            sk: string;
         };
         /** DimLoanRow */
         DimLoanRow: {
@@ -3149,6 +3749,55 @@ export interface components {
             sk: string;
             /** Utility Type */
             utility_type?: string | null;
+        };
+        /** DimNodeRow */
+        DimNodeRow: {
+            /** Cpu */
+            cpu?: string | null;
+            /** Hostname */
+            hostname: string;
+            /** Node Name */
+            node_name?: string | null;
+            /** Os */
+            os?: string | null;
+            /** Ram Gb */
+            ram_gb?: string | null;
+            /** Role */
+            role?: string | null;
+            /** Sk */
+            sk: string;
+        };
+        /** DimServiceRow */
+        DimServiceRow: {
+            /** Criticality */
+            criticality?: string | null;
+            /** Host */
+            host?: string | null;
+            /** Managed By */
+            managed_by?: string | null;
+            /** Service Id */
+            service_id: string;
+            /** Service Name */
+            service_name?: string | null;
+            /** Service Type */
+            service_type?: string | null;
+            /** Sk */
+            sk: string;
+        };
+        /** DimWorkloadRow */
+        DimWorkloadRow: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Entity Id */
+            entity_id?: string | null;
+            /** Host */
+            host?: string | null;
+            /** Sk */
+            sk: string;
+            /** Workload Id */
+            workload_id: string;
+            /** Workload Type */
+            workload_type?: string | null;
         };
         /** ElectricityPriceCurrentResponse */
         ElectricityPriceCurrentResponse: {
@@ -3376,6 +4025,248 @@ export interface components {
             /** Verdict */
             verdict: string;
         };
+        /** HaBridgeAreaRegistryRecord */
+        HaBridgeAreaRegistryRecord: {
+            /** Area Id */
+            area_id: string;
+            /** Floor Id */
+            floor_id?: string | null;
+            /** Name */
+            name: string;
+        };
+        /** HaBridgeDeviceRegistryRecord */
+        HaBridgeDeviceRegistryRecord: {
+            /** Area Id */
+            area_id?: string | null;
+            /** Device Id */
+            device_id: string;
+            /** Entry Type */
+            entry_type?: string | null;
+            /** Integration */
+            integration?: string | null;
+            /** Manufacturer */
+            manufacturer?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Name */
+            name?: string | null;
+        };
+        /** HaBridgeEntityRegistryRecord */
+        HaBridgeEntityRegistryRecord: {
+            /** Area Id */
+            area_id?: string | null;
+            /** Device Class */
+            device_class?: string | null;
+            /** Device Id */
+            device_id?: string | null;
+            /** Disabled By */
+            disabled_by?: string | null;
+            /** Domain */
+            domain?: string | null;
+            /** Entity Id */
+            entity_id: string;
+            /** Entity Registry Id */
+            entity_registry_id: string;
+            /** Labels */
+            labels?: string[];
+            /** Platform */
+            platform?: string | null;
+            /** State Class */
+            state_class?: string | null;
+            /** Unique Id */
+            unique_id?: string | null;
+            /** Unit Of Measurement */
+            unit_of_measurement?: string | null;
+        };
+        /** HaBridgeEventRecord */
+        HaBridgeEventRecord: {
+            /** Attributes */
+            attributes?: {
+                [key: string]: unknown;
+            };
+            /** Entity Id */
+            entity_id: string;
+            /** Entity Registry Id */
+            entity_registry_id: string;
+            /**
+             * Event Fired At
+             * Format: date-time
+             */
+            event_fired_at: string;
+            /**
+             * Event Type
+             * @default state_changed
+             */
+            event_type: string;
+            /** Last Changed */
+            last_changed?: string | null;
+            /** Last Updated */
+            last_updated?: string | null;
+            /** Old State */
+            old_state?: string | null;
+            /** State */
+            state: string;
+        };
+        /** HaBridgeEventsPayload */
+        HaBridgeEventsPayload: {
+            /** Bridge Instance Id */
+            bridge_instance_id: string;
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /** Events */
+            events?: components["schemas"]["HaBridgeEventRecord"][];
+            /**
+             * Schema Version
+             * @default 1.0
+             */
+            schema_version: string;
+        };
+        /** HaBridgeHeartbeatPayload */
+        HaBridgeHeartbeatPayload: {
+            /** Bridge Instance Id */
+            bridge_instance_id: string;
+            /** Bridge Version */
+            bridge_version?: string | null;
+            /**
+             * Buffering
+             * @default false
+             */
+            buffering: boolean;
+            /** Connected */
+            connected: boolean;
+            /**
+             * Entity Count
+             * @default 0
+             */
+            entity_count: number;
+            /** Ha Version */
+            ha_version?: string | null;
+            /** Last Delivery At */
+            last_delivery_at?: string | null;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Oldest Queued At */
+            oldest_queued_at?: string | null;
+            /**
+             * Queued Events
+             * @default 0
+             */
+            queued_events: number;
+            /**
+             * Schema Version
+             * @default 1.0
+             */
+            schema_version: string;
+        };
+        /** HaBridgeRegistryPayload */
+        HaBridgeRegistryPayload: {
+            /** Areas */
+            areas?: components["schemas"]["HaBridgeAreaRegistryRecord"][];
+            /** Bridge Instance Id */
+            bridge_instance_id: string;
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /** Devices */
+            devices?: components["schemas"]["HaBridgeDeviceRegistryRecord"][];
+            /** Entities */
+            entities?: components["schemas"]["HaBridgeEntityRegistryRecord"][];
+            /**
+             * Schema Version
+             * @default 1.0
+             */
+            schema_version: string;
+        };
+        /** HaBridgeStateRecord */
+        HaBridgeStateRecord: {
+            /** Attributes */
+            attributes?: {
+                [key: string]: unknown;
+            };
+            /** Entity Id */
+            entity_id: string;
+            /** Entity Registry Id */
+            entity_registry_id: string;
+            /** Last Changed */
+            last_changed?: string | null;
+            /** Last Updated */
+            last_updated?: string | null;
+            /** State */
+            state: string;
+        };
+        /** HaBridgeStatesPayload */
+        HaBridgeStatesPayload: {
+            /**
+             * Batch Source
+             * @default snapshot
+             */
+            batch_source: string;
+            /** Bridge Instance Id */
+            bridge_instance_id: string;
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /**
+             * Schema Version
+             * @default 1.0
+             */
+            schema_version: string;
+            /** States */
+            states?: components["schemas"]["HaBridgeStateRecord"][];
+        };
+        /** HaBridgeStatisticRecord */
+        HaBridgeStatisticRecord: {
+            /** Bucket End */
+            bucket_end?: string | null;
+            /**
+             * Bucket Start
+             * Format: date-time
+             */
+            bucket_start: string;
+            /** Entity Id */
+            entity_id?: string | null;
+            /** Entity Registry Id */
+            entity_registry_id: string;
+            /** Maximum */
+            maximum?: string | null;
+            /** Mean */
+            mean?: string | null;
+            /** Minimum */
+            minimum?: string | null;
+            /** Statistic Id */
+            statistic_id: string;
+            /** Sum */
+            sum?: string | null;
+            /** Unit */
+            unit: string;
+        };
+        /** HaBridgeStatisticsPayload */
+        HaBridgeStatisticsPayload: {
+            /** Bridge Instance Id */
+            bridge_instance_id: string;
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /**
+             * Schema Version
+             * @default 1.0
+             */
+            schema_version: string;
+            /** Statistics */
+            statistics?: components["schemas"]["HaBridgeStatisticRecord"][];
+        };
         /** HaBridgeStatusModel */
         HaBridgeStatusModel: {
             /** Connected */
@@ -3395,6 +4286,13 @@ export interface components {
             source_system?: string | null;
             /** States */
             states: components["schemas"]["HaStateObject"][];
+        };
+        /** HaMetricValueModel */
+        HaMetricValueModel: {
+            /** Unit */
+            unit: string;
+            /** Value */
+            value: number | null;
         };
         /** HaMqttStatusModel */
         HaMqttStatusModel: {
@@ -3519,6 +4417,11 @@ export interface components {
         };
         /** IncomeChangeRequest */
         IncomeChangeRequest: {
+            /**
+             * Currency
+             * @default GBP
+             */
+            currency: string;
             /** Label */
             label?: string | null;
             /** Monthly Income Delta */
@@ -3769,6 +4672,43 @@ export interface components {
             /** Rows */
             rows: components["schemas"]["CurrentOperatingBaselineRow"][];
         };
+        /** PolicyCreateRequest */
+        PolicyCreateRequest: {
+            /** Creator */
+            creator?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Display Name */
+            display_name: string;
+            /** Policy Kind */
+            policy_kind: string;
+            /** Rule Document */
+            rule_document: {
+                [key: string]: unknown;
+            };
+            /**
+             * Rule Schema Version
+             * @default 1.0
+             */
+            rule_schema_version: string;
+        };
+        /** PolicyUpdateRequest */
+        PolicyUpdateRequest: {
+            /** Description */
+            description?: string | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Policy Kind */
+            policy_kind?: string | null;
+            /** Rule Document */
+            rule_document?: {
+                [key: string]: unknown;
+            } | null;
+            /** Rule Schema Version */
+            rule_schema_version?: string | null;
+        };
         /** PromotionResultModel */
         PromotionResultModel: {
             /** Facts Loaded */
@@ -3811,12 +4751,20 @@ export interface components {
         };
         /** PublicationContractModel */
         PublicationContractModel: {
+            /** Assessed At */
+            assessed_at?: string | null;
             /** Columns */
             columns: components["schemas"]["PublicationColumnContractModel"][];
+            /** Completeness Pct */
+            completeness_pct?: number | null;
+            /** Confidence Verdict */
+            confidence_verdict?: string | null;
             /** Description */
             description?: string | null;
             /** Display Name */
             display_name: string;
+            /** Freshness State */
+            freshness_state?: string | null;
             /** Lineage Required */
             lineage_required: boolean;
             /** Pack Name */
@@ -4223,6 +5171,11 @@ export interface components {
         TerminalCommandModel: {
             /** Description */
             description: string;
+            /**
+             * Group
+             * @default general
+             */
+            group: string;
             /** Mutating */
             mutating: boolean;
             /** Name */
@@ -4500,6 +5453,292 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_contract_vocabulary_adapters_contracts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    list_adapter_packs_adapters_packs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get_adapter_pack_adapters_packs__pack_key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pack_config_adapters_packs__pack_key__config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disable_pack_adapters_packs__pack_key__disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enable_pack_adapters_packs__pack_key__enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pack_health_adapters_packs__pack_key__health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_renderer_manifests_adapters_renderers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    list_adapter_instance_statuses_api_adapters_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get_adapter_instance_status_api_adapters__adapter_key__status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adapter_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     answer_assistant_api_assistant_answer_get: {
         parameters: {
             query: {
@@ -4911,6 +6150,66 @@ export interface operations {
             };
         };
     };
+    get_current_month_electricity_cost_api_ha_metrics_current_month_electricity_cost_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HaMetricValueModel"];
+                };
+            };
+        };
+    };
+    get_current_month_net_cashflow_api_ha_metrics_current_month_net_cashflow_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HaMetricValueModel"];
+                };
+            };
+        };
+    };
+    get_next_loan_payment_amount_api_ha_metrics_next_loan_payment_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HaMetricValueModel"];
+                };
+            };
+        };
+    };
     get_mqtt_status_api_ha_mqtt_status_get: {
         parameters: {
             query?: never;
@@ -4971,6 +6270,39 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    get_policy_by_id_api_ha_policies__policy_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -5059,6 +6391,204 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    ingest_ha_bridge_events_api_ingest_ha_bridge_events_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HaBridgeEventsPayload"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ingest_ha_bridge_heartbeat_api_ingest_ha_bridge_heartbeat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HaBridgeHeartbeatPayload"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ingest_ha_bridge_registry_api_ingest_ha_bridge_registry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HaBridgeRegistryPayload"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ingest_ha_bridge_states_api_ingest_ha_bridge_states_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HaBridgeStatesPayload"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ingest_ha_bridge_statistics_api_ingest_ha_bridge_statistics_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HaBridgeStatisticsPayload"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_publication_lineage_api_lineage_publication__publication_key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publication_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -7962,6 +9492,139 @@ export interface operations {
             };
         };
     };
+    get_confidence_control_confidence_get: {
+        parameters: {
+            query?: {
+                stale_only?: boolean;
+                verdict?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_confidence_detail_control_confidence__publication_key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publication_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_lineage_downstream_control_lineage_downstream_get: {
+        parameters: {
+            query: {
+                source_asset_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_lineage_upstream_control_lineage_upstream_get: {
+        parameters: {
+            query: {
+                publication_key: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_operational_summary_control_operational_summary_get: {
         parameters: {
             query?: never;
@@ -7980,6 +9643,174 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    list_policies_control_policies_get: {
+        parameters: {
+            query?: {
+                source_kind?: string | null;
+                enabled_only?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_policy_control_policies_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_policy_control_policies__policy_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_policy_control_policies__policy_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_policy_control_policies__policy_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -8015,6 +9846,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_registry_summary_control_registry_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
@@ -8179,6 +10032,7 @@ export interface operations {
             query?: {
                 run_id?: string | null;
                 target_layer?: string | null;
+                target_name?: string | null;
             };
             header?: never;
             path?: never;
@@ -8405,26 +10259,6 @@ export interface operations {
             };
         };
     };
-    ingest_contract_prices_ingest_contract_prices_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
     detect_source_upload_target_ingest_detect_source_post: {
         parameters: {
             query?: never;
@@ -8496,26 +10330,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    ingest_subscriptions_ingest_subscriptions_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
                 };
             };
         };

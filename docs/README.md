@@ -35,6 +35,7 @@ Use these tags when adding or updating docs so kernel-vs-app ownership stays exp
 
 - `decisions/household-platform-adr-and-refactor-blueprint.md`
 - `decisions/household-operating-platform-direction.md`
+- `decisions/web-surface-shell-decision.md`
 - `runbooks/project-working-practices.md`
 - `runbooks/testing-and-verification.md`
 - `runbooks/sprint-and-knowledge-operations.md`
@@ -62,7 +63,7 @@ Use these tags when adding or updating docs so kernel-vs-app ownership stays exp
 - `product/source-freshness-workflow.md` — source freshness model, operator workflow, and next-action remediation guidance for manual sources.
 - `product/manual-reference-inputs.md` — operator-maintained sparse-fact pathway for loan policy, account metadata, and transaction overrides.
 - `product/homeassistant-and-smart-home-hub.md` — Home Assistant as edge runtime and actuation layer, platform's role beyond HA, integration principle, and roadmap alignment.
-- `product/retro-crt-shell.md` — route-scoped `/retro` renderer purpose, terminal scope, and the decision gate before retro becomes primary, stays experimental, or is harvested into the default shell.
+- `product/retro-crt-shell.md` — route-scoped `/retro` renderer purpose, terminal scope, and the (resolved) decision gate; see `decisions/web-surface-shell-decision.md` for the outcome and rationale.
 - `product/core-household-operating-picture.md` — core product definition: the Household Operating Picture, four core views (Overview, Money, Utilities, Operations), product principles, and acceptance criteria.
 - `product/initial-capability-packs-and-publications.md` — domain pack definitions, publication sets, insight types, and priority ordering for finance, utilities, homelab, and overview.
 - `product/core-product-design-workflow.md` — product design intake process and workflow.
@@ -125,6 +126,7 @@ Use `docs/sprints/TRACKER.md` for the live sprint index. Keep this section to du
 - `decisions/operational-database-support-model.md` — canonical operational database support model: Postgres for operational truth, SQLite as local bootstrap fallback, and DuckDB as the worker/local warehouse engine.
 - `decisions/compute-and-orchestration-options.md` — comparison of Spark and alternative engines/orchestrators, with the recommended initial stack and upgrade path.
 - `decisions/auth-boundary-external-identity-internal-authorization.md` — auth boundary lock: external identity, in-app authorization semantics, service-token alignment, and narrow break-glass posture.
+- `decisions/web-surface-shell-decision.md` — default shell vs `/retro` shell decision (default primary, retro scoped secondary with no parity promise), grounded in a hands-on comparison, plus the canonical operator navigation and data-fetching model that prevents publication-backed pages from diverging between shells.
 
 ## Plans
 

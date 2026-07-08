@@ -15,7 +15,7 @@ The platform exposes its capabilities through three application workloads: a JSO
 **Rationale:** Programmatic ingestion access is required for automation, CI/CD integration, and the web UI upload flow.
 
 **Phase:** 1
-**Status:** in-progress (FastAPI app replaces stdlib WSGI; multipart file upload and server-side path submission both work; config/admin routes now use typed request models in OpenAPI; duplicate ingests return `409`, validation failures return `400`, docs are available at `/docs`, built-in endpoints exist for configured CSV, subscription, contract-price, and persisted ingestion-definition execution, and configured CSV now also supports multipart browser upload bound by `source_asset_id`; failed browser uploads now return structured run and validation context that the web surface renders inline)
+**Status:** in-progress (FastAPI app replaces stdlib WSGI; multipart file upload and server-side path submission both work; config/admin routes now use typed request models in OpenAPI; duplicate ingests return `409`, validation failures return `400`, docs are available at `/docs`, configured CSV and persisted ingestion-definition execution are the active operator ingest paths, and configured CSV supports multipart browser upload bound by `source_asset_id`; failed browser uploads now return structured run and validation context that the web surface renders inline)
 
 **Acceptance criteria:**
 - `POST /ingest` accepts multipart file upload with source/dataset metadata, returns `{"run_id": "..."}`.

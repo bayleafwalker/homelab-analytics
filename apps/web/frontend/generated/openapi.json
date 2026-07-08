@@ -4983,6 +4983,132 @@
         "title": "OperatingBaselineResponse",
         "type": "object"
       },
+      "PolicyCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "creator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Creator"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "policy_kind": {
+            "title": "Policy Kind",
+            "type": "string"
+          },
+          "rule_document": {
+            "additionalProperties": true,
+            "title": "Rule Document",
+            "type": "object"
+          },
+          "rule_schema_version": {
+            "default": "1.0",
+            "title": "Rule Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name",
+          "policy_kind",
+          "rule_document"
+        ],
+        "title": "PolicyCreateRequest",
+        "type": "object"
+      },
+      "PolicyUpdateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "policy_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Kind"
+          },
+          "rule_document": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Document"
+          },
+          "rule_schema_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Schema Version"
+          }
+        },
+        "title": "PolicyUpdateRequest",
+        "type": "object"
+      },
       "PromotionResultModel": {
         "additionalProperties": false,
         "properties": {
@@ -7616,6 +7742,69 @@
         "summary": "List Renderer Manifests"
       }
     },
+    "/api/adapters/status": {
+      "get": {
+        "description": "List typed runtime status for every registered adapter instance.",
+        "operationId": "list_adapter_instance_statuses_api_adapters_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Adapter Instance Statuses Api Adapters Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Adapter Instance Statuses"
+      }
+    },
+    "/api/adapters/{adapter_key}/status": {
+      "get": {
+        "description": "Return the typed runtime status for a single adapter instance.\n\nRaises\n------\nHTTPException\n    404 if the adapter_key is not registered as a live instance.",
+        "operationId": "get_adapter_instance_status_api_adapters__adapter_key__status_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adapter_key",
+            "required": true,
+            "schema": {
+              "title": "Adapter Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Adapter Instance Status Api Adapters  Adapter Key  Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Adapter Instance Status"
+      }
+    },
     "/api/assistant/answer": {
       "get": {
         "operationId": "answer_assistant_api_assistant_answer_get",
@@ -8532,6 +8721,47 @@
           }
         },
         "summary": "Ingest Ha Bridge Statistics"
+      }
+    },
+    "/api/lineage/publication/{publication_key}": {
+      "get": {
+        "operationId": "get_publication_lineage_api_lineage_publication__publication_key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "publication_key",
+            "required": true,
+            "schema": {
+              "title": "Publication Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Publication Lineage Api Lineage Publication  Publication Key  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Publication Lineage"
       }
     },
     "/api/scenarios": {
@@ -12252,6 +12482,22 @@
               "title": "Stale Only",
               "type": "boolean"
             }
+          },
+          {
+            "in": "query",
+            "name": "verdict",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Verdict"
+            }
           }
         ],
         "responses": {
@@ -12422,6 +12668,222 @@
           }
         },
         "summary": "Get Operational Summary"
+      }
+    },
+    "/control/policies": {
+      "get": {
+        "operationId": "list_policies_control_policies_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "source_kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "enabled_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Enabled Only",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Policies Control Policies Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Policies"
+      },
+      "post": {
+        "operationId": "create_policy_control_policies_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Policy Control Policies Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Policy"
+      }
+    },
+    "/control/policies/{policy_id}": {
+      "delete": {
+        "operationId": "delete_policy_control_policies__policy_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "title": "Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Policy"
+      },
+      "get": {
+        "operationId": "get_policy_control_policies__policy_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "title": "Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Policy Control Policies  Policy Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Policy"
+      },
+      "patch": {
+        "operationId": "update_policy_control_policies__policy_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "title": "Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Policy Control Policies  Policy Id  Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Policy"
       }
     },
     "/control/publication-audit": {
@@ -12986,22 +13448,6 @@
         "summary": "Ingest Configured Csv"
       }
     },
-    "/ingest/contract-prices": {
-      "post": {
-        "operationId": "ingest_contract_prices_ingest_contract_prices_post",
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Ingest Contract Prices"
-      }
-    },
     "/ingest/detect-source": {
       "post": {
         "operationId": "detect_source_upload_target_ingest_detect_source_post",
@@ -13079,22 +13525,6 @@
           }
         },
         "summary": "Process Ingestion Definition"
-      }
-    },
-    "/ingest/subscriptions": {
-      "post": {
-        "operationId": "ingest_subscriptions_ingest_subscriptions_post",
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Ingest Subscriptions"
       }
     },
     "/landing/{extension_key}": {

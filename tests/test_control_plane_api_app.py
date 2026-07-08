@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
@@ -24,6 +25,7 @@ from packages.storage.ingestion_config import (
 )
 from packages.storage.run_metadata import RunMetadataRepository
 from tests.account_test_support import FIXTURES as ACCOUNT_FIXTURES
+from tests.api_route_test_support import call_route
 from tests.control_plane_test_support import (
     FIXED_CREATED_AT,
     FIXED_DUE_AT,
@@ -603,11 +605,6 @@ def test_control_plane_api_confidence_endpoint_lists_publications_with_filters()
             config_repository=repository,
             enable_unsafe_admin=True,
         )
-        confidence_endpoint = next(
-            route.endpoint
-            for route in app.routes
-            if getattr(route, "path", None) == "/control/confidence"
-        )
 
         now = datetime.now(UTC)
 
@@ -663,7 +660,7 @@ def test_control_plane_api_confidence_endpoint_lists_publications_with_filters()
         )
 
         # Test default (stale_only=false) - should return all snapshots
-        data = asyncio.run(confidence_endpoint())
+        data = call_route(app, "/control/confidence")
         publications_by_key = {pub["publication_key"]: pub for pub in data["publications"]}
         assert publications_by_key["mart_monthly_cashflow"]["freshness_state"] == FreshnessState.STALE
         assert publications_by_key["mart_monthly_cashflow"]["publication_name"]
@@ -682,7 +679,7 @@ def test_control_plane_api_confidence_endpoint_lists_publications_with_filters()
             assert "quality_flags" in pub
 
         # Test stale_only=true - should return only STALE and UNAVAILABLE snapshots
-        data_stale = asyncio.run(confidence_endpoint(stale_only=True))
+        data_stale = call_route(app, "/control/confidence", stale_only=True)
         stale_verdicts = {pub["freshness_state"] for pub in data_stale["publications"]}
         assert stale_verdicts == {FreshnessState.STALE, FreshnessState.UNAVAILABLE}
         stale_keys = {pub["publication_key"] for pub in data_stale["publications"]}
@@ -701,7 +698,7 @@ def test_control_plane_api_confidence_endpoint_lists_publications_with_filters()
         assert stale_domains["finance"]["stale_count"] >= 2
 
         # Test verdict filtering independently from staleness filtering
-        data_verdict = asyncio.run(confidence_endpoint(verdict="degraded"))
+        data_verdict = call_route(app, "/control/confidence", verdict="degraded")
         assert [pub["publication_key"] for pub in data_verdict["publications"]] == [
             "mart_monthly_cashflow"
         ]
@@ -732,12 +729,10 @@ def test_control_plane_api_confidence_source_freshness_and_quality_flags() -> No
             landing_root=Path(temp_dir) / "landing",
             metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
         )
-        client = TestClient(
-            create_app(
-                service,
-                config_repository=repository,
-                enable_unsafe_admin=True,
-            )
+        app = create_app(
+            service,
+            config_repository=repository,
+            enable_unsafe_admin=True,
         )
 
         now = datetime.now(UTC)
@@ -771,9 +766,7 @@ def test_control_plane_api_confidence_source_freshness_and_quality_flags() -> No
             )
         )
 
-        response = client.get("/control/confidence")
-        assert response.status_code == 200
-        data = response.json()
+        data = call_route(app, "/control/confidence")
         assert len(data["publications"]) == 1
 
         pub = data["publications"][0]
@@ -792,17 +785,16 @@ def test_get_confidence_detail_returns_404_when_publication_not_found() -> None:
             landing_root=Path(temp_dir) / "landing",
             metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
         )
-        client = TestClient(
-            create_app(
-                service,
-                config_repository=repository,
-                enable_unsafe_admin=True,
-            )
+        app = create_app(
+            service,
+            config_repository=repository,
+            enable_unsafe_admin=True,
         )
 
-        response = client.get("/control/confidence/nonexistent_publication")
-        assert response.status_code == 404
-        assert "No confidence snapshot found" in response.json()["detail"]
+        with pytest.raises(HTTPException) as exc_info:
+            call_route(app, "/control/confidence/nonexistent_publication")
+        assert exc_info.value.status_code == 404
+        assert "No confidence snapshot found" in exc_info.value.detail
 
 
 def test_get_confidence_detail_returns_snapshot_when_found() -> None:
@@ -840,17 +832,13 @@ def test_get_confidence_detail_returns_snapshot_when_found() -> None:
             landing_root=Path(temp_dir) / "landing",
             metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
         )
-        client = TestClient(
-            create_app(
-                service,
-                config_repository=repository,
-                enable_unsafe_admin=True,
-            )
+        app = create_app(
+            service,
+            config_repository=repository,
+            enable_unsafe_admin=True,
         )
 
-        response = client.get("/control/confidence/fact_account_transaction")
-        assert response.status_code == 200
-        data = response.json()
+        data = call_route(app, "/control/confidence/fact_account_transaction")
         assert data["publication_key"] == "fact_account_transaction"
         assert data["freshness_state"] == "CURRENT"
         assert data["confidence_verdict"] == "TRUSTWORTHY"
