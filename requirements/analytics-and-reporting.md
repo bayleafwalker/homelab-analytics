@@ -35,7 +35,7 @@ The platform derives household and homelab analytics from normalized canonical m
 **Rationale:** Loan tracking is a core household financial planning need. Projection vs. actual comparison reveals early/late repayment impact.
 
 **Phase:** 3
-**Status:** implemented (loan-repayment ingestion now populates `dim_loan` and `fact_loan_repayment`; `mart_loan_schedule_projected`, `mart_loan_repayment_variance`, and `mart_loan_overview` are materialised; API exposes `GET /reports/loan-overview`, `GET /reports/loan-schedule/{loan_id}`, and `GET /reports/loan-variance`, and scenario APIs reuse the same amortization foundation for loan what-if calculations)
+**Status:** implemented (loan-repayment ingestion now populates `dim_loan` and `fact_loan_repayment`; `mart_loan_schedule_projected`, `mart_loan_repayment_variance`, and `mart_loan_overview` are materialised; API exposes `GET /reports/loan-overview`, `GET /reports/loan-schedule/{loan_id}`, and `GET /reports/loan-variance`, and scenario APIs reuse the same amortization foundation for loan what-if calculations with persisted projection-to-assumption lineage)
 
 **Acceptance criteria:**
 - Amortization engine produces a schedule from loan parameters (principal, rate, term, frequency).

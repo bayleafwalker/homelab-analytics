@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import unittest
 from copy import deepcopy
 from datetime import datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
+from packages.domains.finance.pipelines.scenario_service import create_loan_what_if_scenario
 from packages.pipelines.reporting_service import HomelabCostBenefitBaseline
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
@@ -233,6 +236,27 @@ class ScenarioGetAPITests(unittest.TestCase):
             self.assertIn("scenario_rows", data)
             self.assertIn("variance_rows", data)
             self.assertGreater(len(data["scenario_rows"]), 0)
+
+    def test_get_comparison_exposes_projection_assumption_set(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, ts = _build_client(tmp)
+            result = create_loan_what_if_scenario(
+                ts.store,
+                loan_id="loan-001",
+                extra_repayment=Decimal("300.00"),
+            )
+            comparison_endpoint = next(
+                route.endpoint
+                for route in client.app.routes
+                if getattr(route, "path", None) == "/api/scenarios/{scenario_id}/comparison"
+            )
+            data = asyncio.run(comparison_endpoint(result.scenario_id))
+            first_projection = data["scenario_rows"][0]
+            self.assertIn("assumption_set", first_projection)
+            self.assertEqual(
+                ["extra_repayment"],
+                [row["assumption_key"] for row in first_projection["assumption_set"]],
+            )
 
     def test_get_comparison_includes_staleness_flag(self) -> None:
         with TemporaryDirectory() as tmp:

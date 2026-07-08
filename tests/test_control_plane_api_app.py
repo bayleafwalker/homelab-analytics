@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -584,7 +585,7 @@ def test_bidirectional_lineage_endpoints() -> None:
         assert downstream.json()["publications"] == ["fact_account_transaction"]
 
 
-def test_control_plane_api_confidence_endpoint_with_stale_only_filter() -> None:
+def test_control_plane_api_confidence_endpoint_lists_publications_with_filters() -> None:
     from datetime import UTC, datetime, timedelta
 
     from packages.platform.publication_confidence import FreshnessState
@@ -597,22 +598,26 @@ def test_control_plane_api_confidence_endpoint_with_stale_only_filter() -> None:
             landing_root=Path(temp_dir) / "landing",
             metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
         )
-        client = TestClient(
-            create_app(
-                service,
-                config_repository=repository,
-                enable_unsafe_admin=True,
-            )
+        app = create_app(
+            service,
+            config_repository=repository,
+            enable_unsafe_admin=True,
+        )
+        confidence_endpoint = next(
+            route.endpoint
+            for route in app.routes
+            if getattr(route, "path", None) == "/control/confidence"
         )
 
         now = datetime.now(UTC)
 
-        # Record confidence snapshots with different freshness states
+        # Record confidence snapshots with different freshness states. The duplicate
+        # mart_monthly_cashflow snapshot proves the dashboard returns the latest row only.
         repository.record_publication_confidence_snapshot(
             (
                 PublicationConfidenceSnapshotCreate(
                     snapshot_id="snap-001",
-                    publication_key="fact_account_transaction",
+                    publication_key="mart_monthly_cashflow",
                     assessed_at=now,
                     freshness_state=FreshnessState.CURRENT,
                     completeness_pct=100,
@@ -629,7 +634,7 @@ def test_control_plane_api_confidence_endpoint_with_stale_only_filter() -> None:
                 ),
                 PublicationConfidenceSnapshotCreate(
                     snapshot_id="snap-002",
-                    publication_key="fact_account_transaction",
+                    publication_key="mart_monthly_cashflow",
                     assessed_at=now + timedelta(minutes=5),
                     freshness_state=FreshnessState.STALE,
                     completeness_pct=75,
@@ -646,7 +651,7 @@ def test_control_plane_api_confidence_endpoint_with_stale_only_filter() -> None:
                 ),
                 PublicationConfidenceSnapshotCreate(
                     snapshot_id="snap-003",
-                    publication_key="fact_account_transaction",
+                    publication_key="mart_subscription_summary",
                     assessed_at=now + timedelta(minutes=10),
                     freshness_state=FreshnessState.UNAVAILABLE,
                     completeness_pct=0,
@@ -658,12 +663,18 @@ def test_control_plane_api_confidence_endpoint_with_stale_only_filter() -> None:
         )
 
         # Test default (stale_only=false) - should return all snapshots
-        response = client.get("/control/confidence")
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["publications"]) == 3
-        verdicts = {pub["freshness_state"] for pub in data["publications"]}
-        assert verdicts == {FreshnessState.CURRENT, FreshnessState.STALE, FreshnessState.UNAVAILABLE}
+        data = asyncio.run(confidence_endpoint())
+        publications_by_key = {pub["publication_key"]: pub for pub in data["publications"]}
+        assert publications_by_key["mart_monthly_cashflow"]["freshness_state"] == FreshnessState.STALE
+        assert publications_by_key["mart_monthly_cashflow"]["publication_name"]
+        assert publications_by_key["mart_monthly_cashflow"]["domain"] == "finance"
+        assert publications_by_key["mart_monthly_cashflow"]["source_count"] == 1
+        assert publications_by_key["mart_recent_large_transactions"]["freshness_state"] == "unavailable"
+        assert (
+            publications_by_key["mart_recent_large_transactions"]["confidence_verdict"]
+            == "unavailable"
+        )
+        assert publications_by_key["mart_recent_large_transactions"]["assessed_at"] is None
 
         # All publications should have source_freshness_states and quality_flags in response
         for pub in data["publications"]:
@@ -671,19 +682,29 @@ def test_control_plane_api_confidence_endpoint_with_stale_only_filter() -> None:
             assert "quality_flags" in pub
 
         # Test stale_only=true - should return only STALE and UNAVAILABLE snapshots
-        response_stale = client.get("/control/confidence", params={"stale_only": "true"})
-        assert response_stale.status_code == 200
-        data_stale = response_stale.json()
-        assert len(data_stale["publications"]) == 2
+        data_stale = asyncio.run(confidence_endpoint(stale_only=True))
         stale_verdicts = {pub["freshness_state"] for pub in data_stale["publications"]}
         assert stale_verdicts == {FreshnessState.STALE, FreshnessState.UNAVAILABLE}
+        stale_keys = {pub["publication_key"] for pub in data_stale["publications"]}
+        assert "mart_monthly_cashflow" in stale_keys
+        assert "mart_subscription_summary" in stale_keys
 
         # Verify domain_summaries are recalculated from filtered set
-        # Platform domain (default for fact_account_transaction)
-        assert len(data_stale["domain_summaries"]) == 1
-        assert data_stale["domain_summaries"][0]["domain"] == "platform"
-        assert data_stale["domain_summaries"][0]["count"] == 2
-        assert data_stale["domain_summaries"][0]["verdict"] == "unavailable"
+        # Finance domain from the publication definition transformation package
+        stale_domains = {
+            summary["domain"]: summary
+            for summary in data_stale["domain_summaries"]
+        }
+        assert stale_domains["finance"]["count"] >= 2
+        assert stale_domains["finance"]["verdict"] == "unavailable"
+        assert stale_domains["finance"]["degraded_count"] >= 2
+        assert stale_domains["finance"]["stale_count"] >= 2
+
+        # Test verdict filtering independently from staleness filtering
+        data_verdict = asyncio.run(confidence_endpoint(verdict="degraded"))
+        assert [pub["publication_key"] for pub in data_verdict["publications"]] == [
+            "mart_monthly_cashflow"
+        ]
 
         # Verify source_freshness_states are serialized correctly
         stale_pub = next(

@@ -33,6 +33,8 @@ from packages.domains.finance.pipelines.loan_models import (
     MART_LOAN_SCHEDULE_PROJECTED_TABLE,
 )
 from packages.domains.finance.pipelines.scenario_models import (
+    FACT_SCENARIO_PROJECTION_ASSUMPTION_EDGE_COLUMNS,
+    FACT_SCENARIO_PROJECTION_ASSUMPTION_EDGE_TABLE,
     PROJ_HOMELAB_COST_BENEFIT_SUMMARY_COLUMNS,
     PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE,
     PROJ_INCOME_CASHFLOW_COLUMNS,
@@ -414,6 +416,11 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         relation_name=PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE,
         columns=PROJ_HOMELAB_COST_BENEFIT_SUMMARY_COLUMNS,
         order_by="scenario_id, metric_key",
+    ),
+    FACT_SCENARIO_PROJECTION_ASSUMPTION_EDGE_TABLE: PublicationRelation(
+        relation_name=FACT_SCENARIO_PROJECTION_ASSUMPTION_EDGE_TABLE,
+        columns=FACT_SCENARIO_PROJECTION_ASSUMPTION_EDGE_COLUMNS,
+        order_by="scenario_id, projection_table, projection_row_key, assumption_key",
     ),
 }
 

@@ -181,6 +181,20 @@ class IncomeProjRowsTests(unittest.TestCase):
         # baseline_value must be "0", not the baseline income amount
         self.assertEqual(assumption["baseline_value"], "0")
 
+    def test_cashflow_rows_include_assumption_set(self) -> None:
+        result = create_income_change_scenario(
+            self.store,
+            monthly_income_delta=Decimal("500"),
+            currency="EUR",
+        )
+        comparison = get_income_scenario_comparison(self.store, result.scenario_id)
+        first_projection = comparison.cashflow_rows[0]
+        self.assertEqual(
+            ["monthly_income_delta"],
+            [row["assumption_key"] for row in first_projection["assumption_set"]],
+        )
+        self.assertEqual("EUR", first_projection["assumption_set"][0]["unit"])
+
 
 class IncomeScenarioArchiveTests(unittest.TestCase):
     def setUp(self) -> None:

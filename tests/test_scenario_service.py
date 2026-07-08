@@ -15,6 +15,9 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+from packages.domains.finance.pipelines.scenario_models import (
+    FACT_SCENARIO_PROJECTION_ASSUMPTION_EDGE_TABLE,
+)
 from packages.domains.finance.pipelines.scenario_service import (
     archive_scenario,
     archive_scenario_compare_set,
@@ -129,6 +132,38 @@ class ScenarioExtraRepaymentTests(unittest.TestCase):
         comparison = get_scenario_comparison(self.store, result.scenario_id)
         self.assertIsNotNone(comparison)
         self.assertGreater(len(comparison.scenario_rows), 0)
+
+    def test_projection_rows_include_persisted_assumption_set(self) -> None:
+        result = create_loan_what_if_scenario(
+            self.store,
+            loan_id="loan-001",
+            extra_repayment=Decimal("500"),
+            annual_rate=Decimal("0.030"),
+        )
+
+        edge_rows = self.store.fetchall_dicts(
+            f"SELECT * FROM {FACT_SCENARIO_PROJECTION_ASSUMPTION_EDGE_TABLE}"
+            " WHERE scenario_id = ? AND projection_table = 'proj_loan_schedule'"
+            " ORDER BY projection_row_key, assumption_key",
+            [result.scenario_id],
+        )
+        self.assertGreater(len(edge_rows), 0)
+        self.assertEqual(
+            {"annual_rate", "extra_repayment"},
+            {row["assumption_key"] for row in edge_rows if row["projection_row_key"] == "1"},
+        )
+
+        comparison = get_scenario_comparison(self.store, result.scenario_id)
+        assert comparison is not None
+        first_projection = comparison.scenario_rows[0]
+        self.assertEqual(
+            {"annual_rate", "extra_repayment"},
+            {row["assumption_key"] for row in first_projection["assumption_set"]},
+        )
+        self.assertEqual(
+            {"annual_rate", "extra_repayment"},
+            {row["assumption_key"] for row in comparison.variance_rows[0]["assumption_set"]},
+        )
 
 
 class ScenarioRateChangeTests(unittest.TestCase):
@@ -524,6 +559,29 @@ class HomelabCostBenefitScenarioTests(unittest.TestCase):
         )
         self.assertIsNotNone(comparison)
         self.assertTrue(comparison.is_stale)
+
+    def test_summary_rows_include_assumption_set(self) -> None:
+        result = create_homelab_cost_benefit_scenario(
+            self.store,
+            monthly_cost_delta=Decimal("2.00"),
+        )
+
+        edge_rows = self.store.fetchall_dicts(
+            f"SELECT * FROM {FACT_SCENARIO_PROJECTION_ASSUMPTION_EDGE_TABLE}"
+            " WHERE scenario_id = ? AND projection_table = 'proj_homelab_cost_benefit_summary'",
+            [result.scenario_id],
+        )
+        self.assertGreater(len(edge_rows), 0)
+
+        comparison = get_homelab_cost_benefit_comparison(self.store, result.scenario_id)
+        assert comparison is not None
+        monthly_cost = next(
+            row for row in comparison.summary_rows if row["metric_key"] == "monthly_workload_cost"
+        )
+        self.assertEqual(
+            ["monthly_cost_delta"],
+            [row["assumption_key"] for row in monthly_cost["assumption_set"]],
+        )
 
 
 if __name__ == "__main__":

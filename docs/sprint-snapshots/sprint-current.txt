@@ -1,14 +1,14 @@
-SPRINT: lineage-graph-lantern — End-to-End Lineage Graph Traversal and Viewer  [closed]
-Goal:   Stage 9 — build a lineage graph query API traversing SourceLineageRecord and PublicationAuditRecord from source run to publication, and add a minimal in-shell viewer reachable from a publication tile.
-ID:     394
-Items:  2 total — 2 done, 0 active, 0 pending, 0 blocked
+SPRINT: confidence-canvas-glow — Operator Confidence Dashboard and Scenario Decision Lineage  [active]
+Goal:   Stage 9 — surface PublicationConfidenceIndex as an operator-facing confidence dashboard and persist scenario assumption→projection edges so every projection can name the assumptions that produced it.
+ID:     395
+Items:  2 total — 0 done, 2 active, 0 pending, 0 blocked
 
---- Track: graph ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #1035  Implement /api/lineage/publication/{key} returning the transitive graph with typed edges across source→landing→transformation→publication  (assignee: -)
+--- Track: dashboard ---
+  health: 1 items — 0 done (0%), 1 active, 0 pending, 0 blocked (0%)
+  [active  ] #1037  Confidence dashboard listing every publication with freshness, completeness, verdict; filters cover verdict and staleness  (assignee: -)
 
---- Track: viewer ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #1036  Minimal lineage viewer in the web shell; from a publication tile an operator reaches the originating source run  (assignee: -)
+--- Track: decision-lineage ---
+  health: 1 items — 0 done (0%), 1 active, 0 pending, 0 blocked (0%)
+  [active  ] #1038  Persist scenario assumption→projection edges; scenario output surface exposes the assumption set that produced each projection  (assignee: -)
 
-Rendered: 2026-07-07T17:32:08Z
+Rendered: 2026-07-08T12:35:51Z

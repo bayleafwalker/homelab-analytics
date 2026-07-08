@@ -181,6 +181,16 @@ def test_scenario_projection_tables_in_publication_catalog() -> None:
     assert "baseline_value" in homelab_col_names
     assert "delta_value" in homelab_col_names
 
+    projection_edges = publication_contracts["fact_scenario_projection_assumption_edge"]
+    assert projection_edges.relation_name == "fact_scenario_projection_assumption_edge"
+    edge_col_names = [c.name for c in projection_edges.columns]
+    assert edge_col_names == [
+        "scenario_id",
+        "projection_table",
+        "projection_row_key",
+        "assumption_key",
+    ]
+
 
 def test_publication_contract_catalog_requires_reporting_relations() -> None:
     orphan_pack = CapabilityPack(

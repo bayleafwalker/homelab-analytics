@@ -25,6 +25,8 @@ from packages.domains.finance.pipelines.scenario_service import (
     _get_scenario_baseline_run_id,
     _insert_dim_scenario,
     _project_cashflow_rows,
+    _write_projection_assumption_edges,
+    attach_projection_assumption_sets,
     ensure_scenario_storage,
     get_baseline_cashflow,
     get_latest_transaction_run_id,
@@ -383,6 +385,12 @@ def create_homelab_cost_benefit_scenario(
         new_monthly_cost=new_monthly_cost,
     )
     store.insert_rows(PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE, summary_rows)
+    _write_projection_assumption_edges(
+        store,
+        scenario_id=scenario_id,
+        projection_table=PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE,
+        projection_row_keys=[str(row["metric_key"]) for row in summary_rows],
+    )
 
     return HomelabCostBenefitResult(
         scenario_id=scenario_id,
@@ -416,6 +424,13 @@ def get_homelab_cost_benefit_comparison(
         f"SELECT * FROM {PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE} WHERE scenario_id = ?"
         " ORDER BY metric_key",
         [scenario_id],
+    )
+    summary_rows = attach_projection_assumption_sets(
+        store,
+        scenario_id=scenario_id,
+        projection_table=PROJ_HOMELAB_COST_BENEFIT_SUMMARY_TABLE,
+        projection_rows=summary_rows,
+        row_key_column="metric_key",
     )
 
     assumptions_summary = _build_assumptions_summary(control_plane_store)
@@ -569,6 +584,12 @@ def create_tariff_shock_scenario(
         projection_months=projection_months,
     )
     store.insert_rows(PROJ_INCOME_CASHFLOW_TABLE, proj_rows)
+    _write_projection_assumption_edges(
+        store,
+        scenario_id=scenario_id,
+        projection_table=PROJ_INCOME_CASHFLOW_TABLE,
+        projection_row_keys=[str(row["period"]) for row in proj_rows],
+    )
 
     return TariffShockResult(
         scenario_id=scenario_id,

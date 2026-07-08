@@ -119,7 +119,7 @@ The compare page also lets operators save common pairs as shared compare sets so
 
 Every scenario comparison view must show:
 
-1. **Assumption summary** — what was changed and from what baseline value. No computed result without visible assumptions.
+1. **Assumption summary** — what was changed and from what baseline value. No computed result without visible assumptions; projection rows must expose the persisted assumption set that produced them.
 2. **Baseline column** — the current canonical value for each metric.
 3. **Projected column** — the scenario-computed value.
 4. **Delta column** — projected minus baseline, formatted as signed value.
@@ -147,4 +147,5 @@ If the baseline has been updated since the scenario was computed, the UI must sh
 - Comparison view is readable without the operator needing to understand the underlying amortization model.
 - Saved scenarios can be compared side by side without mutating canonical data.
 - Creating a scenario does not mutate any canonical mart data.
+- Projection output rows expose the persisted assumption set used to compute them.
 - Stale scenario banner appears when canonical data has been refreshed after scenario creation.

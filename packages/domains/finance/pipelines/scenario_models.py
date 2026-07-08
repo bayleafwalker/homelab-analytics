@@ -5,6 +5,7 @@ Covers:
   - income_change scenarios: proj_income_cashflow
   - expense_shock / tariff_shock scenarios: proj_income_cashflow
   - homelab_cost_benefit scenarios: proj_homelab_cost_benefit_summary
+  - projection lineage: fact_scenario_projection_assumption_edge
   - scenario compare sets: dim_scenario_compare_set
 """
 from __future__ import annotations
@@ -60,6 +61,19 @@ FACT_SCENARIO_ASSUMPTION_COLUMNS: list[tuple[str, str]] = [
 # Valid non-currency unit tokens.  Monetary fields must store an ISO 4217
 # currency code (e.g. "GBP", "USD") rather than the word "currency".
 ALLOWED_UNITS: tuple[str, ...] = ("%", "months")
+
+# ---------------------------------------------------------------------------
+# Fact: fact_scenario_projection_assumption_edge
+# ---------------------------------------------------------------------------
+
+FACT_SCENARIO_PROJECTION_ASSUMPTION_EDGE_TABLE = "fact_scenario_projection_assumption_edge"
+
+FACT_SCENARIO_PROJECTION_ASSUMPTION_EDGE_COLUMNS: list[tuple[str, str]] = [
+    ("scenario_id", "VARCHAR NOT NULL"),
+    ("projection_table", "VARCHAR NOT NULL"),
+    ("projection_row_key", "VARCHAR NOT NULL"),
+    ("assumption_key", "VARCHAR NOT NULL"),
+]
 
 # Schema version for all scenario projection tables (proj_loan_schedule,
 # proj_income_cashflow, proj_homelab_cost_benefit_summary).  Increment when

@@ -35,6 +35,7 @@ _EXPECTED_TABLES = {
     "fact_ha_state_change",
     # Scenario
     "dim_scenario",
+    "fact_scenario_projection_assumption_edge",
     # Overview
     "mart_household_overview",
     # Category governance

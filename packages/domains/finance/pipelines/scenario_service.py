@@ -28,6 +28,8 @@ from packages.domains.finance.pipelines.scenario_models import (
     DIM_SCENARIO_TABLE,
     FACT_SCENARIO_ASSUMPTION_COLUMNS,
     FACT_SCENARIO_ASSUMPTION_TABLE,
+    FACT_SCENARIO_PROJECTION_ASSUMPTION_EDGE_COLUMNS,
+    FACT_SCENARIO_PROJECTION_ASSUMPTION_EDGE_TABLE,
     PROJ_INCOME_CASHFLOW_COLUMNS,
     PROJ_INCOME_CASHFLOW_TABLE,
     PROJ_LOAN_REPAYMENT_VARIANCE_COLUMNS,
@@ -121,6 +123,10 @@ def ensure_scenario_storage(store: DuckDBStore) -> None:
     store.ensure_table(DIM_SCENARIO_TABLE, DIM_SCENARIO_COLUMNS)
     store.ensure_table(DIM_SCENARIO_COMPARE_SET_TABLE, DIM_SCENARIO_COMPARE_SET_COLUMNS)
     store.ensure_table(FACT_SCENARIO_ASSUMPTION_TABLE, FACT_SCENARIO_ASSUMPTION_COLUMNS)
+    store.ensure_table(
+        FACT_SCENARIO_PROJECTION_ASSUMPTION_EDGE_TABLE,
+        FACT_SCENARIO_PROJECTION_ASSUMPTION_EDGE_COLUMNS,
+    )
     store.ensure_table(PROJ_LOAN_SCHEDULE_TABLE, PROJ_LOAN_SCHEDULE_COLUMNS)
     store.ensure_table(PROJ_LOAN_REPAYMENT_VARIANCE_TABLE, PROJ_LOAN_REPAYMENT_VARIANCE_COLUMNS)
     store.ensure_table(PROJ_INCOME_CASHFLOW_TABLE, PROJ_INCOME_CASHFLOW_COLUMNS)
@@ -178,6 +184,81 @@ def _insert_dim_scenario(
         "baseline_run_id": baseline_run_id,
         "created_at": datetime.now(UTC).isoformat(),
     }])
+
+
+def _write_projection_assumption_edges(
+    store: DuckDBStore,
+    *,
+    scenario_id: str,
+    projection_table: str,
+    projection_row_keys: list[str],
+) -> None:
+    if not projection_row_keys:
+        return
+    assumption_rows = store.fetchall_dicts(
+        f"SELECT assumption_key FROM {FACT_SCENARIO_ASSUMPTION_TABLE}"
+        " WHERE scenario_id = ? ORDER BY assumption_key",
+        [scenario_id],
+    )
+    assumption_keys = [str(row["assumption_key"]) for row in assumption_rows]
+    if not assumption_keys:
+        return
+    edge_rows = [
+        {
+            "scenario_id": scenario_id,
+            "projection_table": projection_table,
+            "projection_row_key": projection_row_key,
+            "assumption_key": assumption_key,
+        }
+        for projection_row_key in projection_row_keys
+        for assumption_key in assumption_keys
+    ]
+    store.insert_rows(FACT_SCENARIO_PROJECTION_ASSUMPTION_EDGE_TABLE, edge_rows)
+
+
+def _load_assumption_sets_by_projection_key(
+    store: DuckDBStore,
+    *,
+    scenario_id: str,
+    projection_table: str,
+) -> dict[str, list[dict[str, Any]]]:
+    rows = store.fetchall_dicts(
+        f"SELECT e.projection_row_key, a.scenario_id, a.assumption_key,"
+        " a.baseline_value, a.override_value, a.unit"
+        f" FROM {FACT_SCENARIO_PROJECTION_ASSUMPTION_EDGE_TABLE} e"
+        f" JOIN {FACT_SCENARIO_ASSUMPTION_TABLE} a"
+        " ON a.scenario_id = e.scenario_id AND a.assumption_key = e.assumption_key"
+        " WHERE e.scenario_id = ? AND e.projection_table = ?"
+        " ORDER BY e.projection_row_key, a.assumption_key",
+        [scenario_id, projection_table],
+    )
+    assumption_sets: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        projection_row_key = str(row.pop("projection_row_key"))
+        assumption_sets.setdefault(projection_row_key, []).append(row)
+    return assumption_sets
+
+
+def attach_projection_assumption_sets(
+    store: DuckDBStore,
+    *,
+    scenario_id: str,
+    projection_table: str,
+    projection_rows: list[dict[str, Any]],
+    row_key_column: str,
+) -> list[dict[str, Any]]:
+    assumption_sets = _load_assumption_sets_by_projection_key(
+        store,
+        scenario_id=scenario_id,
+        projection_table=projection_table,
+    )
+    return [
+        {
+            **row,
+            "assumption_set": assumption_sets.get(str(row[row_key_column]), []),
+        }
+        for row in projection_rows
+    ]
 
 
 def _get_loan(store: DuckDBStore, loan_id: str) -> dict[str, Any] | None:
@@ -321,6 +402,12 @@ def create_loan_what_if_scenario(
     ]
     if proj_rows:
         store.insert_rows(PROJ_LOAN_SCHEDULE_TABLE, proj_rows)
+        _write_projection_assumption_edges(
+            store,
+            scenario_id=scenario_id,
+            projection_table=PROJ_LOAN_SCHEDULE_TABLE,
+            projection_row_keys=[str(row["period"]) for row in proj_rows],
+        )
 
     # Compute headline deltas
     baseline_total_interest = sum(
@@ -387,6 +474,12 @@ def _write_variance_rows(
         })
     if variance_rows:
         store.insert_rows(PROJ_LOAN_REPAYMENT_VARIANCE_TABLE, variance_rows)
+        _write_projection_assumption_edges(
+            store,
+            scenario_id=scenario_id,
+            projection_table=PROJ_LOAN_REPAYMENT_VARIANCE_TABLE,
+            projection_row_keys=[str(row["period"]) for row in variance_rows],
+        )
 
 
 def list_scenarios(
@@ -437,6 +530,13 @@ def get_scenario_comparison(
         " ORDER BY period",
         [scenario_id],
     )
+    scenario_rows = attach_projection_assumption_sets(
+        store,
+        scenario_id=scenario_id,
+        projection_table=PROJ_LOAN_SCHEDULE_TABLE,
+        projection_rows=scenario_rows,
+        row_key_column="period",
+    )
 
     baseline_rows = store.fetchall_dicts(
         f"SELECT * FROM {MART_LOAN_SCHEDULE_PROJECTED_TABLE} WHERE loan_id = ?"
@@ -448,6 +548,13 @@ def get_scenario_comparison(
         f"SELECT * FROM {PROJ_LOAN_REPAYMENT_VARIANCE_TABLE} WHERE scenario_id = ?"
         " ORDER BY period",
         [scenario_id],
+    )
+    variance_rows = attach_projection_assumption_sets(
+        store,
+        scenario_id=scenario_id,
+        projection_table=PROJ_LOAN_REPAYMENT_VARIANCE_TABLE,
+        projection_rows=variance_rows,
+        row_key_column="period",
     )
 
     stale = _is_stale(store, scenario_id, loan_id)
@@ -838,6 +945,12 @@ def create_income_change_scenario(
         projection_months=projection_months,
     )
     store.insert_rows(PROJ_INCOME_CASHFLOW_TABLE, proj_rows)
+    _write_projection_assumption_edges(
+        store,
+        scenario_id=scenario_id,
+        projection_table=PROJ_INCOME_CASHFLOW_TABLE,
+        projection_row_keys=[str(row["period"]) for row in proj_rows],
+    )
 
     return IncomeScenarioResult(
         scenario_id=scenario_id,
@@ -904,6 +1017,12 @@ def create_expense_shock_scenario(
         projection_months=projection_months,
     )
     store.insert_rows(PROJ_INCOME_CASHFLOW_TABLE, proj_rows)
+    _write_projection_assumption_edges(
+        store,
+        scenario_id=scenario_id,
+        projection_table=PROJ_INCOME_CASHFLOW_TABLE,
+        projection_row_keys=[str(row["period"]) for row in proj_rows],
+    )
 
     return ExpenseShockResult(
         scenario_id=scenario_id,
@@ -961,6 +1080,13 @@ def _get_income_cashflow_comparison_impl(
         f"SELECT * FROM {PROJ_INCOME_CASHFLOW_TABLE} WHERE scenario_id = ?"
         " ORDER BY period",
         [scenario_id],
+    )
+    cashflow_rows = attach_projection_assumption_sets(
+        store,
+        scenario_id=scenario_id,
+        projection_table=PROJ_INCOME_CASHFLOW_TABLE,
+        projection_rows=cashflow_rows,
+        row_key_column="period",
     )
 
     return IncomeCashflowComparison(
