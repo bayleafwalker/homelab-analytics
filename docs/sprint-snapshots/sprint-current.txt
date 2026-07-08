@@ -1,14 +1,14 @@
 SPRINT: confidence-canvas-glow — Operator Confidence Dashboard and Scenario Decision Lineage  [active]
 Goal:   Stage 9 — surface PublicationConfidenceIndex as an operator-facing confidence dashboard and persist scenario assumption→projection edges so every projection can name the assumptions that produced it.
 ID:     395
-Items:  2 total — 0 done, 2 active, 0 pending, 0 blocked
+Items:  2 total — 2 done, 0 active, 0 pending, 0 blocked
 
 --- Track: dashboard ---
-  health: 1 items — 0 done (0%), 1 active, 0 pending, 0 blocked (0%)
-  [active  ] #1037  Confidence dashboard listing every publication with freshness, completeness, verdict; filters cover verdict and staleness  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #1037  Confidence dashboard listing every publication with freshness, completeness, verdict; filters cover verdict and staleness  (assignee: -)
 
 --- Track: decision-lineage ---
-  health: 1 items — 0 done (0%), 1 active, 0 pending, 0 blocked (0%)
-  [active  ] #1038  Persist scenario assumption→projection edges; scenario output surface exposes the assumption set that produced each projection  (assignee: -)
+  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #1038  Persist scenario assumption→projection edges; scenario output surface exposes the assumption set that produced each projection  (assignee: -)
 
-Rendered: 2026-07-08T12:35:51Z
+Rendered: 2026-07-08T14:10:58Z
