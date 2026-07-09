@@ -767,10 +767,15 @@ def test_control_plane_api_confidence_source_freshness_and_quality_flags() -> No
         )
 
         data = call_route(app, "/control/confidence")
-        assert len(data["publications"]) == 1
+        # The confidence surface lists every publication; find the seeded one.
+        matching = [
+            publication
+            for publication in data["publications"]
+            if publication["publication_key"] == "fact_account_transaction"
+        ]
+        assert len(matching) == 1
 
-        pub = data["publications"][0]
-        assert pub["publication_key"] == "fact_account_transaction"
+        pub = matching[0]
         assert pub["quality_flags"] == {"validation_errors": 1, "parse_failures": 0}
         assert pub["source_freshness_states"] is not None
         assert len(pub["source_freshness_states"]) == 2

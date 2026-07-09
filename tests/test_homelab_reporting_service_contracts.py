@@ -64,7 +64,8 @@ def _seed_homelab(rs: ReportingService) -> None:
     )
     ts.refresh_storage_risk()
 
-    base = datetime(2026, 5, 7, 10, 0, 0)
+    # workload_cost_7d windows on CURRENT_TIMESTAMP - 7 days; keep samples inside it
+    base = datetime.now() - timedelta(hours=2)
     ts.load_workload_sensors(
         [
             {
