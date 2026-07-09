@@ -6,7 +6,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from packages.storage.ingestion_config import IngestionConfigRepository
-from tests.control_plane_test_support import FIXED_DUE_AT, seed_source_asset_graph
+from tests.control_plane_test_support import (
+    FIXED_DUE_AT,
+    assert_policy_registry_behaviour,
+    seed_source_asset_graph,
+)
 
 
 def test_sqlite_control_plane_bootstrap_supports_catalog_and_dispatch_smoke() -> None:
@@ -42,3 +46,9 @@ def test_sqlite_control_plane_snapshot_portability_smoke() -> None:
         assert [record.lineage_id for record in target_repository.list_source_lineage()] == [
             "lineage-001"
         ]
+
+
+def test_sqlite_control_plane_policy_registry_smoke() -> None:
+    with TemporaryDirectory() as temp_dir:
+        repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+        assert_policy_registry_behaviour(repository)

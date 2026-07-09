@@ -84,13 +84,13 @@ Sprint workflow:
 
 ## Database & Migrations
 
-### Current migration state (2026-04-23)
+### Current migration state (2026-07-09)
 
 | Store | Latest migration | Count |
 |---|---|---|
-| `migrations/postgres/` | `0008_publication_confidence_snapshot` | 8 |
-| `migrations/duckdb/` | `0009_publication_confidence_snapshot` | 4 (gaps: DuckDB-only subset) |
-| `migrations/sqlite/` | `0006_publication_confidence_snapshot` | 6 |
+| `migrations/postgres/` | `0009_policy_registry` | 9 |
+| `migrations/duckdb/` | `0010_scenario_projection_assumption_edges` | 5 (gaps: DuckDB-only subset) |
+| `migrations/sqlite/` | `0007_policy_registry` | 7 |
 | `migrations/postgres_run_metadata/` | `0001_run_metadata_initial_schema` | 1 |
 
 ### Schema versions

@@ -13,6 +13,7 @@ from tests.control_plane_test_support import (
     assert_control_plane_protocol_conformance,
     assert_control_plane_store_round_trip,
     assert_control_plane_store_update_behaviour,
+    assert_policy_registry_behaviour,
     assert_schedule_dispatch_behaviour,
     assert_schedule_dispatch_claim_is_exclusive,
     assert_schedule_dispatch_resilience_behaviour,
@@ -76,3 +77,9 @@ def test_control_plane_store_manages_service_tokens(
     control_plane_store: ControlPlaneStore,
 ) -> None:
     assert_service_token_behaviour(control_plane_store)
+
+
+def test_control_plane_store_manages_policy_definitions(
+    control_plane_store: ControlPlaneStore,
+) -> None:
+    assert_policy_registry_behaviour(control_plane_store)

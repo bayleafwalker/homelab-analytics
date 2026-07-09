@@ -25,6 +25,8 @@ from packages.storage.control_plane import (
     ExecutionStore,
     ExternalRegistryStore,
     IngestionCatalogStore,
+    PolicyDefinitionCreate,
+    PolicyDefinitionUpdate,
     PublicationAuditCreate,
     PublicationAuditStore,
     SnapshotStore,
@@ -1258,3 +1260,68 @@ def assert_schedule_dispatch_claim_is_exclusive(store: ControlPlaneStore) -> Non
     stored_dispatch = store.get_schedule_dispatch(dispatch.dispatch_id)
     assert stored_dispatch.status == "running"
     assert stored_dispatch.claimed_by_worker_id == claimed_results[0][0]
+
+
+def assert_policy_registry_behaviour(store: ControlPlaneStore) -> None:
+    """Full CRUD round-trip for the policy definition registry."""
+    created = store.create_policy_definition(
+        PolicyDefinitionCreate(
+            policy_id="policy-contract-1",
+            display_name="Net cashflow below zero",
+            policy_kind="threshold",
+            rule_schema_version="1.0",
+            rule_document='{"rule_kind": "publication_value_comparison"}',
+            description="Contract-test policy",
+            creator="contract-suite",
+            source_kind="operator",
+            created_at=FIXED_CREATED_AT,
+            updated_at=FIXED_CREATED_AT,
+        )
+    )
+    assert created.policy_id == "policy-contract-1"
+    assert created.enabled is True
+    assert created.created_at == FIXED_CREATED_AT
+
+    fetched = store.get_policy_definition("policy-contract-1")
+    assert fetched == created
+
+    listed = store.list_policy_definitions(source_kind="operator")
+    assert "policy-contract-1" in [record.policy_id for record in listed]
+
+    updated = store.update_policy_definition(
+        "policy-contract-1",
+        PolicyDefinitionUpdate(
+            display_name="Net cashflow below zero (renamed)",
+            enabled=False,
+            updated_at=FIXED_AUDIT_AT,
+        ),
+    )
+    assert updated.display_name == "Net cashflow below zero (renamed)"
+    assert updated.enabled is False
+    assert updated.updated_at == FIXED_AUDIT_AT
+    assert store.list_policy_definitions(enabled_only=True) == [
+        record
+        for record in store.list_policy_definitions(enabled_only=True)
+        if record.policy_id != "policy-contract-1"
+    ]
+
+    store.delete_policy_definition("policy-contract-1")
+    try:
+        store.get_policy_definition("policy-contract-1")
+    except KeyError:
+        pass
+    else:  # pragma: no cover - defends the contract
+        raise AssertionError("expected KeyError after delete")
+
+    for operation in (
+        lambda: store.get_policy_definition("missing-policy"),
+        lambda: store.update_policy_definition(
+            "missing-policy", PolicyDefinitionUpdate(display_name="x")
+        ),
+        lambda: store.delete_policy_definition("missing-policy"),
+    ):
+        try:
+            operation()
+        except KeyError:
+            continue
+        raise AssertionError("expected KeyError for unknown policy id")

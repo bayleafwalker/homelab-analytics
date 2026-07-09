@@ -29,6 +29,9 @@ from packages.storage.postgres_execution_control_plane import (
 from packages.storage.postgres_external_registry_catalog import (
     PostgresExternalRegistryCatalogMixin,
 )
+from packages.storage.postgres_policy_registry import (
+    PostgresPolicyRegistryMixin,
+)
 from packages.storage.postgres_provenance_control_plane import (
     PostgresProvenanceControlPlaneMixin,
 )
@@ -54,6 +57,7 @@ class PostgresIngestionConfigRepository(
     PostgresReferenceFactCatalogMixin,
     PostgresSourceFreshnessCatalogMixin,
     PostgresExternalRegistryCatalogMixin,
+    PostgresPolicyRegistryMixin,
     PostgresExecutionControlPlaneMixin,
     PostgresProvenanceControlPlaneMixin,
     PostgresAuthControlPlaneMixin,

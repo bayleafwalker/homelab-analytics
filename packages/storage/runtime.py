@@ -106,15 +106,9 @@ def build_config_store(
     if backend == "sqlite":
         return IngestionConfigRepository(settings.resolved_config_database_path)
     if backend == "postgres":
-        # KNOWN GAP: the Postgres control plane has no policy registry yet
-        # (policy_definitions is a SQLite-only migration, 0007). /control/policies
-        # fails on this backend until a Postgres policy registry lands.
-        return cast(
-            ControlPlaneStore,
-            PostgresIngestionConfigRepository(
-                _resolve_control_plane_postgres_dsn(settings),
-                schema=settings.control_schema,
-            ),
+        return PostgresIngestionConfigRepository(
+            _resolve_control_plane_postgres_dsn(settings),
+            schema=settings.control_schema,
         )
     raise AssertionError(f"Unhandled control-plane backend: {backend!r}")
 
