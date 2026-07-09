@@ -5,6 +5,10 @@ from dataclasses import dataclass
 from packages.domains.finance.pipelines.asset_models import (
     CURRENT_DIM_ASSET_VIEW,
     DIM_ASSET,
+    MART_ASSET_VALUE_COLUMNS,
+    MART_ASSET_VALUE_TABLE,
+    MART_DEPRECIATION_SCHEDULE_COLUMNS,
+    MART_DEPRECIATION_SCHEDULE_TABLE,
 )
 from packages.domains.finance.pipelines.budget_models import (
     CURRENT_DIM_BUDGET_VIEW,
@@ -297,6 +301,16 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         relation_name=CURRENT_DIM_ASSET_VIEW,
         columns=_current_dimension_columns(DIM_ASSET),
         order_by="asset_id",
+    ),
+    MART_ASSET_VALUE_TABLE: PublicationRelation(
+        relation_name=MART_ASSET_VALUE_TABLE,
+        columns=MART_ASSET_VALUE_COLUMNS,
+        order_by="asset_id",
+    ),
+    MART_DEPRECIATION_SCHEDULE_TABLE: PublicationRelation(
+        relation_name=MART_DEPRECIATION_SCHEDULE_TABLE,
+        columns=MART_DEPRECIATION_SCHEDULE_COLUMNS,
+        order_by="depreciation_year, asset_type",
     ),
     CURRENT_DIM_ENTITY_VIEW: PublicationRelation(
         relation_name=CURRENT_DIM_ENTITY_VIEW,

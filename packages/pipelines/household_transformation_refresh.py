@@ -93,6 +93,10 @@ BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
         lambda service: service.refresh_automation_reliability()
     ),
     "mart_device_battery": (lambda service: service.refresh_device_battery()),
+    "mart_asset_value": (lambda service: service.refresh_asset_value()),
+    "mart_depreciation_schedule": (
+        lambda service: service.refresh_depreciation_schedule()
+    ),
 }
 
 

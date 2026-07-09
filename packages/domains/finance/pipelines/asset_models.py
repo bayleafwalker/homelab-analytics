@@ -38,6 +38,34 @@ FACT_ASSET_EVENT_COLUMNS: list[tuple[str, str]] = [
 ]
 
 
+MART_ASSET_VALUE_TABLE = "mart_asset_value"
+
+MART_ASSET_VALUE_COLUMNS: list[tuple[str, str]] = [
+    ("asset_id", "VARCHAR NOT NULL"),
+    ("asset_name", "VARCHAR NOT NULL"),
+    ("asset_type", "VARCHAR"),
+    ("location", "VARCHAR"),
+    ("purchase_date", "DATE"),
+    ("purchase_price", "DECIMAL(18,4)"),
+    ("currency", "VARCHAR"),
+    ("months_in_service", "INTEGER"),
+    ("accumulated_depreciation", "DECIMAL(18,4) NOT NULL"),
+    ("estimated_value", "DECIMAL(18,4) NOT NULL"),
+    ("valuation_basis", "VARCHAR NOT NULL"),  # straight_line_60m | recorded_events | disposed
+    ("is_disposed", "BOOLEAN NOT NULL"),
+]
+
+MART_DEPRECIATION_SCHEDULE_TABLE = "mart_depreciation_schedule"
+
+MART_DEPRECIATION_SCHEDULE_COLUMNS: list[tuple[str, str]] = [
+    ("depreciation_year", "INTEGER NOT NULL"),
+    ("asset_type", "VARCHAR NOT NULL"),
+    ("currency", "VARCHAR"),
+    ("annual_depreciation", "DECIMAL(18,4) NOT NULL"),
+    ("asset_count", "INTEGER NOT NULL"),
+]
+
+
 def asset_event_id(
     asset_id: str,
     event_date: object,

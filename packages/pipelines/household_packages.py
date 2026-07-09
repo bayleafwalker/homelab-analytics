@@ -382,6 +382,20 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 publication_key="rpt_current_dim_asset",
                 name="Current asset view",
             ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_asset_register_asset_value",
+                publication_key="mart_asset_value",
+                name="Asset value mart",
+            ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_asset_register_depreciation_schedule",
+                publication_key="mart_depreciation_schedule",
+                name="Depreciation schedule mart",
+            ),
+        ),
+        refresh_publication_keys=(
+            "mart_asset_value",
+            "mart_depreciation_schedule",
         ),
     ),
     BuiltinTransformationPackageSpec(
