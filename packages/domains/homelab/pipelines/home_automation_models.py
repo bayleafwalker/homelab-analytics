@@ -53,6 +53,47 @@ FACT_AUTOMATION_EVENT_COLUMNS: list[tuple[str, str]] = [
     ("source_system", "VARCHAR"),
 ]
 
+MART_CLIMATE_SUMMARY_TABLE = "mart_climate_summary"
+
+MART_CLIMATE_SUMMARY_COLUMNS: list[tuple[str, str]] = [
+    ("period_day", "DATE NOT NULL"),
+    ("area", "VARCHAR NOT NULL"),
+    ("measure", "VARCHAR NOT NULL"),        # temperature | humidity
+    ("avg_value", "DECIMAL(18,4) NOT NULL"),
+    ("min_value", "DECIMAL(18,4) NOT NULL"),
+    ("max_value", "DECIMAL(18,4) NOT NULL"),
+    ("unit", "VARCHAR"),
+    ("reading_count", "INTEGER NOT NULL"),
+]
+
+MART_AUTOMATION_RELIABILITY_TABLE = "mart_automation_reliability"
+
+MART_AUTOMATION_RELIABILITY_COLUMNS: list[tuple[str, str]] = [
+    ("period_month", "VARCHAR NOT NULL"),
+    ("entity_id", "VARCHAR NOT NULL"),
+    ("entity_name", "VARCHAR"),
+    ("run_count", "INTEGER NOT NULL"),
+    ("success_count", "INTEGER NOT NULL"),
+    ("failure_count", "INTEGER NOT NULL"),
+    ("success_rate_pct", "DECIMAL(6,3) NOT NULL"),
+    ("last_run_at", "TIMESTAMP"),
+    ("last_result", "VARCHAR"),
+]
+
+MART_DEVICE_BATTERY_TABLE = "mart_device_battery"
+
+MART_DEVICE_BATTERY_COLUMNS: list[tuple[str, str]] = [
+    ("entity_id", "VARCHAR NOT NULL"),
+    ("entity_name", "VARCHAR"),
+    ("device_name", "VARCHAR"),
+    ("area", "VARCHAR"),
+    ("battery_pct", "DECIMAL(6,2) NOT NULL"),
+    ("recorded_at", "TIMESTAMP NOT NULL"),
+    ("avg_daily_drain_pct", "DECIMAL(10,4)"),
+    ("est_days_to_empty", "INTEGER"),
+    ("battery_status", "VARCHAR NOT NULL"),  # ok | low | critical
+]
+
 _KNOWN_CLASSES = frozenset(
     {
         "sensor",

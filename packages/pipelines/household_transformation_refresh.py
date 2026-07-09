@@ -88,6 +88,11 @@ BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
     "mart_cluster_utilization": (lambda service: service.refresh_cluster_utilization()),
     "mart_uptime_summary": (lambda service: service.refresh_uptime_summary()),
     "mart_infra_cost": (lambda service: service.refresh_infra_cost()),
+    "mart_climate_summary": (lambda service: service.refresh_climate_summary()),
+    "mart_automation_reliability": (
+        lambda service: service.refresh_automation_reliability()
+    ),
+    "mart_device_battery": (lambda service: service.refresh_device_battery()),
 }
 
 

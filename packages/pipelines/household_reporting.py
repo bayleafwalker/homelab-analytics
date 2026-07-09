@@ -75,6 +75,12 @@ from packages.domains.finance.pipelines.transaction_models import (
 from packages.domains.homelab.pipelines.home_automation_models import (
     CURRENT_DIM_ENTITY_VIEW,
     DIM_ENTITY,
+    MART_AUTOMATION_RELIABILITY_COLUMNS,
+    MART_AUTOMATION_RELIABILITY_TABLE,
+    MART_CLIMATE_SUMMARY_COLUMNS,
+    MART_CLIMATE_SUMMARY_TABLE,
+    MART_DEVICE_BATTERY_COLUMNS,
+    MART_DEVICE_BATTERY_TABLE,
 )
 from packages.domains.homelab.pipelines.homelab_models import (
     CURRENT_DIM_SERVICE_VIEW,
@@ -426,6 +432,21 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         relation_name=MART_INFRA_COST_TABLE,
         columns=MART_INFRA_COST_COLUMNS,
         order_by="billing_month, cost_type, subject_id",
+    ),
+    MART_CLIMATE_SUMMARY_TABLE: PublicationRelation(
+        relation_name=MART_CLIMATE_SUMMARY_TABLE,
+        columns=MART_CLIMATE_SUMMARY_COLUMNS,
+        order_by="period_day, area, measure",
+    ),
+    MART_AUTOMATION_RELIABILITY_TABLE: PublicationRelation(
+        relation_name=MART_AUTOMATION_RELIABILITY_TABLE,
+        columns=MART_AUTOMATION_RELIABILITY_COLUMNS,
+        order_by="period_month, entity_id",
+    ),
+    MART_DEVICE_BATTERY_TABLE: PublicationRelation(
+        relation_name=MART_DEVICE_BATTERY_TABLE,
+        columns=MART_DEVICE_BATTERY_COLUMNS,
+        order_by="battery_pct, entity_id",
     ),
     # Scenario projection tables — ephemeral per-scenario rows written by the
     # scenario service and read back via scenario comparison endpoints.

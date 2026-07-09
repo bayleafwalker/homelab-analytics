@@ -426,6 +426,21 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 publication_key="mart_infra_cost",
                 name="Infrastructure cost mart",
             ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_homelab_climate_summary",
+                publication_key="mart_climate_summary",
+                name="Climate summary mart",
+            ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_homelab_automation_reliability",
+                publication_key="mart_automation_reliability",
+                name="Automation reliability mart",
+            ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_homelab_device_battery",
+                publication_key="mart_device_battery",
+                name="Device battery mart",
+            ),
         ),
         refresh_publication_keys=(
             "mart_service_health_current",
@@ -435,6 +450,9 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
             "mart_cluster_utilization",
             "mart_uptime_summary",
             "mart_infra_cost",
+            "mart_climate_summary",
+            "mart_automation_reliability",
+            "mart_device_battery",
         ),
     ),
 )

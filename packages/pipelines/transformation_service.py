@@ -160,10 +160,16 @@ from packages.domains.homelab.pipelines.transformation_home_automation import (
     count_home_automation_state_rows,
     count_sensor_reading_rows,
     ensure_home_automation_storage,
+    get_automation_reliability,
+    get_climate_summary,
     get_current_entities,
+    get_device_battery,
     load_automation_events,
     load_home_automation_state_rows,
     load_sensor_readings,
+    refresh_automation_reliability,
+    refresh_climate_summary,
+    refresh_device_battery,
 )
 from packages.domains.homelab.pipelines.transformation_homelab import (
     count_backup_run_rows,
@@ -1323,6 +1329,37 @@ class TransformationService:
 
     def get_current_entities(self) -> list[dict[str, Any]]:
         return get_current_entities(self._store)
+
+    def refresh_climate_summary(self) -> int:
+        return refresh_climate_summary(self._store)
+
+    def refresh_automation_reliability(self) -> int:
+        return refresh_automation_reliability(self._store)
+
+    def refresh_device_battery(self) -> int:
+        return refresh_device_battery(self._store)
+
+    def get_climate_summary(
+        self,
+        *,
+        area: str | None = None,
+        measure: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_climate_summary(self._store, area=area, measure=measure)
+
+    def get_automation_reliability(
+        self,
+        *,
+        entity_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_automation_reliability(self._store, entity_id=entity_id)
+
+    def get_device_battery(
+        self,
+        *,
+        battery_status: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_device_battery(self._store, battery_status=battery_status)
 
     def count_sensor_reading_rows(self, run_id: str | None = None) -> int:
         return count_sensor_reading_rows(self._store, run_id=run_id)
