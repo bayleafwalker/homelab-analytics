@@ -6,6 +6,7 @@ only synchronous logic — no DB or network required.
 """
 from __future__ import annotations
 
+import json
 import unittest
 from datetime import UTC, datetime, timedelta
 
@@ -15,10 +16,11 @@ from packages.pipelines.ha_policy import (
     PolicyResult,
     _evaluate_bridge_health,
     _evaluate_budget_status,
-    _evaluate_monthly_spend_rate,
     _evaluate_declarative_rule,
+    _evaluate_monthly_spend_rate,
     _PolicyDef,
 )
+from packages.storage.control_plane import PolicyDefinitionRecord
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -294,9 +296,6 @@ class PolicyEvaluatorTests(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # Registry integration tests
 # ---------------------------------------------------------------------------
-
-import json
-from packages.storage.control_plane import PolicyDefinitionCreate, PolicyDefinitionRecord
 
 
 def _make_record(

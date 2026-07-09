@@ -19,7 +19,6 @@ from packages.domains.homelab.pipelines.ha_policy import HaPolicyEvaluator
 from packages.storage.ingestion_config import IngestionConfigRepository
 from packages.storage.run_metadata import RunMetadataRepository
 
-
 _VALUE_RULE = {
     "rule_kind": "publication_value_comparison",
     "publication_key": "monthly_cashflow",

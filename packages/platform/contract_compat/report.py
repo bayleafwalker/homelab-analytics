@@ -46,7 +46,9 @@ def check_export_artifacts_in_sync(
     from tempfile import TemporaryDirectory
 
     if export_contracts_func is None:
-        from apps.api.export_contracts import export_contracts as export_contracts_func
+        from apps.api.export_contracts import export_contracts
+
+        export_contracts_func = export_contracts
 
     with TemporaryDirectory(prefix="homelab-analytics-contract-export-") as temp_dir:
         exported_dir = Path(temp_dir)

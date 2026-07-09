@@ -11,9 +11,9 @@ from apps.api.app import create_app
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.platform.auth.contracts import UserRole
 from packages.platform.auth.permission_registry import (
+    KNOWN_PERMISSIONS,
     PERMISSION_CONTROL_POLICY_READ,
     PERMISSION_CONTROL_POLICY_WRITE,
-    KNOWN_PERMISSIONS,
     permissions_for_role,
 )
 from packages.storage.ingestion_config import IngestionConfigRepository
