@@ -88,8 +88,8 @@ Sprint workflow:
 
 | Store | Latest migration | Count |
 |---|---|---|
-| `migrations/postgres/` | `0009_policy_registry` | 9 |
-| `migrations/duckdb/` | `0010_scenario_projection_assumption_edges` | 5 (gaps: DuckDB-only subset) |
+| `migrations/postgres/` | `0013_finance_debt_subscription_mart_publications` | 13 |
+| `migrations/duckdb/` | `0014_finance_debt_subscription_marts` | 9 (gaps: DuckDB-only subset) |
 | `migrations/sqlite/` | `0007_policy_registry` | 7 |
 | `migrations/postgres_run_metadata/` | `0001_run_metadata_initial_schema` | 1 |
 
