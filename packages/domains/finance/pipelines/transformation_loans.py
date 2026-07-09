@@ -13,6 +13,8 @@ from packages.domains.finance.pipelines.loan_models import (
     CURRENT_DIM_LOAN_VIEW,
     FACT_LOAN_REPAYMENT_COLUMNS,
     FACT_LOAN_REPAYMENT_TABLE,
+    MART_DEBT_OVERVIEW_COLUMNS,
+    MART_DEBT_OVERVIEW_TABLE,
     MART_LOAN_OVERVIEW_COLUMNS,
     MART_LOAN_OVERVIEW_TABLE,
     MART_LOAN_REPAYMENT_VARIANCE_COLUMNS,
@@ -32,6 +34,7 @@ def ensure_loan_storage(store: DuckDBStore) -> None:
     store.ensure_table(MART_LOAN_SCHEDULE_PROJECTED_TABLE, MART_LOAN_SCHEDULE_PROJECTED_COLUMNS)
     store.ensure_table(MART_LOAN_REPAYMENT_VARIANCE_TABLE, MART_LOAN_REPAYMENT_VARIANCE_COLUMNS)
     store.ensure_table(MART_LOAN_OVERVIEW_TABLE, MART_LOAN_OVERVIEW_COLUMNS)
+    store.ensure_table(MART_DEBT_OVERVIEW_TABLE, MART_DEBT_OVERVIEW_COLUMNS)
 
 
 def load_loan_repayments(
@@ -280,4 +283,125 @@ def get_loan_repayment_variance(
 def get_loan_overview(store: DuckDBStore) -> list[dict[str, Any]]:
     return store.fetchall_dicts(
         f"SELECT * FROM {MART_LOAN_OVERVIEW_TABLE} ORDER BY loan_name"
+    )
+
+
+def refresh_debt_overview(store: DuckDBStore) -> int:
+    """Outstanding debt across instrument types.
+
+    Loans contribute their principal minus repaid principal (typed by
+    dim_loan.loan_type). Accounts whose latest cumulative transaction balance
+    is negative contribute as 'account_credit' (credit cards and overdrafts
+    ride the account-transaction lane). share_of_total_pct is computed within
+    each currency so mixed-currency households never mix shares.
+    """
+    from packages.domains.finance.pipelines.transaction_models import (
+        FACT_TRANSACTION_CURRENT_TABLE,
+    )
+
+    store.execute(f"DELETE FROM {MART_DEBT_OVERVIEW_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_DEBT_OVERVIEW_TABLE} (
+            debt_type, instrument_id, instrument_name, lender,
+            original_principal, outstanding_balance, currency,
+            share_of_total_pct
+        )
+        WITH paid_principal AS (
+            SELECT
+                loan_id,
+                SUM(
+                    COALESCE(
+                        principal_portion + COALESCE(extra_amount, 0),
+                        payment_amount - COALESCE(interest_portion, 0),
+                        0
+                    )
+                )               AS principal_paid,
+                MIN(currency)   AS currency
+            FROM {FACT_LOAN_REPAYMENT_TABLE}
+            GROUP BY loan_id
+        ),
+        loan_debt AS (
+            SELECT
+                COALESCE(l.loan_type, 'loan')     AS debt_type,
+                l.loan_id                         AS instrument_id,
+                l.loan_name                       AS instrument_name,
+                l.lender,
+                l.principal                       AS original_principal,
+                GREATEST(
+                    COALESCE(l.principal, 0) - COALESCE(p.principal_paid, 0),
+                    0
+                )                                 AS outstanding_balance,
+                COALESCE(p.currency, l.currency)  AS currency
+            FROM {CURRENT_DIM_LOAN_VIEW} l
+            LEFT JOIN paid_principal p ON p.loan_id = l.loan_id
+            WHERE COALESCE(l.principal, 0) > 0
+        ),
+        account_monthly AS (
+            SELECT
+                account_id,
+                SUM(SUM(amount)) OVER (
+                    PARTITION BY account_id ORDER BY booking_month
+                )                                 AS cumulative_balance,
+                MIN(normalized_currency)          AS currency,
+                ROW_NUMBER() OVER (
+                    PARTITION BY account_id ORDER BY booking_month DESC
+                )                                 AS rn
+            FROM {FACT_TRANSACTION_CURRENT_TABLE}
+            GROUP BY booking_month, account_id
+        ),
+        account_debt AS (
+            SELECT
+                'account_credit'                  AS debt_type,
+                account_id                        AS instrument_id,
+                account_id                        AS instrument_name,
+                CAST(NULL AS VARCHAR)             AS lender,
+                CAST(NULL AS DECIMAL(18,4))       AS original_principal,
+                -cumulative_balance               AS outstanding_balance,
+                currency
+            FROM account_monthly
+            WHERE rn = 1
+              AND cumulative_balance < 0
+        ),
+        combined AS (
+            SELECT * FROM loan_debt
+            WHERE outstanding_balance > 0
+            UNION ALL
+            SELECT * FROM account_debt
+        )
+        SELECT
+            debt_type,
+            instrument_id,
+            instrument_name,
+            lender,
+            original_principal,
+            outstanding_balance,
+            currency,
+            ROUND(
+                outstanding_balance * 100.0
+                    / SUM(outstanding_balance) OVER (PARTITION BY currency),
+                3
+            ) AS share_of_total_pct
+        FROM combined
+        ORDER BY debt_type, instrument_id
+        """
+    )
+    return store.fetchall(f"SELECT COUNT(*) FROM {MART_DEBT_OVERVIEW_TABLE}")[0][0]
+
+
+def get_debt_overview(
+    store: DuckDBStore,
+    *,
+    debt_type: str | None = None,
+) -> list[dict[str, Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if debt_type is not None:
+        clauses.append("debt_type = ?")
+        params.append(debt_type)
+    where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_DEBT_OVERVIEW_TABLE}"
+        f" {where_sql} ORDER BY debt_type, instrument_id",
+        params,
     )

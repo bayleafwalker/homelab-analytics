@@ -29,6 +29,8 @@ from packages.domains.finance.pipelines.contract_price_models import (
 from packages.domains.finance.pipelines.loan_models import (
     CURRENT_DIM_LOAN_VIEW,
     DIM_LOAN,
+    MART_DEBT_OVERVIEW_COLUMNS,
+    MART_DEBT_OVERVIEW_TABLE,
     MART_LOAN_OVERVIEW_COLUMNS,
     MART_LOAN_OVERVIEW_TABLE,
     MART_LOAN_REPAYMENT_VARIANCE_COLUMNS,
@@ -51,6 +53,8 @@ from packages.domains.finance.pipelines.subscription_models import (
     CURRENT_DIM_CONTRACT_VIEW,
     DIM_CATEGORY,
     DIM_CONTRACT,
+    MART_SUBSCRIPTION_CHANGES_COLUMNS,
+    MART_SUBSCRIPTION_CHANGES_TABLE,
     MART_SUBSCRIPTION_SUMMARY_COLUMNS,
     MART_SUBSCRIPTION_SUMMARY_TABLE,
     MART_UPCOMING_FIXED_COSTS_30D_COLUMNS,
@@ -212,6 +216,11 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         columns=MART_UPCOMING_FIXED_COSTS_30D_COLUMNS,
         order_by="expected_date, contract_name",
     ),
+    MART_SUBSCRIPTION_CHANGES_TABLE: PublicationRelation(
+        relation_name=MART_SUBSCRIPTION_CHANGES_TABLE,
+        columns=MART_SUBSCRIPTION_CHANGES_COLUMNS,
+        order_by="period_month, change_type, contract_name",
+    ),
     MART_CONTRACT_PRICE_CURRENT_TABLE: PublicationRelation(
         relation_name=MART_CONTRACT_PRICE_CURRENT_TABLE,
         columns=MART_CONTRACT_PRICE_CURRENT_COLUMNS,
@@ -291,6 +300,11 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         relation_name=MART_LOAN_OVERVIEW_TABLE,
         columns=MART_LOAN_OVERVIEW_COLUMNS,
         order_by="loan_name",
+    ),
+    MART_DEBT_OVERVIEW_TABLE: PublicationRelation(
+        relation_name=MART_DEBT_OVERVIEW_TABLE,
+        columns=MART_DEBT_OVERVIEW_COLUMNS,
+        order_by="debt_type, instrument_id",
     ),
     CURRENT_DIM_LOAN_VIEW: PublicationRelation(
         relation_name=CURRENT_DIM_LOAN_VIEW,

@@ -213,6 +213,68 @@ class LoanTransformationTests(unittest.TestCase):
         self.assertEqual("loan-001", rows[0]["loan_id"])
         self.assertEqual("Test Mortgage", rows[0]["loan_name"])
 
+    def test_refresh_debt_overview_spans_loans_and_credit_accounts(self) -> None:
+        svc = TransformationService(DuckDBStore.memory())
+        svc.load_loan_repayments(self._make_rows(), run_id="run-001")
+        svc.load_transactions(
+            [
+                # checking account stays positive → not debt
+                {
+                    "booked_at": "2026-01-02",
+                    "account_id": "CHK-001",
+                    "counterparty_name": "Employer",
+                    "amount": "2450.00",
+                    "currency": "EUR",
+                    "description": "Salary",
+                },
+                # credit card account ends negative → account_credit debt
+                {
+                    "booked_at": "2026-01-05",
+                    "account_id": "CC-GOLD",
+                    "counterparty_name": "Grocery Store",
+                    "amount": "-320.00",
+                    "currency": "EUR",
+                    "description": "Groceries",
+                },
+                {
+                    "booked_at": "2026-02-05",
+                    "account_id": "CC-GOLD",
+                    "counterparty_name": "Card Payment",
+                    "amount": "120.00",
+                    "currency": "EUR",
+                    "description": "Partial payment",
+                },
+            ],
+            run_id="run-002",
+        )
+
+        count = svc.refresh_debt_overview()
+
+        self.assertEqual(2, count)
+        rows = svc.get_debt_overview()
+        by_type = {row["debt_type"]: row for row in rows}
+        self.assertEqual({"mortgage", "account_credit"}, set(by_type))
+
+        mortgage = by_type["mortgage"]
+        self.assertEqual("loan-001", mortgage["instrument_id"])
+        self.assertEqual("Test Bank", mortgage["lender"])
+        # 200000 principal minus 515 + 517 repaid principal
+        self.assertEqual(
+            Decimal("198968.0000"), Decimal(mortgage["outstanding_balance"])
+        )
+
+        credit = by_type["account_credit"]
+        self.assertEqual("CC-GOLD", credit["instrument_id"])
+        self.assertEqual(Decimal("200.0000"), Decimal(credit["outstanding_balance"]))
+        self.assertIsNone(credit["lender"])
+
+        # shares within EUR sum to 100
+        total_share = sum(Decimal(row["share_of_total_pct"]) for row in rows)
+        self.assertAlmostEqual(100.0, float(total_share), places=2)
+
+        filtered = svc.get_debt_overview(debt_type="account_credit")
+        self.assertEqual(1, len(filtered))
+
     def test_get_loan_schedule_filtered_by_loan_id(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_loan_repayments(self._make_rows(), run_id="run-001")

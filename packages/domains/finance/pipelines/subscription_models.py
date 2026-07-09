@@ -96,6 +96,21 @@ MART_SUBSCRIPTION_SUMMARY_COLUMNS: list[tuple[str, str]] = [
     ("status", "VARCHAR NOT NULL"),   # active | inactive
 ]
 
+MART_SUBSCRIPTION_CHANGES_TABLE = "mart_subscription_changes"
+
+MART_SUBSCRIPTION_CHANGES_COLUMNS: list[tuple[str, str]] = [
+    ("period_month", "VARCHAR NOT NULL"),
+    ("change_type", "VARCHAR NOT NULL"),     # activated | cancelled
+    ("contract_id", "VARCHAR NOT NULL"),
+    ("contract_name", "VARCHAR NOT NULL"),
+    ("provider", "VARCHAR NOT NULL"),
+    ("billing_cycle", "VARCHAR NOT NULL"),
+    ("amount", "DECIMAL(18,4) NOT NULL"),
+    ("monthly_equivalent", "DECIMAL(18,4) NOT NULL"),
+    ("currency", "VARCHAR NOT NULL"),
+    ("effective_date", "DATE NOT NULL"),
+]
+
 MART_UPCOMING_FIXED_COSTS_30D_TABLE = "mart_upcoming_fixed_costs_30d"
 
 MART_UPCOMING_FIXED_COSTS_30D_COLUMNS: list[tuple[str, str]] = [

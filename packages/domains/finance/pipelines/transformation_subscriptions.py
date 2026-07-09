@@ -7,6 +7,8 @@ from typing import Any
 from packages.domains.finance.pipelines.subscription_models import (
     FACT_SUBSCRIPTION_CHARGE_COLUMNS,
     FACT_SUBSCRIPTION_CHARGE_TABLE,
+    MART_SUBSCRIPTION_CHANGES_COLUMNS,
+    MART_SUBSCRIPTION_CHANGES_TABLE,
     MART_SUBSCRIPTION_SUMMARY_COLUMNS,
     MART_SUBSCRIPTION_SUMMARY_TABLE,
     MART_UPCOMING_FIXED_COSTS_30D_COLUMNS,
@@ -18,6 +20,16 @@ from packages.storage.duckdb_store import DuckDBStore
 
 RecordLineage = Callable[..., None]
 
+# Shared monthly-equivalent conversion for subscription amounts.
+_MONTHLY_EQUIVALENT_SQL = """
+            CASE billing_cycle
+                WHEN 'monthly' THEN CAST(amount AS DECIMAL(18,4))
+                WHEN 'annual'  THEN ROUND(amount / 12, 4)
+                WHEN 'weekly'  THEN ROUND(amount * 52 / 12, 4)
+                ELSE CAST(amount AS DECIMAL(18,4))
+            END
+"""
+
 
 def ensure_subscription_storage(store: DuckDBStore) -> None:
     store.ensure_table(FACT_SUBSCRIPTION_CHARGE_TABLE, FACT_SUBSCRIPTION_CHARGE_COLUMNS)
@@ -25,6 +37,7 @@ def ensure_subscription_storage(store: DuckDBStore) -> None:
     store.ensure_table(
         MART_UPCOMING_FIXED_COSTS_30D_TABLE, MART_UPCOMING_FIXED_COSTS_30D_COLUMNS
     )
+    store.ensure_table(MART_SUBSCRIPTION_CHANGES_TABLE, MART_SUBSCRIPTION_CHANGES_COLUMNS)
 
 
 def load_subscriptions(
@@ -103,12 +116,7 @@ def refresh_subscription_summary(store: DuckDBStore) -> int:
             currency,
             start_date,
             end_date,
-            CASE billing_cycle
-                WHEN 'monthly' THEN CAST(amount AS DECIMAL(18,4))
-                WHEN 'annual'  THEN ROUND(amount / 12, 4)
-                WHEN 'weekly'  THEN ROUND(amount * 52 / 12, 4)
-                ELSE CAST(amount AS DECIMAL(18,4))
-            END AS monthly_equivalent,
+            {_MONTHLY_EQUIVALENT_SQL} AS monthly_equivalent,
             CASE
                 WHEN end_date IS NULL OR end_date >= current_date THEN 'active'
                 ELSE 'inactive'
@@ -157,6 +165,80 @@ def count_subscriptions(
         f"SELECT COUNT(*) FROM {FACT_SUBSCRIPTION_CHARGE_TABLE} WHERE run_id = ?",
         [run_id],
     )[0][0]
+
+
+def refresh_subscription_changes(store: DuckDBStore) -> int:
+    """Subscription activations and cancellations by month.
+
+    Every charge contributes an 'activated' row in its start month; charges
+    with an end date also contribute a 'cancelled' row in that month (future
+    end dates surface as upcoming cancellations).
+    """
+    store.execute(f"DELETE FROM {MART_SUBSCRIPTION_CHANGES_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_SUBSCRIPTION_CHANGES_TABLE} (
+            period_month, change_type, contract_id, contract_name, provider,
+            billing_cycle, amount, monthly_equivalent, currency, effective_date
+        )
+        SELECT
+            strftime(start_date, '%Y-%m')     AS period_month,
+            'activated'                       AS change_type,
+            contract_id,
+            contract_name,
+            provider,
+            billing_cycle,
+            amount,
+            {_MONTHLY_EQUIVALENT_SQL} AS monthly_equivalent,
+            currency,
+            start_date                        AS effective_date
+        FROM {FACT_SUBSCRIPTION_CHARGE_TABLE}
+        UNION ALL
+        SELECT
+            strftime(end_date, '%Y-%m')       AS period_month,
+            'cancelled'                       AS change_type,
+            contract_id,
+            contract_name,
+            provider,
+            billing_cycle,
+            amount,
+            {_MONTHLY_EQUIVALENT_SQL} AS monthly_equivalent,
+            currency,
+            end_date                          AS effective_date
+        FROM {FACT_SUBSCRIPTION_CHARGE_TABLE}
+        WHERE end_date IS NOT NULL
+        ORDER BY period_month, change_type, contract_name
+        """
+    )
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_SUBSCRIPTION_CHANGES_TABLE}"
+    )[0][0]
+
+
+def get_subscription_changes(
+    store: DuckDBStore,
+    *,
+    change_type: str | None = None,
+    from_month: str | None = None,
+    to_month: str | None = None,
+) -> list[dict[str, Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if change_type is not None:
+        clauses.append("change_type = ?")
+        params.append(change_type)
+    if from_month is not None:
+        clauses.append("period_month >= ?")
+        params.append(from_month)
+    if to_month is not None:
+        clauses.append("period_month <= ?")
+        params.append(to_month)
+    where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_SUBSCRIPTION_CHANGES_TABLE}"
+        f" {where_sql} ORDER BY period_month, change_type, contract_name",
+        params,
+    )
 
 
 def refresh_upcoming_fixed_costs_30d(store: DuckDBStore) -> int:

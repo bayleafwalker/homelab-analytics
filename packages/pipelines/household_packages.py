@@ -126,10 +126,16 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 publication_key="rpt_current_dim_contract",
                 name="Current contract view",
             ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_subscriptions_changes",
+                publication_key="mart_subscription_changes",
+                name="Subscription changes mart",
+            ),
         ),
         refresh_publication_keys=(
             "mart_subscription_summary",
             "mart_upcoming_fixed_costs_30d",
+            "mart_subscription_changes",
             # Overview compositions depend on subscription marts
             "mart_household_overview",
             "mart_open_attention_items",
@@ -354,11 +360,17 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 publication_key="rpt_current_dim_loan",
                 name="Current loan view",
             ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_loans_debt_overview",
+                publication_key="mart_debt_overview",
+                name="Debt overview mart",
+            ),
         ),
         refresh_publication_keys=(
             "mart_loan_schedule_projected",
             "mart_loan_repayment_variance",
             "mart_loan_overview",
+            "mart_debt_overview",
             # Overview compositions depend on loan marts
             "mart_household_overview",
             "mart_open_attention_items",

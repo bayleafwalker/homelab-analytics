@@ -184,6 +184,39 @@ class SubscriptionTransformationTests(unittest.TestCase):
         # Adobe CC ended 2024-12-31 which is in the past (current date is 2026-03-08)
         self.assertEqual("inactive", statuses["Adobe CC"])
 
+    def test_refresh_subscription_changes_tracks_activations_and_cancellations(
+        self,
+    ) -> None:
+        svc = TransformationService(DuckDBStore.memory())
+        svc.load_subscriptions(self._make_rows(), run_id="run-001")
+
+        count = svc.refresh_subscription_changes()
+
+        # three activations + one cancellation (Adobe CC has an end date)
+        self.assertEqual(4, count)
+
+        activations = svc.get_subscription_changes(change_type="activated")
+        self.assertEqual(3, len(activations))
+        netflix = next(row for row in activations if row["contract_name"] == "Netflix")
+        self.assertEqual("2023-01", netflix["period_month"])
+        self.assertEqual(Decimal("15.9900"), Decimal(netflix["monthly_equivalent"]))
+
+        cancellations = svc.get_subscription_changes(change_type="cancelled")
+        self.assertEqual(1, len(cancellations))
+        adobe = cancellations[0]
+        self.assertEqual("Adobe CC", adobe["contract_name"])
+        self.assertEqual("2024-12", adobe["period_month"])
+        # annual 660 → 55/month freed up by the cancellation
+        self.assertEqual(Decimal("55.0000"), Decimal(adobe["monthly_equivalent"]))
+
+        windowed = svc.get_subscription_changes(
+            from_month="2024-01", to_month="2024-12"
+        )
+        self.assertEqual(
+            {("2024-01", "activated"), ("2024-12", "cancelled")},
+            {(row["period_month"], row["change_type"]) for row in windowed},
+        )
+
     def test_refresh_subscription_summary_monthly_equivalent(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_subscriptions(self._make_rows(), run_id="run-001")

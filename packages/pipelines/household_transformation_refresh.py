@@ -28,6 +28,9 @@ BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
     "mart_upcoming_fixed_costs_30d": (
         lambda service: service.refresh_upcoming_fixed_costs_30d()
     ),
+    "mart_subscription_changes": (
+        lambda service: service.refresh_subscription_changes()
+    ),
     "mart_contract_price_current": (lambda service: service.refresh_contract_price_current()),
     "mart_electricity_price_current": (lambda service: service.refresh_contract_price_current()),
     "mart_utility_cost_summary": (lambda service: service.refresh_utility_cost_summary()),
@@ -58,6 +61,7 @@ BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
         lambda service: service.refresh_loan_repayment_variance()
     ),
     "mart_loan_overview": (lambda service: service.refresh_loan_overview()),
+    "mart_debt_overview": (lambda service: service.refresh_debt_overview()),
     "mart_household_overview": (lambda service: service.refresh_household_overview()),
     "mart_homelab_roi": (lambda service: service.refresh_homelab_roi()),
     "mart_open_attention_items": (lambda service: service.refresh_open_attention_items()),

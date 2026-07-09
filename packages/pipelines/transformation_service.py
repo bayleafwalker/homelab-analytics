@@ -107,10 +107,12 @@ from packages.domains.finance.pipelines.transformation_contract_prices import (
 from packages.domains.finance.pipelines.transformation_loans import (
     count_loan_repayments,
     ensure_loan_storage,
+    get_debt_overview,
     get_loan_overview,
     get_loan_repayment_variance,
     get_loan_schedule_projected,
     load_loan_repayments,
+    refresh_debt_overview,
     refresh_loan_overview,
     refresh_loan_repayment_variance,
     refresh_loan_schedule_projected,
@@ -118,9 +120,11 @@ from packages.domains.finance.pipelines.transformation_loans import (
 from packages.domains.finance.pipelines.transformation_subscriptions import (
     count_subscriptions,
     ensure_subscription_storage,
+    get_subscription_changes,
     get_subscription_summary,
     get_upcoming_fixed_costs_30d,
     load_subscriptions,
+    refresh_subscription_changes,
     refresh_subscription_summary,
     refresh_upcoming_fixed_costs_30d,
 )
@@ -747,6 +751,23 @@ class TransformationService:
             currency=currency,
         )
 
+    def refresh_subscription_changes(self) -> int:
+        return refresh_subscription_changes(self._store)
+
+    def get_subscription_changes(
+        self,
+        *,
+        change_type: str | None = None,
+        from_month: str | None = None,
+        to_month: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_subscription_changes(
+            self._store,
+            change_type=change_type,
+            from_month=from_month,
+            to_month=to_month,
+        )
+
     # ------------------------------------------------------------------
     # Budget targets
     # ------------------------------------------------------------------
@@ -845,6 +866,16 @@ class TransformationService:
 
     def refresh_loan_overview(self) -> int:
         return refresh_loan_overview(self._store)
+
+    def refresh_debt_overview(self) -> int:
+        return refresh_debt_overview(self._store)
+
+    def get_debt_overview(
+        self,
+        *,
+        debt_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_debt_overview(self._store, debt_type=debt_type)
 
     def refresh_balance_snapshot(self) -> int:
         return refresh_balance_snapshot(self._store)

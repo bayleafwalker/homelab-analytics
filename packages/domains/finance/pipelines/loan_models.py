@@ -103,6 +103,23 @@ MART_LOAN_OVERVIEW_COLUMNS: list[tuple[str, str]] = [
 ]
 
 # ---------------------------------------------------------------------------
+# Mart: mart_debt_overview
+# ---------------------------------------------------------------------------
+
+MART_DEBT_OVERVIEW_TABLE = "mart_debt_overview"
+
+MART_DEBT_OVERVIEW_COLUMNS: list[tuple[str, str]] = [
+    ("debt_type", "VARCHAR NOT NULL"),       # loan_type or account_credit
+    ("instrument_id", "VARCHAR NOT NULL"),
+    ("instrument_name", "VARCHAR"),
+    ("lender", "VARCHAR"),
+    ("original_principal", "DECIMAL(18,4)"),
+    ("outstanding_balance", "DECIMAL(18,4) NOT NULL"),
+    ("currency", "VARCHAR"),
+    ("share_of_total_pct", "DECIMAL(6,3)"),
+]
+
+# ---------------------------------------------------------------------------
 # Extraction helpers
 # ---------------------------------------------------------------------------
 
