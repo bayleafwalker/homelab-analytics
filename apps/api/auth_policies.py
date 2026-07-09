@@ -702,6 +702,42 @@ API_ROUTE_POLICY_CATALOG: tuple[RoutePolicy, ...] = (
         ),
     ),
     RoutePolicy(
+        prefix_paths=("/api/actions/",),
+        path_decision=_static_decision(
+            role=UserRole.READER,
+            permission=PERMISSION_REPORTS_READ,
+            scope=SERVICE_TOKEN_SCOPE_REPORTS_READ,
+        ),
+        request_decision=RouteDecision(
+            role=lambda context: (
+                UserRole.READER if context.method == "GET" else UserRole.OPERATOR
+            ),
+            permission=lambda context: (
+                PERMISSION_REPORTS_READ
+                if context.method == "GET"
+                else PERMISSION_ADMIN_WRITE
+            ),
+            scope=lambda context: (
+                SERVICE_TOKEN_SCOPE_REPORTS_READ
+                if context.method == "GET"
+                else SERVICE_TOKEN_SCOPE_ADMIN_WRITE
+            ),
+        ),
+    ),
+    RoutePolicy(
+        prefix_paths=("/api/agent/",),
+        path_decision=_static_decision(
+            role=UserRole.READER,
+            permission=PERMISSION_REPORTS_READ,
+            scope=SERVICE_TOKEN_SCOPE_REPORTS_READ,
+        ),
+        request_decision=_static_decision(
+            role=UserRole.READER,
+            permission=PERMISSION_REPORTS_READ,
+            scope=SERVICE_TOKEN_SCOPE_REPORTS_READ,
+        ),
+    ),
+    RoutePolicy(
         prefix_paths=("/contracts/publications/",),
         path_decision=RouteDecision(
             role=UserRole.READER,

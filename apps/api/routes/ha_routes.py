@@ -29,8 +29,13 @@ from apps.api.response_models import (
     HaBridgeStatusModel,
     HaMqttStatusModel,
 )
-from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
 from packages.pipelines.reporting_service import ReportingService, ScalarMetricSnapshot
+from packages.platform.action_proposals import (
+    ADAPTER_HOME_ASSISTANT,
+)
+from packages.platform.action_proposals import (
+    ActionProposalRegistry as ApprovalActionRegistry,
+)
 
 
 class HaStateObject(BaseModel):
@@ -54,7 +59,8 @@ class HaApprovalProposalModel(BaseModel):
     verdict: str
     value: str | None = None
     notification_id: str
-    source_kind: Literal["policy", "assistant", "operator"] = "policy"
+    adapter: str = ADAPTER_HOME_ASSISTANT
+    source_kind: Literal["policy", "assistant", "operator", "agent"] = "policy"
     source_key: str | None = None
     source_summary: str | None = None
     created_by: str | None = None
@@ -308,7 +314,7 @@ def register_ha_routes(
         proposal = registry.get(action_id)
         if proposal is None:
             raise HTTPException(status_code=404, detail="Unknown approval action.")
-        if ha_action_dispatcher is not None:
+        if ha_action_dispatcher is not None and proposal.adapter == ADAPTER_HOME_ASSISTANT:
             record = await ha_action_dispatcher.resolve_approval(proposal, "approved")
             if record.result == "failure":
                 raise HTTPException(status_code=502, detail="Failed to release approval notification.")
@@ -324,7 +330,7 @@ def register_ha_routes(
         proposal = registry.get(action_id)
         if proposal is None:
             raise HTTPException(status_code=404, detail="Unknown approval action.")
-        if ha_action_dispatcher is not None:
+        if ha_action_dispatcher is not None and proposal.adapter == ADAPTER_HOME_ASSISTANT:
             record = await ha_action_dispatcher.resolve_approval(proposal, "dismissed")
             if record.result == "failure":
                 raise HTTPException(status_code=502, detail="Failed to release approval notification.")

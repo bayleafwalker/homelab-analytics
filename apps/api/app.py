@@ -17,7 +17,9 @@ from apps.api.auth_runtime import (
     cookie_secure_for_request,
     register_auth_middleware,
 )
+from apps.api.routes.action_proposal_routes import register_action_proposal_routes
 from apps.api.routes.adapter_routes import register_adapter_routes
+from apps.api.routes.agent_routes import register_agent_routes
 from apps.api.routes.assistant_routes import register_assistant_routes
 from apps.api.routes.auth_routes import register_auth_routes
 from apps.api.routes.category_routes import register_category_routes
@@ -77,7 +79,6 @@ from packages.application.use_cases.run_recovery import build_run_recovery
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
-from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
 from packages.pipelines.composition.builtin_packs import BUILTIN_CAPABILITY_PACKS
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
 from packages.pipelines.promotion import (
@@ -92,6 +93,7 @@ from packages.pipelines.reporting_service import (
     publish_promotion_reporting,
 )
 from packages.pipelines.run_context import RunControlContext
+from packages.platform.action_proposals import ActionProposalRegistry as ApprovalActionRegistry
 from packages.platform.auth.break_glass import BreakGlassController
 from packages.platform.auth.machine_jwt_provider import MachineJwtProvider
 from packages.platform.auth.oidc_provider import OidcProvider
@@ -710,6 +712,9 @@ def create_app(
         resolved_reporting_service=reporting_service,
         to_jsonable=to_jsonable,
     )
+    # The approval queue is adapter-agnostic: agent and assistant proposals
+    # share it with HA-gated actions, so it exists even without HA wiring.
+    resolved_action_proposal_registry = ha_action_proposal_registry or ApprovalActionRegistry()
     register_ha_routes(
         app,
         reporting_service=reporting_service,
@@ -717,8 +722,19 @@ def create_app(
         ha_mqtt_publisher=ha_mqtt_publisher,
         ha_policy_evaluator=ha_policy_evaluator,
         ha_action_dispatcher=ha_action_dispatcher,
-        ha_action_proposal_registry=ha_action_proposal_registry,
+        ha_action_proposal_registry=resolved_action_proposal_registry,
         to_jsonable=to_jsonable,
+    )
+    register_action_proposal_routes(
+        app,
+        action_proposal_registry=resolved_action_proposal_registry,
+        ha_action_dispatcher=ha_action_dispatcher,
+    )
+    register_agent_routes(
+        app,
+        capability_packs=container.capability_packs,
+        extension_registry=container.extension_registry,
+        resolved_reporting_service=reporting_service,
     )
     register_lineage_routes(
         app,

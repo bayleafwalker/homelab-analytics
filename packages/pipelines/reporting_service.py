@@ -903,6 +903,44 @@ class ReportingService:
             )
         )
 
+    def sample_publication_rows(
+        self,
+        relation_name: str,
+        *,
+        limit: int,
+    ) -> tuple[list[dict[str, Any]], int | None] | None:
+        """Bounded sample of a publication relation for agent surfaces.
+
+        Prefers the published store; falls back to the warehouse relation
+        source. Returns ``None`` when the relation is not materialized
+        anywhere yet (e.g. the mart's domain has no ingested data), so
+        callers can serve the contract without sample values.
+        """
+        if limit <= 0:
+            return None
+        if (
+            self._access_mode != ReportingAccessMode.WAREHOUSE
+            and self._publication_store is not None
+            and self._publication_store.table_exists(relation_name)
+        ):
+            rows = self._publication_store.fetchall_dicts(
+                f"SELECT * FROM {relation_name} LIMIT %s", [limit]
+            )
+            counted = self._publication_store.fetchall_dicts(
+                f"SELECT COUNT(*) AS row_count FROM {relation_name}"
+            )
+            total = int(counted[0]["row_count"]) if counted else None
+            return rows, total
+        try:
+            relation = self._get_publication_relation(relation_name)
+            rows = self._rows_from_relation_source(relation)
+        except Exception:
+            # Sampling is best-effort: an unknown relation or a warehouse
+            # table that has not been created yet is not an error for the
+            # agent index, it is simply a publication without samples.
+            return None
+        return rows[:limit], len(rows)
+
     def _fetch_published_or_fallback(
         self,
         relation_name: str,
