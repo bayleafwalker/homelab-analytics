@@ -250,6 +250,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/actions/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Action Proposals */
+        get: operations["list_action_proposals_api_actions_proposals_get"];
+        put?: never;
+        /** Create Action Proposal */
+        post: operations["create_action_proposal_api_actions_proposals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/actions/proposals/{action_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Action Proposal */
+        get: operations["get_action_proposal_api_actions_proposals__action_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/actions/proposals/{action_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Action Proposal */
+        post: operations["approve_action_proposal_api_actions_proposals__action_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/actions/proposals/{action_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss Action Proposal */
+        post: operations["dismiss_action_proposal_api_actions_proposals__action_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/adapters/status": {
         parameters: {
             query?: never;
@@ -287,6 +356,40 @@ export interface paths {
          *         404 if the adapter_key is not registered as a live instance.
          */
         get: operations["get_adapter_instance_status_api_adapters__adapter_key__status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/semantic-index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Agent Semantic Index */
+        get: operations["get_agent_semantic_index_api_agent_semantic_index_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/semantic-index/{publication_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Agent Semantic Index Entry */
+        get: operations["get_agent_semantic_index_entry_api_agent_semantic_index__publication_key__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3115,6 +3218,93 @@ export interface components {
             /** Transaction Count */
             transaction_count: number;
         };
+        /** ActionProposalCreateModel */
+        ActionProposalCreateModel: {
+            /** Action Id */
+            action_id?: string | null;
+            /**
+             * Adapter
+             * @default platform
+             */
+            adapter: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Notification Id */
+            notification_id?: string | null;
+            /** Policy Id */
+            policy_id: string;
+            /** Policy Name */
+            policy_name: string;
+            provenance?: components["schemas"]["ProposalProvenanceModel"] | null;
+            /** Source Key */
+            source_key?: string | null;
+            /**
+             * Source Kind
+             * @default agent
+             * @enum {string}
+             */
+            source_kind: "policy" | "assistant" | "operator" | "agent";
+            /** Source Summary */
+            source_summary?: string | null;
+            /** Value */
+            value?: string | null;
+            /** Verdict */
+            verdict: string;
+        };
+        /** ActionProposalListModel */
+        ActionProposalListModel: {
+            /** Proposals */
+            proposals: components["schemas"]["ActionProposalModel"][];
+        };
+        /** ActionProposalModel */
+        ActionProposalModel: {
+            /** Action Id */
+            action_id: string;
+            /**
+             * Adapter
+             * @default home_assistant
+             */
+            adapter: string;
+            /** Approved At */
+            approved_at?: string | null;
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Dismissed At */
+            dismissed_at?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Notification Id */
+            notification_id: string;
+            /** Policy Id */
+            policy_id: string;
+            /** Policy Name */
+            policy_name: string;
+            provenance?: components["schemas"]["ProposalProvenanceModel"] | null;
+            /** Source Key */
+            source_key?: string | null;
+            /**
+             * Source Kind
+             * @default policy
+             * @enum {string}
+             */
+            source_kind: "policy" | "assistant" | "operator" | "agent";
+            /** Source Summary */
+            source_summary?: string | null;
+            /** Status */
+            status: string;
+            /** Value */
+            value?: string | null;
+            /** Verdict */
+            verdict: string;
+        };
         /** AffordabilityRatiosResponse */
         AffordabilityRatiosResponse: {
             /** Rows */
@@ -3990,6 +4180,11 @@ export interface components {
         HaApprovalProposalModel: {
             /** Action Id */
             action_id: string;
+            /**
+             * Adapter
+             * @default home_assistant
+             */
+            adapter: string;
             /** Approved At */
             approved_at?: string | null;
             /** Created At */
@@ -4015,7 +4210,7 @@ export interface components {
              * @default policy
              * @enum {string}
              */
-            source_kind: "policy" | "assistant" | "operator";
+            source_kind: "policy" | "assistant" | "operator" | "agent";
             /** Source Summary */
             source_summary?: string | null;
             /** Status */
@@ -4723,6 +4918,17 @@ export interface components {
             skip_reason?: string | null;
             /** Skipped */
             skipped: boolean;
+        };
+        /** ProposalProvenanceModel */
+        ProposalProvenanceModel: {
+            /** Assessed At */
+            assessed_at?: string | null;
+            /** Confidence Verdict At Draft */
+            confidence_verdict_at_draft?: string | null;
+            /** Freshness State At Draft */
+            freshness_state_at_draft?: string | null;
+            /** Publication Keys */
+            publication_keys?: string[];
         };
         /** PublicationColumnContractModel */
         PublicationColumnContractModel: {
@@ -5684,6 +5890,163 @@ export interface operations {
             };
         };
     };
+    list_action_proposals_api_actions_proposals_get: {
+        parameters: {
+            query?: {
+                status?: ("pending" | "approved" | "dismissed") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionProposalListModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_action_proposal_api_actions_proposals_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActionProposalCreateModel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionProposalModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_action_proposal_api_actions_proposals__action_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionProposalModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_action_proposal_api_actions_proposals__action_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionProposalModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_action_proposal_api_actions_proposals__action_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionProposalModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_adapter_instance_statuses_api_adapters_status_get: {
         parameters: {
             query?: never;
@@ -5712,6 +6075,72 @@ export interface operations {
             header?: never;
             path: {
                 adapter_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_agent_semantic_index_api_agent_semantic_index_get: {
+        parameters: {
+            query?: {
+                query?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_agent_semantic_index_entry_api_agent_semantic_index__publication_key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publication_key: string;
             };
             cookie?: never;
         };

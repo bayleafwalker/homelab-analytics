@@ -50,6 +50,282 @@
         "title": "AccountBalanceTrendRow",
         "type": "object"
       },
+      "ActionProposalCreateModel": {
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "adapter": {
+            "default": "platform",
+            "title": "Adapter",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "notification_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notification Id"
+          },
+          "policy_id": {
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "policy_name": {
+            "title": "Policy Name",
+            "type": "string"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProposalProvenanceModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Key"
+          },
+          "source_kind": {
+            "default": "agent",
+            "enum": [
+              "policy",
+              "assistant",
+              "operator",
+              "agent"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Summary"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy_id",
+          "policy_name",
+          "verdict"
+        ],
+        "title": "ActionProposalCreateModel",
+        "type": "object"
+      },
+      "ActionProposalListModel": {
+        "properties": {
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/ActionProposalModel"
+            },
+            "title": "Proposals",
+            "type": "array"
+          }
+        },
+        "required": [
+          "proposals"
+        ],
+        "title": "ActionProposalListModel",
+        "type": "object"
+      },
+      "ActionProposalModel": {
+        "properties": {
+          "action_id": {
+            "title": "Action Id",
+            "type": "string"
+          },
+          "adapter": {
+            "default": "home_assistant",
+            "title": "Adapter",
+            "type": "string"
+          },
+          "approved_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "dismissed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dismissed At"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "notification_id": {
+            "title": "Notification Id",
+            "type": "string"
+          },
+          "policy_id": {
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "policy_name": {
+            "title": "Policy Name",
+            "type": "string"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProposalProvenanceModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Key"
+          },
+          "source_kind": {
+            "default": "policy",
+            "enum": [
+              "policy",
+              "assistant",
+              "operator",
+              "agent"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Summary"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action_id",
+          "policy_id",
+          "policy_name",
+          "verdict",
+          "notification_id",
+          "status",
+          "created_at"
+        ],
+        "title": "ActionProposalModel",
+        "type": "object"
+      },
       "AffordabilityRatiosResponse": {
         "properties": {
           "rows": {
@@ -2890,6 +3166,11 @@
             "title": "Action Id",
             "type": "string"
           },
+          "adapter": {
+            "default": "home_assistant",
+            "title": "Adapter",
+            "type": "string"
+          },
           "approved_at": {
             "anyOf": [
               {
@@ -2960,7 +3241,8 @@
             "enum": [
               "policy",
               "assistant",
-              "operator"
+              "operator",
+              "agent"
             ],
             "title": "Source Kind",
             "type": "string"
@@ -5164,6 +5446,52 @@
           "skipped"
         ],
         "title": "PromotionResultModel",
+        "type": "object"
+      },
+      "ProposalProvenanceModel": {
+        "properties": {
+          "assessed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessed At"
+          },
+          "confidence_verdict_at_draft": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence Verdict At Draft"
+          },
+          "freshness_state_at_draft": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness State At Draft"
+          },
+          "publication_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Publication Keys",
+            "type": "array"
+          }
+        },
+        "title": "ProposalProvenanceModel",
         "type": "object"
       },
       "PublicationColumnContractModel": {
@@ -7742,6 +8070,210 @@
         "summary": "List Renderer Manifests"
       }
     },
+    "/api/actions/proposals": {
+      "get": {
+        "operationId": "list_action_proposals_api_actions_proposals_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "approved",
+                    "dismissed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionProposalListModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Action Proposals"
+      },
+      "post": {
+        "operationId": "create_action_proposal_api_actions_proposals_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionProposalCreateModel"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionProposalModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Action Proposal"
+      }
+    },
+    "/api/actions/proposals/{action_id}": {
+      "get": {
+        "operationId": "get_action_proposal_api_actions_proposals__action_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionProposalModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Action Proposal"
+      }
+    },
+    "/api/actions/proposals/{action_id}/approve": {
+      "post": {
+        "operationId": "approve_action_proposal_api_actions_proposals__action_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionProposalModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Action Proposal"
+      }
+    },
+    "/api/actions/proposals/{action_id}/dismiss": {
+      "post": {
+        "operationId": "dismiss_action_proposal_api_actions_proposals__action_id__dismiss_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionProposalModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dismiss Action Proposal"
+      }
+    },
     "/api/adapters/status": {
       "get": {
         "description": "List typed runtime status for every registered adapter instance.",
@@ -7803,6 +8335,95 @@
           }
         },
         "summary": "Get Adapter Instance Status"
+      }
+    },
+    "/api/agent/semantic-index": {
+      "get": {
+        "operationId": "get_agent_semantic_index_api_agent_semantic_index_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Query"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Agent Semantic Index Api Agent Semantic Index Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Agent Semantic Index"
+      }
+    },
+    "/api/agent/semantic-index/{publication_key}": {
+      "get": {
+        "operationId": "get_agent_semantic_index_entry_api_agent_semantic_index__publication_key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "publication_key",
+            "required": true,
+            "schema": {
+              "title": "Publication Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Agent Semantic Index Entry Api Agent Semantic Index  Publication Key  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Agent Semantic Index Entry"
       }
     },
     "/api/assistant/answer": {
