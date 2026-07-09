@@ -190,10 +190,16 @@ from packages.domains.homelab.pipelines.transformation_infrastructure import (
     count_cluster_metric_rows,
     count_power_consumption_rows,
     ensure_infrastructure_storage,
+    get_cluster_utilization,
     get_current_devices,
     get_current_nodes,
+    get_infra_cost,
+    get_uptime_summary,
     load_cluster_metric_rows,
     load_power_consumption_rows,
+    refresh_cluster_utilization,
+    refresh_infra_cost,
+    refresh_uptime_summary,
 )
 from packages.domains.overview.pipelines.scenario_models_overview import (
     HomelabCostBenefitComparison,
@@ -233,6 +239,7 @@ from packages.domains.utilities.pipelines.transformation_utilities import (
     ensure_utility_storage,
     get_contract_renewal_watchlist,
     get_contract_review_candidates,
+    get_energy_daily,
     get_usage_vs_price_summary,
     get_utility_cost_summary,
     get_utility_cost_trend_monthly,
@@ -240,6 +247,7 @@ from packages.domains.utilities.pipelines.transformation_utilities import (
     load_utility_usage,
     refresh_contract_renewal_watchlist,
     refresh_contract_review_candidates,
+    refresh_energy_daily,
     refresh_usage_vs_price_summary,
     refresh_utility_cost_summary,
     refresh_utility_cost_trend_monthly,
@@ -931,6 +939,23 @@ class TransformationService:
     ) -> list[dict[str, Any]]:
         return get_utility_cost_trend_monthly(self._store, utility_type=utility_type)
 
+    def refresh_energy_daily(self) -> int:
+        return refresh_energy_daily(self._store)
+
+    def get_energy_daily(
+        self,
+        *,
+        utility_type: str | None = None,
+        from_day: date | str | None = None,
+        to_day: date | str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_energy_daily(
+            self._store,
+            utility_type=utility_type,
+            from_day=from_day,
+            to_day=to_day,
+        )
+
     def refresh_usage_vs_price_summary(self) -> int:
         return refresh_usage_vs_price_summary(self._store)
 
@@ -1118,6 +1143,46 @@ class TransformationService:
 
     def get_workload_cost_7d(self) -> list[dict[str, Any]]:
         return get_workload_cost_7d(self._store)
+
+    def refresh_cluster_utilization(self) -> int:
+        return refresh_cluster_utilization(self._store)
+
+    def refresh_uptime_summary(self) -> int:
+        return refresh_uptime_summary(self._store)
+
+    def refresh_infra_cost(self) -> int:
+        return refresh_infra_cost(self._store)
+
+    def get_cluster_utilization(
+        self,
+        *,
+        hostname: str | None = None,
+        resource_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_cluster_utilization(
+            self._store,
+            hostname=hostname,
+            resource_type=resource_type,
+        )
+
+    def get_uptime_summary(
+        self,
+        *,
+        subject_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_uptime_summary(self._store, subject_type=subject_type)
+
+    def get_infra_cost(
+        self,
+        *,
+        cost_type: str | None = None,
+        billing_month: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_infra_cost(
+            self._store,
+            cost_type=cost_type,
+            billing_month=billing_month,
+        )
 
     def load_cluster_metrics(
         self,

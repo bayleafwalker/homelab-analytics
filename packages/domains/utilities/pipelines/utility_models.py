@@ -96,6 +96,18 @@ MART_USAGE_VS_PRICE_SUMMARY_COLUMNS: list[tuple[str, str]] = [
     ("dominant_driver", "VARCHAR"),   # price | usage | unknown
 ]
 
+MART_ENERGY_DAILY_TABLE = "mart_energy_daily"
+
+MART_ENERGY_DAILY_COLUMNS: list[tuple[str, str]] = [
+    ("usage_day", "DATE NOT NULL"),
+    ("utility_type", "VARCHAR NOT NULL"),
+    ("meter_id", "VARCHAR NOT NULL"),
+    ("meter_name", "VARCHAR NOT NULL"),
+    ("total_quantity", "DECIMAL(18,4) NOT NULL"),
+    ("usage_unit", "VARCHAR"),
+    ("reading_count", "INTEGER NOT NULL"),
+]
+
 MART_CONTRACT_REVIEW_CANDIDATES_TABLE = "mart_contract_review_candidates"
 
 MART_CONTRACT_REVIEW_CANDIDATES_COLUMNS: list[tuple[str, str]] = [

@@ -17,6 +17,8 @@ from packages.domains.utilities.pipelines.utility_models import (
     MART_CONTRACT_RENEWAL_WATCHLIST_TABLE,
     MART_CONTRACT_REVIEW_CANDIDATES_COLUMNS,
     MART_CONTRACT_REVIEW_CANDIDATES_TABLE,
+    MART_ENERGY_DAILY_COLUMNS,
+    MART_ENERGY_DAILY_TABLE,
     MART_USAGE_VS_PRICE_SUMMARY_COLUMNS,
     MART_USAGE_VS_PRICE_SUMMARY_TABLE,
     MART_UTILITY_COST_SUMMARY_COLUMNS,
@@ -50,6 +52,7 @@ def ensure_utility_storage(store: DuckDBStore) -> None:
     store.ensure_table(
         MART_CONTRACT_RENEWAL_WATCHLIST_TABLE, MART_CONTRACT_RENEWAL_WATCHLIST_COLUMNS
     )
+    store.ensure_table(MART_ENERGY_DAILY_TABLE, MART_ENERGY_DAILY_COLUMNS)
 
 
 def load_utility_usage(
@@ -389,6 +392,62 @@ def get_utility_cost_summary(
         GROUP BY period_month, meter_id, utility_type
         ORDER BY period_month, meter_id
         """,
+        params,
+    )
+
+
+def refresh_energy_daily(store: DuckDBStore) -> int:
+    """Daily consumption breakdown per utility type and meter.
+
+    Usage rows are attributed to their ``usage_start`` day.  Multi-day usage
+    ranges keep their full quantity on the start day rather than being
+    interpolated — daily granularity is only as good as the source readings.
+    """
+    store.execute(f"DELETE FROM {MART_ENERGY_DAILY_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_ENERGY_DAILY_TABLE} (
+            usage_day, utility_type, meter_id, meter_name,
+            total_quantity, usage_unit, reading_count
+        )
+        SELECT
+            usage_start              AS usage_day,
+            utility_type,
+            meter_id,
+            meter_name,
+            SUM(usage_quantity)      AS total_quantity,
+            ANY_VALUE(usage_unit)    AS usage_unit,
+            COUNT(*)                 AS reading_count
+        FROM {FACT_UTILITY_USAGE_TABLE}
+        GROUP BY usage_start, utility_type, meter_id, meter_name
+        ORDER BY usage_start, utility_type, meter_id
+        """
+    )
+    return store.fetchall(f"SELECT COUNT(*) FROM {MART_ENERGY_DAILY_TABLE}")[0][0]
+
+
+def get_energy_daily(
+    store: DuckDBStore,
+    *,
+    utility_type: str | None = None,
+    from_day: date | str | None = None,
+    to_day: date | str | None = None,
+) -> list[dict[str, Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if utility_type is not None:
+        clauses.append("utility_type = ?")
+        params.append(utility_type)
+    if from_day is not None:
+        clauses.append("usage_day >= ?")
+        params.append(_coerce_date(from_day))
+    if to_day is not None:
+        clauses.append("usage_day <= ?")
+        params.append(_coerce_date(to_day))
+    where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_ENERGY_DAILY_TABLE}"
+        f" {where_sql} ORDER BY usage_day, utility_type, meter_id",
         params,
     )
 

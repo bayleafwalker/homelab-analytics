@@ -57,6 +57,48 @@ FACT_POWER_CONSUMPTION_COLUMNS: list[tuple[str, str]] = [
 ]
 
 
+MART_CLUSTER_UTILIZATION_TABLE = "mart_cluster_utilization"
+
+MART_CLUSTER_UTILIZATION_COLUMNS: list[tuple[str, str]] = [
+    ("period_day", "DATE NOT NULL"),
+    ("hostname", "VARCHAR NOT NULL"),
+    ("node_name", "VARCHAR"),
+    ("resource_type", "VARCHAR NOT NULL"),   # cpu | memory | storage | other
+    ("avg_value", "DECIMAL(18,4)"),
+    ("max_value", "DECIMAL(18,4)"),
+    ("metric_unit", "VARCHAR"),
+    ("sample_count", "INTEGER NOT NULL"),
+]
+
+MART_UPTIME_SUMMARY_TABLE = "mart_uptime_summary"
+
+MART_UPTIME_SUMMARY_COLUMNS: list[tuple[str, str]] = [
+    ("period_month", "VARCHAR NOT NULL"),
+    ("subject_type", "VARCHAR NOT NULL"),    # node | service
+    ("subject_id", "VARCHAR NOT NULL"),
+    ("subject_name", "VARCHAR"),
+    ("availability_pct", "DECIMAL(6,3) NOT NULL"),
+    ("up_samples", "INTEGER NOT NULL"),
+    ("total_samples", "INTEGER NOT NULL"),
+    ("first_observed_at", "TIMESTAMP"),
+    ("last_observed_at", "TIMESTAMP"),
+]
+
+MART_INFRA_COST_TABLE = "mart_infra_cost"
+
+MART_INFRA_COST_COLUMNS: list[tuple[str, str]] = [
+    ("billing_month", "VARCHAR NOT NULL"),
+    ("cost_type", "VARCHAR NOT NULL"),       # electricity | hardware_amortisation
+    ("subject_id", "VARCHAR NOT NULL"),      # device_id or asset_id
+    ("subject_name", "VARCHAR"),
+    ("est_kwh", "DECIMAL(18,4)"),
+    ("unit_price", "DECIMAL(18,4)"),
+    ("currency", "VARCHAR"),
+    ("est_cost", "DECIMAL(18,4)"),
+    ("cost_basis", "VARCHAR NOT NULL"),
+]
+
+
 def cluster_metric_id(
     hostname: str,
     metric_name: str,

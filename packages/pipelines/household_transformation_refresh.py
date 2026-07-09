@@ -37,6 +37,7 @@ BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
     "mart_usage_vs_price_summary": (
         lambda service: service.refresh_usage_vs_price_summary()
     ),
+    "mart_energy_daily": (lambda service: service.refresh_energy_daily()),
     "mart_contract_review_candidates": (
         lambda service: service.refresh_contract_review_candidates()
     ),
@@ -84,6 +85,9 @@ BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
     "mart_backup_freshness": (lambda service: service.refresh_backup_freshness()),
     "mart_storage_risk": (lambda service: service.refresh_storage_risk()),
     "mart_workload_cost_7d": (lambda service: service.refresh_workload_cost_7d()),
+    "mart_cluster_utilization": (lambda service: service.refresh_cluster_utilization()),
+    "mart_uptime_summary": (lambda service: service.refresh_uptime_summary()),
+    "mart_infra_cost": (lambda service: service.refresh_infra_cost()),
 }
 
 

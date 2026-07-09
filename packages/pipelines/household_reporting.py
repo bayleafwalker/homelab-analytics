@@ -95,6 +95,12 @@ from packages.domains.homelab.pipelines.infrastructure_models import (
     CURRENT_DIM_NODE_VIEW,
     DIM_DEVICE,
     DIM_NODE,
+    MART_CLUSTER_UTILIZATION_COLUMNS,
+    MART_CLUSTER_UTILIZATION_TABLE,
+    MART_INFRA_COST_COLUMNS,
+    MART_INFRA_COST_TABLE,
+    MART_UPTIME_SUMMARY_COLUMNS,
+    MART_UPTIME_SUMMARY_TABLE,
 )
 from packages.domains.overview.pipelines.overview_models import (
     MART_AFFORDABILITY_RATIOS_COLUMNS,
@@ -123,6 +129,8 @@ from packages.domains.utilities.pipelines.utility_models import (
     MART_CONTRACT_RENEWAL_WATCHLIST_TABLE,
     MART_CONTRACT_REVIEW_CANDIDATES_COLUMNS,
     MART_CONTRACT_REVIEW_CANDIDATES_TABLE,
+    MART_ENERGY_DAILY_COLUMNS,
+    MART_ENERGY_DAILY_TABLE,
     MART_USAGE_VS_PRICE_SUMMARY_COLUMNS,
     MART_USAGE_VS_PRICE_SUMMARY_TABLE,
     MART_UTILITY_COST_SUMMARY_COLUMNS,
@@ -218,6 +226,11 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         relation_name=MART_USAGE_VS_PRICE_SUMMARY_TABLE,
         columns=MART_USAGE_VS_PRICE_SUMMARY_COLUMNS,
         order_by="utility_type, period",
+    ),
+    MART_ENERGY_DAILY_TABLE: PublicationRelation(
+        relation_name=MART_ENERGY_DAILY_TABLE,
+        columns=MART_ENERGY_DAILY_COLUMNS,
+        order_by="usage_day, utility_type, meter_id",
     ),
     MART_CONTRACT_REVIEW_CANDIDATES_TABLE: PublicationRelation(
         relation_name=MART_CONTRACT_REVIEW_CANDIDATES_TABLE,
@@ -398,6 +411,21 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         relation_name=MART_WORKLOAD_COST_7D_TABLE,
         columns=MART_WORKLOAD_COST_7D_COLUMNS,
         order_by="est_monthly_cost DESC NULLS LAST",
+    ),
+    MART_CLUSTER_UTILIZATION_TABLE: PublicationRelation(
+        relation_name=MART_CLUSTER_UTILIZATION_TABLE,
+        columns=MART_CLUSTER_UTILIZATION_COLUMNS,
+        order_by="period_day, hostname, resource_type",
+    ),
+    MART_UPTIME_SUMMARY_TABLE: PublicationRelation(
+        relation_name=MART_UPTIME_SUMMARY_TABLE,
+        columns=MART_UPTIME_SUMMARY_COLUMNS,
+        order_by="period_month, subject_type, subject_id",
+    ),
+    MART_INFRA_COST_TABLE: PublicationRelation(
+        relation_name=MART_INFRA_COST_TABLE,
+        columns=MART_INFRA_COST_COLUMNS,
+        order_by="billing_month, cost_type, subject_id",
     ),
     # Scenario projection tables — ephemeral per-scenario rows written by the
     # scenario service and read back via scenario comparison endpoints.

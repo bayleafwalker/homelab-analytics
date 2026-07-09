@@ -219,11 +219,17 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 publication_key="rpt_current_dim_meter",
                 name="Current meter view",
             ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_utility_usage_energy_daily",
+                publication_key="mart_energy_daily",
+                name="Energy daily breakdown mart",
+            ),
         ),
         refresh_publication_keys=(
             "mart_utility_cost_summary",
             "mart_utility_cost_trend_monthly",
             "mart_usage_vs_price_summary",
+            "mart_energy_daily",
             # Overview compositions depend on utility marts
             "mart_household_overview",
             "mart_open_attention_items",
@@ -405,12 +411,30 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 publication_key="mart_workload_cost_7d",
                 name="Workload cost 7-day rolling mart",
             ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_homelab_cluster_utilization",
+                publication_key="mart_cluster_utilization",
+                name="Cluster utilization mart",
+            ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_homelab_uptime_summary",
+                publication_key="mart_uptime_summary",
+                name="Uptime summary mart",
+            ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_homelab_infra_cost",
+                publication_key="mart_infra_cost",
+                name="Infrastructure cost mart",
+            ),
         ),
         refresh_publication_keys=(
             "mart_service_health_current",
             "mart_backup_freshness",
             "mart_storage_risk",
             "mart_workload_cost_7d",
+            "mart_cluster_utilization",
+            "mart_uptime_summary",
+            "mart_infra_cost",
         ),
     ),
 )

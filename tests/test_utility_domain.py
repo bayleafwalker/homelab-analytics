@@ -200,6 +200,34 @@ class UtilityTransformationTests(unittest.TestCase):
         self.assertEqual(Decimal("320.5000"), Decimal(matched_row["usage_quantity"]))
         self.assertAlmostEqual(0.15, float(matched_row["unit_cost"]), places=4)
 
+    def test_refresh_energy_daily_breaks_down_usage_by_day_and_type(self) -> None:
+        service = TransformationService(DuckDBStore.memory())
+        service.load_utility_usage(self._make_usage_rows(), run_id="run-usage-001")
+
+        count = service.refresh_energy_daily()
+
+        self.assertEqual(3, count)
+        rows = service.get_energy_daily()
+        self.assertEqual(3, len(rows))
+
+        electricity_rows = service.get_energy_daily(utility_type="electricity")
+        self.assertEqual(2, len(electricity_rows))
+        january_electricity = electricity_rows[0]
+        self.assertEqual("2026-01-01", january_electricity["usage_day"].isoformat())
+        self.assertEqual("elec-001", january_electricity["meter_id"])
+        self.assertEqual(Decimal("320.5000"), Decimal(january_electricity["total_quantity"]))
+        self.assertEqual(1, january_electricity["reading_count"])
+
+        january_rows = service.get_energy_daily(
+            from_day="2026-01-01",
+            to_day="2026-01-31",
+        )
+        self.assertEqual(2, len(january_rows))
+        self.assertEqual(
+            {"electricity", "water"},
+            {row["utility_type"] for row in january_rows},
+        )
+
     def test_utility_cost_summary_filters_and_granularity(self) -> None:
         service = TransformationService(DuckDBStore.memory())
         service.load_utility_usage(self._make_usage_rows(), run_id="run-usage-001")
