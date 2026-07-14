@@ -1,22 +1,23 @@
-SPRINT: domain-marts-fillout — Backfill Ten Planned Marts Across Infra, Home-Auto, Assets, and Subscriptions  [planned]
-Goal:   Backfill — ship the ten marts named in docs/plans/additional-data-domains.md that are not yet implemented, closing the U7 gap for cluster and home-automation reporting and completing subscription and cross-instrument debt views.
-ID:     398
-Items:  4 total — 4 done, 0 active, 0 pending, 0 blocked
+SPRINT: policy-truth-boundary — Roadmap Honesty and Policy Scaffold Separation  [closed]
+Goal:   
+Dates:  2026-05-10 to 2026-05-23
+ID:     354
+Items:  5 total — 5 done, 0 active, 0 pending, 0 blocked
 
---- Track: infra ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #1044  Implement mart_energy_daily, mart_infra_cost, mart_uptime_summary, mart_cluster_utilization with publication contracts, migrations, and reporting tests  (assignee: -)
+--- Track: roadmap-truth ---
+  health: 3 items — 3 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #707  Change Stage 5 status from 'substantially complete' to 'scaffolded with working examples'; document what is and is not done  (assignee: -)
+    ref [doc] household-operating-platform-roadmap: docs/plans/household-operating-platform-roadmap.md
+  [done    ] #708  Add Stage 6 status note: current state relative to adapter extraction goal  (assignee: -)
+    ref [doc] household-operating-platform-roadmap: docs/plans/household-operating-platform-roadmap.md
+  [done    ] #718  Remove /ingest/subscriptions and /ingest/contract-prices (deprecated 2026-04-25, sunset 2026-08-01)  (assignee: -)
+    ref [doc] 2026-06-backlog-refinement-dispatch: docs/plans/2026-06-backlog-refinement-dispatch.md
 
---- Track: home-auto ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #1045  Implement mart_climate_summary, mart_automation_reliability, mart_device_battery with publication contracts, migrations, and reporting tests  (assignee: -)
+--- Track: policy-separation ---
+  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #709  Separate ha_policy.py built-in demo policies from future operator-authored policy model; add design note for policy registry  (assignee: -)
+    ref [doc] household-operating-platform-roadmap: docs/plans/household-operating-platform-roadmap.md
+  [done    ] #710  Define 'policy engine done' acceptance criteria in roadmap Stage 5 section  (assignee: -)
+    ref [doc] household-operating-platform-roadmap: docs/plans/household-operating-platform-roadmap.md
 
---- Track: assets ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #1046  Implement mart_asset_value and mart_depreciation_schedule with publication contracts, migrations, and reporting tests  (assignee: -)
-
---- Track: finance ---
-  health: 1 items — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #1047  Implement mart_debt_overview (cross-instrument) and mart_subscription_changes (activation/cancellation by period) with publication contracts, migrations, and reporting tests  (assignee: -)
-
-Rendered: 2026-07-09T19:51:56Z
+Rendered: 2026-07-14T12:29:14Z
