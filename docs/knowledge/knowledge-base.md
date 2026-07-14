@@ -1,5 +1,5 @@
 # Knowledge Base — homelab-analytics
-Generated: 2026-04-26T06:20:38Z
+Generated: 2026-07-14T14:31:03Z
 
 ## Decisions
 
@@ -661,6 +661,14 @@ Balance snapshots belong in the transformation layer as DuckDB-backed facts deri
 
 ## Patterns
 
+### Roadmap-honesty corrections and not-yet-built design notes are not capability boundaries
+Source: sprint: 354
+Tags: capability, boundary, sprint-close
+
+At sprint close, distinguish documentation-honesty corrections and not-yet-built design scaffolding from an actual capability delta. Sprint policy-truth-boundary (#354) corrected overstated roadmap status language ("substantially complete" -> "scaffolded with working examples"), added an accurate status note, and added a design note plus acceptance criteria for a policy registry that was explicitly not built in the sprint. None of that is a before/after capability change — if anything it retracts an overclaimed capability rather than creating one. Completing an already-announced route deprecation is likewise not a capability delta. Pattern: before drafting a capability receipt at sprint close, check whether the sprint's items describe reality more accurately or scope future work, versus actually shipping something newly reliable, cheaper, or better-governed. Only the latter qualifies.
+
+---
+
 ### Auth guards belong in a factory, not inline in create_app()
 Source: sprint: 77
 Tags: auth, kernel, factory-pattern
@@ -766,6 +774,14 @@ Prometheus and Home Assistant API responses should land unchanged through raw-by
 ---
 
 ## Lessons
+
+### Removed domain-specific ingest routes without hard-coding control-plane source asset identities in frontend upload shortcuts.
+Source: track: roadmap-truth, sprint: 354
+Tags: configured-csv, control-plane, frontend-upload, route-removal
+
+The first migration of /upload/subscriptions and /upload/contract-prices to /ingest/configured-csv used test-only source_asset_id values. Review caught that source assets are operator/catalog-owned, so the final implementation passes upload_path and lets the backend use the built-in domain services only when no explicit configured binding is provided. Rule: when collapsing domain-specific upload routes into a generic configured endpoint, don't hard-code catalog-owned identifiers in the frontend shortcut — pass the raw input and let the backend resolve the binding.
+
+---
 
 ### SQLitePolicyRegistryMixin in-memory connections must not be closed between calls — use no-close context manager
 Source: track: stage-5, sprint: 72
@@ -935,14 +951,6 @@ Source-detection behavior is verified through API fixture tests (configured CSV 
 
 ---
 
-### Claim proof handling must preserve claim_token for lifecycle operations
-Source: track: guided-onboarding, sprint: 26
-Tags: claims, coordination, handoff
-
-Claim ownership in sprintctl is enforced by claim_id plus claim_token. If token persistence is lost, lifecycle operations (status updates, handoff, release) can block even when identity metadata matches; preserve token immediately after claim create.
-
----
-
 ### Require claim token or explicit handoff before mutating exclusively claimed items
 Source: sprint: 5
 Tags: sprintctl, claims, coordination
@@ -964,6 +972,24 @@ Source: sprint: 12
 Tags: sprintctl, workflow, handoff, process
 
 The sprint closeout exposed that duplicate historical packets and stale tracker entries are easy to confuse with active work; future sprint selection should start from live sprintctl state, then use docs and snapshots as supporting context.
+
+---
+
+## Coordination Lessons
+
+### sprintctl 'takeup take' crashed against PgStore (fixed by later remote-mode hardening)
+Source: track: roadmap-truth, sprint: 354
+Tags: sprintctl, remote-mode, takeup, bug
+
+On 2026-05-14, `sprintctl takeup take` crashed for a remote-backend repo with `AttributeError: 'PgStore' object has no attribute 'execute'`. Root cause: `_matching_active_takeups` in sprintctl's CLI was calling the storage-module function with the wrong module reference for remote mode, so a sqlite-shaped query (`conn.execute(...)`) ran directly against a `PgStore`, which only exposes `.conn.cursor()`. Verified fixed as of 2026-07-14: `takeup_take_cmd` now resolves `store, m = _get_store(obj)` and threads `m` through to `_matching_active_takeups(store, ..., m=m)`, so the correct backend module (`sprintctl.db` or `sprintctl.pg`) is always used. Lesson: any code path that accepts a raw connection/store object and also accepts a backend module parameter must actually pass that module down through every helper it calls — a default argument silently falling back to the sqlite module is invisible until someone runs it against postgres.
+
+---
+
+### Claim proof handling must preserve claim_token for lifecycle operations
+Source: track: guided-onboarding, sprint: 26
+Tags: claims, coordination, handoff
+
+Claim ownership in sprintctl is enforced by claim_id plus claim_token. If token persistence is lost, lifecycle operations (status updates, handoff, release) can block even when identity metadata matches; preserve token immediately after claim create.
 
 ---
 
