@@ -10,6 +10,8 @@ Covers:
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 import pytest
 
 from packages.pipelines.transformation_service import TransformationService
@@ -17,12 +19,20 @@ from packages.storage.duckdb_store import DuckDBStore
 from tests.test_homelab_domain import _service_rows, _workload_rows
 
 # ---------------------------------------------------------------------------
-# Fixture data — seed all three feeder domains
+# Fixture data — seed all three feeder domains.
+# Transaction months are relative to today so now-windowed marts (e.g. the
+# transaction-anomalies 90-day lookback feeding open_attention_items) keep
+# seeing the fixture rows as real time passes.
 # ---------------------------------------------------------------------------
+
+_CURR_MONTH_START = date.today().replace(day=1)
+_PREV_MONTH_START = (_CURR_MONTH_START - timedelta(days=1)).replace(day=1)
+MONTH_A = _PREV_MONTH_START.strftime("%Y-%m")
+MONTH_B = _CURR_MONTH_START.strftime("%Y-%m")
 
 TRANSACTION_ROWS = [
     {
-        "booked_at": "2026-01-05",
+        "booked_at": f"{MONTH_A}-05",
         "account_id": "CHK-001",
         "counterparty_name": "Supermarket",
         "amount": "-50.00",
@@ -30,7 +40,7 @@ TRANSACTION_ROWS = [
         "description": "Groceries",
     },
     {
-        "booked_at": "2026-01-10",
+        "booked_at": f"{MONTH_A}-10",
         "account_id": "CHK-001",
         "counterparty_name": "Employer",
         "amount": "2500.00",
@@ -38,7 +48,7 @@ TRANSACTION_ROWS = [
         "description": "Salary",
     },
     {
-        "booked_at": "2026-02-05",
+        "booked_at": f"{MONTH_B}-05",
         "account_id": "CHK-001",
         "counterparty_name": "Supermarket",
         "amount": "-60.00",
@@ -46,7 +56,7 @@ TRANSACTION_ROWS = [
         "description": "Groceries",
     },
     {
-        "booked_at": "2026-02-10",
+        "booked_at": f"{MONTH_B}-10",
         "account_id": "CHK-001",
         "counterparty_name": "Employer",
         "amount": "2500.00",
@@ -54,7 +64,7 @@ TRANSACTION_ROWS = [
         "description": "Salary",
     },
     {
-        "booked_at": "2026-02-20",
+        "booked_at": f"{MONTH_B}-20",
         "account_id": "CHK-001",
         "counterparty_name": "New Vendor",
         "amount": "-300.00",
