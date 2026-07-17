@@ -23,12 +23,12 @@ from typing import Any, Callable, Literal, cast
 from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+import packages.application.use_cases.ha_state_ingestion as ha_state_ingestion
 from apps.api.response_models import (
     HaActionsStatusModel,
     HaBridgeStatusModel,
     HaMqttStatusModel,
 )
-import packages.application.use_cases.ha_state_ingestion as ha_state_ingestion
 from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
 from packages.pipelines.reporting_service import ReportingService, ScalarMetricSnapshot
 
