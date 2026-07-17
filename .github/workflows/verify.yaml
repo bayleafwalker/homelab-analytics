@@ -32,6 +32,13 @@ jobs:
       - name: Run blocking verification
         run: make verify-fast
 
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results-${{ github.sha }}
+          path: apps/web/frontend/test-results
+          if-no-files-found: ignore
+
       - name: Build contract artifact bundle for pull requests
         run: make contract-release-artifacts CONTRACT_BASE_REF=origin/${{ github.base_ref }}
 
