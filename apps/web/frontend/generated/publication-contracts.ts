@@ -3,6 +3,7 @@
 
 export const publicationContractMap = {
   "account_balance_trend": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -70,8 +71,11 @@ export const publicationContractMap = {
         "unit": "count"
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Cumulative balance trend per account derived from transaction history.",
     "display_name": "Account Balance Trend",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "finance",
     "pack_version": "1.0.0",
@@ -90,6 +94,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "backup_freshness": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -183,8 +188,11 @@ export const publicationContractMap = {
         "unit": "count"
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Most recent backup per target with staleness flag (>24h = stale).",
     "display_name": "Backup Freshness",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "homelab",
     "pack_version": "0.1.0",
@@ -210,7 +218,162 @@ export const publicationContractMap = {
     ],
     "visibility": "public"
   },
+  "budget_variance": {
+    "assessed_at": null,
+    "columns": [
+      {
+        "aggregation": null,
+        "description": "Name of the budget envelope being evaluated.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "budget_name",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Stable category slug used to join with spend data.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "category_id",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Human-readable period label for the budget row such as a month slug.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "period_label",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": "none",
+        "description": "Budgeted target amount for the category and period.",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "target_amount",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "sum",
+        "description": "Actual spend for the category and period.",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "actual_amount",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "none",
+        "description": "Signed difference between actual and target amounts.",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "variance",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "none",
+        "description": "Variance as a percentage of the target amount.",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "variance_pct",
+        "nullable": true,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4)",
+        "unit": "percent"
+      },
+      {
+        "aggregation": null,
+        "description": "Budget status: under_budget, on_budget, or over_budget.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "status",
+        "nullable": false,
+        "semantic_role": "status",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Operator-facing state: good, warning, or needs_action.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "state",
+        "nullable": false,
+        "semantic_role": "status",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "ISO currency code for the budget amounts.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "currency",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      }
+    ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
+    "description": "Planned vs actual spend by category and period, with variance and budget state.",
+    "display_name": "Budget Variance",
+    "freshness_state": null,
+    "lineage_required": true,
+    "pack_name": "finance",
+    "pack_version": "1.0.0",
+    "publication_key": "budget_variance",
+    "relation_name": "mart_budget_variance",
+    "renderer_hints": {},
+    "retention_policy": "indefinite",
+    "schema_name": "budget_variance",
+    "schema_version": "1.0.0",
+    "supported_renderers": [
+      "web"
+    ],
+    "ui_descriptor_keys": [],
+    "visibility": "public"
+  },
   "contract_price_current": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -369,8 +532,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Latest contracted unit prices for utilities and services.",
     "display_name": "Current Contract Prices",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "utilities",
     "pack_version": "1.0.0",
@@ -389,6 +555,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "contract_renewal_watchlist": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -508,8 +675,11 @@ export const publicationContractMap = {
         "unit": "days"
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Active utility contracts with renewal or expiry dates within the next 90 days.",
     "display_name": "Contract Renewal Watchlist",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "utilities",
     "pack_version": "1.0.0",
@@ -528,6 +698,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "contract_review_candidates": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -634,8 +805,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Utility contracts flagged for review based on price, tenure, or market comparison signals.",
     "display_name": "Contract Review Candidates",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "utilities",
     "pack_version": "1.0.0",
@@ -654,6 +828,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "current_operating_baseline": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -721,8 +896,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Household financial baseline — average monthly spend, recurring costs, utility baseline, and current account balance.",
     "display_name": "Current Operating Baseline",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "overview",
     "pack_version": "1.0.0",
@@ -741,6 +919,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "dim_account": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -782,8 +961,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Current snapshot of canonical household account records.",
     "display_name": "Current Accounts",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -800,6 +982,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "dim_asset": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -906,8 +1089,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Current snapshot of tracked household and homelab assets.",
     "display_name": "Current Assets",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -924,6 +1110,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "dim_budget": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -1004,8 +1191,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Current snapshot of budget definitions keyed to canonical categories.",
     "display_name": "Current Budgets",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -1022,6 +1212,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "dim_category": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -1115,8 +1306,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Current snapshot of the shared cross-domain category registry.",
     "display_name": "Current Categories",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -1133,6 +1327,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "dim_contract": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -1239,8 +1434,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Current snapshot of shared contract definitions used by subscriptions and utility-pricing workflows.",
     "display_name": "Current Contracts",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -1257,6 +1455,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "dim_counterparty": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -1311,8 +1510,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Current snapshot of canonical counterparties shared by transaction-facing finance reporting.",
     "display_name": "Current Counterparties",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -1328,7 +1530,110 @@ export const publicationContractMap = {
     "ui_descriptor_keys": [],
     "visibility": "public"
   },
+  "dim_device": {
+    "assessed_at": null,
+    "columns": [
+      {
+        "aggregation": null,
+        "description": "Stable surrogate key for the current device row.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "sk",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Stable device identifier used across homelab facts.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "device_id",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Human-readable device name shown in inventory views.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "device_name",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Device category such as switch, sensor, or hub.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "device_type",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Physical location or room where the device is installed.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "location",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": "latest",
+        "description": "Rated power consumption of the device, in watts.",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "power_rating_watts",
+        "nullable": true,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(10,2)",
+        "unit": "watts"
+      }
+    ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
+    "description": "Current snapshot of canonical physical devices tracked in the homelab inventory including network gear, sensors, and smart home hardware.",
+    "display_name": "Current Devices",
+    "freshness_state": null,
+    "lineage_required": true,
+    "pack_name": null,
+    "pack_version": null,
+    "publication_key": "dim_device",
+    "relation_name": "rpt_current_dim_device",
+    "renderer_hints": {},
+    "retention_policy": "indefinite",
+    "schema_name": "dim_device",
+    "schema_version": "1.0.0",
+    "supported_renderers": [
+      "web"
+    ],
+    "ui_descriptor_keys": [],
+    "visibility": "public"
+  },
   "dim_entity": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -1448,8 +1753,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Current snapshot of canonical Home Assistant entities kept separate from homelab operational models.",
     "display_name": "Current Home Automation Entities",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -1465,7 +1773,97 @@ export const publicationContractMap = {
     "ui_descriptor_keys": [],
     "visibility": "public"
   },
+  "dim_household_member": {
+    "assessed_at": null,
+    "columns": [
+      {
+        "aggregation": null,
+        "description": "Stable surrogate key for the current household member row.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "sk",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Stable household member identifier used for attribution across domains.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "member_id",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Human-readable member name shown in attribution surfaces.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "display_name",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Member role within the household (head, partner, dependent, lodger).",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "role",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Whether the member is currently active and eligible for attribution.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "boolean",
+        "name": "active",
+        "nullable": true,
+        "semantic_role": "status",
+        "sortable": true,
+        "storage_type": "BOOLEAN",
+        "unit": null
+      }
+    ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
+    "description": "Current snapshot of canonical household members used for attribution of transactions, assets, loans, and subscriptions.",
+    "display_name": "Current Household Members",
+    "freshness_state": null,
+    "lineage_required": true,
+    "pack_name": null,
+    "pack_version": null,
+    "publication_key": "dim_household_member",
+    "relation_name": "rpt_current_dim_household_member",
+    "renderer_hints": {},
+    "retention_policy": "indefinite",
+    "schema_name": "dim_household_member",
+    "schema_version": "1.0.0",
+    "supported_renderers": [
+      "web"
+    ],
+    "ui_descriptor_keys": [],
+    "visibility": "public"
+  },
   "dim_loan": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -1611,8 +2009,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Current snapshot of canonical household loan definitions and terms.",
     "display_name": "Current Loans",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -1629,6 +2030,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "dim_meter": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -1709,8 +2111,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Current snapshot of canonical utility meters and their source metadata.",
     "display_name": "Current Meters",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -1726,7 +2131,340 @@ export const publicationContractMap = {
     "ui_descriptor_keys": [],
     "visibility": "public"
   },
+  "dim_node": {
+    "assessed_at": null,
+    "columns": [
+      {
+        "aggregation": null,
+        "description": "Stable surrogate key for the current node row.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "sk",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Stable hostname used as the natural key for the node.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "hostname",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Human-readable node name shown in infrastructure views.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "node_name",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Cluster role of the node such as control-plane or worker.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "role",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "CPU model or descriptor for the node.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "cpu",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": "latest",
+        "description": "Total RAM installed on the node, in gigabytes.",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "ram_gb",
+        "nullable": true,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(10,2)",
+        "unit": "gb"
+      },
+      {
+        "aggregation": null,
+        "description": "Operating system running on the node.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "os",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      }
+    ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
+    "description": "Current snapshot of canonical infrastructure nodes including physical hosts and virtual machines in the homelab cluster.",
+    "display_name": "Current Infrastructure Nodes",
+    "freshness_state": null,
+    "lineage_required": true,
+    "pack_name": null,
+    "pack_version": null,
+    "publication_key": "dim_node",
+    "relation_name": "rpt_current_dim_node",
+    "renderer_hints": {},
+    "retention_policy": "indefinite",
+    "schema_name": "dim_node",
+    "schema_version": "1.0.0",
+    "supported_renderers": [
+      "web"
+    ],
+    "ui_descriptor_keys": [],
+    "visibility": "public"
+  },
+  "dim_service": {
+    "assessed_at": null,
+    "columns": [
+      {
+        "aggregation": null,
+        "description": "Stable surrogate key for the current service row.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "sk",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Stable service identifier used across homelab facts.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "service_id",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Human-readable name of the service.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "service_name",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Service category: container, vm, addon, or integration.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "service_type",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Host on which the service is running.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "host",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Operational criticality tier: critical, standard, or background.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "criticality",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Orchestration platform managing the service: homeassistant, portainer, or manual.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "managed_by",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      }
+    ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
+    "description": "Current snapshot of canonical homelab services including containers, VMs, add-ons, and integrations managed across hosts.",
+    "display_name": "Current Services",
+    "freshness_state": null,
+    "lineage_required": true,
+    "pack_name": null,
+    "pack_version": null,
+    "publication_key": "dim_service",
+    "relation_name": "rpt_current_dim_service",
+    "renderer_hints": {},
+    "retention_policy": "indefinite",
+    "schema_name": "dim_service",
+    "schema_version": "1.0.0",
+    "supported_renderers": [
+      "web"
+    ],
+    "ui_descriptor_keys": [],
+    "visibility": "public"
+  },
+  "dim_workload": {
+    "assessed_at": null,
+    "columns": [
+      {
+        "aggregation": null,
+        "description": "Stable surrogate key for the current workload row.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "sk",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Stable workload identifier used across homelab facts.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "workload_id",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Home Assistant entity identifier associated with the workload, if any.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "entity_id",
+        "nullable": true,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Human-readable workload name shown in dashboards.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "display_name",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Host on which the workload is running.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "host",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Workload category: container, vm, or process.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "workload_type",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      }
+    ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
+    "description": "Current snapshot of canonical homelab workloads representing containers, VMs, and processes running across hosts.",
+    "display_name": "Current Workloads",
+    "freshness_state": null,
+    "lineage_required": true,
+    "pack_name": null,
+    "pack_version": null,
+    "publication_key": "dim_workload",
+    "relation_name": "rpt_current_dim_workload",
+    "renderer_hints": {},
+    "retention_policy": "indefinite",
+    "schema_name": "dim_workload",
+    "schema_version": "1.0.0",
+    "supported_renderers": [
+      "web"
+    ],
+    "ui_descriptor_keys": [],
+    "visibility": "public"
+  },
   "electricity_price_current": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -1885,8 +2623,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Latest electricity tariff rates derived from contract price data.",
     "display_name": "Current Electricity Prices",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "utilities",
     "pack_version": "1.0.0",
@@ -1904,7 +2645,84 @@ export const publicationContractMap = {
     ],
     "visibility": "public"
   },
+  "fact_scenario_projection_assumption_edge": {
+    "assessed_at": null,
+    "columns": [
+      {
+        "aggregation": null,
+        "description": "Scenario id",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "scenario_id",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Projection table",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "projection_table",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Projection row key",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "projection_row_key",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Assumption key",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "assumption_key",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      }
+    ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
+    "description": null,
+    "display_name": "Fact Scenario Projection Assumption Edge",
+    "freshness_state": null,
+    "lineage_required": true,
+    "pack_name": null,
+    "pack_version": null,
+    "publication_key": "fact_scenario_projection_assumption_edge",
+    "relation_name": "fact_scenario_projection_assumption_edge",
+    "renderer_hints": {},
+    "retention_policy": "indefinite",
+    "schema_name": "fact_scenario_projection_assumption_edge",
+    "schema_version": "1.0.0",
+    "supported_renderers": [
+      "web"
+    ],
+    "ui_descriptor_keys": [],
+    "visibility": "public"
+  },
   "household_overview": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -2024,8 +2842,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Top-line summary of current cashflow, utility spend, subscriptions, and account balance direction.",
     "display_name": "Household Overview",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "overview",
     "pack_version": "1.0.0",
@@ -2043,7 +2864,162 @@ export const publicationContractMap = {
     ],
     "visibility": "public"
   },
+  "loan_overview": {
+    "assessed_at": null,
+    "columns": [
+      {
+        "aggregation": null,
+        "description": "Stable loan identifier derived from loan name and source.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "loan_id",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Human-readable loan name as provided in the repayment data.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "loan_name",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Name of the lending institution.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "lender",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": "none",
+        "description": "Original principal amount at loan origination.",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "original_principal",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "latest",
+        "description": "Estimated outstanding balance derived from repayment history.",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "current_balance_estimate",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "none",
+        "description": "Regular monthly repayment amount.",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "monthly_payment",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "none",
+        "description": "Total interest projected over the remaining loan term.",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "total_interest_projected",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "sum",
+        "description": "Total interest paid to date based on repayment history.",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "total_interest_paid",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "none",
+        "description": "Estimated number of monthly payments remaining.",
+        "filterable": false,
+        "grain": null,
+        "json_type": "number",
+        "name": "remaining_months",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "INTEGER NOT NULL",
+        "unit": "count"
+      },
+      {
+        "aggregation": null,
+        "description": "ISO currency code for the loan amounts.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "currency",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      }
+    ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
+    "description": "Outstanding loan balances with amortisation progress and projected interest costs.",
+    "display_name": "Loan Overview",
+    "freshness_state": null,
+    "lineage_required": true,
+    "pack_name": "finance",
+    "pack_version": "1.0.0",
+    "publication_key": "loan_overview",
+    "relation_name": "mart_loan_overview",
+    "renderer_hints": {},
+    "retention_policy": "indefinite",
+    "schema_name": "loan_overview",
+    "schema_version": "1.0.0",
+    "supported_renderers": [
+      "web"
+    ],
+    "ui_descriptor_keys": [],
+    "visibility": "public"
+  },
   "mart_affordability_ratios": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": "none",
@@ -2150,8 +3126,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": null,
     "display_name": "Mart Affordability Ratios",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -2168,6 +3147,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "mart_budget_envelope_drift": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -2300,8 +3280,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": null,
     "display_name": "Mart Budget Envelope Drift",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -2318,6 +3301,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "mart_budget_progress_current": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -2424,8 +3408,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": null,
     "display_name": "Mart Budget Progress Current",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -2441,157 +3428,8 @@ export const publicationContractMap = {
     "ui_descriptor_keys": [],
     "visibility": "public"
   },
-  "mart_budget_variance": {
-    "columns": [
-      {
-        "aggregation": null,
-        "description": "Budget name",
-        "filterable": true,
-        "grain": null,
-        "json_type": "string",
-        "name": "budget_name",
-        "nullable": false,
-        "semantic_role": "dimension",
-        "sortable": true,
-        "storage_type": "VARCHAR NOT NULL",
-        "unit": null
-      },
-      {
-        "aggregation": null,
-        "description": "Category id",
-        "filterable": true,
-        "grain": null,
-        "json_type": "string",
-        "name": "category_id",
-        "nullable": false,
-        "semantic_role": "identifier",
-        "sortable": true,
-        "storage_type": "VARCHAR NOT NULL",
-        "unit": null
-      },
-      {
-        "aggregation": null,
-        "description": "Period label",
-        "filterable": true,
-        "grain": "month",
-        "json_type": "string",
-        "name": "period_label",
-        "nullable": false,
-        "semantic_role": "time",
-        "sortable": true,
-        "storage_type": "VARCHAR NOT NULL",
-        "unit": null
-      },
-      {
-        "aggregation": "none",
-        "description": "Target amount",
-        "filterable": false,
-        "grain": null,
-        "json_type": "string",
-        "name": "target_amount",
-        "nullable": false,
-        "semantic_role": "measure",
-        "sortable": true,
-        "storage_type": "DECIMAL(18,4) NOT NULL",
-        "unit": "currency"
-      },
-      {
-        "aggregation": "none",
-        "description": "Actual amount",
-        "filterable": false,
-        "grain": null,
-        "json_type": "string",
-        "name": "actual_amount",
-        "nullable": false,
-        "semantic_role": "measure",
-        "sortable": true,
-        "storage_type": "DECIMAL(18,4) NOT NULL",
-        "unit": "currency"
-      },
-      {
-        "aggregation": null,
-        "description": "Variance",
-        "filterable": true,
-        "grain": null,
-        "json_type": "string",
-        "name": "variance",
-        "nullable": false,
-        "semantic_role": "dimension",
-        "sortable": true,
-        "storage_type": "DECIMAL(18,4) NOT NULL",
-        "unit": null
-      },
-      {
-        "aggregation": "pct_change",
-        "description": "Variance pct",
-        "filterable": false,
-        "grain": null,
-        "json_type": "string",
-        "name": "variance_pct",
-        "nullable": true,
-        "semantic_role": "measure",
-        "sortable": true,
-        "storage_type": "DECIMAL(18,4)",
-        "unit": "percent"
-      },
-      {
-        "aggregation": null,
-        "description": "Status",
-        "filterable": true,
-        "grain": null,
-        "json_type": "string",
-        "name": "status",
-        "nullable": false,
-        "semantic_role": "status",
-        "sortable": true,
-        "storage_type": "VARCHAR NOT NULL",
-        "unit": null
-      },
-      {
-        "aggregation": null,
-        "description": "State",
-        "filterable": true,
-        "grain": null,
-        "json_type": "string",
-        "name": "state",
-        "nullable": false,
-        "semantic_role": "status",
-        "sortable": true,
-        "storage_type": "VARCHAR NOT NULL",
-        "unit": null
-      },
-      {
-        "aggregation": null,
-        "description": "Currency",
-        "filterable": true,
-        "grain": null,
-        "json_type": "string",
-        "name": "currency",
-        "nullable": false,
-        "semantic_role": "dimension",
-        "sortable": true,
-        "storage_type": "VARCHAR NOT NULL",
-        "unit": null
-      }
-    ],
-    "description": null,
-    "display_name": "Mart Budget Variance",
-    "lineage_required": true,
-    "pack_name": null,
-    "pack_version": null,
-    "publication_key": "mart_budget_variance",
-    "relation_name": "mart_budget_variance",
-    "renderer_hints": {},
-    "retention_policy": "indefinite",
-    "schema_name": "mart_budget_variance",
-    "schema_version": "1.0.0",
-    "supported_renderers": [
-      "web"
-    ],
-    "ui_descriptor_keys": [],
-    "visibility": "public"
-  },
   "mart_cost_trend_12m": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -2672,8 +3510,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": null,
     "display_name": "Mart Cost Trend 12M",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -2690,6 +3531,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "mart_homelab_roi": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": "count",
@@ -2848,8 +3690,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": null,
     "display_name": "Mart Homelab Roi",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -2866,6 +3711,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "mart_household_cost_model": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -2933,8 +3779,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": null,
     "display_name": "Mart Household Cost Model",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -2950,157 +3799,8 @@ export const publicationContractMap = {
     "ui_descriptor_keys": [],
     "visibility": "public"
   },
-  "mart_loan_overview": {
-    "columns": [
-      {
-        "aggregation": null,
-        "description": "Loan id",
-        "filterable": true,
-        "grain": null,
-        "json_type": "string",
-        "name": "loan_id",
-        "nullable": false,
-        "semantic_role": "identifier",
-        "sortable": true,
-        "storage_type": "VARCHAR NOT NULL",
-        "unit": null
-      },
-      {
-        "aggregation": null,
-        "description": "Loan name",
-        "filterable": true,
-        "grain": null,
-        "json_type": "string",
-        "name": "loan_name",
-        "nullable": false,
-        "semantic_role": "dimension",
-        "sortable": true,
-        "storage_type": "VARCHAR NOT NULL",
-        "unit": null
-      },
-      {
-        "aggregation": null,
-        "description": "Lender",
-        "filterable": true,
-        "grain": null,
-        "json_type": "string",
-        "name": "lender",
-        "nullable": false,
-        "semantic_role": "dimension",
-        "sortable": true,
-        "storage_type": "VARCHAR NOT NULL",
-        "unit": null
-      },
-      {
-        "aggregation": null,
-        "description": "Original principal",
-        "filterable": true,
-        "grain": null,
-        "json_type": "string",
-        "name": "original_principal",
-        "nullable": false,
-        "semantic_role": "dimension",
-        "sortable": true,
-        "storage_type": "DECIMAL(18,4) NOT NULL",
-        "unit": null
-      },
-      {
-        "aggregation": "latest",
-        "description": "Current balance estimate",
-        "filterable": false,
-        "grain": null,
-        "json_type": "string",
-        "name": "current_balance_estimate",
-        "nullable": false,
-        "semantic_role": "measure",
-        "sortable": true,
-        "storage_type": "DECIMAL(18,4) NOT NULL",
-        "unit": "currency"
-      },
-      {
-        "aggregation": null,
-        "description": "Monthly payment",
-        "filterable": true,
-        "grain": null,
-        "json_type": "string",
-        "name": "monthly_payment",
-        "nullable": false,
-        "semantic_role": "dimension",
-        "sortable": true,
-        "storage_type": "DECIMAL(18,4) NOT NULL",
-        "unit": null
-      },
-      {
-        "aggregation": "none",
-        "description": "Total interest projected",
-        "filterable": false,
-        "grain": null,
-        "json_type": "string",
-        "name": "total_interest_projected",
-        "nullable": false,
-        "semantic_role": "measure",
-        "sortable": true,
-        "storage_type": "DECIMAL(18,4) NOT NULL",
-        "unit": null
-      },
-      {
-        "aggregation": "none",
-        "description": "Total interest paid",
-        "filterable": false,
-        "grain": null,
-        "json_type": "string",
-        "name": "total_interest_paid",
-        "nullable": false,
-        "semantic_role": "measure",
-        "sortable": true,
-        "storage_type": "DECIMAL(18,4) NOT NULL",
-        "unit": null
-      },
-      {
-        "aggregation": "none",
-        "description": "Remaining months",
-        "filterable": false,
-        "grain": null,
-        "json_type": "number",
-        "name": "remaining_months",
-        "nullable": false,
-        "semantic_role": "measure",
-        "sortable": true,
-        "storage_type": "INTEGER NOT NULL",
-        "unit": null
-      },
-      {
-        "aggregation": null,
-        "description": "Currency",
-        "filterable": true,
-        "grain": null,
-        "json_type": "string",
-        "name": "currency",
-        "nullable": false,
-        "semantic_role": "dimension",
-        "sortable": true,
-        "storage_type": "VARCHAR NOT NULL",
-        "unit": null
-      }
-    ],
-    "description": null,
-    "display_name": "Mart Loan Overview",
-    "lineage_required": true,
-    "pack_name": null,
-    "pack_version": null,
-    "publication_key": "mart_loan_overview",
-    "relation_name": "mart_loan_overview",
-    "renderer_hints": {},
-    "retention_policy": "indefinite",
-    "schema_name": "mart_loan_overview",
-    "schema_version": "1.0.0",
-    "supported_renderers": [
-      "web"
-    ],
-    "ui_descriptor_keys": [],
-    "visibility": "public"
-  },
   "mart_loan_repayment_variance": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -3220,8 +3920,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": null,
     "display_name": "Mart Loan Repayment Variance",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -3238,6 +3941,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "mart_loan_schedule_projected": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -3357,8 +4061,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": null,
     "display_name": "Mart Loan Schedule Projected",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -3375,6 +4082,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "mart_monthly_cashflow_by_counterparty": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -3455,8 +4163,11 @@ export const publicationContractMap = {
         "unit": "count"
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": null,
     "display_name": "Mart Monthly Cashflow By Counterparty",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -3473,6 +4184,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "mart_recurring_cost_baseline": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": "none",
@@ -3553,8 +4265,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": null,
     "display_name": "Mart Recurring Cost Baseline",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -3571,6 +4286,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "monthly_cashflow": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -3638,8 +4354,11 @@ export const publicationContractMap = {
         "unit": "count"
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Aggregated monthly income and expense summary from account transactions.",
     "display_name": "Monthly Cashflow",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "finance",
     "pack_version": "1.0.0",
@@ -3658,6 +4377,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "open_attention_items": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -3738,8 +4458,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Aggregated attention items across domains — anomalies, contract reviews, upcoming renewals, and imminent payments.",
     "display_name": "Open Attention Items",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "overview",
     "pack_version": "1.0.0",
@@ -3757,7 +4480,444 @@ export const publicationContractMap = {
     ],
     "visibility": "public"
   },
+  "proj_homelab_cost_benefit_summary": {
+    "assessed_at": null,
+    "columns": [
+      {
+        "aggregation": null,
+        "description": "Scenario id",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "scenario_id",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Metric",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "metric",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Metric key",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "metric_key",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": "none",
+        "description": "Baseline value",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "baseline_value",
+        "nullable": true,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4)",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "none",
+        "description": "Scenario value",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "scenario_value",
+        "nullable": true,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4)",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "none",
+        "description": "Delta value",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "delta_value",
+        "nullable": true,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4)",
+        "unit": "currency"
+      },
+      {
+        "aggregation": null,
+        "description": "Unit",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "unit",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      }
+    ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
+    "description": null,
+    "display_name": "Proj Homelab Cost Benefit Summary",
+    "freshness_state": null,
+    "lineage_required": true,
+    "pack_name": null,
+    "pack_version": null,
+    "publication_key": "proj_homelab_cost_benefit_summary",
+    "relation_name": "proj_homelab_cost_benefit_summary",
+    "renderer_hints": {},
+    "retention_policy": "indefinite",
+    "schema_name": "proj_homelab_cost_benefit_summary",
+    "schema_version": "1.0.0",
+    "supported_renderers": [
+      "web"
+    ],
+    "ui_descriptor_keys": [],
+    "visibility": "public"
+  },
+  "proj_income_cashflow": {
+    "assessed_at": null,
+    "columns": [
+      {
+        "aggregation": null,
+        "description": "Scenario id",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "scenario_id",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Period",
+        "filterable": true,
+        "grain": "month",
+        "json_type": "number",
+        "name": "period",
+        "nullable": false,
+        "semantic_role": "time",
+        "sortable": true,
+        "storage_type": "INTEGER NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Projected month",
+        "filterable": true,
+        "grain": "month",
+        "json_type": "string",
+        "name": "projected_month",
+        "nullable": false,
+        "semantic_role": "time",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": "none",
+        "description": "Baseline income",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "baseline_income",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "none",
+        "description": "Scenario income",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "scenario_income",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "none",
+        "description": "Baseline expense",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "baseline_expense",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "none",
+        "description": "Scenario expense",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "scenario_expense",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "none",
+        "description": "Baseline net",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "baseline_net",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "none",
+        "description": "Scenario net",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "scenario_net",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": "none",
+        "description": "Net delta",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "net_delta",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      }
+    ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
+    "description": null,
+    "display_name": "Proj Income Cashflow",
+    "freshness_state": null,
+    "lineage_required": true,
+    "pack_name": null,
+    "pack_version": null,
+    "publication_key": "proj_income_cashflow",
+    "relation_name": "proj_income_cashflow",
+    "renderer_hints": {},
+    "retention_policy": "indefinite",
+    "schema_name": "proj_income_cashflow",
+    "schema_version": "1.0.0",
+    "supported_renderers": [
+      "web"
+    ],
+    "ui_descriptor_keys": [],
+    "visibility": "public"
+  },
+  "proj_loan_schedule": {
+    "assessed_at": null,
+    "columns": [
+      {
+        "aggregation": null,
+        "description": "Scenario id",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "scenario_id",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Loan id",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "loan_id",
+        "nullable": false,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Loan name",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "loan_name",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Period",
+        "filterable": true,
+        "grain": "month",
+        "json_type": "number",
+        "name": "period",
+        "nullable": false,
+        "semantic_role": "time",
+        "sortable": true,
+        "storage_type": "INTEGER NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Payment date",
+        "filterable": true,
+        "grain": "day",
+        "json_type": "string",
+        "name": "payment_date",
+        "nullable": false,
+        "semantic_role": "time",
+        "sortable": true,
+        "storage_type": "DATE NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Payment",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "payment",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Principal portion",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "principal_portion",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Interest portion",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "interest_portion",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "Extra repayment",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "extra_repayment",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": null
+      },
+      {
+        "aggregation": "latest",
+        "description": "Remaining balance",
+        "filterable": false,
+        "grain": null,
+        "json_type": "string",
+        "name": "remaining_balance",
+        "nullable": false,
+        "semantic_role": "measure",
+        "sortable": true,
+        "storage_type": "DECIMAL(18,4) NOT NULL",
+        "unit": "currency"
+      },
+      {
+        "aggregation": null,
+        "description": "Currency",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "currency",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
+      }
+    ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
+    "description": null,
+    "display_name": "Proj Loan Schedule",
+    "freshness_state": null,
+    "lineage_required": true,
+    "pack_name": null,
+    "pack_version": null,
+    "publication_key": "proj_loan_schedule",
+    "relation_name": "proj_loan_schedule",
+    "renderer_hints": {},
+    "retention_policy": "indefinite",
+    "schema_name": "proj_loan_schedule",
+    "schema_version": "1.0.0",
+    "supported_renderers": [
+      "web"
+    ],
+    "ui_descriptor_keys": [],
+    "visibility": "public"
+  },
   "recent_large_transactions": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -3877,8 +5037,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Notable transactions above a threshold in recent months.",
     "display_name": "Recent Large Transactions",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "finance",
     "pack_version": "1.0.0",
@@ -3897,6 +5060,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "recent_significant_changes": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -3990,8 +5154,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Biggest month-over-month changes in cashflow, category spend, and utility costs.",
     "display_name": "Recent Significant Changes",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "overview",
     "pack_version": "1.0.0",
@@ -4010,6 +5177,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "service_health_current": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -4142,8 +5310,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Latest health state per service with uptime and last-change timestamp.",
     "display_name": "Service Health (Current)",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "homelab",
     "pack_version": "0.1.0",
@@ -4170,6 +5341,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "spend_by_category_monthly": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -4237,8 +5409,11 @@ export const publicationContractMap = {
         "unit": "count"
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Monthly expense totals grouped by counterparty and category.",
     "display_name": "Spend by Category Monthly",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "finance",
     "pack_version": "1.0.0",
@@ -4257,6 +5432,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "storage_risk": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -4363,8 +5539,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Per-device capacity usage with risk tier (warn >80%, crit >90%).",
     "display_name": "Storage Risk",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "homelab",
     "pack_version": "0.1.0",
@@ -4391,6 +5570,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "subscription_summary": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -4523,8 +5703,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Active recurring subscription costs grouped by category.",
     "display_name": "Subscription Summary",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "finance",
     "pack_version": "1.0.0",
@@ -4543,6 +5726,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "transaction_anomalies_current": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -4636,8 +5820,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Recent transactions flagged as anomalous — first-time counterparties or unusual amounts.",
     "display_name": "Transaction Anomalies",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "finance",
     "pack_version": "1.0.0",
@@ -4656,6 +5843,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "transformation_audit": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -4762,8 +5950,11 @@ export const publicationContractMap = {
         "unit": "count"
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": null,
     "display_name": "Transformation Audit",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": null,
     "pack_version": null,
@@ -4780,6 +5971,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "upcoming_fixed_costs_30d": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -4873,8 +6065,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Active recurring subscriptions projected as upcoming charges in the next 30 days.",
     "display_name": "Upcoming Fixed Costs (30 days)",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "finance",
     "pack_version": "1.0.0",
@@ -4893,6 +6088,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "usage_vs_price_summary": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -4973,8 +6169,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Month-over-month comparison of usage and price changes — answers whether cost increases are driven by price or consumption.",
     "display_name": "Usage vs Price Summary",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "utilities",
     "pack_version": "1.0.0",
@@ -4993,6 +6192,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "utility_cost_summary": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -5190,8 +6390,11 @@ export const publicationContractMap = {
         "unit": null
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Monthly utility cost breakdown combining contract prices and usage.",
     "display_name": "Utility Cost Summary",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "utilities",
     "pack_version": "1.0.0",
@@ -5210,6 +6413,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "utility_cost_trend_monthly": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -5303,8 +6507,11 @@ export const publicationContractMap = {
         "unit": "count"
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Monthly aggregated utility costs and usage per utility type.",
     "display_name": "Utility Cost Trend (Monthly)",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "utilities",
     "pack_version": "1.0.0",
@@ -5323,6 +6530,7 @@ export const publicationContractMap = {
     "visibility": "public"
   },
   "workload_cost_7d": {
+    "assessed_at": null,
     "columns": [
       {
         "aggregation": null,
@@ -5429,8 +6637,11 @@ export const publicationContractMap = {
         "unit": "currency"
       }
     ],
+    "completeness_pct": null,
+    "confidence_verdict": null,
     "description": "Rolling 7-day average CPU and memory per workload with cost estimate.",
     "display_name": "Workload Cost (7-day rolling)",
+    "freshness_state": null,
     "lineage_required": true,
     "pack_name": "homelab",
     "pack_version": "0.1.0",

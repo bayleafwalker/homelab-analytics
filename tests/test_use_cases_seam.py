@@ -85,8 +85,6 @@ class TestSourceIngestionBytes(unittest.TestCase):
     def test_ingest_account_transaction_bytes_failed_run_skips_promotion(self) -> None:
         run = _make_run(passed=False)
         svc = _FakeIngestService(run=run)
-        promotion_mock = MagicMock(return_value=None)
-
         _, promotion = ingest_account_transaction_bytes(
             b"data",
             "upload.csv",

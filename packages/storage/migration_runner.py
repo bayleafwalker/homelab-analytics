@@ -193,13 +193,18 @@ def resolve_migrations_dir(
 
 
 def _split_statements(sql: str) -> list[str]:
-    """Split SQL text on semicolons, filtering empty blocks and comment-only chunks."""
+    """Split SQL text on semicolons, filtering empty blocks and comment-only chunks.
+
+    Comment lines are stripped before splitting so a semicolon inside a
+    ``--`` comment cannot cut a statement in half (which would execute the
+    comment remainder as SQL and break fresh bootstraps).
+    """
+    without_comments = "\n".join(
+        line for line in sql.splitlines() if not line.strip().startswith("--")
+    )
     result = []
-    for chunk in sql.split(";"):
-        lines = [
-            line for line in chunk.splitlines() if not line.strip().startswith("--")
-        ]
-        stmt = "\n".join(lines).strip()
+    for chunk in without_comments.split(";"):
+        stmt = chunk.strip()
         if stmt:
             result.append(stmt)
     return result

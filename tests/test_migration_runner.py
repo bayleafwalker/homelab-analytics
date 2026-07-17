@@ -40,6 +40,15 @@ def test_split_statements_strips_comments() -> None:
     assert "CREATE TABLE foo" in stmts[0]
 
 
+def test_split_statements_ignores_semicolons_inside_comments() -> None:
+    sql = textwrap.dedent("""\
+        -- config lives here; analytics lives elsewhere
+        CREATE TABLE foo (id TEXT PRIMARY KEY);
+    """)
+    stmts = _split_statements(sql)
+    assert stmts == ["CREATE TABLE foo (id TEXT PRIMARY KEY)"]
+
+
 def test_split_statements_empty_input() -> None:
     assert _split_statements("") == []
     assert _split_statements("   -- just comments\n") == []

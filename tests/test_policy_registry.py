@@ -27,7 +27,6 @@ from packages.storage.control_plane import (
 from packages.storage.migration_runner import apply_pending_sqlite_migrations
 from packages.storage.sqlite_policy_registry import SQLitePolicyRegistryMixin
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

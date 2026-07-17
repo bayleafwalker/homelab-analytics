@@ -94,6 +94,7 @@ def register_run_routes(
             ) from exc
 
         retry_context = merge_run_context(context, retry_of_run_id=original_run.run_id)
+        assert retry_context is not None  # retry_of_run_id is always populated
         retry_kind = recovery["retry_kind"]
 
         # Source asset validation for configured_csv stays in the route (raises HTTPException).

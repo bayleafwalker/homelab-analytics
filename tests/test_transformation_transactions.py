@@ -10,18 +10,27 @@ Covers:
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 import pytest
 
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
 # ---------------------------------------------------------------------------
-# Fixture data — transactions across 2 months, 2 accounts, multiple sizes
+# Fixture data — transactions across 2 months, 2 accounts, multiple sizes.
+# Months are relative to today so now-windowed marts (e.g. transaction
+# anomalies, 90-day lookback) keep seeing the fixture rows.
 # ---------------------------------------------------------------------------
+
+_CURR_MONTH_START = date.today().replace(day=1)
+_PREV_MONTH_START = (_CURR_MONTH_START - timedelta(days=1)).replace(day=1)
+MONTH_A = _PREV_MONTH_START.strftime("%Y-%m")
+MONTH_B = _CURR_MONTH_START.strftime("%Y-%m")
 
 LANDING_ROWS = [
     {
-        "booked_at": "2026-01-05",
+        "booked_at": f"{MONTH_A}-05",
         "account_id": "CHK-001",
         "counterparty_name": "Supermarket",
         "amount": "-42.50",
@@ -29,7 +38,7 @@ LANDING_ROWS = [
         "description": "Groceries",
     },
     {
-        "booked_at": "2026-01-10",
+        "booked_at": f"{MONTH_A}-10",
         "account_id": "CHK-001",
         "counterparty_name": "Employer",
         "amount": "2450.00",
@@ -37,7 +46,7 @@ LANDING_ROWS = [
         "description": "Salary",
     },
     {
-        "booked_at": "2026-01-15",
+        "booked_at": f"{MONTH_A}-15",
         "account_id": "CHK-001",
         "counterparty_name": "Supermarket",
         "amount": "-38.00",
@@ -45,7 +54,7 @@ LANDING_ROWS = [
         "description": "Groceries",
     },
     {
-        "booked_at": "2026-02-05",
+        "booked_at": f"{MONTH_B}-05",
         "account_id": "CHK-001",
         "counterparty_name": "Supermarket",
         "amount": "-45.00",
@@ -53,7 +62,7 @@ LANDING_ROWS = [
         "description": "Groceries",
     },
     {
-        "booked_at": "2026-02-10",
+        "booked_at": f"{MONTH_B}-10",
         "account_id": "CHK-001",
         "counterparty_name": "Employer",
         "amount": "2450.00",
@@ -61,7 +70,7 @@ LANDING_ROWS = [
         "description": "Salary",
     },
     {
-        "booked_at": "2026-02-20",
+        "booked_at": f"{MONTH_B}-20",
         "account_id": "CHK-002",
         "counterparty_name": "Insurance Co",
         "amount": "-850.00",
@@ -69,7 +78,7 @@ LANDING_ROWS = [
         "description": "Annual premium",
     },
     {
-        "booked_at": "2026-02-25",
+        "booked_at": f"{MONTH_B}-25",
         "account_id": "CHK-001",
         "counterparty_name": "One-Off Vendor",
         "amount": "-200.00",
@@ -105,10 +114,10 @@ class TestSpendByCategoryMonthly:
 
     def test_month_filter(self, svc: TransformationService) -> None:
         svc.refresh_spend_by_category_monthly()
-        jan = svc.get_spend_by_category_monthly(from_month="2026-01", to_month="2026-01")
-        feb = svc.get_spend_by_category_monthly(from_month="2026-02", to_month="2026-02")
-        assert all(r["booking_month"] == "2026-01" for r in jan)
-        assert all(r["booking_month"] == "2026-02" for r in feb)
+        jan = svc.get_spend_by_category_monthly(from_month=MONTH_A, to_month=MONTH_A)
+        feb = svc.get_spend_by_category_monthly(from_month=MONTH_B, to_month=MONTH_B)
+        assert all(r["booking_month"] == MONTH_A for r in jan)
+        assert all(r["booking_month"] == MONTH_B for r in feb)
 
     def test_idempotent(self, svc: TransformationService) -> None:
         count1 = svc.refresh_spend_by_category_monthly()
@@ -170,8 +179,8 @@ class TestAccountBalanceTrend:
 
     def test_month_filter(self, svc: TransformationService) -> None:
         svc.refresh_account_balance_trend()
-        jan = svc.get_account_balance_trend(from_month="2026-01", to_month="2026-01")
-        assert all(r["booking_month"] == "2026-01" for r in jan)
+        jan = svc.get_account_balance_trend(from_month=MONTH_A, to_month=MONTH_A)
+        assert all(r["booking_month"] == MONTH_A for r in jan)
 
     def test_idempotent(self, svc: TransformationService) -> None:
         count1 = svc.refresh_account_balance_trend()

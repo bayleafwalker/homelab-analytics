@@ -273,13 +273,14 @@ def _evaluate_declarative_rule(
     Freshness comparisons fall back to the control_plane_store confidence
     snapshots when available.
     """
+    from pydantic import ValidationError
+
     from packages.platform.policy_schema import (
         HaHelperStateComparisonRule,
         PublicationFreshnessComparisonRule,
         PublicationValueComparisonRule,
         parse_rule_document,
     )
-    from pydantic import ValidationError
 
     try:
         rule = parse_rule_document(rule_doc)

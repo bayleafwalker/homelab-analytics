@@ -7,7 +7,6 @@ import pytest
 
 from apps.api.auth_runtime import AuthContext, build_auth_context
 from packages.platform.auth.configuration import validate_auth_configuration
-from packages.shared.auth_modes import is_cookie_auth_mode
 from packages.shared.metrics import metrics_registry
 from packages.shared.settings import AppSettings
 from packages.storage.ingestion_config import IngestionConfigRepository
