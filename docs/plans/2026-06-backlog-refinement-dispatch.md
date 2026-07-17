@@ -1,3 +1,9 @@
+---
+doc_id: 2026-06-backlog-refinement-dispatch
+status: ratified
+supersedes: null
+---
+
 # Homelab-analytics backlog refinement dispatch — June 2026
 
 **Date:** 2026-06-05  

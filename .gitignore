@@ -34,3 +34,9 @@ docs/knowledge/*
 # Local session notes are scratch/history only, not shared repo guidance.
 docs/sessions/*
 .artifacts/
+
+# Local direnv/environment files
+.envrc
+.envrc.local
+.envrc.*
+!.envrc.example

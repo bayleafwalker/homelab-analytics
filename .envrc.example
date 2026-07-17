@@ -1,0 +1,11 @@
+repo_root="${DIRENV_DIR#-}"
+if [ -z "${repo_root}" ] || [ "${repo_root}" = "${DIRENV_DIR}" ]; then
+  repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+
+export SPRINTCTL_DB="${repo_root}/.sprintctl/sprintctl.db"
+export SPRINTCTL_BACKEND=remote
+export SPRINTCTL_URL="${SPRINTCTL_URL:?Set SPRINTCTL_URL from an injected secret or local shell before entering this repo}"
+export KCTL_DB="${repo_root}/.kctl/kctl.db"
+export AUDITCTL_DB="${repo_root}/.auditctl/auditctl.db"
+export AUDITCTL_ARTIFACTS_ROOT="/projects/dev"

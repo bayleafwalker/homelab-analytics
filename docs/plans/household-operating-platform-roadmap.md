@@ -1,3 +1,9 @@
+---
+doc_id: household-operating-platform-roadmap
+status: ratified
+supersedes: null
+---
+
 # Household Operating Platform Roadmap
 
 ## Purpose
