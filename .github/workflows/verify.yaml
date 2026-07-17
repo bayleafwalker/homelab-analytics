@@ -27,6 +27,7 @@ jobs:
           python -m pip install -e .[dev]
           cd apps/web/frontend
           npm ci
+          npx playwright install --with-deps chromium
 
       - name: Run blocking verification
         run: make verify-fast
