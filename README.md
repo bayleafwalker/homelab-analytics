@@ -1,5 +1,9 @@
 # homelab-analytics
 
+[![pages](https://github.com/bayleafwalker/homelab-analytics/actions/workflows/pages.yml/badge.svg)](https://github.com/bayleafwalker/homelab-analytics/actions/workflows/pages.yml)
+
+[Explore the interactive household operating platform map.](https://bayleafwalker.github.io/homelab-analytics/)
+
 Self-hosted household operating platform for ingesting heterogeneous personal datasets, normalizing them into reusable canonical models, and publishing household operating views through `/reports`, APIs, and automation surfaces.
 
 The platform answers recurring household questions about money, utilities, and infrastructure operations through a composable Household Operating Picture built on explicit bronze/silver/gold data boundaries, canonical facts and dimensions, and stable publication contracts.
