@@ -7,14 +7,14 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any, Callable
 
-from packages.domains.finance.pipelines.contract_price_models import (
-    MART_CONTRACT_PRICE_CURRENT_TABLE,
-    MART_ELECTRICITY_PRICE_CURRENT_TABLE,
-)
 from packages.domains.finance.pipelines.budget_models import (
     MART_BUDGET_ENVELOPE_DRIFT_TABLE,
     MART_BUDGET_PROGRESS_CURRENT_TABLE,
     MART_BUDGET_VARIANCE_TABLE,
+)
+from packages.domains.finance.pipelines.contract_price_models import (
+    MART_CONTRACT_PRICE_CURRENT_TABLE,
+    MART_ELECTRICITY_PRICE_CURRENT_TABLE,
 )
 from packages.domains.finance.pipelines.loan_models import (
     MART_LOAN_OVERVIEW_TABLE,

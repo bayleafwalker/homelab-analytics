@@ -67,6 +67,7 @@ from packages.storage.sqlite_execution_control_plane import (
 from packages.storage.sqlite_external_registry_catalog import (
     SQLiteExternalRegistryCatalogMixin,
 )
+from packages.storage.sqlite_policy_registry import SQLitePolicyRegistryMixin
 from packages.storage.sqlite_provenance_control_plane import (
     SQLiteProvenanceControlPlaneMixin,
 )
@@ -76,7 +77,6 @@ from packages.storage.sqlite_reference_fact_catalog import (
 from packages.storage.sqlite_source_contract_catalog import (
     SQLiteSourceContractCatalogMixin,
 )
-from packages.storage.sqlite_policy_registry import SQLitePolicyRegistryMixin
 from packages.storage.sqlite_source_freshness_catalog import (
     SQLiteSourceFreshnessCatalogMixin,
 )

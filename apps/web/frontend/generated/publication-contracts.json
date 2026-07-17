@@ -6,6 +6,82 @@
       "columns": [
         {
           "aggregation": null,
+          "description": "Scenario id",
+          "filterable": true,
+          "grain": null,
+          "json_type": "string",
+          "name": "scenario_id",
+          "nullable": false,
+          "semantic_role": "identifier",
+          "sortable": true,
+          "storage_type": "VARCHAR NOT NULL",
+          "unit": null
+        },
+        {
+          "aggregation": null,
+          "description": "Projection table",
+          "filterable": true,
+          "grain": null,
+          "json_type": "string",
+          "name": "projection_table",
+          "nullable": false,
+          "semantic_role": "dimension",
+          "sortable": true,
+          "storage_type": "VARCHAR NOT NULL",
+          "unit": null
+        },
+        {
+          "aggregation": null,
+          "description": "Projection row key",
+          "filterable": true,
+          "grain": null,
+          "json_type": "string",
+          "name": "projection_row_key",
+          "nullable": false,
+          "semantic_role": "dimension",
+          "sortable": true,
+          "storage_type": "VARCHAR NOT NULL",
+          "unit": null
+        },
+        {
+          "aggregation": null,
+          "description": "Assumption key",
+          "filterable": true,
+          "grain": null,
+          "json_type": "string",
+          "name": "assumption_key",
+          "nullable": false,
+          "semantic_role": "dimension",
+          "sortable": true,
+          "storage_type": "VARCHAR NOT NULL",
+          "unit": null
+        }
+      ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
+      "description": null,
+      "display_name": "Fact Scenario Projection Assumption Edge",
+      "freshness_state": null,
+      "lineage_required": true,
+      "pack_name": null,
+      "pack_version": null,
+      "publication_key": "fact_scenario_projection_assumption_edge",
+      "relation_name": "fact_scenario_projection_assumption_edge",
+      "renderer_hints": {},
+      "retention_policy": "indefinite",
+      "schema_name": "fact_scenario_projection_assumption_edge",
+      "schema_version": "1.0.0",
+      "supported_renderers": [
+        "web"
+      ],
+      "ui_descriptor_keys": [],
+      "visibility": "public"
+    },
+    {
+      "assessed_at": null,
+      "columns": [
+        {
+          "aggregation": null,
           "description": "Calendar month bucket for the account balance snapshot.",
           "filterable": true,
           "grain": "month",
@@ -632,7 +708,7 @@
       "columns": [
         {
           "aggregation": null,
-          "description": "Budget name",
+          "description": "Name of the budget envelope being evaluated.",
           "filterable": true,
           "grain": null,
           "json_type": "string",
@@ -645,7 +721,7 @@
         },
         {
           "aggregation": null,
-          "description": "Category id",
+          "description": "Stable category slug used to join with spend data.",
           "filterable": true,
           "grain": null,
           "json_type": "string",
@@ -658,20 +734,20 @@
         },
         {
           "aggregation": null,
-          "description": "Period label",
+          "description": "Human-readable period label for the budget row such as a month slug.",
           "filterable": true,
-          "grain": "month",
+          "grain": null,
           "json_type": "string",
           "name": "period_label",
           "nullable": false,
-          "semantic_role": "time",
+          "semantic_role": "dimension",
           "sortable": true,
           "storage_type": "VARCHAR NOT NULL",
           "unit": null
         },
         {
           "aggregation": "none",
-          "description": "Target amount",
+          "description": "Budgeted target amount for the category and period.",
           "filterable": false,
           "grain": null,
           "json_type": "string",
@@ -683,8 +759,8 @@
           "unit": "currency"
         },
         {
-          "aggregation": "none",
-          "description": "Actual amount",
+          "aggregation": "sum",
+          "description": "Actual spend for the category and period.",
           "filterable": false,
           "grain": null,
           "json_type": "string",
@@ -696,21 +772,21 @@
           "unit": "currency"
         },
         {
-          "aggregation": null,
-          "description": "Variance",
-          "filterable": true,
+          "aggregation": "none",
+          "description": "Signed difference between actual and target amounts.",
+          "filterable": false,
           "grain": null,
           "json_type": "string",
           "name": "variance",
           "nullable": false,
-          "semantic_role": "dimension",
+          "semantic_role": "measure",
           "sortable": true,
           "storage_type": "DECIMAL(18,4) NOT NULL",
-          "unit": null
+          "unit": "currency"
         },
         {
-          "aggregation": "pct_change",
-          "description": "Variance pct",
+          "aggregation": "none",
+          "description": "Variance as a percentage of the target amount.",
           "filterable": false,
           "grain": null,
           "json_type": "string",
@@ -723,7 +799,7 @@
         },
         {
           "aggregation": null,
-          "description": "Status",
+          "description": "Budget status: under_budget, on_budget, or over_budget.",
           "filterable": true,
           "grain": null,
           "json_type": "string",
@@ -736,7 +812,7 @@
         },
         {
           "aggregation": null,
-          "description": "State",
+          "description": "Operator-facing state: good, warning, or needs_action.",
           "filterable": true,
           "grain": null,
           "json_type": "string",
@@ -749,7 +825,7 @@
         },
         {
           "aggregation": null,
-          "description": "Currency",
+          "description": "ISO currency code for the budget amounts.",
           "filterable": true,
           "grain": null,
           "json_type": "string",
@@ -763,17 +839,17 @@
       ],
       "completeness_pct": null,
       "confidence_verdict": null,
-      "description": null,
-      "display_name": "Mart Budget Variance",
+      "description": "Planned vs actual spend by category and period, with variance and budget state.",
+      "display_name": "Budget Variance",
       "freshness_state": null,
       "lineage_required": true,
-      "pack_name": null,
-      "pack_version": null,
-      "publication_key": "mart_budget_variance",
+      "pack_name": "finance",
+      "pack_version": "1.0.0",
+      "publication_key": "budget_variance",
       "relation_name": "mart_budget_variance",
       "renderer_hints": {},
       "retention_policy": "indefinite",
-      "schema_name": "mart_budget_variance",
+      "schema_name": "budget_variance",
       "schema_version": "1.0.0",
       "supported_renderers": [
         "web"
@@ -2028,7 +2104,7 @@
       "columns": [
         {
           "aggregation": null,
-          "description": "Loan id",
+          "description": "Stable loan identifier derived from loan name and source.",
           "filterable": true,
           "grain": null,
           "json_type": "string",
@@ -2041,7 +2117,7 @@
         },
         {
           "aggregation": null,
-          "description": "Loan name",
+          "description": "Human-readable loan name as provided in the repayment data.",
           "filterable": true,
           "grain": null,
           "json_type": "string",
@@ -2054,7 +2130,7 @@
         },
         {
           "aggregation": null,
-          "description": "Lender",
+          "description": "Name of the lending institution.",
           "filterable": true,
           "grain": null,
           "json_type": "string",
@@ -2066,21 +2142,21 @@
           "unit": null
         },
         {
-          "aggregation": null,
-          "description": "Original principal",
-          "filterable": true,
+          "aggregation": "none",
+          "description": "Original principal amount at loan origination.",
+          "filterable": false,
           "grain": null,
           "json_type": "string",
           "name": "original_principal",
           "nullable": false,
-          "semantic_role": "dimension",
+          "semantic_role": "measure",
           "sortable": true,
           "storage_type": "DECIMAL(18,4) NOT NULL",
-          "unit": null
+          "unit": "currency"
         },
         {
           "aggregation": "latest",
-          "description": "Current balance estimate",
+          "description": "Estimated outstanding balance derived from repayment history.",
           "filterable": false,
           "grain": null,
           "json_type": "string",
@@ -2092,21 +2168,21 @@
           "unit": "currency"
         },
         {
-          "aggregation": null,
-          "description": "Monthly payment",
-          "filterable": true,
+          "aggregation": "none",
+          "description": "Regular monthly repayment amount.",
+          "filterable": false,
           "grain": null,
           "json_type": "string",
           "name": "monthly_payment",
           "nullable": false,
-          "semantic_role": "dimension",
+          "semantic_role": "measure",
           "sortable": true,
           "storage_type": "DECIMAL(18,4) NOT NULL",
-          "unit": null
+          "unit": "currency"
         },
         {
           "aggregation": "none",
-          "description": "Total interest projected",
+          "description": "Total interest projected over the remaining loan term.",
           "filterable": false,
           "grain": null,
           "json_type": "string",
@@ -2115,11 +2191,11 @@
           "semantic_role": "measure",
           "sortable": true,
           "storage_type": "DECIMAL(18,4) NOT NULL",
-          "unit": null
+          "unit": "currency"
         },
         {
-          "aggregation": "none",
-          "description": "Total interest paid",
+          "aggregation": "sum",
+          "description": "Total interest paid to date based on repayment history.",
           "filterable": false,
           "grain": null,
           "json_type": "string",
@@ -2128,11 +2204,11 @@
           "semantic_role": "measure",
           "sortable": true,
           "storage_type": "DECIMAL(18,4) NOT NULL",
-          "unit": null
+          "unit": "currency"
         },
         {
           "aggregation": "none",
-          "description": "Remaining months",
+          "description": "Estimated number of monthly payments remaining.",
           "filterable": false,
           "grain": null,
           "json_type": "number",
@@ -2141,11 +2217,11 @@
           "semantic_role": "measure",
           "sortable": true,
           "storage_type": "INTEGER NOT NULL",
-          "unit": null
+          "unit": "count"
         },
         {
           "aggregation": null,
-          "description": "Currency",
+          "description": "ISO currency code for the loan amounts.",
           "filterable": true,
           "grain": null,
           "json_type": "string",
@@ -2159,17 +2235,17 @@
       ],
       "completeness_pct": null,
       "confidence_verdict": null,
-      "description": null,
-      "display_name": "Mart Loan Overview",
+      "description": "Outstanding loan balances with amortisation progress and projected interest costs.",
+      "display_name": "Loan Overview",
       "freshness_state": null,
       "lineage_required": true,
-      "pack_name": null,
-      "pack_version": null,
-      "publication_key": "mart_loan_overview",
+      "pack_name": "finance",
+      "pack_version": "1.0.0",
+      "publication_key": "loan_overview",
       "relation_name": "mart_loan_overview",
       "renderer_hints": {},
       "retention_policy": "indefinite",
-      "schema_name": "mart_loan_overview",
+      "schema_name": "loan_overview",
       "schema_version": "1.0.0",
       "supported_renderers": [
         "web"

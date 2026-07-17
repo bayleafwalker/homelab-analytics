@@ -5,6 +5,7 @@ from typing import cast
 from packages.shared.settings import AppSettings
 from packages.storage.auth_store import AuthStore
 from packages.storage.blob import BlobStore, FilesystemBlobStore
+from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.ingestion_config import IngestionConfigRepository
 from packages.storage.postgres_ingestion_config import PostgresIngestionConfigRepository
 from packages.storage.postgres_reporting import PostgresReportingStore
@@ -100,14 +101,20 @@ def build_run_metadata_store(settings: AppSettings) -> RunMetadataStore:
 
 def build_config_store(
     settings: AppSettings,
-) -> IngestionConfigRepository | PostgresIngestionConfigRepository:
+) -> ControlPlaneStore:
     backend = _resolve_control_plane_backend(settings)
     if backend == "sqlite":
         return IngestionConfigRepository(settings.resolved_config_database_path)
     if backend == "postgres":
-        return PostgresIngestionConfigRepository(
-            _resolve_control_plane_postgres_dsn(settings),
-            schema=settings.control_schema,
+        # KNOWN GAP: the Postgres control plane has no policy registry yet
+        # (policy_definitions is a SQLite-only migration, 0007). /control/policies
+        # fails on this backend until a Postgres policy registry lands.
+        return cast(
+            ControlPlaneStore,
+            PostgresIngestionConfigRepository(
+                _resolve_control_plane_postgres_dsn(settings),
+                schema=settings.control_schema,
+            ),
         )
     raise AssertionError(f"Unhandled control-plane backend: {backend!r}")
 

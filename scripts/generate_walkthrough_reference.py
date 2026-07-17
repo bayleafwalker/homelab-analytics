@@ -95,7 +95,6 @@ def inject_section(walkthrough_path: Path, section: str) -> None:
         end = text.index(END_MARKER) + len(END_MARKER)
         updated = text[:start] + section + text[end:]
     else:
-        sep = "\n\n---\n\n" if not text.endswith("\n\n") else ""
         updated = text.rstrip("\n") + "\n\n---\n\n" + section + "\n"
     walkthrough_path.write_text(updated, encoding="utf-8")
 

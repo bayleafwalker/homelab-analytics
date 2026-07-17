@@ -15,7 +15,6 @@ from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, Field
 
-
 RULE_SCHEMA_VERSION = "1.0"
 
 ALLOWED_RULE_KINDS = frozenset({

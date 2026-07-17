@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from packages.application.use_cases.run_recovery import build_run_recovery
 from packages.application.use_cases.source_ingestion import (
@@ -15,7 +15,9 @@ from packages.pipelines.promotion import PromotionResult
 from packages.pipelines.run_context import read_run_manifest, run_context_from_manifest
 
 if TYPE_CHECKING:
-    from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+    from packages.domains.finance.pipelines.account_transaction_service import (
+        AccountTransactionService,
+    )
     from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
     from packages.domains.finance.pipelines.subscription_service import SubscriptionService
     from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService

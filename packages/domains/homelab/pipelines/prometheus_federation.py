@@ -397,7 +397,7 @@ class PrometheusFederationWorker:
     def _fetch_federate(self) -> str:
         """Issue one federate request and return the response body."""
         client = self._ensure_client()
-        params: list[tuple[str, str]] = [
+        params: list[tuple[str, str | int | float | bool | None]] = [
             ("match[]", selector) for selector in self._config.match_selectors
         ]
         headers: dict[str, str] = {}

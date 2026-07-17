@@ -262,10 +262,10 @@ def register_control_routes(
         publication_defs = resolved_config_repository.list_publication_definitions()
 
         latest_snapshots: dict[str, Any] = {}
-        for snapshot in snapshots:
-            current = latest_snapshots.get(snapshot.publication_key)
-            if current is None or snapshot.assessed_at > current.assessed_at:
-                latest_snapshots[snapshot.publication_key] = snapshot
+        for snapshot_record in snapshots:
+            current = latest_snapshots.get(snapshot_record.publication_key)
+            if current is None or snapshot_record.assessed_at > current.assessed_at:
+                latest_snapshots[snapshot_record.publication_key] = snapshot_record
 
         pub_metadata: dict[str, dict[str, Any]] = {}
         for pub_def in publication_defs:

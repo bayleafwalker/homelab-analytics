@@ -13,7 +13,9 @@ from packages.application.use_cases.ingest_promotion import (
 from packages.pipelines.promotion import PromotionResult, promote_run
 
 if TYPE_CHECKING:
-    from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+    from packages.domains.finance.pipelines.account_transaction_service import (
+        AccountTransactionService,
+    )
     from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
     from packages.domains.finance.pipelines.subscription_service import SubscriptionService
     from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService

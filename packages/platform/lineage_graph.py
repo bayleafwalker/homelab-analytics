@@ -175,25 +175,25 @@ def build_publication_lineage_graph(
         relation_names.add(record.relation_name)
 
     lineage_records = _collect_lineage_for_relations(store, relation_names)
-    for record in lineage_records:
-        if not record.input_run_id:
+    for lineage_record in lineage_records:
+        if not lineage_record.input_run_id:
             continue
-        run_id = _run_node_id(record.input_run_id)
-        relation_id = _relation_node_id(record.target_layer, record.target_name)
+        run_id = _run_node_id(lineage_record.input_run_id)
+        relation_id = _relation_node_id(lineage_record.target_layer, lineage_record.target_name)
         if run_id not in nodes:
             nodes[run_id] = LineageNode(
                 id=run_id,
                 type=NODE_RUN,
-                attributes={"run_id": record.input_run_id},
+                attributes={"run_id": lineage_record.input_run_id},
             )
         if relation_id not in nodes:
             nodes[relation_id] = LineageNode(
                 id=relation_id,
                 type=NODE_RELATION,
                 attributes={
-                    "layer": record.target_layer,
-                    "name": record.target_name,
-                    "kind": record.target_kind,
+                    "layer": lineage_record.target_layer,
+                    "name": lineage_record.target_name,
+                    "kind": lineage_record.target_kind,
                 },
             )
         produce_key = (run_id, relation_id, EDGE_PRODUCES)
@@ -203,18 +203,18 @@ def build_publication_lineage_graph(
                 to_id=relation_id,
                 type=EDGE_PRODUCES,
                 attributes={
-                    "row_count": record.row_count,
-                    "target_kind": record.target_kind,
-                    "recorded_at": _iso(record.recorded_at),
+                    "row_count": lineage_record.row_count,
+                    "target_kind": lineage_record.target_kind,
+                    "recorded_at": _iso(lineage_record.recorded_at),
                 },
             )
-        if record.source_system:
-            source_id = _source_node_id(record.source_system)
+        if lineage_record.source_system:
+            source_id = _source_node_id(lineage_record.source_system)
             if source_id not in nodes:
                 nodes[source_id] = LineageNode(
                     id=source_id,
                     type=NODE_SOURCE,
-                    attributes={"source_system": record.source_system},
+                    attributes={"source_system": lineage_record.source_system},
                 )
             source_key = (source_id, run_id, EDGE_SOURCES)
             if source_key not in edges:
@@ -222,7 +222,7 @@ def build_publication_lineage_graph(
                     from_id=source_id,
                     to_id=run_id,
                     type=EDGE_SOURCES,
-                    attributes={"source_run_id": record.source_run_id},
+                    attributes={"source_run_id": lineage_record.source_run_id},
                 )
 
     sorted_nodes = tuple(sorted(nodes.values(), key=lambda n: (n.type, n.id)))

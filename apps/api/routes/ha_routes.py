@@ -23,12 +23,12 @@ from typing import Any, Callable, Literal, cast
 from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+import packages.application.use_cases.ha_state_ingestion as ha_state_ingestion
 from apps.api.response_models import (
     HaActionsStatusModel,
     HaBridgeStatusModel,
     HaMqttStatusModel,
 )
-import packages.application.use_cases.ha_state_ingestion as ha_state_ingestion
 from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
 from packages.pipelines.reporting_service import ReportingService, ScalarMetricSnapshot
 
@@ -107,6 +107,17 @@ def register_ha_routes(
             detail="HA metrics require a reporting service.",
         )
 
+    def _entity_reporting() -> ReportingService:
+        # Degrade to 503 (matching _reporting) when the wired reporting
+        # service does not expose HA entity reads at all.
+        reporting = _reporting()
+        if not hasattr(reporting, "get_ha_entities"):
+            raise HTTPException(
+                status_code=503,
+                detail="HA entity reporting is unavailable.",
+            )
+        return reporting
+
     def _metric_response(snapshot: ScalarMetricSnapshot | dict[str, Any]) -> HaMetricValueModel:
         if isinstance(snapshot, dict):
             value = snapshot.get("value")
@@ -132,7 +143,7 @@ def register_ha_routes(
     async def get_ha_entities(
         entity_class: str | None = Query(default=None),
     ) -> dict[str, Any]:
-        rows = _reporting().get_ha_entities()
+        rows = _entity_reporting().get_ha_entities()
         if entity_class:
             rows = [r for r in rows if r.get("entity_class") == entity_class]
         return {"rows": to_jsonable(rows)}
@@ -142,7 +153,7 @@ def register_ha_routes(
         entity_id: str,
         limit: int = Query(default=50, ge=1, le=500),
     ) -> dict[str, Any]:
-        rows = _reporting().get_ha_entity_history(entity_id, limit=limit)
+        rows = _entity_reporting().get_ha_entity_history(entity_id, limit=limit)
         return {"rows": to_jsonable(rows), "limit": limit}
 
     @app.get(
