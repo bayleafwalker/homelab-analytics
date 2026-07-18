@@ -1,11 +1,11 @@
 ---
 name: sprint-packet
-description: Use when accepted scope needs to become an implementation-ready sprint doc or work packet. Do not use for open-ended brainstorming, narrow code edits, requests that are still missing scope decisions, or resuming an item that already exists in sprintctl.
+description: Use when accepted scope needs to become an implementation-ready sprint packet and work items. Do not use for open-ended brainstorming, requests missing scope decisions, or resuming an item that already exists in sprintctl.
 ---
 
 ## Goal
 
-Convert accepted scope into a concise sprint packet with clear deliverables, dependencies, acceptance, and verification.
+Convert accepted scope into a concise sprint packet with clear deliverables, dependencies, acceptance criteria, and verification, then register it in `sprintctl`.
 
 ## Inputs
 
@@ -15,30 +15,29 @@ Convert accepted scope into a concise sprint packet with clear deliverables, dep
 
 ## Steps
 
-1. Confirm the scope is already decided enough to plan without inventing product direction.
-2. Confirm the work is not already represented as an active or pending `sprintctl` item. If it already exists, stop here and resume execution from live sprint state instead of drafting a new packet.
+1. Confirm the scope is decided enough to plan without inventing product direction.
+2. Confirm the work is not already represented as an active or pending `sprintctl` item. If it exists, stop and resume from live sprint state instead.
 3. Pull the requirements, architecture docs, and prior sprint material that define the work.
-4. Draft the packet in this order:
-   goal, scope, out-of-scope, dependencies, deliverables, acceptance checks, verification path.
-5. Slice work by repo contracts and layers rather than by vague task buckets.
-6. Call out any required doc, requirement, fixture, or contract updates needed for the sprint to be complete.
-7. After the packet is agreed, register the sprint in sprintctl:
+4. Draft the packet in this order: goal, scope, out-of-scope, dependencies, deliverables, acceptance checks, verification path.
+5. Slice work by repo contracts and layers rather than vague task buckets.
+6. Call out any required doc, requirement, fixture, or contract updates needed to complete the sprint.
+7. After the packet is agreed, register it in `sprintctl`:
    - Load the project DB first via `.envrc` or exported `SPRINTCTL_DB`.
-   - `sprintctl sprint create --name "<Sprint ID> — <name>" --start <YYYY-MM-DD> --end <YYYY-MM-DD> --status active --kind active_sprint`
-   - Add each deliverable as a work item: `sprintctl item add --sprint-id <id> --track <stage-N> --title "<title>"`
-   - If the packet represents parked scope rather than active delivery, use `--kind backlog` instead of mixing it into the active sprint list.
+   - `sprintctl sprint create --name "<ID> — <name>" --start <YYYY-MM-DD> --end <YYYY-MM-DD> --status active --kind active_sprint`
+   - `sprintctl item add --sprint-id <id> --track <track> --title "<title>"` for each deliverable.
+   - Use `--kind backlog` when the packet represents parked scope rather than active delivery.
    - Run `sprintctl render` and confirm output matches the agreed packet before starting implementation.
 
-## Output contract
+## Output Contract
 
 - A sprint-ready packet with clear deliverables and acceptance.
 - Dependencies and blockers separated from in-scope work.
-- A concrete verification path that can be used during implementation and handoff.
-- A sprintctl sprint registered and items added, ready for status tracking.
+- A concrete verification path usable during implementation and handoff.
+- A `sprintctl` sprint registered with items added.
 
-## Do not
+## Do Not
 
 - Do not turn unresolved product questions into fake implementation tasks.
 - Do not hide architecture or contract work inside generic backlog bullets.
-- Do not use this skill for direct implementation when no planning artifact is needed.
-- Do not use this skill to pick the next task from docs when the relevant sprint item already exists in live `sprintctl` state.
+- Do not use for direct implementation when no planning artifact is needed.
+- Do not use when the relevant sprint item already exists in live `sprintctl` state.

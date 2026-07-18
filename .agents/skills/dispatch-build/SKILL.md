@@ -1,56 +1,40 @@
 ---
 name: dispatch-build
-description: Use when an approved plan or well-scoped sprint item is ready for implementation. Delegates one or more discrete implementation items to available build worker subagents, optionally in parallel with worktree isolation where the current toolchain supports it. Do not use for planning, review, or items that require design decisions not already settled.
+description: Use when an approved plan or well-scoped action is ready for implementation. Executes the bounded scope, runs targeted verification, and leaves a reviewable result.
 ---
 
 ## Goal
 
-Execute approved, spec-complete implementation work by delegating to implementation-focused worker subagents, keeping frontier token spend on decisions rather than on mechanical code production.
+Implement approved, bounded work using the repo's dispatch packet, manifest, and overlay as the contract.
 
 ## Inputs
 
-- An approved plan or active sprint item with clear deliverables.
-- Live sprintctl item and claim state.
-- The implementation mode guide at `docs/agents/implementation.md`.
-- Relevant contracts, fixtures, and extension points for the target layer.
+- The action payload or sprint item.
+- The approved implementation brief, when one exists.
+- The repo dispatch manifest and overlay.
+- Live claim/session context supplied by the orchestrator.
 
 ## Steps
 
-1. Confirm the work is implementation-ready: scope is decided, layer boundaries are clear, and a plan or sprint item exists.
-2. Load `.envrc` and inspect live sprint/item/claim state before touching repo files.
-3. For each implementation item:
-   a. Claim or verify ownership using `sprintctl claim start` before dispatching.
-      - Immediately persist the returned `claim_token` to `.sprintctl/claims/claim-<item_id>.token` in the orchestrating session. Keep the token in session memory for normal execution; treat the file as crash recovery and do not pass the token to the subagent.
-      - If the orchestrating session keeps the item open for more than 15 minutes, or the item crosses a long review/remediation boundary before close-out, run `sprintctl claim heartbeat` from the orchestrator to refresh ownership before continuing.
-   b. Spawn an implementation worker subagent using the available build-worker profile/model for the current toolchain, with:
-      - The specific deliverable and acceptance criteria
-      - The implementation mode guide from `docs/agents/implementation.md`
-      - The claim ID and item context (but not the claim token — keep that in the orchestrating session and in the local recovery file only)
-      - The local verification commands for the changed surface:
-        - `ruff check <changed-python-files>`
-        - `mypy <changed-python-files>`
-        - `pytest <specific-test-files> -x --tb=short`
-      - Run those checks foreground and blocking, scoped to files changed by this item. Do not run the full suite; do not background pytest.
-   c. For independent items: use `run_in_background=true` and dispatch in parallel.
-   d. For items touching overlapping files: use `isolation=worktree` to prevent conflicts.
-4. Collect subagent results. If a subagent reports test failures, run up to 5 fix cycles before escalating.
-   - Heartbeat the claim again before entering a long remediation loop or resuming after review if the item is still owned by the current live claim identity.
-   - After adding or modifying any API route, auth policy, scenario policy mapping, or architecture doc, run `pytest tests/test_architecture_contract.py -x --tb=short` before closing the item.
-5. After each item completes verification, use `item-done` to capture knowledge and mark done. Commit at the enclosing reviewable scope boundary: one commit per scope, where a scope may be one item or a tight group of related items. Once that scope diff is stable, run `dispatch-review` before final handoff or PR preparation.
+1. Confirm the action is implementation-ready: scope, allowed paths, acceptance checks, and verification commands are known.
+2. Load the repo environment before running repo tools.
+3. Read the dispatch packet and manifest. Respect explicit action routing first, then project defaults, action-class defaults, and global fallback.
+4. Treat claims as orchestrator-owned. Use item/action context, but do not request or propagate claim tokens unless the orchestrator explicitly owns that operation.
+5. Edit only within the allowed scope. If the needed change crosses the scope boundary, stop and report the required expansion.
+6. Run targeted verification from the dispatch packet or manifest before broader gates.
+7. Record exact verification commands and results for the handoff and for any dispatcher verification hook.
+8. Once the scope is stable, route code-bearing work to `dispatch-review` when the manifest or action packet requires review.
 
-## Output contract
+## Output Contract
 
-- Each item implemented with passing tests before close-out.
-- Incremental lint and type failures are caught at the item level instead of batching into `make verify-fast`.
-- One commit per reviewable scope, not per unrelated batch.
-- Stable code-bearing scopes are reviewed before handoff.
-- Sprint state updated after each item.
+- Implemented scope with changed paths listed.
+- Verification commands and pass/fail results.
+- Residual risks, skipped checks, or required scope expansions called out.
+- Stable diff ready for review, handoff, or PR prep.
 
-## Do not
+## Do Not
 
-- Do not dispatch to Haiku if the item still has unresolved design decisions — use `dispatch-plan` first.
-- Do not pass the claim token to the subagent; keep it only in the orchestrating session and the local `.sprintctl/claims/claim-<item_id>.token` recovery file.
-- Do not batch unrelated items or scopes into a single commit.
-- Do not skip the local verification step before marking an item done.
-- Do not skip `dispatch-review` once a code-bearing scope is stable enough for handoff or PR prep.
-- Do not heartbeat or reuse a claim whose live identity no longer clearly belongs to the current session.
+- Do not make design decisions that should have been resolved by `dispatch-plan`.
+- Do not mutate unrelated files or broaden the scope silently.
+- Do not pass claim tokens to subagents or worker prompts.
+- Do not mark work complete without reporting verification status.

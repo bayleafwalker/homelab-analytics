@@ -1,42 +1,38 @@
 ---
 name: dispatch-plan
-description: Use when a request requires architecture decisions, new scope definition, or a planning pass before any repo edits. Delegates a read-only planning pass to the available planning subagent/model and returns a decision-complete implementation brief. Do not use for direct implementation, resuming an existing sprint item, or narrowly scoped edits that don't require design decisions.
+description: Use when a request needs architecture decisions, scope shaping, or cross-repo sequencing before implementation. Produces a decision-complete brief without repo mutations.
 ---
 
 ## Goal
 
-Produce a decision-complete implementation brief by delegating the planning pass to an available high-reasoning planning subagent, without any repo mutations in this step.
+Produce an implementation brief that is complete enough for a build worker to execute without making new product, architecture, or routing decisions.
 
 ## Inputs
 
 - The user request or accepted scope description.
-- Relevant requirements, architecture docs, and sprint context.
-- Live sprintctl state when the request is sprint-scoped.
+- The repo dispatch manifest and any selected overlay.
+- Relevant sprint, actionq, docs, and architecture context.
+- The repo's planning guide, when one exists.
 
 ## Steps
 
-1. Confirm the request requires a planning pass — it involves architecture decisions, layer-boundary questions, or multi-file scope that isn't already decided by existing code and docs.
-2. If the work is already registered in sprintctl as a pending item, stop and use `dispatch-build` or `sprint-resume` instead.
-3. Load `.envrc` and read live sprintctl state to check for existing scope overlap.
-4. Read the planning mode guide at `docs/agents/planning.md`.
-5. Spawn a read-only planning subagent using the strongest available planning model for the current toolchain, with this brief:
-   - The user's goal and success criteria
-   - The relevant mode guide content from `docs/agents/planning.md`
-   - Current sprintctl sprint/item state (summarised, not full JSON)
-   - Affected layer boundaries (landing / transformation / reporting)
-   - Any requirements or architecture docs that constrain the design
-6. Wait for the subagent to return a decision-complete plan.
-7. Present the plan to the user for confirmation before any implementation begins.
-8. If the plan is accepted and new sprint scope is needed, invoke `sprint-packet` to register it.
+1. Confirm the request needs planning: unclear boundaries, new architecture, ambiguous verification, cross-repo sequencing, or missing acceptance criteria.
+2. Load the repo environment before reading sprint, cluster, or queue state.
+3. Read the dispatch manifest first. Treat model and harness assignment as structured routing data, not prose.
+4. Read the repo overlay for domain constraints, affected paths, verification commands, and escalation rules.
+5. Gather only the sprint/action/doc context needed to decide the scope.
+6. Produce a brief with goal, allowed scope, out-of-scope, expected file areas, acceptance checks, verification, audit/review expectations, and unresolved questions.
+7. Stop before implementation. If new sprint/action scope is needed, hand off to the repo's sprint or action creation workflow.
 
-## Output contract
+## Output Contract
 
-- A concise plan with: goal, scope, out-of-scope, layer boundaries, deliverables, acceptance checks, and verification path.
-- No repo edits made during this skill.
-- The plan is confirmed before implementation starts.
+- A concise, decision-complete implementation brief.
+- Explicit scope boundaries and verification commands.
+- No repo edits.
+- Open questions separated from decisions.
 
-## Do not
+## Do Not
 
-- Do not proceed to implementation within this skill.
-- Do not invent product decisions not present in requirements or user instruction.
-- Do not spawn a planning subagent if the scope is already fully decided by existing code and the task is routine implementation.
+- Do not implement changes in this skill.
+- Do not choose a model from AGENTS prose when the manifest or action payload has routing data.
+- Do not invent repo-specific rules that belong in an overlay.
