@@ -1,0 +1,26 @@
+# Canonical homelab-analytics project binding.
+# project_id is registered in agentops/agentops.toml and is immutable.
+# See docs/project/project-binding-spec.md in the agentops repo, section 6
+# (aligned-equity boundary case).
+
+schema_version = 1
+project_id = "a40e9a1d-cf76-4bae-a330-f62ecc9e59f8"
+display_name = "homelab-analytics"
+home_repo = "homelab-analytics"
+
+[[members]]
+repo_id = "homelab-analytics"
+backlog = true
+render = "none"
+path_notes = [
+  "Home repo: hosts the project's backlog and render sources (.project/sources/).",
+]
+
+[[members]]
+repo_id = "aligned-equity"
+backlog = true
+render = "baseline"
+path_notes = [
+  "Semi-private by design: render:baseline means AE receives only source fragments tagged for the baseline level. AE's own AGENTS.md and .agents/overlays/aligned-equity.project-overrides.md remain locally authoritative and untouched.",
+  "The plugin contract (aligned_equity.integrations.homelab_analytics + homelab-analytics.registry.json) is the only code-level interface. Project source fragments must not reference either repo's internals.",
+]
