@@ -34,7 +34,13 @@ done
 unset _pe_gcc_lib
 
 export SPRINTCTL_DB="${_pe_repo_root}/.sprintctl/sprintctl.db"
-export SPRINTCTL_BACKEND=remote
+# sprintctl runs in served mode against the Vuoro work adapter (backfilled
+# into vuoro-shared 2026-07-24 -- see sprintctl
+# docs/plans/1164-gate-evidence-ledger.md). Direct PostgreSQL credentials
+# are no longer the default path; set SPRINTCTL_BACKEND=remote in
+# .env.sprintctl.local (still sourced below) to roll back.
+export SPRINTCTL_BACKEND=served
+export SPRINTCTL_VUORO_PROFILE=/projects/dev/agentops/templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json
 if [ -d "/home/dev/.local/bin" ]; then
   case ":${PATH}:" in
     *":/home/dev/.local/bin:"*) ;;
