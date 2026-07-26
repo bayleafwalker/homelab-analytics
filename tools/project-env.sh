@@ -7,7 +7,7 @@
 #
 # MUST stay safe to source from any shell and any cwd: no `set -e`, no `:?`
 # assertions, no hard exits. It is idempotent — re-sourcing does not duplicate
-# path entries. The one fail-fast assertion (SPRINTCTL_URL) lives in .envrc.
+# path entries.
 
 # Resolve repo root from this file's own location, so values are correct
 # regardless of the caller's working directory.
@@ -34,22 +34,15 @@ done
 unset _pe_gcc_lib
 
 export SPRINTCTL_DB="${_pe_repo_root}/.sprintctl/sprintctl.db"
-# sprintctl runs in served mode against the Vuoro work adapter (backfilled
-# into vuoro-shared 2026-07-24 -- see sprintctl
-# docs/plans/1164-gate-evidence-ledger.md). Direct PostgreSQL credentials
-# are no longer the default path; set SPRINTCTL_BACKEND=remote in
-# .env.sprintctl.local (still sourced below) to roll back.
+# sprintctl normal work is served by the Vuoro work adapter.
 export SPRINTCTL_BACKEND=served
 export SPRINTCTL_VUORO_PROFILE=/projects/dev/agentops/templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json
+unset SPRINTCTL_URL
 if [ -d "/home/dev/.local/bin" ]; then
   case ":${PATH}:" in
     *":/home/dev/.local/bin:"*) ;;
     *) export PATH="/home/dev/.local/bin:${PATH}" ;;
   esac
-fi
-if [ -f "${_pe_repo_root}/.env.sprintctl.local" ]; then
-  # shellcheck disable=SC1091
-  . "${_pe_repo_root}/.env.sprintctl.local"
 fi
 export KCTL_DB="${_pe_repo_root}/.kctl/kctl.db"
 export AUDITCTL_DB="${_pe_repo_root}/.auditctl/auditctl.db"

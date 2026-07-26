@@ -4,8 +4,9 @@ if [ -z "${repo_root}" ] || [ "${repo_root}" = "${DIRENV_DIR}" ]; then
 fi
 
 export SPRINTCTL_DB="${repo_root}/.sprintctl/sprintctl.db"
-export SPRINTCTL_BACKEND=remote
-export SPRINTCTL_URL="${SPRINTCTL_URL:?Set SPRINTCTL_URL from an injected secret or local shell before entering this repo}"
+export SPRINTCTL_BACKEND=served
+export SPRINTCTL_VUORO_PROFILE=/projects/dev/agentops/templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json
+unset SPRINTCTL_URL
 export KCTL_DB="${repo_root}/.kctl/kctl.db"
 export AUDITCTL_DB="${repo_root}/.auditctl/auditctl.db"
 export AUDITCTL_ARTIFACTS_ROOT="/projects/dev"

@@ -32,7 +32,7 @@ Working practices: `docs/runbooks/project-working-practices.md`.
 **Do not hand-prefix env into every command.** The project env (the two vars above plus the duckdb `libstdc++` loader path) is defined once in `tools/project-env.sh` and consumed by three surfaces so no agent — Claude, Codex, or otherwise — needs to paste `source .envrc &&` or `LD_LIBRARY_PATH=/nix/store/<hash>...` ahead of commands:
 
 - **`make` targets are env-self-sufficient.** `make lint`, `make typecheck`, `make test-fast`, `make test-target TEST="tests/test_foo.py -x --tb=short"`, and `make verify-fast` set the duckdb loader path themselves. Prefer these for tests and lint — no prefix needed.
-- **Direct CLI use** (`sprintctl`, `kctl`, a raw `pytest`) needs the vars in the shell: `source tools/project-env.sh` (safe from any cwd, idempotent, no hard-fail) or `source .envrc` (adds the `SPRINTCTL_URL` fail-fast assertion for humans). Source once per shell, not per command.
+- **Direct CLI use** (`sprintctl`, `kctl`, a raw `pytest`) needs the vars in the shell: `source tools/project-env.sh` (safe from any cwd and idempotent) or `source .envrc`. Both select the served Vuoro profile. Source once per shell, not per command.
 - Never paste a pinned `/nix/store/<hash>-gcc-*-lib` path — the hash rotates on nix updates; the glob in `tools/project-env.sh` and the Makefile finds the current one.
 
 **If `sprintctl` or `kctl` is missing or stale** (e.g. on a fresh devbox or after a source update), install from source — these are private tools, not on PyPI:
