@@ -56,6 +56,6 @@
   },
   "hooks": {
     "level": "verification",
-    "publishers": ["git", "actionq-daemon", "workspace-cost", "dispatcher-gate"]
+    "publishers": ["git", "workspace-cost"]
   }
 }
