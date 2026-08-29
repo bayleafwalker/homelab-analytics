@@ -25,7 +25,7 @@ spec:
       serviceAccountName: {{ include "homelab-analytics.serviceAccountName" . }}
       containers:
         - name: web
-          image: "{{ .Values.webImage.repository }}:{{ .Values.webImage.tag }}"
+          image: {{ include "homelab-analytics.webImageRef" . | quote }}
           imagePullPolicy: {{ .Values.webImage.pullPolicy }}
           ports:
             - name: http
@@ -56,13 +56,17 @@ spec:
           {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- if .Values.web.mountData }}
           volumeMounts:
             - name: data
               mountPath: /data
+          {{- end }}
           resources:
             {{- toYaml .Values.web.resources | nindent 12 }}
+      {{- if .Values.web.mountData }}
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: {{ include "homelab-analytics.dataClaimName" . }}
+      {{- end }}
 {{- end }}

@@ -25,7 +25,7 @@ spec:
       serviceAccountName: {{ include "homelab-analytics.serviceAccountName" . }}
       containers:
         - name: api
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: {{ include "homelab-analytics.imageRef" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
             - homelab-analytics-api

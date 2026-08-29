@@ -272,6 +272,86 @@ class HelmChartTests(unittest.TestCase):
             worker["spec"]["template"]["spec"]["containers"][0]["envFrom"],
         )
 
+    def test_chart_pins_images_by_digest_when_configured(self) -> None:
+        documents = self._rendered_documents(
+            "--set",
+            "image.digest=sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "--set",
+            "webImage.digest=sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "--set",
+            "image.tag=ignored",
+            "--set",
+            "webImage.tag=ignored",
+        )
+        deployments = {
+            document["metadata"]["name"]: document
+            for document in documents
+            if document.get("kind") == "Deployment"
+        }
+
+        for name in (
+            "test-release-homelab-analytics-api",
+            "test-release-homelab-analytics-worker",
+        ):
+            self.assertEqual(
+                "ghcr.io/bayleafwalker/homelab-analytics@sha256:"
+                "1111111111111111111111111111111111111111111111111111111111111111",
+                deployments[name]["spec"]["template"]["spec"]["containers"][0]["image"],
+            )
+        self.assertEqual(
+            "ghcr.io/bayleafwalker/homelab-analytics-web@sha256:"
+            "2222222222222222222222222222222222222222222222222222222222222222",
+            deployments["test-release-homelab-analytics-web"]["spec"]["template"]["spec"][
+                "containers"
+            ][0]["image"],
+        )
+
+    def test_web_workload_stays_off_the_data_claim_by_default(self) -> None:
+        documents = self._rendered_documents()
+        deployments = {
+            document["metadata"]["name"]: document
+            for document in documents
+            if document.get("kind") == "Deployment"
+        }
+
+        web_spec = deployments["test-release-homelab-analytics-web"]["spec"]["template"][
+            "spec"
+        ]
+        self.assertNotIn("volumes", web_spec)
+        self.assertNotIn("volumeMounts", web_spec["containers"][0])
+
+        for name in (
+            "test-release-homelab-analytics-api",
+            "test-release-homelab-analytics-worker",
+        ):
+            workload = deployments[name]["spec"]["template"]["spec"]
+            self.assertEqual(
+                "test-release-homelab-analytics-data",
+                workload["volumes"][0]["persistentVolumeClaim"]["claimName"],
+            )
+
+    def test_web_workload_can_opt_into_the_data_claim(self) -> None:
+        documents = self._rendered_documents("--set", "web.mountData=true")
+        web = next(
+            document
+            for document in documents
+            if document.get("kind") == "Deployment"
+            and document["metadata"]["name"] == "test-release-homelab-analytics-web"
+        )
+
+        self.assertEqual(
+            "test-release-homelab-analytics-data",
+            web["spec"]["template"]["spec"]["volumes"][0]["persistentVolumeClaim"][
+                "claimName"
+            ],
+        )
+        self.assertEqual(
+            "/data",
+            web["spec"]["template"]["spec"]["containers"][0]["volumeMounts"][0][
+                "mountPath"
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
