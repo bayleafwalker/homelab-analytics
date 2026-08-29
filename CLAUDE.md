@@ -38,9 +38,9 @@ SPRINTCTL_DB=/projects/dev/homelab-analytics/.sprintctl/sprintctl.db sprintctl s
 
 ### Cluster context
 
-This application is **not yet deployed** to a cluster. Do not run `kubectl` against live clusters for development work.
+This application is deployed to the `appservice` cluster at `clusters/main/kubernetes/apps/homelab-analytics/` (namespace `analytics`). Cluster changes are GitOps-only — open a PR against `appservice` and let Flux reconcile. Do not run `kubectl` against live clusters for development work.
 
-- Future deployment target: `appservice` cluster, path `clusters/main/kubernetes/apps/homelab-analytics/`.
+- Deployment target: `appservice` cluster, path `clusters/main/kubernetes/apps/homelab-analytics/`.
 - All cluster deployment guidance is in `docs/notes/appservice-cluster-integration-notes.md`.
 - If you need to reference a live cluster for any reason, use the `appservice` context explicitly and confirm with the user first.
 
