@@ -11,6 +11,12 @@ COPY apps ./apps
 COPY migrations ./migrations
 COPY packages ./packages
 
+# COPY preserves the build context's permissions, which differ per checkout: a
+# group-only working copy produces an image only root can read. The cluster runs
+# this image as uid 65532, and an unreadable /app/migrations makes the migration
+# runner apply nothing at all rather than fail, so normalise the tree here.
+RUN chmod -R a+rX /app
+
 RUN python -m pip install --no-cache-dir .
 
 VOLUME ["/data"]

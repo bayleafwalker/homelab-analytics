@@ -42,3 +42,26 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- printf "%s-data" (include "homelab-analytics.fullname" .) -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Fully-qualified image references.
+
+Prefer an immutable digest when one is configured: cluster deployments pin
+`image.digest`/`webImage.digest` so a moved tag can never change what runs.
+Falls back to the tag for local/dev renders where no digest is known yet.
+*/}}
+{{- define "homelab-analytics.imageRef" -}}
+{{- if .Values.image.digest -}}
+{{- printf "%s@%s" .Values.image.repository .Values.image.digest -}}
+{{- else -}}
+{{- printf "%s:%s" .Values.image.repository .Values.image.tag -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "homelab-analytics.webImageRef" -}}
+{{- if .Values.webImage.digest -}}
+{{- printf "%s@%s" .Values.webImage.repository .Values.webImage.digest -}}
+{{- else -}}
+{{- printf "%s:%s" .Values.webImage.repository .Values.webImage.tag -}}
+{{- end -}}
+{{- end -}}

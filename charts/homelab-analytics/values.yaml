@@ -3,12 +3,16 @@ fullnameOverride: ""
 
 image:
   repository: ghcr.io/bayleafwalker/homelab-analytics
-  tag: "0.1.0"
+  tag: "0.1.2"
+  # Immutable digest (sha256:...). When set it wins over `tag`.
+  digest: ""
   pullPolicy: IfNotPresent
 
 webImage:
   repository: ghcr.io/bayleafwalker/homelab-analytics-web
-  tag: "0.1.0"
+  tag: "0.1.2"
+  # Immutable digest (sha256:...). When set it wins over `tag`.
+  digest: ""
   pullPolicy: IfNotPresent
 
 serviceAccount:
@@ -79,6 +83,10 @@ web:
   enabled: true
   replicas: 1
   port: 8081
+  # The web workload is a standalone Next.js server and does not read the
+  # shared data directory. Leaving this false keeps the web pod off the data
+  # PVC so a ReadWriteOnce claim does not constrain web scheduling.
+  mountData: false
   secretEnvFrom:
     - homelab-analytics-auth-oidc
   resources: {}

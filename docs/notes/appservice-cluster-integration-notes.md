@@ -84,3 +84,38 @@ Defer:
 - Prometheus metrics
 - CNPG backup and restore drill
 - optional VolSync for any expensive-to-rebuild workspace PVCs
+
+## Realized first rollout (2026-08-29)
+
+The first rollout is deployed from `appservice`
+(`bayleafwalker/appservice#1564`) at
+`clusters/main/kubernetes/apps/homelab-analytics/`, with the placement above:
+namespace `analytics`, `analytics.${DOMAIN_0}` on the internal Gateway, one
+api / one worker / one web replica, CNPG enabled.
+
+Where the shipped shape differs from the guidance above, and why:
+
+- **Plain manifests, not the Helm chart.** No HelmRelease in `appservice`
+  sources a chart from a `GitRepository` or `OCIRepository`, and every
+  first-party app there inlines manifests. `charts/homelab-analytics` stays the
+  supported path for other consumers; the cluster follows its own convention.
+- **api and worker are two containers in one pod.** They share `/data` — the
+  ingest inbox/processed/failed folders are a filesystem hand-off — and the
+  claim is Longhorn `ReadWriteOnce`, so separate Deployments could be scheduled
+  onto different nodes and deadlock on multi-attach.
+- **A `migrate` initContainer applies both Postgres migration tracks once.**
+  The api and the worker each migrate on first connect, and started together
+  against an empty database they race on `CREATE TABLE IF NOT EXISTS`.
+- **Blob backend is `filesystem` on the Longhorn claim,** not object storage.
+  The first-rollout list above assumes SOPS-managed blob credentials; the
+  landing tier moving to object storage is deferred rather than pointed at the
+  cluster's CNPG backup bucket.
+- **Identity mode is `local_single_user`,** the bootstrap fallback this note
+  allows. The session secret and bootstrap admin password are SOPS-encrypted in
+  the cluster repo (`runtime-auth.secret.yaml`, username `admin`).
+
+Images are published by `.github/workflows/publish-images.yaml` on a `v*` tag
+and pinned in the cluster by attested digest.
+
+Still open from the follow-up list: Authentik OIDC, the `gatus` availability
+check, Prometheus metrics and alert rules, and the CNPG restore drill.

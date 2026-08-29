@@ -52,7 +52,7 @@ Using the home-directory default (`~/`) silently produces stale or wrong sprint 
 
 ### Cluster context
 
-This application is **not yet deployed** to a cluster. Do not run `kubectl` against live clusters for development work. All deployment targets and cluster assumptions are documented in `docs/notes/appservice-cluster-integration-notes.md`.
+This application is deployed to the `appservice` cluster at `clusters/main/kubernetes/apps/homelab-analytics/` (namespace `analytics`). Cluster changes are GitOps-only — open a PR against `appservice` and let Flux reconcile. Do not run `kubectl` against live clusters for development work. All deployment targets and cluster assumptions are documented in `docs/notes/appservice-cluster-integration-notes.md`.
 
 - Target cluster: `appservice`, path `clusters/main/kubernetes/apps/homelab-analytics/`
 - Do not assume kubectl access or cluster state is available in any session.
