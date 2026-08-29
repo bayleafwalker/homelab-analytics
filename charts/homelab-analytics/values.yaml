@@ -3,14 +3,14 @@ fullnameOverride: ""
 
 image:
   repository: ghcr.io/bayleafwalker/homelab-analytics
-  tag: "0.1.1"
+  tag: "0.1.2"
   # Immutable digest (sha256:...). When set it wins over `tag`.
   digest: ""
   pullPolicy: IfNotPresent
 
 webImage:
   repository: ghcr.io/bayleafwalker/homelab-analytics-web
-  tag: "0.1.1"
+  tag: "0.1.2"
   # Immutable digest (sha256:...). When set it wins over `tag`.
   digest: ""
   pullPolicy: IfNotPresent
