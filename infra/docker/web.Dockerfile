@@ -11,6 +11,9 @@ WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY apps/web/frontend ./
+# Same reason as infra/docker/Dockerfile: COPY preserves the build context's
+# permissions, so normalise them for the non-root uid the cluster runs as.
+RUN chmod -R a+rX /app
 RUN npm run build
 
 FROM node:20-alpine AS runner
@@ -25,6 +28,7 @@ WORKDIR /app
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+RUN chmod -R a+rX /app
 
 EXPOSE 8081
 
