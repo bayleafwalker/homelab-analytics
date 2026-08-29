@@ -192,6 +192,11 @@ def maybe_bootstrap_local_admin(
     password = settings.bootstrap_admin_password
     if not username or not password:
         raise ValueError("Bootstrap local admin requires both username and password settings.")
+    # Create-if-missing only. Once the row exists the stored hash is authoritative
+    # and the configured password is never re-applied, so changing
+    # HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD on an existing deployment is a
+    # silent no-op: the old password keeps working and the new one never does.
+    # Rotation is an explicit operator action -- see docs/runbooks/operations.md.
     try:
         existing = auth_store.get_local_user_by_username(username)
     except KeyError:
