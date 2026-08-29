@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "repo_id": "homelab-analytics",
+  "authority_repo_uuid": "11318b7d-69cb-4b26-9dfa-1be33d1ea39c",
   "adoption_level": "dispatchable",
   "routing": {
     "default_harness": "caller",
