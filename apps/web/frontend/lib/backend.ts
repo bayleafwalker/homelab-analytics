@@ -63,6 +63,8 @@ type GetOperationIdByPath = {
   "/api/ha/bridge/status": "get_bridge_status_api_ha_bridge_status_get";
   "/api/ha/mqtt/status": "get_mqtt_status_api_ha_mqtt_status_get";
   "/api/ha/policies": "get_policies_api_ha_policies_get";
+  "/control/policies": "list_policies_control_policies_get";
+  "/control/policies/referenceable-publications": "list_referenceable_publications_control_policies_referenceable_publications_get";
   "/api/ha/actions": "get_actions_api_ha_actions_get";
   "/api/ha/actions/status": "get_actions_status_api_ha_actions_status_get";
   "/api/ha/actions/proposals": "get_action_proposals_api_ha_actions_proposals_get";
@@ -803,6 +805,31 @@ export async function getHaMqttStatus() {
 export async function getHaPolicies() {
   const payload = await backendGet("/api/ha/policies");
   return getResponseArray(payload, "policies");
+}
+
+/**
+ * Evaluation results together with the effective authority mode.
+ *
+ * Read from the list payload rather than /api/ha/policies/authority, which
+ * 404s when no evaluator is wired; here an absent authority is a legitimate
+ * "not evaluating" state the page renders, not an error.
+ */
+export async function getHaPolicyEvaluation() {
+  const payload = await backendGet("/api/ha/policies");
+  return {
+    policies: getResponseArray(payload, "policies"),
+    authority: getResponseField(payload, "authority")
+  };
+}
+
+export async function getPolicyDefinitions() {
+  const payload = await backendGet("/control/policies");
+  return getResponseArray(payload, "policies");
+}
+
+export async function getReferenceablePublications() {
+  const payload = await backendGet("/control/policies/referenceable-publications");
+  return getResponseArray(payload, "publications");
 }
 
 export async function getHaActions(

@@ -879,3 +879,57 @@ def test_nextjs_frontend_exposes_parallel_retro_shell_and_terminal_boundary() ->
     assert 'usage="publication-definitions [limit]"' in control_terminal_source
     assert 'usage="lineage [limit]"' in control_terminal_source
     assert "--retro-bg" in globals_source
+
+
+def test_nextjs_frontend_exposes_policy_authoring_surface() -> None:
+    policies_page = (
+        FRONTEND_ROOT / "app" / "control" / "policies" / "page.js"
+    ).read_text()
+    rule_summary = (
+        FRONTEND_ROOT / "components" / "policy-rule-summary.js"
+    ).read_text()
+    control_nav = (FRONTEND_ROOT / "components" / "control-nav.js").read_text()
+    backend_source = (FRONTEND_ROOT / "lib" / "backend.ts").read_text()
+
+    # Admin-only, like every other control surface.
+    assert "getCurrentUser()" in policies_page
+    assert 'user.role !== "admin"' in policies_page
+    assert 'redirect("/")' in policies_page
+
+    # Data comes through the typed backend helpers, never raw transport.
+    assert "getPolicyDefinitions()" in policies_page
+    assert "getHaPolicyEvaluation()" in policies_page
+    assert "getPolicyDefinitions" in backend_source
+    assert "getReferenceablePublications" in backend_source
+    assert '"/control/policies": "list_policies_control_policies_get"' in backend_source
+
+    # The three distinctions A2 requires on the list.
+    assert "source_kind" in policies_page
+    assert "builtin" in policies_page
+    assert "enabled" in policies_page
+
+    # A verdict is shown with its reason, not on its own.
+    assert "result.verdict" in policies_page
+    assert "result.reason" in policies_page
+
+    # Authority mode is visible, and a degraded mode says edits will not land.
+    assert "authority" in policies_page
+    assert "snapshot" in policies_page
+    assert "will not take effect" in policies_page
+
+    # Template discipline: the rule summary names the field, comparison and
+    # publication actually evaluated rather than a friendly label.
+    assert "publication_value_comparison" in rule_summary
+    assert "publication_freshness_comparison" in rule_summary
+    assert "ha_helper_state_comparison" in rule_summary
+    assert "Reads publication" in rule_summary
+
+    # Retired operators must not be offered by the authoring surface: they
+    # validated but never fired, so a form control for them would do nothing.
+    operator_phrases = rule_summary.split("COMPARISON_PHRASES = {", 1)[1].split("}", 1)[0]
+    assert "not_in" not in operator_phrases
+    assert "  in:" not in operator_phrases
+    assert "gt:" in operator_phrases
+    assert "neq:" in operator_phrases
+
+    assert '{ href: "/control/policies", label: "Policies" }' in control_nav

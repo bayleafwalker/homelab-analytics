@@ -3,7 +3,8 @@ import Link from "next/link";
 const CONTROL_ITEMS = [
   { href: "/control", label: "Security" },
   { href: "/control/catalog", label: "Catalog" },
-  { href: "/control/execution", label: "Execution" }
+  { href: "/control/execution", label: "Execution" },
+  { href: "/control/policies", label: "Policies" }
 ];
 
 export function ControlNav({ currentPath }) {
