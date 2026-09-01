@@ -923,3 +923,72 @@ class PublicationSnapshotSemanticsTests(unittest.TestCase):
         self.assertEqual(
             "monthly_cashflow", result.metadata["publication_key"]
         )
+
+
+# ---------------------------------------------------------------------------
+# Builtin parity under registry presence (A1 shadow comparison)
+# ---------------------------------------------------------------------------
+
+class BuiltinParityTests(unittest.TestCase):
+    """The four code built-ins are not demoted (none is expressible
+    behavior-identically in the shipped rule kinds), so the shadow
+    comparison pins parity instead: registry presence must never change
+    builtin output, and a registry row can never shadow a builtin id."""
+
+    _CTX = {
+        "bridge_connected": True,
+        "bridge_last_sync_at": _NOW.isoformat(),
+        "bridge_reconnect_count": 0,
+        "budget_rows": [_budget_row(85.0)],
+        "ha_entities": [
+            {
+                "entity_id": "input_boolean.hla_kitchen_light_request",
+                "last_state": "on",
+            }
+        ],
+    }
+
+    def _builtin_output(self, evaluator: HaPolicyEvaluator) -> dict:
+        builtin_ids = {policy.id for policy in _BUILTIN_POLICIES}
+        return {
+            r.id: (r.verdict, r.value, r.approval_required)
+            for r in evaluator.evaluate()
+            if r.id in builtin_ids
+        }
+
+    def test_registry_presence_does_not_change_builtin_output(self) -> None:
+        without_registry = HaPolicyEvaluator(lambda: dict(self._CTX))
+        with_registry = HaPolicyEvaluator(
+            lambda: dict(self._CTX),
+            policy_registry_store=_StubRegistryStore(
+                [_registry_record(), _cashflow_record()]
+            ),
+        )
+        self.assertEqual(
+            self._builtin_output(without_registry),
+            self._builtin_output(with_registry),
+        )
+
+    def test_registry_row_cannot_shadow_builtin_id(self) -> None:
+        # An operator/seeded row reusing a builtin id must be skipped, so no
+        # policy id ever appears twice in one evaluation.
+        shadowing = _registry_record("budget_status")
+        evaluator = HaPolicyEvaluator(
+            lambda: dict(self._CTX),
+            policy_registry_store=_StubRegistryStore([shadowing]),
+        )
+        results = evaluator.evaluate()
+        ids = [r.id for r in results]
+        self.assertEqual(len(ids), len(set(ids)))
+        budget = next(r for r in results if r.id == "budget_status")
+        # The builtin's semantics (85% -> warning), not the helper rule's.
+        self.assertEqual("warning", budget.verdict)
+
+    def test_all_four_builtins_present_with_registry(self) -> None:
+        evaluator = HaPolicyEvaluator(
+            lambda: dict(self._CTX),
+            policy_registry_store=_StubRegistryStore([_registry_record()]),
+        )
+        results = evaluator.evaluate()
+        builtin_ids = {policy.id for policy in _BUILTIN_POLICIES}
+        self.assertTrue(builtin_ids <= {r.id for r in results})

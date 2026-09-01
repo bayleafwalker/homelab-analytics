@@ -897,8 +897,18 @@ class HaPolicyEvaluator:
             ))
 
         if effective_policies is not None:
+            builtin_ids = {policy.id for policy in _BUILTIN_POLICIES}
             publication_confidence_cache: dict[str, ConfidenceSummary | None] = {}
             for reg_policy in effective_policies:
+                if reg_policy["policy_id"] in builtin_ids:
+                    # A registry row must never shadow or duplicate a code
+                    # built-in's result id; built-ins keep code authority
+                    # until they are formally demoted.
+                    logger.warning(
+                        "Registry policy shadows builtin id; skipped",
+                        extra={"policy_id": reg_policy["policy_id"]},
+                    )
+                    continue
                 rule_doc: dict[str, Any] = {}
                 try:
                     rule_doc = json.loads(reg_policy["rule_document"])
