@@ -209,12 +209,34 @@ def register_ha_routes(
             )
         return HaMqttStatusModel(enabled=True, **ha_mqtt_publisher.get_status())
 
+    def _authority_payload() -> dict[str, Any] | None:
+        if ha_policy_evaluator is None:
+            return None
+        get_authority = getattr(ha_policy_evaluator, "get_authority_status", None)
+        if get_authority is None:
+            return None
+        return get_authority().to_dict()
+
     @app.get("/api/ha/policies")
     async def get_policies() -> dict[str, Any]:
         if ha_policy_evaluator is None:
-            return {"policies": []}
+            return {"policies": [], "authority": None}
         results = ha_policy_evaluator.evaluate()
-        return {"policies": [r.to_dict() for r in results]}
+        return {
+            "policies": [r.to_dict() for r in results],
+            "authority": _authority_payload(),
+        }
+
+    @app.get("/api/ha/policies/authority")
+    async def get_policy_authority() -> dict[str, Any]:
+        """Effective registry-policy authority: registry, snapshot, or
+        unavailable, with snapshot version and last error for diagnostics."""
+        authority = _authority_payload()
+        if authority is None:
+            raise HTTPException(
+                status_code=404, detail="Policy evaluator unavailable."
+            )
+        return authority
 
     @app.get("/api/ha/policies/{policy_id}")
     async def get_policy_by_id(policy_id: str) -> dict[str, Any]:
@@ -229,9 +251,12 @@ def register_ha_routes(
     @app.post("/api/ha/policies/evaluate")
     async def evaluate_policies() -> dict[str, Any]:
         if ha_policy_evaluator is None:
-            return {"policies": []}
+            return {"policies": [], "authority": None}
         results = ha_policy_evaluator.evaluate()
-        return {"policies": [r.to_dict() for r in results]}
+        return {
+            "policies": [r.to_dict() for r in results],
+            "authority": _authority_payload(),
+        }
 
     @app.get("/api/ha/actions")
     async def get_actions(

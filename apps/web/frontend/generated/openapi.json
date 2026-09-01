@@ -9023,6 +9023,27 @@
         "summary": "Get Policies"
       }
     },
+    "/api/ha/policies/authority": {
+      "get": {
+        "description": "Effective registry-policy authority: registry, snapshot, or\nunavailable, with snapshot version and last error for diagnostics.",
+        "operationId": "get_policy_authority_api_ha_policies_authority_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Policy Authority Api Ha Policies Authority Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Policy Authority"
+      }
+    },
     "/api/ha/policies/evaluate": {
       "post": {
         "operationId": "evaluate_policies_api_ha_policies_evaluate_post",

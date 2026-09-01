@@ -608,3 +608,36 @@ class HaPoliciesDetailAPITests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HaPolicyAuthorityRouteTests(unittest.TestCase):
+    def test_authority_404_when_evaluator_unavailable(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            resp = client.get("/api/ha/policies/authority")
+            self.assertEqual(404, resp.status_code)
+
+    def test_authority_reports_evaluator_status(self) -> None:
+        from packages.pipelines.ha_policy import HaPolicyEvaluator
+
+        with TemporaryDirectory() as tmp:
+            evaluator = HaPolicyEvaluator(lambda: {})
+            client = _build_client(tmp, ha_policy_evaluator=evaluator)
+            resp = client.get("/api/ha/policies/authority")
+            self.assertEqual(200, resp.status_code)
+            body = resp.json()
+            self.assertEqual("unavailable", body["mode"])
+            self.assertFalse(body["registry_configured"])
+            self.assertIn("snapshot_version", body)
+
+    def test_policies_payload_includes_authority(self) -> None:
+        from packages.pipelines.ha_policy import HaPolicyEvaluator
+
+        with TemporaryDirectory() as tmp:
+            evaluator = HaPolicyEvaluator(lambda: {})
+            client = _build_client(tmp, ha_policy_evaluator=evaluator)
+            resp = client.get("/api/ha/policies")
+            self.assertEqual(200, resp.status_code)
+            body = resp.json()
+            self.assertIn("authority", body)
+            self.assertEqual("unavailable", body["authority"]["mode"])
