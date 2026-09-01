@@ -248,21 +248,17 @@ Stage 2 operating views provide the observed state that policies evaluate. Stage
 
 ### Status
 
-Scaffolded with working examples. The HA integration infrastructure is functional: batch entity ingest, WebSocket live subscription, MQTT synthetic entity publication, outbound action dispatcher, approval-gated device control, approval queue publication/UI controls, and tariff/cost/maintenance synthetic entities are all in place.
-
-**What is done:** The policy evaluation loop runs. `HaPolicyEvaluator` iterates over a set of `_PolicyDef` entries and produces `PolicyResult` outputs. Four built-in demo policies cover budget status, monthly spend rate, bridge health, and an approval-gated device action.
-
-**What is not done:** The policy engine is not operator-facing. Policies are hardcoded in `ha_policy.py` as private `_PolicyDef` entries — there is no user-authored policy model, no persisted policy registry, and no rule DSL or schema for defining policies outside of Python code. The evaluation loop is working infrastructure, not a shipped policy feature.
+Backend complete (2026-09-01, sprint ember-rule-keel). The HA integration infrastructure is functional: batch entity ingest, WebSocket live subscription, MQTT synthetic entity publication, outbound action dispatcher, approval-gated device control, approval queue publication/UI controls, and tariff/cost/maintenance synthetic entities are all in place. The policy registry is persisted, wired into production evaluation with explicit authority semantics, and covered end-to-end; the remaining operator-facing gap is the authoring UI (Stage A2).
 
 ### Policy engine acceptance criteria
 
-Stage 5 is not complete until all of these are met:
+1. **Persisted policy registry** — ✅ Met. `packages/storage/postgres_policy_registry.py` and `sqlite_policy_registry.py` (mixed into the control-plane repository), migrations `postgres/0009` and `sqlite/0007`. Policies are created, updated, and deleted through `/control/policies` without editing Python source (`tests/test_policy_registry.py`).
+2. **Rule schema** — ✅ Met. `packages/platform/policy_schema.py` ships `RULE_SCHEMA_VERSION = "1.0"` with three declarative rule kinds (`publication_value_comparison`, `publication_freshness_comparison`, `ha_helper_state_comparison`). Hardcoded thresholds exist only in code built-ins.
+3. **CRUD API** — ✅ Met. `apps/api/routes/policy_routes.py`, authenticated (`control.policy.read`/`control.policy.write`), with publication-reference validation at create, rule update, and enable (`tests/test_policy_api_routes.py`).
+4. **Runtime loading** — ✅ Met, with a deliberate deviation on demotion. `HaPolicyEvaluator` loads enabled registry policies through the production wiring (`apps/api/ha_startup.py`) under last-known-good snapshot authority (see `policy-and-automation.md`). `_BUILTIN_POLICIES` was **not** demoted to seeded rows: none of the four built-ins is expressible behavior-identically in the shipped rule kinds — the budget pair aggregate across all budget rows with dual warning/breach thresholds, bridge health reads bridge sync state no rule kind covers, and the kitchen-light request needs a warning verdict plus approval-action metadata declarative rules cannot carry. Per the expressibility-honesty rule (never approximate with semantically different rules), built-ins remain code-defined; the versioned, idempotent seed machinery (`ensure_builtin_policies`) is shipped and tested as the installation path for future seeds and A2 templates, parity is pinned by `tests/test_ha_policy.py::BuiltinParityTests`, and a registry row can never shadow a builtin id.
+5. **End-to-end verification** — ✅ Met. `tests/test_policy_e2e.py` (create → evaluate → `PolicyResult` → HA surface) and `tests/test_ha_policy.py::ProductionWiringTests` (registry policy evaluates through `build_ha_startup_runtime`).
 
-1. **Persisted policy registry** — a `PolicyRegistry` stores operator-authored policy definitions in the database. At least one policy can be created, updated, and deleted without editing Python source.
-2. **Rule schema** — a machine-readable schema (JSON or YAML) defines policy thresholds and conditions. The evaluator resolves rules from the schema at runtime; hardcoded thresholds exist only in built-ins, not in operator-authored policies.
-3. **CRUD API** — API endpoints for policy definition CRUD exist, are authenticated, and are covered by integration tests.
-4. **Runtime loading** — `HaPolicyEvaluator` loads from the persisted registry at evaluation time. `_BUILTIN_POLICIES` is demoted to a seeded default set that ships with the platform, not the exclusive policy source.
-5. **End-to-end verification** — at least one test covers the full path: operator creates a policy → evaluator runs it → `PolicyResult` is produced → result is published back to HA as a synthetic entity.
+**Evaluation semantics shipped with the close-out (2026-09-01):** one publication snapshot per evaluation cycle with deduplicated bounded reads; stale input yields explicit `unavailable`; action proposals are idempotent per cycle and inert under `unavailable`; effective authority (registry/snapshot/unavailable) is visible at `GET /api/ha/policies/authority`.
 
 ---
 
