@@ -1004,3 +1004,29 @@ def test_nextjs_frontend_policy_templates_are_parameterized_not_misleading() -> 
     assert "You must supply" in panel
     assert "cannot be created or enabled" in panel
     assert "Templates deliberately not offered" in panel
+
+
+def test_nextjs_frontend_policy_preview_evaluates_the_document_it_would_save() -> None:
+    preview_route = (
+        FRONTEND_ROOT / "app" / "control" / "policies" / "preview" / "route.js"
+    ).read_text()
+    policy_form = (FRONTEND_ROOT / "components" / "policy-form.js").read_text()
+
+    assert "// @ts-check" in preview_route
+    assert 'backendJsonRequest(' in preview_route
+    assert '"/control/policies/preview"' in preview_route
+    # Status is passed through so the form can tell a rejected rule from an
+    # evaluator that is not wired.
+    assert "status: response.status" in preview_route
+
+    # The preview button is gated on the same required inputs as save, and the
+    # result is labelled as unsaved.
+    assert "runPreview" in policy_form
+    assert "disabled={missing.length > 0 || isPreviewing}" in policy_form
+    assert "nothing has been saved" in policy_form
+    # Verdict and reason are both shown, as on the list.
+    assert "preview.verdict" in policy_form
+    assert "preview.reason" in policy_form
+    # The previewed document is built by the same helper the save path uses,
+    # so a preview cannot drift from the rule that would be written.
+    assert "buildRuleDocument" in policy_form

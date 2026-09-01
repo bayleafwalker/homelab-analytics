@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { COMPARISON_OPERATORS, comparisonPhrase } from "@/components/policy-rule-summary";
+import { buildRuleDocument } from "@/lib/policy-rule-form";
 
 const RULE_KINDS = [
   {
@@ -75,6 +76,46 @@ export function PolicyForm({
   );
   const selectedColumn = comparableColumns.find((column) => column.name === fieldName);
   const unit = selectedColumn?.unit || "";
+
+  const [preview, setPreview] = useState(null);
+  const [previewError, setPreviewError] = useState("");
+  const [isPreviewing, setIsPreviewing] = useState(false);
+
+  async function runPreview() {
+    setIsPreviewing(true);
+    setPreview(null);
+    setPreviewError("");
+    try {
+      const response = await fetch("/control/policies/preview", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          rule_document: buildRuleDocument({
+            ruleKind,
+            publicationKey,
+            fieldName,
+            operator,
+            threshold,
+            thresholdHours,
+            entityId,
+            expectedValue,
+            unit
+          })
+        })
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          payload.detail || payload.error || "Could not evaluate this rule."
+        );
+      }
+      setPreview(payload.preview);
+    } catch (requestError) {
+      setPreviewError(requestError.message || "Could not evaluate this rule.");
+    } finally {
+      setIsPreviewing(false);
+    }
+  }
 
   const missing = requiredInputsMissing({
     displayName,
@@ -335,7 +376,31 @@ export function PolicyForm({
         >
           {submitLabel}
         </button>
+        <button
+          className="ghostButton"
+          type="button"
+          disabled={missing.length > 0 || isPreviewing}
+          onClick={runPreview}
+        >
+          {isPreviewing ? "Evaluating…" : "Preview against current data"}
+        </button>
       </div>
+
+      {previewError ? <div className="errorBanner">{previewError}</div> : null}
+      {preview ? (
+        <div className="specBlock">
+          <div className="muted">Preview — nothing has been saved</div>
+          <div>
+            <span className="pill" data-tone={PREVIEW_TONES[preview.verdict] || "neutral"}>
+              {preview.verdict}
+            </span>
+            {preview.value ? (
+              <span className="muted"> observed {preview.value}</span>
+            ) : null}
+          </div>
+          {preview.reason ? <div>{preview.reason}</div> : null}
+        </div>
+      ) : null}
     </form>
   );
 }
@@ -378,6 +443,13 @@ export function requiredInputsMissing({
   }
   return missing;
 }
+
+const PREVIEW_TONES = {
+  ok: "ok",
+  warning: "warm",
+  breach: "warn",
+  unavailable: "neutral"
+};
 
 function sentenceFor({
   ruleKind,
