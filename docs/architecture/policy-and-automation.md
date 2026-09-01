@@ -1,10 +1,10 @@
 # Policy and Automation Architecture
 
 **Classification:** CROSS-CUTTING
-**Status:** implemented (backend); authoring UI pending (Stage A2)
+**Status:** implemented (backend and operator surface; Stages A1 and A2)
 **Last updated:** 2026-09-01
 
-This document describes the shipped Stage 5 policy engine: the persisted registry, the declarative rule schema, the production evaluation path with its authority semantics, and the boundaries that still hold.
+This document describes the shipped Stage 5 policy engine: the persisted registry, the declarative rule schema, the production evaluation path with its authority semantics, the operator authoring surface, and the boundaries that still hold.
 
 ## Current State
 
@@ -34,11 +34,18 @@ Implemented:
   silently.
 - Runtime loading in production: `apps/api/ha_startup.py` constructs `HaPolicyEvaluator` with the control-plane store as registry, a publication fetch function, and a last-known-good snapshot file (see "Authority semantics").
 - Synthetic publication of selected policy/action state back into HA.
+- The operator authoring surface at `/control/policies`
+  (`apps/web/frontend/app/control/policies/`): list with builtin/operator
+  distinction and enabled state, rule-kind-aware create and edit forms,
+  preview, enable/disable/delete, the latest verdict and reason per policy,
+  and an authority-mode indicator. A read-only mirror lives at
+  `/retro/control/policies`; see "Operator surface".
 
 Not implemented:
 
-- The policy authoring UI (`/control/policies` web page) — Stage A2.
-- Extension-provided policy templates — seeded via `ensure_builtin_policies` when they exist (A2).
+- Extension-provided policy templates as seeded registry rows — the shipped
+  templates are authoring-time definitions in the frontend, not persisted
+  rows; see "Operator surface".
 - Demotion of the four code built-ins to seeded registry rows — deliberately not done; see "Built-ins and expressibility".
 
 ## Authority semantics
@@ -97,8 +104,73 @@ shipped and invoked at API startup: one row per stable id under concurrent
 starts, upgrades apply only while the row still matches previously seeded
 content, the operator-owned `enabled` flag is never overwritten, operator
 deletes are tombstoned, and removed seeds are reported orphaned rather than
-deleted. Its production seed list is empty until richer rule kinds or A2
-templates exist.
+deleted. Its production seed list is still empty: the A2 templates ship as
+authoring-time definitions in the frontend rather than as seeded rows (see
+"Operator surface"), so nothing yet needs installing as a registry row.
+
+## Operator surface
+
+`/control/policies` (`apps/web/frontend/app/control/policies/page.js`) is the
+admin-only authoring surface. It lists operator-authored policies and code
+built-ins separately, because they are not the same kind of thing: built-ins
+are defined in code and cannot be edited or deleted there. Each policy shows
+its enabled state, its source kind, and its latest verdict with the reason
+behind it; a policy with no result in the last cycle is rendered as explicitly
+not evaluated rather than as a pass.
+
+The authority mode is shown as a banner, not only a badge, whenever it is not
+`registry`: in `snapshot` mode an operator editing a policy is told the edit
+will not take effect until the registry is reachable again.
+
+Mutations go through co-located BFF route handlers under the same segment
+(`create/`, `[policyId]/`, `[policyId]/enabled/`, `[policyId]/delete/`,
+`preview/`), using typed `backendRequest` literals. Enable and disable report
+distinct errors because they are not symmetric — enable re-validates the
+stored publication references and can fail where disable cannot.
+
+`/retro/control/policies` mirrors verdicts, reasons and authority mode
+read-only. The retro shell mirrors what the classic surfaces show rather than
+duplicating how they are edited, so authoring stays in the classic shell.
+
+### Template discipline
+
+A template is parameterized, never misleading. The form marks required inputs
+and refuses submission until they are supplied, so an incomplete policy is
+rejected before it is written rather than failing on save; the publication
+picker offers only keys the API accepts; the field picker offers only
+numerically comparable columns, since a text column would author a rule that
+always evaluates `unavailable`; and the sentence the rule will actually
+evaluate, with its unit, is shown back before saving.
+
+Three templates ship (`apps/web/frontend/lib/policy-templates.js`):
+`negative-monthly-cashflow`, `utility-cost-above-threshold` (threshold
+required — what counts as too much is the household's judgement, not a default
+worth inventing), and `stale-critical-source` (publication and hours
+required).
+
+All three read `household_overview` rather than the more obvious
+`monthly_cashflow`. This is the honesty rule doing real work:
+`publication_value_comparison` evaluates `rows[0]`, and publication reads are
+`SELECT * FROM <relation> LIMIT n` with no `ORDER BY`, so on a multi-row
+publication `rows[0]` is an arbitrary row. `monthly_cashflow` holds one row per
+booking month, so a rule against it would compare an unspecified month while
+claiming to describe the current one. `household_overview` is materialized as
+exactly one row (`refresh_household_overview` deletes and re-inserts from
+scalar subqueries), with `cashflow_net` and `utility_cost_total` drawn from
+the latest month — the same measures, honestly sourced.
+
+Rejected candidates are recorded in `TEMPLATE_EXCLUSIONS` with their reasons
+rather than dropped silently, so an operator who expects an obvious template
+and does not find it learns it was rejected on purpose. Subscription cost
+variance is excluded on the same rule: no field expresses it, and
+approximating it with `subscription_total_monthly` would compare a different
+quantity than the name promises.
+
+Templates are authoring-time definitions, not persisted rows. There is no
+`template` `source_kind`, and every rule field is structurally required, so a
+partially configured template cannot be stored as a valid rule at all — "a
+template with missing required inputs cannot be enabled" holds by
+construction rather than by a check that could rot.
 
 ## Policy Registry
 
