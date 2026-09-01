@@ -2,7 +2,7 @@ SPRINT: ember-rule-keel — A1 Policy Authority & Production Evaluation  [active
 Goal:   Complete roadmap Stage 5 as production-real: registry authority, snapshot semantics, honest built-in disposition, truthful docs.
 Dates:  2026-08-31 to 2026-09-14
 ID:     554
-Items:  8 total — 7 done, 1 active, 0 pending, 0 blocked
+Items:  8 total — 8 done, 0 active, 0 pending, 0 blocked
 
 --- Track: policy-kernel ---
   health: 6 items — 6 done (100%), 0 active, 0 pending, 0 blocked (0%)
@@ -20,7 +20,7 @@ Items:  8 total — 7 done, 1 active, 0 pending, 0 blocked
     ref [doc] policy-and-automation: docs/architecture/policy-and-automation.md
 
 --- Track: ops ---
-  health: 1 item — 0 done (0%), 1 active, 0 pending, 0 blocked (0%)
-  [active  ] #2337 Sprint hygiene: close catch-all sprint #538 (done, boundary event #2649); refresh sprint-current.txt and TRACKER.md  (assignee: workstation-vuoro)
+  health: 1 item — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #2337 Sprint hygiene: close catch-all sprint #538 (done, boundary event #2649); refresh sprint-current.txt and TRACKER.md  (assignee: workstation-vuoro)
 
-Rendered: 2026-09-01T04:45:00Z
+Rendered: 2026-09-01T05:10:00Z
