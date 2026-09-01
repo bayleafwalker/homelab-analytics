@@ -1,14 +1,14 @@
 SPRINT: slate-dial-hearth — A2 Operator Surface  [active]
 Dates:  2026-09-01 to 2026-09-15
 ID:     555
-Items:  11 total — 0 done, 0 active, 11 pending, 0 blocked
+Items:  11 total — 4 done, 0 active, 7 pending, 0 blocked
 
 --- Track: policy-api ---
-  health: 4 items — 0 done (0%), 0 active, 4 pending, 0 blocked (0%)
-  [pending ] #2338 Explicit reason on evaluation results: add a reason field to PolicyResult distinct from value, stating why the verdict holds (observed value vs threshold and comparison for value rules, age vs threshold_hours for freshness, entity state vs expected for helper, and the stale-input cause for unavailable); expose on /api/ha/policies and the per-policy route; tests for all three rule kinds plus both unavailable paths. A2 acceptance requires the verdict be visible with its reason and no reason field exists today  (assignee: -)
-  [pending ] #2339 Policy-referenceable publication list: close the allowlist asymmetry where /contracts/publications builds contracts with current_dimension_relations/contracts (14 dim_* keys) but the POST /control/policies allowlist in app.py does not, so a picker can offer keys that 422 on save; either align the allowlist or expose a dedicated policy-referenceable endpoint the UI drives, with a test pinning that every offered key is acceptable to create  (assignee: -)
-  [pending ] #2340 Preview endpoint for unsaved policies: POST /control/policies/preview validating and evaluating a rule document against the live publication snapshot without persisting, returning a PolicyResult-shaped payload; requires plumbing the evaluator or an evaluate_document method into register_policy_routes; admin + control.policy.write; tests covering ok/breach/unavailable and stale input  (assignee: -)
-  [pending ] #2341 Rule-language honesty pass: in/not_in pass schema validation but the evaluator silently treats them as false, and verdict_mapping and allowed_freshness_states are accepted, persisted, and never read; reject or honour each rather than accepting silently, so the authoring UI cannot offer a control that does nothing; tests pinning the rejections  (assignee: -)
+  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
+  [done    ] #2338 Explicit reason on evaluation results: add a reason field to PolicyResult distinct from value, stating why the verdict holds (observed value vs threshold and comparison for value rules, age vs threshold_hours for freshness, entity state vs expected for helper, and the stale-input cause for unavailable); expose on /api/ha/policies and the per-policy route; tests for all three rule kinds plus both unavailable paths. A2 acceptance requires the verdict be visible with its reason and no reason field exists today  (assignee: -)
+  [done    ] #2339 Policy-referenceable publication list: close the allowlist asymmetry where /contracts/publications builds contracts with current_dimension_relations/contracts (14 dim_* keys) but the POST /control/policies allowlist in app.py does not, so a picker can offer keys that 422 on save; either align the allowlist or expose a dedicated policy-referenceable endpoint the UI drives, with a test pinning that every offered key is acceptable to create  (assignee: -)
+  [done    ] #2340 Preview endpoint for unsaved policies: POST /control/policies/preview validating and evaluating a rule document against the live publication snapshot without persisting, returning a PolicyResult-shaped payload; requires plumbing the evaluator or an evaluate_document method into register_policy_routes; admin + control.policy.write; tests covering ok/breach/unavailable and stale input  (assignee: -)
+  [done    ] #2341 Rule-language honesty pass: in/not_in pass schema validation but the evaluator silently treats them as false, and verdict_mapping and allowed_freshness_states are accepted, persisted, and never read; reject or honour each rather than accepting silently, so the authoring UI cannot offer a control that does nothing; tests pinning the rejections  (assignee: -)
 
 --- Track: operator-ui ---
   health: 5 items — 0 done (0%), 0 active, 5 pending, 0 blocked (0%)
@@ -25,4 +25,4 @@ Items:  11 total — 0 done, 0 active, 11 pending, 0 blocked
     ref [doc] kotona-operating-picture-brief: docs/plans/kotona-operating-picture-brief.md
   [pending ] #2348 Record the retro-shell parity decision: /retro/control/ carries parallel admin surfaces for security, catalog, and execution but the parity test enumerates files explicitly, so a policies counterpart is not forced; decide and document whether A2 ships retro parity or defers it  (assignee: -)
 
-Rendered: 2026-09-01T07:22:19Z (source: sprintctl JSON commands)
+Rendered: 2026-09-01T07:39:17Z (source: sprintctl JSON commands)
