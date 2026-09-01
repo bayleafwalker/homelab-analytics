@@ -1,26 +1,25 @@
-SPRINT: ember-rule-keel — A1 Policy Authority & Production Evaluation  [active]
-Goal:   Complete roadmap Stage 5 as production-real: registry authority, snapshot semantics, honest built-in disposition, truthful docs.
+SPRINT: ember-rule-keel — A1 Policy Authority & Production Evaluation  [closed]
 Dates:  2026-08-31 to 2026-09-14
 ID:     554
 Items:  8 total — 8 done, 0 active, 0 pending, 0 blocked
 
 --- Track: policy-kernel ---
   health: 6 items — 6 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #2330 Registry injection with last-known-good snapshot authority: wire policy_registry_store + control_plane_store into HaPolicyEvaluator; versioned effective-policy snapshot; degraded/unavailable modes explicit; built-ins bootstrap-only after activation  (assignee: -)
-  [done    ] #2331 Versioned idempotent seed lifecycle: ensure_builtin_policies with seed version+content hash, concurrent-start idempotency, operator-state protection, tombstoned deletes, orphan diagnostics  (assignee: -)
-  [done    ] #2332 Publication evaluation context with snapshot semantics: reference validation at create/update/enable; one as_of boundary per cycle; deduplicated bounded batch reads via reporting layer; explicit unavailable on missing/stale data  (assignee: -)
-  [done    ] #2333 Idempotent action proposals per evaluation cycle; approval-gated actions inert in unavailable mode  (assignee: -)
-  [done    ] #2334 Shadow-compare rollout resolved as parity pin: no built-in expressible behavior-identically in shipped rule kinds; registry rows cannot shadow builtin ids  (assignee: -)
-  [done    ] #2335 Authority-mode diagnostics: registry/snapshot/unavailable visible on /api/ha/policies and /api/ha/policies/authority  (assignee: -)
+  [done    ] #2330 Registry injection with last-known-good snapshot authority: wire policy_registry_store + control_plane_store into HaPolicyEvaluator in apps/api/ha_startup.py; registry authoritative after first activation; versioned effective-policy snapshot; degraded/unavailable modes explicit; built-ins bootstrap-only after activation (no silent revival of code defaults)  (assignee: -)
+  [done    ] #2331 Versioned idempotent seed lifecycle: ensure_builtin_policies with seed version+content hash, concurrent-start idempotency (one row per stable ID), upgrades never overwrite operator-owned state, durable delete/disable, orphaned-builtin diagnostics  (assignee: -)
+  [done    ] #2332 Publication evaluation context with snapshot semantics: reference validation at create/update/enable against registered contracts; one as_of boundary per cycle; deduplicated bounded batch reads via reporting layer; revision/freshness/confidence attached; missing/stale data yields explicit unavailable  (assignee: -)
+  [done    ] #2333 Idempotent action proposals per evaluation cycle: repeated evaluation cannot create duplicate proposals; approval-gated actions inert in unavailable mode  (assignee: -)
+  [done    ] #2334 Shadow-compare rollout: registry evaluation alongside code built-ins with logged diffs, parity proven in tests for the four existing built-ins before authority switch; code definitions retained as bootstrap for one release  (assignee: -)
+  [done    ] #2335 Authority-mode diagnostics: effective mode (registry/snapshot/unavailable) visible via existing status/diagnostic surfaces, with tests  (assignee: -)
 
 --- Track: docs ---
   health: 1 item — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #2336 Documentation truth pass: roadmap Stage 5 status with evidence pointers; policy-and-automation.md reconciled to code; authority model documented  (assignee: -)
+  [done    ] #2336 Documentation truth pass: roadmap Stage 5 status with evidence pointers; policy-and-automation.md reconciled to code; snapshot authority model documented  (assignee: -)
     ref [doc] household-operating-platform-roadmap: docs/plans/household-operating-platform-roadmap.md
     ref [doc] policy-and-automation: docs/architecture/policy-and-automation.md
 
 --- Track: ops ---
   health: 1 item — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #2337 Sprint hygiene: close catch-all sprint #538 (done, boundary event #2649); refresh sprint-current.txt and TRACKER.md  (assignee: workstation-vuoro)
+  [done    ] #2337 Sprint hygiene: close catch-all sprint #538; refresh docs/sprint-snapshots/sprint-current.txt and docs/sprints/TRACKER.md  (assignee: -)
 
-Rendered: 2026-09-01T05:10:00Z
+Rendered: 2026-09-01T07:12:51Z (source: sprintctl JSON commands)
