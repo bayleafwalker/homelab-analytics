@@ -348,8 +348,12 @@ class HaActionDispatcher:
                 self._append_log(record)
                 if record.result == "failure":
                     self.error_count += 1
-            # Always update previous verdict, even if no actions dispatched.
-            self._previous_verdicts[result.id] = result.verdict
+            # Update previous verdict even if no actions dispatched — except
+            # for "unavailable", which carries no information: tracking it
+            # would turn a data blip (breach → unavailable → breach) into a
+            # fake transition that re-creates alerts and re-opens approvals.
+            if result.verdict != "unavailable":
+                self._previous_verdicts[result.id] = result.verdict
 
         if records:
             self.last_dispatch_at = datetime.now(UTC).isoformat()

@@ -583,3 +583,89 @@ class HaActionDispatcherTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---------------------------------------------------------------------------
+# Proposal idempotency & unavailable inertness (A1)
+# ---------------------------------------------------------------------------
+
+class ProposalIdempotencyTests(unittest.TestCase):
+    def _approval_result(self, verdict: str) -> _PolicyResult:
+        return _make_result(
+            policy_id="device_control",
+            policy_name="Device Control",
+            verdict=verdict,
+            approval_required=True,
+            metadata={
+                "approval_action": {
+                    "domain": "light",
+                    "service": "turn_on",
+                    "data": {"entity_id": "light.kitchen"},
+                }
+            },
+        )
+
+    def _dispatcher_with_registry(self) -> tuple[HaActionDispatcher, ApprovalActionRegistry]:
+        registry = ApprovalActionRegistry()
+        dispatcher = HaActionDispatcher(
+            ha_url="http://ha.local:8123",
+            ha_token="test_token",
+            evaluator=_FakeEvaluator([]),  # type: ignore[arg-type]
+            proposal_registry=registry,
+        )
+        return dispatcher, registry
+
+    def _dispatch(self, dispatcher: HaActionDispatcher, result: _PolicyResult) -> list:
+        fake_httpx = SimpleNamespace(AsyncClient=lambda timeout: _FakeAsyncClient())
+        with patch.dict(sys.modules, {"httpx": fake_httpx}):
+            return asyncio.run(dispatcher.dispatch([result]))
+
+    def test_unavailable_verdict_dispatches_no_actions(self) -> None:
+        dispatcher, registry = self._dispatcher_with_registry()
+        records = self._dispatch(dispatcher, self._approval_result("unavailable"))
+        self.assertEqual([], records)
+        self.assertEqual(0, registry.get_status()["tracked"])
+
+    def test_unavailable_blip_does_not_duplicate_proposal(self) -> None:
+        dispatcher, registry = self._dispatcher_with_registry()
+        self._dispatch(dispatcher, self._approval_result("warning"))
+        self.assertEqual(1, registry.get_status()["tracked"])
+        # Data blip: warning → unavailable → warning is not a transition.
+        self._dispatch(dispatcher, self._approval_result("unavailable"))
+        records = self._dispatch(dispatcher, self._approval_result("warning"))
+        self.assertEqual([], records)
+        self.assertEqual(1, registry.get_status()["tracked"])
+        self.assertEqual(1, registry.get_status()["pending"])
+
+    def test_unavailable_blip_does_not_reopen_resolved_approval(self) -> None:
+        dispatcher, registry = self._dispatcher_with_registry()
+        self._dispatch(dispatcher, self._approval_result("warning"))
+        action_id = "homelab_analytics_approval_device_control"
+        registry.approve(action_id)
+        self._dispatch(dispatcher, self._approval_result("unavailable"))
+        self._dispatch(dispatcher, self._approval_result("warning"))
+        self.assertEqual("approved", registry.get(action_id).status)
+        self.assertEqual(0, registry.get_status()["pending"])
+
+    def test_reregister_pending_preserves_identity(self) -> None:
+        registry = ApprovalActionRegistry()
+        first = registry.register(
+            policy_id="p1",
+            policy_name="P1",
+            verdict="warning",
+            value="80%",
+            notification_id="n1",
+            action_id="stable_id",
+        )
+        second = registry.register(
+            policy_id="p1",
+            policy_name="P1",
+            verdict="breach",
+            value="120%",
+            notification_id="n1",
+            action_id="stable_id",
+        )
+        self.assertIs(first, second)
+        self.assertEqual("breach", second.verdict)
+        self.assertEqual("pending", second.status)
+        self.assertEqual(1, registry.get_status()["tracked"])

@@ -121,6 +121,18 @@ class ActionProposalRegistry:
     ) -> ActionProposal:
         resolved_action_id = action_id or f"approval_{uuid.uuid4().hex[:12]}"
         resolved_notification_id = notification_id or resolved_action_id
+
+        # Idempotent per action id: re-registering an action that is still
+        # pending refreshes its observed state but keeps its identity and
+        # created_at, so repeated evaluation cycles cannot stack duplicate
+        # proposals or silently reset one the operator is looking at.
+        existing = self._proposals.get(resolved_action_id)
+        if existing is not None and existing.status == "pending":
+            existing.verdict = verdict
+            existing.value = value
+            existing.metadata = dict(metadata or {})
+            return existing
+
         proposal = ActionProposal(
             action_id=resolved_action_id,
             policy_id=policy_id,
