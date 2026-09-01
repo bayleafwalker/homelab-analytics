@@ -13408,6 +13408,27 @@
         "summary": "Create Policy"
       }
     },
+    "/control/policies/referenceable-publications": {
+      "get": {
+        "description": "Publications a policy may reference, with their comparable fields.\n\nThis is the list an authoring surface must offer. It is narrower than\n``/contracts/publications``, which also advertises current-dimension\ncontracts that policy evaluation cannot resolve to a relation; a\npicker driven off that wider list would offer keys that fail with 422\non save.",
+        "operationId": "list_referenceable_publications_control_policies_referenceable_publications_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Referenceable Publications Control Policies Referenceable Publications Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Referenceable Publications"
+      }
+    },
     "/control/policies/{policy_id}": {
       "delete": {
         "operationId": "delete_policy_control_policies__policy_id__delete",

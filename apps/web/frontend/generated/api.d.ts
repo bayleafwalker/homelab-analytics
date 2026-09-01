@@ -2194,6 +2194,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/control/policies/referenceable-publications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Referenceable Publications
+         * @description Publications a policy may reference, with their comparable fields.
+         *
+         *     This is the list an authoring surface must offer. It is narrower than
+         *     ``/contracts/publications``, which also advertises current-dimension
+         *     contracts that policy evaluation cannot resolve to a relation; a
+         *     picker driven off that wider list would offer keys that fail with 422
+         *     on save.
+         */
+        get: operations["list_referenceable_publications_control_policies_referenceable_publications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/control/policies/{policy_id}": {
         parameters: {
             query?: never;
@@ -10184,6 +10210,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_referenceable_publications_control_policies_referenceable_publications_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };

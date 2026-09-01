@@ -210,17 +210,16 @@ def build_ha_startup_runtime(
         }
 
     from packages.pipelines.composition.publication_contract_inputs import (
-        build_household_publication_relation_map,
+        build_policy_referenceable_contracts,
     )
-    from packages.platform.publication_contracts import build_publication_contracts
 
+    # Same source as the create-time allowlist: a key an operator may
+    # reference is exactly a key evaluation can resolve to a relation.
     relation_by_publication_key = {
         contract.publication_key: contract.relation_name
-        for contract in build_publication_contracts(
+        for contract in build_policy_referenceable_contracts(
             capability_packs,
-            publication_relations=build_household_publication_relation_map(
-                extension_registry=extension_registry,
-            ),
+            extension_registry=extension_registry,
         )
     }
 

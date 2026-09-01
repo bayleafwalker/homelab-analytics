@@ -611,22 +611,21 @@ def create_app(
         extension_registry=container.extension_registry,
     )
     from packages.pipelines.composition.publication_contract_inputs import (
-        build_household_publication_relation_map,
+        build_policy_referenceable_contracts,
     )
-    from packages.platform.publication_contracts import build_publication_contracts
 
+    policy_referenceable_contracts = build_policy_referenceable_contracts(
+        container.capability_packs,
+        extension_registry=container.extension_registry,
+    )
     register_policy_routes(
         app,
         resolved_config_repository=resolved_config_repository,
         known_publication_keys=frozenset(
             contract.publication_key
-            for contract in build_publication_contracts(
-                container.capability_packs,
-                publication_relations=build_household_publication_relation_map(
-                    extension_registry=container.extension_registry,
-                ),
-            )
+            for contract in policy_referenceable_contracts
         ),
+        referenceable_contracts=policy_referenceable_contracts,
     )
     register_control_routes(
         app,

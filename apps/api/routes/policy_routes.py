@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -14,12 +15,32 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ValidationError
 
 from packages.platform.policy_schema import RULE_SCHEMA_VERSION, parse_rule_document
+from packages.platform.publication_contracts import PublicationContract
 from packages.storage.control_plane import (
     ControlPlaneAdminStore,
     PolicyDefinitionCreate,
     PolicyDefinitionRecord,
     PolicyDefinitionUpdate,
 )
+
+_COMPARABLE_STORAGE_TYPES = frozenset({
+    "DECIMAL",
+    "NUMERIC",
+    "INTEGER",
+    "INT",
+    "BIGINT",
+    "SMALLINT",
+    "TINYINT",
+    "DOUBLE",
+    "FLOAT",
+    "REAL",
+})
+
+
+def _is_comparable(storage_type: str) -> bool:
+    """Whether a column can be read as a number for threshold comparison."""
+    normalized = storage_type.upper().replace(" NOT NULL", "").strip()
+    return normalized.split("(", maxsplit=1)[0].strip() in _COMPARABLE_STORAGE_TYPES
 
 
 class PolicyCreateRequest(BaseModel):
@@ -92,6 +113,7 @@ def register_policy_routes(
     *,
     resolved_config_repository: ControlPlaneAdminStore,
     known_publication_keys: frozenset[str] | None = None,
+    referenceable_contracts: Sequence[PublicationContract] = (),
 ) -> None:
     @app.get("/control/policies")
     async def list_policies(
@@ -103,6 +125,46 @@ def register_policy_routes(
             enabled_only=enabled_only,
         )
         return {"policies": [_serialize_policy(r) for r in records]}
+
+    # Registered before /control/policies/{policy_id} so the literal path is
+    # not captured as a policy id.
+    @app.get("/control/policies/referenceable-publications")
+    async def list_referenceable_publications() -> dict[str, Any]:
+        """Publications a policy may reference, with their comparable fields.
+
+        This is the list an authoring surface must offer. It is narrower than
+        ``/contracts/publications``, which also advertises current-dimension
+        contracts that policy evaluation cannot resolve to a relation; a
+        picker driven off that wider list would offer keys that fail with 422
+        on save.
+        """
+        return {
+            "publications": [
+                {
+                    "publication_key": contract.publication_key,
+                    "display_name": contract.display_name,
+                    "description": contract.description,
+                    "columns": [
+                        {
+                            "name": column.name,
+                            "json_type": column.json_type,
+                            "description": column.description,
+                            "unit": column.unit,
+                            "semantic_role": column.semantic_role,
+                            # Only a numerically-readable field can be
+                            # threshold-compared, so the form does not offer a
+                            # field whose comparison is always unavailable.
+                            # Keyed off storage type, not json_type: DECIMAL
+                            # carries json_type "string" but is exactly what
+                            # the monetary rules compare.
+                            "comparable": _is_comparable(column.storage_type),
+                        }
+                        for column in contract.columns
+                    ],
+                }
+                for contract in referenceable_contracts
+            ]
+        }
 
     @app.post("/control/policies", status_code=201)
     async def create_policy(body: PolicyCreateRequest) -> dict[str, Any]:
