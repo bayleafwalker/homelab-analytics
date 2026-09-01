@@ -20,14 +20,51 @@ time alongside these built-in seeds.
 from __future__ import annotations
 
 import calendar
+import json
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, Callable, Literal
 
 logger = logging.getLogger("homelab_analytics.ha_policy")
 
 PolicyVerdict = Literal["ok", "warning", "breach", "unavailable"]
+
+AuthorityMode = Literal["registry", "snapshot", "unavailable"]
+
+_SNAPSHOT_SCHEMA_VERSION = 1
+
+
+@dataclass(frozen=True)
+class PolicyAuthorityStatus:
+    """Effective authority for registry-policy evaluation.
+
+    ``registry``    — enabled policies were loaded live from the registry.
+    ``snapshot``    — the registry is unreachable; evaluation runs against the
+                      last-known-good snapshot of enabled policies (degraded).
+    ``unavailable`` — no registry store is configured, or the registry is
+                      unreachable and no snapshot exists; registry policies are
+                      not evaluated and nothing is silently revived.
+    """
+
+    mode: AuthorityMode
+    registry_configured: bool
+    snapshot_version: int
+    snapshot_saved_at: str | None
+    last_registry_success_at: str | None
+    last_error: str | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "mode": self.mode,
+            "registry_configured": self.registry_configured,
+            "snapshot_version": self.snapshot_version,
+            "snapshot_saved_at": self.snapshot_saved_at,
+            "last_registry_success_at": self.last_registry_success_at,
+            "last_error": self.last_error,
+        }
 
 def _verdict_severity(verdict: str) -> int:
     """Return severity of a confidence verdict (higher = worse)."""
@@ -373,11 +410,127 @@ class HaPolicyEvaluator:
         *,
         control_plane_store: Any | None = None,
         policy_registry_store: Any | None = None,
+        snapshot_path: Path | None = None,
     ) -> None:
         self._fetch_fn = fetch_fn
         self._control_plane_store = control_plane_store
         self._policy_registry_store = policy_registry_store
+        self._snapshot_path = snapshot_path
         self._last_results: list[PolicyResult] = []
+        self._lkg_policies: list[dict[str, Any]] | None = None
+        self._snapshot_version = 0
+        self._snapshot_saved_at: str | None = None
+        self._last_registry_success_at: str | None = None
+        self._last_error: str | None = None
+        self._authority_mode: AuthorityMode = "unavailable"
+        self._load_snapshot_file()
+
+    def _load_snapshot_file(self) -> None:
+        # The snapshot deliberately lives outside the registry's failure
+        # domain (a local file, not a registry table) so it stays readable
+        # during a registry outage and across process restarts.
+        if self._snapshot_path is None or not self._snapshot_path.exists():
+            return
+        try:
+            document = json.loads(self._snapshot_path.read_text(encoding="utf-8"))
+            policies = document["policies"]
+            if not isinstance(policies, list):
+                raise ValueError("snapshot policies must be a list")
+            self._lkg_policies = policies
+            self._snapshot_version = int(document.get("snapshot_version", 0))
+            self._snapshot_saved_at = document.get("saved_at")
+        except Exception as exc:
+            logger.warning(
+                "Failed to load policy authority snapshot",
+                extra={"path": str(self._snapshot_path), "error": str(exc)},
+            )
+
+    def _persist_snapshot_file(self) -> None:
+        if self._snapshot_path is None:
+            return
+        try:
+            self._snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+            document = {
+                "schema_version": _SNAPSHOT_SCHEMA_VERSION,
+                "snapshot_version": self._snapshot_version,
+                "saved_at": self._snapshot_saved_at,
+                "policies": self._lkg_policies,
+            }
+            tmp_path = self._snapshot_path.with_suffix(".tmp")
+            tmp_path.write_text(json.dumps(document, indent=2), encoding="utf-8")
+            os.replace(tmp_path, self._snapshot_path)
+        except Exception as exc:
+            logger.warning(
+                "Failed to persist policy authority snapshot",
+                extra={"path": str(self._snapshot_path), "error": str(exc)},
+            )
+
+    def _refresh_registry_policies(
+        self, now: datetime
+    ) -> list[dict[str, Any]] | None:
+        """Load enabled registry policies, applying snapshot authority.
+
+        Returns the effective policy list to evaluate, or ``None`` when
+        registry policies must not be evaluated (mode ``unavailable``).
+        Only *enabled* policies are ever snapshotted, so an operator-disabled
+        policy cannot be revived by an outage.
+        """
+        if self._policy_registry_store is None:
+            self._authority_mode = "unavailable"
+            return None
+        try:
+            records = self._policy_registry_store.list_policy_definitions(
+                enabled_only=True
+            )
+        except Exception as exc:
+            self._last_error = str(exc)
+            if self._lkg_policies is not None:
+                self._authority_mode = "snapshot"
+                logger.warning(
+                    "Policy registry unreachable; evaluating last-known-good snapshot",
+                    extra={
+                        "snapshot_version": self._snapshot_version,
+                        "error": str(exc),
+                    },
+                )
+                return self._lkg_policies
+            self._authority_mode = "unavailable"
+            logger.warning(
+                "Policy registry unreachable and no snapshot exists",
+                extra={"error": str(exc)},
+            )
+            return None
+
+        policies = [
+            {
+                "policy_id": record.policy_id,
+                "display_name": record.display_name,
+                "description": record.description or "",
+                "rule_document": record.rule_document,
+                "source_kind": record.source_kind,
+            }
+            for record in records
+        ]
+        self._last_registry_success_at = now.isoformat()
+        self._last_error = None
+        if policies != self._lkg_policies:
+            self._snapshot_version += 1
+            self._lkg_policies = policies
+            self._snapshot_saved_at = now.isoformat()
+            self._persist_snapshot_file()
+        self._authority_mode = "registry"
+        return policies
+
+    def get_authority_status(self) -> PolicyAuthorityStatus:
+        """Return the effective authority mode for registry-policy evaluation."""
+        return PolicyAuthorityStatus(
+            mode=self._authority_mode,
+            registry_configured=self._policy_registry_store is not None,
+            snapshot_version=self._snapshot_version,
+            snapshot_saved_at=self._snapshot_saved_at,
+            last_registry_success_at=self._last_registry_success_at,
+            last_error=self._last_error,
+        )
 
     def evaluate(self) -> list[PolicyResult]:
         """Fetch current platform state and evaluate all policies."""
@@ -443,40 +596,37 @@ class HaPolicyEvaluator:
                 input_freshness=input_freshness,
             ))
 
-        if self._policy_registry_store is not None:
-            try:
-                import json as _json
-                registry_policies = self._policy_registry_store.list_policy_definitions(
-                    enabled_only=True
-                )
-                for reg_policy in registry_policies:
-                    try:
-                        rule_doc = _json.loads(reg_policy.rule_document)
-                        verdict, value = _evaluate_declarative_rule(
-                            rule_doc, context, now, self._control_plane_store
-                        )
-                    except Exception as exc:
-                        logger.warning(
-                            "Registry policy evaluation error",
-                            extra={"policy_id": reg_policy.policy_id, "error": str(exc)},
-                        )
-                        verdict, value = "unavailable", None
-                    results.append(PolicyResult(
-                        id=reg_policy.policy_id,
-                        name=reg_policy.display_name,
-                        description=reg_policy.description or "",
-                        verdict=verdict,
-                        value=value,
-                        evaluated_at=now.isoformat(),
-                        approval_required=False,
-                        metadata={"source_kind": reg_policy.source_kind},
-                        input_freshness=input_freshness,
-                    ))
-            except Exception as exc:
-                logger.warning(
-                    "Failed to load registry policies",
-                    extra={"error": str(exc)},
-                )
+        effective_policies = self._refresh_registry_policies(now)
+        if effective_policies is not None:
+            for reg_policy in effective_policies:
+                try:
+                    rule_doc = json.loads(reg_policy["rule_document"])
+                    verdict, value = _evaluate_declarative_rule(
+                        rule_doc, context, now, self._control_plane_store
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Registry policy evaluation error",
+                        extra={
+                            "policy_id": reg_policy["policy_id"],
+                            "error": str(exc),
+                        },
+                    )
+                    verdict, value = "unavailable", None
+                results.append(PolicyResult(
+                    id=reg_policy["policy_id"],
+                    name=reg_policy["display_name"],
+                    description=reg_policy["description"],
+                    verdict=verdict,
+                    value=value,
+                    evaluated_at=now.isoformat(),
+                    approval_required=False,
+                    metadata={
+                        "source_kind": reg_policy["source_kind"],
+                        "authority_mode": self._authority_mode,
+                    },
+                    input_freshness=input_freshness,
+                ))
 
         self._last_results = results
         return results

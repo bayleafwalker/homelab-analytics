@@ -95,6 +95,7 @@ def _build_api_startup_components(
         transformation_service=transformation_service,
         reporting_service=reporting_service,
         capability_packs=BUILTIN_CAPABILITY_PACKS,
+        control_plane_store=container.control_plane_store,
     )
     return (
         container,

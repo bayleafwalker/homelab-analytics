@@ -168,6 +168,7 @@ def build_ha_startup_runtime(
     transformation_service: TransformationService,
     reporting_service: ReportingService,
     capability_packs: Sequence[CapabilityPack],
+    control_plane_store: Any | None = None,
 ) -> HaStartupRuntime:
     from packages.domains.homelab.pipelines.ha_action_dispatcher import HaActionDispatcher
     from packages.domains.homelab.pipelines.ha_bridge import HaBridgeWorker
@@ -197,7 +198,17 @@ def build_ha_startup_runtime(
             "ha_entities": ha_entities,
         }
 
-    ha_policy_evaluator = HaPolicyEvaluator(_policy_fetch_fn)
+    # The control-plane store doubles as the policy registry store (the
+    # registry mixin is part of the control-plane repository). The snapshot
+    # file lives under data_dir, outside the registry's failure domain, so a
+    # registry outage degrades to last-known-good instead of reviving code
+    # defaults.
+    ha_policy_evaluator = HaPolicyEvaluator(
+        _policy_fetch_fn,
+        control_plane_store=control_plane_store,
+        policy_registry_store=control_plane_store,
+        snapshot_path=settings.data_dir / "ha-policy-effective-snapshot.json",
+    )
     ha_action_proposal_registry = ApprovalActionRegistry()
 
     ha_action_dispatcher = None

@@ -442,3 +442,210 @@ class DeclarativeRuleEvaluationTests(unittest.TestCase):
     def test_unknown_rule_kind_unavailable(self) -> None:
         verdict, _ = _evaluate_declarative_rule({"rule_kind": "exec_python"}, {}, self._NOW, None)
         self.assertEqual("unavailable", verdict)
+
+
+# ---------------------------------------------------------------------------
+# Snapshot authority model (A1)
+# ---------------------------------------------------------------------------
+
+_HELPER_RULE = {
+    "rule_kind": "ha_helper_state_comparison",
+    "entity_id": "input_boolean.hla_test_flag",
+    "operator": "eq",
+    "expected_value": "on",
+}
+
+
+def _registry_record(policy_id: str = "op_test_flag") -> PolicyDefinitionRecord:
+    return PolicyDefinitionRecord(
+        policy_id=policy_id,
+        display_name="Test Flag",
+        policy_kind="declarative_rule",
+        rule_schema_version="1.0",
+        rule_document=json.dumps(_HELPER_RULE),
+        enabled=True,
+        source_kind="operator",
+        description="Operator test policy.",
+        creator="operator",
+        created_at=_NOW,
+        updated_at=_NOW,
+    )
+
+
+class _StubRegistryStore:
+    def __init__(self, records: list | None = None) -> None:
+        self.records = records if records is not None else []
+        self.fail = False
+
+    def list_policy_definitions(self, enabled_only: bool = False) -> list:
+        if self.fail:
+            raise RuntimeError("registry down")
+        return list(self.records)
+
+
+class AuthoritySnapshotModelTests(unittest.TestCase):
+    _CTX = {
+        "ha_entities": [
+            {"entity_id": "input_boolean.hla_test_flag", "state": "on"}
+        ]
+    }
+
+    def _registry_ids(self, results: list[PolicyResult]) -> list[str]:
+        builtin_ids = {policy.id for policy in _BUILTIN_POLICIES}
+        return [result.id for result in results if result.id not in builtin_ids]
+
+    def test_live_registry_mode(self) -> None:
+        store = _StubRegistryStore([_registry_record()])
+        evaluator = HaPolicyEvaluator(lambda: self._CTX, policy_registry_store=store)
+        results = evaluator.evaluate()
+        self.assertEqual(["op_test_flag"], self._registry_ids(results))
+        status = evaluator.get_authority_status()
+        self.assertEqual("registry", status.mode)
+        self.assertTrue(status.registry_configured)
+        self.assertEqual(1, status.snapshot_version)
+        registry_result = next(r for r in results if r.id == "op_test_flag")
+        self.assertEqual("registry", registry_result.metadata["authority_mode"])
+
+    def test_outage_with_prior_success_degrades_to_snapshot(self) -> None:
+        store = _StubRegistryStore([_registry_record()])
+        evaluator = HaPolicyEvaluator(lambda: self._CTX, policy_registry_store=store)
+        evaluator.evaluate()
+        store.fail = True
+        results = evaluator.evaluate()
+        self.assertEqual(["op_test_flag"], self._registry_ids(results))
+        status = evaluator.get_authority_status()
+        self.assertEqual("snapshot", status.mode)
+        self.assertIsNotNone(status.last_error)
+        registry_result = next(r for r in results if r.id == "op_test_flag")
+        self.assertEqual("snapshot", registry_result.metadata["authority_mode"])
+
+    def test_operator_disabled_policy_not_revived_by_outage(self) -> None:
+        store = _StubRegistryStore([_registry_record()])
+        evaluator = HaPolicyEvaluator(lambda: self._CTX, policy_registry_store=store)
+        evaluator.evaluate()
+        # Operator disables the policy: enabled-only listing becomes empty.
+        store.records = []
+        evaluator.evaluate()
+        # Registry outage must evaluate the post-disable snapshot, not revive.
+        store.fail = True
+        results = evaluator.evaluate()
+        self.assertEqual([], self._registry_ids(results))
+        self.assertEqual("snapshot", evaluator.get_authority_status().mode)
+
+    def test_outage_without_snapshot_is_unavailable(self) -> None:
+        store = _StubRegistryStore([_registry_record()])
+        store.fail = True
+        evaluator = HaPolicyEvaluator(lambda: self._CTX, policy_registry_store=store)
+        results = evaluator.evaluate()
+        self.assertEqual([], self._registry_ids(results))
+        self.assertEqual("unavailable", evaluator.get_authority_status().mode)
+
+    def test_no_store_reports_unconfigured_unavailable(self) -> None:
+        evaluator = HaPolicyEvaluator(lambda: self._CTX)
+        evaluator.evaluate()
+        status = evaluator.get_authority_status()
+        self.assertEqual("unavailable", status.mode)
+        self.assertFalse(status.registry_configured)
+
+    def test_snapshot_version_increments_only_on_change(self) -> None:
+        store = _StubRegistryStore([_registry_record()])
+        evaluator = HaPolicyEvaluator(lambda: self._CTX, policy_registry_store=store)
+        evaluator.evaluate()
+        evaluator.evaluate()
+        self.assertEqual(1, evaluator.get_authority_status().snapshot_version)
+        store.records = [_registry_record("op_other")]
+        evaluator.evaluate()
+        self.assertEqual(2, evaluator.get_authority_status().snapshot_version)
+
+    def test_snapshot_persists_across_restart(self) -> None:
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as tmp:
+            snapshot_path = Path(tmp) / "snapshot.json"
+            store = _StubRegistryStore([_registry_record()])
+            first = HaPolicyEvaluator(
+                lambda: self._CTX,
+                policy_registry_store=store,
+                snapshot_path=snapshot_path,
+            )
+            first.evaluate()
+            self.assertTrue(snapshot_path.exists())
+
+            # New process: fresh evaluator, registry down from the start.
+            store.fail = True
+            second = HaPolicyEvaluator(
+                lambda: self._CTX,
+                policy_registry_store=store,
+                snapshot_path=snapshot_path,
+            )
+            results = second.evaluate()
+            self.assertEqual(["op_test_flag"], self._registry_ids(results))
+            self.assertEqual("snapshot", second.get_authority_status().mode)
+
+
+class ProductionWiringTests(unittest.TestCase):
+    """A registry policy evaluates through the production wiring path."""
+
+    def test_registry_policy_evaluates_via_build_ha_startup_runtime(self) -> None:
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from types import SimpleNamespace
+
+        from apps.api.ha_startup import build_ha_startup_runtime
+        from packages.shared.settings import AppSettings
+        from packages.storage.control_plane import PolicyDefinitionCreate
+        from packages.storage.ingestion_config import IngestionConfigRepository
+
+        with TemporaryDirectory() as tmp:
+            temp_root = Path(tmp)
+            settings = AppSettings(
+                data_dir=temp_root,
+                landing_root=temp_root / "landing",
+                metadata_database_path=temp_root / "metadata" / "runs.db",
+                account_transactions_inbox_dir=temp_root / "inbox",
+                processed_files_dir=temp_root / "processed",
+                failed_files_dir=temp_root / "failed",
+                api_host="127.0.0.1",
+                api_port=8090,
+                web_host="127.0.0.1",
+                web_port=8091,
+                worker_poll_interval_seconds=1,
+            )
+            config_repository = IngestionConfigRepository(temp_root / "config.db")
+            config_repository.create_policy_definition(
+                PolicyDefinitionCreate(
+                    policy_id="op_wired_flag",
+                    display_name="Wired Flag",
+                    policy_kind="declarative_rule",
+                    rule_schema_version="1.0",
+                    rule_document=json.dumps(_HELPER_RULE),
+                    enabled=True,
+                    source_kind="operator",
+                    description="Wired through production startup.",
+                    creator="operator",
+                )
+            )
+            transformation_service = SimpleNamespace(
+                get_budget_progress_current=lambda: [],
+                get_ha_entities=lambda: [
+                    {"entity_id": "input_boolean.hla_test_flag", "state": "on"}
+                ],
+                ingest_ha_states=lambda *args, **kwargs: None,
+            )
+            runtime = build_ha_startup_runtime(
+                settings,
+                transformation_service=transformation_service,
+                reporting_service=SimpleNamespace(),
+                capability_packs=(),
+                control_plane_store=config_repository,
+            )
+            results = runtime.policy_evaluator.evaluate()
+            self.assertIn(
+                "op_wired_flag", [result.id for result in results]
+            )
+            status = runtime.policy_evaluator.get_authority_status()
+            self.assertEqual("registry", status.mode)
+            self.assertTrue(
+                (temp_root / "ha-policy-effective-snapshot.json").exists()
+            )
