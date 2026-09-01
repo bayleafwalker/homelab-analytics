@@ -146,6 +146,9 @@ def register_policy_routes(
         on save.
         """
         return {
+            # The authoring surface sends the schema version back on create, so
+            # the version stays owned here rather than pinned in the frontend.
+            "rule_schema_version": RULE_SCHEMA_VERSION,
             "publications": [
                 {
                     "publication_key": contract.publication_key,

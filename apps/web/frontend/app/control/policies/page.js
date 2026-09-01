@@ -2,11 +2,13 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
 import { ControlNav } from "@/components/control-nav";
+import { PolicyForm } from "@/components/policy-form";
 import { PolicyRuleSummary } from "@/components/policy-rule-summary";
 import {
   getCurrentUser,
   getHaPolicyEvaluation,
-  getPolicyDefinitions
+  getPolicyDefinitions,
+  getReferenceablePublications
 } from "@/lib/backend";
 
 function noticeCopy(notice) {
@@ -117,10 +119,12 @@ export default async function ControlPoliciesPage({ searchParams }) {
     redirect("/");
   }
 
-  const [definitions, evaluation] = await Promise.all([
+  const [definitions, evaluation, authoring] = await Promise.all([
     getPolicyDefinitions(),
-    getHaPolicyEvaluation()
+    getHaPolicyEvaluation(),
+    getReferenceablePublications()
   ]);
+  const publications = authoring.publications;
 
   const resultById = new Map(evaluation.policies.map((result) => [result.id, result]));
   const definitionIds = new Set(definitions.map((definition) => definition.policy_id));
@@ -239,10 +243,60 @@ export default async function ControlPoliciesPage({ searchParams }) {
                   {definition.description ? <p>{definition.description}</p> : null}
                   <PolicyRuleSummary ruleDocument={definition.rule_document} />
                   <EvaluationSummary result={resultById.get(definition.policy_id)} />
+                  <div className="buttonRow">
+                    <form
+                      action={`/control/policies/${definition.policy_id}/enabled`}
+                      method="post"
+                    >
+                      <input
+                        name="enabled"
+                        type="hidden"
+                        value={definition.enabled ? "false" : "true"}
+                      />
+                      <button className="ghostButton" type="submit">
+                        {definition.enabled ? "Disable policy" : "Enable policy"}
+                      </button>
+                    </form>
+                    <form
+                      action={`/control/policies/${definition.policy_id}/delete`}
+                      method="post"
+                    >
+                      <button className="ghostButton" type="submit">
+                        Delete policy
+                      </button>
+                    </form>
+                  </div>
+                  <details>
+                    <summary>Edit this policy</summary>
+                    <PolicyForm
+                      publications={publications}
+                      ruleSchemaVersion={authoring.ruleSchemaVersion}
+                      policy={definition}
+                      action={`/control/policies/${definition.policy_id}`}
+                      submitLabel="Save changes"
+                    />
+                  </details>
                 </article>
               ))}
             </div>
           )}
+        </section>
+
+        <section className="panel stack">
+          <div className="sectionHeader">
+            <h2>Author a policy</h2>
+          </div>
+          {publications.length === 0 ? (
+            <div className="empty">
+              No publications are available to reference, so a publication-based
+              rule cannot be authored yet.
+            </div>
+          ) : null}
+          <PolicyForm
+            publications={publications}
+            ruleSchemaVersion={authoring.ruleSchemaVersion}
+            action="/control/policies/create"
+          />
         </section>
 
         <section className="panel stack">

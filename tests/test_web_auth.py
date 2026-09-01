@@ -933,3 +933,43 @@ def test_nextjs_frontend_exposes_policy_authoring_surface() -> None:
     assert "neq:" in operator_phrases
 
     assert '{ href: "/control/policies", label: "Policies" }' in control_nav
+
+
+def test_nextjs_frontend_policy_mutation_routes_follow_the_bff_pattern() -> None:
+    policies_root = FRONTEND_ROOT / "app" / "control" / "policies"
+    create_route = (policies_root / "create" / "route.js").read_text()
+    update_route = (policies_root / "[policyId]" / "route.js").read_text()
+    enabled_route = (policies_root / "[policyId]" / "enabled" / "route.js").read_text()
+    delete_route = (policies_root / "[policyId]" / "delete" / "route.js").read_text()
+    rule_form = (FRONTEND_ROOT / "lib" / "policy-rule-form.js").read_text()
+    policy_form = (FRONTEND_ROOT / "components" / "policy-form.js").read_text()
+
+    for source in (create_route, update_route, enabled_route, delete_route):
+        assert "// @ts-check" in source
+        assert "cookieHeader" in source
+
+    assert 'backendRequest("post", "/control/policies"' in create_route
+    assert 'backendRequest("patch", "/control/policies/{policy_id}"' in update_route
+    assert 'backendRequest("patch", "/control/policies/{policy_id}"' in enabled_route
+    assert 'backendRequest("delete", "/control/policies/{policy_id}"' in delete_route
+
+    # Enable and disable are distinguishable, because enable re-validates the
+    # stored publication references and can fail where disable cannot.
+    assert "enable-failed" in enabled_route
+    assert "disable-failed" in enabled_route
+
+    # Only the chosen rule kind's fields are sent: every rule model forbids
+    # extra keys, so carrying a field across from another kind is a 422.
+    assert "publication_value_comparison" in rule_form
+    assert "publication_freshness_comparison" in rule_form
+    assert "ha_helper_state_comparison" in rule_form
+
+    # Template discipline: required inputs are named and the submit is refused
+    # until they are supplied, rather than failing on save.
+    assert "requiredInputsMissing" in policy_form
+    assert "disabled={missing.length > 0}" in policy_form
+    assert "(required)" in policy_form
+    # The form shows the field, comparison and threshold being evaluated.
+    assert "This policy will evaluate" in policy_form
+    # Only numerically comparable fields are offered.
+    assert "column.comparable" in policy_form

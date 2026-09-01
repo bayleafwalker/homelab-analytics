@@ -827,9 +827,18 @@ export async function getPolicyDefinitions() {
   return getResponseArray(payload, "policies");
 }
 
+/**
+ * Everything the authoring form needs to build a valid rule: the publications
+ * it may reference with their comparable fields, and the rule schema version
+ * to send back on create. The version stays backend-owned rather than pinned
+ * in the frontend.
+ */
 export async function getReferenceablePublications() {
   const payload = await backendGet("/control/policies/referenceable-publications");
-  return getResponseArray(payload, "publications");
+  return {
+    publications: getResponseArray(payload, "publications"),
+    ruleSchemaVersion: getResponseField(payload, "rule_schema_version")
+  };
 }
 
 export async function getHaActions(
