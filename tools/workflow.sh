@@ -336,11 +336,20 @@ case "$cmd" in
     ;;
   snapshot-refresh)
     load_env
-    args=(render --output "$ROOT/docs/sprint-snapshots/sprint-current.txt")
+    snapshot="$ROOT/docs/sprint-snapshots/sprint-current.txt"
+    args=(render --output "$snapshot")
     if [[ -n "${SPRINT_ID:-}" ]]; then
       args+=(--sprint-id "$SPRINT_ID")
     fi
-    sprintctl "${args[@]}"
+    # `sprintctl render` is not in the Vuoro served catalog and the repo marker
+    # forbids the local backend, so fall back to rendering from the served JSON
+    # commands rather than leaving the snapshot to be hand-edited.
+    if ! sprintctl "${args[@]}" 2>/dev/null; then
+      py="$(python_bin)"
+      sprint_id="${SPRINT_ID:-$(sprintctl sprint show --json | "$py" -c 'import json,sys; print(json.load(sys.stdin)["id"])')}"
+      [[ -n "$sprint_id" ]] || fail "cannot resolve a sprint to render"
+      "$py" "$ROOT/tools/render_sprint_snapshot.py" --sprint-id "$sprint_id" --output "$snapshot"
+    fi
     ;;
   knowledge-publish)
     load_env
