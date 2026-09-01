@@ -495,3 +495,127 @@ class PolicyPreviewRouteTests(unittest.TestCase):
                 "/control/policies/preview", json={"rule_document": _VALID_RULE}
             )
             self.assertEqual(503, response.status_code)
+
+
+class ShippedPolicyTemplateTests(unittest.TestCase):
+    """Every shipped template must be expressible against real publications.
+
+    The templates live in the frontend, but whether they are honest is a
+    backend fact: the publication must exist, the field must be numerically
+    comparable, and a completed rule must be accepted while an incomplete one
+    is refused. Parsed from the source so the two cannot drift.
+    """
+
+    _TEMPLATES_PATH = (
+        Path(__file__).resolve().parents[1]
+        / "apps"
+        / "web"
+        / "frontend"
+        / "lib"
+        / "policy-templates.js"
+    )
+
+    def _template_rules(self) -> list[dict[str, str]]:
+        import re
+
+        source = self._TEMPLATES_PATH.read_text()
+        rules = []
+        for block in re.findall(r"rule:\s*\{(.*?)\}", source, re.DOTALL):
+            rule = dict(re.findall(r'(\w+):\s*"([^"]*)"', block))
+            numeric = dict(re.findall(r"(\w+):\s*(-?\d+(?:\.\d+)?)\s*[,\n]", block))
+            rule.update(numeric)
+            rules.append(rule)
+        return rules
+
+    def test_templates_are_parsed(self) -> None:
+        rules = self._template_rules()
+        self.assertEqual(3, len(rules), f"expected three shipped templates, got {rules}")
+
+    def test_value_template_fields_exist_and_are_comparable(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            publications = {
+                publication["publication_key"]: publication
+                for publication in client.get(
+                    "/control/policies/referenceable-publications"
+                ).json()["publications"]
+            }
+
+        for rule in self._template_rules():
+            if rule.get("rule_kind") != "publication_value_comparison":
+                continue
+            publication = publications.get(rule["publication_key"])
+            self.assertIsNotNone(
+                publication,
+                f"template reads unknown publication {rule['publication_key']!r}",
+            )
+            column = next(
+                (
+                    candidate
+                    for candidate in publication["columns"]
+                    if candidate["name"] == rule["field_name"]
+                ),
+                None,
+            )
+            self.assertIsNotNone(
+                column,
+                f"{rule['publication_key']} has no field {rule['field_name']!r}",
+            )
+            self.assertTrue(
+                column["comparable"],
+                f"{rule['field_name']} is not numerically comparable, so a value "
+                "rule against it would always evaluate unavailable",
+            )
+
+    def test_completed_templates_are_accepted(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            for rule in self._template_rules():
+                completed = dict(rule)
+                # Stand in for the inputs the operator must supply.
+                if completed.get("rule_kind") == "publication_value_comparison":
+                    completed.setdefault("threshold", 0)
+                    completed["threshold"] = float(completed["threshold"])
+                if completed.get("rule_kind") == "publication_freshness_comparison":
+                    completed.setdefault("publication_key", "household_overview")
+                    completed["threshold_hours"] = 48.0
+                response = client.post(
+                    "/control/policies",
+                    json={
+                        "display_name": f"Template {completed.get('field_name', '')}",
+                        "policy_kind": "declarative_rule",
+                        "rule_document": completed,
+                    },
+                )
+                self.assertEqual(
+                    201,
+                    response.status_code,
+                    f"template rule {completed} was rejected: {response.text}",
+                )
+
+    def test_incomplete_templates_are_refused(self) -> None:
+        # A template missing a required input must not be creatable, which is
+        # what makes "cannot be enabled until configured" true at the API and
+        # not only in the form.
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            for rule in self._template_rules():
+                if rule.get("rule_kind") == "publication_value_comparison":
+                    incomplete = {k: v for k, v in rule.items() if k != "threshold"}
+                elif rule.get("rule_kind") == "publication_freshness_comparison":
+                    incomplete = dict(rule)
+                else:
+                    continue
+                response = client.post(
+                    "/control/policies",
+                    json={
+                        "display_name": "Incomplete",
+                        "policy_kind": "declarative_rule",
+                        "rule_document": incomplete,
+                    },
+                )
+                self.assertEqual(
+                    422,
+                    response.status_code,
+                    f"incomplete template rule {incomplete} was accepted",
+                )

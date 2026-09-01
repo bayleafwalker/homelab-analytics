@@ -973,3 +973,34 @@ def test_nextjs_frontend_policy_mutation_routes_follow_the_bff_pattern() -> None
     assert "This policy will evaluate" in policy_form
     # Only numerically comparable fields are offered.
     assert "column.comparable" in policy_form
+
+
+def test_nextjs_frontend_policy_templates_are_parameterized_not_misleading() -> None:
+    templates = (FRONTEND_ROOT / "lib" / "policy-templates.js").read_text()
+    panel = (FRONTEND_ROOT / "components" / "policy-authoring-panel.js").read_text()
+
+    # Each template names the publication and field it actually reads.
+    assert "household_overview" in templates
+    assert "cashflow_net" in templates
+    assert "utility_cost_total" in templates
+    assert "requiredInputs" in templates
+
+    # A template that cannot decide a value for the operator leaves it empty
+    # rather than inventing a default.
+    assert '"threshold"' in templates
+    assert '"publication_key"' in templates
+    assert '"threshold_hours"' in templates
+
+    # Rejected candidates are recorded with their reason rather than dropped
+    # silently, including the multi-row read that makes a direct
+    # monthly_cashflow rule dishonest.
+    assert "TEMPLATE_EXCLUSIONS" in templates
+    assert "monthly_cashflow" in templates
+    assert "arbitrary month" in templates
+    assert "subscription" in templates
+
+    # The panel tells the operator what is still outstanding and why it
+    # blocks enablement.
+    assert "You must supply" in panel
+    assert "cannot be created or enabled" in panel
+    assert "Templates deliberately not offered" in panel

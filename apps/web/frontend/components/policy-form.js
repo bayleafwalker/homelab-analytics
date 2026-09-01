@@ -34,10 +34,13 @@ export function PolicyForm({
   publications,
   ruleSchemaVersion,
   policy = null,
+  template = null,
   action,
   submitLabel = "Create policy"
 }) {
-  const existingRule = policy?.rule_document || {};
+  // A template seeds only the fields it can state truthfully; the rest stay
+  // empty and are reported as outstanding required inputs below.
+  const existingRule = policy?.rule_document || template?.rule || {};
   const [ruleKind, setRuleKind] = useState(
     existingRule.rule_kind || RULE_KINDS[0].value
   );
@@ -58,7 +61,9 @@ export function PolicyForm({
   const [expectedValue, setExpectedValue] = useState(
     existingRule.expected_value !== undefined ? String(existingRule.expected_value) : ""
   );
-  const [displayName, setDisplayName] = useState(policy?.display_name || "");
+  const [displayName, setDisplayName] = useState(
+    policy?.display_name || template?.name || ""
+  );
 
   const selectedPublication = publications.find(
     (publication) => publication.publication_key === publicationKey

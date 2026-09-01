@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
 import { ControlNav } from "@/components/control-nav";
+import { PolicyAuthoringPanel } from "@/components/policy-authoring-panel";
 import { PolicyForm } from "@/components/policy-form";
 import { PolicyRuleSummary } from "@/components/policy-rule-summary";
 import {
@@ -292,10 +293,9 @@ export default async function ControlPoliciesPage({ searchParams }) {
               rule cannot be authored yet.
             </div>
           ) : null}
-          <PolicyForm
+          <PolicyAuthoringPanel
             publications={publications}
             ruleSchemaVersion={authoring.ruleSchemaVersion}
-            action="/control/policies/create"
           />
         </section>
 
