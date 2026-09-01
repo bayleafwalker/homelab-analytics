@@ -1,3 +1,5 @@
+import React from "react";
+
 const COMPARISON_PHRASES = {
   gt: "is greater than",
   gte: "is greater than or equal to",

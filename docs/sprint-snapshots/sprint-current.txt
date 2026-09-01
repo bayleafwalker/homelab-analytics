@@ -1,7 +1,7 @@
 SPRINT: slate-dial-hearth — A2 Operator Surface  [active]
 Dates:  2026-09-01 to 2026-09-15
 ID:     555
-Items:  11 total — 4 done, 0 active, 7 pending, 0 blocked
+Items:  11 total — 8 done, 1 active, 2 pending, 0 blocked
 
 --- Track: policy-api ---
   health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
@@ -11,13 +11,13 @@ Items:  11 total — 4 done, 0 active, 7 pending, 0 blocked
   [done    ] #2341 Rule-language honesty pass: in/not_in pass schema validation but the evaluator silently treats them as false, and verdict_mapping and allowed_freshness_states are accepted, persisted, and never read; reject or honour each rather than accepting silently, so the authoring UI cannot offer a control that does nothing; tests pinning the rejections  (assignee: -)
 
 --- Track: operator-ui ---
-  health: 5 items — 0 done (0%), 0 active, 5 pending, 0 blocked (0%)
-  [pending ] #2342 /control/policies list page: server component following the control-page pattern (AppShell + ControlNav + notice/error query keys), listing policies with builtin/operator/template distinction and enabled state, latest verdict and reason per policy, and an authority-mode indicator that shows a degraded banner when mode is snapshot (edits will not take effect) or unavailable; nav entry added to control-nav.js  (assignee: -)
-  [pending ] #2343 Create and edit forms plus lifecycle routes: rule-kind-aware forms for the three shipped kinds, publication picker driven by the policy-referenceable list showing the field, unit, and comparison being evaluated; co-located BFF route.js handlers for create, update, enable/disable, and delete using typed backendRequest literals; lib/backend getter and GetOperationIdByPath entry; regenerated OpenAPI types  (assignee: -)
-  [pending ] #2344 Template catalog under template discipline: templates are parameterized, never misleading; required inputs marked explicitly and enablement refused until supplied; verify each of negative-monthly-cashflow, utility-cost-above-threshold, and stale-critical-source is honestly expressible against a registered publication and drop any that is not, recording which were dropped and why; no semantically-different-field approximations  (assignee: -)
+  health: 5 items — 4 done (80%), 1 active, 0 pending, 0 blocked (0%)
+  [done    ] #2342 /control/policies list page: server component following the control-page pattern (AppShell + ControlNav + notice/error query keys), listing policies with builtin/operator/template distinction and enabled state, latest verdict and reason per policy, and an authority-mode indicator that shows a degraded banner when mode is snapshot (edits will not take effect) or unavailable; nav entry added to control-nav.js  (assignee: -)
+  [done    ] #2343 Create and edit forms plus lifecycle routes: rule-kind-aware forms for the three shipped kinds, publication picker driven by the policy-referenceable list showing the field, unit, and comparison being evaluated; co-located BFF route.js handlers for create, update, enable/disable, and delete using typed backendRequest literals; lib/backend getter and GetOperationIdByPath entry; regenerated OpenAPI types  (assignee: -)
+  [done    ] #2344 Template catalog under template discipline: templates are parameterized, never misleading; required inputs marked explicitly and enablement refused until supplied; verify each of negative-monthly-cashflow, utility-cost-above-threshold, and stale-critical-source is honestly expressible against a registered publication and drop any that is not, recording which were dropped and why; no semantically-different-field approximations  (assignee: -)
     ref [doc] template-discipline-rule: docs/plans/kotona-operating-picture-brief.md
-  [pending ] #2345 Preview in the authoring form wired to the preview endpoint, showing the verdict and reason a rule document would produce before it is saved or enabled  (assignee: -)
-  [pending ] #2346 Frontend contract and structural tests: assertions in tests/test_web_auth.py for the new page, panels, and route handlers; codegen, token, contracts, typecheck, and build checks green; a Storybook story only if it does not disturb the CI-owned screenshot baselines  (assignee: -)
+  [done    ] #2345 Preview in the authoring form wired to the preview endpoint, showing the verdict and reason a rule document would produce before it is saved or enabled  (assignee: -)
+  [active  ] #2346 Frontend contract and structural tests: assertions in tests/test_web_auth.py for the new page, panels, and route handlers; codegen, token, contracts, typecheck, and build checks green; a Storybook story only if it does not disturb the CI-owned screenshot baselines  (assignee: -)
 
 --- Track: docs ---
   health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
@@ -25,4 +25,4 @@ Items:  11 total — 4 done, 0 active, 7 pending, 0 blocked
     ref [doc] kotona-operating-picture-brief: docs/plans/kotona-operating-picture-brief.md
   [pending ] #2348 Record the retro-shell parity decision: /retro/control/ carries parallel admin surfaces for security, catalog, and execution but the parity test enumerates files explicitly, so a policies counterpart is not forced; decide and document whether A2 ships retro parity or defers it  (assignee: -)
 
-Rendered: 2026-09-01T07:39:17Z (source: sprintctl JSON commands)
+Rendered: 2026-09-01T08:29:20Z (source: sprintctl JSON commands)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 
 import { PolicyForm } from "@/components/policy-form";
 import { POLICY_TEMPLATES, TEMPLATE_EXCLUSIONS } from "@/lib/policy-templates";

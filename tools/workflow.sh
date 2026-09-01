@@ -336,8 +336,7 @@ case "$cmd" in
     ;;
   snapshot-refresh)
     load_env
-    snapshot="$ROOT/docs/sprint-snapshots/sprint-current.txt"
-    args=(render --output "$snapshot")
+    args=(render --output "$ROOT/docs/sprint-snapshots/sprint-current.txt")
     if [[ -n "${SPRINT_ID:-}" ]]; then
       args+=(--sprint-id "$SPRINT_ID")
     fi
@@ -348,7 +347,8 @@ case "$cmd" in
       py="$(python_bin)"
       sprint_id="${SPRINT_ID:-$(sprintctl sprint show --json | "$py" -c 'import json,sys; print(json.load(sys.stdin)["id"])')}"
       [[ -n "$sprint_id" ]] || fail "cannot resolve a sprint to render"
-      "$py" "$ROOT/tools/render_sprint_snapshot.py" --sprint-id "$sprint_id" --output "$snapshot"
+      "$py" "$ROOT/tools/render_sprint_snapshot.py" --sprint-id "$sprint_id" \
+        --output "$ROOT/docs/sprint-snapshots/sprint-current.txt"
     fi
     ;;
   knowledge-publish)

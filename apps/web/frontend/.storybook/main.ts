@@ -19,6 +19,9 @@ const config: StorybookConfig = {
     viteConfig.resolve.alias = {
       ...(viteConfig.resolve.alias || {}),
       "next/link": fileURLToPath(new URL("./next-link-mock.js", import.meta.url)),
+      // Match the "@/*" -> "./*" path alias in tsconfig.json, so a component
+      // that imports the way the app imports can still be storied.
+      "@": fileURLToPath(new URL("..", import.meta.url)),
     };
     viteConfig.esbuild = {
       ...(viteConfig.esbuild || {}),

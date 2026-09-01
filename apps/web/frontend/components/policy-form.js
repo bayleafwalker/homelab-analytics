@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 
 import { COMPARISON_OPERATORS, comparisonPhrase } from "@/components/policy-rule-summary";
 import { buildRuleDocument } from "@/lib/policy-rule-form";

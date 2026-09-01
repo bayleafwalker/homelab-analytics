@@ -85,3 +85,31 @@ test("upload wizard enforces accept/retry gating before upload", async ({ page }
   await page.getByRole("button", { name: "Accept preview" }).click();
   await expect(uploadButton).toBeEnabled();
 });
+
+test("policy template refuses submission until required inputs are supplied", async ({
+  page
+}) => {
+  await gotoStory(page, "control-plane-policyform--template-requires-threshold");
+
+  const createButton = page.getByRole("button", { name: "Create policy" });
+  const previewButton = page.getByRole("button", {
+    name: "Preview against current data"
+  });
+
+  // The template names the field and comparison it evaluates, and states what
+  // is still outstanding.
+  await expect(
+    page.getByText(/utility_cost_total of household_overview is greater than/)
+  ).toBeVisible();
+  await expect(page.getByText(/Supply a threshold/)).toBeVisible();
+  await expect(createButton).toBeDisabled();
+  await expect(previewButton).toBeDisabled();
+
+  await page.getByLabel(/Threshold/).fill("250");
+
+  await expect(createButton).toBeEnabled();
+  await expect(previewButton).toBeEnabled();
+
+  const results = await new AxeBuilder({ page }).include("form").analyze();
+  expect(results.violations, violationMessage(results.violations)).toEqual([]);
+});
