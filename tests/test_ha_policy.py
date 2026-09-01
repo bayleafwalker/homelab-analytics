@@ -1192,3 +1192,43 @@ class PreviewEvaluationTests(unittest.TestCase):
         result = evaluator.evaluate_document({"rule_kind": "exec_python"})
         self.assertEqual("unavailable", result.verdict)
         self.assertTrue(result.reason)
+
+
+class RetiredRuleLanguageTests(unittest.TestCase):
+    """A stored rule using a retired control degrades loudly, not silently."""
+
+    _NOW = datetime.now(UTC)
+
+    def test_stored_rule_with_retired_operator_is_unavailable_with_a_reason(
+        self,
+    ) -> None:
+        # Previously this saved cleanly and evaluated "ok" forever, because
+        # the comparison fell through to False. Now it is unavailable and says
+        # why, so the operator can find and fix it.
+        rule = {
+            "rule_kind": "publication_value_comparison",
+            "publication_key": "monthly_cashflow",
+            "field_name": "net",
+            "operator": "in",
+            "threshold": 0,
+        }
+        ctx = {"publication_monthly_cashflow": [{"net": "-250"}]}
+        verdict, _, reason = _evaluate_declarative_rule(rule, ctx, self._NOW, None)
+        self.assertEqual("unavailable", verdict)
+        assert reason is not None
+        self.assertIn("never implemented", reason)
+
+    def test_stored_rule_with_retired_field_is_unavailable_with_a_reason(self) -> None:
+        rule = {
+            "rule_kind": "publication_value_comparison",
+            "publication_key": "monthly_cashflow",
+            "field_name": "net",
+            "operator": "lt",
+            "threshold": 0,
+            "verdict_mapping": {"ok": "fine"},
+        }
+        ctx = {"publication_monthly_cashflow": [{"net": "-250"}]}
+        verdict, _, reason = _evaluate_declarative_rule(rule, ctx, self._NOW, None)
+        self.assertEqual("unavailable", verdict)
+        assert reason is not None
+        self.assertIn("verdict_mapping", reason)

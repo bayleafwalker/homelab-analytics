@@ -25,23 +25,52 @@ ALLOWED_RULE_KINDS = frozenset({
 
 
 class ComparisonOperator(StrEnum):
+    """Operators the evaluator actually implements.
+
+    ``in`` and ``not_in`` were previously accepted here but were never
+    implemented: the evaluator's comparison falls through to ``False`` for an
+    unknown operator, so such a rule validated, saved and then quietly never
+    fired. They are retired rather than implemented — the schema has a single
+    scalar ``threshold`` with nowhere to put a set — and are rejected with an
+    explicit message by :func:`parse_rule_document`.
+    """
+
     GT = "gt"
     GTE = "gte"
     LT = "lt"
     LTE = "lte"
     EQ = "eq"
     NEQ = "neq"
-    IN = "in"
-    NOT_IN = "not_in"
 
 
-class VerdictMapping(BaseModel):
-    ok: str | None = None
-    warning: str | None = None
-    breach: str | None = None
-    unavailable: str | None = None
+# Fields that were declared on the rule models, persisted, and never read by
+# the evaluator. A control that does nothing is worse than an absent one, so
+# they are rejected with a message naming the retirement rather than silently
+# accepted. Retiring them keeps the authoring form from offering them.
+_RETIRED_RULE_FIELDS = {
+    "verdict_mapping": (
+        "verdict_mapping was accepted and stored but never read by the "
+        "evaluator, so it changed nothing. It has been retired; remove it "
+        "from the rule document."
+    ),
+    "allowed_freshness_states": (
+        "allowed_freshness_states was accepted and stored but never consulted "
+        "by the freshness evaluator, which compares only against "
+        "threshold_hours. It has been retired; remove it from the rule "
+        "document."
+    ),
+}
 
-    model_config = {"extra": "forbid"}
+_RETIRED_OPERATORS = {
+    "in": (
+        "operator 'in' was accepted but never implemented; a rule using it "
+        "silently never fired. Use an explicit comparison instead."
+    ),
+    "not_in": (
+        "operator 'not_in' was accepted but never implemented; a rule using "
+        "it silently never fired. Use an explicit comparison instead."
+    ),
+}
 
 
 class PublicationValueComparisonRule(BaseModel):
@@ -51,7 +80,6 @@ class PublicationValueComparisonRule(BaseModel):
     operator: ComparisonOperator
     threshold: float | int | str
     unit: str | None = None
-    verdict_mapping: VerdictMapping = Field(default_factory=VerdictMapping)
 
     model_config = {"extra": "forbid"}
 
@@ -61,8 +89,6 @@ class PublicationFreshnessComparisonRule(BaseModel):
     publication_key: str
     operator: ComparisonOperator
     threshold_hours: float
-    allowed_freshness_states: list[str] | None = None
-    verdict_mapping: VerdictMapping = Field(default_factory=VerdictMapping)
 
     model_config = {"extra": "forbid"}
 
@@ -72,7 +98,6 @@ class HaHelperStateComparisonRule(BaseModel):
     entity_id: str
     operator: ComparisonOperator
     expected_value: str | float | int | bool
-    verdict_mapping: VerdictMapping = Field(default_factory=VerdictMapping)
 
     model_config = {"extra": "forbid"}
 
@@ -92,7 +117,18 @@ def parse_rule_document(data: dict) -> PublicationValueComparisonRule | Publicat
 
     Raises ``ValueError`` for unknown rule_kind or invalid structure.
     Raises ``pydantic.ValidationError`` for schema violations.
+
+    Retired fields and operators are reported by name so an operator holding
+    an older rule document is told what changed, rather than getting a bare
+    "extra inputs are not permitted".
     """
+    for field_name, message in _RETIRED_RULE_FIELDS.items():
+        if field_name in data:
+            raise ValueError(message)
+    operator = data.get("operator")
+    if isinstance(operator, str) and operator in _RETIRED_OPERATORS:
+        raise ValueError(_RETIRED_OPERATORS[operator])
+
     rule_kind = data.get("rule_kind")
     if rule_kind == "publication_value_comparison":
         return PublicationValueComparisonRule.model_validate(data)

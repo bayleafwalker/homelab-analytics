@@ -17,7 +17,6 @@ from packages.platform.policy_schema import (
     HaHelperStateComparisonRule,
     PublicationFreshnessComparisonRule,
     PublicationValueComparisonRule,
-    VerdictMapping,
     parse_rule_document,
 )
 from packages.storage.control_plane import (
@@ -313,9 +312,46 @@ def test_invalid_operator_rejected() -> None:
         parse_rule_document(doc)
 
 
-def test_verdict_mapping_rejects_extra_fields() -> None:
-    with pytest.raises(ValidationError):
-        VerdictMapping.model_validate({"ok": "all_good", "unknown_field": "bad"})
+def test_retired_verdict_mapping_is_rejected_by_name() -> None:
+    # verdict_mapping was stored but never read, so it is retired rather than
+    # silently accepted; the message must name the retirement.
+    doc = {
+        "rule_kind": "publication_value_comparison",
+        "publication_key": "monthly_cashflow",
+        "field_name": "net",
+        "operator": "lt",
+        "threshold": 0,
+        "verdict_mapping": {"ok": "all_good"},
+    }
+    with pytest.raises(ValueError, match="verdict_mapping"):
+        parse_rule_document(doc)
+
+
+def test_retired_allowed_freshness_states_is_rejected_by_name() -> None:
+    doc = {
+        "rule_kind": "publication_freshness_comparison",
+        "publication_key": "monthly_cashflow",
+        "operator": "gt",
+        "threshold_hours": 24.0,
+        "allowed_freshness_states": ["CURRENT"],
+    }
+    with pytest.raises(ValueError, match="allowed_freshness_states"):
+        parse_rule_document(doc)
+
+
+@pytest.mark.parametrize("operator", ["in", "not_in"])
+def test_retired_operators_are_rejected(operator: str) -> None:
+    # These validated but the evaluator returned False for them, so the rule
+    # saved cleanly and then never fired.
+    doc = {
+        "rule_kind": "publication_value_comparison",
+        "publication_key": "monthly_cashflow",
+        "field_name": "net",
+        "operator": operator,
+        "threshold": 0,
+    }
+    with pytest.raises(ValueError, match="never implemented"):
+        parse_rule_document(doc)
 
 
 # ---------------------------------------------------------------------------

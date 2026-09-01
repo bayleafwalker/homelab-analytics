@@ -14,7 +14,24 @@ Implemented:
 - Approval-gated action proposals with approve and dismiss flows; proposal registration is idempotent per action id, and `unavailable` verdicts dispatch no actions and never count as transitions.
 - A persisted policy registry: `packages/storage/{postgres,sqlite}_policy_registry.py`, mixed into the control-plane repository (migrations `postgres/0009`, `sqlite/0007`).
 - Operator-authored policy CRUD at `/control/policies` (`apps/api/routes/policy_routes.py`), authenticated, with publication-reference validation at create, rule update, and enable.
+- `GET /control/policies/referenceable-publications` — the publications a
+  policy may reference, with each publication's columns and which of them are
+  numerically comparable. Deliberately narrower than `/contracts/publications`,
+  which also advertises current-dimension contracts that evaluation cannot
+  resolve to a relation. Both this list and the evaluator's relation map come
+  from `build_policy_referenceable_contracts`, so a key an operator may
+  reference is always a key evaluation can read.
+- `POST /control/policies/preview` — evaluate an unsaved rule document through
+  the real publication read, staleness rule and verdict logic, persisting
+  nothing. A preview cannot look healthier than the saved policy would be.
 - A versioned rule schema: `packages/platform/policy_schema.py`, `RULE_SCHEMA_VERSION = "1.0"`, three declarative rule kinds (`publication_value_comparison`, `publication_freshness_comparison`, `ha_helper_state_comparison`).
+  The comparison operators are `gt`, `gte`, `lt`, `lte`, `eq`, `neq`. `in` and
+  `not_in` were previously accepted but never implemented — a rule using one
+  validated, saved and then quietly never fired — and are now rejected by
+  name, as are the `verdict_mapping` and `allowed_freshness_states` fields,
+  which were persisted and never read. A stored rule still carrying one
+  evaluates `unavailable` with a reason naming it, rather than degrading
+  silently.
 - Runtime loading in production: `apps/api/ha_startup.py` constructs `HaPolicyEvaluator` with the control-plane store as registry, a publication fetch function, and a last-known-good snapshot file (see "Authority semantics").
 - Synthetic publication of selected policy/action state back into HA.
 
