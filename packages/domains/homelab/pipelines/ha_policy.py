@@ -119,6 +119,10 @@ class PolicyResult:
     approval_required: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
     input_freshness: ConfidenceSummary | None = None
+    # Why the verdict holds, in operator-readable terms: the comparison that
+    # was performed, or the reason no verdict could be reached. ``value`` is
+    # the observed measurement only; the two are not interchangeable.
+    reason: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         input_freshness_dict = None
@@ -135,6 +139,7 @@ class PolicyResult:
             "description": self.description,
             "verdict": self.verdict,
             "value": self.value,
+            "reason": self.reason,
             "evaluated_at": self.evaluated_at,
             "approval_required": self.approval_required,
             "metadata": dict(self.metadata),
@@ -144,72 +149,93 @@ class PolicyResult:
 
 # ---------------------------------------------------------------------------
 # Built-in policy evaluation functions
-# Signature: (context: dict, now: datetime) → (verdict, value_str | None)
+# Signature: (context: dict, now: datetime) → (verdict, value_str | None,
+#            reason_str | None)
 # ---------------------------------------------------------------------------
 
 def _evaluate_budget_status(
     context: dict[str, Any], now: datetime
-) -> tuple[PolicyVerdict, str | None]:
+) -> tuple[PolicyVerdict, str | None, str | None]:
     """Max utilisation across all budget categories → ok / warning / breach."""
     rows = context.get("budget_rows") or []
     if not rows:
-        return "unavailable", None
+        return "unavailable", None, "No budget rows available."
     try:
         max_pct = max(float(r.get("utilization_pct") or 0) for r in rows)
     except (TypeError, ValueError):
-        return "unavailable", None
+        return "unavailable", None, "A budget row has a non-numeric utilization_pct."
     value = f"{max_pct:.1f}%"
     if max_pct > 100.0:
-        return "breach", value
+        return "breach", value, f"Highest budget utilisation {value} is over 100%."
     if max_pct >= _WARNING_UTILIZATION_PCT:
-        return "warning", value
-    return "ok", value
+        return "warning", value, (
+            f"Highest budget utilisation {value} has reached the "
+            f"{_WARNING_UTILIZATION_PCT:.0f}% warning threshold."
+        )
+    return "ok", value, (
+        f"Highest budget utilisation {value} is below the "
+        f"{_WARNING_UTILIZATION_PCT:.0f}% warning threshold."
+    )
 
 
 def _evaluate_monthly_spend_rate(
     context: dict[str, Any], now: datetime
-) -> tuple[PolicyVerdict, str | None]:
+) -> tuple[PolicyVerdict, str | None, str | None]:
     """Spending pace vs days elapsed in the current month → ok / warning / breach."""
     rows = context.get("budget_rows") or []
     if not rows:
-        return "unavailable", None
+        return "unavailable", None, "No budget rows available."
     try:
         max_pct = max(float(r.get("utilization_pct") or 0) for r in rows)
     except (TypeError, ValueError):
-        return "unavailable", None
+        return "unavailable", None, "A budget row has a non-numeric utilization_pct."
     days_in_month = calendar.monthrange(now.year, now.month)[1]
     pace_pct = (now.day / days_in_month) * 100.0
     value = f"{max_pct:.1f}% spent, {pace_pct:.1f}% of month elapsed"
     if max_pct > 100.0:
-        return "breach", value
+        return "breach", value, f"Spend {max_pct:.1f}% is over 100% of budget."
     if max_pct > pace_pct + _PACE_OVERSPEND_MARGIN:
-        return "warning", value
-    return "ok", value
+        return "warning", value, (
+            f"Spend {max_pct:.1f}% is more than {_PACE_OVERSPEND_MARGIN:.0f} points "
+            f"ahead of the {pace_pct:.1f}% of the month elapsed."
+        )
+    return "ok", value, (
+        f"Spend {max_pct:.1f}% is in step with the {pace_pct:.1f}% of the "
+        "month elapsed."
+    )
 
 
 def _evaluate_bridge_health(
     context: dict[str, Any], now: datetime
-) -> tuple[PolicyVerdict, str | None]:
+) -> tuple[PolicyVerdict, str | None, str | None]:
     """Bridge last_sync_at freshness → ok / warning / unavailable."""
     last_sync_at = context.get("bridge_last_sync_at")
     if not last_sync_at:
-        return "unavailable", None
+        return "unavailable", None, "The bridge has never reported a sync."
     try:
         synced = datetime.fromisoformat(last_sync_at)
         if synced.tzinfo is None:
             synced = synced.replace(tzinfo=UTC)
         age_seconds = (now - synced).total_seconds()
     except (ValueError, TypeError):
-        return "unavailable", None
+        return "unavailable", None, (
+            f"The bridge sync timestamp {last_sync_at!r} could not be parsed."
+        )
     value = f"{int(age_seconds)}s since last sync"
     if age_seconds > _STALE_BRIDGE_SECONDS:
-        return "warning", value
-    return "ok", value
+        return "warning", value, (
+            f"The last bridge sync was {int(age_seconds)}s ago, over the "
+            f"{int(_STALE_BRIDGE_SECONDS)}s staleness threshold."
+        )
+    return "ok", value, (
+        f"The last bridge sync was {int(age_seconds)}s ago, within the "
+        f"{int(_STALE_BRIDGE_SECONDS)}s staleness threshold."
+    )
 
 
 def _evaluate_kitchen_light_request(
     context: dict[str, Any], now: datetime
-) -> tuple[PolicyVerdict, str | None]:
+) -> tuple[PolicyVerdict, str | None, str | None]:
     """Operator-requested kitchen light control via HA helper state."""
     entities = context.get("ha_entities") or []
     helper = next(
@@ -221,10 +247,16 @@ def _evaluate_kitchen_light_request(
         None,
     )
     if helper is None:
-        return "unavailable", None
+        return "unavailable", None, (
+            "The helper entity input_boolean.hla_kitchen_light_request was not found."
+        )
     if str(helper.get("last_state") or "").lower() != "on":
-        return "ok", "Kitchen light request helper is off."
-    return "warning", "Kitchen light request helper is on."
+        return "ok", "Kitchen light request helper is off.", (
+            "The kitchen light request helper is off, so no approval is pending."
+        )
+    return "warning", "Kitchen light request helper is on.", (
+        "The kitchen light request helper is on, so an approval is pending."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +268,10 @@ class _PolicyDef:
     id: str
     name: str
     description: str
-    evaluate_fn: Callable[[dict[str, Any], datetime], tuple[PolicyVerdict, str | None]]
+    evaluate_fn: Callable[
+        [dict[str, Any], datetime],
+        tuple[PolicyVerdict, str | None, str | None],
+    ]
     approval_required: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -545,13 +580,32 @@ def _compare_values(left: float, operator: str, right: float) -> bool:
     return False
 
 
+_COMPARISON_PHRASES = {
+    "gt": "greater than",
+    "gte": "greater than or equal to",
+    "lt": "less than",
+    "lte": "less than or equal to",
+    "eq": "equal to",
+    "neq": "different from",
+}
+
+
+def _comparison_phrase(operator: str) -> str:
+    """Render a comparison operator as the words an operator would read."""
+    return _COMPARISON_PHRASES.get(operator, f"compared with ({operator}) to")
+
+
 def _evaluate_declarative_rule(
     rule_doc: dict[str, Any],
     context: dict[str, Any],
     now: datetime,
     control_plane_store: Any | None,
-) -> tuple[PolicyVerdict, str | None]:
+) -> tuple[PolicyVerdict, str | None, str | None]:
     """Evaluate a declarative rule document against the current context.
+
+    Returns ``(verdict, value, reason)``. ``value`` is the observed
+    measurement; ``reason`` states the comparison performed, or why no
+    verdict could be reached.
 
     Context keys consumed:
       ``publication_<key>`` — list[dict] for publication_value_comparison
@@ -573,43 +627,78 @@ def _evaluate_declarative_rule(
         rule = parse_rule_document(rule_doc)
     except (ValueError, ValidationError) as exc:
         logger.warning("Invalid registry rule document", extra={"error": str(exc)})
-        return "unavailable", None
+        return "unavailable", None, f"The rule document is not valid: {exc}"
 
     if isinstance(rule, PublicationValueComparisonRule):
+        unit = f" {rule.unit}" if rule.unit else ""
         rows: list[dict] = context.get(f"publication_{rule.publication_key}", [])
         if not rows:
-            return "unavailable", None
+            return "unavailable", None, (
+                f"Publication {rule.publication_key!r} returned no rows."
+            )
         row = rows[0] if isinstance(rows, list) else rows
         raw = row.get(rule.field_name)
         if raw is None:
-            return "unavailable", None
+            return "unavailable", None, (
+                f"Publication {rule.publication_key!r} has no field "
+                f"{rule.field_name!r}."
+            )
         try:
             value = float(raw)
+        except (ValueError, TypeError):
+            return "unavailable", None, (
+                f"Field {rule.field_name!r} value {raw!r} is not numeric."
+            )
+        try:
             threshold = float(rule.threshold)
         except (ValueError, TypeError):
-            return "unavailable", None
-        verdict: PolicyVerdict = "breach" if _compare_values(value, rule.operator, threshold) else "ok"
-        return verdict, str(value)
+            return "unavailable", str(raw), (
+                f"Threshold {rule.threshold!r} is not numeric."
+            )
+        triggered = _compare_values(value, rule.operator, threshold)
+        verdict: PolicyVerdict = "breach" if triggered else "ok"
+        phrase = _comparison_phrase(rule.operator)
+        return verdict, str(value), (
+            f"{rule.field_name} is {value:g}{unit}, which is "
+            f"{'' if triggered else 'not '}{phrase} the threshold "
+            f"{threshold:g}{unit}."
+        )
 
     if isinstance(rule, PublicationFreshnessComparisonRule):
         if control_plane_store is None:
-            return "unavailable", None
+            return "unavailable", None, (
+                "No control-plane store is configured, so publication freshness "
+                "cannot be read."
+            )
         try:
             snapshots = control_plane_store.list_publication_confidence_snapshots(
                 publication_key=rule.publication_key, limit=1
             )
-        except Exception:
-            return "unavailable", None
+        except Exception as exc:
+            return "unavailable", None, (
+                f"Reading the confidence snapshot for "
+                f"{rule.publication_key!r} failed: {exc}"
+            )
         if not snapshots:
-            return "unavailable", None
+            return "unavailable", None, (
+                f"Publication {rule.publication_key!r} has no confidence snapshot yet."
+            )
         snap = snapshots[0]
         try:
             assessed_at = snap.assessed_at if isinstance(snap.assessed_at, datetime) else datetime.fromisoformat(str(snap.assessed_at))
             age_hours = (now - assessed_at.replace(tzinfo=UTC) if assessed_at.tzinfo is None else now - assessed_at).total_seconds() / 3600
         except Exception:
-            return "unavailable", None
-        verdict = "breach" if _compare_values(age_hours, rule.operator, rule.threshold_hours) else "ok"
-        return verdict, f"{age_hours:.1f}h"
+            return "unavailable", None, (
+                f"The assessment timestamp {snap.assessed_at!r} could not be parsed."
+            )
+        triggered = _compare_values(age_hours, rule.operator, rule.threshold_hours)
+        verdict = "breach" if triggered else "ok"
+        phrase = _comparison_phrase(rule.operator)
+        return verdict, f"{age_hours:.1f}h", (
+            f"Publication {rule.publication_key!r} was last assessed "
+            f"{age_hours:.1f}h ago, which is {'' if triggered else 'not '}{phrase} "
+            f"the threshold {rule.threshold_hours:g}h."
+        )
 
     if isinstance(rule, HaHelperStateComparisonRule):
         entities: list[dict] = context.get("ha_entities", [])
@@ -619,20 +708,43 @@ def _evaluate_declarative_rule(
                 entity_state = str(entity.get("state", ""))
                 break
         if entity_state is None:
-            return "unavailable", None
+            return "unavailable", None, (
+                f"Entity {rule.entity_id!r} was not found in the current state set."
+            )
         expected = str(rule.expected_value)
         if rule.operator == "eq":
-            verdict = "ok" if entity_state == expected else "breach"
-        elif rule.operator == "neq":
-            verdict = "ok" if entity_state != expected else "breach"
-        else:
-            try:
-                verdict = "ok" if _compare_values(float(entity_state), rule.operator, float(expected)) else "breach"
-            except (ValueError, TypeError):
-                verdict = "unavailable"
-        return verdict, entity_state
+            matched = entity_state == expected
+            verdict = "ok" if matched else "breach"
+            return verdict, entity_state, (
+                f"Entity {rule.entity_id} is {entity_state!r}, which does "
+                f"{'' if matched else 'not '}equal the expected {expected!r}."
+            )
+        if rule.operator == "neq":
+            differs = entity_state != expected
+            verdict = "ok" if differs else "breach"
+            return verdict, entity_state, (
+                f"Entity {rule.entity_id} is {entity_state!r}, which does "
+                f"{'' if differs else 'not '}differ from the expected {expected!r}."
+            )
+        try:
+            numeric_state = float(entity_state)
+            numeric_expected = float(expected)
+        except (ValueError, TypeError):
+            return "unavailable", entity_state, (
+                f"Entity {rule.entity_id} state {entity_state!r} and expected "
+                f"value {expected!r} cannot both be read as numbers, so "
+                f"{rule.operator!r} cannot be applied."
+            )
+        satisfied = _compare_values(numeric_state, rule.operator, numeric_expected)
+        verdict = "ok" if satisfied else "breach"
+        phrase = _comparison_phrase(rule.operator)
+        return verdict, entity_state, (
+            f"Entity {rule.entity_id} is {numeric_state:g}, which is "
+            f"{'' if satisfied else 'not '}{phrase} the expected "
+            f"{numeric_expected:g}."
+        )
 
-    return "unavailable", None
+    return "unavailable", None, "The rule kind is not supported."
 
 
 class HaPolicyEvaluator:
@@ -877,19 +989,21 @@ class HaPolicyEvaluator:
         results: list[PolicyResult] = []
         for policy in _BUILTIN_POLICIES:
             try:
-                verdict, value = policy.evaluate_fn(context, now)
+                verdict, value, reason = policy.evaluate_fn(context, now)
             except Exception as exc:
                 logger.warning(
                     "Policy evaluation error",
                     extra={"policy_id": policy.id, "error": str(exc)},
                 )
                 verdict, value = "unavailable", None
+                reason = f"Evaluation raised an error: {exc}"
             results.append(PolicyResult(
                 id=policy.id,
                 name=policy.name,
                 description=policy.description,
                 verdict=verdict,
                 value=value,
+                reason=reason,
                 evaluated_at=now.isoformat(),
                 approval_required=policy.approval_required,
                 metadata=dict(policy.metadata),
@@ -912,7 +1026,7 @@ class HaPolicyEvaluator:
                 rule_doc: dict[str, Any] = {}
                 try:
                     rule_doc = json.loads(reg_policy["rule_document"])
-                    verdict, value = _evaluate_declarative_rule(
+                    verdict, value, reason = _evaluate_declarative_rule(
                         rule_doc, context, now, self._control_plane_store
                     )
                 except Exception as exc:
@@ -924,6 +1038,7 @@ class HaPolicyEvaluator:
                         },
                     )
                     verdict, value = "unavailable", None
+                    reason = f"Evaluation raised an error: {exc}"
 
                 metadata: dict[str, Any] = {
                     "source_kind": reg_policy["source_kind"],
@@ -950,9 +1065,12 @@ class HaPolicyEvaluator:
                             in _STALE_FRESHNESS_STATES
                         ):
                             # Stale input must not yield a confident verdict.
+                            # The observed value is kept as the measurement that
+                            # was read; the staleness belongs in the reason.
                             verdict = "unavailable"
-                            value = (
-                                "stale input: "
+                            reason = (
+                                "stale input: publication "
+                                f"{publication_key!r} is "
                                 f"{publication_summary.freshness_state}"
                             )
 
@@ -962,6 +1080,7 @@ class HaPolicyEvaluator:
                     description=reg_policy["description"],
                     verdict=verdict,
                     value=value,
+                    reason=reason,
                     evaluated_at=now.isoformat(),
                     approval_required=False,
                     metadata=metadata,

@@ -55,6 +55,14 @@ result carries that publication's confidence snapshot; stale input
 `unavailable` verdict. Missing publication data is `unavailable`, never a
 guess.
 
+Every result carries both a `value` and a `reason`. `value` is the measurement
+that was read; `reason` states why the verdict holds — the field, observed
+value, comparison and threshold for a rule that fired, or the specific cause
+when no verdict could be reached (no rows, missing field, non-numeric value,
+unparseable timestamp, unknown entity, stale input). The two are not
+interchangeable: a stale publication keeps its observed `value` and explains
+the staleness in `reason`.
+
 ## Built-ins and expressibility
 
 `_BUILTIN_POLICIES` (budget status, monthly spend rate, bridge health,

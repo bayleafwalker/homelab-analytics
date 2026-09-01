@@ -46,39 +46,39 @@ def _budget_row(utilization_pct: float) -> dict:
 
 class BudgetStatusTests(unittest.TestCase):
     def test_no_rows_returns_unavailable(self) -> None:
-        verdict, value = _evaluate_budget_status({}, _NOW)
+        verdict, value, _ = _evaluate_budget_status({}, _NOW)
         self.assertEqual("unavailable", verdict)
         self.assertIsNone(value)
 
     def test_empty_list_returns_unavailable(self) -> None:
-        verdict, value = _evaluate_budget_status({"budget_rows": []}, _NOW)
+        verdict, value, _ = _evaluate_budget_status({"budget_rows": []}, _NOW)
         self.assertEqual("unavailable", verdict)
         self.assertIsNone(value)
 
     def test_low_utilization_returns_ok(self) -> None:
-        verdict, _ = _evaluate_budget_status({"budget_rows": [_budget_row(50.0)]}, _NOW)
+        verdict, _, _ = _evaluate_budget_status({"budget_rows": [_budget_row(50.0)]}, _NOW)
         self.assertEqual("ok", verdict)
 
     def test_at_warning_threshold_returns_warning(self) -> None:
-        verdict, _ = _evaluate_budget_status({"budget_rows": [_budget_row(80.0)]}, _NOW)
+        verdict, _, _ = _evaluate_budget_status({"budget_rows": [_budget_row(80.0)]}, _NOW)
         self.assertEqual("warning", verdict)
 
     def test_above_warning_threshold_returns_warning(self) -> None:
-        verdict, _ = _evaluate_budget_status({"budget_rows": [_budget_row(95.0)]}, _NOW)
+        verdict, _, _ = _evaluate_budget_status({"budget_rows": [_budget_row(95.0)]}, _NOW)
         self.assertEqual("warning", verdict)
 
     def test_over_100_pct_returns_breach(self) -> None:
-        verdict, value = _evaluate_budget_status({"budget_rows": [_budget_row(110.0)]}, _NOW)
+        verdict, value, _ = _evaluate_budget_status({"budget_rows": [_budget_row(110.0)]}, _NOW)
         self.assertEqual("breach", verdict)
         self.assertIn("110.0%", value)
 
     def test_max_across_multiple_rows(self) -> None:
         rows = [_budget_row(30.0), _budget_row(105.0), _budget_row(70.0)]
-        verdict, _ = _evaluate_budget_status({"budget_rows": rows}, _NOW)
+        verdict, _, _ = _evaluate_budget_status({"budget_rows": rows}, _NOW)
         self.assertEqual("breach", verdict)
 
     def test_value_contains_percentage(self) -> None:
-        _, value = _evaluate_budget_status({"budget_rows": [_budget_row(55.0)]}, _NOW)
+        _, value, _ = _evaluate_budget_status({"budget_rows": [_budget_row(55.0)]}, _NOW)
         self.assertIn("%", value)
 
 
@@ -88,25 +88,25 @@ class BudgetStatusTests(unittest.TestCase):
 
 class MonthlySpendRateTests(unittest.TestCase):
     def test_no_rows_returns_unavailable(self) -> None:
-        verdict, _ = _evaluate_monthly_spend_rate({"budget_rows": []}, _NOW)
+        verdict, _, _ = _evaluate_monthly_spend_rate({"budget_rows": []}, _NOW)
         self.assertEqual("unavailable", verdict)
 
     def test_spend_below_pace_returns_ok(self) -> None:
         # 48.4% of month elapsed; spend at 30% → well under pace
-        verdict, _ = _evaluate_monthly_spend_rate({"budget_rows": [_budget_row(30.0)]}, _NOW)
+        verdict, _, _ = _evaluate_monthly_spend_rate({"budget_rows": [_budget_row(30.0)]}, _NOW)
         self.assertEqual("ok", verdict)
 
     def test_spend_ahead_of_pace_returns_warning(self) -> None:
         # 48.4% elapsed; spend at 70% → more than 15 pct-points ahead of pace
-        verdict, _ = _evaluate_monthly_spend_rate({"budget_rows": [_budget_row(70.0)]}, _NOW)
+        verdict, _, _ = _evaluate_monthly_spend_rate({"budget_rows": [_budget_row(70.0)]}, _NOW)
         self.assertEqual("warning", verdict)
 
     def test_over_budget_returns_breach(self) -> None:
-        verdict, _ = _evaluate_monthly_spend_rate({"budget_rows": [_budget_row(105.0)]}, _NOW)
+        verdict, _, _ = _evaluate_monthly_spend_rate({"budget_rows": [_budget_row(105.0)]}, _NOW)
         self.assertEqual("breach", verdict)
 
     def test_value_contains_spent_and_elapsed(self) -> None:
-        _, value = _evaluate_monthly_spend_rate({"budget_rows": [_budget_row(40.0)]}, _NOW)
+        _, value, _ = _evaluate_monthly_spend_rate({"budget_rows": [_budget_row(40.0)]}, _NOW)
         self.assertIn("spent", value)
         self.assertIn("elapsed", value)
 
@@ -117,36 +117,36 @@ class MonthlySpendRateTests(unittest.TestCase):
 
 class BridgeHealthTests(unittest.TestCase):
     def test_no_last_sync_returns_unavailable(self) -> None:
-        verdict, _ = _evaluate_bridge_health({}, _NOW)
+        verdict, _, _ = _evaluate_bridge_health({}, _NOW)
         self.assertEqual("unavailable", verdict)
 
     def test_none_last_sync_returns_unavailable(self) -> None:
-        verdict, _ = _evaluate_bridge_health({"bridge_last_sync_at": None}, _NOW)
+        verdict, _, _ = _evaluate_bridge_health({"bridge_last_sync_at": None}, _NOW)
         self.assertEqual("unavailable", verdict)
 
     def test_recent_sync_returns_ok(self) -> None:
         recent = (_NOW - timedelta(seconds=60)).isoformat()
-        verdict, _ = _evaluate_bridge_health({"bridge_last_sync_at": recent}, _NOW)
+        verdict, _, _ = _evaluate_bridge_health({"bridge_last_sync_at": recent}, _NOW)
         self.assertEqual("ok", verdict)
 
     def test_stale_sync_returns_warning(self) -> None:
         stale = (_NOW - timedelta(seconds=400)).isoformat()
-        verdict, _ = _evaluate_bridge_health({"bridge_last_sync_at": stale}, _NOW)
+        verdict, _, _ = _evaluate_bridge_health({"bridge_last_sync_at": stale}, _NOW)
         self.assertEqual("warning", verdict)
 
     def test_exactly_at_threshold_returns_warning(self) -> None:
         at_threshold = (_NOW - timedelta(seconds=300)).isoformat()
         # >300 is stale; exactly 300 is still ok (not strictly >)
-        verdict, _ = _evaluate_bridge_health({"bridge_last_sync_at": at_threshold}, _NOW)
+        verdict, _, _ = _evaluate_bridge_health({"bridge_last_sync_at": at_threshold}, _NOW)
         self.assertEqual("ok", verdict)
 
     def test_invalid_timestamp_returns_unavailable(self) -> None:
-        verdict, _ = _evaluate_bridge_health({"bridge_last_sync_at": "not-a-date"}, _NOW)
+        verdict, _, _ = _evaluate_bridge_health({"bridge_last_sync_at": "not-a-date"}, _NOW)
         self.assertEqual("unavailable", verdict)
 
     def test_value_contains_seconds(self) -> None:
         recent = (_NOW - timedelta(seconds=45)).isoformat()
-        _, value = _evaluate_bridge_health({"bridge_last_sync_at": recent}, _NOW)
+        _, value, _ = _evaluate_bridge_health({"bridge_last_sync_at": recent}, _NOW)
         self.assertIn("s since last sync", value)
 
 
@@ -401,47 +401,174 @@ class DeclarativeRuleEvaluationTests(unittest.TestCase):
     def test_publication_value_comparison_breach(self) -> None:
         rule = {"rule_kind": "publication_value_comparison", "publication_key": "monthly_cashflow", "field_name": "net", "operator": "lt", "threshold": 0}
         ctx = {"publication_monthly_cashflow": [{"net": "-500"}]}
-        verdict, value = _evaluate_declarative_rule(rule, ctx, self._NOW, None)
+        verdict, value, _ = _evaluate_declarative_rule(rule, ctx, self._NOW, None)
         self.assertEqual("breach", verdict)
 
     def test_publication_value_comparison_ok(self) -> None:
         # operator "lt 0" is the breach condition; net=1200 does not breach it
         rule = {"rule_kind": "publication_value_comparison", "publication_key": "monthly_cashflow", "field_name": "net", "operator": "lt", "threshold": 0}
         ctx = {"publication_monthly_cashflow": [{"net": "1200"}]}
-        verdict, value = _evaluate_declarative_rule(rule, ctx, self._NOW, None)
+        verdict, value, _ = _evaluate_declarative_rule(rule, ctx, self._NOW, None)
         self.assertEqual("ok", verdict)
 
     def test_publication_value_comparison_missing_data_unavailable(self) -> None:
         rule = {"rule_kind": "publication_value_comparison", "publication_key": "monthly_cashflow", "field_name": "net", "operator": "lt", "threshold": 0}
-        verdict, _ = _evaluate_declarative_rule(rule, {}, self._NOW, None)
+        verdict, _, _ = _evaluate_declarative_rule(rule, {}, self._NOW, None)
         self.assertEqual("unavailable", verdict)
 
     def test_ha_helper_state_eq_ok(self) -> None:
         rule = {"rule_kind": "ha_helper_state_comparison", "entity_id": "input_boolean.kitchen", "operator": "eq", "expected_value": "on"}
         ctx = {"ha_entities": [{"entity_id": "input_boolean.kitchen", "state": "on"}]}
-        verdict, value = _evaluate_declarative_rule(rule, ctx, self._NOW, None)
+        verdict, value, _ = _evaluate_declarative_rule(rule, ctx, self._NOW, None)
         self.assertEqual("ok", verdict)
         self.assertEqual("on", value)
 
     def test_ha_helper_state_eq_breach(self) -> None:
         rule = {"rule_kind": "ha_helper_state_comparison", "entity_id": "input_boolean.kitchen", "operator": "eq", "expected_value": "on"}
         ctx = {"ha_entities": [{"entity_id": "input_boolean.kitchen", "state": "off"}]}
-        verdict, _ = _evaluate_declarative_rule(rule, ctx, self._NOW, None)
+        verdict, _, _ = _evaluate_declarative_rule(rule, ctx, self._NOW, None)
         self.assertEqual("breach", verdict)
 
     def test_ha_helper_entity_missing_unavailable(self) -> None:
         rule = {"rule_kind": "ha_helper_state_comparison", "entity_id": "input_boolean.kitchen", "operator": "eq", "expected_value": "on"}
-        verdict, _ = _evaluate_declarative_rule(rule, {"ha_entities": []}, self._NOW, None)
+        verdict, _, _ = _evaluate_declarative_rule(rule, {"ha_entities": []}, self._NOW, None)
         self.assertEqual("unavailable", verdict)
 
     def test_freshness_comparison_no_store_unavailable(self) -> None:
         rule = {"rule_kind": "publication_freshness_comparison", "publication_key": "monthly_cashflow", "operator": "lt", "threshold_hours": 48.0}
-        verdict, _ = _evaluate_declarative_rule(rule, {}, self._NOW, None)
+        verdict, _, _ = _evaluate_declarative_rule(rule, {}, self._NOW, None)
         self.assertEqual("unavailable", verdict)
 
     def test_unknown_rule_kind_unavailable(self) -> None:
-        verdict, _ = _evaluate_declarative_rule({"rule_kind": "exec_python"}, {}, self._NOW, None)
+        verdict, _, _ = _evaluate_declarative_rule({"rule_kind": "exec_python"}, {}, self._NOW, None)
         self.assertEqual("unavailable", verdict)
+
+
+class DeclarativeRuleReasonTests(unittest.TestCase):
+    """Every verdict states why it holds, in terms an operator can act on."""
+
+    _NOW = datetime.now(UTC)
+
+    def _value_rule(self, **overrides: object) -> dict:
+        rule = {
+            "rule_kind": "publication_value_comparison",
+            "publication_key": "monthly_cashflow",
+            "field_name": "net",
+            "operator": "lt",
+            "threshold": 0,
+        }
+        rule.update(overrides)
+        return rule
+
+    def test_breach_reason_names_value_comparison_and_threshold(self) -> None:
+        ctx = {"publication_monthly_cashflow": [{"net": "-500"}]}
+        verdict, value, reason = _evaluate_declarative_rule(
+            self._value_rule(unit="EUR"), ctx, self._NOW, None
+        )
+        self.assertEqual("breach", verdict)
+        self.assertEqual("-500.0", value)
+        assert reason is not None
+        # The field, the observed value, the comparison and the threshold are
+        # all present, so the operator can see what fired without the rule.
+        self.assertIn("net", reason)
+        self.assertIn("-500", reason)
+        self.assertIn("less than", reason)
+        self.assertIn("0", reason)
+        self.assertIn("EUR", reason)
+        self.assertNotIn("not less than", reason)
+
+    def test_ok_reason_states_the_threshold_was_not_crossed(self) -> None:
+        ctx = {"publication_monthly_cashflow": [{"net": "1200"}]}
+        verdict, _, reason = _evaluate_declarative_rule(
+            self._value_rule(), ctx, self._NOW, None
+        )
+        self.assertEqual("ok", verdict)
+        assert reason is not None
+        self.assertIn("not less than", reason)
+
+    def test_reason_distinguishes_the_unavailable_causes(self) -> None:
+        no_rows = _evaluate_declarative_rule(self._value_rule(), {}, self._NOW, None)[2]
+        missing_field = _evaluate_declarative_rule(
+            self._value_rule(),
+            {"publication_monthly_cashflow": [{"other": "1"}]},
+            self._NOW,
+            None,
+        )[2]
+        non_numeric = _evaluate_declarative_rule(
+            self._value_rule(),
+            {"publication_monthly_cashflow": [{"net": "abc"}]},
+            self._NOW,
+            None,
+        )[2]
+        invalid_doc = _evaluate_declarative_rule(
+            {"rule_kind": "exec_python"}, {}, self._NOW, None
+        )[2]
+        reasons = [no_rows, missing_field, non_numeric, invalid_doc]
+        for reason in reasons:
+            self.assertTrue(reason)
+        # A single "unavailable" verdict is useless if every cause reads the
+        # same; each must be separately diagnosable.
+        self.assertEqual(len(reasons), len(set(reasons)))
+        assert no_rows is not None and missing_field is not None
+        assert non_numeric is not None
+        self.assertIn("no rows", no_rows)
+        self.assertIn("net", missing_field)
+        self.assertIn("not numeric", non_numeric)
+
+    def test_helper_state_reason_names_entity_state_and_expectation(self) -> None:
+        rule = {
+            "rule_kind": "ha_helper_state_comparison",
+            "entity_id": "input_boolean.kitchen",
+            "operator": "eq",
+            "expected_value": "on",
+        }
+        ctx = {"ha_entities": [{"entity_id": "input_boolean.kitchen", "state": "off"}]}
+        verdict, _, reason = _evaluate_declarative_rule(rule, ctx, self._NOW, None)
+        self.assertEqual("breach", verdict)
+        assert reason is not None
+        self.assertIn("input_boolean.kitchen", reason)
+        self.assertIn("'off'", reason)
+        self.assertIn("not equal", reason)
+
+    def test_missing_entity_reason_names_the_entity(self) -> None:
+        rule = {
+            "rule_kind": "ha_helper_state_comparison",
+            "entity_id": "input_boolean.kitchen",
+            "operator": "eq",
+            "expected_value": "on",
+        }
+        _, _, reason = _evaluate_declarative_rule(
+            rule, {"ha_entities": []}, self._NOW, None
+        )
+        assert reason is not None
+        self.assertIn("input_boolean.kitchen", reason)
+        self.assertIn("not found", reason)
+
+    def test_reason_is_serialized_on_the_api_payload(self) -> None:
+        result = PolicyResult(
+            id="p",
+            name="P",
+            description="",
+            verdict="breach",
+            value="-500.0",
+            evaluated_at=self._NOW.isoformat(),
+            reason="net is -500 EUR, which is less than the threshold 0 EUR.",
+        )
+        self.assertEqual(
+            "net is -500 EUR, which is less than the threshold 0 EUR.",
+            result.to_dict()["reason"],
+        )
+
+    def test_reason_defaults_to_none_when_not_supplied(self) -> None:
+        result = PolicyResult(
+            id="p",
+            name="P",
+            description="",
+            verdict="ok",
+            value=None,
+            evaluated_at=self._NOW.isoformat(),
+        )
+        self.assertIsNone(result.to_dict()["reason"])
 
 
 # ---------------------------------------------------------------------------
@@ -903,7 +1030,11 @@ class PublicationSnapshotSemanticsTests(unittest.TestCase):
         results = evaluator.evaluate()
         result = next(r for r in results if r.id == "op_cashflow")
         self.assertEqual("unavailable", result.verdict)
-        self.assertIn("stale input", result.value or "")
+        # The staleness is the reason; the value stays the measurement that was
+        # actually read, so the two carry distinct information.
+        self.assertIn("stale input", result.reason or "")
+        self.assertIn("OVERDUE", result.reason or "")
+        self.assertEqual("-250.0", result.value)
         self.assertEqual("OVERDUE", result.input_freshness.freshness_state)
 
     def test_fresh_publication_confidence_attached_to_result(self) -> None:
