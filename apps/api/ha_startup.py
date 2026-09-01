@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from calendar import monthrange
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -8,7 +9,10 @@ from decimal import Decimal
 from typing import Any, cast
 
 from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
-from packages.domains.homelab.pipelines.ha_policy import HaPolicyEvaluator
+from packages.domains.homelab.pipelines.ha_policy import (
+    HaPolicyEvaluator,
+    ensure_builtin_policies,
+)
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.platform.capability_types import CapabilityPack
@@ -209,6 +213,14 @@ def build_ha_startup_runtime(
         policy_registry_store=control_plane_store,
         snapshot_path=settings.data_dir / "ha-policy-effective-snapshot.json",
     )
+    if control_plane_store is not None:
+        seed_summary = ensure_builtin_policies(
+            control_plane_store,
+            seed_state_path=settings.data_dir / "ha-policy-seed-state.json",
+        )
+        logging.getLogger("homelab_analytics.ha_startup").info(
+            "policy seed reconciliation", extra={"summary": seed_summary}
+        )
     ha_action_proposal_registry = ApprovalActionRegistry()
 
     ha_action_dispatcher = None

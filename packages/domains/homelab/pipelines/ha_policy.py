@@ -20,6 +20,7 @@ time alongside these built-in seeds.
 from __future__ import annotations
 
 import calendar
+import hashlib
 import json
 import logging
 import os
@@ -277,6 +278,228 @@ _BUILTIN_POLICIES: list[_PolicyDef] = [
 
 # Type alias for the context-fetch callable.
 FetchFn = Callable[[], dict[str, Any]]
+
+
+# ---------------------------------------------------------------------------
+# Builtin seed lifecycle
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class PolicySeedDefinition:
+    """A declarative policy seeded into the registry as source_kind='builtin'."""
+
+    policy_id: str
+    display_name: str
+    description: str
+    rule_document: dict[str, Any]
+    enabled: bool = True
+
+
+def _seed_content_hash(
+    display_name: str, description: str, rule_document: dict[str, Any] | str
+) -> str:
+    """Hash of the seed-owned content. ``enabled`` is deliberately excluded:
+    it is operator-owned state after the initial create."""
+    if isinstance(rule_document, str):
+        rule_document = json.loads(rule_document)
+    canonical = json.dumps(
+        {
+            "display_name": display_name,
+            "description": description,
+            "rule_document": rule_document,
+        },
+        sort_keys=True,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+# None of the four code built-ins (budget_status, monthly_spend_rate,
+# bridge_health, kitchen_light_request) is expressible behavior-identically in
+# the three shipped declarative rule kinds: the budget pair aggregate across
+# all budget_rows context entries with dual warning/breach thresholds, bridge
+# health reads bridge sync state no rule kind covers, and the kitchen-light
+# request needs a warning verdict plus approval-action metadata that
+# declarative rules cannot carry. Per the template-honesty rule (omit what the
+# rule language cannot express, never approximate), the production seed list
+# is empty until richer rule kinds exist; the lifecycle machinery below is the
+# installation path for future seeds and A2 templates.
+BUILTIN_POLICY_SEEDS: list[PolicySeedDefinition] = []
+
+_SEED_STATE_SCHEMA_VERSION = 1
+
+
+def _load_seed_state(seed_state_path: Path | None) -> dict[str, str]:
+    if seed_state_path is None or not seed_state_path.exists():
+        return {}
+    try:
+        document = json.loads(seed_state_path.read_text(encoding="utf-8"))
+        seeded = document.get("seeded", {})
+        if not isinstance(seeded, dict):
+            raise ValueError("seed state 'seeded' must be a mapping")
+        return {str(k): str(v) for k, v in seeded.items()}
+    except Exception as exc:
+        logger.warning(
+            "Failed to load policy seed state; treating as unseeded",
+            extra={"path": str(seed_state_path), "error": str(exc)},
+        )
+        return {}
+
+
+def _persist_seed_state(
+    seed_state_path: Path | None, seeded: dict[str, str]
+) -> None:
+    if seed_state_path is None:
+        return
+    try:
+        seed_state_path.parent.mkdir(parents=True, exist_ok=True)
+        document = {
+            "schema_version": _SEED_STATE_SCHEMA_VERSION,
+            "seeded": seeded,
+        }
+        tmp_path = seed_state_path.with_suffix(".tmp")
+        tmp_path.write_text(json.dumps(document, indent=2), encoding="utf-8")
+        os.replace(tmp_path, seed_state_path)
+    except Exception as exc:
+        logger.warning(
+            "Failed to persist policy seed state",
+            extra={"path": str(seed_state_path), "error": str(exc)},
+        )
+
+
+def ensure_builtin_policies(
+    store: Any,
+    *,
+    seeds: list[PolicySeedDefinition] | None = None,
+    seed_state_path: Path | None = None,
+) -> dict[str, list[str]]:
+    """Idempotently install builtin policy seeds into the registry.
+
+    Guarantees (see the policy-and-automation architecture doc):
+      * one row per stable policy id, safe under concurrent starts (the
+        registry primary key arbitrates; a lost create race re-reads the row);
+      * a seed-definition upgrade rewrites a row only while its seed-owned
+        content (display name, description, rule document) still matches what
+        was previously seeded — operator edits and the operator-owned
+        ``enabled`` flag are never overwritten;
+      * a row the operator deleted is never re-created (the local seed-state
+        sidecar is the tombstone record);
+      * a previously seeded id absent from the current seed list is reported
+        as orphaned, never deleted.
+
+    Returns a summary mapping of outcome → policy ids.
+    """
+    from packages.storage.control_plane import (
+        PolicyDefinitionCreate,
+        PolicyDefinitionUpdate,
+    )
+
+    resolved_seeds = BUILTIN_POLICY_SEEDS if seeds is None else seeds
+    seeded_state = _load_seed_state(seed_state_path)
+    summary: dict[str, list[str]] = {
+        "created": [],
+        "upgraded": [],
+        "unchanged": [],
+        "skipped_deleted": [],
+        "skipped_operator_edited": [],
+        "conflict": [],
+        "orphaned": [],
+    }
+
+    for seed in resolved_seeds:
+        seed_hash = _seed_content_hash(
+            seed.display_name, seed.description, seed.rule_document
+        )
+        recorded_hash = seeded_state.get(seed.policy_id)
+
+        try:
+            existing = store.get_policy_definition(seed.policy_id)
+        except KeyError:
+            existing = None
+        except Exception as exc:
+            logger.warning(
+                "Policy seed lookup failed",
+                extra={"policy_id": seed.policy_id, "error": str(exc)},
+            )
+            continue
+
+        if recorded_hash is not None and existing is None:
+            # We seeded it before and the operator deleted it: tombstoned.
+            summary["skipped_deleted"].append(seed.policy_id)
+            continue
+
+        if existing is None:
+            try:
+                store.create_policy_definition(
+                    PolicyDefinitionCreate(
+                        policy_id=seed.policy_id,
+                        display_name=seed.display_name,
+                        policy_kind="declarative_rule",
+                        rule_schema_version="1.0",
+                        rule_document=json.dumps(seed.rule_document),
+                        enabled=seed.enabled,
+                        source_kind="builtin",
+                        description=seed.description,
+                        creator="builtin-seed",
+                    )
+                )
+                seeded_state[seed.policy_id] = seed_hash
+                summary["created"].append(seed.policy_id)
+            except Exception:
+                # Lost a concurrent-start race (or the id pre-exists): the
+                # primary key arbitrates. Re-read and reconcile below.
+                try:
+                    existing = store.get_policy_definition(seed.policy_id)
+                except Exception as exc:
+                    logger.warning(
+                        "Policy seed create failed",
+                        extra={"policy_id": seed.policy_id, "error": str(exc)},
+                    )
+                    continue
+
+        if existing is None:
+            continue
+
+        row_hash = _seed_content_hash(
+            existing.display_name,
+            existing.description or "",
+            existing.rule_document,
+        )
+        if row_hash == seed_hash:
+            seeded_state[seed.policy_id] = seed_hash
+            if seed.policy_id not in summary["created"]:
+                summary["unchanged"].append(seed.policy_id)
+        elif recorded_hash is not None and row_hash == recorded_hash:
+            # Seed definition upgraded and the row is still exactly what we
+            # seeded: apply the upgrade without touching `enabled`.
+            try:
+                store.update_policy_definition(
+                    seed.policy_id,
+                    PolicyDefinitionUpdate(
+                        display_name=seed.display_name,
+                        description=seed.description,
+                        rule_document=json.dumps(seed.rule_document),
+                    ),
+                )
+                seeded_state[seed.policy_id] = seed_hash
+                summary["upgraded"].append(seed.policy_id)
+            except Exception as exc:
+                logger.warning(
+                    "Policy seed upgrade failed",
+                    extra={"policy_id": seed.policy_id, "error": str(exc)},
+                )
+        elif recorded_hash is not None:
+            # Operator edited the row after seeding: theirs now.
+            summary["skipped_operator_edited"].append(seed.policy_id)
+        else:
+            # Id collision with a row we never seeded: leave it alone.
+            summary["conflict"].append(seed.policy_id)
+
+    current_seed_ids = {seed.policy_id for seed in resolved_seeds}
+    for policy_id in sorted(set(seeded_state) - current_seed_ids):
+        summary["orphaned"].append(policy_id)
+
+    _persist_seed_state(seed_state_path, seeded_state)
+    return summary
 
 
 def _compare_values(left: float, operator: str, right: float) -> bool:

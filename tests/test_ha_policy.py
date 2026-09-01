@@ -649,3 +649,134 @@ class ProductionWiringTests(unittest.TestCase):
             self.assertTrue(
                 (temp_root / "ha-policy-effective-snapshot.json").exists()
             )
+
+
+# ---------------------------------------------------------------------------
+# Builtin seed lifecycle (A1)
+# ---------------------------------------------------------------------------
+
+class SeedLifecycleTests(unittest.TestCase):
+    def setUp(self) -> None:
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from packages.storage.ingestion_config import IngestionConfigRepository
+
+        self._tmp = TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        root = Path(self._tmp.name)
+        self.store = IngestionConfigRepository(root / "config.db")
+        self.state_path = root / "seed-state.json"
+
+    def _seed(self, policy_id: str = "seed_flag", description: str = "Seeded.", enabled: bool = True):
+        from packages.pipelines.ha_policy import PolicySeedDefinition
+
+        return PolicySeedDefinition(
+            policy_id=policy_id,
+            display_name="Seeded Flag",
+            description=description,
+            rule_document=dict(_HELPER_RULE),
+            enabled=enabled,
+        )
+
+    def _ensure(self, seeds):
+        from packages.pipelines.ha_policy import ensure_builtin_policies
+
+        return ensure_builtin_policies(
+            self.store, seeds=seeds, seed_state_path=self.state_path
+        )
+
+    def test_create_installs_builtin_row_and_state(self) -> None:
+        summary = self._ensure([self._seed()])
+        self.assertEqual(["seed_flag"], summary["created"])
+        record = self.store.get_policy_definition("seed_flag")
+        self.assertEqual("builtin", record.source_kind)
+        self.assertTrue(record.enabled)
+        self.assertTrue(self.state_path.exists())
+
+    def test_second_run_is_idempotent(self) -> None:
+        self._ensure([self._seed()])
+        summary = self._ensure([self._seed()])
+        self.assertEqual([], summary["created"])
+        self.assertEqual(["seed_flag"], summary["unchanged"])
+        self.assertEqual(1, len(self.store.list_policy_definitions()))
+
+    def test_concurrent_start_produces_one_row(self) -> None:
+        from pathlib import Path
+
+        # Two "processes": separate seed-state sidecars, same registry.
+        other_state = Path(self._tmp.name) / "other-seed-state.json"
+        from packages.pipelines.ha_policy import ensure_builtin_policies
+
+        self._ensure([self._seed()])
+        summary = ensure_builtin_policies(
+            self.store, seeds=[self._seed()], seed_state_path=other_state
+        )
+        self.assertEqual([], summary["created"])
+        self.assertEqual(["seed_flag"], summary["unchanged"])
+        self.assertEqual(1, len(self.store.list_policy_definitions()))
+
+    def test_upgrade_applies_without_touching_enabled(self) -> None:
+        from packages.storage.control_plane import PolicyDefinitionUpdate
+
+        self._ensure([self._seed(description="v1")])
+        # Operator disables the seeded policy (operator-owned state).
+        self.store.update_policy_definition(
+            "seed_flag", PolicyDefinitionUpdate(enabled=False)
+        )
+        summary = self._ensure([self._seed(description="v2")])
+        self.assertEqual(["seed_flag"], summary["upgraded"])
+        record = self.store.get_policy_definition("seed_flag")
+        self.assertEqual("v2", record.description)
+        self.assertFalse(record.enabled)
+
+    def test_operator_edit_blocks_upgrade(self) -> None:
+        from packages.storage.control_plane import PolicyDefinitionUpdate
+
+        self._ensure([self._seed(description="v1")])
+        edited_rule = dict(_HELPER_RULE)
+        edited_rule["expected_value"] = "off"
+        self.store.update_policy_definition(
+            "seed_flag",
+            PolicyDefinitionUpdate(rule_document=json.dumps(edited_rule)),
+        )
+        summary = self._ensure([self._seed(description="v2")])
+        self.assertEqual(["seed_flag"], summary["skipped_operator_edited"])
+        record = self.store.get_policy_definition("seed_flag")
+        self.assertIn('"off"', record.rule_document)
+
+    def test_operator_delete_is_tombstoned(self) -> None:
+        self._ensure([self._seed()])
+        self.store.delete_policy_definition("seed_flag")
+        summary = self._ensure([self._seed()])
+        self.assertEqual(["seed_flag"], summary["skipped_deleted"])
+        with self.assertRaises(KeyError):
+            self.store.get_policy_definition("seed_flag")
+
+    def test_removed_seed_is_orphaned_not_deleted(self) -> None:
+        self._ensure([self._seed()])
+        summary = self._ensure([])
+        self.assertEqual(["seed_flag"], summary["orphaned"])
+        self.store.get_policy_definition("seed_flag")  # still present
+
+    def test_preexisting_operator_row_is_conflict_and_untouched(self) -> None:
+        from packages.storage.control_plane import PolicyDefinitionCreate
+
+        self.store.create_policy_definition(
+            PolicyDefinitionCreate(
+                policy_id="seed_flag",
+                display_name="Operator Owned",
+                policy_kind="declarative_rule",
+                rule_schema_version="1.0",
+                rule_document=json.dumps(_HELPER_RULE),
+                enabled=True,
+                source_kind="operator",
+                description="Operator's own policy.",
+                creator="operator",
+            )
+        )
+        summary = self._ensure([self._seed()])
+        self.assertEqual(["seed_flag"], summary["conflict"])
+        record = self.store.get_policy_definition("seed_flag")
+        self.assertEqual("operator", record.source_kind)
+        self.assertEqual("Operator Owned", record.display_name)
