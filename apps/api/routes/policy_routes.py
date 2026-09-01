@@ -60,10 +60,38 @@ def _serialize_policy(record: PolicyDefinitionRecord) -> dict[str, Any]:
     }
 
 
+def _validate_publication_references(
+    rule_document: dict[str, Any],
+    known_publication_keys: frozenset[str] | None,
+) -> None:
+    """Reject rules referencing publications that are not registered.
+
+    Enforced at create, rule update, and enable so a policy can never be
+    activated against a publication contract that does not exist.
+    """
+    if known_publication_keys is None:
+        return
+    if rule_document.get("rule_kind") not in {
+        "publication_value_comparison",
+        "publication_freshness_comparison",
+    }:
+        return
+    publication_key = rule_document.get("publication_key")
+    if publication_key not in known_publication_keys:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Unknown publication reference: {publication_key!r}. "
+                "Policies may only reference registered publication contracts."
+            ),
+        )
+
+
 def register_policy_routes(
     app: FastAPI,
     *,
     resolved_config_repository: ControlPlaneAdminStore,
+    known_publication_keys: frozenset[str] | None = None,
 ) -> None:
     @app.get("/control/policies")
     async def list_policies(
@@ -82,6 +110,7 @@ def register_policy_routes(
             parse_rule_document(body.rule_document)
         except (ValueError, ValidationError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        _validate_publication_references(body.rule_document, known_publication_keys)
 
         now = datetime.now(UTC)
         create = PolicyDefinitionCreate(
@@ -114,6 +143,22 @@ def register_policy_routes(
                 parse_rule_document(body.rule_document)
             except (ValueError, ValidationError) as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
+            _validate_publication_references(
+                body.rule_document, known_publication_keys
+            )
+        elif body.enabled:
+            # Enabling an existing policy re-validates its stored references.
+            try:
+                existing = resolved_config_repository.get_policy_definition(
+                    policy_id
+                )
+            except KeyError:
+                raise HTTPException(
+                    status_code=404, detail=f"Policy not found: {policy_id}"
+                )
+            _validate_publication_references(
+                json.loads(existing.rule_document), known_publication_keys
+            )
 
         rule_document_json: str | None = None
         if body.rule_document is not None:

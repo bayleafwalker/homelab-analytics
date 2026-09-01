@@ -279,6 +279,33 @@ _BUILTIN_POLICIES: list[_PolicyDef] = [
 # Type alias for the context-fetch callable.
 FetchFn = Callable[[], dict[str, Any]]
 
+# Batched publication fetch: given the deduplicated set of publication keys
+# referenced by effective policies, return ``publication_<key>`` → rows.
+PublicationFetchFn = Callable[[frozenset[str]], dict[str, Any]]
+
+_STALE_FRESHNESS_STATES = {"OVERDUE", "MISSING_PERIOD", "PARSE_FAILED"}
+
+
+def _referenced_publication_keys(
+    policies: list[dict[str, Any]],
+) -> frozenset[str]:
+    """Publication keys read as row data by the given policies (deduplicated).
+
+    Only ``publication_value_comparison`` rules consume publication rows;
+    freshness rules read confidence snapshots from the control plane instead.
+    """
+    keys: set[str] = set()
+    for policy in policies:
+        try:
+            rule_doc = json.loads(policy["rule_document"])
+        except (ValueError, TypeError, KeyError):
+            continue
+        if rule_doc.get("rule_kind") == "publication_value_comparison":
+            key = rule_doc.get("publication_key")
+            if isinstance(key, str) and key:
+                keys.add(key)
+    return frozenset(keys)
+
 
 # ---------------------------------------------------------------------------
 # Builtin seed lifecycle
@@ -634,8 +661,10 @@ class HaPolicyEvaluator:
         control_plane_store: Any | None = None,
         policy_registry_store: Any | None = None,
         snapshot_path: Path | None = None,
+        publication_fetch_fn: PublicationFetchFn | None = None,
     ) -> None:
         self._fetch_fn = fetch_fn
+        self._publication_fetch_fn = publication_fetch_fn
         self._control_plane_store = control_plane_store
         self._policy_registry_store = policy_registry_store
         self._snapshot_path = snapshot_path
@@ -744,6 +773,36 @@ class HaPolicyEvaluator:
         self._authority_mode = "registry"
         return policies
 
+    def _publication_confidence(
+        self, publication_key: str, now: datetime
+    ) -> ConfidenceSummary | None:
+        """Latest confidence snapshot for one publication, or None."""
+        if self._control_plane_store is None:
+            return None
+        try:
+            snapshots = self._control_plane_store.list_publication_confidence_snapshots(
+                publication_key=publication_key, limit=1
+            )
+        except Exception:
+            return None
+        if not snapshots:
+            return None
+        snap = snapshots[0]
+        try:
+            assessed_at = (
+                snap.assessed_at
+                if isinstance(snap.assessed_at, datetime)
+                else datetime.fromisoformat(str(snap.assessed_at))
+            )
+        except Exception:
+            assessed_at = now
+        return ConfidenceSummary(
+            verdict=snap.confidence_verdict,
+            freshness_state=snap.freshness_state,
+            completeness_pct=snap.completeness_pct,
+            assessed_at=assessed_at,
+        )
+
     def get_authority_status(self) -> PolicyAuthorityStatus:
         """Return the effective authority mode for registry-policy evaluation."""
         return PolicyAuthorityStatus(
@@ -756,14 +815,32 @@ class HaPolicyEvaluator:
         )
 
     def evaluate(self) -> list[PolicyResult]:
-        """Fetch current platform state and evaluate all policies."""
+        """Fetch current platform state and evaluate all policies.
+
+        One evaluation cycle observes one context: the effective policy set is
+        resolved first, the publications those policies reference are fetched
+        once as a deduplicated batch, and every policy in the cycle evaluates
+        against that same snapshot of facts.
+        """
+        now = datetime.now(UTC)
+        effective_policies = self._refresh_registry_policies(now)
+
         try:
             context = self._fetch_fn()
         except Exception as exc:
             logger.warning("Policy context fetch failed", extra={"error": str(exc)})
             context = {}
 
-        now = datetime.now(UTC)
+        if effective_policies and self._publication_fetch_fn is not None:
+            referenced_keys = _referenced_publication_keys(effective_policies)
+            if referenced_keys:
+                try:
+                    context.update(self._publication_fetch_fn(referenced_keys))
+                except Exception as exc:
+                    logger.warning(
+                        "Policy publication fetch failed",
+                        extra={"error": str(exc)},
+                    )
 
         # Capture confidence snapshot at evaluation time if available
         input_freshness = None
@@ -819,9 +896,10 @@ class HaPolicyEvaluator:
                 input_freshness=input_freshness,
             ))
 
-        effective_policies = self._refresh_registry_policies(now)
         if effective_policies is not None:
+            publication_confidence_cache: dict[str, ConfidenceSummary | None] = {}
             for reg_policy in effective_policies:
+                rule_doc: dict[str, Any] = {}
                 try:
                     rule_doc = json.loads(reg_policy["rule_document"])
                     verdict, value = _evaluate_declarative_rule(
@@ -836,6 +914,38 @@ class HaPolicyEvaluator:
                         },
                     )
                     verdict, value = "unavailable", None
+
+                metadata: dict[str, Any] = {
+                    "source_kind": reg_policy["source_kind"],
+                    "authority_mode": self._authority_mode,
+                }
+                policy_freshness = input_freshness
+                publication_key = rule_doc.get("publication_key")
+                if (
+                    rule_doc.get("rule_kind") == "publication_value_comparison"
+                    and isinstance(publication_key, str)
+                ):
+                    metadata["publication_key"] = publication_key
+                    if publication_key not in publication_confidence_cache:
+                        publication_confidence_cache[publication_key] = (
+                            self._publication_confidence(publication_key, now)
+                        )
+                    publication_summary = publication_confidence_cache[
+                        publication_key
+                    ]
+                    if publication_summary is not None:
+                        policy_freshness = publication_summary
+                        if (
+                            publication_summary.freshness_state
+                            in _STALE_FRESHNESS_STATES
+                        ):
+                            # Stale input must not yield a confident verdict.
+                            verdict = "unavailable"
+                            value = (
+                                "stale input: "
+                                f"{publication_summary.freshness_state}"
+                            )
+
                 results.append(PolicyResult(
                     id=reg_policy["policy_id"],
                     name=reg_policy["display_name"],
@@ -844,11 +954,8 @@ class HaPolicyEvaluator:
                     value=value,
                     evaluated_at=now.isoformat(),
                     approval_required=False,
-                    metadata={
-                        "source_kind": reg_policy["source_kind"],
-                        "authority_mode": self._authority_mode,
-                    },
-                    input_freshness=input_freshness,
+                    metadata=metadata,
+                    input_freshness=policy_freshness,
                 ))
 
         self._last_results = results

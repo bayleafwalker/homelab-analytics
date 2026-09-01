@@ -257,3 +257,72 @@ class PolicyCrudRouteTests(unittest.TestCase):
         results = response.json()["policies"]
         self.assertEqual(1, len(results))
         self.assertEqual("Also Active", results[0]["display_name"])
+
+
+class PolicyPublicationReferenceValidationTests(unittest.TestCase):
+    def test_create_with_unknown_publication_key_is_rejected(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            bad_rule = dict(_VALID_RULE, publication_key="no_such_publication")
+            response = client.post(
+                "/control/policies",
+                json={
+                    "display_name": "Bad Ref",
+                    "policy_kind": "declarative_rule",
+                    "rule_document": bad_rule,
+                },
+            )
+            self.assertEqual(422, response.status_code)
+            self.assertIn("Unknown publication reference", response.json()["detail"])
+
+    def test_create_with_known_publication_key_is_accepted(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            response = client.post(
+                "/control/policies",
+                json={
+                    "display_name": "Good Ref",
+                    "policy_kind": "declarative_rule",
+                    "rule_document": _VALID_RULE,
+                },
+            )
+            self.assertEqual(201, response.status_code)
+
+    def test_enable_revalidates_stored_references(self) -> None:
+        import json as _json
+
+        from packages.storage.control_plane import PolicyDefinitionCreate
+
+        with TemporaryDirectory() as tmp:
+            temp_root = Path(tmp)
+            service = AccountTransactionService(
+                landing_root=temp_root / "landing",
+                metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
+            )
+            config_repository = IngestionConfigRepository(temp_root / "config.db")
+            # A legacy/seeded row referencing a publication that no longer
+            # exists bypasses route-time validation; enabling it must fail.
+            bad_rule = dict(_VALID_RULE, publication_key="retired_publication")
+            config_repository.create_policy_definition(
+                PolicyDefinitionCreate(
+                    policy_id="legacy_bad_ref",
+                    display_name="Legacy",
+                    policy_kind="declarative_rule",
+                    rule_schema_version="1.0",
+                    rule_document=_json.dumps(bad_rule),
+                    enabled=False,
+                    source_kind="operator",
+                )
+            )
+            app = create_app(
+                service,
+                config_repository=config_repository,
+                enable_unsafe_admin=True,
+            )
+            client = TestClient(app)
+            response = client.patch(
+                "/control/policies/legacy_bad_ref", json={"enabled": True}
+            )
+            self.assertEqual(422, response.status_code)
+            record = config_repository.get_policy_definition("legacy_bad_ref")
+            self.assertFalse(record.enabled)

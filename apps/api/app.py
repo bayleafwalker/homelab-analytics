@@ -610,9 +610,23 @@ def create_app(
         capability_packs=container.capability_packs,
         extension_registry=container.extension_registry,
     )
+    from packages.pipelines.composition.publication_contract_inputs import (
+        build_household_publication_relation_map,
+    )
+    from packages.platform.publication_contracts import build_publication_contracts
+
     register_policy_routes(
         app,
         resolved_config_repository=resolved_config_repository,
+        known_publication_keys=frozenset(
+            contract.publication_key
+            for contract in build_publication_contracts(
+                container.capability_packs,
+                publication_relations=build_household_publication_relation_map(
+                    extension_registry=container.extension_registry,
+                ),
+            )
+        ),
     )
     register_control_routes(
         app,

@@ -298,6 +298,7 @@ class ApiMainTests(unittest.TestCase):
                 reporting_service="reporting-service",
                 capability_packs=BUILTIN_CAPABILITY_PACKS,
                 control_plane_store="control-plane-store",
+                extension_registry="extension-registry",
             )
             self.assertEqual(container, runtime[0])
             self.assertEqual("account-service", runtime[1])

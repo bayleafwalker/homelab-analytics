@@ -96,6 +96,7 @@ def _build_api_startup_components(
         reporting_service=reporting_service,
         capability_packs=BUILTIN_CAPABILITY_PACKS,
         control_plane_store=container.control_plane_store,
+        extension_registry=container.extension_registry,
     )
     return (
         container,

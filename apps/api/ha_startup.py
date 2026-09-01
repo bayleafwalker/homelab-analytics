@@ -166,6 +166,12 @@ def _build_approval_status_state(
     }
 
 
+# Rows read per referenced publication in one policy evaluation cycle.
+# Value-comparison rules consume the first row; a small bound keeps the read
+# cheap while leaving room for future multi-row rule kinds.
+_POLICY_PUBLICATION_ROW_LIMIT = 25
+
+
 def build_ha_startup_runtime(
     settings: AppSettings,
     *,
@@ -173,6 +179,7 @@ def build_ha_startup_runtime(
     reporting_service: ReportingService,
     capability_packs: Sequence[CapabilityPack],
     control_plane_store: Any | None = None,
+    extension_registry: Any | None = None,
 ) -> HaStartupRuntime:
     from packages.domains.homelab.pipelines.ha_action_dispatcher import HaActionDispatcher
     from packages.domains.homelab.pipelines.ha_bridge import HaBridgeWorker
@@ -202,6 +209,46 @@ def build_ha_startup_runtime(
             "ha_entities": ha_entities,
         }
 
+    from packages.pipelines.composition.publication_contract_inputs import (
+        build_household_publication_relation_map,
+    )
+    from packages.platform.publication_contracts import build_publication_contracts
+
+    relation_by_publication_key = {
+        contract.publication_key: contract.relation_name
+        for contract in build_publication_contracts(
+            capability_packs,
+            publication_relations=build_household_publication_relation_map(
+                extension_registry=extension_registry,
+            ),
+        )
+    }
+
+    def _publication_fetch_fn(keys: frozenset[str]) -> dict:
+        """Batched, deduplicated publication read for one evaluation cycle.
+
+        Reads go through the reporting layer only. A key that cannot be
+        resolved or read is omitted, so its policies evaluate ``unavailable``
+        rather than against mixed-moment or guessed data.
+        """
+        fetched: dict = {}
+        for key in sorted(keys):
+            relation_name = relation_by_publication_key.get(key)
+            if relation_name is None:
+                continue
+            try:
+                sampled = reporting_service.sample_publication_rows(
+                    relation_name,
+                    limit=_POLICY_PUBLICATION_ROW_LIMIT,
+                )
+            except Exception:
+                sampled = None
+            if sampled is None:
+                continue
+            rows, _total = sampled
+            fetched[f"publication_{key}"] = rows
+        return fetched
+
     # The control-plane store doubles as the policy registry store (the
     # registry mixin is part of the control-plane repository). The snapshot
     # file lives under data_dir, outside the registry's failure domain, so a
@@ -212,6 +259,7 @@ def build_ha_startup_runtime(
         control_plane_store=control_plane_store,
         policy_registry_store=control_plane_store,
         snapshot_path=settings.data_dir / "ha-policy-effective-snapshot.json",
+        publication_fetch_fn=_publication_fetch_fn,
     )
     if control_plane_store is not None:
         seed_summary = ensure_builtin_policies(

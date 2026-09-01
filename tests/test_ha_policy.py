@@ -780,3 +780,146 @@ class SeedLifecycleTests(unittest.TestCase):
         record = self.store.get_policy_definition("seed_flag")
         self.assertEqual("operator", record.source_kind)
         self.assertEqual("Operator Owned", record.display_name)
+
+
+# ---------------------------------------------------------------------------
+# Publication snapshot semantics (A1)
+# ---------------------------------------------------------------------------
+
+_CASHFLOW_RULE = {
+    "rule_kind": "publication_value_comparison",
+    "publication_key": "monthly_cashflow",
+    "field_name": "net",
+    "operator": "lt",
+    "threshold": 0,
+    "unit": "currency",
+}
+
+
+def _cashflow_record(policy_id: str = "op_cashflow") -> PolicyDefinitionRecord:
+    return PolicyDefinitionRecord(
+        policy_id=policy_id,
+        display_name="Cashflow Guard",
+        policy_kind="declarative_rule",
+        rule_schema_version="1.0",
+        rule_document=json.dumps(_CASHFLOW_RULE),
+        enabled=True,
+        source_kind="operator",
+        description="Negative monthly cashflow.",
+        creator="operator",
+        created_at=_NOW,
+        updated_at=_NOW,
+    )
+
+
+class _StubConfidenceSnapshot:
+    def __init__(self, freshness_state: str) -> None:
+        self.confidence_verdict = "TRUSTWORTHY"
+        self.freshness_state = freshness_state
+        self.completeness_pct = 100
+        self.assessed_at = _NOW
+
+
+class _StubControlPlaneStore:
+    def __init__(self, freshness_state: str | None = None) -> None:
+        self.freshness_state = freshness_state
+
+    def list_publication_confidence_snapshots(self, **kwargs):
+        if self.freshness_state is None:
+            return []
+        return [_StubConfidenceSnapshot(self.freshness_state)]
+
+
+class PublicationSnapshotSemanticsTests(unittest.TestCase):
+    def test_batched_deduplicated_publication_fetch(self) -> None:
+        calls: list[frozenset[str]] = []
+
+        def publication_fetch(keys: frozenset[str]) -> dict:
+            calls.append(keys)
+            return {
+                "publication_monthly_cashflow": [
+                    {"booking_month": "2026-08", "net": "-250"}
+                ]
+            }
+
+        store = _StubRegistryStore(
+            [_cashflow_record("op_a"), _cashflow_record("op_b")]
+        )
+        evaluator = HaPolicyEvaluator(
+            lambda: {},
+            policy_registry_store=store,
+            publication_fetch_fn=publication_fetch,
+        )
+        results = evaluator.evaluate()
+        # Two policies referencing one publication cause one bounded fetch.
+        self.assertEqual(1, len(calls))
+        self.assertEqual(frozenset({"monthly_cashflow"}), calls[0])
+        verdicts = {r.id: r.verdict for r in results if r.id.startswith("op_")}
+        self.assertEqual({"op_a": "breach", "op_b": "breach"}, verdicts)
+
+    def test_all_policies_observe_same_snapshot(self) -> None:
+        # The fetch returns one batch; both policies must see identical rows
+        # even if the underlying source changes between accesses.
+        state = {"net": "-250"}
+
+        def publication_fetch(keys: frozenset[str]) -> dict:
+            rows = [{"booking_month": "2026-08", "net": state["net"]}]
+            state["net"] = "999"  # mutate after the single batch read
+            return {"publication_monthly_cashflow": rows}
+
+        store = _StubRegistryStore(
+            [_cashflow_record("op_a"), _cashflow_record("op_b")]
+        )
+        evaluator = HaPolicyEvaluator(
+            lambda: {},
+            policy_registry_store=store,
+            publication_fetch_fn=publication_fetch,
+        )
+        results = evaluator.evaluate()
+        values = {r.id: r.value for r in results if r.id.startswith("op_")}
+        self.assertEqual({"op_a": "-250.0", "op_b": "-250.0"}, values)
+
+    def test_missing_publication_data_is_explicit_unavailable(self) -> None:
+        store = _StubRegistryStore([_cashflow_record()])
+        evaluator = HaPolicyEvaluator(
+            lambda: {},
+            policy_registry_store=store,
+            publication_fetch_fn=lambda keys: {},
+        )
+        results = evaluator.evaluate()
+        result = next(r for r in results if r.id == "op_cashflow")
+        self.assertEqual("unavailable", result.verdict)
+
+    def test_stale_publication_data_is_explicit_unavailable(self) -> None:
+        store = _StubRegistryStore([_cashflow_record()])
+        evaluator = HaPolicyEvaluator(
+            lambda: {},
+            control_plane_store=_StubControlPlaneStore("OVERDUE"),
+            policy_registry_store=store,
+            publication_fetch_fn=lambda keys: {
+                "publication_monthly_cashflow": [{"net": "-250"}]
+            },
+        )
+        results = evaluator.evaluate()
+        result = next(r for r in results if r.id == "op_cashflow")
+        self.assertEqual("unavailable", result.verdict)
+        self.assertIn("stale input", result.value or "")
+        self.assertEqual("OVERDUE", result.input_freshness.freshness_state)
+
+    def test_fresh_publication_confidence_attached_to_result(self) -> None:
+        store = _StubRegistryStore([_cashflow_record()])
+        evaluator = HaPolicyEvaluator(
+            lambda: {},
+            control_plane_store=_StubControlPlaneStore("CURRENT"),
+            policy_registry_store=store,
+            publication_fetch_fn=lambda keys: {
+                "publication_monthly_cashflow": [{"net": "-250"}]
+            },
+        )
+        results = evaluator.evaluate()
+        result = next(r for r in results if r.id == "op_cashflow")
+        self.assertEqual("breach", result.verdict)
+        self.assertEqual("CURRENT", result.input_freshness.freshness_state)
+        self.assertEqual(
+            "monthly_cashflow", result.metadata["publication_key"]
+        )
