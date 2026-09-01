@@ -626,6 +626,7 @@ def create_app(
             for contract in policy_referenceable_contracts
         ),
         referenceable_contracts=policy_referenceable_contracts,
+        ha_policy_evaluator=ha_policy_evaluator,
     )
     register_control_routes(
         app,

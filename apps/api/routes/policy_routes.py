@@ -54,6 +54,12 @@ class PolicyCreateRequest(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class PolicyPreviewRequest(BaseModel):
+    rule_document: dict[str, Any]
+
+    model_config = {"extra": "forbid"}
+
+
 class PolicyUpdateRequest(BaseModel):
     display_name: str | None = None
     description: str | None = None
@@ -114,6 +120,7 @@ def register_policy_routes(
     resolved_config_repository: ControlPlaneAdminStore,
     known_publication_keys: frozenset[str] | None = None,
     referenceable_contracts: Sequence[PublicationContract] = (),
+    ha_policy_evaluator: Any = None,
 ) -> None:
     @app.get("/control/policies")
     async def list_policies(
@@ -165,6 +172,28 @@ def register_policy_routes(
                 for contract in referenceable_contracts
             ]
         }
+
+    @app.post("/control/policies/preview")
+    async def preview_policy(body: PolicyPreviewRequest) -> dict[str, Any]:
+        """Evaluate a rule document without saving it.
+
+        Same validation as create — an invalid document or an unreferenceable
+        publication is a 422 here too, so the authoring form learns about a
+        bad rule before it writes one.
+        """
+        try:
+            parse_rule_document(body.rule_document)
+        except (ValueError, ValidationError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        _validate_publication_references(body.rule_document, known_publication_keys)
+
+        if ha_policy_evaluator is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Policy evaluation is unavailable, so a preview cannot be run.",
+            )
+        result = ha_policy_evaluator.evaluate_document(body.rule_document)
+        return {"preview": result.to_dict()}
 
     @app.post("/control/policies", status_code=201)
     async def create_policy(body: PolicyCreateRequest) -> dict[str, Any]:

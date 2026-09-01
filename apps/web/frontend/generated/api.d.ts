@@ -2194,6 +2194,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/control/policies/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Policy
+         * @description Evaluate a rule document without saving it.
+         *
+         *     Same validation as create — an invalid document or an unreferenceable
+         *     publication is a 422 here too, so the authoring form learns about a
+         *     bad rule before it writes one.
+         */
+        post: operations["preview_policy_control_policies_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/control/policies/referenceable-publications": {
         parameters: {
             query?: never;
@@ -4933,6 +4957,13 @@ export interface components {
              * @default 1.0
              */
             rule_schema_version: string;
+        };
+        /** PolicyPreviewRequest */
+        PolicyPreviewRequest: {
+            /** Rule Document */
+            rule_document: {
+                [key: string]: unknown;
+            };
         };
         /** PolicyUpdateRequest */
         PolicyUpdateRequest: {
@@ -10194,6 +10225,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_policy_control_policies_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

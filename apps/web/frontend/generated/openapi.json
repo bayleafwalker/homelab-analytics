@@ -5317,6 +5317,21 @@
         "title": "PolicyCreateRequest",
         "type": "object"
       },
+      "PolicyPreviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "rule_document": {
+            "additionalProperties": true,
+            "title": "Rule Document",
+            "type": "object"
+          }
+        },
+        "required": [
+          "rule_document"
+        ],
+        "title": "PolicyPreviewRequest",
+        "type": "object"
+      },
       "PolicyUpdateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -13406,6 +13421,47 @@
           }
         },
         "summary": "Create Policy"
+      }
+    },
+    "/control/policies/preview": {
+      "post": {
+        "description": "Evaluate a rule document without saving it.\n\nSame validation as create \u2014 an invalid document or an unreferenceable\npublication is a 422 here too, so the authoring form learns about a\nbad rule before it writes one.",
+        "operationId": "preview_policy_control_policies_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Preview Policy Control Policies Preview Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Policy"
       }
     },
     "/control/policies/referenceable-publications": {

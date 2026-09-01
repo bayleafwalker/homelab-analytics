@@ -415,3 +415,83 @@ class PolicyReferenceablePublicationsTests(unittest.TestCase):
         self.assertTrue(_is_comparable("INTEGER"))
         self.assertFalse(_is_comparable("VARCHAR(64)"))
         self.assertFalse(_is_comparable("DATE"))
+
+
+class PolicyPreviewRouteTests(unittest.TestCase):
+    """Preview validates like create but writes nothing."""
+
+    def _client_with_evaluator(self, temp_dir: str, evaluator: object) -> TestClient:
+        temp_root = Path(temp_dir)
+        service = AccountTransactionService(
+            landing_root=temp_root / "landing",
+            metadata_repository=RunMetadataRepository(temp_root / "runs.db"),
+        )
+        config_repository = IngestionConfigRepository(temp_root / "config.db")
+        app = create_app(
+            service,
+            config_repository=config_repository,
+            enable_unsafe_admin=True,
+            ha_policy_evaluator=evaluator,
+        )
+        return TestClient(app)
+
+    def test_preview_returns_verdict_and_reason(self) -> None:
+        from packages.pipelines.ha_policy import HaPolicyEvaluator
+
+        evaluator = HaPolicyEvaluator(
+            lambda: {},
+            publication_fetch_fn=lambda keys: {
+                "publication_monthly_cashflow": [{"net": "-250"}]
+            },
+        )
+        with TemporaryDirectory() as tmp:
+            client = self._client_with_evaluator(tmp, evaluator)
+            response = client.post(
+                "/control/policies/preview", json={"rule_document": _VALID_RULE}
+            )
+            self.assertEqual(200, response.status_code)
+            preview = response.json()["preview"]
+            self.assertEqual("breach", preview["verdict"])
+            self.assertTrue(preview["reason"])
+
+    def test_preview_does_not_create_a_policy(self) -> None:
+        from packages.pipelines.ha_policy import HaPolicyEvaluator
+
+        evaluator = HaPolicyEvaluator(lambda: {}, publication_fetch_fn=lambda keys: {})
+        with TemporaryDirectory() as tmp:
+            client = self._client_with_evaluator(tmp, evaluator)
+            client.post("/control/policies/preview", json={"rule_document": _VALID_RULE})
+            listing = client.get("/control/policies")
+            self.assertEqual([], listing.json()["policies"])
+
+    def test_preview_rejects_invalid_rule_document(self) -> None:
+        from packages.pipelines.ha_policy import HaPolicyEvaluator
+
+        evaluator = HaPolicyEvaluator(lambda: {})
+        with TemporaryDirectory() as tmp:
+            client = self._client_with_evaluator(tmp, evaluator)
+            response = client.post(
+                "/control/policies/preview",
+                json={"rule_document": {"rule_kind": "exec_python"}},
+            )
+            self.assertEqual(422, response.status_code)
+
+    def test_preview_rejects_unknown_publication_reference(self) -> None:
+        from packages.pipelines.ha_policy import HaPolicyEvaluator
+
+        evaluator = HaPolicyEvaluator(lambda: {})
+        unknown = dict(_VALID_RULE, publication_key="not_a_publication")
+        with TemporaryDirectory() as tmp:
+            client = self._client_with_evaluator(tmp, evaluator)
+            response = client.post(
+                "/control/policies/preview", json={"rule_document": unknown}
+            )
+            self.assertEqual(422, response.status_code)
+
+    def test_preview_without_an_evaluator_is_explicitly_unavailable(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            response = client.post(
+                "/control/policies/preview", json={"rule_document": _VALID_RULE}
+            )
+            self.assertEqual(503, response.status_code)

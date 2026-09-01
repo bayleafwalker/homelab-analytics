@@ -1123,3 +1123,72 @@ class BuiltinParityTests(unittest.TestCase):
         results = evaluator.evaluate()
         builtin_ids = {policy.id for policy in _BUILTIN_POLICIES}
         self.assertTrue(builtin_ids <= {r.id for r in results})
+
+
+class PreviewEvaluationTests(unittest.TestCase):
+    """Preview runs the real evaluation path without persisting anything."""
+
+    def test_preview_returns_verdict_and_reason_for_unsaved_rule(self) -> None:
+        evaluator = HaPolicyEvaluator(
+            lambda: {},
+            publication_fetch_fn=lambda keys: {
+                "publication_monthly_cashflow": [{"net": "-250"}]
+            },
+        )
+        result = evaluator.evaluate_document(dict(_CASHFLOW_RULE))
+        self.assertEqual("breach", result.verdict)
+        self.assertEqual("-250.0", result.value)
+        assert result.reason is not None
+        self.assertIn("net", result.reason)
+        self.assertTrue(result.metadata["preview"])
+
+    def test_preview_fetches_only_the_referenced_publication(self) -> None:
+        calls: list[frozenset[str]] = []
+
+        def publication_fetch(keys: frozenset[str]) -> dict:
+            calls.append(keys)
+            return {"publication_monthly_cashflow": [{"net": "1200"}]}
+
+        evaluator = HaPolicyEvaluator(
+            lambda: {}, publication_fetch_fn=publication_fetch
+        )
+        result = evaluator.evaluate_document(dict(_CASHFLOW_RULE))
+        self.assertEqual([frozenset({"monthly_cashflow"})], calls)
+        self.assertEqual("ok", result.verdict)
+
+    def test_preview_honours_the_staleness_rule(self) -> None:
+        # A preview must never look healthier than the saved policy would be.
+        evaluator = HaPolicyEvaluator(
+            lambda: {},
+            control_plane_store=_StubControlPlaneStore("OVERDUE"),
+            publication_fetch_fn=lambda keys: {
+                "publication_monthly_cashflow": [{"net": "-250"}]
+            },
+        )
+        result = evaluator.evaluate_document(dict(_CASHFLOW_RULE))
+        self.assertEqual("unavailable", result.verdict)
+        self.assertIn("stale input", result.reason or "")
+        self.assertEqual("-250.0", result.value)
+
+    def test_preview_does_not_consult_or_mutate_the_registry(self) -> None:
+        store = _StubRegistryStore([_cashflow_record("already_saved")])
+        evaluator = HaPolicyEvaluator(
+            lambda: {},
+            policy_registry_store=store,
+            publication_fetch_fn=lambda keys: {
+                "publication_monthly_cashflow": [{"net": "-250"}]
+            },
+        )
+        result = evaluator.evaluate_document(dict(_CASHFLOW_RULE))
+        self.assertEqual("preview", result.id)
+        # The saved policy set is untouched by a preview.
+        self.assertEqual(
+            ["already_saved"],
+            [record.policy_id for record in store.list_policy_definitions()],
+        )
+
+    def test_preview_of_invalid_document_is_unavailable_with_a_reason(self) -> None:
+        evaluator = HaPolicyEvaluator(lambda: {})
+        result = evaluator.evaluate_document({"rule_kind": "exec_python"})
+        self.assertEqual("unavailable", result.verdict)
+        self.assertTrue(result.reason)

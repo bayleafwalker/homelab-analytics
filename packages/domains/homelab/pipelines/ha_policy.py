@@ -926,6 +926,65 @@ class HaPolicyEvaluator:
             last_error=self._last_error,
         )
 
+    def evaluate_document(self, rule_doc: dict[str, Any]) -> PolicyResult:
+        """Evaluate an unsaved rule document against current facts.
+
+        Preview for the authoring surface: nothing is persisted and the
+        registry is not consulted, but the publication read, the staleness
+        rule and the verdict logic are the same ones a saved policy would go
+        through, so what the operator sees is what the policy would do.
+        """
+        now = datetime.now(UTC)
+        try:
+            context = self._fetch_fn()
+        except Exception as exc:
+            logger.warning("Preview context fetch failed", extra={"error": str(exc)})
+            context = {}
+
+        publication_key = rule_doc.get("publication_key")
+        if isinstance(publication_key, str) and self._publication_fetch_fn is not None:
+            try:
+                context.update(self._publication_fetch_fn(frozenset({publication_key})))
+            except Exception as exc:
+                logger.warning(
+                    "Preview publication fetch failed", extra={"error": str(exc)}
+                )
+
+        verdict, value, reason = _evaluate_declarative_rule(
+            rule_doc, context, now, self._control_plane_store
+        )
+
+        input_freshness: ConfidenceSummary | None = None
+        if (
+            rule_doc.get("rule_kind") == "publication_value_comparison"
+            and isinstance(publication_key, str)
+        ):
+            input_freshness = self._publication_confidence(publication_key, now)
+            if (
+                input_freshness is not None
+                and input_freshness.freshness_state in _STALE_FRESHNESS_STATES
+            ):
+                # Same rule as a saved policy: stale input never yields a
+                # confident verdict, so a preview cannot look healthier than
+                # the policy would actually be.
+                verdict = "unavailable"
+                reason = (
+                    f"stale input: publication {publication_key!r} is "
+                    f"{input_freshness.freshness_state}"
+                )
+
+        return PolicyResult(
+            id="preview",
+            name="Preview",
+            description="",
+            verdict=verdict,
+            value=value,
+            reason=reason,
+            evaluated_at=now.isoformat(),
+            metadata={"preview": True, "authority_mode": self._authority_mode},
+            input_freshness=input_freshness,
+        )
+
     def evaluate(self) -> list[PolicyResult]:
         """Fetch current platform state and evaluate all policies.
 
