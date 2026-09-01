@@ -13,6 +13,7 @@ function navItemsForUser(user) {
       { href: "/retro/control", label: "Control", prefix: "/retro/control" },
       { href: "/retro/control/catalog", label: "Catalog", prefix: "/retro/control/catalog" },
       { href: "/retro/control/execution", label: "Execution", prefix: "/retro/control/execution" },
+      { href: "/retro/control/policies", label: "Policies", prefix: "/retro/control/policies" },
       { href: "/retro/terminal", label: "Terminal", prefix: "/retro/terminal" },
     );
   }

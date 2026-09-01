@@ -1030,3 +1030,27 @@ def test_nextjs_frontend_policy_preview_evaluates_the_document_it_would_save() -
     # The previewed document is built by the same helper the save path uses,
     # so a preview cannot drift from the rule that would be written.
     assert "buildRuleDocument" in policy_form
+
+
+def test_nextjs_frontend_retro_policy_view_mirrors_verdicts_without_authoring() -> None:
+    retro_policies = (
+        FRONTEND_ROOT / "app" / "retro" / "control" / "policies" / "page.js"
+    ).read_text()
+    retro_shell = (FRONTEND_ROOT / "components" / "retro-shell.js").read_text()
+
+    assert 'user.role !== "admin"' in retro_policies
+    assert 'redirect("/retro")' in retro_policies
+    assert "getPolicyDefinitions()" in retro_policies
+    assert "getHaPolicyEvaluation()" in retro_policies
+
+    # Verdict and reason are mirrored, as is the authority mode.
+    assert "result.verdict" in retro_policies
+    assert "result.reason" in retro_policies
+    assert "Degraded authority" in retro_policies
+
+    # Read-only by design: the retro shell mirrors what the classic surfaces
+    # show rather than duplicating how they are edited.
+    assert "<form" not in retro_policies
+    assert "/control/policies" in retro_policies
+
+    assert '{ href: "/retro/control/policies"' in retro_shell
