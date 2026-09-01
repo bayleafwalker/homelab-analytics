@@ -1,25 +1,28 @@
-SPRINT: ember-rule-keel — A1 Policy Authority & Production Evaluation  [closed]
-Dates:  2026-08-31 to 2026-09-14
-ID:     554
-Items:  8 total — 8 done, 0 active, 0 pending, 0 blocked
+SPRINT: slate-dial-hearth — A2 Operator Surface  [active]
+Dates:  2026-09-01 to 2026-09-15
+ID:     555
+Items:  11 total — 0 done, 0 active, 11 pending, 0 blocked
 
---- Track: policy-kernel ---
-  health: 6 items — 6 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #2330 Registry injection with last-known-good snapshot authority: wire policy_registry_store + control_plane_store into HaPolicyEvaluator in apps/api/ha_startup.py; registry authoritative after first activation; versioned effective-policy snapshot; degraded/unavailable modes explicit; built-ins bootstrap-only after activation (no silent revival of code defaults)  (assignee: -)
-  [done    ] #2331 Versioned idempotent seed lifecycle: ensure_builtin_policies with seed version+content hash, concurrent-start idempotency (one row per stable ID), upgrades never overwrite operator-owned state, durable delete/disable, orphaned-builtin diagnostics  (assignee: -)
-  [done    ] #2332 Publication evaluation context with snapshot semantics: reference validation at create/update/enable against registered contracts; one as_of boundary per cycle; deduplicated bounded batch reads via reporting layer; revision/freshness/confidence attached; missing/stale data yields explicit unavailable  (assignee: -)
-  [done    ] #2333 Idempotent action proposals per evaluation cycle: repeated evaluation cannot create duplicate proposals; approval-gated actions inert in unavailable mode  (assignee: -)
-  [done    ] #2334 Shadow-compare rollout: registry evaluation alongside code built-ins with logged diffs, parity proven in tests for the four existing built-ins before authority switch; code definitions retained as bootstrap for one release  (assignee: -)
-  [done    ] #2335 Authority-mode diagnostics: effective mode (registry/snapshot/unavailable) visible via existing status/diagnostic surfaces, with tests  (assignee: -)
+--- Track: policy-api ---
+  health: 4 items — 0 done (0%), 0 active, 4 pending, 0 blocked (0%)
+  [pending ] #2338 Explicit reason on evaluation results: add a reason field to PolicyResult distinct from value, stating why the verdict holds (observed value vs threshold and comparison for value rules, age vs threshold_hours for freshness, entity state vs expected for helper, and the stale-input cause for unavailable); expose on /api/ha/policies and the per-policy route; tests for all three rule kinds plus both unavailable paths. A2 acceptance requires the verdict be visible with its reason and no reason field exists today  (assignee: -)
+  [pending ] #2339 Policy-referenceable publication list: close the allowlist asymmetry where /contracts/publications builds contracts with current_dimension_relations/contracts (14 dim_* keys) but the POST /control/policies allowlist in app.py does not, so a picker can offer keys that 422 on save; either align the allowlist or expose a dedicated policy-referenceable endpoint the UI drives, with a test pinning that every offered key is acceptable to create  (assignee: -)
+  [pending ] #2340 Preview endpoint for unsaved policies: POST /control/policies/preview validating and evaluating a rule document against the live publication snapshot without persisting, returning a PolicyResult-shaped payload; requires plumbing the evaluator or an evaluate_document method into register_policy_routes; admin + control.policy.write; tests covering ok/breach/unavailable and stale input  (assignee: -)
+  [pending ] #2341 Rule-language honesty pass: in/not_in pass schema validation but the evaluator silently treats them as false, and verdict_mapping and allowed_freshness_states are accepted, persisted, and never read; reject or honour each rather than accepting silently, so the authoring UI cannot offer a control that does nothing; tests pinning the rejections  (assignee: -)
+
+--- Track: operator-ui ---
+  health: 5 items — 0 done (0%), 0 active, 5 pending, 0 blocked (0%)
+  [pending ] #2342 /control/policies list page: server component following the control-page pattern (AppShell + ControlNav + notice/error query keys), listing policies with builtin/operator/template distinction and enabled state, latest verdict and reason per policy, and an authority-mode indicator that shows a degraded banner when mode is snapshot (edits will not take effect) or unavailable; nav entry added to control-nav.js  (assignee: -)
+  [pending ] #2343 Create and edit forms plus lifecycle routes: rule-kind-aware forms for the three shipped kinds, publication picker driven by the policy-referenceable list showing the field, unit, and comparison being evaluated; co-located BFF route.js handlers for create, update, enable/disable, and delete using typed backendRequest literals; lib/backend getter and GetOperationIdByPath entry; regenerated OpenAPI types  (assignee: -)
+  [pending ] #2344 Template catalog under template discipline: templates are parameterized, never misleading; required inputs marked explicitly and enablement refused until supplied; verify each of negative-monthly-cashflow, utility-cost-above-threshold, and stale-critical-source is honestly expressible against a registered publication and drop any that is not, recording which were dropped and why; no semantically-different-field approximations  (assignee: -)
+    ref [doc] template-discipline-rule: docs/plans/kotona-operating-picture-brief.md
+  [pending ] #2345 Preview in the authoring form wired to the preview endpoint, showing the verdict and reason a rule document would produce before it is saved or enabled  (assignee: -)
+  [pending ] #2346 Frontend contract and structural tests: assertions in tests/test_web_auth.py for the new page, panels, and route handlers; codegen, token, contracts, typecheck, and build checks green; a Storybook story only if it does not disturb the CI-owned screenshot baselines  (assignee: -)
 
 --- Track: docs ---
-  health: 1 item — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #2336 Documentation truth pass: roadmap Stage 5 status with evidence pointers; policy-and-automation.md reconciled to code; snapshot authority model documented  (assignee: -)
-    ref [doc] household-operating-platform-roadmap: docs/plans/household-operating-platform-roadmap.md
-    ref [doc] policy-and-automation: docs/architecture/policy-and-automation.md
+  health: 2 items — 0 done (0%), 0 active, 2 pending, 0 blocked (0%)
+  [pending ] #2347 Documentation truth pass for A2: record the operator surface, the template discipline rule and which candidate templates shipped or were dropped, the authority-mode banner semantics, and any rule-language fields rejected as unsupported; update policy-and-automation.md and the roadmap Stage A2 status with evidence pointers  (assignee: -)
+    ref [doc] kotona-operating-picture-brief: docs/plans/kotona-operating-picture-brief.md
+  [pending ] #2348 Record the retro-shell parity decision: /retro/control/ carries parallel admin surfaces for security, catalog, and execution but the parity test enumerates files explicitly, so a policies counterpart is not forced; decide and document whether A2 ships retro parity or defers it  (assignee: -)
 
---- Track: ops ---
-  health: 1 item — 1 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #2337 Sprint hygiene: close catch-all sprint #538; refresh docs/sprint-snapshots/sprint-current.txt and docs/sprints/TRACKER.md  (assignee: -)
-
-Rendered: 2026-09-01T07:12:51Z (source: sprintctl JSON commands)
+Rendered: 2026-09-01T07:22:19Z (source: sprintctl JSON commands)
