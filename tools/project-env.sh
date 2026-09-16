@@ -36,7 +36,7 @@ unset _pe_gcc_lib
 export SPRINTCTL_DB="${_pe_repo_root}/.sprintctl/sprintctl.db"
 # sprintctl normal work is served by the Vuoro work adapter.
 export SPRINTCTL_BACKEND=served
-export SPRINTCTL_VUORO_PROFILE=/projects/dev/agentops/templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json
+export SPRINTCTL_VUORO_PROFILE=/projects/dev/agentops/environment-record/profiles/workstation-vuoro-shared.json
 unset SPRINTCTL_URL
 if [ -d "/home/dev/.local/bin" ]; then
   case ":${PATH}:" in

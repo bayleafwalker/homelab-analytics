@@ -5,7 +5,7 @@ fi
 
 export SPRINTCTL_DB="${repo_root}/.sprintctl/sprintctl.db"
 export SPRINTCTL_BACKEND=served
-export SPRINTCTL_VUORO_PROFILE=/projects/dev/agentops/templates/dispatch/environment-record/profiles/workstation-vuoro-shared.json
+export SPRINTCTL_VUORO_PROFILE=/projects/dev/agentops/environment-record/profiles/workstation-vuoro-shared.json
 unset SPRINTCTL_URL
 export KCTL_DB="${repo_root}/.kctl/kctl.db"
 export AUDITCTL_DB="${repo_root}/.auditctl/auditctl.db"

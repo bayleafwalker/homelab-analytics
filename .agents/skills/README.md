@@ -3,7 +3,7 @@
 ## Maintenance
 
 Canonical shared skills are maintained in
-`/projects/dev/agentops/templates/dispatch/skills/` and synchronized into
+`/projects/dev/agentops/skills/` and synchronized into
 `.agents/skills/` from the repository dispatch manifest. Repository-specific
 constraints belong in `.agents/overlays/`, which the manifest names explicitly.
 `AGENTS.md` points here so the same guidance works for every agent.
@@ -13,7 +13,7 @@ constraints belong in `.agents/overlays/`, which the manifest names explicitly.
 	repository manifest.
 2. Add repository-specific behavior to an overlay instead of copying a shared
 	skill body.
-3. Run `python /projects/dev/agentops/templates/dispatch/scripts/sync_skills.py check --repo . --apply` from a clean managed skill tree.
+3. Run `python /projects/dev/agentops/scripts/sync_skills.py check --repo . --apply` from a clean managed skill tree.
 4. Register the skill here.
 
 Use `docs/runbooks/project-working-practices.md` to choose the right working loop before opening a skill.

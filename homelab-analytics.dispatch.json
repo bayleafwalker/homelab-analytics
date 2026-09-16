@@ -15,7 +15,7 @@
     }
   },
   "skills": {
-    "template_root": "/projects/dev/agentops/templates/dispatch/skills",
+    "template_root": "/projects/dev/agentops/skills",
     "selected": [
       "dispatch-plan",
       "dispatch-build",
@@ -51,7 +51,7 @@
       "ruff check <changed-python-files>",
       "mypy <changed-python-files>",
       "pytest <specific-test-files> -x --tb=short",
-      "python /projects/dev/agentops/templates/dispatch/scripts/validate_verification_artifacts.py --root .",
+      "python /projects/dev/agentops/scripts/validate_verification_artifacts.py --root .",
       "make verify-fast"
     ]
   },
