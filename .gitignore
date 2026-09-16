@@ -40,3 +40,4 @@ docs/sessions/*
 .envrc.local
 .envrc.*
 !.envrc.example
+.claude/settings.local.json
