@@ -13,7 +13,7 @@ import pytest
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
-MINIO_IMAGE = "minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1"
+MINIO_IMAGE = "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1"
 
 
 @dataclass(frozen=True)
