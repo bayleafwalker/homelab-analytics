@@ -123,7 +123,7 @@ class ProjectMetadataTests(unittest.TestCase):
 
         self.assertEqual("postgres:16-alpine", services["postgres"]["image"])
         self.assertEqual(
-            "minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1",
+            "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1",
             services["minio"]["image"],
         )
         self.assertNotIn(":latest", services["minio"]["image"])
