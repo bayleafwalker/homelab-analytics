@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Check relative markdown links (inline and reference-style) resolve to existing files/dirs."""
+import os
 import re
 import subprocess
 import sys
-import os
 
 INLINE_RE = re.compile(r'\[[^\]]*\]\(\s*(<[^>]*>|[^)\s]+)(?:\s+"[^"]*")?\s*\)')
 REF_RE = re.compile(r'^\s*\[[^\]]+\]:\s*(<[^>]*>|\S+)(?:\s+"[^"]*")?\s*$')
