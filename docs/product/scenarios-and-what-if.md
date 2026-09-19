@@ -2,7 +2,7 @@
 
 **Status:** Active — five scenario types shipped (loan what-if, income change, expense shock, utility tariff shock, homelab cost/benefit), a saved-scenario comparison workflow, and a reporting-backed homelab ROI surface
 **Architecture:** See [docs/architecture/simulation-engine.md](../architecture/simulation-engine.md)
-**Sprint plan:** See [docs/sprints/simulation-engine-sprint.md](../sprints/simulation-engine-sprint.md)
+**Sprint plan:** See docs/sprints/simulation-engine-sprint.md (dead link; target never existed in repo history, link added in 12d9b61)
 
 ---
 

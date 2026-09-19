@@ -230,4 +230,4 @@ Once active, the pack is automatically exposed via the operator API surface. Ope
 
 - [Integration Adapters Architecture](./integration-adapters.md) — Detailed layer model and protocol specifications.
 - [Platform Data Architecture](./data-platform-architecture.md) — Landing, transformation, and reporting layer design.
-- [Operator Safety and Audit](./operator-safety-and-audit.md) — Deployment-time expectations and audit trails.
+- Operator Safety and Audit (dead link; target never existed in repo history, link added in ccb096d) — Deployment-time expectations and audit trails.
