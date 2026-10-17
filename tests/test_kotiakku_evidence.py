@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -36,6 +37,15 @@ _FIELD_VALUES = {
     "battery_to_house_kw": "0.2",
     "spot_price_cents_per_kwh": "8.0",
 }
+_TARIFF_SNAPSHOT = {
+    "tariff_mode": "spot_only",
+    "grid_import_transfer_fee_cents_per_kwh": 5.0,
+}
+
+
+def _tariff_snapshot_id(snapshot: dict[str, Any]) -> str:
+    payload = json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
 def _synthetic_histories(
@@ -96,11 +106,8 @@ def _synthetic_histories(
                     "calculation_method": KOTIAKKU_CALCULATION_METHOD,
                     "source_period_minutes": 5,
                     "last_period_end": last_period_end.isoformat(),
-                    "tariff_snapshot_id": "synthetic-config-v1",
-                    "tariff_snapshot": {
-                        "tariff_mode": "spot_only",
-                        "grid_import_transfer_fee_cents_per_kwh": 5.0,
-                    },
+                    "tariff_snapshot_id": _tariff_snapshot_id(_TARIFF_SNAPSHOT),
+                    "tariff_snapshot": _TARIFF_SNAPSHOT,
                     "monthly_battery_savings_eur": {decision_month: savings},
                     "monthly_battery_evidence": {
                         decision_month: {
@@ -108,7 +115,10 @@ def _synthetic_histories(
                             "savings_window_count": expected_window_count,
                             "skipped_savings_window_count": 0,
                             "estimated_savings_eur": savings,
-                            "tariff_snapshot_id": "synthetic-config-v1",
+                            "tariff_snapshot_id": _tariff_snapshot_id(
+                                _TARIFF_SNAPSHOT
+                            ),
+                            "tariff_snapshot": _TARIFF_SNAPSHOT,
                         }
                     },
                     "battery_monthly_cost_eur": monthly_cost,
@@ -158,7 +168,9 @@ def test_complete_synthetic_month_recommends_review_below_monthly_cost() -> None
     assert result["actuation_authorized"] is False
     assert result["estimated_monthly_battery_savings_eur"] == 30.0
     assert result["effective_monthly_battery_cost_eur"] == 49.0
-    assert result["source_tariff_snapshot_id"] == "synthetic-config-v1"
+    assert result["source_tariff_snapshot_id"] == _tariff_snapshot_id(
+        _TARIFF_SNAPSHOT
+    )
     source_quality = result["source_quality"]
     assert isinstance(source_quality, dict)
     assert source_quality["coverage_pct"] == 100.0
@@ -168,7 +180,8 @@ def test_complete_synthetic_month_recommends_review_below_monthly_cost() -> None
         "savings_window_count": 8_928,
         "skipped_savings_window_count": 0,
         "estimated_savings_eur": "30.0",
-        "tariff_snapshot_id": "synthetic-config-v1",
+        "tariff_snapshot_id": _tariff_snapshot_id(_TARIFF_SNAPSHOT),
+        "tariff_snapshot": _TARIFF_SNAPSHOT,
     }
     assert result["reason_codes"] == []
 
@@ -233,13 +246,133 @@ def test_missing_battery_cost_basis_refuses_recommendation() -> None:
 def test_tariff_snapshot_signature_mismatch_refuses_recommendation() -> None:
     source_rows, measurement_rows = _synthetic_histories()
     attrs = json.loads(str(source_rows[0]["attributes"]))
-    attrs["monthly_battery_evidence"][_DECISION_MONTH][
-        "tariff_snapshot_id"
-    ] = "different-config"
+    attrs["monthly_battery_evidence"][_DECISION_MONTH]["tariff_snapshot"] = {
+        **_TARIFF_SNAPSHOT,
+        "grid_import_transfer_fee_cents_per_kwh": 7.0,
+    }
     source_rows[0]["attributes"] = json.dumps(attrs)
     result = _assess(source_rows, measurement_rows)
     assert result["recommendation"] == "insufficient_evidence"
     assert "monthly_tariff_signature_mismatch" in result["reason_codes"]
+
+
+def test_december_history_does_not_poison_january_contract_qualification() -> None:
+    source_rows, measurement_rows = _synthetic_histories()
+    legacy_source = dict(source_rows[0])
+    legacy_source.update(
+        changed_at="2025-12-31T23:55:00+02:00",
+        ingested_at="2025-12-31T23:56:00+02:00",
+    )
+    legacy_source["attributes"] = json.dumps(
+        {"last_period_end": "2025-12-31T23:55:00+02:00", "tariff_snapshot_id": "old"}
+    )
+    legacy_measurement = dict(measurement_rows[0])
+    legacy_measurement.update(
+        changed_at="2025-12-31T23:55:00+02:00",
+        ingested_at="2025-12-31T23:56:00+02:00",
+        attributes=json.dumps({"period_start": "not-a-date"}),
+        state="unknown",
+    )
+    source_rows.insert(0, legacy_source)
+    measurement_rows.append(legacy_measurement)
+
+    result = _assess(source_rows, measurement_rows)
+
+    assert result["evidence_status"] == "qualified"
+    assert result["recommendation"] == "review_battery_plan"
+
+
+def test_later_month_tariff_does_not_rewrite_selected_month_snapshot() -> None:
+    source_rows, measurement_rows = _synthetic_histories()
+    later_tariff = {
+        "tariff_mode": "flat",
+        "grid_import_transfer_fee_cents_per_kwh": 8.0,
+    }
+    current_period_start = datetime(2026, 3, 1, 0, 0, tzinfo=ZoneInfo(_TIMEZONE))
+    current_period_end = current_period_start + timedelta(minutes=5)
+    attrs = json.loads(str(source_rows[0]["attributes"]))
+    attrs["last_period_end"] = current_period_end.isoformat()
+    attrs["tariff_snapshot"] = later_tariff
+    attrs["tariff_snapshot_id"] = _tariff_snapshot_id(later_tariff)
+    later_snapshot = dict(source_rows[0])
+    later_snapshot.update(
+        attributes=json.dumps(attrs),
+        changed_at=current_period_end.isoformat(),
+        ingested_at=current_period_end.isoformat(),
+        run_id="synthetic-later-tariff-run",
+    )
+    source_rows.append(later_snapshot)
+    for field in KOTIAKKU_SAMPLE_FIELDS:
+        measurement_rows.append(
+            {
+                "entity_id": _ENTITY_MAP[field],
+                "state": _FIELD_VALUES[field],
+                "attributes": json.dumps(
+                    {
+                        "period_start": current_period_start.isoformat(),
+                        "period_end": current_period_end.isoformat(),
+                        "unit_of_measurement": (
+                            "c/kWh" if field == "spot_price_cents_per_kwh" else "kW"
+                        ),
+                    }
+                ),
+                "changed_at": current_period_end.isoformat(),
+                "ingested_at": current_period_end.isoformat(),
+                "run_id": "synthetic-later-measurement-run",
+            }
+        )
+
+    result = _assess(
+        source_rows,
+        measurement_rows,
+        assessed_at=current_period_end + timedelta(minutes=5),
+    )
+
+    assert result["evidence_status"] == "qualified"
+    assert result["source_tariff_snapshot"] == _TARIFF_SNAPSHOT
+    assert result["source_tariff_snapshot_id"] == _tariff_snapshot_id(
+        _TARIFF_SNAPSHOT
+    )
+
+
+def test_future_ingested_source_and_measurement_rows_are_not_used() -> None:
+    source_rows, measurement_rows = _synthetic_histories()
+    future_source = dict(source_rows[0])
+    future_source.update(
+        changed_at="2026-02-01T01:00:00+02:00",
+        ingested_at="2026-02-01T01:00:00+02:00",
+        state="999.0",
+        run_id="synthetic-future-source-run",
+    )
+    source_rows.append(future_source)
+    future_measurement = dict(measurement_rows[-1])
+    future_measurement.update(
+        changed_at="2026-02-01T01:00:00+02:00",
+        ingested_at="2026-02-01T01:00:00+02:00",
+        state="999.0",
+        run_id="synthetic-future-measurement-run",
+    )
+    measurement_rows.append(future_measurement)
+
+    result = _assess(source_rows, measurement_rows)
+
+    assert result["evidence_status"] == "qualified"
+    assert result["estimated_monthly_battery_savings_eur"] == 30.0
+    assert result["source_quality"]["future_record_count_ignored"] == 1
+
+
+def test_measurement_with_unknown_scope_timestamp_preserves_uncertainty() -> None:
+    source_rows, measurement_rows = _synthetic_histories()
+    measurement_rows.append(
+        {
+            "entity_id": _ENTITY_MAP["grid_power_kw"],
+            "state": "0.1",
+            "attributes": json.dumps({"unit_of_measurement": "kW"}),
+        }
+    )
+    result = _assess(source_rows, measurement_rows)
+    assert result["evidence_status"] == "insufficient"
+    assert "measurement_scope_timestamp_unknown" in result["reason_codes"]
 
 
 def test_incomplete_monthly_window_counters_refuse_recommendation() -> None:
@@ -322,8 +455,8 @@ def test_from_store_reads_ha_history_and_refuses_partial_month() -> None:
                 "calculation_method": KOTIAKKU_CALCULATION_METHOD,
                 "source_period_minutes": 5,
                 "last_period_end": period_end,
-                "tariff_snapshot_id": "synthetic-config-v1",
-                "tariff_snapshot": {"tariff_mode": "spot_only"},
+                "tariff_snapshot_id": _tariff_snapshot_id(_TARIFF_SNAPSHOT),
+                "tariff_snapshot": _TARIFF_SNAPSHOT,
                 "monthly_battery_savings_eur": {_DECISION_MONTH: "30.0"},
                 "battery_monthly_cost_eur": "49.0",
                 "battery_total_cost_eur": "6000.0",
@@ -338,7 +471,7 @@ def test_from_store_reads_ha_history_and_refuses_partial_month() -> None:
         entity_map=_ENTITY_MAP,
         decision_month=_DECISION_MONTH,
         household_timezone=_TIMEZONE,
-        assessed_at=datetime(2026, 2, 1, 0, 0, tzinfo=ZoneInfo(_TIMEZONE)),
+        assessed_at=datetime.now(UTC) + timedelta(minutes=1),
     )
 
     assert result["recommendation"] == "insufficient_evidence"

@@ -27,6 +27,12 @@ live measurement gate; an operator still needs to supply authorized source
 history, verify the mapping and tariff assumptions, and record an actual
 decision or explicit non-decision plus a later observation.
 
+Evidence reads are bounded by the assessment timestamp. Timestamped rows outside
+the selected decision month do not affect its window-coverage or tariff checks;
+records whose relevant scope cannot be established remain an explicit evidence
+gap. The source contract carries a month-specific tariff configuration, so a
+later month’s tariff update does not silently replace the selected month’s basis.
+
 ## Goal
 
 Complete one decision-useful Household Operating Picture outcome end to end: answer whether observed battery and tariff economics justify reviewing a household tariff, contract, or battery plan; show source quality and uncertainty; record what the household actually decided and what happened afterward.

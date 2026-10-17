@@ -106,7 +106,7 @@ The platform derives household and homelab analytics from normalized canonical m
 - Multiple meters and utility types are supported.
 - Dashboard displays usage and cost trend charts.
 - Tests verify join and aggregation from fixture usage and billing data.
-- A battery-plan evidence assessment preserves the source tariff snapshot and calculation status, verifies five-minute source coverage and freshness, and refuses a recommendation when required evidence is missing or conflicting.
+- A battery-plan evidence assessment preserves the month-specific source tariff snapshot and calculation status, bounds source history by the assessment timestamp and selected month, verifies five-minute source coverage and freshness, and refuses a recommendation when required evidence is missing, mixed, or unscoped.
 
 **Dependencies:** PLT-05 (`fact_utility_usage`, `fact_bill`), PLT-06 (`dim_meter`)
 

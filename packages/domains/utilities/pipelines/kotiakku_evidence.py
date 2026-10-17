@@ -8,6 +8,7 @@ owns evidence qualification and the review recommendation.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from collections import defaultdict
@@ -78,7 +79,13 @@ def assess_kotiakku_battery_plan_evidence(
     snapshots = [
         row for row in source_rows if row.get("entity_id") == source_entity_id
     ]
-    latest_snapshot = _latest_source_snapshot(snapshots)
+    if any(
+        _parse_datetime(row.get("ingested_at")) is None
+        and _parse_datetime(row.get("changed_at")) is None
+        for row in snapshots
+    ):
+        reasons.append("source_history_timestamp_unknown")
+    latest_snapshot = _latest_source_snapshot(snapshots, assessed_at=assessed_at)
     if latest_snapshot is None:
         return _empty_assessment(decision_month, entity_map, "source_snapshot_missing")
 
@@ -97,19 +104,6 @@ def assess_kotiakku_battery_plan_evidence(
     elif period_end > assessed_at or assessed_at - period_end > freshness_limit:
         reasons.append("source_measurements_stale")
 
-    tariff_snapshot = source_attrs.get("tariff_snapshot")
-    tariff_snapshot_id = source_attrs.get("tariff_snapshot_id")
-    if not isinstance(tariff_snapshot, dict) or not isinstance(tariff_snapshot_id, str):
-        reasons.append("tariff_snapshot_missing")
-    snapshot_ids = {
-        str(value)
-        for row in snapshots
-        for value in [_attributes(row).get("tariff_snapshot_id")]
-        if value not in (None, "")
-    }
-    if len(snapshot_ids) > 1:
-        reasons.append("tariff_signature_changed_within_source_history")
-
     monthly_evidence = source_attrs.get("monthly_battery_evidence")
     month_evidence = (
         monthly_evidence.get(decision_month)
@@ -118,6 +112,22 @@ def assess_kotiakku_battery_plan_evidence(
     )
     if not isinstance(month_evidence, dict):
         reasons.append("monthly_window_counters_missing")
+    month_tariff_snapshot = (
+        month_evidence.get("tariff_snapshot")
+        if isinstance(month_evidence, dict)
+        else None
+    )
+    month_tariff_snapshot_id = (
+        month_evidence.get("tariff_snapshot_id")
+        if isinstance(month_evidence, dict)
+        else None
+    )
+    if not isinstance(month_tariff_snapshot, dict) or not isinstance(
+        month_tariff_snapshot_id, str
+    ):
+        reasons.append("monthly_tariff_snapshot_missing_or_mixed")
+    elif _tariff_snapshot_id(month_tariff_snapshot) != month_tariff_snapshot_id:
+        reasons.append("monthly_tariff_signature_mismatch")
 
     monthly_savings = source_attrs.get("monthly_battery_savings_eur")
     savings = _finite_decimal(monthly_savings.get(decision_month)) if isinstance(
@@ -135,6 +145,7 @@ def assess_kotiakku_battery_plan_evidence(
         entity_map=entity_map,
         decision_month=decision_month,
         timezone=timezone,
+        assessed_at=assessed_at,
     )
     quality["source_window_counters"] = month_evidence
     reasons.extend(quality["reason_codes"])
@@ -156,8 +167,6 @@ def assess_kotiakku_battery_plan_evidence(
             or counters["skipped_savings_window_count"] != 0
         ):
             reasons.append("monthly_window_counters_incomplete")
-        if month_evidence.get("tariff_snapshot_id") != tariff_snapshot_id:
-            reasons.append("monthly_tariff_signature_mismatch")
 
     local_month_start = datetime.strptime(decision_month, "%Y-%m").replace(
         tzinfo=timezone
@@ -207,8 +216,8 @@ def assess_kotiakku_battery_plan_evidence(
         "source_calculation_method": source_attrs.get("calculation_method"),
         "source_period_minutes": source_attrs.get("source_period_minutes"),
         "household_timezone": household_timezone,
-        "source_tariff_snapshot_id": tariff_snapshot_id,
-        "source_tariff_snapshot": tariff_snapshot,
+        "source_tariff_snapshot_id": month_tariff_snapshot_id,
+        "source_tariff_snapshot": month_tariff_snapshot,
         "source_tariff_snapshot_observed_at": latest_snapshot.get("ingested_at"),
         "source_last_period_end": (
             period_end.isoformat() if period_end is not None else None
@@ -289,6 +298,7 @@ def _assess_measurement_coverage(
     entity_map: dict[str, str],
     decision_month: str,
     timezone: ZoneInfo,
+    assessed_at: datetime,
 ) -> dict[str, Any]:
     month_start = datetime.strptime(decision_month, "%Y-%m").replace(tzinfo=timezone)
     month_end = _next_month(month_start)
@@ -306,6 +316,8 @@ def _assess_measurement_coverage(
     invalid_period_count = 0
     invalid_value_count = 0
     duplicate_count = 0
+    unknown_scope_count = 0
+    future_row_count = 0
     selected_runs: set[str] = set()
     latest_source_end: datetime | None = None
 
@@ -313,19 +325,40 @@ def _assess_measurement_coverage(
         field = entity_fields.get(str(row.get("entity_id", "")))
         if field not in KOTIAKKU_SAMPLE_FIELDS:
             continue
+        row_time = _parse_datetime(row.get("ingested_at")) or _parse_datetime(
+            row.get("changed_at")
+        )
+        if row_time is None:
+            unknown_scope_count += 1
+            continue
+        if _as_utc(row_time) > _as_utc(assessed_at):
+            future_row_count += 1
+            continue
         attrs = _attributes(row)
         period_start = _parse_datetime(attrs.get("period_start"))
         period_end = _parse_datetime(attrs.get("period_end"))
-        if period_start is None or period_end is None:
+        if period_start is None:
+            row_changed_at = _parse_datetime(row.get("changed_at"))
+            if row_changed_at is None:
+                unknown_scope_count += 1
+                continue
+            row_month = row_changed_at.astimezone(timezone).strftime("%Y-%m")
+            if row_month != decision_month:
+                continue
             invalid_period_count += 1
             continue
         start_key = _as_utc(period_start)
+        if period_end is None:
+            if start_key in expected:
+                invalid_period_count += 1
+            continue
         end_key = _as_utc(period_end)
+        if end_key - start_key != _SAMPLE_INTERVAL:
+            if start_key in expected:
+                invalid_period_count += 1
+            continue
         if latest_source_end is None or end_key > latest_source_end:
             latest_source_end = end_key
-        if end_key - start_key != _SAMPLE_INTERVAL:
-            invalid_period_count += 1
-            continue
         if start_key not in expected:
             continue
         expected_end = start_key + _SAMPLE_INTERVAL
@@ -371,6 +404,8 @@ def _assess_measurement_coverage(
         reason_codes.append("measurement_period_invalid")
     if invalid_value_count:
         reason_codes.append("measurement_value_or_unit_invalid")
+    if unknown_scope_count:
+        reason_codes.append("measurement_scope_timestamp_unknown")
 
     observed_periods = sorted(
         period for period in values if period in expected
@@ -389,6 +424,8 @@ def _assess_measurement_coverage(
         "conflicting_window_count": len(conflicts),
         "invalid_period_record_count": invalid_period_count,
         "invalid_value_record_count": invalid_value_count,
+        "unknown_scope_timestamp_count": unknown_scope_count,
+        "future_record_count_ignored": future_row_count,
         "latest_period_end": latest_period_end,
         "latest_source_period_end": (
             latest_source_end.isoformat() if latest_source_end is not None else None
@@ -414,16 +451,18 @@ def _effective_monthly_cost(attrs: dict[str, Any]) -> Decimal | None:
 
 
 def _latest_source_snapshot(
-    rows: list[dict[str, Any]],
+    rows: list[dict[str, Any]], *, assessed_at: datetime
 ) -> dict[str, Any] | None:
     candidates: list[tuple[datetime, dict[str, Any]]] = []
     for row in rows:
-        attrs = _attributes(row)
-        period_end = _parse_datetime(attrs.get("last_period_end"))
-        ingested_at = _parse_datetime(row.get("ingested_at"))
-        key = ingested_at or period_end
-        if key is not None:
-            candidates.append((key, row))
+        ingested_at = _parse_datetime(row.get("ingested_at")) or _parse_datetime(
+            row.get("changed_at")
+        )
+        if ingested_at is None:
+            continue
+        if _as_utc(ingested_at) > _as_utc(assessed_at):
+            continue
+        candidates.append((ingested_at, row))
     return max(candidates, key=lambda candidate: candidate[0])[1] if candidates else None
 
 
@@ -441,6 +480,8 @@ def _attributes(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _parse_datetime(value: object) -> datetime | None:
+    if isinstance(value, datetime):
+        return value if value.tzinfo is not None else None
     if not isinstance(value, str) or not value.strip():
         return None
     try:
@@ -464,6 +505,12 @@ def _finite_decimal(value: object) -> Decimal | None:
     except (InvalidOperation, ValueError):
         return None
     return result if result.is_finite() and math.isfinite(float(result)) else None
+
+
+def _tariff_snapshot_id(snapshot: dict[str, Any]) -> str:
+    """Match Kotiakku's stable ID over its sorted JSON tariff configuration."""
+    payload = json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
 def _validate_profile(
@@ -514,6 +561,8 @@ def _empty_assessment(
             "conflicting_window_count": 0,
             "invalid_period_record_count": 0,
             "invalid_value_record_count": 0,
+            "unknown_scope_timestamp_count": 0,
+            "future_record_count_ignored": 0,
             "latest_period_end": None,
             "backfill_status": "not_established_from_ha_state_history",
             "source_window_counters": None,
