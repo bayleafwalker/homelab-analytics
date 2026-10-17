@@ -129,6 +129,7 @@ Use `docs/sprints/TRACKER.md` for the live sprint index. Keep this section to du
 - `decisions/web-surface-shell-decision.md` — default shell vs `/retro` shell decision (default primary, retro scoped secondary with no parity promise), grounded in a hands-on comparison, plus the canonical operator navigation and data-fetching model that prevents publication-backed pages from diverging between shells.
 
 ## Plans
+- `plans/household-outcome-evidence-decision-plan.md` — one household battery/tariff outcome with source-quality, realized-decision, and read-only/authorization acceptance.
 
 - `plans/household-operating-platform-roadmap.md` — 11-stage roadmap from analytics platform to household operating platform, with stage descriptions, dependencies, and phase-to-stage mapping.
 - `plans/2026-04-backlog-refinement.md` — bounded next-backlog recommendation: execution posture, priority items, parked work, anti-backlog, and sprint packaging for the next planning cycle.
