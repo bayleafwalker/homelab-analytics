@@ -375,6 +375,19 @@ def test_measurement_with_unknown_scope_timestamp_preserves_uncertainty() -> Non
     assert "measurement_scope_timestamp_unknown" in result["reason_codes"]
 
 
+def test_source_snapshot_with_unknown_ingestion_scope_preserves_uncertainty() -> None:
+    source_rows, measurement_rows = _synthetic_histories()
+    unscoped_source = dict(source_rows[0])
+    unscoped_source.pop("changed_at")
+    unscoped_source.pop("ingested_at")
+    source_rows.append(unscoped_source)
+
+    result = _assess(source_rows, measurement_rows)
+
+    assert result["evidence_status"] == "insufficient"
+    assert "source_history_timestamp_unknown" in result["reason_codes"]
+
+
 def test_incomplete_monthly_window_counters_refuse_recommendation() -> None:
     source_rows, measurement_rows = _synthetic_histories()
     attrs = json.loads(str(source_rows[0]["attributes"]))
