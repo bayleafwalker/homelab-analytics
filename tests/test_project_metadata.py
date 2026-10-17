@@ -128,6 +128,26 @@ class ProjectMetadataTests(unittest.TestCase):
         )
         self.assertNotIn(":latest", services["minio"]["image"])
 
+    def test_compose_smoke_uses_a_digest_pinned_development_mirror_override(self) -> None:
+        override = yaml.safe_load(
+            (ROOT / "infra" / "examples" / "compose-smoke.override.yaml").read_text()
+        )
+        smoke_image = override["services"]["minio"]["image"]
+        self.assertEqual(
+            "public.ecr.aws/y9w4h2u9/minio@sha256:"
+            "14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e",
+            smoke_image,
+        )
+
+        makefile = (ROOT / "Makefile").read_text()
+        self.assertIn(
+            "COMPOSE_SMOKE_FILES := -f $(COMPOSE_FILE) "
+            "-f infra/examples/compose-smoke.override.yaml",
+            makefile,
+        )
+        smoke_target = makefile.split("compose-smoke:", 1)[1].split("\naudit-deps:", 1)[0]
+        self.assertEqual(3, smoke_target.count("docker compose $(COMPOSE_SMOKE_FILES)"))
+
     def test_example_compose_defines_api_and_web_healthchecks(self) -> None:
         content = (ROOT / "infra" / "examples" / "compose.yaml").read_text()
 

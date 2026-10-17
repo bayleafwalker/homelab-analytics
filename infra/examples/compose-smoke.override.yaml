@@ -1,0 +1,10 @@
+# This override is used only by make compose-smoke on ephemeral development/CI
+# stacks. The default compose.yaml stays on its original upstream reference.
+# Corridor's ECR Gallery states that this is an unmodified mirror of the MinIO
+# release below, but it is independently operated and has no support. The image
+# config labels identify the release; those labels do not independently prove
+# mirror provenance or signature.
+# Source: https://gallery.ecr.aws/y9w4h2u9/minio
+services:
+  minio:
+    image: public.ecr.aws/y9w4h2u9/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
