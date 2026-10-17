@@ -6,6 +6,27 @@ concern: APP
 
 # Household Outcome, Evidence Quality, and Realized Decision
 
+## Current delivery status
+
+**Partial source-side work is under review on feature branches; this plan is
+not complete.** The HLA branch adds a transformation helper that consumes
+explicitly mapped Home Assistant history, checks complete five-minute windows
+for a selected closed month, validates source freshness, units, duplicate
+conflicts and the Kotiakku evidence contract, and returns a traced review-only
+recommendation or `insufficient_evidence`. Synthetic tests exercise both
+recommendation outcomes and refusal cases. A companion change in
+`ha-elisa-kotiakku` adds the versioned local sensor attributes that carry its
+monthly savings estimates, tariff snapshot and cost inputs.
+
+This does not establish that the integration or HLA has current household data,
+that a recommendation has been published to an application surface, or that a
+household decision or realized result exists. The contract requires explicit
+entity mapping and household timezone. Backfill status remains unknown from HA
+state history. The feature branches and synthetic fixtures do not close the
+live measurement gate; an operator still needs to supply authorized source
+history, verify the mapping and tariff assumptions, and record an actual
+decision or explicit non-decision plus a later observation.
+
 ## Goal
 
 Complete one decision-useful Household Operating Picture outcome end to end: answer whether observed battery and tariff economics justify reviewing a household tariff, contract, or battery plan; show source quality and uncertainty; record what the household actually decided and what happened afterward.
