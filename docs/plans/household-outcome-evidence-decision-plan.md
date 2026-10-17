@@ -6,6 +6,33 @@ concern: APP
 
 # Household Outcome, Evidence Quality, and Realized Decision
 
+## Current delivery status
+
+**Partial source-side work is under review on feature branches; this plan is
+not complete.** The HLA branch adds a transformation helper that consumes
+explicitly mapped Home Assistant history, checks complete five-minute windows
+for a selected closed month, validates source freshness, units, duplicate
+conflicts and the Kotiakku evidence contract, and returns a traced review-only
+recommendation or `insufficient_evidence`. Synthetic tests exercise both
+recommendation outcomes and refusal cases. A companion change in
+`ha-elisa-kotiakku` adds the versioned local sensor attributes that carry its
+monthly savings estimates, tariff snapshot and cost inputs.
+
+This does not establish that the integration or HLA has current household data,
+that a recommendation has been published to an application surface, or that a
+household decision or realized result exists. The contract requires explicit
+entity mapping and household timezone. Backfill status remains unknown from HA
+state history. The feature branches and synthetic fixtures do not close the
+live measurement gate; an operator still needs to supply authorized source
+history, verify the mapping and tariff assumptions, and record an actual
+decision or explicit non-decision plus a later observation.
+
+Evidence reads are bounded by the assessment timestamp. Timestamped rows outside
+the selected decision month do not affect its window-coverage or tariff checks;
+records whose relevant scope cannot be established remain an explicit evidence
+gap. The source contract carries a month-specific tariff configuration, so a
+later month’s tariff update does not silently replace the selected month’s basis.
+
 ## Goal
 
 Complete one decision-useful Household Operating Picture outcome end to end: answer whether observed battery and tariff economics justify reviewing a household tariff, contract, or battery plan; show source quality and uncertainty; record what the household actually decided and what happened afterward.
@@ -30,6 +57,15 @@ This packet joins the existing Household Operating Picture, source-freshness wor
 ## Read-only and authorization boundary
 
 The Kotiakku integration supplies read-only measurements and calculations. This work must not add battery charge/discharge controls, grid-service enrollment, or device credentials to HLA. A recommendation or policy result is not authorization.
+
+The current source-side evaluator is a transformation helper, not an API or user
+surface, so it adds no identity bootstrap. Repository code supports OIDC and
+`local_single_user`, while the checked-in `.env.example` keeps identity disabled;
+that is code/config evidence only and does not establish the deployed identity
+provider or its readiness. Any future publication must use the existing HLA
+identity and authorization boundary. This work does not install or configure an
+OIDC provider, create bootstrap credentials, or treat disabled local identity as
+proof of an authenticated household decision-maker.
 
 Any future device change must execute through Home Assistant under a separate, current, operator approval bound to the specific action and target and checked at execution time. Telemetry permission, a prior decision, or a favorable estimate cannot be reused as actuation permission. Keep recommendation, approval, dispatch, and observed effect as separate records.
 

@@ -98,7 +98,7 @@ The platform derives household and homelab analytics from normalized canonical m
 **Rationale:** Electricity is typically the most variable household cost. Correlating metered usage with billed amounts enables anomaly detection and efficiency tracking.
 
 **Phase:** 3
-**Status:** implemented (`fact_utility_usage`, `fact_bill`, `mart_utility_cost_summary`, and `utility_cost_trend_monthly` are materialised; API exposes `GET /reports/utility-cost-summary` and `GET /reports/utility-cost-trend`; dashboard and utility-report surfaces now render cost and usage trend views from reporting-layer models)
+**Status:** implemented for billed utility summaries (`fact_utility_usage`, `fact_bill`, `mart_utility_cost_summary`, and `utility_cost_trend_monthly` are materialised; API exposes `GET /reports/utility-cost-summary` and `GET /reports/utility-cost-trend`; dashboard and utility-report surfaces now render cost and usage trend views from reporting-layer models). A read-only Kotiakku battery-plan evidence assessment is in progress under the [household outcome evidence plan](../docs/plans/household-outcome-evidence-decision-plan.md); it is not yet a published report or household outcome.
 
 **Acceptance criteria:**
 - Utility mart joins `fact_utility_usage` and `fact_bill` by meter and billing period.
@@ -106,6 +106,7 @@ The platform derives household and homelab analytics from normalized canonical m
 - Multiple meters and utility types are supported.
 - Dashboard displays usage and cost trend charts.
 - Tests verify join and aggregation from fixture usage and billing data.
+- A battery-plan evidence assessment preserves the month-specific source tariff snapshot and calculation status, bounds source history by the assessment timestamp and selected month, verifies five-minute source coverage and freshness, and refuses a recommendation when required evidence is missing, mixed, or unscoped.
 
 **Dependencies:** PLT-05 (`fact_utility_usage`, `fact_bill`), PLT-06 (`dim_meter`)
 
