@@ -58,6 +58,15 @@ This packet joins the existing Household Operating Picture, source-freshness wor
 
 The Kotiakku integration supplies read-only measurements and calculations. This work must not add battery charge/discharge controls, grid-service enrollment, or device credentials to HLA. A recommendation or policy result is not authorization.
 
+The current source-side evaluator is a transformation helper, not an API or user
+surface, so it adds no identity bootstrap. Repository code supports OIDC and
+`local_single_user`, while the checked-in `.env.example` keeps identity disabled;
+that is code/config evidence only and does not establish the deployed identity
+provider or its readiness. Any future publication must use the existing HLA
+identity and authorization boundary. This work does not install or configure an
+OIDC provider, create bootstrap credentials, or treat disabled local identity as
+proof of an authenticated household decision-maker.
+
 Any future device change must execute through Home Assistant under a separate, current, operator approval bound to the specific action and target and checked at execution time. Telemetry permission, a prior decision, or a favorable estimate cannot be reused as actuation permission. Keep recommendation, approval, dispatch, and observed effect as separate records.
 
 ## Acceptance
