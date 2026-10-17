@@ -135,6 +135,10 @@ def assess_kotiakku_battery_plan_evidence(
     ) else None
     if savings is None:
         reasons.append("monthly_savings_estimate_missing")
+    elif isinstance(month_evidence, dict):
+        evidence_savings = _finite_decimal(month_evidence.get("estimated_savings_eur"))
+        if evidence_savings is None or evidence_savings != savings:
+            reasons.append("monthly_savings_and_window_evidence_disagree")
 
     monthly_cost = _effective_monthly_cost(source_attrs)
     if monthly_cost is None:
@@ -193,10 +197,12 @@ def assess_kotiakku_battery_plan_evidence(
 
     run_ids = sorted(
         {
-            str(row["run_id"])
-            for row in [latest_snapshot, *measurement_rows]
-            if row.get("run_id") not in (None, "")
-            and row.get("entity_id") in set(entity_map.values())
+            str(run_id)
+            for run_id in [
+                latest_snapshot.get("run_id"),
+                *quality["measurement_source_run_ids"],
+            ]
+            if run_id not in (None, "")
         }
     )
     return {

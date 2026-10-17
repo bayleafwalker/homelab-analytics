@@ -359,6 +359,23 @@ def test_future_ingested_source_and_measurement_rows_are_not_used() -> None:
     assert result["evidence_status"] == "qualified"
     assert result["estimated_monthly_battery_savings_eur"] == 30.0
     assert result["source_quality"]["future_record_count_ignored"] == 1
+    assert result["lineage"]["source_run_ids"] == [
+        "synthetic-economics-run",
+        "synthetic-measurement-run",
+    ]
+
+
+def test_conflicting_monthly_savings_fields_refuse_qualification() -> None:
+    source_rows, measurement_rows = _synthetic_histories()
+    attrs = json.loads(source_rows[0]["attributes"])
+    attrs["monthly_battery_savings_eur"][_DECISION_MONTH] = "31.0"
+    source_rows[0]["attributes"] = json.dumps(attrs)
+
+    result = _assess(source_rows, measurement_rows)
+
+    assert result["evidence_status"] == "insufficient"
+    assert result["recommendation"] == "insufficient_evidence"
+    assert "monthly_savings_and_window_evidence_disagree" in result["reason_codes"]
 
 
 def test_measurement_with_unknown_scope_timestamp_preserves_uncertainty() -> None:
