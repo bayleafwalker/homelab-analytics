@@ -21,7 +21,8 @@ WORKFLOW_HELPER := ./tools/workflow.sh
 WEB_DIR := apps/web/frontend
 WEB_NODE_BIN_DIR := $(abspath .tooling/node-v20.20.1-linux-x64/bin)
 COMPOSE_FILE := infra/examples/compose.yaml
-COMPOSE_SMOKE_FILES := -f $(COMPOSE_FILE) -f infra/examples/compose-smoke.override.yaml
+COMPOSE_SMOKE_PROJECT ?= homelab-analytics-smoke
+COMPOSE_SMOKE_FILES := --project-name $(COMPOSE_SMOKE_PROJECT) -f $(COMPOSE_FILE) -f infra/examples/compose-smoke.override.yaml
 APP_IMAGE := homelab-analytics:latest
 WEB_IMAGE := homelab-analytics-web:latest
 

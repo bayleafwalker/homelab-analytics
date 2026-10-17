@@ -5,7 +5,7 @@ Environment examples, sample values, and demo fixtures belong here.
 Current foundation:
 
 - `compose.yaml` for the blessed single-user homelab startup story: API, web, and optional worker containers against a shared local volume, backed by Postgres + MinIO and `secrets/auth-local.env.example`
-- `make compose-smoke` for an ephemeral startup check of the example stack; it layers `compose-smoke.override.yaml` to pin a MinIO mirror by digest, while the default `compose.yaml` remains unchanged
+- `make compose-smoke` for an isolated startup check of the example stack; it uses the dedicated `homelab-analytics-smoke` Compose project and layers `compose-smoke.override.yaml` to pin a MinIO mirror by digest, while the default `compose.yaml` remains unchanged
 - API and worker reuse the shared `homelab-analytics:latest` image; web builds from the dedicated `homelab-analytics-web:latest` Next.js image
 - API and web define explicit container healthchecks against `/ready` so Compose and external tooling can observe the startup contract directly
 - API, web, and worker depend on Postgres health and MinIO startup explicitly; that release-ops contract is pinned by the fast test suite
@@ -26,6 +26,10 @@ production image recommendation. The default compose file keeps its separate
 upstream image reference; as checked on 2026-10-17, anonymous manifest lookup
 for that Quay reference failed. This smoke override does not repair or qualify
 the default compose startup path.
+The smoke project has its own named volumes and does not reuse the default
+Compose project's data. Its published ports (`5432`, `9000`, `9001`, `8080`,
+and `8081`) must be free while it runs. Parallel smoke runs can choose a
+different project name with `make compose-smoke COMPOSE_SMOKE_PROJECT=<name>`.
 
 Demo-data notes:
 
