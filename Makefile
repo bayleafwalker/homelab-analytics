@@ -21,6 +21,8 @@ WORKFLOW_HELPER := ./tools/workflow.sh
 WEB_DIR := apps/web/frontend
 WEB_NODE_BIN_DIR := $(abspath .tooling/node-v20.20.1-linux-x64/bin)
 COMPOSE_FILE := infra/examples/compose.yaml
+COMPOSE_SMOKE_PROJECT ?= homelab-analytics-smoke
+COMPOSE_SMOKE_FILES := --project-name $(COMPOSE_SMOKE_PROJECT) -f $(COMPOSE_FILE) -f infra/examples/compose-smoke.override.yaml
 APP_IMAGE := homelab-analytics:latest
 WEB_IMAGE := homelab-analytics-web:latest
 
@@ -197,11 +199,11 @@ docker-build:
 
 compose-smoke:
 	@set -euo pipefail; \
-	trap 'docker compose -f $(COMPOSE_FILE) down -v --remove-orphans' EXIT; \
+	trap 'docker compose $(COMPOSE_SMOKE_FILES) down -v --remove-orphans' EXIT; \
 	if ! docker image inspect $(APP_IMAGE) >/dev/null 2>&1 || ! docker image inspect $(WEB_IMAGE) >/dev/null 2>&1; then \
 		$(MAKE) docker-build; \
 	fi; \
-	docker compose -f $(COMPOSE_FILE) up -d api web; \
+	docker compose $(COMPOSE_SMOKE_FILES) up -d api web; \
 	for attempt in $$(seq 1 30); do \
 		if curl -fsS http://127.0.0.1:8080/health >/dev/null; then \
 			break; \
@@ -222,7 +224,7 @@ compose-smoke:
 		fi; \
 		sleep 2; \
 	done; \
-	docker compose -f $(COMPOSE_FILE) --profile worker run --rm worker list-runs >/dev/null
+	docker compose $(COMPOSE_SMOKE_FILES) --profile worker run --rm worker list-runs >/dev/null
 
 audit-deps:
 	-$(PIP_AUDIT)

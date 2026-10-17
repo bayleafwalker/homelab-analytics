@@ -5,7 +5,7 @@ Environment examples, sample values, and demo fixtures belong here.
 Current foundation:
 
 - `compose.yaml` for the blessed single-user homelab startup story: API, web, and optional worker containers against a shared local volume, backed by Postgres + MinIO and `secrets/auth-local.env.example`
-- `make compose-smoke` for a full local startup check of the example stack
+- `make compose-smoke` for an isolated startup check of the example stack; it uses the dedicated `homelab-analytics-smoke` Compose project and layers `compose-smoke.override.yaml` to pin a MinIO mirror by digest, while the default `compose.yaml` remains unchanged
 - API and worker reuse the shared `homelab-analytics:latest` image; web builds from the dedicated `homelab-analytics-web:latest` Next.js image
 - API and web define explicit container healthchecks against `/ready` so Compose and external tooling can observe the startup contract directly
 - API, web, and worker depend on Postgres health and MinIO startup explicitly; that release-ops contract is pinned by the fast test suite
@@ -16,6 +16,22 @@ Current foundation:
 - `secrets/postgres-external-secret.example.yaml` shows the External Secrets Operator path for the bootstrap single-DSN database credential
 - `secrets/provider-api-secret.sops.example.yaml` shows the SOPS-encrypted Secret path for Git-managed provider credentials
 - `demo-data/` contains the committed synthetic demo bundle plus `manifest.json`
+
+The smoke-only MinIO image is Artifact Keeper's independently operated CI
+mirror of the `RELEASE.2025-09-07T16-13-09Z` upstream release. Its AMD64 child
+manifest digest matches the selected upstream AMD64 child digest, and the
+embedded image labels identify the same release and source revision. This
+project has not independently verified the mirror publisher's provenance or
+signature. This digest is limited to the ephemeral smoke stack and is not a
+production image recommendation. The default compose file keeps its separate
+upstream image reference; as checked on 2026-10-17, anonymous manifest lookup
+for that Quay reference failed. The previous ECR mirror pull in GitHub Actions
+failed with `toomanyrequests: Data limit exceeded`. This smoke override does
+not repair or qualify the default compose startup path.
+The smoke project has its own named volumes and does not reuse the default
+Compose project's data. Its published ports (`5432`, `9000`, `9001`, `8080`,
+and `8081`) must be free while it runs. Parallel smoke runs can choose a
+different project name with `make compose-smoke COMPOSE_SMOKE_PROJECT=<name>`.
 
 Demo-data notes:
 

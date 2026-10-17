@@ -1,0 +1,11 @@
+# This override is used only by make compose-smoke on ephemeral development/CI
+# stacks. The default compose.yaml stays on its original upstream reference.
+# Artifact Keeper uses this copy in its own CI. The AMD64 child manifest digest
+# matches the selected upstream release child manifest, and config labels
+# identify that release. The independently operated mirror has no verified
+# publisher provenance or signature in this project.
+# Source: https://github.com/artifact-keeper/artifact-keeper/blob/1cd286f6da0b3936479fdb44be22e547fbe46a5e/docker-compose.oci-storage-e2e.yml
+services:
+  minio:
+    platform: linux/amd64
+    image: ghcr.io/artifact-keeper/ci-mirror/minio@sha256:a1a8bd4ac40ad7881a245bab97323e18f971e4d4cba2c2007ec1bedd21cbaba2

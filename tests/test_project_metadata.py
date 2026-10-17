@@ -128,6 +128,32 @@ class ProjectMetadataTests(unittest.TestCase):
         )
         self.assertNotIn(":latest", services["minio"]["image"])
 
+    def test_compose_smoke_uses_a_digest_pinned_development_mirror_override(self) -> None:
+        override = yaml.safe_load(
+            (ROOT / "infra" / "examples" / "compose-smoke.override.yaml").read_text()
+        )
+        smoke_image = override["services"]["minio"]["image"]
+        self.assertEqual(
+            "ghcr.io/artifact-keeper/ci-mirror/minio@sha256:"
+            "a1a8bd4ac40ad7881a245bab97323e18f971e4d4cba2c2007ec1bedd21cbaba2",
+            smoke_image,
+        )
+        self.assertEqual("linux/amd64", override["services"]["minio"]["platform"])
+
+        makefile = (ROOT / "Makefile").read_text()
+        self.assertIn("COMPOSE_SMOKE_PROJECT ?= homelab-analytics-smoke", makefile)
+        self.assertIn(
+            "COMPOSE_SMOKE_FILES := --project-name $(COMPOSE_SMOKE_PROJECT) "
+            "-f $(COMPOSE_FILE) "
+            "-f infra/examples/compose-smoke.override.yaml",
+            makefile,
+        )
+        smoke_target = makefile.split("compose-smoke:", 1)[1].split("\naudit-deps:", 1)[0]
+        self.assertEqual(3, smoke_target.count("docker compose $(COMPOSE_SMOKE_FILES)"))
+        docs = (ROOT / "infra" / "examples" / "README.md").read_text()
+        self.assertIn("own named volumes", docs)
+        self.assertIn("must be free", docs)
+
     def test_example_compose_defines_api_and_web_healthchecks(self) -> None:
         content = (ROOT / "infra" / "examples" / "compose.yaml").read_text()
 
