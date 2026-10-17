@@ -17,15 +17,17 @@ Current foundation:
 - `secrets/provider-api-secret.sops.example.yaml` shows the SOPS-encrypted Secret path for Git-managed provider credentials
 - `demo-data/` contains the committed synthetic demo bundle plus `manifest.json`
 
-The smoke-only MinIO image is an independently operated ECR mirror of the
-`RELEASE.2025-09-07T16-13-09Z` upstream release. Its publisher states that the
-copy is unmodified and offers no support; the embedded image labels identify
-the release, but do not establish independent provenance or signature
-verification. This digest is limited to the ephemeral smoke stack and is not a
+The smoke-only MinIO image is Artifact Keeper's independently operated CI
+mirror of the `RELEASE.2025-09-07T16-13-09Z` upstream release. Its AMD64 child
+manifest digest matches the selected upstream AMD64 child digest, and the
+embedded image labels identify the same release and source revision. This
+project has not independently verified the mirror publisher's provenance or
+signature. This digest is limited to the ephemeral smoke stack and is not a
 production image recommendation. The default compose file keeps its separate
 upstream image reference; as checked on 2026-10-17, anonymous manifest lookup
-for that Quay reference failed. This smoke override does not repair or qualify
-the default compose startup path.
+for that Quay reference failed. The previous ECR mirror pull in GitHub Actions
+failed with `toomanyrequests: Data limit exceeded`. This smoke override does
+not repair or qualify the default compose startup path.
 The smoke project has its own named volumes and does not reuse the default
 Compose project's data. Its published ports (`5432`, `9000`, `9001`, `8080`,
 and `8081`) must be free while it runs. Parallel smoke runs can choose a

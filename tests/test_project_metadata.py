@@ -134,10 +134,11 @@ class ProjectMetadataTests(unittest.TestCase):
         )
         smoke_image = override["services"]["minio"]["image"]
         self.assertEqual(
-            "public.ecr.aws/y9w4h2u9/minio@sha256:"
-            "14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e",
+            "ghcr.io/artifact-keeper/ci-mirror/minio@sha256:"
+            "a1a8bd4ac40ad7881a245bab97323e18f971e4d4cba2c2007ec1bedd21cbaba2",
             smoke_image,
         )
+        self.assertEqual("linux/amd64", override["services"]["minio"]["platform"])
 
         makefile = (ROOT / "Makefile").read_text()
         self.assertIn("COMPOSE_SMOKE_PROJECT ?= homelab-analytics-smoke", makefile)
