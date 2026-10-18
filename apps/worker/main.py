@@ -4,7 +4,7 @@ import logging
 import sys
 from typing import TextIO
 
-from apps.worker.command_handlers import dispatch_worker_command
+from apps.worker.command_handlers import dispatch_settings_command, dispatch_worker_command
 from apps.worker.command_parser import build_parser as _build_parser
 from apps.worker.control_plane import _watch_schedule_dispatches
 from apps.worker.runtime import (
@@ -40,6 +40,15 @@ def main(
     parser = _build_parser()
     args = parser.parse_args(argv)
     logger.info("worker command starting", extra={"command": args.command})
+    try:
+        settings_exit_code = dispatch_settings_command(
+            args, resolved_settings, output, error_output
+        )
+    except (FileNotFoundError, KeyError, ValueError) as exc:
+        error_output.write(f"{exc}\n")
+        return 1
+    if settings_exit_code is not None:
+        return settings_exit_code
     runtime = build_worker_runtime(
         settings=resolved_settings,
         output=output,

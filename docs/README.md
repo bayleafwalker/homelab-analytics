@@ -150,6 +150,6 @@ Use `docs/sprints/TRACKER.md` for the live sprint index. Keep this section to du
 - `runbooks/project-working-practices.md` — repo-wide working loops, source-of-truth precedence, change-class done criteria, multi-agent coordination rules, and session-note policy.
 - `runbooks/release-governance.md` — branch lifetime, tag types, GitHub Release policy, and minimum release checklist.
 - `runbooks/operations.md` — deployment, ingress, readiness, and alert-response guidance for shared environments.
-- `runbooks/backup-and-restore.md` — backup and restore guidance for Postgres control-plane state, landed object storage, and DuckDB artifacts.
+- `runbooks/backup-and-restore.md` — backup and restore guidance: the worker `backup`/`verify-backup`/`restore` bundle (SQLite control plane, DuckDB warehouse, filesystem landing, checksummed manifest) plus Postgres `pg_dump` and object-storage mirroring.
 - `runbooks/configuration.md` — environment variable reference for API, worker, web, auth, storage, and extension configuration.
 - `runbooks/sprint-and-knowledge-operations.md` — repo-level operating model for `sprintctl` and `kctl`, including shared artifacts, workflow phases, and local-vs-committed boundaries.

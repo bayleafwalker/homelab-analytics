@@ -1,0 +1,92 @@
+"""Backup, verify-backup, and restore worker commands.
+
+These commands operate on files only and run *before* the worker runtime is
+built, so restoring into a fresh data directory never sees stores that the
+runtime would otherwise initialize first.
+"""
+from __future__ import annotations
+
+from argparse import Namespace
+from pathlib import Path
+from typing import TextIO
+
+from apps.worker.serialization import _write_json
+from packages.shared.settings import AppSettings
+from packages.storage.backup_bundle import (
+    BackupError,
+    BackupSources,
+    create_backup,
+    restore_backup,
+    verify_backup,
+)
+
+
+def backup_sources_from_settings(settings: AppSettings) -> BackupSources:
+    """Map settings to store locations without carrying DSNs or credentials."""
+    return BackupSources(
+        control_plane_backend=settings.resolved_control_plane_backend,
+        reporting_backend=settings.reporting_backend.lower(),
+        blob_backend=settings.blob_backend.lower(),
+        control_plane_database_path=settings.resolved_config_database_path,
+        warehouse_database_path=settings.resolved_analytics_database_path,
+        landing_root=settings.landing_root,
+    )
+
+
+def handle_backup(
+    args: Namespace, settings: AppSettings, output: TextIO, error_output: TextIO
+) -> int:
+    destination = Path(args.output_dir)
+    try:
+        manifest = create_backup(backup_sources_from_settings(settings), destination)
+    except BackupError as exc:
+        error_output.write(f"{exc}\n")
+        return 1
+    _write_json(
+        output,
+        {
+            "output_dir": str(destination),
+            "created_at": manifest["created_at"],
+            "schema_heads": manifest["schema_heads"],
+            "components": [
+                {
+                    "name": component["name"],
+                    "included": component["included"],
+                    "files": len(component["files"]),
+                    **({"reason": component["reason"]} if "reason" in component else {}),
+                }
+                for component in manifest["components"]
+            ],
+        },
+    )
+    return 0
+
+
+def handle_verify_backup(
+    args: Namespace, settings: AppSettings, output: TextIO, error_output: TextIO
+) -> int:
+    verification = verify_backup(Path(args.backup_dir))
+    _write_json(output, {"verification": verification.as_dict()})
+    if not verification.passed:
+        for error in verification.errors:
+            error_output.write(f"{error}\n")
+        return 1
+    return 0
+
+
+def handle_restore(
+    args: Namespace, settings: AppSettings, output: TextIO, error_output: TextIO
+) -> int:
+    try:
+        result = restore_backup(
+            Path(args.backup_dir),
+            backup_sources_from_settings(settings),
+            force=bool(getattr(args, "force", False)),
+        )
+    except BackupError as exc:
+        error_output.write(f"{exc}\n")
+        return 1
+    _write_json(output, {"restore": result})
+    for warning in result["warnings"]:
+        error_output.write(f"warning: {warning}\n")
+    return 0
