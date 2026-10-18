@@ -193,7 +193,7 @@ def _run_sidecar_until(
     if fail_upload:
         run_env["RCLONE_FAIL"] = "1"
     process = subprocess.Popen(
-        ["sh", "-c", script],
+        [*_SIDECAR_SHELL, "-c", script],
         env=run_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -215,7 +215,26 @@ def _run_sidecar_until(
         process.wait(timeout=10)
 
 
-@pytest.mark.skipif(shutil.which("sh") is None or shutil.which("tar") is None, reason="needs sh and tar")
+def _sidecar_shell() -> list[str] | None:
+    """A shell with `set -o pipefail`, like the rclone image's busybox ash.
+
+    Plain `sh` is dash on Debian/Ubuntu runners, which rejects pipefail.
+    """
+    if shutil.which("busybox"):
+        return ["busybox", "sh"]
+    if shutil.which("bash"):
+        return ["bash"]
+    return None
+
+
+_SIDECAR_SHELL = _sidecar_shell() or ["sh"]
+_NEEDS_SHELL = pytest.mark.skipif(
+    _sidecar_shell() is None or shutil.which("tar") is None,
+    reason="needs busybox or bash, and tar",
+)
+
+
+@_NEEDS_SHELL
 def test_sidecar_script_round_trips_status_through_reader(tmp_path: Path) -> None:
     backups = tmp_path / "backups"
     _bundle(backups, "backup-20261017T000000Z")
