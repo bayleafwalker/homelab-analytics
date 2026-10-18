@@ -2,8 +2,7 @@ import React from "react";
 import { expect, within } from "@storybook/test";
 
 import { WallboardView } from "../components/wallboard-view";
-
-const NOW = "2026-10-18T07:42:00";
+import { NOW, devicesData, eventsData, powerData, servicesData } from "./wallboard-fixtures";
 
 const overview = {
   current_month: "2026-09",
@@ -23,12 +22,6 @@ const upcomingCosts = [
   { contract_name: "Netflix", expected_amount: "15.99", currency: "EUR", expected_date: "2026-10-20" },
   { contract_name: "Spotify", expected_amount: "9.99", currency: "EUR", expected_date: "2026-11-01" },
   { contract_name: "Home Mortgage", expected_amount: "1556.33", currency: "EUR", expected_date: "2026-11-05" },
-];
-
-const services = [
-  { service_id: "ha", service_name: "Home Assistant", status: "healthy" },
-  { service_id: "nas", service_name: "NAS", status: "healthy" },
-  { service_id: "backup", service_name: "Backups", status: "degraded" },
 ];
 
 function Clock() {
@@ -61,23 +54,34 @@ export const Standard = {
     overview,
     attentionItems,
     upcomingCosts,
-    services,
+    services: servicesData,
+    devices: devicesData,
+    events: eventsData,
+    power: powerData,
     bridge: { enabled: true, connected: true },
     latestMonth: "2026-09",
-    utilityLatest: { month: "2026-09", total: 81.9 },
     clock: <Clock />,
     status: <span className="wallStatus">Live, updated 07:42</span>,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("2 days")).toBeInTheDocument();
-    await expect(canvas.getByText("2/3 up")).toBeInTheDocument();
+    await expect(canvas.getByText("2/4 up")).toBeInTheDocument();
     await expect(canvas.getByText("Review contract: Helen (2)")).toBeInTheDocument();
+    await expect(canvas.getByLabelText("Events, last 12h")).toBeInTheDocument();
+    await expect(canvas.getByText("R refresh · P pause")).toBeInTheDocument();
   },
 };
 
+// Page snapshot, compact: no event feed, no hotkey hint, bigger room readings.
 export const Compact = {
   args: { ...Standard.args, compact: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByLabelText("Events, last 12h")).toBeNull();
+    await expect(canvas.queryByText("R refresh · P pause")).toBeNull();
+    await expect(canvas.getByLabelText("Rooms")).toBeInTheDocument();
+  },
 };
 
 export const NothingConnected = {
@@ -86,15 +90,18 @@ export const NothingConnected = {
     overview: null,
     attentionItems: [],
     upcomingCosts: [],
-    services: [],
+    services: { available: true, services: [] },
+    devices: null,
+    events: null,
+    power: null,
     bridge: { enabled: false, connected: false },
     latestMonth: null,
-    utilityLatest: null,
     clock: <Clock />,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("No services reporting")).toBeInTheDocument();
+    await expect(canvas.getAllByText("Not connected").length).toBe(3);
     await expect(canvas.getByText("All clear")).toBeInTheDocument();
   },
 };

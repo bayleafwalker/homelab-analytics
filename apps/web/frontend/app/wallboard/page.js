@@ -4,12 +4,14 @@ import { loadExplanation } from "@/lib/explain";
 import {
   getAttentionItems,
   getCurrentUser,
+  getDeviceReadings,
+  getEventFeed,
   getHaBridgeStatus,
-  getHomelabServices,
   getHouseholdOverview,
   getMonthlyCashflow,
+  getPowerSeries,
+  getServiceHealth,
   getUpcomingFixedCosts,
-  getUtilityCostTrend,
 } from "@/lib/backend";
 
 export const metadata = {
@@ -31,27 +33,20 @@ async function optional(promise, fallback) {
 
 export default async function WallboardPage({ searchParams }) {
   const user = await getCurrentUser();
+  // URL-only: the kiosk's bookmark decides the mode; nothing is remembered.
   const compact = searchParams?.compact === "1";
-  const [overview, attentionItems, upcomingCosts, cashflowRows, utilityTrend, services, bridge] =
+  const [overview, attentionItems, upcomingCosts, cashflowRows, bridge, services, devices, events, power] =
     await Promise.all([
       getHouseholdOverview(),
       getAttentionItems(),
       getUpcomingFixedCosts(),
       getMonthlyCashflow(),
-      optional(getUtilityCostTrend(), []),
-      optional(getHomelabServices(), []),
       optional(getHaBridgeStatus(), null),
+      optional(getServiceHealth(), null),
+      optional(getDeviceReadings(), null),
+      compact ? null : optional(getEventFeed(), null),
+      optional(getPowerSeries(24), null),
     ]);
-  const months = [...new Set(utilityTrend.map((row) => row.billing_month))].sort();
-  const utilityMonth = months.at(-1);
-  const utilityLatest = utilityMonth
-    ? {
-        month: utilityMonth,
-        total: utilityTrend
-          .filter((row) => row.billing_month === utilityMonth)
-          .reduce((sum, row) => sum + Number(row.total_cost || 0), 0),
-      }
-    : null;
   const renderedAt = new Date().toISOString();
   const moneyExplanation = overview ? await loadExplanation("mart_household_overview", { user }) : null;
 
@@ -63,10 +58,12 @@ export default async function WallboardPage({ searchParams }) {
         overview={overview}
         attentionItems={attentionItems}
         upcomingCosts={upcomingCosts}
-        services={services}
         bridge={bridge}
         latestMonth={cashflowRows.at(-1)?.booking_month || null}
-        utilityLatest={utilityLatest}
+        services={services}
+        devices={devices}
+        events={events}
+        power={power}
         compact={compact}
         clock={<WallClock initial={renderedAt} />}
         status={<WallRefresh renderedAt={renderedAt} />}

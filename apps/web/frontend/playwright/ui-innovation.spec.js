@@ -56,11 +56,39 @@ for (const story of ["standard", "compact", "nothing-connected"]) {
   });
 }
 
-test("wallboard compact mode drops the homelab and ticker panels", async ({ page }) => {
-  await gotoStory(page, "wallboard-wallboardview--compact");
-  await expect(page.getByText("Homelab")).toHaveCount(0);
-  await expect(page.getByLabel("Upcoming payments")).toHaveCount(0);
+test("wallboard standard lays out the kiosk grid", async ({ page }) => {
+  await gotoStory(page, "wallboard-wallboardview--standard");
+  for (const area of ["services", "events", "devices", "power"]) {
+    await expect(page.locator(`.wallPanel[data-area="${area}"]`)).toBeVisible();
+  }
+  await expect(page.getByLabel("Upcoming payments")).toBeVisible();
+  await expect(page.getByText("R refresh · P pause")).toBeVisible();
+  const columns = await page
+    .locator(".wallGrid")
+    .evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(" ").map(parseFloat));
+  expect(columns).toHaveLength(2);
+  expect(columns[0] / columns[1]).toBeCloseTo(1.4, 1);
 });
+
+test("wallboard compact mode hides the event feed and hotkey hint", async ({ page }) => {
+  await gotoStory(page, "wallboard-wallboardview--compact");
+  await expect(page.locator('.wallPanel[data-area="events"]')).toHaveCount(0);
+  await expect(page.getByText("R refresh · P pause")).toHaveCount(0);
+  await expect(page.getByLabel("Upcoming payments")).toBeVisible();
+  const size = await page
+    .locator(".wallReadingValue")
+    .first()
+    .evaluate((node) => parseFloat(getComputedStyle(node).fontSize));
+  expect(size).toBe(48);
+});
+
+for (const story of ["service-tile-up", "devices", "events", "power", "power-ambiguous"]) {
+  test(`wallboard panel ${story} renders`, async ({ page }) => {
+    await gotoStory(page, `wallboard-panels--${story}`);
+    await expect(page.locator(".wall")).toBeVisible();
+    await expectAccessible(page);
+  });
+}
 
 test("app shell rail groups the nav, marks the current page and stays accessible", async ({ page }) => {
   await gotoStory(page, "shells-appshell--admin-control");
