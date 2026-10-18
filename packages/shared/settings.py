@@ -130,6 +130,10 @@ class AppSettings:
     backup_interval_seconds: int = 0
     backup_retention_count: int = 7
     backup_dir: Path | None = None
+    # API warehouse access: read-only, short-lived DuckDB handles.
+    api_warehouse_idle_seconds: float = 5.0
+    warehouse_lock_retry_attempts: int = 4
+    warehouse_lock_retry_backoff_seconds: float = 0.1
 
     @property
     def resolved_config_database_path(self) -> Path:
@@ -497,6 +501,15 @@ class AppSettings:
             raise ValueError("HOMELAB_ANALYTICS_BACKUP_RETENTION_COUNT must be at least 1.")
         backup_dir_override = env.get("HOMELAB_ANALYTICS_BACKUP_DIR")
         backup_dir = Path(backup_dir_override) if backup_dir_override else None
+        api_warehouse_idle_seconds = float(
+            env.get("HOMELAB_ANALYTICS_API_WAREHOUSE_IDLE_SECONDS", "5")
+        )
+        warehouse_lock_retry_attempts = int(
+            env.get("HOMELAB_ANALYTICS_WAREHOUSE_LOCK_RETRY_ATTEMPTS", "4")
+        )
+        warehouse_lock_retry_backoff_seconds = float(
+            env.get("HOMELAB_ANALYTICS_WAREHOUSE_LOCK_RETRY_BACKOFF_SECONDS", "0.1")
+        )
         return cls(
             data_dir=data_dir,
             landing_root=data_dir / "landing",
@@ -592,6 +605,9 @@ class AppSettings:
             backup_interval_seconds=backup_interval_seconds,
             backup_retention_count=backup_retention_count,
             backup_dir=backup_dir,
+            api_warehouse_idle_seconds=api_warehouse_idle_seconds,
+            warehouse_lock_retry_attempts=warehouse_lock_retry_attempts,
+            warehouse_lock_retry_backoff_seconds=warehouse_lock_retry_backoff_seconds,
         )
 
 

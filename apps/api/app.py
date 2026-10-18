@@ -63,6 +63,7 @@ from apps.api.support import (
     serialize_run,
     to_jsonable,
 )
+from apps.api.warehouse_access import install_warehouse_access
 from packages.adapters.contracts import AdapterPack, TrustLevel
 from packages.adapters.export_renderer import EXPORT_RENDERER_MANIFEST
 from packages.adapters.ha_adapters import (
@@ -598,6 +599,7 @@ def create_app(
             backup_dir=container.settings.resolved_backup_dir,
         ),
     )
+    install_warehouse_access(app, transformation_service)
     install_http_metrics(app, metrics_registry)
 
     register_auth_routes(

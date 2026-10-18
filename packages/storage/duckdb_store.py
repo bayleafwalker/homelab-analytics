@@ -11,13 +11,65 @@ database is used via ``connect(":memory:")``.
 
 from __future__ import annotations
 
+import time
 import uuid
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, Generator
 
 import duckdb
+
+# ---------------------------------------------------------------------------
+# Cross-process file locking
+# ---------------------------------------------------------------------------
+
+# DuckDB admits one read-write process per database file, or any number of
+# read-only processes. A conflicting open fails immediately with an IOException
+# ("Could not set lock on file"); callers retry briefly instead of failing.
+DEFAULT_LOCK_RETRY_ATTEMPTS = 6
+DEFAULT_LOCK_RETRY_BACKOFF_SECONDS = 0.1
+
+
+class WarehouseBusyError(RuntimeError):
+    """Another process holds a conflicting lock on the DuckDB warehouse file."""
+
+    def __init__(self, path: str, attempts: int, cause: BaseException) -> None:
+        super().__init__(
+            f"DuckDB warehouse {path} is locked by another process "
+            f"(gave up after {attempts} attempt(s)): {cause}"
+        )
+        self.path = path
+        self.attempts = attempts
+
+
+def is_lock_conflict(exc: BaseException) -> bool:
+    return isinstance(exc, duckdb.IOException) and "lock" in str(exc).lower()
+
+
+def connect_with_lock_retry(
+    path: str,
+    *,
+    read_only: bool = False,
+    attempts: int = DEFAULT_LOCK_RETRY_ATTEMPTS,
+    backoff_seconds: float = DEFAULT_LOCK_RETRY_BACKOFF_SECONDS,
+    sleep: Callable[[float], None] = time.sleep,
+) -> duckdb.DuckDBPyConnection:
+    """``duckdb.connect`` that retries lock conflicts with exponential backoff."""
+    attempts = max(1, attempts)
+    delay = backoff_seconds
+    for attempt in range(1, attempts + 1):
+        try:
+            return duckdb.connect(path, read_only=read_only)
+        except duckdb.IOException as exc:
+            if not is_lock_conflict(exc):
+                raise
+            if attempt == attempts:
+                raise WarehouseBusyError(path, attempts, exc) from exc
+            sleep(delay)
+            delay *= 2
+    raise AssertionError("unreachable")  # pragma: no cover
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -88,9 +140,27 @@ class DuckDBStore:
     # -- connection helpers --------------------------------------------------
 
     @classmethod
-    def open(cls, path: str) -> DuckDBStore:
-        """Open (or create) a persistent DuckDB database."""
-        return cls(duckdb.connect(path))
+    def open(
+        cls,
+        path: str,
+        *,
+        read_only: bool = False,
+        lock_retry_attempts: int = DEFAULT_LOCK_RETRY_ATTEMPTS,
+        lock_retry_backoff_seconds: float = DEFAULT_LOCK_RETRY_BACKOFF_SECONDS,
+    ) -> DuckDBStore:
+        """Open (or create, unless read-only) a persistent DuckDB database.
+
+        Another process holding a conflicting file lock is retried with
+        exponential backoff before :class:`WarehouseBusyError` is raised.
+        """
+        return cls(
+            connect_with_lock_retry(
+                path,
+                read_only=read_only,
+                attempts=lock_retry_attempts,
+                backoff_seconds=lock_retry_backoff_seconds,
+            )
+        )
 
     @classmethod
     def memory(cls) -> DuckDBStore:
