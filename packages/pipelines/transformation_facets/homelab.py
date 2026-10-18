@@ -9,10 +9,6 @@ from packages.domains.homelab.pipelines.transformation_homelab import (
     count_service_health_rows,
     count_storage_sensor_rows,
     count_workload_sensor_rows,
-    get_backup_freshness,
-    get_service_health_current,
-    get_storage_risk,
-    get_workload_cost_7d,
     load_backup_run_rows,
     load_service_health_rows,
     load_storage_sensor_rows,
@@ -89,18 +85,6 @@ class HomelabTransformationMixin(TransformationFacetBase):
             run_id=run_id,
             source_system=source_system,
         )
-
-    def get_service_health_current(self) -> list[dict[str, Any]]:
-        return get_service_health_current(self._store)
-
-    def get_backup_freshness(self) -> list[dict[str, Any]]:
-        return get_backup_freshness(self._store)
-
-    def get_storage_risk(self) -> list[dict[str, Any]]:
-        return get_storage_risk(self._store)
-
-    def get_workload_cost_7d(self) -> list[dict[str, Any]]:
-        return get_workload_cost_7d(self._store)
 
     def load_cluster_metrics(
         self,

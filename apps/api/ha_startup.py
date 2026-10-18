@@ -10,6 +10,7 @@ from typing import Any, cast
 
 from packages.domains.finance.pipelines.budget_models import MART_BUDGET_PROGRESS_CURRENT_TABLE
 from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
+from packages.domains.homelab.pipelines.ha_models import DIM_HA_ENTITY_TABLE
 from packages.domains.homelab.pipelines.ha_policy import (
     HaPolicyEvaluator,
     ensure_builtin_policies,
@@ -205,7 +206,7 @@ def build_ha_startup_runtime(
         except Exception:
             budget_rows = []
         try:
-            ha_entities = transformation_service.get_ha_entities()
+            ha_entities = read_warehouse_mart(transformation_service, DIM_HA_ENTITY_TABLE)
         except Exception:
             ha_entities = []
         return {

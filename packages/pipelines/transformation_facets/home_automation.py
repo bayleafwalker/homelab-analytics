@@ -6,8 +6,6 @@ from datetime import date
 from typing import Any
 
 from packages.domains.homelab.pipelines.ha_service import (
-    get_ha_entities,
-    get_ha_entity_history,
     ingest_ha_states,
 )
 from packages.domains.homelab.pipelines.transformation_home_automation import (
@@ -97,11 +95,3 @@ class HomeAutomationTransformationMixin(TransformationFacetBase):
             run_id=run_id,
             source_system=source_system,
         )
-
-    def get_ha_entities(self) -> list[dict[str, Any]]:
-        return get_ha_entities(self._store)
-
-    def get_ha_entity_history(
-        self, entity_id: str, *, limit: int = 50
-    ) -> list[dict[str, Any]]:
-        return get_ha_entity_history(self._store, entity_id, limit=limit)

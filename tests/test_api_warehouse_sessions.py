@@ -427,7 +427,9 @@ def test_read_classified_facet_methods_run_on_a_read_only_handle(tmp_path: Path)
 # ---------------------------------------------------------------------------
 
 # Required reader arguments, so every registered read is exercised.
-_MART_READ_ARGUMENTS: dict[str, dict[str, object]] = {}
+_MART_READ_ARGUMENTS: dict[str, dict[str, object]] = {
+    "fact_ha_state_change": {"entity_id": "sensor.probe"},
+}
 
 
 def _mart_reader_source(reader: object) -> str:

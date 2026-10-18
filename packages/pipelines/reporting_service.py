@@ -37,6 +37,10 @@ from packages.domains.finance.pipelines.transaction_models import (
     MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
     TRANSFORMATION_AUDIT_TABLE,
 )
+from packages.domains.homelab.pipelines.ha_models import (
+    DIM_HA_ENTITY_TABLE,
+    FACT_HA_STATE_CHANGE_TABLE,
+)
 from packages.domains.homelab.pipelines.ha_service import get_ha_state_changes_since
 from packages.domains.homelab.pipelines.homelab_models import (
     MART_BACKUP_FRESHNESS_TABLE,
@@ -1001,7 +1005,7 @@ class ReportingService:
     def get_service_health_current(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_SERVICE_HEALTH_CURRENT_TABLE,
-            self._transformation_service.get_service_health_current,
+            lambda: self._read_mart(MART_SERVICE_HEALTH_CURRENT_TABLE),
             ("", []),
             "ORDER BY service_id",
         )
@@ -1009,7 +1013,7 @@ class ReportingService:
     def get_backup_freshness(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_BACKUP_FRESHNESS_TABLE,
-            self._transformation_service.get_backup_freshness,
+            lambda: self._read_mart(MART_BACKUP_FRESHNESS_TABLE),
             ("", []),
             "ORDER BY target",
         )
@@ -1017,7 +1021,7 @@ class ReportingService:
     def get_storage_risk(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_STORAGE_RISK_TABLE,
-            self._transformation_service.get_storage_risk,
+            lambda: self._read_mart(MART_STORAGE_RISK_TABLE),
             ("", []),
             "ORDER BY pct_used DESC",
         )
@@ -1025,7 +1029,7 @@ class ReportingService:
     def get_workload_cost_7d(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_WORKLOAD_COST_7D_TABLE,
-            self._transformation_service.get_workload_cost_7d,
+            lambda: self._read_mart(MART_WORKLOAD_COST_7D_TABLE),
             ("", []),
             "ORDER BY est_monthly_cost DESC NULLS LAST",
         )
@@ -1046,7 +1050,7 @@ class ReportingService:
         )
 
     def get_ha_entities(self) -> list[dict[str, Any]]:
-        return self._transformation_service.get_ha_entities()
+        return self._read_mart(DIM_HA_ENTITY_TABLE)
 
     def get_ha_entity_history(
         self,
@@ -1054,7 +1058,7 @@ class ReportingService:
         *,
         limit: int = 50,
     ) -> list[dict[str, Any]]:
-        return self._transformation_service.get_ha_entity_history(entity_id, limit=limit)
+        return self._read_mart(FACT_HA_STATE_CHANGE_TABLE, entity_id=entity_id, limit=limit)
 
     def get_ha_state_changes_since(
         self,

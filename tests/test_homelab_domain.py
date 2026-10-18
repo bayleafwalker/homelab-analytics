@@ -13,6 +13,10 @@ from datetime import datetime, timedelta
 
 from packages.domains.homelab.manifest import HOMELAB_PACK
 from packages.domains.homelab.pipelines.transformation_homelab import (
+    get_backup_freshness,
+    get_service_health_current,
+    get_storage_risk,
+    get_workload_cost_7d,
     refresh_backup_freshness,
     refresh_service_health_current,
     refresh_storage_risk,
@@ -262,7 +266,7 @@ class ServiceHealthLoadTests(unittest.TestCase):
         svc = self._svc()
         svc.load_service_health(_service_rows(), run_id="run-hl-001")
         refresh_service_health_current(svc.store)
-        rows = svc.get_service_health_current()
+        rows = get_service_health_current(svc.store)
         self.assertEqual(5, len(rows))
         states = {row["state"] for row in rows}
         self.assertIn("running", states)
@@ -273,7 +277,7 @@ class ServiceHealthLoadTests(unittest.TestCase):
         svc = self._svc()
         svc.load_service_health(_service_rows(), run_id="run-hl-001")
         refresh_service_health_current(svc.store)
-        rows = svc.get_service_health_current()
+        rows = get_service_health_current(svc.store)
         ha_row = next(r for r in rows if r["service_id"] == "svc_homeassistant")
         self.assertEqual("Home Assistant", ha_row["service_name"])
         self.assertEqual("critical", ha_row["criticality"])
@@ -310,7 +314,7 @@ class BackupFreshnessTests(unittest.TestCase):
         svc = self._svc()
         svc.load_backup_runs(_backup_rows(), run_id="run-bkp-001")
         refresh_backup_freshness(svc.store)
-        rows = svc.get_backup_freshness()
+        rows = get_backup_freshness(svc.store)
         # Fixture backups were on 2026-03-20; test runs on 2026-03-20 so should be fresh
         # (hours_since_backup < 24). We test that is_stale is a boolean field.
         for row in rows:
@@ -333,7 +337,7 @@ class BackupFreshnessTests(unittest.TestCase):
         ]
         svc.load_backup_runs(old_rows, run_id="run-stale")
         refresh_backup_freshness(svc.store)
-        rows = svc.get_backup_freshness()
+        rows = get_backup_freshness(svc.store)
         stale_row = next(r for r in rows if r["target"] == "archive")
         self.assertTrue(stale_row["is_stale"])
 
@@ -362,7 +366,7 @@ class StorageRiskTests(unittest.TestCase):
         svc = self._svc()
         svc.load_storage_sensors(_storage_rows(), run_id="run-stor-001")
         refresh_storage_risk(svc.store)
-        rows = svc.get_storage_risk()
+        rows = get_storage_risk(svc.store)
         for row in rows:
             self.assertIn("pct_used", row)
             self.assertIn(row["risk_tier"], ("ok", "warn", "crit"))
@@ -372,7 +376,7 @@ class StorageRiskTests(unittest.TestCase):
         svc = self._svc()
         svc.load_storage_sensors(_storage_rows(), run_id="run-stor-001")
         refresh_storage_risk(svc.store)
-        rows = svc.get_storage_risk()
+        rows = get_storage_risk(svc.store)
         homeserver_row = next(r for r in rows if r["entity_id"] == "sensor.homeserver_disk")
         self.assertEqual("warn", homeserver_row["risk_tier"])
 
@@ -381,7 +385,7 @@ class StorageRiskTests(unittest.TestCase):
         svc = self._svc()
         svc.load_storage_sensors([_crit_storage_row()], run_id="run-crit")
         refresh_storage_risk(svc.store)
-        rows = svc.get_storage_risk()
+        rows = get_storage_risk(svc.store)
         self.assertEqual(1, len(rows))
         self.assertEqual("crit", rows[0]["risk_tier"])
 
@@ -390,7 +394,7 @@ class StorageRiskTests(unittest.TestCase):
         svc = self._svc()
         svc.load_storage_sensors([_ok_storage_row()], run_id="run-ok")
         refresh_storage_risk(svc.store)
-        rows = svc.get_storage_risk()
+        rows = get_storage_risk(svc.store)
         self.assertEqual(1, len(rows))
         self.assertEqual("ok", rows[0]["risk_tier"])
 
@@ -398,7 +402,7 @@ class StorageRiskTests(unittest.TestCase):
         svc = self._svc()
         svc.load_storage_sensors([_ok_storage_row()], run_id="run-fb")
         refresh_storage_risk(svc.store)
-        rows = svc.get_storage_risk()
+        rows = get_storage_risk(svc.store)
         row = rows[0]
         self.assertEqual(
             int(row["capacity_bytes"]) - int(row["used_bytes"]),
@@ -436,7 +440,7 @@ class WorkloadCostTests(unittest.TestCase):
         svc = self._svc()
         svc.load_workload_sensors(_workload_rows(), run_id="run-wl-001")
         refresh_workload_cost_7d(svc.store)
-        rows = svc.get_workload_cost_7d()
+        rows = get_workload_cost_7d(svc.store)
         for row in rows:
             self.assertIn("workload_id", row)
             self.assertIn("avg_cpu_pct_7d", row)
@@ -447,7 +451,7 @@ class WorkloadCostTests(unittest.TestCase):
         svc = self._svc()
         svc.load_workload_sensors(_workload_rows(), run_id="run-wl-001")
         refresh_workload_cost_7d(svc.store)
-        rows = svc.get_workload_cost_7d()
+        rows = get_workload_cost_7d(svc.store)
         for row in rows:
             self.assertGreaterEqual(float(row["est_monthly_cost"]), 0)
 
@@ -455,7 +459,7 @@ class WorkloadCostTests(unittest.TestCase):
         svc = self._svc()
         svc.load_workload_sensors(_workload_rows(), run_id="run-wl-001")
         refresh_workload_cost_7d(svc.store)
-        rows = svc.get_workload_cost_7d()
+        rows = get_workload_cost_7d(svc.store)
         ha_row = next(r for r in rows if r["workload_id"] == "wl_homeassistant")
         # 2 readings: 12.5 + 15.2 = 27.7 / 2 = 13.85
         self.assertAlmostEqual(13.85, float(ha_row["avg_cpu_pct_7d"]), places=2)
@@ -494,7 +498,7 @@ class HomelabFullRefreshTests(unittest.TestCase):
         refresh_backup_freshness(svc.store)
         refresh_storage_risk(svc.store)
         refresh_workload_cost_7d(svc.store)
-        self.assertGreater(len(svc.get_service_health_current()), 0)
-        self.assertGreater(len(svc.get_backup_freshness()), 0)
-        self.assertGreater(len(svc.get_storage_risk()), 0)
-        self.assertGreater(len(svc.get_workload_cost_7d()), 0)
+        self.assertGreater(len(get_service_health_current(svc.store)), 0)
+        self.assertGreater(len(get_backup_freshness(svc.store)), 0)
+        self.assertGreater(len(get_storage_risk(svc.store)), 0)
+        self.assertGreater(len(get_workload_cost_7d(svc.store)), 0)
