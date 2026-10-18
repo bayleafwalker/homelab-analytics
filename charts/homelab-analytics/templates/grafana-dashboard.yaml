@@ -1,0 +1,17 @@
+{{- if .Values.monitoring.grafanaDashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "homelab-analytics.fullname" . }}-ops-dashboard
+  {{- with .Values.monitoring.grafanaDashboard.namespace }}
+  namespace: {{ . }}
+  {{- end }}
+  labels:
+    {{- include "homelab-analytics.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.grafanaDashboard.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+data:
+  homelab-analytics-ops.json: |-
+{{ .Files.Get "dashboards/homelab-analytics-ops.json" | indent 4 }}
+{{- end }}

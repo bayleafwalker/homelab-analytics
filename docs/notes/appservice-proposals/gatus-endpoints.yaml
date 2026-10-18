@@ -1,0 +1,20 @@
+# PROPOSED: append under `endpoints:` in
+#   clusters/main/kubernetes/apps/gatus/app/configmap.yaml (data.config.yaml)
+# Ingress from gatus is admitted by networkpolicy-observability.cnp.yaml.
+# /ready returns {"status": "ready", ...} once the control plane and reporting
+# backends are reachable; /health is liveness only and is not checked here.
+      - name: Homelab Analytics API
+        group: Apps Internal
+        url: http://homelab-analytics-api.analytics.svc.cluster.local:8080/ready
+        interval: 1m
+        conditions:
+          - "[STATUS] == 200"
+          - "[BODY].status == ready"
+          - "[RESPONSE_TIME] < 2000"
+
+      - name: Homelab Analytics Web
+        group: Apps Internal
+        url: http://homelab-analytics-web.analytics.svc.cluster.local:8081/ready
+        interval: 1m
+        conditions:
+          - "[STATUS] == 200"

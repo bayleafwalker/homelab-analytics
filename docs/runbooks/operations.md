@@ -155,6 +155,12 @@ Recommended operator response:
 - expiring service tokens:
   rotate through the `/control` admin page before the seven-day window closes
 
+SLO-based alerts (API availability burn rate, latency, source freshness,
+refresh success, worker liveness, backup recency) render in a second rule
+group when `monitoring.prometheusRule.slo.enabled` is true. The SLOs, error
+budgets, metric catalog, the Grafana dashboard (`monitoring.grafanaDashboard`)
+and the per-alert response are in [slo.md](slo.md).
+
 ## Worker recovery steps
 
 When queue execution is degraded:
@@ -169,4 +175,4 @@ The recovery command is safe for expired running claims only. Do not run it as a
 
 ## Backup and restore
 
-Use `python -m apps.worker.main backup <dir>`, `verify-backup <dir>` and `restore <dir> [--force]` for the file-backed stores (SQLite control plane, DuckDB warehouse, filesystem landing). For Postgres and object storage, use `pg_dump` and bucket mirroring. The full procedure, including the refusal rules and the restore drill, is in [backup-and-restore.md](backup-and-restore.md).
+Use `python -m apps.worker.main backup <dir>`, `verify-backup <dir>` and `restore <dir> [--force]` for the file-backed stores (SQLite control plane, DuckDB warehouse, filesystem landing). A running worker can take retained, verified bundles itself between dispatches (`HOMELAB_ANALYTICS_BACKUP_INTERVAL_SECONDS`), and `restore-drill` proves the newest bundle restores into scratch. For Postgres and object storage, use `pg_dump` and bucket mirroring. The full procedure, including the refusal rules and the restore drill, is in [backup-and-restore.md](backup-and-restore.md).

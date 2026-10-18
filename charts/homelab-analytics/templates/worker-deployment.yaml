@@ -36,9 +36,21 @@ spec:
             - secretRef:
                 name: {{ . | quote }}
             {{- end }}
-          {{- with .Values.extraEnv }}
+          {{- if or .Values.extraEnv (gt (int .Values.worker.metricsPort) 0) }}
           env:
+            {{- if gt (int .Values.worker.metricsPort) 0 }}
+            - name: HOMELAB_ANALYTICS_WORKER_METRICS_PORT
+              value: {{ .Values.worker.metricsPort | quote }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- if gt (int .Values.worker.metricsPort) 0 }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.worker.metricsPort }}
+              protocol: TCP
           {{- end }}
           volumeMounts:
             - name: data

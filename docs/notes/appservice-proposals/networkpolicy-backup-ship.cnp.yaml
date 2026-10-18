@@ -1,0 +1,38 @@
+# PROPOSED: clusters/main/kubernetes/apps/homelab-analytics/app/networkpolicy-backup-ship.cnp.yaml
+# The backup-ship sidecar fetches the pinned age release from GitHub and uploads
+# to the Hetzner object store over 443. Network policy is per pod, so this also
+# admits 443 from the api and worker containers; toFQDNs keeps it to exactly
+# these hosts instead of the 0.0.0.0/0 used by cnpg-pgdump-age.
+#
+# The DNS rule MUST use matchPattern "*": a Cilium L7 DNS rule otherwise
+# restricts the pod's lookups to the listed names and would break resolution of
+# analytics-postgres-rw and in-cluster services.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-backup-ship-egress-https
+  namespace: analytics
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: homelab-analytics
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - {port: "53", protocol: UDP}
+            - {port: "53", protocol: TCP}
+          rules:
+            dns:
+              - matchPattern: "*"
+    - toFQDNs:
+        - matchName: github.com
+        - matchName: objects.githubusercontent.com
+        - matchName: release-assets.githubusercontent.com
+        - matchName: "${HETZNER_S3_BUCKET_ENDPOINT}"
+      toPorts:
+        - ports:
+            - {port: "443", protocol: TCP}

@@ -1,0 +1,52 @@
+# PROPOSED: clusters/main/kubernetes/apps/homelab-analytics/app/networkpolicy-observability.cnp.yaml
+# The analytics namespace is default-deny with intra-namespace allow only
+# (networkpolicy.yaml). Admit:
+#   - Prometheus (kube-prometheus-stack) to the api 8080 and worker 9464 metrics,
+#   - gatus to the api /ready on 8080,
+# mirroring system/networkpolicies/app/authentik-allow-ingress-prometheus-metrics.cnp.yaml.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-ingress-observability
+  namespace: analytics
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: homelab-analytics
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:app.kubernetes.io/name: prometheus
+            k8s:io.kubernetes.pod.namespace: kube-prometheus-stack
+      toPorts:
+        - ports:
+            - {port: "8080", protocol: TCP}
+            - {port: "9464", protocol: TCP}
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: gatus
+            k8s:app.kubernetes.io/instance: gatus
+            k8s:app.kubernetes.io/name: gatus
+      toPorts:
+        - ports:
+            - {port: "8080", protocol: TCP}
+---
+# The web workload's /ready, for the second gatus endpoint.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-ingress-gatus-web
+  namespace: analytics
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: homelab-analytics-web
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: gatus
+            k8s:app.kubernetes.io/instance: gatus
+            k8s:app.kubernetes.io/name: gatus
+      toPorts:
+        - ports:
+            - {port: "8081", protocol: TCP}

@@ -1,0 +1,171 @@
+# GENERATED from charts/homelab-analytics (monitoring.prometheusRule.slo) by
+#   helm template homelab-analytics charts/homelab-analytics --namespace analytics \
+#     --set fullnameOverride=homelab-analytics --set monitoring.prometheusRule.enabled=true \
+#     --show-only templates/prometheus-rule.yaml
+# keeping only the .slo group. SLO targets: docs/runbooks/slo.md. Validated with
+# `promtool check rules`. Target path in appservice:
+#   clusters/main/kubernetes/apps/homelab-analytics/app/prometheusrule-slo.yaml
+# The chart's runtime group is not proposed: its kube_deployment alerts assume
+# separate api/web Deployments, while appservice runs api+worker in one pod.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: homelab-analytics-slo
+  namespace: analytics
+  labels:
+    app.kubernetes.io/name: homelab-analytics
+spec:
+  groups:
+  - name: appservice.homelab-analytics.slo
+    rules:
+    - record: homelab_analytics:http_requests:rate5m
+      expr: sum(rate(homelab_analytics_http_requests_total{route!~"/metrics|/health|/ready"}[5m]))
+    - record: homelab_analytics:http_errors:ratio_rate5m
+      expr: |
+        sum(rate(homelab_analytics_http_requests_total{route!~"/metrics|/health|/ready",status=~"5.."}[5m]))
+        /
+        clamp_min(sum(rate(homelab_analytics_http_requests_total{route!~"/metrics|/health|/ready"}[5m])), 1e-9)
+    - record: homelab_analytics:http_errors:ratio_rate30m
+      expr: |
+        sum(rate(homelab_analytics_http_requests_total{route!~"/metrics|/health|/ready",status=~"5.."}[30m]))
+        /
+        clamp_min(sum(rate(homelab_analytics_http_requests_total{route!~"/metrics|/health|/ready"}[30m])), 1e-9)
+    - record: homelab_analytics:http_errors:ratio_rate1h
+      expr: |
+        sum(rate(homelab_analytics_http_requests_total{route!~"/metrics|/health|/ready",status=~"5.."}[1h]))
+        /
+        clamp_min(sum(rate(homelab_analytics_http_requests_total{route!~"/metrics|/health|/ready"}[1h])), 1e-9)
+    - record: homelab_analytics:http_errors:ratio_rate6h
+      expr: |
+        sum(rate(homelab_analytics_http_requests_total{route!~"/metrics|/health|/ready",status=~"5.."}[6h]))
+        /
+        clamp_min(sum(rate(homelab_analytics_http_requests_total{route!~"/metrics|/health|/ready"}[6h])), 1e-9)
+    - record: homelab_analytics:http_slow:ratio_rate1h
+      expr: |
+        1 - (
+          sum(rate(homelab_analytics_http_request_duration_seconds_bucket{route!~"/metrics|/health|/ready",le="1.0"}[1h]))
+          /
+          clamp_min(sum(rate(homelab_analytics_http_request_duration_seconds_count{route!~"/metrics|/health|/ready"}[1h])), 1e-9)
+        )
+    - record: homelab_analytics:publication_refresh_errors:ratio_rate6h
+      expr: |
+        sum(increase(homelab_analytics_publication_refresh_duration_seconds_count{outcome="error"}[6h]))
+        /
+        clamp_min(sum(increase(homelab_analytics_publication_refresh_duration_seconds_count[6h])), 1e-9)
+    - record: homelab_analytics:backup_age_seconds
+      expr: time() - max(homelab_analytics_backup_last_success_timestamp_seconds > 0)
+    - alert: HomelabAnalyticsApiErrorBudgetFastBurn
+      expr: |
+        homelab_analytics:http_errors:ratio_rate5m > (14.4 * (1 - 0.995))
+        and homelab_analytics:http_errors:ratio_rate1h > (14.4 * (1 - 0.995))
+        and homelab_analytics:http_requests:rate5m > 0.01
+      for: 2m
+      labels:
+        severity: critical
+        slo: api-availability
+      annotations:
+        summary: API is burning its availability error budget fast.
+        description: More than 14.4x the allowed 5xx ratio over both 5m and 1h windows.
+    - alert: HomelabAnalyticsApiErrorBudgetSlowBurn
+      expr: |
+        homelab_analytics:http_errors:ratio_rate30m > (6 * (1 - 0.995))
+        and homelab_analytics:http_errors:ratio_rate6h > (6 * (1 - 0.995))
+        and homelab_analytics:http_requests:rate5m > 0.01
+      for: 15m
+      labels:
+        severity: warning
+        slo: api-availability
+      annotations:
+        summary: API is burning its availability error budget.
+        description: More than 6x the allowed 5xx ratio over both 30m and 6h windows.
+    - alert: HomelabAnalyticsApiLatencySloAtRisk
+      expr: |
+        homelab_analytics:http_slow:ratio_rate1h > (1 - 0.95) * 2
+        and homelab_analytics:http_requests:rate5m > 0.01
+      for: 30m
+      labels:
+        severity: warning
+        slo: api-latency
+      annotations:
+        summary: API requests slower than 1.0s exceed twice the latency budget.
+        description: Check slow routes on the Homelab Analytics dashboard (p95 by route).
+    - alert: HomelabAnalyticsSourceOverdue
+      expr: max by (source_asset_id, dataset) (homelab_analytics_source_overdue_seconds) > 86400
+      for: 1h
+      labels:
+        severity: warning
+        slo: source-freshness
+      annotations:
+        summary: Source {{ $labels.source_asset_id }} is overdue.
+        description: The source is more than 86400s past its next expected ingest. Upload the missing period or fix the ingestion definition.
+    - alert: HomelabAnalyticsPublicationRefreshFailing
+      expr: homelab_analytics:publication_refresh_errors:ratio_rate6h > (1 - 0.99)
+      for: 30m
+      labels:
+        severity: warning
+        slo: refresh-success
+      annotations:
+        summary: Publication refreshes are failing above budget.
+        description: More than 1.0% of publication refreshes failed over 6h.
+    - alert: HomelabAnalyticsPublicationsUnreliable
+      expr: sum(homelab_analytics_publication_confidence_verdicts{verdict=~"unreliable|unavailable"}) > 0
+      for: 6h
+      labels:
+        severity: info
+        slo: refresh-success
+      annotations:
+        summary: Some publications have unreliable or unavailable confidence verdicts.
+        description: See /control/source-freshness and publication confidence in the web control plane.
+    - alert: HomelabAnalyticsWorkerLoopStalled
+      expr: time() - max(homelab_analytics_worker_last_heartbeat_timestamp_seconds) > 600
+      for: 5m
+      labels:
+        severity: critical
+        slo: worker-liveness
+      annotations:
+        summary: No worker heartbeat for more than 600s.
+        description: The dispatch loop is not iterating; schedules, ingestion and scheduled backups are stopped.
+    - alert: HomelabAnalyticsBackupStale
+      expr: homelab_analytics:backup_age_seconds > 93600
+      for: 30m
+      labels:
+        severity: warning
+        slo: backup-recency
+      annotations:
+        summary: No verified warehouse/landing backup in more than 93600s.
+        description: Check backup-status.json last_error; the worker logs "scheduled backup failed" with the reason.
+    - alert: HomelabAnalyticsBackupNeverSucceeded
+      expr: max(homelab_analytics_backup_status_present) == 1 unless max(homelab_analytics_backup_last_success_timestamp_seconds) > 0
+      for: 6h
+      labels:
+        severity: warning
+        slo: backup-recency
+      annotations:
+        summary: Scheduled backups are enabled but none has succeeded yet.
+        description: Check backup-status.json last_error in the backup directory.
+    - alert: HomelabAnalyticsBackupFailing
+      expr: max(homelab_analytics_backup_consecutive_failures) >= 3
+      for: 5m
+      labels:
+        severity: warning
+        slo: backup-recency
+      annotations:
+        summary: Three or more consecutive scheduled backups failed.
+        description: A process other than the worker may hold the DuckDB warehouse write lock, or the backup volume is full.
+    - alert: HomelabAnalyticsRestoreDrillStale
+      expr: time() - max(homelab_analytics_backup_restore_drill_last_success_timestamp_seconds) > 691200
+      for: 1h
+      labels:
+        severity: info
+        slo: backup-recency
+      annotations:
+        summary: No passing restore drill recently.
+        description: Run "homelab-analytics-worker restore-drill" (docs/runbooks/backup-and-restore.md).
+    - alert: HomelabAnalyticsMetricsCollectorDown
+      expr: min by (collector) (homelab_analytics_metrics_collector_up) == 0
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: Scrape-time collector {{ $labels.collector }} is failing.
+        description: SLO metrics from this collector are stale; check API logs for "metrics collector failed".
