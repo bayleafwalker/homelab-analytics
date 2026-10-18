@@ -416,5 +416,79 @@ def test_read_classified_facet_methods_run_on_a_read_only_handle(tmp_path: Path)
         called.append(name)
     manager.close()
 
-    assert len(called) > 50
+    # Mart getters moved to the mart read registry (covered below); what is
+    # left here is counts, lists and registry-dispatched reads.
+    assert len(called) > 20
     assert needed_write == [], needed_write
+
+
+# ---------------------------------------------------------------------------
+# Mart read registry: pack-owned reporting reads on leased handles
+# ---------------------------------------------------------------------------
+
+# Required reader arguments, so every registered read is exercised.
+_MART_READ_ARGUMENTS: dict[str, dict[str, object]] = {}
+
+
+def _mart_reader_source(reader: object) -> str:
+    import inspect
+
+    from packages.pipelines.mart_read_registry import SchemaEnsuringReader
+
+    target = reader.reader if isinstance(reader, SchemaEnsuringReader) else reader
+    return inspect.getsource(target)  # type: ignore[arg-type]
+
+
+def test_mart_readers_that_issue_ddl_are_registered_as_schema_ensuring() -> None:
+    import re
+
+    from packages.pipelines.mart_read_registry import get_default_mart_read_registry
+
+    writes = re.compile(r"ensure_\w+\(|\bCREATE\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b")
+    registry = get_default_mart_read_registry()
+    issuing_ddl = {
+        name
+        for name in registry.relation_names()
+        if writes.search(_mart_reader_source(registry.reader(name)))
+    }
+    declared = {name for name in registry.relation_names() if registry.requires_write(name)}
+    assert issuing_ddl == declared
+
+
+def test_every_mart_read_runs_on_a_handle_of_its_declared_mode(tmp_path: Path) -> None:
+    from packages.pipelines.mart_read_registry import (
+        get_default_mart_read_registry,
+        read_warehouse_mart,
+    )
+
+    manager, _registry = _unit_manager(tmp_path, idle_timeout_seconds=60)
+    service = WarehouseSessionTransformationService(manager)
+    service.count_transactions()  # bootstrap the schema, then read-only
+    registry = get_default_mart_read_registry()
+    wrong_mode: dict[str, str | None] = {}
+    for name in registry.relation_names():
+        expected = "read_write" if registry.requires_write(name) else "read_only"
+        read_warehouse_mart(service, name, **_MART_READ_ARGUMENTS.get(name, {}))  # type: ignore[arg-type]
+        if manager.mode != expected:
+            wrong_mode[name] = manager.mode
+        manager.close()
+
+    assert len(registry.relation_names()) >= 8
+    assert wrong_mode == {}
+
+
+def test_reporting_service_warehouse_reads_take_one_read_only_lease(tmp_path: Path) -> None:
+    from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
+
+    manager, registry = _unit_manager(tmp_path, idle_timeout_seconds=60)
+    service = WarehouseSessionTransformationService(manager)
+    service.count_transactions()
+    reporting = ReportingService(
+        service,  # type: ignore[arg-type]
+        access_mode=ReportingAccessMode.WAREHOUSE,
+    )
+
+    assert reporting.get_monthly_cashflow() == []
+    assert manager.mode == "read_only"
+    assert "write_upgrades_total" not in registry.render_prometheus_text()
+    manager.close()

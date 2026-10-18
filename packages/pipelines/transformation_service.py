@@ -42,7 +42,6 @@ from packages.domains.finance.pipelines.transaction_models import (
     CURRENT_DIM_COUNTERPARTY_VIEW,
     DIM_ACCOUNT,
     DIM_COUNTERPARTY,
-    TRANSFORMATION_AUDIT_TABLE,
 )
 from packages.domains.finance.pipelines.transformation_assets import (
     ensure_asset_storage,
@@ -302,21 +301,6 @@ class TransformationService(
 
     def count_domain_rows(self, domain_key: str, *, run_id: str | None = None) -> int:
         return self._domain_registry.count(self, domain_key, run_id=run_id)
-
-    def get_transformation_audit(
-        self,
-        input_run_id: str | None = None,
-    ) -> list[dict[str, Any]]:
-        if input_run_id is not None:
-            return self._store.fetchall_dicts(
-                f"SELECT * FROM {TRANSFORMATION_AUDIT_TABLE}"
-                " WHERE input_run_id = ?"
-                " ORDER BY started_at DESC",
-                [input_run_id],
-            )
-        return self._store.fetchall_dicts(
-            f"SELECT * FROM {TRANSFORMATION_AUDIT_TABLE} ORDER BY started_at DESC"
-        )
 
     def get_current_dimension_rows(self, dimension_name: str) -> list[dict[str, Any]]:
         return self._current_dimension_registry.read(self._store, dimension_name)

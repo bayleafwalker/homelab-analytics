@@ -23,12 +23,6 @@ from packages.domains.finance.pipelines.transaction_models import (
 )
 from packages.domains.finance.pipelines.transformation_transactions import (
     count_transactions,
-    get_account_balance_trend,
-    get_monthly_cashflow,
-    get_monthly_cashflow_by_counterparty,
-    get_recent_large_transactions,
-    get_spend_by_category_monthly,
-    get_transaction_anomalies_current,
     load_transactions,
     populate_counterparty_category_ids,
 )
@@ -94,66 +88,8 @@ class TransactionTransformationMixin(TransformationFacetBase):
         reconcile_batch(self._store, batch_id, run_id=run_id)
         return inserted
 
-    def get_monthly_cashflow(
-        self,
-        from_month: str | None = None,
-        to_month: str | None = None,
-    ) -> list[dict[str, Any]]:
-        return get_monthly_cashflow(
-            self._store,
-            from_month=from_month,
-            to_month=to_month,
-        )
-
     def count_transactions(self, run_id: str | None = None) -> int:
         return count_transactions(self._store, run_id=run_id)
-
-    def get_monthly_cashflow_by_counterparty(
-        self,
-        from_month: str | None = None,
-        to_month: str | None = None,
-        counterparty_name: str | None = None,
-    ) -> list[dict[str, Any]]:
-        return get_monthly_cashflow_by_counterparty(
-            self._store,
-            from_month=from_month,
-            to_month=to_month,
-            counterparty_name=counterparty_name,
-        )
-
-    def get_spend_by_category_monthly(
-        self,
-        from_month: str | None = None,
-        to_month: str | None = None,
-        counterparty_name: str | None = None,
-        category: str | None = None,
-    ) -> list[dict[str, Any]]:
-        return get_spend_by_category_monthly(
-            self._store,
-            from_month=from_month,
-            to_month=to_month,
-            counterparty_name=counterparty_name,
-            category=category,
-        )
-
-    def get_recent_large_transactions(self) -> list[dict[str, Any]]:
-        return get_recent_large_transactions(self._store)
-
-    def get_account_balance_trend(
-        self,
-        account_id: str | None = None,
-        from_month: str | None = None,
-        to_month: str | None = None,
-    ) -> list[dict[str, Any]]:
-        return get_account_balance_trend(
-            self._store,
-            account_id=account_id,
-            from_month=from_month,
-            to_month=to_month,
-        )
-
-    def get_transaction_anomalies_current(self) -> list[dict[str, Any]]:
-        return get_transaction_anomalies_current(self._store)
 
     def add_category_rule(
         self,

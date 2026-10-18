@@ -653,6 +653,23 @@ def get_transaction_anomalies_current(store: DuckDBStore) -> list[dict[str, Any]
     )
 
 
+def get_transformation_audit(
+    store: DuckDBStore,
+    *,
+    input_run_id: str | None = None,
+) -> list[dict[str, Any]]:
+    if input_run_id is not None:
+        return store.fetchall_dicts(
+            f"SELECT * FROM {TRANSFORMATION_AUDIT_TABLE}"
+            " WHERE input_run_id = ?"
+            " ORDER BY started_at DESC",
+            [input_run_id],
+        )
+    return store.fetchall_dicts(
+        f"SELECT * FROM {TRANSFORMATION_AUDIT_TABLE} ORDER BY started_at DESC"
+    )
+
+
 def _transaction_id(
     booked_at: date,
     account_id: str,

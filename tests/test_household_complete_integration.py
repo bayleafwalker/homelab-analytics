@@ -25,6 +25,8 @@ from packages.domains.finance.pipelines.loan_service import LoanService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.domains.finance.pipelines.transformation_budgets import refresh_budget_variance
 from packages.domains.finance.pipelines.transformation_transactions import (
+    get_monthly_cashflow,
+    get_spend_by_category_monthly,
     refresh_spend_by_category_monthly,
 )
 from packages.domains.utilities.pipelines.utility_bill_service import UtilityBillService
@@ -134,11 +136,11 @@ class AllDomainsMartPopulationTests(unittest.TestCase):
         cls._temp.cleanup()
 
     def test_monthly_cashflow_populated(self) -> None:
-        rows = self.ts.get_monthly_cashflow()
+        rows = get_monthly_cashflow(self.ts.store)
         self.assertGreater(len(rows), 0)
 
     def test_spend_by_category_monthly_populated(self) -> None:
-        rows = self.ts.get_spend_by_category_monthly()
+        rows = get_spend_by_category_monthly(self.ts.store)
         self.assertGreater(len(rows), 0)
 
     def test_subscription_summary_populated(self) -> None:
@@ -221,7 +223,7 @@ class BudgetVarianceAlignmentTests(unittest.TestCase):
 
     def test_spend_by_category_has_monthly_rows(self) -> None:
         # Verify spend mart is populated (categories require explicit rules to be non-NULL)
-        rows = self.ts.get_spend_by_category_monthly()
+        rows = get_spend_by_category_monthly(self.ts.store)
         months = {r["booking_month"] for r in rows}
         self.assertGreater(len(months), 0)
 
@@ -383,7 +385,7 @@ class BudgetCategoryOverlapTests(unittest.TestCase):
 
     def test_budget_categories_overlap_with_spend_categories(self) -> None:
         budget_rows = self.ts.get_budget_variance()
-        spend_rows = self.ts.get_spend_by_category_monthly()
+        spend_rows = get_spend_by_category_monthly(self.ts.store)
 
         spend_categories = {r["category"] for r in spend_rows if r.get("category") is not None}
         budget_categories_with_spend = {
@@ -401,7 +403,7 @@ class BudgetCategoryOverlapTests(unittest.TestCase):
         )
 
     def test_spend_categories_are_non_null_after_rules_applied(self) -> None:
-        rows = self.ts.get_spend_by_category_monthly()
+        rows = get_spend_by_category_monthly(self.ts.store)
         categorised = [r for r in rows if r.get("category") is not None]
         self.assertGreater(
             len(categorised), 0,

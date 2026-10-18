@@ -7,6 +7,7 @@ registries the facade dispatches to:
 - publication refresh: ``PublicationRefreshRegistry`` (``refresh_publications``)
 - scenario types: ``ScenarioRegistry`` (``create_scenario`` / ``get_scenario_view``)
 - current dimensions: ``CurrentDimensionRegistry`` (``get_current_dimension_rows``)
+- reporting mart reads: ``MartReadRegistry`` (``ReportingService`` via ``read_warehouse_mart``)
 
 The surface below is a ratchet. Adding a public method fails this test: put
 the behaviour in the domain pack and register it, or add an application use
@@ -126,12 +127,6 @@ FACADE_SURFACE_BASELINE: dict[str, frozenset[str]] = {
         {
             "add_category_rule",
             "count_transactions",
-            "get_account_balance_trend",
-            "get_monthly_cashflow",
-            "get_monthly_cashflow_by_counterparty",
-            "get_recent_large_transactions",
-            "get_spend_by_category_monthly",
-            "get_transaction_anomalies_current",
             "list_category_overrides",
             "list_category_rules",
             "load_transactions",
@@ -146,7 +141,6 @@ FACADE_SURFACE_BASELINE: dict[str, frozenset[str]] = {
             "count_domain_rows",
             "get_current_dimension_rows",
             "get_household_members",
-            "get_transformation_audit",
             "load_domain_rows",
             "record_publication_confidence",
             "refresh_publications",

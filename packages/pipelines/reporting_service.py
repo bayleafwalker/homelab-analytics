@@ -37,9 +37,6 @@ from packages.domains.finance.pipelines.transaction_models import (
     MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
     TRANSFORMATION_AUDIT_TABLE,
 )
-from packages.domains.finance.pipelines.transformation_transactions import (
-    get_spend_by_weekday_hour as read_spend_by_weekday_hour,
-)
 from packages.domains.homelab.pipelines.ha_service import get_ha_state_changes_since
 from packages.domains.homelab.pipelines.homelab_models import (
     MART_BACKUP_FRESHNESS_TABLE,
@@ -76,6 +73,11 @@ from packages.pipelines.household_reporting import (
     CURRENT_DIMENSION_RELATIONS,
     PUBLICATION_RELATIONS,
     PublicationRelation,
+)
+from packages.pipelines.mart_read_registry import (
+    MartReadRegistry,
+    get_default_mart_read_registry,
+    read_warehouse_mart,
 )
 from packages.pipelines.promotion import PromotionResult
 from packages.pipelines.reporting_snapshots import (
@@ -252,8 +254,10 @@ class ReportingService:
         access_mode: ReportingAccessMode = ReportingAccessMode.PREFER_PUBLISHED,
         control_plane_store: SourceLineageStore | PublicationAuditStore | None = None,
         snapshot_retention_months: int = DEFAULT_SNAPSHOT_RETENTION_MONTHS,
+        mart_read_registry: MartReadRegistry | None = None,
     ) -> None:
         self._transformation_service = transformation_service
+        self._mart_read_registry = mart_read_registry or get_default_mart_read_registry()
         self._publication_store = publication_store
         self._extension_registry = extension_registry
         self._access_mode = access_mode
@@ -309,7 +313,8 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_MONTHLY_CASHFLOW_TABLE,
-            lambda: self._transformation_service.get_monthly_cashflow(
+            lambda: self._read_mart(
+                MART_MONTHLY_CASHFLOW_TABLE,
                 from_month=from_month,
                 to_month=to_month,
             ),
@@ -339,7 +344,8 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_CASHFLOW_BY_COUNTERPARTY_TABLE,
-            lambda: self._transformation_service.get_monthly_cashflow_by_counterparty(
+            lambda: self._read_mart(
+                MART_CASHFLOW_BY_COUNTERPARTY_TABLE,
                 from_month=from_month,
                 to_month=to_month,
                 counterparty_name=counterparty_name,
@@ -657,9 +663,7 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             TRANSFORMATION_AUDIT_TABLE,
-            lambda: self._transformation_service.get_transformation_audit(
-                input_run_id=input_run_id
-            ),
+            lambda: self._read_mart(TRANSFORMATION_AUDIT_TABLE, input_run_id=input_run_id),
             _build_where_clause(("input_run_id = %s", input_run_id)),
             "ORDER BY started_at DESC",
         )
@@ -678,7 +682,8 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
-            lambda: self._transformation_service.get_spend_by_category_monthly(
+            lambda: self._read_mart(
+                MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
                 from_month=from_month,
                 to_month=to_month,
                 counterparty_name=counterparty_name,
@@ -696,7 +701,7 @@ class ReportingService:
     def get_recent_large_transactions(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_RECENT_LARGE_TRANSACTIONS_TABLE,
-            self._transformation_service.get_recent_large_transactions,
+            lambda: self._read_mart(MART_RECENT_LARGE_TRANSACTIONS_TABLE),
             ("", []),
             "ORDER BY booked_at DESC",
         )
@@ -710,7 +715,8 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_ACCOUNT_BALANCE_TREND_TABLE,
-            lambda: self._transformation_service.get_account_balance_trend(
+            lambda: self._read_mart(
+                MART_ACCOUNT_BALANCE_TREND_TABLE,
                 account_id=account_id,
                 from_month=from_month,
                 to_month=to_month,
@@ -731,11 +737,8 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_SPEND_BY_WEEKDAY_HOUR_TABLE,
-            # Pack read on the warehouse store, not a facade getter: the
-            # TransformationService surface is a shrink-only ratchet. Under
-            # warehouse_session, store.fetchall_dicts runs on a read-only lease.
-            lambda: read_spend_by_weekday_hour(
-                self._transformation_service.store,
+            lambda: self._read_mart(
+                MART_SPEND_BY_WEEKDAY_HOUR_TABLE,
                 from_date=from_date,
                 to_date=to_date,
             ),
@@ -749,7 +752,7 @@ class ReportingService:
     def get_transaction_anomalies_current(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
-            self._transformation_service.get_transaction_anomalies_current,
+            lambda: self._read_mart(MART_TRANSACTION_ANOMALIES_CURRENT_TABLE),
             ("", []),
             "ORDER BY booking_date DESC",
         )
@@ -1309,6 +1312,15 @@ class ReportingService:
             # agent index, it is simply a publication without samples.
             return None
         return rows[:limit], len(rows)
+
+    def _read_mart(self, relation_name: str, **filters: Any) -> list[dict[str, Any]]:
+        """Warehouse read through the pack-owned mart reader, on one leased handle."""
+        return read_warehouse_mart(
+            self._transformation_service,
+            relation_name,
+            registry=self._mart_read_registry,
+            **filters,
+        )
 
     def _fetch_published_or_fallback(
         self,

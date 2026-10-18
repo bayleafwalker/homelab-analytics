@@ -13,6 +13,7 @@ from __future__ import annotations
 import pytest
 
 from packages.domains.finance.pipelines.transformation_transactions import (
+    get_spend_by_category_monthly,
     refresh_spend_by_category_monthly,
 )
 from packages.pipelines.transformation_service import TransformationService
@@ -184,7 +185,7 @@ class TestCategoryInSpendReport:
         svc.load_transactions(LANDING_ROWS, run_id="run-001")
         refresh_spend_by_category_monthly(svc.store)
 
-        rows = svc.get_spend_by_category_monthly()
+        rows = get_spend_by_category_monthly(svc.store)
         categories = {r["counterparty_name"]: r["category"] for r in rows}
         assert categories["REWE Supermarket"] == "groceries"
         assert categories["ALDI Supermarket"] == "groceries"
@@ -196,6 +197,6 @@ class TestCategoryInSpendReport:
         svc.load_transactions(LANDING_ROWS, run_id="run-001")
         refresh_spend_by_category_monthly(svc.store)
 
-        groceries = svc.get_spend_by_category_monthly(category="groceries")
+        groceries = get_spend_by_category_monthly(svc.store, category="groceries")
         assert len(groceries) == 2
         assert all(r["category"] == "groceries" for r in groceries)
