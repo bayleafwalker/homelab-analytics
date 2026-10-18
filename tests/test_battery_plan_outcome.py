@@ -350,3 +350,13 @@ def test_battery_plan_modules_have_no_actuation_or_credential_path() -> None:
         text = path.read_text()
         for token in forbidden:
             assert token not in text, f"{path.name} contains {token!r}"
+
+
+def test_worker_exposes_refresh_battery_plan_outcome_command() -> None:
+    from apps.worker.command_handlers import build_worker_command_handlers
+    from apps.worker.command_parser import build_parser
+
+    assert "refresh-battery-plan-outcome" in build_worker_command_handlers()
+    assert build_parser().parse_args(["refresh-battery-plan-outcome"]).command == (
+        "refresh-battery-plan-outcome"
+    )
