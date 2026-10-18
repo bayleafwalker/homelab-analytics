@@ -13,3 +13,4 @@ Current foundation:
 - extension-registry CLI commands cover source lifecycle, discovered handler/publication/function listing, and archived-aware transformation-package/publication-definition catalog inspection
 - subscription and contract-price domains have first-class ingest and report commands
 - `promote-run` is retry-safe and refreshes marts without duplicating already promoted fact rows
+- `backup`, `verify-backup`, and `restore` produce and restore a checksummed bundle of the SQLite control plane, DuckDB warehouse, and filesystem landing payloads; they run before the runtime is built and refuse checksum/schema mismatches or non-empty targets without `--force` (see `docs/runbooks/backup-and-restore.md`)
