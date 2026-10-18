@@ -19,7 +19,12 @@ from apps.api.auth_runtime import (
 )
 from apps.api.routes.action_proposal_routes import register_action_proposal_routes
 from apps.api.routes.adapter_routes import register_adapter_routes
-from apps.api.routes.agent_routes import register_agent_routes
+from apps.api.routes.agent_routes import (
+    build_agent_publication_index,
+    build_publication_confidence_lookup,
+    publication_display_names,
+    register_agent_routes,
+)
 from apps.api.routes.assistant_routes import register_assistant_routes
 from apps.api.routes.auth_routes import register_auth_routes
 from apps.api.routes.briefing_routes import register_briefing_routes
@@ -102,6 +107,7 @@ from packages.platform.auth.oidc_provider import OidcProvider
 from packages.platform.auth.proxy_provider import ProxyProvider
 from packages.platform.auth.route_policy_engine import RouteAuthorizationLookup
 from packages.platform.auth.session_manager import SessionManager
+from packages.platform.publication_confidence import get_latest_publication_confidence
 from packages.platform.runtime.container import AppContainer
 from packages.shared.auth_modes import (
     normalize_auth_mode,
@@ -754,16 +760,31 @@ def create_app(
         ha_action_proposal_registry=resolved_action_proposal_registry,
         to_jsonable=to_jsonable,
     )
+    agent_publication_index = build_agent_publication_index(
+        container.capability_packs,
+        container.extension_registry,
+    )
+
+    _agent_confidence_lookup = build_publication_confidence_lookup(
+        agent_publication_index,
+        lambda key: get_latest_publication_confidence(key, resolved_config_repository),
+    )
+
     register_action_proposal_routes(
         app,
         action_proposal_registry=resolved_action_proposal_registry,
         ha_action_dispatcher=ha_action_dispatcher,
+        publication_names=publication_display_names(agent_publication_index),
+        confidence_lookup=_agent_confidence_lookup,
     )
     register_agent_routes(
         app,
         capability_packs=container.capability_packs,
         extension_registry=container.extension_registry,
         resolved_reporting_service=reporting_service,
+        publication_semantic_index=agent_publication_index,
+        confidence_lookup=_agent_confidence_lookup,
+        action_proposal_registry=resolved_action_proposal_registry,
     )
     register_lineage_routes(
         app,

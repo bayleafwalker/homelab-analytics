@@ -14,6 +14,13 @@ Routes:
 - ``GET  /api/actions/proposals/{action_id}`` — fetch one proposal
 - ``POST /api/actions/proposals/{action_id}/approve`` — approve
 - ``POST /api/actions/proposals/{action_id}/dismiss`` — dismiss
+- ``GET  /api/actions/proposals/{action_id}/review`` — operator review model:
+  effect, diff-style change preview, cited evidence with trust at draft vs
+  now, and caveats
+
+Drafts that cite ``provenance.publication_keys`` without trust fields get the
+worst-case trust of those publications stamped server-side, so the proposer
+cannot omit (or overstate) what its evidence looked like at draft time.
 
 Resolution rules (shared with the HA approval routes):
 
@@ -25,11 +32,17 @@ Resolution rules (shared with the HA approval routes):
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, Literal, cast
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from packages.application.use_cases.agent_proposal_review import (
+    build_proposal_review,
+    stamp_provenance_trust,
+)
+from packages.application.use_cases.agent_trust import ConfidenceLookup
 from packages.platform.action_proposals import (
     ADAPTER_HOME_ASSISTANT,
     ADAPTER_PLATFORM,
@@ -104,6 +117,72 @@ class ActionProposalListModel(BaseModel):
     proposals: list[ActionProposalModel]
 
 
+class ProposalEffectModel(BaseModel):
+    adapter: str
+    kind: Literal["in_registry_only", "release_ha_approval", "adapter_release"]
+    summary: str
+    external_effect: bool
+
+
+class ProposalChangeRowModel(BaseModel):
+    field: str
+    label: str
+    before: str | None = None
+    after: str | None = None
+    changes: bool
+
+
+class ProposalTrustAtDraftModel(BaseModel):
+    confidence_verdict: str | None = None
+    freshness_state: str | None = None
+    assessed_at: str | None = None
+
+
+class PublicationTrustModel(BaseModel):
+    publication_key: str
+    confidence_verdict: str | None = None
+    freshness_state: str | None = None
+    completeness_pct: int | None = None
+    assessed_at: str | None = None
+    guidance: Literal[
+        "state_as_current",
+        "state_with_caveat",
+        "do_not_state_as_current",
+        "trust_unknown",
+    ]
+    guidance_detail: str
+
+
+class ProposalEvidenceModel(BaseModel):
+    publication_key: str
+    display_name: str | None = None
+    known: bool
+    at_draft: ProposalTrustAtDraftModel
+    now: PublicationTrustModel | None = None
+    contract_path: str | None = None
+    lineage_path: str | None = None
+
+
+class ProposalReviewTrustModel(BaseModel):
+    guidance: Literal[
+        "state_as_current",
+        "state_with_caveat",
+        "do_not_state_as_current",
+        "trust_unknown",
+    ]
+    guidance_detail: str
+    caveats: list[str] = Field(default_factory=list)
+
+
+class ActionProposalReviewModel(BaseModel):
+    schema_version: str
+    proposal: ActionProposalModel
+    effect: ProposalEffectModel
+    change_preview: list[ProposalChangeRowModel]
+    evidence: list[ProposalEvidenceModel]
+    trust: ProposalReviewTrustModel
+
+
 def resolver_identity(request: Request) -> str | None:
     """Identity recorded as the resolver of a proposal.
 
@@ -164,8 +243,11 @@ def register_action_proposal_routes(
     *,
     action_proposal_registry: ActionProposalRegistry,
     ha_action_dispatcher: Any | None = None,
+    publication_names: Mapping[str, str] | None = None,
+    confidence_lookup: ConfidenceLookup | None = None,
 ) -> None:
     """Register the adapter-agnostic proposal queue routes."""
+    known_publication_names: Mapping[str, str] = publication_names or {}
 
     async def _release_through_adapter(
         proposal: ActionProposal,
@@ -185,10 +267,15 @@ def register_action_proposal_routes(
     @app.get("/api/actions/proposals", response_model=ActionProposalListModel)
     async def list_action_proposals(
         status: Literal["pending", "approved", "dismissed"] | None = None,
+        source_kind: Literal["policy", "assistant", "operator", "agent"] | None = None,
     ) -> ActionProposalListModel:
         proposals = action_proposal_registry.list_all()
         if status is not None:
             proposals = [proposal for proposal in proposals if proposal.status == status]
+        if source_kind is not None:
+            proposals = [
+                proposal for proposal in proposals if proposal.source_kind == source_kind
+            ]
         return ActionProposalListModel(
             proposals=[
                 ActionProposalModel.model_validate(proposal.to_dict())
@@ -209,12 +296,24 @@ def register_action_proposal_routes(
         )
         provenance = None
         if body.provenance is not None:
-            provenance = ProposalProvenance(
-                publication_keys=list(body.provenance.publication_keys),
-                confidence_verdict_at_draft=body.provenance.confidence_verdict_at_draft,
-                freshness_state_at_draft=body.provenance.freshness_state_at_draft,
-                assessed_at=body.provenance.assessed_at,
-            )
+            publication_keys = list(body.provenance.publication_keys)
+            if publication_keys and confidence_lookup is not None:
+                # The platform, not the proposer, records what the cited
+                # evidence looked like at draft time.
+                stamped = stamp_provenance_trust(publication_keys, confidence_lookup)
+                provenance = ProposalProvenance(
+                    publication_keys=publication_keys,
+                    confidence_verdict_at_draft=stamped["confidence_verdict_at_draft"],
+                    freshness_state_at_draft=stamped["freshness_state_at_draft"],
+                    assessed_at=stamped["assessed_at"],
+                )
+            else:
+                provenance = ProposalProvenance(
+                    publication_keys=publication_keys,
+                    confidence_verdict_at_draft=body.provenance.confidence_verdict_at_draft,
+                    freshness_state_at_draft=body.provenance.freshness_state_at_draft,
+                    assessed_at=body.provenance.assessed_at,
+                )
         proposal = action_proposal_registry.register(
             policy_id=body.policy_id,
             policy_name=body.policy_name,
@@ -245,6 +344,20 @@ def register_action_proposal_routes(
     async def get_action_proposal(action_id: str) -> ActionProposalModel:
         proposal = _require_proposal(action_id)
         return ActionProposalModel.model_validate(proposal.to_dict())
+
+    @app.get(
+        "/api/actions/proposals/{action_id}/review",
+        response_model=ActionProposalReviewModel,
+    )
+    async def review_action_proposal(action_id: str) -> ActionProposalReviewModel:
+        proposal = _require_proposal(action_id)
+        return ActionProposalReviewModel.model_validate(
+            build_proposal_review(
+                proposal,
+                publication_names=known_publication_names,
+                confidence_lookup=confidence_lookup,
+            )
+        )
 
     @app.post(
         "/api/actions/proposals/{action_id}/approve",

@@ -20,7 +20,15 @@ from typing import Any, Callable, Sequence
 
 from packages.platform.publication_index import PublicationSemanticIndexEntry
 
-AGENT_SEMANTIC_INDEX_SCHEMA_VERSION = "1.0.0"
+# 1.1.0: additive — per-entry ``trust`` block and list paging fields
+# (``total``, ``next_cursor``) served by the API route.
+AGENT_SEMANTIC_INDEX_SCHEMA_VERSION = "1.1.0"
+AGENT_TRUST_GUIDANCE_VALUES = (
+    "state_as_current",
+    "state_with_caveat",
+    "do_not_state_as_current",
+    "trust_unknown",
+)
 DEFAULT_SAMPLE_ROW_LIMIT = 5
 
 # Rows returned by a sample fetcher, plus the total row count when the source
@@ -276,6 +284,18 @@ def validate_agent_semantic_index_payload(payload: Any) -> list[str]:
                     isinstance(column.get("nullable"), bool),
                     f"{column_where}.nullable must be a boolean",
                 )
+        trust = entry.get("trust")
+        if trust is not None and check(
+            isinstance(trust, dict), f"{where}.trust must be an object or null"
+        ):
+            check(
+                trust.get("guidance") in AGENT_TRUST_GUIDANCE_VALUES,
+                f"{where}.trust.guidance must be one of {AGENT_TRUST_GUIDANCE_VALUES}",
+            )
+            check(
+                isinstance(trust.get("guidance_detail"), str),
+                f"{where}.trust.guidance_detail must be a string",
+            )
         sample = entry.get("sample")
         if sample is not None and check(
             isinstance(sample, dict), f"{where}.sample must be an object or null"
