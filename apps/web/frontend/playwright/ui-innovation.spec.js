@@ -104,6 +104,54 @@ test("wallboard compact mode hides the event feed and hotkey hint", async ({ pag
   expect(size).toBe(48);
 });
 
+async function setVisibility(page, state) {
+  await page.evaluate((value) => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => value });
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => value === "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, state);
+}
+
+test("wallboard refresh pauses while hidden and refreshes on return", async ({ page }) => {
+  await gotoStory(page, "wallboard-refresh--manual-only");
+  const status = page.getByRole("status");
+  const count = page.getByTestId("refresh-count");
+  await expect(status).toContainText("Live");
+  await setVisibility(page, "hidden");
+  await expect(status).toContainText("Paused, hidden");
+  await expect(count).toHaveText("0");
+  await setVisibility(page, "visible");
+  await expect(status).toContainText("Live");
+  await expect(count).toHaveText("1");
+  // Hotkeys: R refreshes now, P pauses (and a paused board does not
+  // refresh on becoming visible).
+  await page.keyboard.press("r");
+  await expect(count).toHaveText("2");
+  await page.keyboard.press("p");
+  await expect(status).toContainText("Paused");
+  await setVisibility(page, "hidden");
+  await setVisibility(page, "visible");
+  await expect(count).toHaveText("2");
+});
+
+test("wallboard refresh ticks without focus but not while hidden or hovered", async ({ page }) => {
+  await gotoStory(page, "wallboard-refresh--fast-tick");
+  const count = page.getByTestId("refresh-count");
+  // No focus is given to the page: ticks still land.
+  await page.evaluate(() => window.blur());
+  await expect.poll(async () => Number(await count.textContent())).toBeGreaterThan(1);
+  await setVisibility(page, "hidden");
+  const hiddenAt = Number(await count.textContent());
+  await page.waitForTimeout(1000);
+  expect(Number(await count.textContent())).toBe(hiddenAt);
+  await setVisibility(page, "visible");
+  await page.locator(".wall").hover();
+  await expect(page.getByRole("status")).toContainText("Frozen");
+  const hoveredAt = Number(await count.textContent());
+  await page.waitForTimeout(1000);
+  expect(Number(await count.textContent())).toBe(hoveredAt);
+});
+
 for (const story of ["service-tile-up", "devices", "events", "power", "power-ambiguous"]) {
   test(`wallboard panel ${story} renders`, async ({ page }) => {
     await gotoStory(page, `wallboard-panels--${story}`);

@@ -1378,11 +1378,17 @@ def test_wallboard_page_is_ambient_and_degrades_per_tile() -> None:
     # Compact is URL-only.
     for source in (page, live, view):
         assert "localStorage" not in source
-    # 30s refresh; skips ticks without focus; freezes on hover; no streaming.
+    # 30s refresh; pauses while the page is hidden and refreshes on return;
+    # freezes on hover; no streaming. Not gated on focus: kiosk browsers
+    # rarely get it, and hasFocus gating starves the display.
     assert "REFRESH_MS = 30_000" in live
     assert "router.refresh()" in live
-    assert "document.hasFocus()" in live
+    assert 'document.visibilityState === "hidden"' in live
+    assert 'addEventListener("visibilitychange", onVisibility)' in live
+    assert "if (wasHidden && !hidden && !pauseReason(stateRef.current)) refreshRef.current();" in live
+    assert "hasFocus()" not in live
     assert "pointerenter" in live
+    assert 'key === "r"' in live and 'key === "p"' in live
     assert "No services reporting" in panels
     assert "Not connected" in panels
     # Kiosk grid.

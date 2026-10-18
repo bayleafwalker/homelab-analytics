@@ -33,21 +33,28 @@ export function WallClock({ initial }) {
 
 // Why the board is not refreshing right now, or null when it is live.
 // Exported for tests; the order is the order the status line reports.
-export function pauseReason({ focused, hovering, manual }) {
+export function pauseReason({ hidden, hovering, manual }) {
   if (manual) return "Paused";
   if (hovering) return "Frozen";
-  if (!focused) return "Paused, not focused";
+  if (hidden) return "Paused, hidden";
   return null;
 }
 
-// Re-renders the server page every 30s. Skips a tick while the page does not
-// have focus (document.hasFocus() is false) and freezes while the pointer is
-// over the board, so nothing moves under someone reading it. R refreshes now,
-// P toggles a manual pause.
-export function WallRefresh({ renderedAt }) {
-  const router = useRouter();
-  const [state, setState] = useState({ focused: true, hovering: false, manual: false });
+function isHidden() {
+  return document.visibilityState === "hidden";
+}
+
+// Refresh loop without the Next router, so Storybook can drive it.
+// Gates on page visibility, not on window focus: a wall-mounted TV or
+// tablet browser usually never receives focus, and hasFocus gating starves
+// kiosk displays. Pauses while the page is hidden (visibilitychange) and
+// refreshes at once when it becomes visible again; freezes while the
+// pointer is over the board. R refreshes now, P toggles a manual pause.
+export function WallRefreshControl({ renderedAt, refresh, intervalMs = REFRESH_MS }) {
+  const [state, setState] = useState({ hidden: false, hovering: false, manual: false });
   const stateRef = useRef(state);
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
 
   useEffect(() => {
     function update(patch) {
@@ -56,37 +63,37 @@ export function WallRefresh({ renderedAt }) {
     }
     const onEnter = () => update({ hovering: true });
     const onLeave = () => update({ hovering: false });
-    const onFocusChange = () => update({ focused: document.hasFocus() });
+    function onVisibility() {
+      const hidden = isHidden();
+      const wasHidden = stateRef.current.hidden;
+      update({ hidden });
+      if (wasHidden && !hidden && !pauseReason(stateRef.current)) refreshRef.current();
+    }
     function onKey(event) {
       if (event.altKey || event.ctrlKey || event.metaKey) return;
       const target = event.target;
       if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
       const key = String(event.key).toLowerCase();
-      if (key === "r") router.refresh();
+      if (key === "r") refreshRef.current();
       if (key === "p") update({ manual: !stateRef.current.manual });
     }
     const root = document.querySelector(".wall");
     root?.addEventListener("pointerenter", onEnter);
     root?.addEventListener("pointerleave", onLeave);
-    window.addEventListener("focus", onFocusChange);
-    window.addEventListener("blur", onFocusChange);
-    document.addEventListener("visibilitychange", onFocusChange);
+    document.addEventListener("visibilitychange", onVisibility);
     document.addEventListener("keydown", onKey);
-    update({ focused: document.hasFocus() });
+    update({ hidden: isHidden() });
     const id = window.setInterval(() => {
-      const current = { ...stateRef.current, focused: document.hasFocus() };
-      if (!pauseReason(current)) router.refresh();
-    }, REFRESH_MS);
+      if (!pauseReason({ ...stateRef.current, hidden: isHidden() })) refreshRef.current();
+    }, intervalMs);
     return () => {
       root?.removeEventListener("pointerenter", onEnter);
       root?.removeEventListener("pointerleave", onLeave);
-      window.removeEventListener("focus", onFocusChange);
-      window.removeEventListener("blur", onFocusChange);
-      document.removeEventListener("visibilitychange", onFocusChange);
+      document.removeEventListener("visibilitychange", onVisibility);
       document.removeEventListener("keydown", onKey);
       window.clearInterval(id);
     };
-  }, [router]);
+  }, [intervalMs]);
 
   const reason = pauseReason(state);
   return (
@@ -94,4 +101,10 @@ export function WallRefresh({ renderedAt }) {
       {reason || "Live"}, updated {formatClock(new Date(renderedAt))}
     </span>
   );
+}
+
+// Re-renders the server page every 30s through the App Router.
+export function WallRefresh({ renderedAt }) {
+  const router = useRouter();
+  return <WallRefreshControl renderedAt={renderedAt} refresh={() => router.refresh()} />;
 }
