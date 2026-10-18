@@ -8,6 +8,13 @@ data:
   {{- range $key, $value := .Values.commonEnv }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}
+  {{- if not (hasKey .Values.commonEnv "HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE") }}
+  {{- $tz := toString ((.Values.household | default dict).timezone | default "UTC") }}
+  {{- if not (regexMatch "^[A-Za-z][A-Za-z0-9_+-]*(/[A-Za-z0-9_+-]+)*$" $tz) }}
+  {{- fail (printf "household.timezone must be an IANA timezone name such as Europe/Helsinki, got %q" $tz) }}
+  {{- end }}
+  HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE: {{ $tz | quote }}
+  {{- end }}
   {{- if gt (int .Values.backup.intervalSeconds) 0 }}
   HOMELAB_ANALYTICS_BACKUP_INTERVAL_SECONDS: {{ .Values.backup.intervalSeconds | quote }}
   HOMELAB_ANALYTICS_BACKUP_RETENTION_COUNT: {{ .Values.backup.retentionCount | quote }}

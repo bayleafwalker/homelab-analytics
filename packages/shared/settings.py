@@ -5,12 +5,18 @@ import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
+from zoneinfo import ZoneInfo
 
 from packages.shared.auth_modes import (
     IdentityMode,
     ResolvedAuthMode,
     normalize_auth_mode,
     normalize_identity_mode,
+)
+from packages.shared.household_time import (
+    DEFAULT_HOUSEHOLD_TIMEZONE,
+    HOUSEHOLD_TIMEZONE_ENV,
+    household_zone,
 )
 
 _DEPRECATED_ENV_ALIAS_REPLACEMENTS: tuple[tuple[str, str], ...] = (
@@ -149,6 +155,17 @@ class AppSettings:
     api_warehouse_idle_seconds: float = 5.0
     warehouse_lock_retry_attempts: int = 4
     warehouse_lock_retry_backoff_seconds: float = 0.1
+    # IANA zone for hour-of-day and calendar-date reporting (spend heatmap,
+    # wallboard power buckets, morning brief dates). Storage stays UTC.
+    household_timezone: str = DEFAULT_HOUSEHOLD_TIMEZONE
+
+    def __post_init__(self) -> None:
+        # Fail at startup on a zone the host cannot load.
+        household_zone(self.household_timezone)
+
+    @property
+    def resolved_household_timezone(self) -> ZoneInfo:
+        return household_zone(self.household_timezone)
 
     @property
     def resolved_config_database_path(self) -> Path:
@@ -543,6 +560,10 @@ class AppSettings:
         warehouse_lock_retry_backoff_seconds = float(
             env.get("HOMELAB_ANALYTICS_WAREHOUSE_LOCK_RETRY_BACKOFF_SECONDS", "0.1")
         )
+        household_timezone = (
+            env.get(HOUSEHOLD_TIMEZONE_ENV, "").strip() or DEFAULT_HOUSEHOLD_TIMEZONE
+        )
+        household_zone(household_timezone)
         return cls(
             data_dir=data_dir,
             landing_root=data_dir / "landing",
@@ -647,6 +668,7 @@ class AppSettings:
             api_warehouse_idle_seconds=api_warehouse_idle_seconds,
             warehouse_lock_retry_attempts=warehouse_lock_retry_attempts,
             warehouse_lock_retry_backoff_seconds=warehouse_lock_retry_backoff_seconds,
+            household_timezone=household_timezone,
         )
 
 

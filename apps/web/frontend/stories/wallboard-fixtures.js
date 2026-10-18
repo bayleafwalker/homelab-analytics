@@ -47,6 +47,7 @@ export const powerData = {
   available: true,
   status: "ok",
   window_hours: 24,
+  timezone: "UTC",
   unit: "kWh",
   generated_at: "2026-10-18T07:42:00+00:00",
   meter: { entity_id: "sensor.house_energy", name: "House energy", unit: "kWh" },

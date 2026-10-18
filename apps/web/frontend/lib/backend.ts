@@ -610,7 +610,7 @@ type SpendHeatmapOptions = {
   asOf?: QueryValue<"/reports/spend-heatmap", "as_of">;
 };
 
-// Day-of-week x UTC-hour spend matrix (7x24) from the reporting mart
+// Day-of-week x hour spend matrix (7x24, household timezone) from the reporting mart
 // mart_spend_by_weekday_hour; date-only bookings come back as `untimed`.
 export async function getSpendHeatmap({ window = 28, asOf }: SpendHeatmapOptions = {}) {
   return backendGet("/reports/spend-heatmap", {
@@ -1076,7 +1076,7 @@ export async function getEventFeed(since?: QueryValue<"/api/wallboard/events", "
   });
 }
 
-/** Wallboard hourly kWh (UTC-hour buckets) for the house energy meter. */
+/** Wallboard hourly kWh (household-clock hour buckets) for the house energy meter. */
 export async function getPowerSeries(
   windowHours: QueryValue<"/api/wallboard/power", "window_hours"> = 24
 ) {

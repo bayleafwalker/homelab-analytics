@@ -23,6 +23,9 @@ dependencies = [
     "PyJWT[crypto]>=2.10",
     "python-multipart>=0.0.9",
     "pytz>=2024.1",
+    # IANA zone database for HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE on images
+    # without /usr/share/zoneinfo (python:*-slim).
+    "tzdata>=2024.1",
     "pyarrow>=17.0",
     "openpyxl>=3.1",
     "reportlab>=4.2",

@@ -9,12 +9,13 @@ the platform already publishes or already keeps in a control-plane store:
 - events: ingestion run metadata, the action-proposal queue and the HA
   dispatcher's alert log;
 - power: the HA bridge historian for one cumulative energy meter, bucketed
-  into UTC hours.
+  into hours of the household clock (``HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE``).
 
 Nothing here reads landing payloads. Where a value is not known it stays
 ``None`` so the UI can say "unknown" rather than draw a zero.
 
-All timestamps are normalised to aware UTC before comparison.
+All timestamps are normalised to aware UTC before comparison; the household
+zone only decides where power-bucket boundaries fall and how they are labelled.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 ServiceStatus = Literal["up", "degraded", "down", "unknown"]
 EventKind = Literal["ingestion", "proposal", "alert"]
@@ -489,9 +491,23 @@ def select_energy_meter(
     return None, "ambiguous"
 
 
-def power_window_start(now: datetime, window_hours: int) -> datetime:
+def _current_local_hour_start(now_utc: datetime, zone: ZoneInfo | None) -> datetime:
+    """The instant the household clock last read HH:00, as aware UTC.
+
+    Measured on the local clock, so a +05:30 zone's hours start at :30 UTC.
+    """
+    local = now_utc.astimezone(zone or UTC)
+    into_hour = timedelta(
+        minutes=local.minute, seconds=local.second, microseconds=local.microsecond
+    )
+    return now_utc - into_hour
+
+
+def power_window_start(
+    now: datetime, window_hours: int, zone: ZoneInfo | None = None
+) -> datetime:
     now_utc = to_utc(now) or datetime.now(UTC)
-    current_hour = now_utc.replace(minute=0, second=0, microsecond=0)
+    current_hour = _current_local_hour_start(now_utc, zone)
     return current_hour - timedelta(hours=window_hours - 1)
 
 
@@ -501,10 +517,18 @@ def build_power_series(
     unit: str | None,
     now: datetime,
     window_hours: int = DEFAULT_POWER_WINDOW_HOURS,
+    zone: ZoneInfo | None = None,
 ) -> list[dict[str, Any]]:
     """Hourly kWh from a cumulative energy meter's historian rows.
 
-    Buckets are whole UTC hours; the last is the current, partial hour. Each
+    Buckets are hours of the household clock (``zone``, default UTC): each
+    starts when that clock reads HH:00 and lasts one real hour, and
+    ``hour_start``/``hour_end`` carry the local offset. Across DST that means
+    a spring-forward window has no bucket labelled with the skipped hour and
+    a fall-back window has two buckets labelled with the repeated hour (told
+    apart by their offsets); every bucket still spans exactly 60 minutes, so
+    no energy is double counted or lost. The last bucket is the current,
+    partial hour. Each
     consecutive pair of readings contributes its delta to the hours it spans,
     pro rata by time. A drop in the counter is a meter reset, so the new value
     is the delta. A bucket no reading interval covers has ``kwh=None``; gaps
@@ -512,7 +536,8 @@ def build_power_series(
     unless the counter did not move across the gap (then they are zero).
     """
     now_utc = to_utc(now) or datetime.now(UTC)
-    start = power_window_start(now_utc, window_hours)
+    start = power_window_start(now_utc, window_hours, zone)
+    label_zone = zone or UTC
     factor = _ENERGY_UNIT_FACTORS.get(str(unit or "").strip().lower(), Decimal(1))
     bucket_starts = [start + timedelta(hours=offset) for offset in range(window_hours)]
     totals: list[Decimal | None] = [None] * window_hours
@@ -562,8 +587,8 @@ def build_power_series(
         bucket_end = bucket_start + timedelta(hours=1)
         buckets.append(
             {
-                "hour_start": bucket_start.isoformat(),
-                "hour_end": bucket_end.isoformat(),
+                "hour_start": bucket_start.astimezone(label_zone).isoformat(),
+                "hour_end": bucket_end.astimezone(label_zone).isoformat(),
                 "kwh": _float(total, 3),
                 "partial": bucket_end > now_utc,
             }

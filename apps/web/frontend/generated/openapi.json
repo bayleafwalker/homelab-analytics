@@ -7792,11 +7792,17 @@
             },
             "title": "Sections",
             "type": "array"
+          },
+          "timezone": {
+            "description": "IANA zone of as_of and every date in the brief (HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE).",
+            "title": "Timezone",
+            "type": "string"
           }
         },
         "required": [
           "schema_version",
           "as_of",
+          "timezone",
           "generated_at",
           "content_hash",
           "headline",
@@ -11425,6 +11431,11 @@
             "title": "Publications",
             "type": "array"
           },
+          "timezone": {
+            "description": "IANA zone the hour columns, weekdays and window dates are on (HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE).",
+            "title": "Timezone",
+            "type": "string"
+          },
           "totals": {
             "$ref": "#/components/schemas/SpendHeatmapTotals"
           },
@@ -11476,6 +11487,7 @@
           "data_through",
           "currency",
           "hour_basis",
+          "timezone",
           "day_labels",
           "cells",
           "counts",
@@ -12937,6 +12949,11 @@
             "title": "Status",
             "type": "string"
           },
+          "timezone": {
+            "description": "IANA zone whose hour boundaries the buckets follow (HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE).",
+            "title": "Timezone",
+            "type": "string"
+          },
           "total_kwh": {
             "anyOf": [
               {
@@ -12963,6 +12980,7 @@
           "available",
           "status",
           "window_hours",
+          "timezone",
           "generated_at",
           "candidates",
           "buckets"

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal, Union, cast
 
-from pydantic import BaseModel, ConfigDict, create_model
+from pydantic import BaseModel, ConfigDict, Field, create_model
 
 from packages.platform.publication_contracts import (
     PublicationColumnContract,
@@ -529,6 +529,12 @@ class MorningBriefResponseModel(BaseModel):
 
     schema_version: str
     as_of: str
+    timezone: str = Field(
+        description=(
+            "IANA zone of as_of and every date in the brief "
+            "(HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE)."
+        )
+    )
     generated_at: str
     content_hash: str
     headline: str
