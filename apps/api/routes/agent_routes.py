@@ -22,7 +22,10 @@ The ``trust`` block mirrors confidence semantics so agents answer honestly:
 publications without a confidence snapshot read as ``trust_unknown``, never
 as current. The stable endpoint contract is versioned via ``schema_version``
 in the payload and validated by
-``packages.platform.agent_semantic_index.validate_agent_semantic_index_payload``.
+``packages.platform.agent_semantic_index.validate_agent_semantic_index_payload``;
+the routes declare the typed models in
+``packages.platform.agent_semantic_index_models``, which mirror that validator
+(a drift test holds them to it) so OpenAPI describes the payload.
 Contract shapes are computed once at registration; sample values and trust
 are resolved per request so agents see current data without a redeploy.
 """
@@ -60,6 +63,10 @@ from packages.platform.agent_semantic_index import (
     AGENT_SEMANTIC_INDEX_SCHEMA_VERSION,
     DEFAULT_SAMPLE_ROW_LIMIT,
     build_agent_semantic_index,
+)
+from packages.platform.agent_semantic_index_models import (
+    AgentSemanticIndexEntryResponseModel,
+    AgentSemanticIndexPageModel,
 )
 from packages.platform.capability_types import CapabilityPack
 from packages.platform.publication_contracts import (
@@ -206,12 +213,12 @@ def register_agent_routes(
     def _generated_at() -> str:
         return datetime.now(UTC).isoformat()
 
-    @app.get("/api/agent/semantic-index")
+    @app.get("/api/agent/semantic-index", response_model=AgentSemanticIndexPageModel)
     async def get_agent_semantic_index(
         query: str | None = None,
         limit: int | None = Query(default=None, ge=1, le=MAX_PAGE_LIMIT),
         cursor: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> AgentSemanticIndexPageModel:
         entries = filter_publication_semantic_index(index, query=query)
         try:
             offset = decode_cursor(cursor)
@@ -221,16 +228,23 @@ def register_agent_routes(
         page_size = limit if limit is not None else (total if cursor is None else DEFAULT_PAGE_LIMIT)
         page = entries[offset : offset + page_size] if page_size else []
         next_offset = offset + len(page)
-        return {
-            "schema_version": AGENT_SEMANTIC_INDEX_SCHEMA_VERSION,
-            "generated_at": _generated_at(),
-            "publications": _entry_dicts(page),
-            "total": total,
-            "next_cursor": encode_cursor(next_offset) if next_offset < total else None,
-        }
+        return AgentSemanticIndexPageModel.model_validate(
+            {
+                "schema_version": AGENT_SEMANTIC_INDEX_SCHEMA_VERSION,
+                "generated_at": _generated_at(),
+                "publications": _entry_dicts(page),
+                "total": total,
+                "next_cursor": encode_cursor(next_offset) if next_offset < total else None,
+            }
+        )
 
-    @app.get("/api/agent/semantic-index/{publication_key}")
-    async def get_agent_semantic_index_entry(publication_key: str) -> dict[str, Any]:
+    @app.get(
+        "/api/agent/semantic-index/{publication_key}",
+        response_model=AgentSemanticIndexEntryResponseModel,
+    )
+    async def get_agent_semantic_index_entry(
+        publication_key: str,
+    ) -> AgentSemanticIndexEntryResponseModel:
         entries = [
             entry
             for entry in index
@@ -244,11 +258,13 @@ def register_agent_routes(
                     "list_publications (GET /api/agent/semantic-index) for valid keys."
                 ),
             )
-        return {
-            "schema_version": AGENT_SEMANTIC_INDEX_SCHEMA_VERSION,
-            "generated_at": _generated_at(),
-            "publication": _entry_dicts(entries)[0],
-        }
+        return AgentSemanticIndexEntryResponseModel.model_validate(
+            {
+                "schema_version": AGENT_SEMANTIC_INDEX_SCHEMA_VERSION,
+                "generated_at": _generated_at(),
+                "publication": _entry_dicts(entries)[0],
+            }
+        )
 
     @app.get("/api/agent/catalog", response_model=AgentToolCatalogModel)
     async def get_agent_tool_catalog() -> AgentToolCatalogModel:

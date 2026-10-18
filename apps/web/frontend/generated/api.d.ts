@@ -3928,6 +3928,25 @@ export interface components {
             /** State */
             state: string;
         };
+        /** AgentColumnGlossaryModel */
+        AgentColumnGlossaryModel: {
+            /** Aggregation */
+            aggregation?: string | null;
+            /** Description */
+            description: string;
+            /** Grain */
+            grain?: string | null;
+            /** Json Type */
+            json_type: string;
+            /** Name */
+            name: string;
+            /** Nullable */
+            nullable: boolean;
+            /** Semantic Role */
+            semantic_role: string;
+            /** Unit */
+            unit?: string | null;
+        };
         /** AgentPrincipalListModel */
         AgentPrincipalListModel: {
             /** Principals */
@@ -3961,6 +3980,107 @@ export interface components {
             proposal_count: number;
             /** Source Kind */
             source_kind: string;
+        };
+        /** AgentPublicationSampleModel */
+        AgentPublicationSampleModel: {
+            /** Row Count Bound */
+            row_count_bound: number;
+            /** Rows */
+            rows: {
+                [key: string]: unknown;
+            }[];
+            /** Total Row Count */
+            total_row_count?: number | null;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** AgentPublicationTrustModel */
+        AgentPublicationTrustModel: {
+            /** Assessed At */
+            assessed_at?: string | null;
+            /** Completeness Pct */
+            completeness_pct?: number | null;
+            /** Completeness State */
+            completeness_state?: string | null;
+            /** Confidence Verdict */
+            confidence_verdict?: string | null;
+            /** Freshness State */
+            freshness_state?: string | null;
+            /**
+             * Guidance
+             * @enum {string}
+             */
+            guidance: "state_as_current" | "state_with_caveat" | "do_not_state_as_current" | "trust_unknown";
+            /** Guidance Detail */
+            guidance_detail: string;
+            /** Publication Key */
+            publication_key: string;
+            /** Validation State */
+            validation_state?: string | null;
+        };
+        /** AgentSemanticIndexEntryModel */
+        AgentSemanticIndexEntryModel: {
+            /** Columns */
+            columns: components["schemas"]["AgentColumnGlossaryModel"][];
+            /** Contract Path */
+            contract_path: string;
+            /** Display Name */
+            display_name: string;
+            /** Lineage Path */
+            lineage_path: string;
+            /** Pack Name */
+            pack_name?: string | null;
+            /** Pack Version */
+            pack_version?: string | null;
+            /** Publication Key */
+            publication_key: string;
+            sample?: components["schemas"]["AgentPublicationSampleModel"] | null;
+            /** Schema Name */
+            schema_name: string;
+            /** Schema Version */
+            schema_version: string;
+            /** Summary */
+            summary: string;
+            /** Supported Renderers */
+            supported_renderers: string[];
+            trust?: components["schemas"]["AgentPublicationTrustModel"] | null;
+            /** Ui Descriptor Keys */
+            ui_descriptor_keys: string[];
+            /** Visibility */
+            visibility: string;
+        };
+        /**
+         * AgentSemanticIndexEntryResponseModel
+         * @description ``GET /api/agent/semantic-index/{publication_key}``: one publication.
+         */
+        AgentSemanticIndexEntryResponseModel: {
+            /** Generated At */
+            generated_at: string;
+            publication: components["schemas"]["AgentSemanticIndexEntryModel"];
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "1.1.0";
+        };
+        /**
+         * AgentSemanticIndexPageModel
+         * @description ``GET /api/agent/semantic-index``: one page of the index.
+         */
+        AgentSemanticIndexPageModel: {
+            /** Generated At */
+            generated_at: string;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Publications */
+            publications: components["schemas"]["AgentSemanticIndexEntryModel"][];
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "1.1.0";
+            /** Total */
+            total: number;
         };
         /** AgentToolCatalogEntryModel */
         AgentToolCatalogEntryModel: {
@@ -8179,9 +8299,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["AgentSemanticIndexPageModel"];
                 };
             };
             /** @description Validation Error */
@@ -8212,9 +8330,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["AgentSemanticIndexEntryResponseModel"];
                 };
             };
             /** @description Validation Error */
