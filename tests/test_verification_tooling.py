@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -9,10 +11,26 @@ pytestmark = [pytest.mark.docs]
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.mark.skipif(shutil.which("make") is None, reason="make is not installed")
+def test_makefile_refuses_to_run_python_recipes_without_an_interpreter() -> None:
+    # An empty PYTHON would turn `$(PYTHON) -m ruff` into a `-m ruff` recipe line,
+    # which make treats as "ignore errors" and reports as passing.
+    result = subprocess.run(
+        ["make", "-n", "lint", "PYTHON_BIN="],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "No working Python" in result.stderr
+
+
 def test_makefile_contains_required_verification_targets() -> None:
     content = (ROOT / "Makefile").read_text()
 
-    assert "SHELL := /usr/bin/bash" in content
+    assert "SHELL := /usr/bin/env bash" in content
 
     for target in [
         "lint:",

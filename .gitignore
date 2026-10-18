@@ -41,3 +41,4 @@ docs/sessions/*
 .envrc.*
 !.envrc.example
 .claude/settings.local.json
+.claude/worktrees/
