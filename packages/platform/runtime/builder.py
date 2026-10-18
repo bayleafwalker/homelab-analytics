@@ -16,6 +16,7 @@ from packages.pipelines.transformation_service import TransformationService
 from packages.platform.auth.configuration import maybe_bootstrap_local_admin
 from packages.platform.capability_registry import load_capability_packs
 from packages.platform.capability_types import CapabilityPack
+from packages.platform.publication_keys import PublicationKeyResolver
 from packages.platform.runtime.container import AppContainer
 from packages.shared.extensions import ExtensionRegistry, load_extension_registry
 from packages.shared.external_registry import (
@@ -127,6 +128,7 @@ def build_transformation_service(
     publication_refresh_registry: PublicationRefreshRegistry | None = None,
     domain_registry: TransformationDomainRegistry | None = None,
     run_metadata_store: RunMetadataStore | None = None,
+    publication_key_resolver: PublicationKeyResolver | None = None,
 ) -> TransformationService:
     analytics_path = settings.resolved_analytics_database_path
     analytics_path.parent.mkdir(parents=True, exist_ok=True)
@@ -136,6 +138,7 @@ def build_transformation_service(
         publication_refresh_registry=publication_refresh_registry,
         domain_registry=domain_registry,
         run_metadata_store=run_metadata_store,
+        publication_key_resolver=publication_key_resolver,
     )
 
 

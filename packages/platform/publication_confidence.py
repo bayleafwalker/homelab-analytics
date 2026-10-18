@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Mapping
 from packages.platform.source_freshness import SourceFreshnessState
 
 if TYPE_CHECKING:
+    from packages.platform.publication_keys import PublicationKeyResolver
     from packages.storage.control_plane import ControlPlaneStore
 
 
@@ -286,27 +287,41 @@ def compute_publication_freshness_state(
 def get_latest_publication_confidence(
     publication_key: str,
     control_plane: ControlPlaneStore,
+    *,
+    key_resolver: PublicationKeyResolver | None = None,
 ) -> PublicationConfidenceSnapshot | None:
     """Retrieve the latest confidence snapshot for a publication.
 
     Args:
-        publication_key: The publication key to look up
+        publication_key: The publication to look up. With ``key_resolver`` it may be
+            either the contract key or the relation name.
         control_plane: Control plane to query snapshots
+        key_resolver: Resolves ``publication_key`` to the canonical snapshot key
+            (relation name) and the legacy keys still readable.
 
     Returns:
         Latest PublicationConfidenceSnapshot, or None if not found
     """
-    records = control_plane.list_publication_confidence_snapshots(
-        publication_key=publication_key,
-        limit=1,
+    lookup_keys = (
+        key_resolver.snapshot_lookup_keys(publication_key)
+        if key_resolver is not None
+        else (publication_key,)
     )
+    records = [
+        record
+        for key in lookup_keys
+        for record in control_plane.list_publication_confidence_snapshots(
+            publication_key=key,
+            limit=1,
+        )
+    ]
     if not records:
         return None
 
-    record = records[0]
+    record = max(records, key=lambda candidate: candidate.assessed_at)
     return PublicationConfidenceSnapshot(
         snapshot_id=record.snapshot_id,
-        publication_key=record.publication_key,
+        publication_key=lookup_keys[0],
         assessed_at=record.assessed_at,
         freshness_state=FreshnessState(record.freshness_state),
         completeness_pct=record.completeness_pct,

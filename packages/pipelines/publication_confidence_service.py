@@ -49,6 +49,7 @@ from packages.platform.source_freshness import (
 from packages.storage.control_plane import PublicationConfidenceSnapshotCreate
 
 if TYPE_CHECKING:
+    from packages.platform.publication_keys import PublicationKeyResolver
     from packages.storage.control_plane import ControlPlaneStore
     from packages.storage.run_metadata import IngestionRunRecord
 
@@ -211,6 +212,7 @@ def compute_and_record_publication_confidence(
     *,
     as_of: datetime | None = None,
     run_metadata_store: _RunLookup | None = None,
+    key_resolver: PublicationKeyResolver | None = None,
 ) -> PublicationConfidenceSnapshot:
     """Compute confidence for a publication and record the snapshot.
 
@@ -223,6 +225,8 @@ def compute_and_record_publication_confidence(
             outcomes. Falls back to ``control_plane`` when it exposes
             ``get_run``. Without either, validation and completeness are
             recorded as unknown.
+        key_resolver: Canonicalizes ``publication_key`` (contract key or relation
+            name) to the relation name that lineage and snapshots are keyed by.
 
     Returns:
         PublicationConfidenceSnapshot with verdict and metadata
@@ -231,6 +235,8 @@ def compute_and_record_publication_confidence(
     """
     if as_of is None:
         as_of = datetime.now(timezone.utc)
+    if key_resolver is not None:
+        publication_key = key_resolver.snapshot_key(publication_key)
 
     lookup: _RunLookup | None = run_metadata_store
     if lookup is None and hasattr(control_plane, "get_run"):

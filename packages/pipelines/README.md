@@ -11,3 +11,4 @@ Current foundation:
 - config-driven watch-folder processing that resolves source assets and ingestion definitions from persisted config
 - config-driven HTTP processing for direct API and batch-extract CSV pulls through the same ingestion-definition runtime path
 - reporting-layer current views for implemented SCD dimensions
+- `TransformationService` (`transformation_service.py`) composes per-concern facets from `transformation_facets/` (transactions, commitments, assets, utilities, overview, homelab, home automation, scenarios); add new domain operations to the matching facet

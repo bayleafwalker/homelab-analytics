@@ -64,7 +64,8 @@ def test_export_contracts_enriches_with_confidence_fields_when_snapshot_exists(
     now = datetime(2026, 4, 15, 12, 0, 0, tzinfo=UTC)
     snapshot = PublicationConfidenceSnapshotCreate(
         snapshot_id="test-snapshot-001",
-        publication_key="monthly_cashflow",
+        # Canonical snapshot key is the relation name the refresh path records.
+        publication_key="mart_monthly_cashflow",
         assessed_at=now,
         freshness_state="current",
         completeness_pct=100,
@@ -139,6 +140,7 @@ def test_export_contracts_with_multiple_publication_snapshots(
     snapshots = (
         PublicationConfidenceSnapshotCreate(
             snapshot_id="snap-cashflow",
+            # Legacy snapshot keyed by the contract key stays readable.
             publication_key="monthly_cashflow",
             assessed_at=now,
             freshness_state="current",
@@ -147,7 +149,7 @@ def test_export_contracts_with_multiple_publication_snapshots(
         ),
         PublicationConfidenceSnapshotCreate(
             snapshot_id="snap-balance",
-            publication_key="account_balance_trend",
+            publication_key="mart_account_balance_trend",
             assessed_at=now,
             freshness_state="due_soon",
             completeness_pct=0,

@@ -158,33 +158,6 @@ def publication_display_names(
     return names
 
 
-def build_publication_confidence_lookup(
-    entries: list[PublicationSemanticIndexEntry],
-    snapshot_for_key: ConfidenceLookup,
-) -> ConfidenceLookup:
-    """Confidence lookup that bridges the two publication key namespaces.
-
-    Confidence snapshots are recorded by the refresh path under the relation
-    name (``mart_monthly_cashflow``) while the semantic index and contracts
-    use the contract key (``monthly_cashflow``). Looking up only the contract
-    key would make every publication read ``trust_unknown``.
-    """
-    relation_by_key = {
-        entry.publication.publication_key: entry.publication.relation_name
-        for entry in entries
-    }
-
-    def lookup(publication_key: str) -> Any:
-        relation_name = relation_by_key.get(publication_key)
-        if relation_name is not None and relation_name != publication_key:
-            snapshot = snapshot_for_key(relation_name)
-            if snapshot is not None:
-                return snapshot
-        return snapshot_for_key(publication_key)
-
-    return lookup
-
-
 def register_agent_routes(
     app: FastAPI,
     *,

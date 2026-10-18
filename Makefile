@@ -95,7 +95,7 @@ test-e2e-local:
 	$(PYTEST) -q -m e2e
 
 test-sqlite-adapters:
-	$(PYTEST) -q tests/test_blob_store.py tests/test_run_metadata_repository.py tests/test_storage_runtime.py tests/test_sqlite_control_plane_smoke.py tests/test_sqlite_auth_store_contract.py tests/test_migration_runner.py
+	$(PYTEST) -q tests/test_blob_store.py tests/test_run_metadata_repository.py tests/test_storage_runtime.py tests/test_sqlite_control_plane_smoke.py tests/test_sqlite_control_plane_store_contract.py tests/test_sqlite_auth_store_contract.py tests/test_migration_runner.py
 
 db-migrate-sqlite:
 	@if [ -z "$(DB_PATH)" ]; then echo "DB_PATH is required, e.g. make db-migrate-sqlite DB_PATH=data/config.db"; exit 1; fi

@@ -22,7 +22,6 @@ from apps.api.routes.action_proposal_routes import register_action_proposal_rout
 from apps.api.routes.adapter_routes import register_adapter_routes
 from apps.api.routes.agent_routes import (
     build_agent_publication_index,
-    build_publication_confidence_lookup,
     publication_display_names,
     register_agent_routes,
 )
@@ -112,7 +111,11 @@ from packages.platform.auth.oidc_provider import OidcProvider
 from packages.platform.auth.proxy_provider import ProxyProvider
 from packages.platform.auth.route_policy_engine import RouteAuthorizationLookup
 from packages.platform.auth.session_manager import SessionManager
-from packages.platform.publication_confidence import get_latest_publication_confidence
+from packages.platform.publication_confidence import (
+    PublicationConfidenceSnapshot,
+    get_latest_publication_confidence,
+)
+from packages.platform.publication_keys import PublicationKeyResolver
 from packages.platform.runtime.container import AppContainer
 from packages.shared.auth_modes import (
     normalize_auth_mode,
@@ -791,10 +794,16 @@ def create_app(
         container.extension_registry,
     )
 
-    _agent_confidence_lookup = build_publication_confidence_lookup(
-        agent_publication_index,
-        lambda key: get_latest_publication_confidence(key, resolved_config_repository),
+    publication_key_resolver = PublicationKeyResolver.from_capability_packs(
+        container.capability_packs
     )
+
+    def _agent_confidence_lookup(publication_key: str) -> PublicationConfidenceSnapshot | None:
+        return get_latest_publication_confidence(
+            publication_key,
+            resolved_config_repository,
+            key_resolver=publication_key_resolver,
+        )
 
     register_action_proposal_routes(
         app,

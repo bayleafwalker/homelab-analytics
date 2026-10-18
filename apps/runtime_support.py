@@ -11,6 +11,7 @@ from packages.pipelines.reporting_service import ReportingAccessMode, ReportingS
 from packages.pipelines.transformation_domain_registry import TransformationDomainRegistry
 from packages.pipelines.transformation_refresh_registry import PublicationRefreshRegistry
 from packages.pipelines.transformation_service import TransformationService
+from packages.platform.publication_keys import PublicationKeyResolver
 from packages.platform.runtime.builder import (
     build_container,
 )
@@ -135,6 +136,11 @@ def build_transformation_service(
         publication_refresh_registry=publication_refresh_registry,
         domain_registry=domain_registry,
         run_metadata_store=run_metadata_store,
+        publication_key_resolver=(
+            PublicationKeyResolver.from_capability_packs(resolved_container.capability_packs)
+            if resolved_container is not None
+            else None
+        ),
     )
 
 
