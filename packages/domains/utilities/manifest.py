@@ -5,6 +5,10 @@ electricity_price_current, utility_cost_summary, and contract_price_current.
 """
 from __future__ import annotations
 
+from packages.domains.utilities.battery_plan_publications import (
+    BATTERY_PLAN_OUTCOME_PUBLICATION,
+    BATTERY_PLAN_OUTCOME_VALUES_PUBLICATION,
+)
 from packages.domains.utilities.sources.contract_prices import CONTRACT_PRICES_SOURCE
 from packages.domains.utilities.sources.utility_rates import UTILITY_RATES_SOURCE
 from packages.platform.capability_types import (
@@ -397,6 +401,8 @@ UTILITIES_PACK = CapabilityPack(
                 ),
             },
         ),
+        BATTERY_PLAN_OUTCOME_PUBLICATION,
+        BATTERY_PLAN_OUTCOME_VALUES_PUBLICATION,
     ),
     ui_descriptors=(
         UiDescriptor(

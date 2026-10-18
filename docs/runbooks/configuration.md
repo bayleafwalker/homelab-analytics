@@ -118,6 +118,7 @@ Deprecation rollout:
 |---|---|---|
 | `HOMELAB_ANALYTICS_WORKER_ID` | `<hostname>-<pid>` | Stable worker identifier for queue claims and heartbeat records |
 | `HOMELAB_ANALYTICS_DISPATCH_LEASE_SECONDS` | `300` | Running-dispatch claim window for stale-dispatch detection |
+| `HOMELAB_ANALYTICS_BATTERY_PLAN_PROFILE` | unset | Path to a JSON profile (`entity_map`, `household_timezone`, optional `decision_months`, `freshness_limit_minutes`) for the read-only Kotiakku battery-plan outcome; unset publishes an `insufficient_evidence` row with remediation. Used by `refresh-battery-plan-outcome` |
 
 ## Supported defaults: authentication
 

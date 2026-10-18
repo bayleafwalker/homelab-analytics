@@ -22,6 +22,9 @@ from apps.worker.serialization import (
     _write_json,
 )
 from packages.demo import seed_demo_data, write_demo_bundle
+from packages.pipelines.battery_plan_outcome_publication import (
+    publish_battery_plan_outcome,
+)
 from packages.pipelines.promotion import (
     PromotionResult,
     promote_contract_price_run,
@@ -308,6 +311,26 @@ def handle_report_monthly_cashflow(args: Namespace, runtime: WorkerRuntime) -> i
             ),
             "from_month": getattr(args, "from_month", None) or None,
             "to_month": getattr(args, "to_month", None) or None,
+        },
+    )
+    return 0
+
+
+def handle_refresh_battery_plan_outcome(args: Namespace, runtime: WorkerRuntime) -> int:
+    """Assess the Kotiakku battery-plan decision from HA history and publish it."""
+    transformation_service, reporting_service = _build_reporting_runtime(runtime)
+    result = publish_battery_plan_outcome(
+        transformation_service,
+        reporting_service,
+        control_plane=runtime.config_repository,
+    )
+    _write_json(
+        runtime.output,
+        {
+            "refreshed": result.refreshed,
+            "published": result.published,
+            "lineage_run_ids": result.lineage_run_ids,
+            "outcomes": result.outcomes,
         },
     )
     return 0

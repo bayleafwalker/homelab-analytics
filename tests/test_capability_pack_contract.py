@@ -471,8 +471,8 @@ def test_all_three_packs_have_expected_publication_count() -> None:
     assert len(FINANCE_PACK.publications) == 9, (
         f"Finance should have 9 publications, got {len(FINANCE_PACK.publications)}"
     )
-    assert len(UTILITIES_PACK.publications) == 7, (
-        f"Utilities should have 7 publications, got {len(UTILITIES_PACK.publications)}"
+    assert len(UTILITIES_PACK.publications) == 9, (
+        f"Utilities should have 9 publications, got {len(UTILITIES_PACK.publications)}"
     )
     assert len(OVERVIEW_PACK.publications) == 4, (
         f"Overview should have 4 publications, got {len(OVERVIEW_PACK.publications)}"

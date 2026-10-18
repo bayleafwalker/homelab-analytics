@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
@@ -247,6 +248,14 @@ from packages.domains.overview.pipelines.transformation_overview import (
     refresh_recent_significant_changes,
     refresh_recurring_cost_baseline,
 )
+from packages.domains.utilities.pipelines.battery_plan_outcome import (
+    BatteryPlanProfileResolution,
+    ensure_battery_plan_storage,
+    get_battery_plan_outcome,
+    get_battery_plan_outcome_values,
+    load_battery_plan_profile,
+    refresh_battery_plan_outcome,
+)
 from packages.domains.utilities.pipelines.transformation_utilities import (
     count_bills,
     count_utility_usage,
@@ -307,8 +316,15 @@ class TransformationService:
         publication_refresh_registry: PublicationRefreshRegistry | None = None,
         domain_registry: TransformationDomainRegistry | None = None,
         run_metadata_store: RunMetadataStore | None = None,
+        battery_plan_profile_loader: Callable[[], BatteryPlanProfileResolution]
+        | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._store = store
+        self._battery_plan_profile_loader = (
+            battery_plan_profile_loader or load_battery_plan_profile
+        )
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._control_plane_store = control_plane_store
         # Landing validation outcomes feed publication confidence; optional.
         self._run_metadata_store = run_metadata_store
@@ -339,6 +355,7 @@ class TransformationService:
         self._store.ensure_dimension(DIM_METER)
         self._store.ensure_current_dimension_view(DIM_METER, CURRENT_DIM_METER_VIEW)
         ensure_utility_storage(self._store)
+        ensure_battery_plan_storage(self._store)
 
         self._store.ensure_dimension(DIM_ASSET)
         self._store.ensure_current_dimension_view(DIM_ASSET, CURRENT_DIM_ASSET_VIEW)
@@ -481,11 +498,17 @@ class TransformationService:
         APIs, and other confidence-aware features.
         """
         refreshed = self._publication_refresh_registry.refresh(self, publication_keys)
+        self.record_publication_confidence(refreshed)
+        return refreshed
 
-        # Record confidence snapshots for each refreshed publication
+    def record_publication_confidence(
+        self,
+        publication_keys: list[str] | tuple[str, ...],
+    ) -> None:
+        """Record confidence snapshots, e.g. again after lineage is recorded."""
         if self._control_plane_store is not None:
             as_of = datetime.now(timezone.utc)
-            for publication_key in refreshed:
+            for publication_key in publication_keys:
                 try:
                     compute_and_record_publication_confidence(
                         publication_key,
@@ -498,8 +521,6 @@ class TransformationService:
                     # Silently skip on error; confidence snapshot is optional
                     # and should not block publication refresh
                     pass
-
-        return refreshed
 
     def get_monthly_cashflow(
         self,
@@ -987,6 +1008,23 @@ class TransformationService:
 
     def refresh_energy_daily(self) -> int:
         return refresh_energy_daily(self._store)
+
+    def refresh_battery_plan_outcome(self) -> int:
+        return refresh_battery_plan_outcome(
+            self._store,
+            resolution=self._battery_plan_profile_loader(),
+            assessed_at=self._clock(),
+        )
+
+    def get_battery_plan_outcome(
+        self, *, decision_month: str | None = None
+    ) -> list[dict[str, Any]]:
+        return get_battery_plan_outcome(self._store, decision_month=decision_month)
+
+    def get_battery_plan_outcome_values(
+        self, *, decision_month: str | None = None
+    ) -> list[dict[str, Any]]:
+        return get_battery_plan_outcome_values(self._store, decision_month=decision_month)
 
     def get_energy_daily(
         self,

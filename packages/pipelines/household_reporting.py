@@ -136,6 +136,12 @@ from packages.domains.overview.pipelines.overview_models import (
     MART_RECURRING_COST_BASELINE_COLUMNS,
     MART_RECURRING_COST_BASELINE_TABLE,
 )
+from packages.domains.utilities.pipelines.battery_plan_models import (
+    MART_BATTERY_PLAN_OUTCOME_COLUMNS,
+    MART_BATTERY_PLAN_OUTCOME_TABLE,
+    MART_BATTERY_PLAN_OUTCOME_VALUES_COLUMNS,
+    MART_BATTERY_PLAN_OUTCOME_VALUES_TABLE,
+)
 from packages.domains.utilities.pipelines.utility_models import (
     CURRENT_DIM_METER_VIEW,
     DIM_METER,
@@ -250,6 +256,16 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         relation_name=MART_ENERGY_DAILY_TABLE,
         columns=MART_ENERGY_DAILY_COLUMNS,
         order_by="usage_day, utility_type, meter_id",
+    ),
+    MART_BATTERY_PLAN_OUTCOME_TABLE: PublicationRelation(
+        relation_name=MART_BATTERY_PLAN_OUTCOME_TABLE,
+        columns=MART_BATTERY_PLAN_OUTCOME_COLUMNS,
+        order_by="decision_month DESC",
+    ),
+    MART_BATTERY_PLAN_OUTCOME_VALUES_TABLE: PublicationRelation(
+        relation_name=MART_BATTERY_PLAN_OUTCOME_VALUES_TABLE,
+        columns=MART_BATTERY_PLAN_OUTCOME_VALUES_COLUMNS,
+        order_by="decision_month DESC, display_order",
     ),
     MART_CONTRACT_REVIEW_CANDIDATES_TABLE: PublicationRelation(
         relation_name=MART_CONTRACT_REVIEW_CANDIDATES_TABLE,
