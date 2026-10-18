@@ -5,6 +5,8 @@ from datetime import date
 from decimal import Decimal
 
 from packages.domains.finance.pipelines.transformation_assets import (
+    get_asset_value,
+    get_depreciation_schedule,
     refresh_asset_value,
     refresh_depreciation_schedule,
 )
@@ -143,7 +145,7 @@ class AssetDomainTests(unittest.TestCase):
         count = refresh_asset_value(service.store)
 
         self.assertEqual(3, count)
-        rows = {row["asset_name"]: row for row in service.get_asset_value()}
+        rows = {row["asset_name"]: row for row in get_asset_value(service.store)}
 
         server = rows["Homelab Server"]
         self.assertEqual("straight_line_60m", server["valuation_basis"])
@@ -161,7 +163,7 @@ class AssetDomainTests(unittest.TestCase):
         self.assertTrue(laptop["is_disposed"])
         self.assertEqual(Decimal("0.0000"), Decimal(laptop["estimated_value"]))
 
-        typed = service.get_asset_value(asset_type="server")
+        typed = get_asset_value(service.store, asset_type="server")
         self.assertEqual(1, len(typed))
 
     def test_refresh_depreciation_schedule_projects_annual_amounts(self) -> None:
@@ -201,7 +203,7 @@ class AssetDomainTests(unittest.TestCase):
 
         count = refresh_depreciation_schedule(service.store)
 
-        rows = service.get_depreciation_schedule()
+        rows = get_depreciation_schedule(service.store)
         self.assertEqual(count, len(rows))
         by_year_type = {
             (row["depreciation_year"], row["asset_type"]): row for row in rows
@@ -225,7 +227,7 @@ class AssetDomainTests(unittest.TestCase):
         self.assertEqual(Decimal("150.0000"), Decimal(recorded["annual_depreciation"]))
         self.assertEqual(1, recorded["asset_count"])
 
-        filtered = service.get_depreciation_schedule(
+        filtered = get_depreciation_schedule(service.store, 
             asset_type="server", depreciation_year=2024
         )
         self.assertEqual(1, len(filtered))

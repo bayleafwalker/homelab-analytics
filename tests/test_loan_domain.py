@@ -20,6 +20,7 @@ from packages.domains.finance.pipelines.loan_service import (
     load_canonical_loan_repayments_bytes,
 )
 from packages.domains.finance.pipelines.transformation_loans import (
+    get_debt_overview,
     refresh_debt_overview,
     refresh_loan_overview,
     refresh_loan_repayment_variance,
@@ -257,7 +258,7 @@ class LoanTransformationTests(unittest.TestCase):
         count = refresh_debt_overview(svc.store)
 
         self.assertEqual(2, count)
-        rows = svc.get_debt_overview()
+        rows = get_debt_overview(svc.store)
         by_type = {row["debt_type"]: row for row in rows}
         self.assertEqual({"mortgage", "account_credit"}, set(by_type))
 
@@ -278,7 +279,7 @@ class LoanTransformationTests(unittest.TestCase):
         total_share = sum(Decimal(row["share_of_total_pct"]) for row in rows)
         self.assertAlmostEqual(100.0, float(total_share), places=2)
 
-        filtered = svc.get_debt_overview(debt_type="account_credit")
+        filtered = get_debt_overview(svc.store, debt_type="account_credit")
         self.assertEqual(1, len(filtered))
 
     def test_get_loan_schedule_filtered_by_loan_id(self) -> None:

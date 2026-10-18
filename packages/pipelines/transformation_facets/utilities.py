@@ -16,7 +16,6 @@ from packages.domains.utilities.pipelines.transformation_utilities import (
     count_utility_usage,
     get_contract_renewal_watchlist,
     get_contract_review_candidates,
-    get_energy_daily,
     get_usage_vs_price_summary,
     get_utility_cost_summary,
     get_utility_cost_trend_monthly,
@@ -92,20 +91,6 @@ class UtilityTransformationMixin(TransformationFacetBase):
         self, *, decision_month: str | None = None
     ) -> list[dict[str, Any]]:
         return get_battery_plan_outcome_values(self._store, decision_month=decision_month)
-
-    def get_energy_daily(
-        self,
-        *,
-        utility_type: str | None = None,
-        from_day: date | str | None = None,
-        to_day: date | str | None = None,
-    ) -> list[dict[str, Any]]:
-        return get_energy_daily(
-            self._store,
-            utility_type=utility_type,
-            from_day=from_day,
-            to_day=to_day,
-        )
 
     def get_usage_vs_price_summary(
         self,

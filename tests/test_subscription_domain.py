@@ -20,6 +20,7 @@ from packages.domains.finance.pipelines.subscriptions import (
     load_canonical_subscriptions_bytes,
 )
 from packages.domains.finance.pipelines.transformation_subscriptions import (
+    get_subscription_changes,
     refresh_subscription_changes,
     refresh_subscription_summary,
 )
@@ -199,13 +200,13 @@ class SubscriptionTransformationTests(unittest.TestCase):
         # three activations + one cancellation (Adobe CC has an end date)
         self.assertEqual(4, count)
 
-        activations = svc.get_subscription_changes(change_type="activated")
+        activations = get_subscription_changes(svc.store, change_type="activated")
         self.assertEqual(3, len(activations))
         netflix = next(row for row in activations if row["contract_name"] == "Netflix")
         self.assertEqual("2023-01", netflix["period_month"])
         self.assertEqual(Decimal("15.9900"), Decimal(netflix["monthly_equivalent"]))
 
-        cancellations = svc.get_subscription_changes(change_type="cancelled")
+        cancellations = get_subscription_changes(svc.store, change_type="cancelled")
         self.assertEqual(1, len(cancellations))
         adobe = cancellations[0]
         self.assertEqual("Adobe CC", adobe["contract_name"])
@@ -213,7 +214,7 @@ class SubscriptionTransformationTests(unittest.TestCase):
         # annual 660 → 55/month freed up by the cancellation
         self.assertEqual(Decimal("55.0000"), Decimal(adobe["monthly_equivalent"]))
 
-        windowed = svc.get_subscription_changes(
+        windowed = get_subscription_changes(svc.store, 
             from_month="2024-01", to_month="2024-12"
         )
         self.assertEqual(

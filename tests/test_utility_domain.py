@@ -15,6 +15,7 @@ from apps.api.app import create_app
 from apps.worker.main import main
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.domains.utilities.pipelines.transformation_utilities import (
+    get_energy_daily,
     refresh_energy_daily,
     refresh_utility_cost_summary,
 )
@@ -211,10 +212,10 @@ class UtilityTransformationTests(unittest.TestCase):
         count = refresh_energy_daily(service.store)
 
         self.assertEqual(3, count)
-        rows = service.get_energy_daily()
+        rows = get_energy_daily(service.store)
         self.assertEqual(3, len(rows))
 
-        electricity_rows = service.get_energy_daily(utility_type="electricity")
+        electricity_rows = get_energy_daily(service.store, utility_type="electricity")
         self.assertEqual(2, len(electricity_rows))
         january_electricity = electricity_rows[0]
         self.assertEqual("2026-01-01", january_electricity["usage_day"].isoformat())
@@ -222,7 +223,7 @@ class UtilityTransformationTests(unittest.TestCase):
         self.assertEqual(Decimal("320.5000"), Decimal(january_electricity["total_quantity"]))
         self.assertEqual(1, january_electricity["reading_count"])
 
-        january_rows = service.get_energy_daily(
+        january_rows = get_energy_daily(service.store, 
             from_day="2026-01-01",
             to_day="2026-01-31",
         )

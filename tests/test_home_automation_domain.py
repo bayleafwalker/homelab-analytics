@@ -5,6 +5,9 @@ from datetime import date
 from decimal import Decimal
 
 from packages.domains.homelab.pipelines.transformation_home_automation import (
+    get_automation_reliability,
+    get_climate_summary,
+    get_device_battery,
     refresh_automation_reliability,
     refresh_climate_summary,
     refresh_device_battery,
@@ -159,7 +162,7 @@ class HomeAutomationDomainTests(unittest.TestCase):
         count = refresh_climate_summary(service.store)
 
         self.assertEqual(2, count)
-        rows = service.get_climate_summary()
+        rows = get_climate_summary(service.store)
         by_measure = {row["measure"]: row for row in rows}
         temperature = by_measure["temperature"]
         self.assertEqual(date(2026, 3, 28), temperature["period_day"])
@@ -169,7 +172,7 @@ class HomeAutomationDomainTests(unittest.TestCase):
         self.assertEqual(Decimal("23.0000"), Decimal(temperature["max_value"]))
         self.assertEqual(2, temperature["reading_count"])
 
-        humidity_rows = service.get_climate_summary(measure="humidity")
+        humidity_rows = get_climate_summary(service.store, measure="humidity")
         self.assertEqual(1, len(humidity_rows))
         self.assertEqual(Decimal("44.0000"), Decimal(humidity_rows[0]["avg_value"]))
 
@@ -221,7 +224,7 @@ class HomeAutomationDomainTests(unittest.TestCase):
         count = refresh_automation_reliability(service.store)
 
         self.assertEqual(2, count)
-        morning_rows = service.get_automation_reliability(
+        morning_rows = get_automation_reliability(service.store, 
             entity_id="automation.morning_routine"
         )
         self.assertEqual(1, len(morning_rows))
@@ -233,7 +236,7 @@ class HomeAutomationDomainTests(unittest.TestCase):
         self.assertEqual(Decimal("66.667"), Decimal(morning["success_rate_pct"]))
         self.assertEqual("success", morning["last_result"])
 
-        night = service.get_automation_reliability(entity_id="automation.night_mode")[0]
+        night = get_automation_reliability(service.store, entity_id="automation.night_mode")[0]
         self.assertEqual("2026-04", night["period_month"])
         self.assertEqual(Decimal("100.000"), Decimal(night["success_rate_pct"]))
 
@@ -277,7 +280,7 @@ class HomeAutomationDomainTests(unittest.TestCase):
         count = refresh_device_battery(service.store)
 
         self.assertEqual(2, count)
-        rows = {row["entity_id"]: row for row in service.get_device_battery()}
+        rows = {row["entity_id"]: row for row in get_device_battery(service.store)}
 
         door = rows["sensor.door_sensor_battery"]
         self.assertEqual(Decimal("80.00"), Decimal(door["battery_pct"]))
@@ -291,5 +294,5 @@ class HomeAutomationDomainTests(unittest.TestCase):
         self.assertIsNone(motion["est_days_to_empty"])
         self.assertEqual("low", motion["battery_status"])
 
-        low_rows = service.get_device_battery(battery_status="low")
+        low_rows = get_device_battery(service.store, battery_status="low")
         self.assertEqual(1, len(low_rows))

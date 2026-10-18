@@ -14,9 +14,6 @@ from packages.domains.finance.pipelines.loan_models import (
 from packages.domains.finance.pipelines.subscription_models import (
     DIM_CONTRACT,
 )
-from packages.domains.finance.pipelines.transformation_balances import (
-    get_balance_snapshot,
-)
 from packages.domains.finance.pipelines.transformation_budgets import (
     count_budget_targets,
     get_budget_envelope_drift,
@@ -32,7 +29,6 @@ from packages.domains.finance.pipelines.transformation_contract_prices import (
 )
 from packages.domains.finance.pipelines.transformation_loans import (
     count_loan_repayments,
-    get_debt_overview,
     get_loan_overview,
     get_loan_repayment_variance,
     get_loan_schedule_projected,
@@ -40,7 +36,6 @@ from packages.domains.finance.pipelines.transformation_loans import (
 )
 from packages.domains.finance.pipelines.transformation_subscriptions import (
     count_subscriptions,
-    get_subscription_changes,
     get_subscription_summary,
     get_upcoming_fixed_costs_30d,
     load_subscriptions,
@@ -87,20 +82,6 @@ class CommitmentTransformationMixin(TransformationFacetBase):
             self._store,
             status=status,
             currency=currency,
-        )
-
-    def get_subscription_changes(
-        self,
-        *,
-        change_type: str | None = None,
-        from_month: str | None = None,
-        to_month: str | None = None,
-    ) -> list[dict[str, Any]]:
-        return get_subscription_changes(
-            self._store,
-            change_type=change_type,
-            from_month=from_month,
-            to_month=to_month,
         )
 
     def load_budget_targets(
@@ -176,13 +157,6 @@ class CommitmentTransformationMixin(TransformationFacetBase):
     def count_loan_repayments(self, run_id: str | None = None) -> int:
         return count_loan_repayments(self._store, run_id=run_id)
 
-    def get_debt_overview(
-        self,
-        *,
-        debt_type: str | None = None,
-    ) -> list[dict[str, Any]]:
-        return get_debt_overview(self._store, debt_type=debt_type)
-
     def get_loan_schedule_projected(
         self, loan_id: str | None = None,
     ) -> list[dict[str, Any]]:
@@ -195,9 +169,6 @@ class CommitmentTransformationMixin(TransformationFacetBase):
 
     def get_loan_overview(self) -> list[dict[str, Any]]:
         return get_loan_overview(self._store)
-
-    def get_balance_snapshot(self, balance_kind: str | None = None) -> list[dict[str, Any]]:
-        return get_balance_snapshot(self._store, balance_kind=balance_kind)
 
     def load_contract_prices(
         self,

@@ -29,7 +29,6 @@ from packages.domains.finance.pipelines.transformation_transactions import (
     get_recent_large_transactions,
     get_spend_by_category_monthly,
     get_transaction_anomalies_current,
-    get_transactions,
     load_transactions,
     populate_counterparty_category_ids,
 )
@@ -105,9 +104,6 @@ class TransactionTransformationMixin(TransformationFacetBase):
             from_month=from_month,
             to_month=to_month,
         )
-
-    def get_transactions(self) -> list[dict[str, Any]]:
-        return get_transactions(self._store)
 
     def count_transactions(self, run_id: str | None = None) -> int:
         return count_transactions(self._store, run_id=run_id)

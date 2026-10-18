@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from packages.domains.finance.pipelines.transformation_transactions import (
+    get_transactions,
     refresh_monthly_cashflow,
     refresh_monthly_cashflow_by_counterparty,
     refresh_recent_large_transactions,
@@ -71,14 +72,14 @@ def test_load_transactions_inserts_facts(svc: TransformationService) -> None:
     inserted = svc.load_transactions(LANDING_ROWS, run_id="run-001")
     assert inserted == 4
 
-    facts = svc.get_transactions()
+    facts = get_transactions(svc.store)
     assert len(facts) == 4
     assert all(f["run_id"] == "run-001" for f in facts)
 
 
 def test_load_transactions_direction(svc: TransformationService) -> None:
     svc.load_transactions(LANDING_ROWS)
-    facts = svc.get_transactions()
+    facts = get_transactions(svc.store)
     directions = {f["counterparty_name"]: f["direction"] for f in facts}
     assert directions["Electric Utility"] == "expense"
     assert directions["Employer"] == "income"
@@ -86,7 +87,7 @@ def test_load_transactions_direction(svc: TransformationService) -> None:
 
 def test_load_transactions_booking_month(svc: TransformationService) -> None:
     svc.load_transactions(LANDING_ROWS)
-    facts = svc.get_transactions()
+    facts = get_transactions(svc.store)
     months = {f["booking_month"] for f in facts}
     assert months == {"2026-01", "2026-02"}
 
@@ -98,12 +99,12 @@ def test_load_transactions_empty(svc: TransformationService) -> None:
 def test_load_transactions_deterministic_ids(svc: TransformationService) -> None:
     """Same data → same transaction_id."""
     svc.load_transactions(LANDING_ROWS[:1])
-    facts_a = svc.get_transactions()
+    facts_a = get_transactions(svc.store)
 
     store2 = DuckDBStore.memory()
     svc2 = TransformationService(store2)
     svc2.load_transactions(LANDING_ROWS[:1])
-    facts_b = svc2.get_transactions()
+    facts_b = get_transactions(svc2.store)
 
     assert facts_a[0]["transaction_id"] == facts_b[0]["transaction_id"]
 
@@ -246,7 +247,7 @@ def test_load_transactions_atomic_rollback_on_failure(
         svc.load_transactions(LANDING_ROWS, run_id="fail-run")
 
     # Both facts and dimensions must have been rolled back.
-    assert svc.get_transactions() == []
+    assert get_transactions(svc.store) == []
     assert svc.store.query_current(DIM_ACCOUNT) == []
     assert svc.store.query_current(DIM_COUNTERPARTY) == []
 

@@ -21,9 +21,6 @@ from packages.domains.homelab.pipelines.transformation_homelab import (
 from packages.domains.homelab.pipelines.transformation_infrastructure import (
     count_cluster_metric_rows,
     count_power_consumption_rows,
-    get_cluster_utilization,
-    get_infra_cost,
-    get_uptime_summary,
     load_cluster_metric_rows,
     load_power_consumption_rows,
 )
@@ -104,37 +101,6 @@ class HomelabTransformationMixin(TransformationFacetBase):
 
     def get_workload_cost_7d(self) -> list[dict[str, Any]]:
         return get_workload_cost_7d(self._store)
-
-    def get_cluster_utilization(
-        self,
-        *,
-        hostname: str | None = None,
-        resource_type: str | None = None,
-    ) -> list[dict[str, Any]]:
-        return get_cluster_utilization(
-            self._store,
-            hostname=hostname,
-            resource_type=resource_type,
-        )
-
-    def get_uptime_summary(
-        self,
-        *,
-        subject_type: str | None = None,
-    ) -> list[dict[str, Any]]:
-        return get_uptime_summary(self._store, subject_type=subject_type)
-
-    def get_infra_cost(
-        self,
-        *,
-        cost_type: str | None = None,
-        billing_month: str | None = None,
-    ) -> list[dict[str, Any]]:
-        return get_infra_cost(
-            self._store,
-            cost_type=cost_type,
-            billing_month=billing_month,
-        )
 
     def load_cluster_metrics(
         self,
