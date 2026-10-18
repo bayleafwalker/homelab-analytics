@@ -514,13 +514,6 @@ def update_auth_runtime_metrics(config_repository: ControlPlaneStore) -> None:
         float(service_token_summary["total"]),
         help_text="Current service-token count including revoked tokens.",
     )
-    # DEPRECATED alias of auth_service_tokens (a gauge must not end in _total).
-    # Emitted for one release (0.1.x); removed in the next minor release.
-    metrics_registry.set(
-        "auth_service_tokens_total",
-        float(service_token_summary["total"]),
-        help_text="DEPRECATED: use auth_service_tokens. Removed after one release.",
-    )
     metrics_registry.set(
         "auth_service_tokens_active",
         float(service_token_summary["active"]),

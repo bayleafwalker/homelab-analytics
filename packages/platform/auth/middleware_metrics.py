@@ -7,10 +7,6 @@ from packages.shared.metrics import metrics_registry
 
 INGESTION_DURATION_METRIC = "ingestion_duration_seconds_total"
 INGESTION_DURATION_HELP = "Cumulative ingestion handling duration in seconds."
-DEPRECATED_INGESTION_DURATION_METRIC = "ingestion_duration_seconds"
-DEPRECATED_INGESTION_DURATION_HELP = (
-    "DEPRECATED: use ingestion_duration_seconds_total. Removed after one release."
-)
 
 
 def increment_service_token_authenticated_requests_total() -> None:
@@ -51,10 +47,4 @@ def record_ingestion_duration(started: float) -> None:
         INGESTION_DURATION_METRIC,
         duration_ms / 1000,
         help_text=INGESTION_DURATION_HELP,
-    )
-    # DEPRECATED alias: a counter must end in _total. Removed after one release.
-    metrics_registry.inc(
-        DEPRECATED_INGESTION_DURATION_METRIC,
-        duration_ms / 1000,
-        help_text=DEPRECATED_INGESTION_DURATION_HELP,
     )

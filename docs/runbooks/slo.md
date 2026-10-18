@@ -108,21 +108,18 @@ the same values; rules aggregate them with `max()`. The legacy unprefixed
 series (`worker_*`, `auth_*`, `ingestion_*`) are unchanged apart from two
 naming fixes.
 
-### Deprecated metric names (removed after one release)
+### Removed metric names (0.1.6)
 
 Two legacy API series broke the Prometheus naming rules (`_total` is only for
-counters, and every counter ends in `_total`). Release 0.1.3 emits the new
-name next to the old one; the release after it drops the old name. Move any
-private dashboards or recording rules to the new names now. The chart rules
-and the ops dashboard use neither series.
+counters, and every counter ends in `_total`). Release 0.1.5 emitted
+the new name next to the old one; 0.1.6 removes the old names. Dashboards or
+recording rules that still query them get no data. The chart rules, the ops
+dashboard and the appservice proposal copies never used them.
 
-| Deprecated | Replacement | Type | Why |
-|---|---|---|---|
-| `auth_service_tokens_total` | `auth_service_tokens` | gauge | A token count that can go down is a gauge; `_total` implies a counter |
-| `ingestion_duration_seconds` | `ingestion_duration_seconds_total` | counter | Cumulative seconds is a counter and needs the `_total` suffix |
-
-The deprecated series carry `DEPRECATED: use <new name>` in their `# HELP`
-line.
+| Removed | Replacement | Type | Status | Why |
+|---|---|---|---|---|
+| `auth_service_tokens_total` | `auth_service_tokens` | gauge | removed in 0.1.6 | A token count that can go down is a gauge; `_total` implies a counter |
+| `ingestion_duration_seconds` | `ingestion_duration_seconds_total` | counter | removed in 0.1.6 | Cumulative seconds is a counter and needs the `_total` suffix |
 
 ## Scrape auth posture
 

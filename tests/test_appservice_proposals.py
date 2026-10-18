@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -81,3 +82,20 @@ def test_dedicated_key_templates_hold_placeholders_only() -> None:
         assert statement["Principal"] == {"AWS": ["REPLACE_WITH_PRINCIPAL_OF_APP_BUNDLES_KEY"]}
     confined = statements[0]["NotResource"]
     assert "arn:aws:s3:::appservice-pgdump-locked/backups/app-bundles/analytics/homelab-analytics/*" in confined
+
+
+REMOVED_METRIC_NAMES = ("auth_service_tokens_total", "ingestion_duration_seconds")
+
+
+def test_rules_and_dashboards_do_not_query_removed_metric_names() -> None:
+    """The 0.1.6 metric removals (docs/runbooks/slo.md) break no rule or panel."""
+    files = [
+        ROOT / "charts" / "homelab-analytics" / "templates" / "prometheus-rule.yaml",
+        *sorted((ROOT / "charts" / "homelab-analytics" / "dashboards").glob("*.json")),
+        *sorted(PROPOSALS.glob("*.yaml")),
+    ]
+    for path in files:
+        text = path.read_text()
+        for name in REMOVED_METRIC_NAMES:
+            # ingestion_duration_seconds_total is the replacement, not a match.
+            assert not re.search(rf"\b{name}\b(?!_)", text), f"{path.name} uses {name}"
