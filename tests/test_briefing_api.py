@@ -39,6 +39,19 @@ class _FakeReportingService:
     def get_upcoming_fixed_costs_30d(self) -> list[dict[str, Any]]:
         return []
 
+    def get_battery_plan_outcome(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "decision_month": "2026-09",
+                "verdict": "insufficient_evidence",
+                "estimated_savings_eur": None,
+                "effective_monthly_cost_eur": "49.0000",
+                "coverage_pct": "96.5",
+                "freshness_status": "stale",
+                "remediation": "Backfill the missing five-minute windows.",
+            }
+        ]
+
 
 class _BreachEvaluator:
     def evaluate(self):
@@ -132,8 +145,9 @@ def test_brief_without_confidence_withholds_publication_claims() -> None:
         payload = response.json()
         MorningBriefResponseModel.model_validate(payload)
         assert [s["key"] for s in payload["sections"]] == [
-            "money", "attention", "changes", "upcoming", "policies", "sources",
+            "money", "attention", "changes", "upcoming", "battery", "policies", "sources",
         ]
+        assert _section(payload, "battery")["items"][0]["claim_status"] == "withheld"
         money = _section(payload, "money")["items"][0]
         assert money["claim_status"] == "withheld"
         assert "transformation refresh" in money["remediation"]
@@ -182,3 +196,30 @@ def test_repeat_requests_have_identical_content_hash() -> None:
         second = client.get("/api/briefing").json()
         assert first["content_hash"] == second["content_hash"]
         assert first["sections"] == second["sections"]
+
+
+def test_battery_section_reads_the_reporting_layer_and_states_insufficiency() -> None:
+    with TemporaryDirectory() as tmp:
+        client = _client(tmp, fake_reporting=True)
+        client.app.state.control_plane_store.record_publication_confidence_snapshot(
+            (
+                PublicationConfidenceSnapshotCreate(
+                    snapshot_id="snap-battery",
+                    publication_key="mart_battery_plan_outcome",
+                    assessed_at=datetime.now(UTC),
+                    freshness_state="current",
+                    completeness_pct=100,
+                    confidence_verdict="trustworthy",
+                    quality_flags={"validation_errors": 0, "rejected_runs": 0},
+                    contributing_run_ids=("ha-run-1",),
+                    source_freshness_states={},
+                ),
+            )
+        )
+        payload = client.get("/api/briefing").json()
+        MorningBriefResponseModel.model_validate(payload)
+        [item] = _section(payload, "battery")["items"]
+        assert item["claim_status"] == "confirmed"
+        assert "no savings claim" in item["headline"]
+        assert item["remediation"] == "Backfill the missing five-minute windows."
+        assert item["lineage_publication_key"] == "mart_battery_plan_outcome"

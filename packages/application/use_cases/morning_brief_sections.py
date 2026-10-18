@@ -14,12 +14,13 @@ money       ``mart_monthly_cashflow``                       10
 attention   ``mart_open_attention_items``                   20
 changes     ``mart_recent_significant_changes``             30
 upcoming    ``mart_upcoming_fixed_costs_30d``               40
+battery     ``mart_battery_plan_outcome``                   45
 policies    policy engine verdicts (``PolicyResult``)       50
 sources     source freshness (control plane + run metadata) 60
 ==========  ==============================================  =====
 
-Orders are spaced by ten so later sections (for example a battery outcome
-section) can slot in without renumbering.
+Orders are spaced by ten so later sections can slot in without
+renumbering (the battery outcome section sits at 45).
 """
 
 from __future__ import annotations
@@ -50,6 +51,7 @@ MONTHLY_CASHFLOW_KEY = "mart_monthly_cashflow"
 ATTENTION_ITEMS_KEY = "mart_open_attention_items"
 RECENT_CHANGES_KEY = "mart_recent_significant_changes"
 UPCOMING_FIXED_COSTS_KEY = "mart_upcoming_fixed_costs_30d"
+BATTERY_PLAN_OUTCOME_KEY = "mart_battery_plan_outcome"
 
 MAX_LIST_ITEMS = 5
 
@@ -412,6 +414,106 @@ def build_upcoming_section(inputs: BriefInputs) -> SectionDraft:
 
 
 # ---------------------------------------------------------------------------
+# battery
+# ---------------------------------------------------------------------------
+
+_BATTERY_ESTIMATE_CAVEAT = (
+    "Source estimate, not realized savings; review-only, it authorizes no tariff, "
+    "contract or battery change."
+)
+
+
+def build_battery_section(inputs: BriefInputs) -> SectionDraft:
+    """Latest battery-plan outcome month: verdict, or why no claim is made.
+
+    Publication confidence gates the claim first (withheld / provisional /
+    confirmed). A confirmed publication can still carry an
+    ``insufficient_evidence`` verdict; that is stated as such, with the
+    publication's remediation, never as a savings claim.
+    """
+    publication = inputs.publication(BATTERY_PLAN_OUTCOME_KEY)
+    assessment = assess_claim(publication)
+    if assessment.status == ClaimStatus.WITHHELD:
+        return SectionDraft(
+            summary="The battery-plan outcome is withheld.",
+            items=(
+                withheld_item(
+                    "battery:outcome",
+                    "The battery-plan outcome is not stated.",
+                    publication,
+                    assessment,
+                ),
+            ),
+        )
+    rows = sorted(
+        publication.rows or (), key=lambda row: str(row.get("decision_month")), reverse=True
+    )
+    if not rows:
+        return SectionDraft(
+            summary=_claim_summary(assessment, "No battery-plan outcome is published."),
+            items=(
+                BriefItem(
+                    item_id="battery:none",
+                    severity=BriefSeverity.INFO,
+                    claim_status=assessment.status,
+                    headline="No battery-plan outcome is published.",
+                    caveats=assessment.caveats,
+                    remediation="Run the refresh-battery-plan-outcome worker command.",
+                    confidence=assessment.confidence,
+                    evidence=publication_evidence(publication),
+                    lineage_publication_key=publication.publication_key,
+                ),
+            ),
+        )
+    row = rows[0]
+    month = str(row.get("decision_month"))
+    verdict = str(row.get("verdict"))
+    savings = _decimal(row.get("estimated_savings_eur"))
+    cost = _decimal(row.get("effective_monthly_cost_eur"))
+    caveats = (*assessment.caveats, _BATTERY_ESTIMATE_CAVEAT)
+    if verdict == "benefit_estimated" and savings is not None and cost is not None:
+        severity = BriefSeverity.INFO
+        headline = (
+            f"Battery plan {_month_label(month)}: estimated savings {_money(savings)} EUR "
+            f"cover the {_money(cost)} EUR monthly cost."
+        )
+        remediation = None
+    elif verdict == "no_benefit_estimated" and savings is not None and cost is not None:
+        severity = BriefSeverity.NOTICE
+        headline = (
+            f"Battery plan {_month_label(month)}: estimated savings {_money(savings)} EUR "
+            f"stay below the {_money(cost)} EUR monthly cost; a review may be due."
+        )
+        remediation = None
+    else:
+        severity = BriefSeverity.NOTICE
+        headline = (
+            f"Battery plan {_month_label(month)}: evidence is insufficient, "
+            "so no savings claim is made."
+        )
+        remediation = str(row.get("remediation") or "") or None
+    coverage = _decimal(row.get("coverage_pct"))
+    detail = (
+        f"Coverage {coverage:g}% of five-minute windows; source {row.get('freshness_status')}."
+        if coverage is not None
+        else None
+    )
+    item = BriefItem(
+        item_id=f"battery:{month}",
+        severity=severity,
+        claim_status=assessment.status,
+        headline=headline,
+        detail=detail,
+        caveats=caveats,
+        remediation=remediation or assessment.remediation,
+        confidence=assessment.confidence,
+        evidence=publication_evidence(publication),
+        lineage_publication_key=publication.publication_key,
+    )
+    return SectionDraft(summary=_claim_summary(assessment, headline), items=(item,))
+
+
+# ---------------------------------------------------------------------------
 # policies
 # ---------------------------------------------------------------------------
 
@@ -691,6 +793,9 @@ def builtin_brief_section_providers() -> tuple[FunctionSectionProvider, ...]:
         ),
         FunctionSectionProvider(
             "upcoming", "Coming up", 40, (UPCOMING_FIXED_COSTS_KEY,), build_upcoming_section
+        ),
+        FunctionSectionProvider(
+            "battery", "Battery plan", 45, (BATTERY_PLAN_OUTCOME_KEY,), build_battery_section
         ),
         FunctionSectionProvider("policies", "Policies", 50, (), build_policies_section),
         FunctionSectionProvider("sources", "Sources", 60, (), build_sources_section),
