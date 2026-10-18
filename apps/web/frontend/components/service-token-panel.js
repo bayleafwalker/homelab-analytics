@@ -6,7 +6,9 @@ const SCOPE_OPTIONS = [
   { value: "reports:read", label: "reports:read" },
   { value: "runs:read", label: "runs:read" },
   { value: "ingest:write", label: "ingest:write" },
-  { value: "admin:write", label: "admin:write" }
+  { value: "admin:write", label: "admin:write" },
+  { value: "proposals:draft", label: "proposals:draft (agent drafts only)" },
+  { value: "policies:draft", label: "policies:draft (disabled policy drafts only)" }
 ];
 const EXPIRING_SOON_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 

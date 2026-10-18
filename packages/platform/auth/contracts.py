@@ -15,13 +15,27 @@ SERVICE_TOKEN_SCOPE_RUNS_READ = "runs:read"
 SERVICE_TOKEN_SCOPE_INGEST_WRITE = "ingest:write"
 SERVICE_TOKEN_SCOPE_HA_BRIDGE_INGEST = "ha-bridge:ingest"
 SERVICE_TOKEN_SCOPE_ADMIN_WRITE = "admin:write"
+# Draft-only agent scopes: enter a proposal into the approval queue, or a
+# policy that is stored disabled. Neither lets a token approve, dismiss or
+# enable anything; resolution stays a human decision.
+SERVICE_TOKEN_SCOPE_PROPOSALS_DRAFT = "proposals:draft"
+SERVICE_TOKEN_SCOPE_POLICIES_DRAFT = "policies:draft"
 SERVICE_TOKEN_SCOPES = (
     SERVICE_TOKEN_SCOPE_REPORTS_READ,
     SERVICE_TOKEN_SCOPE_RUNS_READ,
     SERVICE_TOKEN_SCOPE_INGEST_WRITE,
     SERVICE_TOKEN_SCOPE_HA_BRIDGE_INGEST,
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
+    SERVICE_TOKEN_SCOPE_PROPOSALS_DRAFT,
+    SERVICE_TOKEN_SCOPE_POLICIES_DRAFT,
 )
+
+# A broader scope satisfies a route that requires a narrower one. admin:write
+# could already draft proposals before proposals:draft existed, so it still
+# can; it does not imply policies:draft, which must be granted explicitly.
+SERVICE_TOKEN_SCOPE_IMPLICATIONS: dict[str, frozenset[str]] = {
+    SERVICE_TOKEN_SCOPE_ADMIN_WRITE: frozenset({SERVICE_TOKEN_SCOPE_PROPOSALS_DRAFT}),
+}
 
 
 # Legacy scope-to-permission compatibility mapping.
@@ -32,6 +46,8 @@ SERVICE_TOKEN_SCOPE_PERMISSION_MAP = {
     SERVICE_TOKEN_SCOPE_INGEST_WRITE: "ingest.write",
     SERVICE_TOKEN_SCOPE_HA_BRIDGE_INGEST: "ingest.write",
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE: "admin.write",
+    SERVICE_TOKEN_SCOPE_PROPOSALS_DRAFT: "control.action_proposals.draft",
+    SERVICE_TOKEN_SCOPE_POLICIES_DRAFT: "control.policy.draft",
 }
 
 

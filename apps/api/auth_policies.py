@@ -7,17 +7,21 @@ from packages.platform.auth.contracts import (
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
     SERVICE_TOKEN_SCOPE_HA_BRIDGE_INGEST,
     SERVICE_TOKEN_SCOPE_INGEST_WRITE,
+    SERVICE_TOKEN_SCOPE_POLICIES_DRAFT,
+    SERVICE_TOKEN_SCOPE_PROPOSALS_DRAFT,
     SERVICE_TOKEN_SCOPE_REPORTS_READ,
     SERVICE_TOKEN_SCOPE_RUNS_READ,
     UserRole,
 )
 from packages.platform.auth.permission_registry import (
     PERMISSION_ADMIN_WRITE,
+    PERMISSION_CONTROL_ACTION_PROPOSALS_DRAFT,
     PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE,
     PERMISSION_CONTROL_CONFIG_READ,
     PERMISSION_CONTROL_CONFIG_WRITE,
     PERMISSION_CONTROL_DECISIONS_READ,
     PERMISSION_CONTROL_DECISIONS_WRITE,
+    PERMISSION_CONTROL_POLICY_DRAFT,
     PERMISSION_CONTROL_POLICY_READ,
     PERMISSION_CONTROL_POLICY_WRITE,
     PERMISSION_CONTROL_PUBLICATION_AUDIT_READ,
@@ -229,7 +233,7 @@ def _api_ha_request_permission(context: RouteContext) -> str | None:
         return (
             PERMISSION_RUNS_READ
             if context.method == "GET"
-            else PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE
+            else PERMISSION_CONTROL_ACTION_PROPOSALS_DRAFT
         )
     if context.path.startswith("/api/ha/actions/proposals/"):
         return (
@@ -247,7 +251,7 @@ def _api_ha_request_scope(context: RouteContext) -> str | None:
         return (
             SERVICE_TOKEN_SCOPE_RUNS_READ
             if context.method == "GET"
-            else SERVICE_TOKEN_SCOPE_ADMIN_WRITE
+            else SERVICE_TOKEN_SCOPE_PROPOSALS_DRAFT
         )
     if context.path.startswith("/api/ha/actions/proposals/"):
         return (
@@ -256,6 +260,57 @@ def _api_ha_request_scope(context: RouteContext) -> str | None:
             else SERVICE_TOKEN_SCOPE_ADMIN_WRITE
         )
     return SERVICE_TOKEN_SCOPE_RUNS_READ
+
+
+# The generalized proposal queue (/api/actions/*) shares the HA routes'
+# permissions: drafting is control.action_proposals.draft (operators, and
+# tokens with proposals:draft or admin:write); approve/dismiss is the
+# operator-level control.action_proposals.write. Machine principals are
+# refused resolution at the route regardless (403), and a resolved proposal
+# refuses a second resolution (409).
+_ACTIONS_DRAFT_PATH = "/api/actions/proposals"
+
+
+def _is_read(context: RouteContext) -> bool:
+    return (context.method or "GET").upper() in ("GET", "HEAD")
+
+
+def _api_actions_request_role(context: RouteContext) -> UserRole | None:
+    return UserRole.READER if _is_read(context) else UserRole.OPERATOR
+
+
+def _api_actions_request_permission(context: RouteContext) -> str | None:
+    if _is_read(context):
+        return PERMISSION_REPORTS_READ
+    if context.path == _ACTIONS_DRAFT_PATH:
+        return PERMISSION_CONTROL_ACTION_PROPOSALS_DRAFT
+    return PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE
+
+
+def _api_actions_request_scope(context: RouteContext) -> str | None:
+    if _is_read(context):
+        return SERVICE_TOKEN_SCOPE_REPORTS_READ
+    if context.path == _ACTIONS_DRAFT_PATH:
+        return SERVICE_TOKEN_SCOPE_PROPOSALS_DRAFT
+    return SERVICE_TOKEN_SCOPE_ADMIN_WRITE
+
+
+# /control/policies: creating a policy is control.policy.draft (admins, and
+# tokens with policies:draft — machine creates are stored disabled with
+# source_kind="agent"); update, enable and delete stay control.policy.write,
+# which no service-token scope grants.
+def _control_policies_request_permission(context: RouteContext) -> str | None:
+    if _is_read(context):
+        return PERMISSION_CONTROL_POLICY_READ
+    if context.path == "/control/policies" and (context.method or "").upper() == "POST":
+        return PERMISSION_CONTROL_POLICY_DRAFT
+    return PERMISSION_CONTROL_POLICY_WRITE
+
+
+def _control_policies_request_scope(context: RouteContext) -> str | None:
+    if context.path == "/control/policies" and (context.method or "").upper() == "POST":
+        return SERVICE_TOKEN_SCOPE_POLICIES_DRAFT
+    return SERVICE_TOKEN_SCOPE_ADMIN_WRITE
 
 
 def _control_source_lineage_permission(context: RouteContext) -> str | None:
@@ -724,19 +779,9 @@ API_ROUTE_POLICY_CATALOG: tuple[RoutePolicy, ...] = (
             scope=SERVICE_TOKEN_SCOPE_REPORTS_READ,
         ),
         request_decision=RouteDecision(
-            role=lambda context: (
-                UserRole.READER if context.method == "GET" else UserRole.OPERATOR
-            ),
-            permission=lambda context: (
-                PERMISSION_REPORTS_READ
-                if context.method == "GET"
-                else PERMISSION_ADMIN_WRITE
-            ),
-            scope=lambda context: (
-                SERVICE_TOKEN_SCOPE_REPORTS_READ
-                if context.method == "GET"
-                else SERVICE_TOKEN_SCOPE_ADMIN_WRITE
-            ),
+            role=_api_actions_request_role,
+            permission=_api_actions_request_permission,
+            scope=_api_actions_request_scope,
         ),
     ),
     RoutePolicy(
@@ -861,12 +906,8 @@ API_ROUTE_POLICY_CATALOG: tuple[RoutePolicy, ...] = (
         ),
         request_decision=RouteDecision(
             role=UserRole.ADMIN,
-            permission=lambda context: (
-                PERMISSION_CONTROL_POLICY_READ
-                if (context.method or "").upper() in ("GET", "HEAD")
-                else PERMISSION_CONTROL_POLICY_WRITE
-            ),
-            scope=SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
+            permission=_control_policies_request_permission,
+            scope=_control_policies_request_scope,
         ),
     ),
     RoutePolicy(

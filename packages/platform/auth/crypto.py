@@ -8,6 +8,8 @@ from dataclasses import dataclass
 
 import bcrypt
 
+from packages.platform.auth.contracts import SERVICE_TOKEN_SCOPE_IMPLICATIONS
+
 SERVICE_TOKEN_VALUE_PREFIX = "hst_"
 
 
@@ -71,4 +73,10 @@ def has_required_service_token_scope(
 ) -> bool:
     if required_scope is None:
         return True
-    return required_scope in set(scopes)
+    granted = set(scopes)
+    if required_scope in granted:
+        return True
+    return any(
+        required_scope in SERVICE_TOKEN_SCOPE_IMPLICATIONS.get(scope, frozenset())
+        for scope in granted
+    )

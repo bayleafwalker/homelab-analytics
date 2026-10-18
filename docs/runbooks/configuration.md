@@ -201,9 +201,28 @@ OIDC and trusted-proxy permission grants support canonical static permissions (f
 | `HOMELAB_ANALYTICS_MACHINE_JWT_ROLE_CLAIM` | `role` | Optional claim for role ceiling (`reader`, `operator`, `admin`). |
 | `HOMELAB_ANALYTICS_MACHINE_JWT_DEFAULT_ROLE` | `reader` | Role used when role claim is absent. |
 | `HOMELAB_ANALYTICS_MACHINE_JWT_PERMISSIONS_CLAIM` | — | Optional claim with direct permission grants (string list or comma-separated string). |
-| `HOMELAB_ANALYTICS_MACHINE_JWT_SCOPES_CLAIM` | `scope` | Optional claim with service-token-compatible scopes (`reports:read`, `runs:read`, `ingest:write`, `admin:write`). |
+| `HOMELAB_ANALYTICS_MACHINE_JWT_SCOPES_CLAIM` | `scope` | Optional claim with service-token-compatible scopes (`reports:read`, `runs:read`, `ingest:write`, `ha-bridge:ingest`, `admin:write`, `proposals:draft`, `policies:draft`). |
 
 Machine JWT tokens are evaluated by the existing in-app authorization kernel. Scope grants are enforced with the same policy semantics as service tokens for equivalent role/scope combinations. API metrics expose `auth_machine_jwt_authenticated_requests_total` and `auth_machine_jwt_failed_requests_total`, and auth-audit captures `machine_jwt_auth_succeeded`/`machine_jwt_auth_failed` events.
+
+### Agent service-token scopes
+
+A service token's effective permissions are its role's permissions intersected with its scopes' permissions, so the role is a ceiling and the scopes are the grant. For an MCP agent, mint a token with only what it needs:
+
+| Scope | Grants | Minimum token role | Reaches |
+|---|---|---|---|
+| `reports:read` | `reports.read` | `reader` | semantic index, publications, `GET /api/actions/proposals*` |
+| `proposals:draft` | `control.action_proposals.draft` | `operator` | `POST /api/actions/proposals`, `POST /api/ha/actions/proposals` |
+| `policies:draft` | `control.policy.draft` | `admin` | `POST /control/policies` only. The draft is stored disabled with `source_kind=agent` |
+| `admin:write` | admin config writes, plus everything `proposals:draft` grants | `admin` | `admin:write` satisfies a route that requires `proposals:draft`, but never one that requires `policies:draft` |
+
+No scope lets a token approve, dismiss, enable, edit or delete anything that an agent drafted:
+
+- `POST .../approve` and `POST .../dismiss` need `control.action_proposals.write`. Operators and admins hold it. Every machine principal (`service_token`, `machine_jwt`) gets `403` at the route, whatever scope it carries.
+- Resolving a proposal that is already resolved returns `409`.
+- Enabling, editing or deleting a policy needs `control.policy.write`, which no scope grants.
+
+Example token for the MCP server: role `operator`, scopes `reports:read,proposals:draft`. Add `policies:draft` with role `admin` only if the agent should draft policies.
 
 ### Power-user override: agent surfaces
 

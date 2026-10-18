@@ -439,7 +439,9 @@ function ToolsView({ tools }) {
 
 export default async function ControlAgentsPage({ searchParams }) {
   const user = await getCurrentUser();
-  if (user.role !== "admin") {
+  // Operators resolve proposals (control.action_proposals.write); readers
+  // and agents never do, so they are sent home.
+  if (user.role !== "admin" && user.role !== "operator") {
     redirect("/");
   }
   const view = VIEWS.some((item) => item.key === searchParams?.view)
@@ -469,7 +471,7 @@ export default async function ControlAgentsPage({ searchParams }) {
       currentPath="/control"
       user={user}
       title="Agents"
-      eyebrow="Admin Access"
+      eyebrow="Operator Access"
       lede="Every action an agent, the assistant, or a policy proposes waits here. Each one shows what approval would do, the evidence it rests on and how trustworthy that evidence is now. Nothing runs until an operator decides."
     >
       <section className="stack">
