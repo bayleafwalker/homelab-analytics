@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any, Union, cast
+from typing import Any, Literal, Union, cast
 
 from pydantic import BaseModel, ConfigDict, create_model
 
@@ -444,3 +444,85 @@ def publication_semantic_index_entry_model_from_dataclass(
         search_terms=list(entry.search_terms),
         summary=entry.summary,
     )
+
+
+# ---------------------------------------------------------------------------
+# Morning brief (Kotona B1) — GET /api/briefing
+# ---------------------------------------------------------------------------
+
+BriefSeverityLiteral = Literal["info", "notice", "warning", "critical"]
+BriefClaimStatusLiteral = Literal["confirmed", "provisional", "withheld"]
+BriefSectionStatusLiteral = Literal["ok", "attention", "degraded", "unavailable"]
+BriefEvidenceKindLiteral = Literal["publication", "run", "source", "policy"]
+
+
+class BriefEvidenceRefModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: BriefEvidenceKindLiteral
+    ref: str
+    label: str
+
+
+class BriefConfidenceModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    publication_key: str | None
+    verdict: str
+    freshness_state: str
+    completeness_pct: int | None
+    validation_state: str
+    completeness_state: str
+    assessed_at: str | None
+
+
+class BriefItemModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    item_id: str
+    severity: BriefSeverityLiteral
+    claim_status: BriefClaimStatusLiteral
+    headline: str
+    detail: str | None
+    caveats: list[str]
+    remediation: str | None
+    confidence: BriefConfidenceModel | None
+    evidence: list[BriefEvidenceRefModel]
+    lineage_publication_key: str | None
+
+
+class BriefSectionModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    title: str
+    order: int
+    status: BriefSectionStatusLiteral
+    summary: str
+    publication_keys: list[str]
+    items: list[BriefItemModel]
+
+
+class BriefCountsModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    info: int
+    notice: int
+    warning: int
+    critical: int
+    confirmed: int
+    provisional: int
+    withheld: int
+
+
+class MorningBriefResponseModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: str
+    as_of: str
+    generated_at: str
+    content_hash: str
+    headline: str
+    overall_severity: BriefSeverityLiteral
+    counts: BriefCountsModel
+    sections: list[BriefSectionModel]

@@ -644,6 +644,304 @@
         "title": "AttentionItemsResponse",
         "type": "object"
       },
+      "BriefConfidenceModel": {
+        "additionalProperties": false,
+        "properties": {
+          "assessed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessed At"
+          },
+          "completeness_pct": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completeness Pct"
+          },
+          "completeness_state": {
+            "title": "Completeness State",
+            "type": "string"
+          },
+          "freshness_state": {
+            "title": "Freshness State",
+            "type": "string"
+          },
+          "publication_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publication Key"
+          },
+          "validation_state": {
+            "title": "Validation State",
+            "type": "string"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publication_key",
+          "verdict",
+          "freshness_state",
+          "completeness_pct",
+          "validation_state",
+          "completeness_state",
+          "assessed_at"
+        ],
+        "title": "BriefConfidenceModel",
+        "type": "object"
+      },
+      "BriefCountsModel": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "integer"
+          },
+          "critical": {
+            "title": "Critical",
+            "type": "integer"
+          },
+          "info": {
+            "title": "Info",
+            "type": "integer"
+          },
+          "notice": {
+            "title": "Notice",
+            "type": "integer"
+          },
+          "provisional": {
+            "title": "Provisional",
+            "type": "integer"
+          },
+          "warning": {
+            "title": "Warning",
+            "type": "integer"
+          },
+          "withheld": {
+            "title": "Withheld",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "info",
+          "notice",
+          "warning",
+          "critical",
+          "confirmed",
+          "provisional",
+          "withheld"
+        ],
+        "title": "BriefCountsModel",
+        "type": "object"
+      },
+      "BriefEvidenceRefModel": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "publication",
+              "run",
+              "source",
+              "policy"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "ref",
+          "label"
+        ],
+        "title": "BriefEvidenceRefModel",
+        "type": "object"
+      },
+      "BriefItemModel": {
+        "additionalProperties": false,
+        "properties": {
+          "caveats": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Caveats",
+            "type": "array"
+          },
+          "claim_status": {
+            "enum": [
+              "confirmed",
+              "provisional",
+              "withheld"
+            ],
+            "title": "Claim Status",
+            "type": "string"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BriefConfidenceModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/BriefEvidenceRefModel"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "headline": {
+            "title": "Headline",
+            "type": "string"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "lineage_publication_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lineage Publication Key"
+          },
+          "remediation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remediation"
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "notice",
+              "warning",
+              "critical"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id",
+          "severity",
+          "claim_status",
+          "headline",
+          "detail",
+          "caveats",
+          "remediation",
+          "confidence",
+          "evidence",
+          "lineage_publication_key"
+        ],
+        "title": "BriefItemModel",
+        "type": "object"
+      },
+      "BriefSectionModel": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BriefItemModel"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "publication_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Publication Keys",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "attention",
+              "degraded",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "order",
+          "status",
+          "summary",
+          "publication_keys",
+          "items"
+        ],
+        "title": "BriefSectionModel",
+        "type": "object"
+      },
       "BudgetEnvelopeDriftResponse": {
         "properties": {
           "rows": {
@@ -5249,6 +5547,63 @@
         "title": "MonthlyCashflowRow",
         "type": "object"
       },
+      "MorningBriefResponseModel": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "title": "As Of",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/BriefCountsModel"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "headline": {
+            "title": "Headline",
+            "type": "string"
+          },
+          "overall_severity": {
+            "enum": [
+              "info",
+              "notice",
+              "warning",
+              "critical"
+            ],
+            "title": "Overall Severity",
+            "type": "string"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/BriefSectionModel"
+            },
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema_version",
+          "as_of",
+          "generated_at",
+          "content_hash",
+          "headline",
+          "overall_severity",
+          "counts",
+          "sections"
+        ],
+        "title": "MorningBriefResponseModel",
+        "type": "object"
+      },
       "OperatingBaselineResponse": {
         "properties": {
           "rows": {
@@ -8494,6 +8849,24 @@
           }
         },
         "summary": "Answer Assistant"
+      }
+    },
+    "/api/briefing": {
+      "get": {
+        "operationId": "get_briefing_api_briefing_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MorningBriefResponseModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Briefing"
       }
     },
     "/api/categories": {

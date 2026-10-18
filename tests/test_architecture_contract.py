@@ -1079,6 +1079,7 @@ def test_request_permission_and_scope_policy_covers_protected_api_routes() -> No
         ("/control/source-lineage", "reader"),
         ("/control/publication-audit", "reader"),
         ("/transformation-audit", "reader"),
+        ("/api/briefing", "reader"),
         # Operator paths
         ("/ingest/account-transactions", "operator"),
         ("/api/ingest/ha-bridge/states", "operator"),

@@ -415,6 +415,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/briefing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Briefing */
+        get: operations["get_briefing_api_briefing_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/categories": {
         parameters: {
             query?: never;
@@ -3479,6 +3496,100 @@ export interface components {
             /** Rows */
             rows: components["schemas"]["AttentionItemRow"][];
         };
+        /** BriefConfidenceModel */
+        BriefConfidenceModel: {
+            /** Assessed At */
+            assessed_at: string | null;
+            /** Completeness Pct */
+            completeness_pct: number | null;
+            /** Completeness State */
+            completeness_state: string;
+            /** Freshness State */
+            freshness_state: string;
+            /** Publication Key */
+            publication_key: string | null;
+            /** Validation State */
+            validation_state: string;
+            /** Verdict */
+            verdict: string;
+        };
+        /** BriefCountsModel */
+        BriefCountsModel: {
+            /** Confirmed */
+            confirmed: number;
+            /** Critical */
+            critical: number;
+            /** Info */
+            info: number;
+            /** Notice */
+            notice: number;
+            /** Provisional */
+            provisional: number;
+            /** Warning */
+            warning: number;
+            /** Withheld */
+            withheld: number;
+        };
+        /** BriefEvidenceRefModel */
+        BriefEvidenceRefModel: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "publication" | "run" | "source" | "policy";
+            /** Label */
+            label: string;
+            /** Ref */
+            ref: string;
+        };
+        /** BriefItemModel */
+        BriefItemModel: {
+            /** Caveats */
+            caveats: string[];
+            /**
+             * Claim Status
+             * @enum {string}
+             */
+            claim_status: "confirmed" | "provisional" | "withheld";
+            confidence: components["schemas"]["BriefConfidenceModel"] | null;
+            /** Detail */
+            detail: string | null;
+            /** Evidence */
+            evidence: components["schemas"]["BriefEvidenceRefModel"][];
+            /** Headline */
+            headline: string;
+            /** Item Id */
+            item_id: string;
+            /** Lineage Publication Key */
+            lineage_publication_key: string | null;
+            /** Remediation */
+            remediation: string | null;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "info" | "notice" | "warning" | "critical";
+        };
+        /** BriefSectionModel */
+        BriefSectionModel: {
+            /** Items */
+            items: components["schemas"]["BriefItemModel"][];
+            /** Key */
+            key: string;
+            /** Order */
+            order: number;
+            /** Publication Keys */
+            publication_keys: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "attention" | "degraded" | "unavailable";
+            /** Summary */
+            summary: string;
+            /** Title */
+            title: string;
+        };
         /** BudgetEnvelopeDriftResponse */
         BudgetEnvelopeDriftResponse: {
             /** Rows */
@@ -4933,6 +5044,27 @@ export interface components {
             /** Transaction Count */
             transaction_count: number;
         };
+        /** MorningBriefResponseModel */
+        MorningBriefResponseModel: {
+            /** As Of */
+            as_of: string;
+            /** Content Hash */
+            content_hash: string;
+            counts: components["schemas"]["BriefCountsModel"];
+            /** Generated At */
+            generated_at: string;
+            /** Headline */
+            headline: string;
+            /**
+             * Overall Severity
+             * @enum {string}
+             */
+            overall_severity: "info" | "notice" | "warning" | "critical";
+            /** Schema Version */
+            schema_version: string;
+            /** Sections */
+            sections: components["schemas"]["BriefSectionModel"][];
+        };
         /** OperatingBaselineResponse */
         OperatingBaselineResponse: {
             /** Rows */
@@ -6274,6 +6406,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_briefing_api_briefing_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MorningBriefResponseModel"];
                 };
             };
         };
