@@ -135,11 +135,11 @@ Budget variance and loan overview live on `/budgets` and `/loans`, not on `/repo
 
 ![Publication trust and monthly cashflow on /reports](../product/screenshots/finance-loop/03-reports-trust.png)
 
-**What the demo shows today:** on the local demo (DuckDB warehouse reporting), the monthly cashflow snapshot reads **Unavailable / Unavailable / 0%**. This is the honest result of the current trust inputs, not a rendering fault:
+**What the demo shows today:** on the local demo (DuckDB warehouse reporting), the monthly cashflow snapshot reads verdict **Unavailable** and freshness **Unavailable**. Completeness is 100%, because the seeded runs are attributed and validated. The screenshot predates the source-asset attribution fix and still shows 0%. The verdict is the honest result of the current trust inputs, not a rendering fault:
 
-- Confidence is computed from source lineage that targets the publication.
-- In warehouse mode, promotion records no reporting lineage for refreshed marts.
-- The seed configures no source freshness schedules.
+- Confidence is computed from source lineage that targets the publication. Each contributing run is attributed to the source asset it was promoted for.
+- Freshness is read from that source asset's freshness config.
+- The seed configures no source freshness config, so every source reads `unconfigured`.
 
 The morning brief therefore withholds the cashflow line and says why. See *Known limits* below.
 
@@ -189,7 +189,10 @@ Every run is saved, so the panel ends with a **Next step**:
 
 ## Known limits
 
-- **Demo publication trust is `unavailable`.** Publication confidence resolves contributing sources from reporting lineage keyed by the publication. It then matches each source's run `source_name` against source-freshness configs, which are keyed by `source_asset_id`. In warehouse reporting mode, promotion publishes nothing to a publication store, so no reporting lineage is recorded. Until lineage and source keys line up, the demo verdict stays `unavailable` and the brief withholds cashflow. The e2e test asserts that the brief and `/reports` agree with whatever verdict the snapshot holds, not a specific verdict.
+- **Demo publication trust is `unavailable` because the seed configures no freshness.** Publication confidence attributes each contributing run to the source asset it was promoted for, read from the landing-layer lineage row that promotion records, and looks up that asset's source-freshness config. Promotion re-records the confidence snapshot once that lineage is stored. The demo seed gives its source assets no freshness config, so each source reads `unconfigured` and the verdict stays `unavailable`. The brief then withholds cashflow. Give the asset a freshness config, and the next promotion records a real freshness state and verdict. The e2e test (`tests/test_finance_operator_loop_e2e.py`) covers both cases: with an `ad_hoc` config a clean upload is `trustworthy` and the brief confirms cashflow, and without a config the verdict is `unavailable` and the brief withholds it.
+- **Scheduled freshness is never `current` in confidence.** Confidence passes no coverage period from the run, so a `monthly` or `quarterly` config evaluates to `due_soon` or `overdue`, never `current`. The verdict is then at best `degraded`. Only an `ad_hoc` config reads `current`.
+- **Runs without a recorded source asset read as `unconfigured`.** These are runs promoted before landing lineage existed, or outside source-asset promotion. Their fallback key, the run's `source_name`, is never matched against freshness configs, so it cannot raise the verdict.
+- **A rejected upload counts against every source asset of the same dataset.** A rejected run never reaches promotion, so no lineage names its asset. Confidence therefore matches later rejections by dataset, not by the upload's free-text `source_name`.
 - **`/control/confidence` is admin-scoped.** Readers and operators get the verdict on `/reports` through the morning brief instead.
 
 ## Refreshing the proof screenshots

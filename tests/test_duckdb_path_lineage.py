@@ -16,6 +16,9 @@ from packages.demo.seeder import _build_transformation_service, seed_demo_data
 from packages.domains.finance.manifest import FINANCE_PACK
 from packages.domains.overview.manifest import OVERVIEW_PACK
 from packages.domains.utilities.manifest import UTILITIES_PACK
+from packages.pipelines.publication_confidence_service import (
+    compute_and_record_publication_confidence,
+)
 from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
 from packages.platform.lineage_graph import (
     EDGE_FEEDS,
@@ -23,8 +26,14 @@ from packages.platform.lineage_graph import (
     NODE_SOURCE,
     build_publication_lineage_graph,
 )
+from packages.platform.publication_confidence import (
+    ConfidenceVerdict,
+    get_latest_publication_confidence,
+)
 from packages.platform.runtime.builder import build_container
+from packages.platform.source_freshness import SourceFreshnessState
 from packages.shared.settings import AppSettings
+from packages.storage.ingestion_catalog import SourceFreshnessConfigCreate
 from tests.test_demo_data import _make_settings
 
 
@@ -86,3 +95,59 @@ def test_seed_captures_snapshots_for_the_newest_month_only(seeded: AppSettings) 
     # history for the current-only publications.
     assert reporting.get_publication_snapshot("mart_household_overview", older) is None
 
+
+
+def test_confidence_attributes_runs_to_their_source_asset(seeded: AppSettings) -> None:
+    """#2801: freshness is looked up by the asset each contributing run landed for.
+
+    The seed configures no freshness schedules, so the recorded verdict is
+    unavailable. Once the demo's source assets get a freshness config, the
+    same DuckDB-path lineage yields a real freshness state and verdict.
+    """
+    container = _container(seeded)
+    control_plane = container.control_plane_store
+    landing_assets = {
+        record.target_name
+        for record in control_plane.list_source_lineage(target_layer="landing")
+        if record.target_kind == "source_asset"
+    }
+    assert landing_assets
+
+    seeded_snapshot = get_latest_publication_confidence(
+        "mart_monthly_cashflow", control_plane
+    )
+    assert seeded_snapshot is not None
+    # The seed's promotion recorded lineage before the final snapshot, so the
+    # runs contribute; only freshness is missing.
+    assert seeded_snapshot.contributing_run_ids
+    assert seeded_snapshot.completeness_pct == 100
+    assert seeded_snapshot.confidence_verdict == ConfidenceVerdict.UNAVAILABLE
+
+    for source_asset_id in sorted(landing_assets):
+        control_plane.create_source_freshness_config(
+            SourceFreshnessConfigCreate(
+                source_asset_id=source_asset_id,
+                acquisition_mode="manual_export",
+                expected_frequency="ad_hoc",
+                coverage_kind="rolling_period",
+                due_day_of_month=None,
+                expected_window_days=5,
+                freshness_sla_days=40,
+                sensitivity_class="financial",
+                reminder_channel="dashboard",
+                requires_human_action=True,
+            )
+        )
+    snapshot = compute_and_record_publication_confidence(
+        "mart_monthly_cashflow",
+        control_plane,
+        None,
+        run_metadata_store=container.run_metadata_store,
+    )
+
+    assert set(snapshot.source_freshness_states) <= landing_assets
+    assert snapshot.source_freshness_states
+    assert {
+        state.freshness_state for state in snapshot.source_freshness_states.values()
+    } == {SourceFreshnessState.CURRENT}
+    assert snapshot.confidence_verdict == ConfidenceVerdict.TRUSTWORTHY
