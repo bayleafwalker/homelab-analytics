@@ -3563,6 +3563,8 @@ export interface components {
             adapter: string;
             /** Created By */
             created_by?: string | null;
+            /** Idempotency Key */
+            idempotency_key?: string | null;
             /** Metadata */
             metadata?: {
                 [key: string]: unknown;
@@ -3573,7 +3575,7 @@ export interface components {
             policy_id: string;
             /** Policy Name */
             policy_name: string;
-            provenance?: components["schemas"]["ProposalProvenanceModel"] | null;
+            provenance?: components["schemas"]["ProposalProvenanceInputModel"] | null;
             /** Source Key */
             source_key?: string | null;
             /**
@@ -3613,6 +3615,8 @@ export interface components {
             dismissed_at?: string | null;
             /** History */
             history?: components["schemas"]["ProposalHistoryEventModel"][];
+            /** Idempotency Key */
+            idempotency_key?: string | null;
             /** Metadata */
             metadata?: {
                 [key: string]: unknown;
@@ -6164,15 +6168,28 @@ export interface components {
         ProposalHistoryEventModel: {
             /** Actor */
             actor?: string | null;
+            /** Actor Auth Provider */
+            actor_auth_provider?: string | null;
             /** At */
             at: string;
             /**
              * Kind
              * @enum {string}
              */
-            kind: "drafted" | "refreshed" | "approved" | "dismissed";
+            kind: "drafted" | "refreshed" | "reopened" | "approved" | "dismissed";
             /** Reason */
             reason?: string | null;
+        };
+        /** ProposalProvenanceInputModel */
+        ProposalProvenanceInputModel: {
+            /** Assessed At */
+            assessed_at?: string | null;
+            /** Confidence Verdict At Draft */
+            confidence_verdict_at_draft?: string | null;
+            /** Freshness State At Draft */
+            freshness_state_at_draft?: string | null;
+            /** Publication Keys */
+            publication_keys?: string[];
         };
         /** ProposalProvenanceModel */
         ProposalProvenanceModel: {
@@ -6184,6 +6201,8 @@ export interface components {
             freshness_state_at_draft?: string | null;
             /** Publication Keys */
             publication_keys?: string[];
+            /** Trust Source */
+            trust_source?: ("server_stamped" | "proposer_supplied") | null;
         };
         /** ProposalResolutionModel */
         ProposalResolutionModel: {

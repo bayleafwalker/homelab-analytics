@@ -27,12 +27,20 @@ Resolution rules (shared with the HA approval routes):
 - only ``pending`` proposals can be resolved; a second resolution is ``409``
 - machine principals (service tokens, machine JWTs) may draft but never
   resolve a proposal (``403``) — approval is a human decision
-- approve/dismiss accept an optional ``{"reason": ...}`` body; the resolver
-  and reason are recorded on the proposal and in its append-only history
+- approve/dismiss accept an optional ``{"reason": ...}`` body; the resolver,
+  how they authenticated, and the reason are recorded on the proposal and in
+  its append-only history
+- a draft's ``idempotency_key`` replays return the proposal it created; a key
+  owned by another drafter, or an ``action_id`` naming a resolved proposal,
+  is a ``409`` (drafting can never reopen an operator's decision)
+
+The queue is persisted in the control plane (``action_proposals`` and the
+append-only ``action_proposal_events``), so it survives API restarts.
 """
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any, Literal, cast
 
 from fastapi import FastAPI, HTTPException, Request
@@ -49,25 +57,33 @@ from packages.platform.action_proposals import (
     MACHINE_AUTH_PROVIDERS,
     ActionProposal,
     ActionProposalRegistry,
+    ProposalConflictError,
     ProposalProvenance,
     ProposalTransitionError,
 )
 
 MAX_RESOLUTION_REASON_LENGTH = 500
+# Matches the vuoro invocation envelope's idempotency-key pattern.
+IDEMPOTENCY_KEY_PATTERN = r"^[A-Za-z0-9._:-]{8,128}$"
 
 
-class ProposalProvenanceModel(BaseModel):
+class ProposalProvenanceInputModel(BaseModel):
     publication_keys: list[str] = Field(default_factory=list)
     confidence_verdict_at_draft: str | None = None
     freshness_state_at_draft: str | None = None
     assessed_at: str | None = None
 
 
+class ProposalProvenanceModel(ProposalProvenanceInputModel):
+    trust_source: Literal["server_stamped", "proposer_supplied"] | None = None
+
+
 class ProposalHistoryEventModel(BaseModel):
-    kind: Literal["drafted", "refreshed", "approved", "dismissed"]
+    kind: Literal["drafted", "refreshed", "reopened", "approved", "dismissed"]
     at: str
     actor: str | None = None
     reason: str | None = None
+    actor_auth_provider: str | None = None
 
 
 class ProposalResolutionModel(BaseModel):
@@ -94,6 +110,7 @@ class ActionProposalModel(BaseModel):
     provenance: ProposalProvenanceModel | None = None
     resolved_by: str | None = None
     resolution_reason: str | None = None
+    idempotency_key: str | None = None
     history: list[ProposalHistoryEventModel] = Field(default_factory=list)
 
 
@@ -109,8 +126,9 @@ class ActionProposalCreateModel(BaseModel):
     source_summary: str | None = None
     created_by: str | None = None
     action_id: str | None = None
+    idempotency_key: str | None = Field(default=None, pattern=IDEMPOTENCY_KEY_PATTERN)
     metadata: dict[str, Any] = Field(default_factory=dict)
-    provenance: ProposalProvenanceModel | None = None
+    provenance: ProposalProvenanceInputModel | None = None
 
 
 class ActionProposalListModel(BaseModel):
@@ -185,7 +203,25 @@ class ActionProposalReviewModel(BaseModel):
     trust: ProposalReviewTrustModel
 
 
-def resolver_identity(request: Request) -> str | None:
+@dataclass(frozen=True)
+class ProposalActor:
+    """Who is acting on the queue, as the auth layer authenticated them."""
+
+    name: str | None
+    auth_provider: str | None
+
+
+def request_actor(request: Request) -> ProposalActor:
+    principal = cast(Any, getattr(request.state, "principal", None))
+    if principal is None:
+        return ProposalActor(name=None, auth_provider=None)
+    return ProposalActor(
+        name=cast(str | None, getattr(principal, "username", None)),
+        auth_provider=cast(str | None, getattr(principal, "auth_provider", None)),
+    )
+
+
+def resolver_identity(request: Request) -> ProposalActor:
     """Identity recorded as the resolver of a proposal.
 
     Raises ``403`` for machine principals: agents and service tokens may
@@ -193,10 +229,8 @@ def resolver_identity(request: Request) -> str | None:
     own. When auth is disabled there is no principal and the resolution is
     recorded without an actor.
     """
-    principal = cast(Any, getattr(request.state, "principal", None))
-    if principal is None:
-        return None
-    if getattr(principal, "auth_provider", None) in MACHINE_AUTH_PROVIDERS:
+    actor = request_actor(request)
+    if actor.auth_provider in MACHINE_AUTH_PROVIDERS:
         raise HTTPException(
             status_code=403,
             detail=(
@@ -204,7 +238,7 @@ def resolver_identity(request: Request) -> str | None:
                 "an operator must resolve them from the control surface."
             ),
         )
-    return cast(str | None, getattr(principal, "username", None))
+    return actor
 
 
 def resolve_proposal(
@@ -212,17 +246,35 @@ def resolve_proposal(
     action_id: str,
     resolution: Literal["approved", "dismissed"],
     *,
-    resolved_by: str | None,
+    resolver: ProposalActor,
     reason: str | None,
 ) -> ActionProposal:
     """Apply a resolution, mapping registry errors onto HTTP errors."""
     try:
         if resolution == "approved":
-            return registry.approve(action_id, resolved_by=resolved_by, reason=reason)
-        return registry.dismiss(action_id, resolved_by=resolved_by, reason=reason)
+            return registry.approve(
+                action_id,
+                resolved_by=resolver.name,
+                reason=reason,
+                actor_auth_provider=resolver.auth_provider,
+            )
+        return registry.dismiss(
+            action_id,
+            resolved_by=resolver.name,
+            reason=reason,
+            actor_auth_provider=resolver.auth_provider,
+        )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Unknown approval action.") from exc
     except ProposalTransitionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+def register_draft(registry: ActionProposalRegistry, **kwargs: Any) -> ActionProposal:
+    """Draft through the API: never reopens a resolved proposal (``409``)."""
+    try:
+        return registry.register(**kwargs, reopen_resolved=False)
+    except (ProposalConflictError, ProposalTransitionError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
@@ -290,12 +342,8 @@ def register_action_proposal_routes(
         body: ActionProposalCreateModel,
         request: Request,
     ) -> ActionProposalModel:
-        principal = cast(Any, getattr(request.state, "principal", None))
-        created_by = (
-            getattr(principal, "username", None)
-            or body.created_by
-            or body.source_kind
-        )
+        actor = request_actor(request)
+        created_by = actor.name or body.created_by or body.source_kind
         provenance = None
         if body.provenance is not None:
             publication_keys = list(body.provenance.publication_keys)
@@ -308,6 +356,7 @@ def register_action_proposal_routes(
                     confidence_verdict_at_draft=stamped["confidence_verdict_at_draft"],
                     freshness_state_at_draft=stamped["freshness_state_at_draft"],
                     assessed_at=stamped["assessed_at"],
+                    trust_source="server_stamped",
                 )
             else:
                 provenance = ProposalProvenance(
@@ -315,8 +364,10 @@ def register_action_proposal_routes(
                     confidence_verdict_at_draft=body.provenance.confidence_verdict_at_draft,
                     freshness_state_at_draft=body.provenance.freshness_state_at_draft,
                     assessed_at=body.provenance.assessed_at,
+                    trust_source="proposer_supplied",
                 )
-        proposal = action_proposal_registry.register(
+        proposal = register_draft(
+            action_proposal_registry,
             policy_id=body.policy_id,
             policy_name=body.policy_name,
             verdict=body.verdict,
@@ -330,6 +381,8 @@ def register_action_proposal_routes(
             metadata=dict(body.metadata),
             action_id=body.action_id,
             provenance=provenance,
+            idempotency_key=body.idempotency_key,
+            actor_auth_provider=actor.auth_provider,
         )
         return ActionProposalModel.model_validate(proposal.to_dict())
 
@@ -370,14 +423,14 @@ def register_action_proposal_routes(
         request: Request,
         body: ProposalResolutionModel | None = None,
     ) -> ActionProposalModel:
-        resolved_by = resolver_identity(request)
+        resolver = resolver_identity(request)
         proposal = require_pending_proposal(action_proposal_registry, action_id)
         await _release_through_adapter(proposal, "approved")
         proposal = resolve_proposal(
             action_proposal_registry,
             action_id,
             "approved",
-            resolved_by=resolved_by,
+            resolver=resolver,
             reason=body.reason if body is not None else None,
         )
         return ActionProposalModel.model_validate(proposal.to_dict())
@@ -391,14 +444,14 @@ def register_action_proposal_routes(
         request: Request,
         body: ProposalResolutionModel | None = None,
     ) -> ActionProposalModel:
-        resolved_by = resolver_identity(request)
+        resolver = resolver_identity(request)
         proposal = require_pending_proposal(action_proposal_registry, action_id)
         await _release_through_adapter(proposal, "dismissed")
         proposal = resolve_proposal(
             action_proposal_registry,
             action_id,
             "dismissed",
-            resolved_by=resolved_by,
+            resolver=resolver,
             reason=body.reason if body is not None else None,
         )
         return ActionProposalModel.model_validate(proposal.to_dict())

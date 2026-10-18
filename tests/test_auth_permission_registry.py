@@ -707,11 +707,11 @@ def test_request_policy_mapping_covers_previously_unmapped_api_surfaces() -> Non
     assert required_role_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/actions/proposals", "POST") == UserRole.OPERATOR
     assert (
         required_permission_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/actions/proposals", method="POST")
-        == PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE
+        == "control.action_proposals.draft"
     )
     assert (
         required_service_token_scope_for_request(API_ROUTE_AUTHORIZATION_LOOKUP, "/api/ha/actions/proposals", "POST")
-        == "admin:write"
+        == "proposals:draft"
     )
 
     assert (

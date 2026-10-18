@@ -20,7 +20,8 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from packages.platform.auth.contracts import (
-    SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
+    SERVICE_TOKEN_SCOPE_POLICIES_DRAFT,
+    SERVICE_TOKEN_SCOPE_PROPOSALS_DRAFT,
     SERVICE_TOKEN_SCOPE_REPORTS_READ,
 )
 
@@ -380,12 +381,12 @@ AGENT_TOOL_SPECS: tuple[AgentToolSpec, ...] = (
         endpoints=(("POST", "/control/policies"),),
         publication_scope="cited",
         publication_note="The publication referenced by rule_document.",
-        required_scope=SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
-        token_reachable=False,
+        required_scope=SERVICE_TOKEN_SCOPE_POLICIES_DRAFT,
         access_note=(
-            "Needs the control.policy.write permission, which no service-token "
-            "scope grants today; only an operator session or a machine JWT "
-            "bound to that permission can call it."
+            "Needs a token minted with role admin and the policies:draft scope "
+            "(control.policy.draft). The draft is stored disabled with "
+            "source_kind=agent; enabling, editing or deleting a policy needs "
+            "control.policy.write, which no service-token scope grants."
         ),
         vuoro_operation="hla.policy.propose",
         execution_semantics="write",
@@ -429,7 +430,8 @@ AGENT_TOOL_SPECS: tuple[AgentToolSpec, ...] = (
                     "pattern": "^[A-Za-z0-9._:-]{8,128}$",
                     "description": (
                         "Retry-safe key; the same key refreshes the same "
-                        "pending proposal instead of creating a duplicate."
+                        "pending proposal instead of creating a duplicate, "
+                        "and returns it unchanged once it is resolved."
                     ),
                 },
             },
@@ -440,7 +442,12 @@ AGENT_TOOL_SPECS: tuple[AgentToolSpec, ...] = (
         endpoints=(("POST", "/api/actions/proposals"),),
         publication_scope="cited",
         publication_note="Publications the agent lists in publication_keys.",
-        required_scope=SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
+        required_scope=SERVICE_TOKEN_SCOPE_PROPOSALS_DRAFT,
+        access_note=(
+            "proposals:draft (or admin:write) on an operator- or admin-role "
+            "token. Drafting never grants approve or dismiss: those are "
+            "refused for every machine principal."
+        ),
         vuoro_operation="hla.proposal.create",
         execution_semantics="enqueue",
         idempotency="optional",

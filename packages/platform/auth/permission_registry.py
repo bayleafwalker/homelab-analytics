@@ -13,6 +13,8 @@ from packages.platform.auth.contracts import (
     SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
     SERVICE_TOKEN_SCOPE_HA_BRIDGE_INGEST,
     SERVICE_TOKEN_SCOPE_INGEST_WRITE,
+    SERVICE_TOKEN_SCOPE_POLICIES_DRAFT,
+    SERVICE_TOKEN_SCOPE_PROPOSALS_DRAFT,
     SERVICE_TOKEN_SCOPE_REPORTS_READ,
     SERVICE_TOKEN_SCOPE_RUNS_READ,
     UserRole,
@@ -27,13 +29,20 @@ PERMISSION_CONTROL_SOURCE_LINEAGE_READ = "control.source_lineage.read"
 PERMISSION_CONTROL_PUBLICATION_AUDIT_READ = "control.publication_audit.read"
 PERMISSION_CONTROL_SCHEDULE_DISPATCHES_READ = "control.schedule_dispatches.read"
 PERMISSION_CONTROL_SCHEDULE_DISPATCHES_WRITE = "control.schedule_dispatches.write"
+# Resolving (approve / dismiss) a proposal. Operators hold it; machine
+# principals are refused at the route even when a scope grants it.
 PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE = "control.action_proposals.write"
+# Drafting a proposal into the queue. Never implies resolving it.
+PERMISSION_CONTROL_ACTION_PROPOSALS_DRAFT = "control.action_proposals.draft"
 PERMISSION_CONTROL_CONFIG_READ = "control.config.read"
 PERMISSION_CONTROL_CONFIG_WRITE = "control.config.write"
 PERMISSION_TRANSFORMATION_AUDIT_READ = "transformation.audit.read"
 PERMISSION_ADMIN_WRITE = "admin.write"
 PERMISSION_CONTROL_POLICY_READ = "control.policy.read"
 PERMISSION_CONTROL_POLICY_WRITE = "control.policy.write"
+# Creating a policy. Machine-principal creates are stored disabled with
+# source_kind="agent"; updating, enabling or deleting needs control.policy.write.
+PERMISSION_CONTROL_POLICY_DRAFT = "control.policy.draft"
 # Decision ledger: readers can review decisions; operators (the declared
 # household decision-maker role) record them. No service-token scope grants
 # either permission, so the ledger is read and written from a person's session.
@@ -115,6 +124,7 @@ _OPERATOR_PERMISSIONS: frozenset[str] = _READER_PERMISSIONS.union(
         PERMISSION_RUNS_RETRY,
         PERMISSION_CONTROL_SCHEDULE_DISPATCHES_WRITE,
         PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE,
+        PERMISSION_CONTROL_ACTION_PROPOSALS_DRAFT,
         PERMISSION_CONTROL_DECISIONS_WRITE,
     }
 )
@@ -125,6 +135,7 @@ _ADMIN_PERMISSIONS: frozenset[str] = _OPERATOR_PERMISSIONS.union(
         PERMISSION_ADMIN_WRITE,
         PERMISSION_CONTROL_POLICY_READ,
         PERMISSION_CONTROL_POLICY_WRITE,
+        PERMISSION_CONTROL_POLICY_DRAFT,
     }
 )
 
@@ -160,8 +171,13 @@ _SERVICE_SCOPE_PERMISSIONS: dict[str, frozenset[str]] = {
             PERMISSION_CONTROL_CONFIG_READ,
             PERMISSION_CONTROL_CONFIG_WRITE,
             PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE,
+            PERMISSION_CONTROL_ACTION_PROPOSALS_DRAFT,
         }
     ),
+    SERVICE_TOKEN_SCOPE_PROPOSALS_DRAFT: frozenset(
+        {PERMISSION_CONTROL_ACTION_PROPOSALS_DRAFT}
+    ),
+    SERVICE_TOKEN_SCOPE_POLICIES_DRAFT: frozenset({PERMISSION_CONTROL_POLICY_DRAFT}),
 }
 
 KNOWN_PERMISSIONS: frozenset[str] = frozenset(
@@ -175,12 +191,14 @@ KNOWN_PERMISSIONS: frozenset[str] = frozenset(
         PERMISSION_CONTROL_SCHEDULE_DISPATCHES_READ,
         PERMISSION_CONTROL_SCHEDULE_DISPATCHES_WRITE,
         PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE,
+        PERMISSION_CONTROL_ACTION_PROPOSALS_DRAFT,
         PERMISSION_CONTROL_CONFIG_READ,
         PERMISSION_CONTROL_CONFIG_WRITE,
         PERMISSION_TRANSFORMATION_AUDIT_READ,
         PERMISSION_ADMIN_WRITE,
         PERMISSION_CONTROL_POLICY_READ,
         PERMISSION_CONTROL_POLICY_WRITE,
+        PERMISSION_CONTROL_POLICY_DRAFT,
         PERMISSION_CONTROL_DECISIONS_READ,
         PERMISSION_CONTROL_DECISIONS_WRITE,
     }

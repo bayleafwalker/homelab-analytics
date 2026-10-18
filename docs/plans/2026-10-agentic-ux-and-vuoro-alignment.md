@@ -23,11 +23,11 @@ These are ordered by severity. Every item marked **fixed** is fixed in this bran
 1. **An agent could approve its own proposal (fixed).** `POST /api/actions/proposals` and `.../approve` used the same `admin:write` scope, so any token able to draft could also approve. Machine principals (`service_token`, `machine_jwt`) now get a `403` when they try to resolve a proposal, on both route families (`resolver_identity`, `apps/api/routes/action_proposal_routes.py`).
 2. **Resolved proposals could be flipped (fixed).** `approve()` or `dismiss()` on an already-resolved proposal silently overwrote the operator's decision, and the HA dispatcher's condition-cleared path could dismiss an approved proposal. Only `pending` resolves now. A second attempt returns `409`, and the dispatcher treats it as a no-op.
 3. **`propose_policy` created live policies (fixed).** `PolicyDefinitionCreate.enabled` defaults to `True`, so a "draft" was evaluated immediately and recorded `source_kind="operator"` with a creator the caller supplied. Machine-principal creates are now stored disabled with `source_kind="agent"` and the token name as creator, and machine principals cannot enable a policy.
-4. **`propose_policy` cannot be reached with a service token.** `/control/policies` needs `control.policy.write`, which no service-token scope grants. The tool works only with auth disabled or with a machine JWT bound to that permission. The catalog now reports this honestly (`token_reachable: false` plus an `access_note`). Section 6 asks the operator to decide.
+4. **`propose_policy` could not be reached with a service token (fixed in wave 2).** Creating a policy (`POST /control/policies`) now needs `control.policy.draft`, which the new `policies:draft` scope grants to an admin-role token. Machine creates stay disabled. Updating, enabling and deleting still need `control.policy.write`, which no scope grants. The catalog reports `token_reachable: true`.
 5. **Confidence key namespace split (worked around).** The refresh path records confidence snapshots under the relation name (`mart_monthly_cashflow`). Contracts, the semantic index, and agents use the contract key (`monthly_cashflow`). A naive lookup would read every publication as `trust_unknown`. `build_publication_confidence_lookup` (`apps/api/routes/agent_routes.py`) bridges the two. The assistant routes' hardcoded `mart_*` key lists happen to match the snapshot namespace. The real fix is to pick one key, and that needs a coordination decision with the confidence owner. **Resolved (wave 2, `refactor/core-split-and-dedupe`):** the relation name is the canonical snapshot key, matching lineage, refresh handlers, control-plane publication definitions, policies, and the morning brief. `PublicationKeyResolver` (`packages/platform/publication_keys.py`) is the single mapping; writes canonicalize through it, contract and agent reads resolve through `get_latest_publication_confidence(..., key_resolver=...)` and still read legacy contract-keyed snapshots, and the agent-route bridge is removed.
 6. **No answer-honesty signal for agents (fixed).** See section 3.
 7. **No resolver audit (fixed).** Proposals now record `resolved_by`, `resolution_reason`, and an append-only `history` (`drafted` / `refreshed` / `approved` / `dismissed`).
-8. **The proposal queue lives in memory (open).** It is lost on API restart, and the UI says so. Persisting it needs a migration, and the decision-ledger work currently owns that space (section 7).
+8. **The proposal queue lived in memory (fixed in wave 2, `feat/agent-platform-identity`).** The control plane now persists it (sqlite `0009_action_proposal_queue`, postgres `0016_action_proposal_queue`): `action_proposals` holds current state and `action_proposal_events` the append-only history. Every transition is a compare-and-set on status, so concurrent resolvers get one resolution and one `409`. `idempotency_key` is unique; a replay returns the proposal it created and never reopens a resolved one, and a key reused by another drafter is a `409`. Drafting over a resolved `action_id` through the API is a `409`; only the HA dispatcher re-raises a resolved gate, which appends a `reopened` event. Provenance records `trust_source` (`server_stamped` or `proposer_supplied`), and history events record `actor_auth_provider`. The UI caveat is gone.
 
 ## 3. What agents see now (MCP and API)
 
@@ -40,8 +40,8 @@ The single tool catalog is `packages/application/use_cases/agent_tool_catalog.py
 | `get_publication_lineage` (new) | read | lineage metadata, no rows | `reports:read` | `hla.publication.trace` |
 | `get_proposal` (new) | read | proposal status, resolver, history | `reports:read` | `hla.proposal.get` |
 | `propose_scenario` | draft | scenario engine | `reports:read` | `hla.scenario.propose` |
-| `propose_policy` | draft (disabled) | cited publication | n/a for tokens (see 2.4) | `hla.policy.propose` |
-| `propose_action` | draft (queue) | cited publications; optional `idempotency_key` | `admin:write` | `hla.proposal.create` |
+| `propose_policy` | draft (disabled) | cited publication | `policies:draft` (admin-role token) | `hla.policy.propose` |
+| `propose_action` | draft (queue) | cited publications; optional `idempotency_key` | `proposals:draft` (or `admin:write`) | `hla.proposal.create` |
 
 **Trust guidance.** Every semantic-index entry carries a `trust` block derived from the latest confidence snapshot (`packages/application/use_cases/agent_trust.py`). `guidance` takes one of four values:
 
@@ -91,7 +91,7 @@ Sources: `/projects/dev/vuoro` (vuoro-client 0.1.2 source / 0.1.1 wheel, vuoro-a
 | Proposal queue vs work items / effects | `pending / approved / dismissed`, human-only resolution | mcp-edge effect intents `proposed / accepted / rejected / applied / failed`; acceptance by an operator or an opt-in acceptor | **Mapped** in the manifest (`vuoro_effect_state_map`). HLA has no `applied` / `failed` because nothing executes yet. 5.3 |
 | Events / inbox | Polling the proposal list | `resource-changes/v1` (`next_cursor`, events) | **Gap.** 5.3 sketches a changes feed. |
 | Envelopes / ids | `approval_<hex12>`; agent idempotency key → `agent_<key>` | ULID-prefixed ids; idempotency key `^[A-Za-z0-9._:-]{8,128}$`; `invocation/v1` | Idempotency-key pattern adopted. ULIDs are deferred because the HA routes require the id format to stay stable. |
-| Auth | Local / `local_single_user`; Authentik OIDC pending | OAuth PKCE (vuoro-cli), PATs `vuo_pat_*`, authorities `work:*` | Independent. Nothing to align until OIDC lands. |
+| Auth | Deployed `local_single_user`. The `oidc` mode (PKCE, Authentik-compatible) is ready, and the live enablement is an operator task (`docs/runbooks/oidc-authentik-enablement.md`) | OAuth PKCE (vuoro-cli), PATs `vuo_pat_*`, authorities `work:*` | Both sides use PKCE. Token and authority alignment stays independent. |
 
 ### 5.1 Proposal to vuoro: issue and validate HLA's authority UUID
 
@@ -145,8 +145,8 @@ The module is `packages/application/use_cases/assistant_runtime.py` and its brok
 
 ## 7. Follow-ups (not in this branch)
 
-1. **Persist the proposal queue** (postgres + sqlite migrations). Wait for the decision-ledger migrations to land, so the two do not collide on migration numbers.
-2. **A `proposals:draft` service-token scope**, so an MCP agent token stops needing `admin:write`. This needs the route-policy engine to accept a scope set during migration.
+1. ~~**Persist the proposal queue**~~ — done in wave 2 (see 2.8).
+2. ~~**A `proposals:draft` service-token scope**~~ — done in wave 2, along with `policies:draft`. `admin:write` implies `proposals:draft` (`SERVICE_TOKEN_SCOPE_IMPLICATIONS`), so existing agent tokens keep working. The generalized `/api/actions/*` routes and the HA routes now share one model: drafting needs `control.action_proposals.draft`, and resolving needs the operator-level `control.action_proposals.write`. See `docs/runbooks/configuration.md` § Agent service-token scopes.
 3. **Unify the confidence key namespace** (section 2.5) with the confidence owner.
 4. **Retro-shell mirror of `/control/agents`**, read-only, as the policies mirror is.
 5. **An OpenCode adapter** behind both gates, once B1 (the deterministic brief) has shipped.
@@ -155,6 +155,6 @@ The module is `packages/application/use_cases/assistant_runtime.py` and its brok
 
 | Question | Options | Recommendation |
 |---|---|---|
-| How should agents draft policies? | (a) Add a `policies:draft` scope. (b) Drop `propose_policy` from the MCP surface. (c) Keep it reachable only through a machine JWT with explicit permissions. | **(c) now, then (a)** alongside follow-up 7.2. Drafts are already forced disabled, so (a) is safe once the scope exists. |
-| Is `/control/agents` admin-only or operator-visible? | (a) Admin-only, as today, matching the other control pages. (b) Operators can see it and resolve proposals. | **(a)** until OIDC groups land. Then move to (b), which needs a route-policy change: generalized `/api/actions/*` mutations currently require `admin.write`, while the HA routes accept `control.action_proposals.write`. Aligning the two is a small `auth_policies.py` change. |
+| How should agents draft policies? | (a) Add a `policies:draft` scope. (b) Drop `propose_policy` from the MCP surface. (c) Keep it reachable only through a machine JWT with explicit permissions. | **Decided (wave 2): (a).** `policies:draft` grants `control.policy.draft` (create only, stored disabled). |
+| Is `/control/agents` admin-only or operator-visible? | (a) Admin-only, as today, matching the other control pages. (b) Operators can see it and resolve proposals. | **Decided (wave 2): (b).** The OIDC mode maps groups to roles, `/api/actions/*` and the HA routes share `control.action_proposals.write` for resolution, and the page admits `operator` and `admin` sessions. |
 | Publish the manifest by default? | (a) Off, as today. (b) On for `local_single_user`. | **(a)** until 5.2 has a consumer. The manifest is harmless to serve, but nothing reads it yet. |

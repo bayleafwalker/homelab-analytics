@@ -225,8 +225,10 @@ def test_catalog_and_principals_project_the_agent_surface() -> None:
             assert tool["annotations"]["destructiveHint"] is False
             assert tool["annotations"]["readOnlyHint"] is (tool["effect"] == "read")
         by_name = {tool["name"]: tool for tool in catalog["tools"]}
-        assert by_name["propose_policy"]["token_reachable"] is False
+        assert by_name["propose_policy"]["token_reachable"] is True
+        assert by_name["propose_policy"]["required_scope"] == "policies:draft"
         assert "control.policy.write" in by_name["propose_policy"]["access_note"]
+        assert by_name["propose_action"]["required_scope"] == "proposals:draft"
 
         for origin in ("agent-a", "agent-a", "agent-b"):
             client.post(

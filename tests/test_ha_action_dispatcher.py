@@ -665,7 +665,10 @@ class ProposalIdempotencyTests(unittest.TestCase):
             notification_id="n1",
             action_id="stable_id",
         )
-        self.assertIs(first, second)
+        # The store hands out detached copies; identity is the action id and
+        # the original draft time, not the Python object.
+        self.assertEqual(first.action_id, second.action_id)
+        self.assertEqual(first.created_at, second.created_at)
         self.assertEqual("breach", second.verdict)
         self.assertEqual("pending", second.status)
         self.assertEqual(1, registry.get_status()["tracked"])

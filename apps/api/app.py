@@ -111,6 +111,7 @@ from packages.pipelines.reporting_service import (
 )
 from packages.pipelines.run_context import RunControlContext
 from packages.platform.action_proposals import ActionProposalRegistry as ApprovalActionRegistry
+from packages.platform.action_proposals import build_action_proposal_registry
 from packages.platform.auth.break_glass import BreakGlassController
 from packages.platform.auth.machine_jwt_provider import MachineJwtProvider
 from packages.platform.auth.oidc_provider import OidcProvider
@@ -799,7 +800,10 @@ def create_app(
     )
     # The approval queue is adapter-agnostic: agent and assistant proposals
     # share it with HA-gated actions, so it exists even without HA wiring.
-    resolved_action_proposal_registry = ha_action_proposal_registry or ApprovalActionRegistry()
+    resolved_action_proposal_registry = (
+        ha_action_proposal_registry
+        or build_action_proposal_registry(resolved_config_repository)
+    )
     register_ha_routes(
         app,
         reporting_service=reporting_service,

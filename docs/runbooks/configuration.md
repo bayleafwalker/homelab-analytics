@@ -182,19 +182,39 @@ Legacy auth-mode migration policy:
 
 | Variable | Default | Description |
 |---|---|---|
-| `HOMELAB_ANALYTICS_OIDC_ISSUER_URL` | — | OIDC discovery issuer URL |
+| `HOMELAB_ANALYTICS_OIDC_ISSUER_URL` | — | OIDC issuer URL, matching the IdP's advertised `issuer` (trailing slash ignored when comparing). Authentik: `https://<authentik>/application/o/<slug>/` |
+| `HOMELAB_ANALYTICS_OIDC_DISCOVERY_URL` | `<issuer>/.well-known/openid-configuration` | Optional discovery-document override |
 | `HOMELAB_ANALYTICS_OIDC_CLIENT_ID` | — | OIDC client ID |
-| `HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET` | — | OIDC client secret |
-| `HOMELAB_ANALYTICS_OIDC_REDIRECT_URI` | — | OIDC callback URI |
+| `HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET` | — | OIDC client secret (literal). Set this or `_CLIENT_SECRET_REF`, not both |
+| `HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET_REF` | — | `<secret_name>/<secret_key>` resolved through the SecretResolver, i.e. the env var `HOMELAB_ANALYTICS_SECRET__<SECRET_NAME>__<SECRET_KEY>` (upper-cased, non-alphanumerics → `_`) |
+| `HOMELAB_ANALYTICS_OIDC_REDIRECT_URI` | — | OIDC callback URI (`https://<host>/auth/callback`) |
+| `HOMELAB_ANALYTICS_OIDC_JWKS_CACHE_SECONDS` | `3600` | How long discovery metadata and the JWKS stay cached. An unknown `kid` forces one early JWKS refetch (at most every 10 s) so key rotation does not lock users out |
+| `HOMELAB_ANALYTICS_OIDC_CLOCK_SKEW_SECONDS` | `60` | Leeway for `exp` / `iat` / `nbf` checks |
 | `HOMELAB_ANALYTICS_OIDC_SCOPES` | `openid,profile,email` | Authorization-request scopes |
 | `HOMELAB_ANALYTICS_OIDC_API_AUDIENCE` | OIDC client ID | Accepted bearer-token audience for direct API clients |
-| `HOMELAB_ANALYTICS_OIDC_USERNAME_CLAIM` | — | Username claim for app principals |
-| `HOMELAB_ANALYTICS_OIDC_GROUPS_CLAIM` | — | Group claim for role/permission mapping input |
+| `HOMELAB_ANALYTICS_OIDC_USERNAME_CLAIM` | `preferred_username` | Username claim for app principals. It is what proposal history and the decision ledger record as the actor |
+| `HOMELAB_ANALYTICS_OIDC_GROUPS_CLAIM` | `groups` | Group claim for role/permission mapping input |
 | `HOMELAB_ANALYTICS_OIDC_PERMISSIONS_CLAIM` | — | Optional claim carrying extra app permission grants (comma-separated string or string list) |
 | `HOMELAB_ANALYTICS_OIDC_PERMISSION_GROUP_MAPPINGS` | — | Optional group-to-permission mappings (`group=permission[,permission...];group2=permission`) |
 | `HOMELAB_ANALYTICS_OIDC_READER_GROUPS` | — | OIDC groups mapped to `reader` role |
 | `HOMELAB_ANALYTICS_OIDC_OPERATOR_GROUPS` | — | OIDC groups mapped to `operator` role |
 | `HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS` | — | OIDC groups mapped to `admin` role |
+
+How the `oidc` mode behaves:
+
+- **Flow.** Authorization code with PKCE (S256). `state`, `nonce` and the PKCE verifier travel in the signed, HttpOnly `homelab_analytics_oidc_state` cookie, which lives 10 minutes. Login fails at the start if the IdP advertises `code_challenge_methods_supported` without `S256`.
+- **Token endpoint auth.** `client_secret_post` is the default. `client_secret_basic` is used when the IdP advertises only that method.
+- **ID token validation.**
+  - The signature is checked against the IdP's JWKS, using only asymmetric algorithms (RS/PS/ES*, EdDSA). HMAC (`HS*`) and `none` are refused, and an IdP that advertises only HMAC fails with an explicit error.
+  - `iss` must equal the advertised issuer exactly.
+  - `aud` must include the client ID (or `HOMELAB_ANALYTICS_OIDC_API_AUDIENCE` for bearer tokens).
+  - `exp`, `iat` and `sub` are required. `nonce` must match the login state. When an ID token has several audiences, `azp` must be the client ID.
+- **Roles.** The first matching group wins, in the order admin, operator, reader. When role groups are configured, a user in none of them is refused (`/login?error=oidc-unmapped`) unless a permissions claim or a group-to-permission mapping grants them something.
+- **Session.** A successful callback issues the app's own signed session cookie (`homelab_analytics_session`, plus the CSRF cookie). Downstream authorization sees `auth_provider="oidc"` and the mapped role. Service tokens keep working in `oidc` mode.
+- **Recorded identity.** Proposal drafts and resolutions record the principal's username plus `actor_auth_provider="oidc"` in their history. Decision-ledger records store `actor`, `actor_role`, `actor_auth_provider="oidc"` and `actor_authenticated=true`.
+- **Web.** The web container also needs `HOMELAB_ANALYTICS_IDENTITY_MODE=oidc` so `/login` offers the single sign-on button.
+
+Operator enablement against Authentik: `docs/runbooks/oidc-authentik-enablement.md`.
 
 OIDC and trusted-proxy permission grants support canonical static permissions (for example `ingest.write`, `runs.read`) plus asset-scoped grants: `reports.read.publication.<publication_key>`, `runs.read.run.<run_id>`, `runs.retry.run.<run_id>`, `control.source_lineage.read.run.<run_id>`, and `control.publication_audit.read.publication.<publication_key>`. Wildcards are supported as `reports.read.publication.*`, `runs.read.run.*`, `runs.retry.run.*`, `control.source_lineage.read.run.*`, `control.publication_audit.read.publication.*`, and prefix wildcards such as `reports.read.publication.finance.*`.
 
@@ -210,9 +230,28 @@ OIDC and trusted-proxy permission grants support canonical static permissions (f
 | `HOMELAB_ANALYTICS_MACHINE_JWT_ROLE_CLAIM` | `role` | Optional claim for role ceiling (`reader`, `operator`, `admin`). |
 | `HOMELAB_ANALYTICS_MACHINE_JWT_DEFAULT_ROLE` | `reader` | Role used when role claim is absent. |
 | `HOMELAB_ANALYTICS_MACHINE_JWT_PERMISSIONS_CLAIM` | — | Optional claim with direct permission grants (string list or comma-separated string). |
-| `HOMELAB_ANALYTICS_MACHINE_JWT_SCOPES_CLAIM` | `scope` | Optional claim with service-token-compatible scopes (`reports:read`, `runs:read`, `ingest:write`, `admin:write`). |
+| `HOMELAB_ANALYTICS_MACHINE_JWT_SCOPES_CLAIM` | `scope` | Optional claim with service-token-compatible scopes (`reports:read`, `runs:read`, `ingest:write`, `ha-bridge:ingest`, `admin:write`, `proposals:draft`, `policies:draft`). |
 
 Machine JWT tokens are evaluated by the existing in-app authorization kernel. Scope grants are enforced with the same policy semantics as service tokens for equivalent role/scope combinations. API metrics expose `auth_machine_jwt_authenticated_requests_total` and `auth_machine_jwt_failed_requests_total`, and auth-audit captures `machine_jwt_auth_succeeded`/`machine_jwt_auth_failed` events.
+
+### Agent service-token scopes
+
+A service token's effective permissions are its role's permissions intersected with its scopes' permissions, so the role is a ceiling and the scopes are the grant. For an MCP agent, mint a token with only what it needs:
+
+| Scope | Grants | Minimum token role | Reaches |
+|---|---|---|---|
+| `reports:read` | `reports.read` | `reader` | semantic index, publications, `GET /api/actions/proposals*` |
+| `proposals:draft` | `control.action_proposals.draft` | `operator` | `POST /api/actions/proposals`, `POST /api/ha/actions/proposals` |
+| `policies:draft` | `control.policy.draft` | `admin` | `POST /control/policies` only. The draft is stored disabled with `source_kind=agent` |
+| `admin:write` | admin config writes, plus everything `proposals:draft` grants | `admin` | `admin:write` satisfies a route that requires `proposals:draft`, but never one that requires `policies:draft` |
+
+No scope lets a token approve, dismiss, enable, edit or delete anything that an agent drafted:
+
+- `POST .../approve` and `POST .../dismiss` need `control.action_proposals.write`. Operators and admins hold it. Every machine principal (`service_token`, `machine_jwt`) gets `403` at the route, whatever scope it carries.
+- Resolving a proposal that is already resolved returns `409`.
+- Enabling, editing or deleting a policy needs `control.policy.write`, which no scope grants.
+
+Example token for the MCP server: role `operator`, scopes `reports:read,proposals:draft`. Add `policies:draft` with role `admin` only if the agent should draft policies.
 
 ### Power-user override: agent surfaces
 

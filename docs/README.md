@@ -152,4 +152,5 @@ Use `docs/sprints/TRACKER.md` for the live sprint index. Keep this section to du
 - `runbooks/operations.md` — deployment, ingress, readiness, and alert-response guidance for shared environments.
 - `runbooks/backup-and-restore.md` — backup and restore guidance: the worker `backup`/`verify-backup`/`restore` bundle (SQLite control plane, DuckDB warehouse, filesystem landing, checksummed manifest) plus Postgres `pg_dump` and object-storage mirroring.
 - `runbooks/configuration.md` — environment variable reference for API, worker, web, auth, storage, and extension configuration.
+- `runbooks/oidc-authentik-enablement.md` — operator steps to switch the deployed identity mode to `oidc` against Authentik: provider and application setup, groups, secrets, verification, and rollback.
 - `runbooks/sprint-and-knowledge-operations.md` — repo-level operating model for `sprintctl` and `kctl`, including shared artifacts, workflow phases, and local-vs-committed boundaries.

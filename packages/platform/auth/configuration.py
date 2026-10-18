@@ -101,13 +101,26 @@ def validate_auth_configuration(settings: AppSettings) -> None:
             for variable, value in (
                 ("HOMELAB_ANALYTICS_OIDC_ISSUER_URL", settings.oidc_issuer_url),
                 ("HOMELAB_ANALYTICS_OIDC_CLIENT_ID", settings.oidc_client_id),
-                ("HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET", settings.oidc_client_secret),
+                (
+                    "HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET (or _CLIENT_SECRET_REF)",
+                    settings.oidc_client_secret or settings.oidc_client_secret_ref,
+                ),
                 ("HOMELAB_ANALYTICS_OIDC_REDIRECT_URI", settings.oidc_redirect_uri),
             )
             if not value
         ]
         if missing:
             raise ValueError(f"OIDC auth requires settings: {', '.join(missing)}")
+        if settings.oidc_client_secret and settings.oidc_client_secret_ref:
+            raise ValueError(
+                "Set either HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET or "
+                "HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET_REF, not both."
+            )
+        if settings.oidc_jwks_cache_seconds < 0 or settings.oidc_clock_skew_seconds < 0:
+            raise ValueError(
+                "HOMELAB_ANALYTICS_OIDC_JWKS_CACHE_SECONDS and "
+                "HOMELAB_ANALYTICS_OIDC_CLOCK_SKEW_SECONDS must not be negative."
+            )
     if settings.machine_jwt_enabled:
         missing_machine_settings = [
             variable

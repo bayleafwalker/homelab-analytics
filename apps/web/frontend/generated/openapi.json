@@ -79,6 +79,18 @@
             ],
             "title": "Created By"
           },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9._:-]{8,128}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
           "metadata": {
             "additionalProperties": true,
             "title": "Metadata",
@@ -106,7 +118,7 @@
           "provenance": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ProposalProvenanceModel"
+                "$ref": "#/components/schemas/ProposalProvenanceInputModel"
               },
               {
                 "type": "null"
@@ -240,6 +252,17 @@
             },
             "title": "History",
             "type": "array"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
           },
           "metadata": {
             "additionalProperties": true,
@@ -8239,6 +8262,17 @@
             ],
             "title": "Actor"
           },
+          "actor_auth_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Auth Provider"
+          },
           "at": {
             "title": "At",
             "type": "string"
@@ -8247,6 +8281,7 @@
             "enum": [
               "drafted",
               "refreshed",
+              "reopened",
               "approved",
               "dismissed"
             ],
@@ -8270,6 +8305,52 @@
           "at"
         ],
         "title": "ProposalHistoryEventModel",
+        "type": "object"
+      },
+      "ProposalProvenanceInputModel": {
+        "properties": {
+          "assessed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessed At"
+          },
+          "confidence_verdict_at_draft": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence Verdict At Draft"
+          },
+          "freshness_state_at_draft": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness State At Draft"
+          },
+          "publication_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Publication Keys",
+            "type": "array"
+          }
+        },
+        "title": "ProposalProvenanceInputModel",
         "type": "object"
       },
       "ProposalProvenanceModel": {
@@ -8313,6 +8394,21 @@
             },
             "title": "Publication Keys",
             "type": "array"
+          },
+          "trust_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "server_stamped",
+                  "proposer_supplied"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trust Source"
           }
         },
         "title": "ProposalProvenanceModel",

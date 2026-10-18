@@ -397,8 +397,9 @@ class AgentMcpServer:
             "source_summary": arguments.get("summary"),
         }
         if arguments.get("idempotency_key"):
-            # Same key -> same pending proposal (the registry refreshes it).
-            body["action_id"] = f"agent_{arguments['idempotency_key']}"
+            # Same key -> the proposal it created (refreshed while pending,
+            # unchanged once resolved); the server derives agent_<key>.
+            body["idempotency_key"] = arguments["idempotency_key"]
         publication_keys = arguments.get("publication_keys") or []
         if publication_keys:
             body["provenance"] = {"publication_keys": list(publication_keys)}

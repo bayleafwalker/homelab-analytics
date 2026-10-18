@@ -18,7 +18,7 @@
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, cast
+from typing import Any, Callable, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -31,6 +31,8 @@ from apps.api.response_models import (
 )
 from apps.api.routes.action_proposal_routes import (
     ProposalResolutionModel,
+    register_draft,
+    request_actor,
     require_pending_proposal,
     resolve_proposal,
     resolver_identity,
@@ -310,13 +312,10 @@ def register_ha_routes(
         request: Request,
     ) -> HaApprovalProposalModel:
         registry = _proposal_registry()
-        principal = cast(Any, getattr(request.state, "principal", None))
-        created_by = (
-            getattr(principal, "username", None)
-            or body.created_by
-            or body.source_kind
-        )
-        proposal = registry.register(
+        actor = request_actor(request)
+        created_by = actor.name or body.created_by or body.source_kind
+        proposal = register_draft(
+            registry,
             policy_id=body.policy_id,
             policy_name=body.policy_name,
             verdict=body.verdict,
@@ -328,6 +327,7 @@ def register_ha_routes(
             created_by=created_by,
             metadata=dict(body.metadata),
             action_id=body.action_id,
+            actor_auth_provider=actor.auth_provider,
         )
         return HaApprovalProposalModel.model_validate(proposal.to_dict())
 
@@ -346,7 +346,7 @@ def register_ha_routes(
         body: ProposalResolutionModel | None = None,
     ) -> HaApprovalProposalModel:
         registry = _proposal_registry()
-        resolved_by = resolver_identity(request)
+        resolver = resolver_identity(request)
         proposal = require_pending_proposal(registry, action_id)
         if ha_action_dispatcher is not None and proposal.adapter == ADAPTER_HOME_ASSISTANT:
             record = await ha_action_dispatcher.resolve_approval(proposal, "approved")
@@ -356,7 +356,7 @@ def register_ha_routes(
             registry,
             action_id,
             "approved",
-            resolved_by=resolved_by,
+            resolver=resolver,
             reason=body.reason if body is not None else None,
         )
         return HaApprovalProposalModel.model_validate(proposal.to_dict())
@@ -368,7 +368,7 @@ def register_ha_routes(
         body: ProposalResolutionModel | None = None,
     ) -> HaApprovalProposalModel:
         registry = _proposal_registry()
-        resolved_by = resolver_identity(request)
+        resolver = resolver_identity(request)
         proposal = require_pending_proposal(registry, action_id)
         if ha_action_dispatcher is not None and proposal.adapter == ADAPTER_HOME_ASSISTANT:
             record = await ha_action_dispatcher.resolve_approval(proposal, "dismissed")
@@ -378,7 +378,7 @@ def register_ha_routes(
             registry,
             action_id,
             "dismissed",
-            resolved_by=resolved_by,
+            resolver=resolver,
             reason=body.reason if body is not None else None,
         )
         return HaApprovalProposalModel.model_validate(proposal.to_dict())

@@ -9,6 +9,8 @@ import pytest
 from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.postgres_ingestion_config import PostgresIngestionConfigRepository
 from tests.control_plane_test_support import (
+    assert_action_proposal_resolution_is_exclusive,
+    assert_action_proposal_store_behaviour,
     assert_auth_audit_behaviour,
     assert_control_plane_protocol_conformance,
     assert_control_plane_store_round_trip,
@@ -90,3 +92,10 @@ def test_control_plane_store_manages_decision_ledger(
     control_plane_store: ControlPlaneStore,
 ) -> None:
     assert_decision_ledger_behaviour(control_plane_store)
+
+
+def test_control_plane_store_persists_action_proposal_queue(
+    control_plane_store: ControlPlaneStore,
+) -> None:
+    assert_action_proposal_store_behaviour(control_plane_store)
+    assert_action_proposal_resolution_is_exclusive(control_plane_store)
