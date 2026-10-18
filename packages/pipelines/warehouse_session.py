@@ -56,8 +56,26 @@ T = TypeVar("T")
 _logger = logging.getLogger("homelab_analytics.warehouse_session")
 
 
+# Read-named facet methods whose implementation still issues DDL
+# (``ensure_*_storage`` / CREATE IF NOT EXISTS) before reading, so they need a
+# read-write handle. tests/test_api_warehouse_sessions.py scans the facets and
+# fails when a new one appears that is not listed here.
+READ_NAMED_WRITE_METHODS = frozenset(
+    {
+        "get_ha_entities",
+        "get_ha_entity_history",
+        "get_homelab_cost_benefit_comparison",
+        "get_scenario",
+        "get_scenario_assumptions",
+        "get_scenario_comparison",
+        "list_scenario_compare_sets",
+        "list_scenarios",
+    }
+)
+
+
 def is_read_method(name: str) -> bool:
-    return name.startswith(READ_METHOD_PREFIXES)
+    return name.startswith(READ_METHOD_PREFIXES) and name not in READ_NAMED_WRITE_METHODS
 
 
 def _is_read_only_violation(exc: BaseException) -> bool:

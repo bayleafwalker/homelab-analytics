@@ -97,7 +97,7 @@ HOMELAB_ANALYTICS_DATA_DIR=$(mktemp -d)/target python -m apps.worker.main restor
 
 DuckDB admits one read-write process per file, or any number of read-only ones. The API therefore never keeps the warehouse open:
 
-- Reads (`get_*`, `count_*`, `list_*` and store `fetchall*`/`query_*`) run on a **read-only** handle. Read-only handles coexist with the backup's read-only guard in another process.
+- Reads (`get_*`, `count_*`, `list_*` and store `fetchall*`/`query_*`) run on a **read-only** handle. Read-only handles coexist with the backup's read-only guard in another process. The few read-named facet methods that still issue schema DDL before reading (HA entity reads, scenario reads; `READ_NAMED_WRITE_METHODS` in `packages/pipelines/warehouse_session.py`) take a read-write handle; a test scans every `TransformationService` facet method so new ones cannot slip through unclassified.
 - Writes (promotion after an upload or run retry, category edits, scenario create/archive, HA state ingest) open a **read-write** handle for the duration of the call.
 - The handle is closed when the last in-flight request finishes, or after `HOMELAB_ANALYTICS_API_WAREHOUSE_IDLE_SECONDS` (default 5) for background callers such as the HA bridge.
 - Opening while another process holds the write lock is retried (`HOMELAB_ANALYTICS_WAREHOUSE_LOCK_RETRY_ATTEMPTS`, default 4, backoff from `..._BACKOFF_SECONDS` = 0.1 doubling). If the lock is still held, the request returns **503** with `Retry-After: 5` instead of a 500.

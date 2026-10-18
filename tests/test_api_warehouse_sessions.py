@@ -252,3 +252,129 @@ def test_lock_conflict_raises_busy_after_retries(tmp_path: Path) -> None:
 
     assert manager.mode is None
     assert "homelab_analytics_api_warehouse_busy_total 1" in registry.render_prometheus_text()
+
+
+# ---------------------------------------------------------------------------
+# Read/write classification covers every facet method
+# ---------------------------------------------------------------------------
+
+# Verbs that mutate the warehouse. A new facet verb must be added here or to
+# READ_METHOD_PREFIXES deliberately, so nothing is classified by accident.
+_WRITE_VERBS = frozenset(
+    {
+        "add",
+        "archive",
+        "create",
+        "ensure",
+        "ingest",
+        "load",
+        "populate",
+        "record",
+        "refresh",
+        "remove",
+        "restore",
+        "set",
+        "update",
+        "upsert",
+    }
+)
+
+
+def _public_service_methods() -> dict[str, type]:
+    import inspect
+
+    from packages.pipelines.transformation_service import TransformationService
+
+    methods: dict[str, type] = {}
+    for name, _ in inspect.getmembers(TransformationService, callable):
+        if name.startswith("_"):
+            continue
+        owner = next(k for k in TransformationService.__mro__ if name in k.__dict__)
+        methods[name] = owner
+    return methods
+
+
+def test_every_facet_method_has_an_explicit_read_or_write_classification() -> None:
+    from packages.pipelines.warehouse_session import READ_METHOD_PREFIXES, is_read_method
+
+    methods = _public_service_methods()
+    owners = {owner.__module__ for owner in methods.values()}
+    # The facets split by PR #41 are all covered, not just the service module.
+    assert any(module.startswith("packages.pipelines.transformation_facets.") for module in owners)
+    read_verbs = {prefix.rstrip("_") for prefix in READ_METHOD_PREFIXES}
+    unclassified = sorted(
+        f"{owner.__name__}.{name}"
+        for name, owner in methods.items()
+        if name.split("_", 1)[0] not in read_verbs | _WRITE_VERBS
+    )
+    assert unclassified == []
+    misread = sorted(
+        name
+        for name in methods
+        if is_read_method(name) and name.split("_", 1)[0] in _WRITE_VERBS
+    )
+    assert misread == []
+
+
+def test_read_named_methods_that_issue_ddl_are_classified_as_writes() -> None:
+    import inspect
+    import re
+
+    from packages.pipelines.transformation_service import TransformationService
+    from packages.pipelines.warehouse_session import (
+        READ_METHOD_PREFIXES,
+        READ_NAMED_WRITE_METHODS,
+    )
+
+    writes = re.compile(r"ensure_\w+\(|\bCREATE\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b")
+    found: set[str] = set()
+    for name in _public_service_methods():
+        if not name.startswith(READ_METHOD_PREFIXES):
+            continue
+        method = getattr(TransformationService, name)
+        source = inspect.getsource(method)
+        module = inspect.getmodule(method)
+        # Facet methods delegate to a domain function; scan one level deep.
+        for callee in re.findall(r"return\s+([a-z_][a-z0-9_]*)\(", source):
+            target = getattr(module, callee, None)
+            if inspect.isfunction(target):
+                source += inspect.getsource(target)
+        if writes.search(source):
+            found.add(name)
+
+    assert found == set(READ_NAMED_WRITE_METHODS)
+
+
+def test_read_classified_facet_methods_run_on_a_read_only_handle(tmp_path: Path) -> None:
+    import inspect
+
+    from packages.pipelines.warehouse_session import is_read_method
+
+    manager, registry = _unit_manager(tmp_path, idle_timeout_seconds=60)
+    service = WarehouseSessionTransformationService(manager)
+    service.count_transactions()  # bootstrap the schema, then read-only
+    called: list[str] = []
+    needed_write: list[str] = []
+    for name in sorted(_public_service_methods()):
+        if not is_read_method(name):
+            continue
+        from packages.pipelines.transformation_service import TransformationService
+
+        signature = inspect.signature(getattr(TransformationService, name))
+        required = [
+            parameter
+            for parameter in list(signature.parameters.values())[1:]
+            if parameter.default is inspect.Parameter.empty
+            and parameter.kind not in (parameter.VAR_POSITIONAL, parameter.VAR_KEYWORD)
+        ]
+        if required:
+            continue
+        getattr(service, name)()
+        if manager.mode != "read_only":
+            needed_write.append(name)
+            manager.close()
+        called.append(name)
+    manager.close()
+
+    assert len(called) > 50
+    assert needed_write == [], needed_write
