@@ -1348,3 +1348,75 @@ def test_scenario_routes_delegate_to_use_case_layer() -> None:
     assert "svc.archive_scenario(" not in scenario_source
     assert "svc.archive_scenario_compare_set(" not in scenario_source
     assert "svc.restore_scenario_compare_set(" not in scenario_source
+
+
+def _get_route_handlers(path: Path) -> dict[str, ast.AsyncFunctionDef | ast.FunctionDef]:
+    """Return route handlers decorated with ``@app.get(...)`` keyed by route path."""
+    tree = ast.parse(path.read_text(), filename=str(path))
+    handlers: dict[str, ast.AsyncFunctionDef | ast.FunctionDef] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef)):
+            continue
+        for decorator in node.decorator_list:
+            if (
+                isinstance(decorator, ast.Call)
+                and isinstance(decorator.func, ast.Attribute)
+                and decorator.func.attr == "get"
+                and decorator.args
+                and isinstance(decorator.args[0], ast.Constant)
+            ):
+                handlers[str(decorator.args[0].value)] = node
+    return handlers
+
+
+@pytest.mark.parametrize(
+    ("route_module", "transformation_accessors"),
+    [
+        ("category_routes.py", {"_ts", "transformation_service"}),
+        ("scenario_routes.py", {"_svc", "transformation_service"}),
+    ],
+)
+def test_category_and_scenario_read_routes_use_reporting_layer(
+    route_module: str, transformation_accessors: set[str]
+) -> None:
+    """GET handlers must read through ReportingService, not the TransformationService.
+
+    Writes and control operations (category creation, scenario create/archive)
+    may still use the transformation service.
+    """
+    handlers = _get_route_handlers(ROOT / "apps" / "api" / "routes" / route_module)
+    assert handlers, f"no GET handlers found in {route_module}"
+    offenders: dict[str, list[str]] = {}
+    for route_path, handler in handlers.items():
+        names = {node.id for node in ast.walk(handler) if isinstance(node, ast.Name)}
+        leaked = sorted(names & transformation_accessors)
+        if leaked:
+            offenders[route_path] = leaked
+        assert "_reporting" in names, f"{route_module} GET {route_path} must read via _reporting()"
+    assert not offenders, (
+        f"{route_module} GET handlers must not read from the transformation layer: {offenders}"
+    )
+
+
+def test_scenario_read_use_cases_take_reporting_service() -> None:
+    source = (
+        ROOT / "packages" / "application" / "use_cases" / "scenario_management.py"
+    ).read_text()
+    tree = ast.parse(source)
+    read_functions = {
+        "list_scenarios",
+        "get_scenario",
+        "get_scenario_assumptions",
+        "load_scenario_comparison",
+        "load_scenario_cashflow",
+        "list_compare_sets",
+    }
+    annotations = {
+        node.name: ast.unparse(node.args.args[0].annotation)
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name in read_functions
+        and node.args.args[0].annotation is not None
+    }
+    assert set(annotations) == read_functions
+    assert all("ReportingService" in value for value in annotations.values()), annotations

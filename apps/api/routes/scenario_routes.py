@@ -81,6 +81,15 @@ def register_scenario_routes(
             detail="Scenario service requires a transformation service.",
         )
 
+    def _reporting() -> ReportingService:
+        # App-facing scenario reads go through the reporting layer; writes and
+        # lifecycle operations (create/archive/restore) use _svc(). Scenario
+        # state lives in the warehouse, so reads are unavailable without it.
+        svc = _svc()
+        if resolved_reporting_service is not None:
+            return resolved_reporting_service
+        return ReportingService(svc)
+
     def _homelab_baseline() -> HomelabCostBenefitBaseline | None:
         if resolved_reporting_service is None:
             return None
@@ -124,14 +133,16 @@ def register_scenario_routes(
 
     @app.get("/api/scenarios")
     async def list_scenarios_route(include_archived: bool = False) -> dict[str, Any]:
-        svc = _svc()
-        rows = scenario_management.list_scenarios(svc, include_archived=include_archived)
+        rows = scenario_management.list_scenarios(
+            _reporting(), include_archived=include_archived
+        )
         return {"rows": to_jsonable(rows)}
 
     @app.get("/api/scenarios/compare-sets")
     async def list_scenario_compare_sets_route(include_archived: bool = False) -> dict[str, Any]:
-        svc = _svc()
-        rows = scenario_management.list_compare_sets(svc, include_archived=include_archived)
+        rows = scenario_management.list_compare_sets(
+            _reporting(), include_archived=include_archived
+        )
         return {"rows": to_jsonable(rows)}
 
     @app.post("/api/scenarios/compare-sets")
@@ -164,17 +175,15 @@ def register_scenario_routes(
 
     @app.get("/api/scenarios/{scenario_id}")
     async def get_scenario_metadata(scenario_id: str) -> dict[str, Any]:
-        svc = _svc()
-        scenario = scenario_management.get_scenario(svc, scenario_id)
+        scenario = scenario_management.get_scenario(_reporting(), scenario_id)
         if scenario is None:
             raise HTTPException(status_code=404, detail="Scenario not found.")
         return to_jsonable(scenario)
 
     @app.get("/api/scenarios/{scenario_id}/comparison")
     async def get_scenario_comparison(scenario_id: str) -> dict[str, Any]:
-        svc = _svc()
         comparison = scenario_management.load_scenario_comparison(
-            svc, scenario_id, homelab_baseline=_homelab_baseline()
+            _reporting(), scenario_id, homelab_baseline=_homelab_baseline()
         )
         if comparison is None:
             raise HTTPException(status_code=404, detail="Scenario not found.")
@@ -387,9 +396,8 @@ def register_scenario_routes(
 
     @app.get("/api/scenarios/{scenario_id}/cashflow")
     async def get_income_scenario_cashflow(scenario_id: str) -> dict[str, Any]:
-        svc = _svc()
         cashflow = scenario_management.load_scenario_cashflow(
-            svc, scenario_id, homelab_baseline=_homelab_baseline()
+            _reporting(), scenario_id, homelab_baseline=_homelab_baseline()
         )
         if cashflow is None:
             raise HTTPException(status_code=404, detail="Scenario not found.")
@@ -411,8 +419,7 @@ def register_scenario_routes(
 
     @app.get("/api/scenarios/{scenario_id}/assumptions")
     async def get_scenario_assumptions(scenario_id: str) -> dict[str, Any]:
-        svc = _svc()
-        rows = scenario_management.get_scenario_assumptions(svc, scenario_id)
+        rows = scenario_management.get_scenario_assumptions(_reporting(), scenario_id)
         return {"rows": to_jsonable(rows)}
 
     @app.delete("/api/scenarios/{scenario_id}")

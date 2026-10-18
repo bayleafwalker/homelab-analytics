@@ -1,6 +1,8 @@
 """Application use-cases for scenario creation and retrieval.
 
 Surfaces call these functions; they do not call TransformationService directly.
+Scenario writes take the TransformationService; scenario reads take the
+ReportingService so app-facing reads stay on the reporting layer.
 Decimal parsing and HTTP error mapping remain in the calling route.
 """
 from __future__ import annotations
@@ -22,7 +24,10 @@ if TYPE_CHECKING:
         HomelabCostBenefitResult,
         TariffShockResult,
     )
-    from packages.pipelines.reporting_service import HomelabCostBenefitBaseline
+    from packages.pipelines.reporting_service import (
+        HomelabCostBenefitBaseline,
+        ReportingService,
+    )
     from packages.pipelines.transformation_service import TransformationService
 
 
@@ -117,25 +122,25 @@ def create_homelab_cost_benefit(
 
 
 def list_scenarios(
-    svc: "TransformationService",
+    reporting: "ReportingService",
     *,
     include_archived: bool = False,
 ) -> list[dict[str, Any]]:
-    return svc.list_scenarios(include_archived=include_archived)
+    return reporting.list_scenarios(include_archived=include_archived)
 
 
 def get_scenario(
-    svc: "TransformationService",
+    reporting: "ReportingService",
     scenario_id: str,
 ) -> dict[str, Any] | None:
-    return svc.get_scenario(scenario_id)
+    return reporting.get_scenario(scenario_id)
 
 
 def get_scenario_assumptions(
-    svc: "TransformationService",
+    reporting: "ReportingService",
     scenario_id: str,
 ) -> list[dict[str, Any]]:
-    return svc.get_scenario_assumptions(scenario_id)
+    return reporting.get_scenario_assumptions(scenario_id)
 
 
 def archive_scenario(
@@ -151,39 +156,39 @@ def archive_scenario(
 
 
 def load_scenario_comparison(
-    svc: "TransformationService",
+    reporting: "ReportingService",
     scenario_id: str,
     *,
     homelab_baseline: "HomelabCostBenefitBaseline | None" = None,
 ) -> "HomelabCostBenefitComparison | ComparisonResult | None":
-    scenario = svc.get_scenario(scenario_id)
+    scenario = reporting.get_scenario(scenario_id)
     if scenario is None:
         return None
     if scenario["scenario_type"] == "homelab_cost_benefit":
         baseline_run_id = None if homelab_baseline is None else homelab_baseline.signature
-        return svc.get_homelab_cost_benefit_comparison(
+        return reporting.get_homelab_cost_benefit_comparison(
             scenario_id,
             current_baseline_run_id=baseline_run_id,
         )
-    return svc.get_scenario_comparison(scenario_id)
+    return reporting.get_scenario_comparison(scenario_id)
 
 
 def load_scenario_cashflow(
-    svc: "TransformationService",
+    reporting: "ReportingService",
     scenario_id: str,
     *,
     homelab_baseline: "HomelabCostBenefitBaseline | None" = None,
 ) -> "HomelabCostBenefitComparison | IncomeCashflowComparison | None":
-    scenario = svc.get_scenario(scenario_id)
+    scenario = reporting.get_scenario(scenario_id)
     if scenario is None:
         return None
     if scenario["scenario_type"] == "homelab_cost_benefit":
         baseline_run_id = None if homelab_baseline is None else homelab_baseline.signature
-        return svc.get_homelab_cost_benefit_comparison(
+        return reporting.get_homelab_cost_benefit_comparison(
             scenario_id,
             current_baseline_run_id=baseline_run_id,
         )
-    return svc.get_income_scenario_comparison(scenario_id)
+    return reporting.get_income_scenario_comparison(scenario_id)
 
 
 # ---------------------------------------------------------------------------
@@ -192,11 +197,11 @@ def load_scenario_cashflow(
 
 
 def list_compare_sets(
-    svc: "TransformationService",
+    reporting: "ReportingService",
     *,
     include_archived: bool = False,
 ) -> list[dict[str, Any]]:
-    return svc.list_scenario_compare_sets(include_archived=include_archived)
+    return reporting.list_scenario_compare_sets(include_archived=include_archived)
 
 
 def create_compare_set(

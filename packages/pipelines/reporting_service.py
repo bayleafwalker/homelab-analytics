@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from enum import StrEnum
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from packages.domains.finance.pipelines.budget_models import (
     MART_BUDGET_ENVELOPE_DRIFT_TABLE,
@@ -68,6 +68,15 @@ from packages.pipelines.household_reporting import (
 )
 from packages.pipelines.promotion import PromotionResult
 from packages.pipelines.transformation_service import TransformationService
+
+if TYPE_CHECKING:
+    from packages.domains.finance.pipelines.scenario_service import (
+        ComparisonResult,
+        IncomeCashflowComparison,
+    )
+    from packages.domains.overview.pipelines.scenario_models_overview import (
+        HomelabCostBenefitComparison,
+    )
 from packages.shared.extensions import ExtensionRegistry
 from packages.storage.control_plane import (
     PublicationAuditCreate,
@@ -510,6 +519,59 @@ class ReportingService:
             ),
             ("", []),
             f"ORDER BY {relation.order_by}",
+        )
+
+    def get_current_categories(self) -> list[dict[str, Any]]:
+        """Current category dimension rows for the category management API.
+
+        Categories are operator-managed (``POST /api/categories`` writes the
+        warehouse dimension directly), so this read stays on the warehouse view
+        to make operator writes visible immediately instead of waiting for the
+        next publication of ``rpt_current_dim_category``.
+        """
+        return self._transformation_service.get_current_categories()
+
+    # ------------------------------------------------------------------
+    # Scenario read models
+    # Scenario state and projections are written by the scenario service in
+    # the warehouse; app-facing reads go through these methods.
+    # ------------------------------------------------------------------
+
+    def list_scenarios(self, *, include_archived: bool = False) -> list[dict[str, Any]]:
+        return self._transformation_service.list_scenarios(include_archived=include_archived)
+
+    def list_scenario_compare_sets(
+        self,
+        *,
+        include_archived: bool = False,
+    ) -> list[dict[str, Any]]:
+        return self._transformation_service.list_scenario_compare_sets(
+            include_archived=include_archived
+        )
+
+    def get_scenario(self, scenario_id: str) -> dict[str, Any] | None:
+        return self._transformation_service.get_scenario(scenario_id)
+
+    def get_scenario_assumptions(self, scenario_id: str) -> list[dict[str, Any]]:
+        return self._transformation_service.get_scenario_assumptions(scenario_id)
+
+    def get_scenario_comparison(self, scenario_id: str) -> ComparisonResult | None:
+        return self._transformation_service.get_scenario_comparison(scenario_id)
+
+    def get_income_scenario_comparison(
+        self, scenario_id: str
+    ) -> IncomeCashflowComparison | None:
+        return self._transformation_service.get_income_scenario_comparison(scenario_id)
+
+    def get_homelab_cost_benefit_comparison(
+        self,
+        scenario_id: str,
+        *,
+        current_baseline_run_id: str | None = None,
+    ) -> HomelabCostBenefitComparison | None:
+        return self._transformation_service.get_homelab_cost_benefit_comparison(
+            scenario_id,
+            current_baseline_run_id=current_baseline_run_id,
         )
 
     def get_transformation_audit(
