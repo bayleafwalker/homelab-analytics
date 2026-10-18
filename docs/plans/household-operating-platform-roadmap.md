@@ -82,7 +82,7 @@ The architecture doc already names most of these dimensions and facts in the tra
 
 ### Remaining gaps
 
-- `dim_household_member`
+- ~~`dim_household_member`~~ — shipped in `migrations/postgres/0007_dim_household_member.sql` (2ae9df3, 2026-03-29)
 - Publication-semantic guidance for the current-dimension path and any remaining reporting/publication follow-up
 - Explicit promotion rules for future shared dimensions instead of treating repeated provider-style fields as a registry by default
 
@@ -93,7 +93,7 @@ The architecture doc already names most of these dimensions and facts in the tra
 
 ### Status
 
-Mostly complete. Sprint I finance ingestion is complete, and the worktree now includes internal-platform ingestion, utilities automation foundations, loan and budget planning models, infrastructure metrics dimensions/facts, home-automation state foundations, and the completed asset inventory foundation. Remaining Stage 1 work is the true carryover: semantic-governance cleanup, publication-semantic follow-up, and `dim_household_member`.
+Complete for the canonical core. Finance, internal-platform, utilities, loan and budget planning, infrastructure metrics, home-automation state, and asset inventory foundations are all shipped, and the `dim_household_member` carryover landed in postgres migration 0007 (2ae9df3). What remains is governance guidance rather than model work: publication-semantic follow-up and explicit promotion rules for future shared dimensions (see Remaining gaps).
 
 ---
 
@@ -351,7 +351,9 @@ Stage 5 HA integration (at least Phases 1–5) provides the concrete implementat
 
 Contracts and registry scaffolded; HA wired as reference implementation. `packages/adapters/contracts.py` defines `AdapterManifest`, `IngestAdapter`, `PublishAdapter`, and `ActionAdapter` protocols. An in-memory `AdapterRegistry` exists in `packages/adapters/registry.py`. Thin HA adapter wrappers in `packages/adapters/ha_adapters.py` position the existing HA workers as conforming implementations. Renderer contracts are also defined and two renderers exist (Prometheus scrape format, export). `docs/architecture/integration-adapters.md` and `docs/architecture/adapter-governance.md` are written.
 
-**What is not done:** No credential management abstraction. No multi-adapter entity correlation or deduplication strategy. No second full integration adapter beyond the HA reference wrappers (Prometheus implements the Renderer contract, not the IngestAdapter/ActionAdapter contract). The "What this stage does NOT build" scope note is still accurate — each additional adapter is a separate task.
+**Since landed (2026-07-07):** credential management via the `SecretResolver` protocol with env, file, control-plane, and chained backends (`packages/platform/adapter_secrets/`, 6124e37); multi-adapter entity correlation with a trust-level tie-breaker (`packages/adapters/entity_correlation.py`, 8ba2b3c); and a second reference ingest adapter, `PrometheusIngestAdapter`, wrapping federation ingest alongside the existing `PrometheusRenderer` (`packages/adapters/prometheus_adapter.py`, e378fa3).
+
+**What is not done:** no `ActionAdapter` implementation beyond the HA reference wrappers. The "What this stage does NOT build" scope note is still accurate — each additional adapter is a separate task.
 
 ---
 
@@ -389,7 +391,11 @@ The platform ADR sections 12–13 already define UI descriptors and publication 
 
 ### Planned documentation
 
-- `docs/architecture/rendering-and-delivery.md` — renderer discovery, consumption model, content negotiation
+- `docs/architecture/rendering-and-delivery.md` — renderer discovery, consumption model, content negotiation (not yet written)
+
+### Status
+
+Mostly complete. Accept-header content negotiation and a publication-version handshake are in `RendererRouter` (`packages/adapters/renderer_negotiation.py`, 81252e9), with Prometheus and export renderers registered and a publication index (`packages/platform/publication_index.py`). The planned `rendering-and-delivery.md` architecture doc is not written; UI descriptor resolution remains frontend-owned.
 
 ---
 
@@ -430,6 +436,12 @@ Automation packs that produce HA automations, scripts, or dashboard cards withou
 - `docs/architecture/pack-ecosystem.md` — manifest standard, compatibility model, trust boundaries
 - `docs/product/pack-model.md` — what a pack is, how operators discover and manage them
 
+Neither document is written yet.
+
+### Status
+
+Partially complete. A unified `PackManifest` with `AdapterPack` as the adapter specialization (b55aff3) and `PackCompatibilityChecker` with platform, dependency, and publication diagnostics (`packages/adapters/pack_compatibility.py`, 80e5589) are shipped, along with the external registry manifest (`packages/shared/external_registry.py`). There is no operator-facing install, upgrade, or rollback surface over the registry.
+
 ---
 
 ## Stage 9 — Trust, governance, and operator confidence
@@ -462,7 +474,11 @@ The platform already has strong foundations: OIDC, service tokens, role/scope au
 
 ### Planned documentation
 
-- `docs/architecture/trust-and-governance.md` — lineage model, quality scoring, confidence framework, audit requirements
+- `docs/architecture/trust-and-governance.md` — lineage model, quality scoring, confidence framework, audit requirements (not yet written)
+
+### Status
+
+Mostly complete. The publication lineage graph API and viewer (`packages/platform/lineage_graph.py`, 875657e) and the publication confidence model and storage (`packages/platform/publication_confidence.py`, 3d25fa7) are shipped. Known gaps as of 2026-10-18: confidence quality signals were placeholders (validation errors hardcoded to zero, binary completeness), and there was no app-level backup command behind `docs/runbooks/backup-and-restore.md`; both are in flight in session `ledger-proof-dawn`.
 
 ---
 
@@ -498,6 +514,10 @@ This stage is deliberately late in the roadmap. The platform should become opera
 ### Planned documentation
 
 - `docs/architecture/agent-surfaces.md` — retrieval model, tool definitions, action boundaries, safety guarantees
+
+### Status
+
+Mostly complete. The Stage 10 agent surface shipped in 5e0929e (2026-07-09): an LLM-oriented semantic index (`packages/platform/agent_semantic_index.py`), MCP tools (`apps/agent/mcp_server.py`), and a shared action-proposal queue behind approval. `docs/architecture/agent-surfaces.md` is written. The conversational assistant runtime described as Kotona Stage B2 (`docs/plans/kotona-operating-picture-brief.md`) has not started.
 
 ---
 
