@@ -8,7 +8,7 @@ export const ONBOARDING_SOURCES = [
     dataset: "account_transactions",
     label: "Account transactions",
     description: "Cashflow, categories, anomalies",
-    uploadPath: "/upload/account-transactions",
+    uploadPath: "/upload#upload-account-transactions",
     required: true,
     unlocks: "cashflow, categories, anomalies",
     unlocksDetail: [

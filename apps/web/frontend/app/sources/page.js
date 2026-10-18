@@ -5,12 +5,14 @@ import { AppShell } from "@/components/app-shell";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { getCurrentUser, getSourceFreshness, getRuns } from "@/lib/backend";
 
+// Links land on the matching upload card on /upload; the /upload/<dataset>
+// paths themselves are POST-only route handlers.
 const BUILTIN_UPLOAD_PATH = {
-  account_transactions: "/upload/account-transactions",
-  subscriptions: "/upload/subscriptions",
-  contract_prices: "/upload/contract-prices",
-  budgets: "/upload/budgets",
-  loan_repayments: "/upload/loan-repayments",
+  account_transactions: "/upload#upload-account-transactions",
+  subscriptions: "/upload#upload-subscriptions",
+  contract_prices: "/upload#upload-contract-prices",
+  budgets: "/upload#upload-budgets",
+  loan_repayments: "/upload#upload-loan-repayments",
 };
 
 function stalenessLabel(landedAt) {
@@ -114,9 +116,14 @@ export default async function SourcesPage() {
               <div className="eyebrow">Ingestion Freshness</div>
               <h2>Source status &amp; remediation</h2>
             </div>
-            <Link className="ghostButton" href="/upload">
-              Upload files
-            </Link>
+            <div className="buttonRow">
+              <Link className="ghostButton" href="/upload">
+                Upload files
+              </Link>
+              <Link className="ghostButton" href="/reports">
+                Monthly finance
+              </Link>
+            </div>
           </div>
           <ResponsiveTable
             label="Source status and remediation"

@@ -50,9 +50,15 @@ function renderIssueLocation(issue) {
   return parts.join(" / ");
 }
 
+// Each card is addressable as /upload#upload-<dataset> so remediation links
+// (Sources, run detail) land on the right form instead of the POST handler.
+function uploadCardAnchor(action) {
+  return action.replace(/^\//, "").replace(/\//g, "-");
+}
+
 function UploadCard({ eyebrow, title, action, description, children }) {
   return (
-    <article className="panel section">
+    <article className="panel section" id={uploadCardAnchor(action)}>
       <div className="sectionHeader">
         <div>
           <div className="eyebrow">{eyebrow}</div>

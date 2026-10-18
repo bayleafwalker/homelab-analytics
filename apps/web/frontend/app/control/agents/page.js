@@ -305,7 +305,7 @@ function AgentsView({ principals }) {
         Identities observed in the proposal queue. This deployment does not register
         agents; identity comes from the authenticated token name (or the declared
         origin when auth is disabled). Manage agent credentials under{" "}
-        <Link className="inlineLink" href="/control/service-tokens">
+        <Link className="inlineLink" href="/control#service-tokens">
           Service tokens
         </Link>
         .

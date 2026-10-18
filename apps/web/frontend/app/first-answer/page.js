@@ -130,7 +130,7 @@ export default async function FirstAnswerPage() {
             <div className="eyebrow">Cashflow</div>
             <div className="empty" style={{ marginTop: "8px" }}>
               No cashflow data yet.{" "}
-              <Link className="inlineLink" href="/upload/account-transactions">
+              <Link className="inlineLink" href="/upload#upload-account-transactions">
                 Upload account transactions
               </Link>{" "}
               to populate this view.
@@ -182,7 +182,7 @@ export default async function FirstAnswerPage() {
             <div className="eyebrow">Recurring Baseline</div>
             <div className="empty" style={{ marginTop: "8px" }}>
               No recurring baseline yet.{" "}
-              <Link className="inlineLink" href="/upload/subscriptions">
+              <Link className="inlineLink" href="/upload#upload-subscriptions">
                 Upload subscriptions
               </Link>{" "}
               to see committed monthly costs.
@@ -218,7 +218,7 @@ export default async function FirstAnswerPage() {
             <div className="eyebrow">Affordability</div>
             <div className="empty" style={{ marginTop: "8px" }}>
               Affordability ratios require contract price data.{" "}
-              <Link className="inlineLink" href="/upload/contract-prices">
+              <Link className="inlineLink" href="/upload#upload-contract-prices">
                 Upload contract prices
               </Link>{" "}
               to unlock this view.

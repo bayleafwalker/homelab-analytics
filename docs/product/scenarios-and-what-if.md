@@ -64,7 +64,10 @@ The highest-value scenario type. The amortization engine already exists; this wr
 **Operator workflow:**
 1. Navigate to `/reports` and open the expense shock handoff from the monthly finance surface.
 2. Enter a percentage expense change and optional label.
-3. Review baseline monthly expense, projected monthly expense, annual additional cost, and cashflow baseline/projected/delta rows.
+3. Review baseline monthly expense (average of the latest 3 months of `mart_monthly_cashflow`), projected monthly expense, annual additional cost, and cashflow baseline/projected/delta rows.
+4. Take the next step from the panel: **Open saved scenario** (`/scenarios/<scenario_id>`) or **Compare scenarios**; a stale scenario leads with **Refresh stale sources** (`/sources`).
+
+This is the last leg of the flagship finance operator loop; see `docs/runbooks/operator-walkthrough.md`. Browser calls to `/api/scenarios/*` go through the web shell's same-origin proxy (`apps/web/frontend/app/api/scenarios/[[...path]]/route.js`), so the what-if panels work when web and API run on different origins.
 
 ---
 

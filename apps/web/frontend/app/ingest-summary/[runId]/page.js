@@ -55,15 +55,23 @@ export default async function IngestSummaryPage({ params }) {
       lede="Your file has been processed. Here is a summary of what arrived and what it populated in the operating picture."
     >
       <section className="stack">
+        {/* Finance operator loop: a landed upload hands off to the monthly
+            finance view; a failed one hands off to run remediation. */}
         <div className="buttonRow">
-          <Link className="ghostButton" href="/upload">
-            Upload another file
-          </Link>
+          {runSucceeded ? (
+            <Link className="primaryButton" href="/reports">
+              Open monthly finance
+            </Link>
+          ) : (
+            <Link className="primaryButton" href={`/runs/${runId}`}>
+              Inspect run and remediate
+            </Link>
+          )}
           <Link className="ghostButton" href="/sources">
             Source freshness
           </Link>
-          <Link className="ghostButton" href="/reports">
-            Monthly finance
+          <Link className="ghostButton" href="/upload">
+            Upload another file
           </Link>
         </div>
 
@@ -163,7 +171,7 @@ export default async function IngestSummaryPage({ params }) {
                 </div>
               )}
               <div style={{ marginTop: "12px" }}>
-                <Link className="inlineLink" href="/reports#expense-shock">
+                <Link className="inlineLink" href="/reports">
                   Open monthly finance
                 </Link>
               </div>

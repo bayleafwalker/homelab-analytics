@@ -7,6 +7,7 @@ import { IncomeScenarioPanel } from "@/components/income-scenario-panel";
 import { ExpenseShockPanel } from "@/components/expense-shock-panel";
 import {
   getAccountBalanceTrend,
+  getBriefing,
   getCurrentUser,
   getMonthlyCashflow,
   getPublicationConfidenceDetail,
@@ -22,6 +23,37 @@ function formatConfidenceLabel(value) {
     .replace(/_/g, " ")
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Publication trust for the monthly cashflow read. The confidence snapshot
+// route is admin-scoped, so admins read it directly; every other role gets the
+// same snapshot verdict through the reader-scoped morning brief money item.
+const MONTHLY_CASHFLOW_PUBLICATION_KEY = "mart_monthly_cashflow";
+
+async function loadMonthlyCashflowTrust(user) {
+  if (user?.role === "admin") {
+    const detail = await getPublicationConfidenceDetail(MONTHLY_CASHFLOW_PUBLICATION_KEY).catch(
+      () => null
+    );
+    if (detail) {
+      return { ...detail, remediation: null, via: "snapshot" };
+    }
+  }
+  const brief = await getBriefing().catch(() => null);
+  const item = (brief?.sections || [])
+    .flatMap((section) => section.items || [])
+    .find((entry) => entry.confidence?.publication_key === MONTHLY_CASHFLOW_PUBLICATION_KEY);
+  if (!item?.confidence) {
+    return null;
+  }
+  return {
+    confidence_verdict: item.confidence.verdict,
+    freshness_state: item.confidence.freshness_state,
+    completeness_pct: item.confidence.completeness_pct,
+    assessed_at: item.confidence.assessed_at,
+    remediation: item.remediation,
+    via: "brief",
+  };
 }
 
 export default async function ReportsPage() {
@@ -41,7 +73,7 @@ export default async function ReportsPage() {
     getSpendByCategoryMonthly(),
     getSubscriptionSummary(),
     getUtilityCostTrend(),
-    getPublicationConfidenceDetail("monthly_cashflow").catch(() => null),
+    loadMonthlyCashflowTrust(user),
   ]);
 
   const descriptorByKey = Object.fromEntries(
@@ -98,9 +130,15 @@ export default async function ReportsPage() {
                 <div className="eyebrow">Publication trust</div>
                 <h2>Monthly cashflow snapshot</h2>
               </div>
-              <Link className="inlineLink" href="/control/confidence">
-                Open confidence view
-              </Link>
+              {monthlyCashflowTrust.via === "snapshot" ? (
+                <Link className="inlineLink" href="/control/confidence">
+                  Open confidence view
+                </Link>
+              ) : (
+                <Link className="inlineLink" href="/briefing">
+                  Open morning brief
+                </Link>
+              )}
             </div>
             <div className="metaGrid">
               <div className="metaItem">
@@ -124,6 +162,16 @@ export default async function ReportsPage() {
                 </div>
               </div>
             </div>
+            {monthlyCashflowTrust.remediation ? (
+              <p className="muted" style={{ margin: "8px 0 0" }}>
+                <strong>Next step:</strong> {monthlyCashflowTrust.remediation}{" "}
+                {user?.role === "reader" ? null : (
+                  <Link className="inlineLink" href="/sources">
+                    Source freshness
+                  </Link>
+                )}
+              </p>
+            ) : null}
           </article>
         )}
 
@@ -346,9 +394,15 @@ export default async function ReportsPage() {
           <Link className="ghostButton" href="#expense-shock">
             Expense shock handoff
           </Link>
-          <Link className="ghostButton" href="/control/confidence">
-            Publication confidence
-          </Link>
+          {user?.role === "admin" ? (
+            <Link className="ghostButton" href="/control/confidence">
+              Publication confidence
+            </Link>
+          ) : (
+            <Link className="ghostButton" href="/briefing">
+              Morning brief
+            </Link>
+          )}
         </div>
       </section>
     </AppShell>

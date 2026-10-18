@@ -6,13 +6,13 @@ import { ControlNav } from "@/components/control-nav";
 import { getCurrentUser, getRuns } from "@/lib/backend";
 
 const BUILTIN_DATASETS = [
-  { dataset: "account_transactions", label: "Account transactions", uploadPath: "/upload/account-transactions" },
-  { dataset: "subscriptions", label: "Subscriptions", uploadPath: "/upload/subscriptions" },
-  { dataset: "contract_prices", label: "Contract prices", uploadPath: "/upload/contract-prices" },
+  { dataset: "account_transactions", label: "Account transactions", uploadPath: "/upload#upload-account-transactions" },
+  { dataset: "subscriptions", label: "Subscriptions", uploadPath: "/upload#upload-subscriptions" },
+  { dataset: "contract_prices", label: "Contract prices", uploadPath: "/upload#upload-contract-prices" },
   { dataset: "utility_usage", label: "Utility usage", uploadPath: null },
   { dataset: "utility_bills", label: "Utility bills", uploadPath: null },
-  { dataset: "budgets", label: "Budgets", uploadPath: "/upload/budgets" },
-  { dataset: "loan_repayments", label: "Loan repayments", uploadPath: "/upload/loan-repayments" },
+  { dataset: "budgets", label: "Budgets", uploadPath: "/upload#upload-budgets" },
+  { dataset: "loan_repayments", label: "Loan repayments", uploadPath: "/upload#upload-loan-repayments" },
 ];
 
 function stalenessLabel(lastRunAt) {

@@ -110,14 +110,33 @@ function BriefItem({ item, user }) {
   );
 }
 
+// Brief sections that belong to the finance operator loop link to the
+// surface where the operator acts on them.
+const SECTION_SURFACE = {
+  money: { href: "/reports", label: "Open monthly finance" },
+  sources: { href: "/sources", label: "Open source freshness", operatorOnly: true },
+};
+
 function BriefSection({ section, user }) {
+  const candidate = SECTION_SURFACE[section.key];
+  const surface = candidate?.operatorOnly && user?.role === "reader" ? null : candidate;
   return (
     <section className={styles.section} data-testid={`brief-section-${section.key}`}>
       <div className={styles.sectionHeader}>
         <h2>{section.title}</h2>
         <Pill tone={SECTION_TONE[section.status]}>{section.status}</Pill>
       </div>
-      <p className={styles.summary}>{section.summary}</p>
+      <p className={styles.summary}>
+        {section.summary}
+        {surface ? (
+          <>
+            {" "}
+            <Link className="inlineLink" href={surface.href} data-testid={`brief-surface-${section.key}`}>
+              {surface.label}
+            </Link>
+          </>
+        ) : null}
+      </p>
       <ul className={styles.items}>
         {section.items.map((item) => (
           <BriefItem key={item.item_id} item={item} user={user} />
