@@ -1,5 +1,6 @@
 import { WallClock, WallRefresh } from "@/components/wallboard-live";
 import { WallboardView } from "@/components/wallboard-view";
+import { loadExplanation } from "@/lib/explain";
 import {
   getAttentionItems,
   getCurrentUser,
@@ -29,7 +30,7 @@ async function optional(promise, fallback) {
 }
 
 export default async function WallboardPage({ searchParams }) {
-  await getCurrentUser();
+  const user = await getCurrentUser();
   const compact = searchParams?.compact === "1";
   const [overview, attentionItems, upcomingCosts, cashflowRows, utilityTrend, services, bridge] =
     await Promise.all([
@@ -52,6 +53,7 @@ export default async function WallboardPage({ searchParams }) {
       }
     : null;
   const renderedAt = new Date().toISOString();
+  const moneyExplanation = overview ? await loadExplanation("mart_household_overview", { user }) : null;
 
   return (
     <main id="main-content" aria-label="Household wallboard">
@@ -68,6 +70,7 @@ export default async function WallboardPage({ searchParams }) {
         compact={compact}
         clock={<WallClock initial={renderedAt} />}
         status={<WallRefresh renderedAt={renderedAt} />}
+        explanations={{ money: moneyExplanation }}
       />
     </main>
   );

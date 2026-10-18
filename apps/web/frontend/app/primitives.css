@@ -1,0 +1,528 @@
+/* Shared primitives from UI wave 3: <Explain>, <ResponsiveTable>, <AsOfScrubber>.
+ * Colours come from the generated tokens only. */
+
+/* ---------- Explain: "where does this number come from?" ---------- */
+
+.explain {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  font-size: var(--type-scale-2);
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+.explainTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  font-size: var(--type-scale-1);
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  background: transparent;
+}
+
+.explainTrigger::-webkit-details-marker {
+  display: none;
+}
+
+.explainTrigger:hover,
+.explain[open] > .explainTrigger {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.explainGlyph {
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+
+.explainPanel {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(23rem, calc(100vw - 32px));
+  padding: 16px 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  /* Paper over solid page colour, so figures underneath don't show through. */
+  background: linear-gradient(var(--paper), var(--paper)), var(--bg);
+  box-shadow: var(--shadow);
+  text-align: left;
+}
+
+.explain[data-placement="start"] .explainPanel {
+  right: auto;
+  left: 0;
+}
+
+.explainHeading {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: var(--type-scale-4);
+  line-height: 1.2;
+}
+
+.explainFacts {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.explainFacts > div {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: 10px;
+}
+
+.explainFacts dt {
+  color: var(--muted);
+}
+
+.explainFacts dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  overflow-wrap: anywhere;
+}
+
+.explainPubName {
+  font-weight: 700;
+}
+
+.explain code {
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+}
+
+.explainAside {
+  color: var(--muted);
+}
+
+/* The provenance thread: publication at the top, what it was built from
+ * below it. Filled nodes are recorded, hollow ones are not. */
+.explainThread {
+  position: relative;
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0 0 0 20px;
+  display: grid;
+  gap: 8px;
+}
+
+.explainThread::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 8px;
+  bottom: 8px;
+  border-left: 1px solid var(--line-strong);
+}
+
+.explainThread li {
+  position: relative;
+  display: flex;
+  gap: 8px;
+}
+
+.explainNode {
+  position: absolute;
+  left: -20px;
+  top: 5px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--paper);
+}
+
+.explainThread li[data-kind="publication"] .explainNode {
+  border-radius: 3px;
+  background: var(--accent-cool);
+}
+
+.explainThread li[data-recorded="false"] .explainNode {
+  background: var(--paper);
+  border: 1.5px dashed var(--muted);
+}
+
+.explainMissing {
+  color: var(--muted);
+}
+
+.explainNote {
+  margin: 0 0 10px;
+  color: var(--muted);
+  max-width: 60ch;
+}
+
+.explainNote[data-tone="error"] {
+  color: var(--warn);
+}
+
+.explainLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+}
+
+/* Wallboard: retro tokens, readable from across the room. */
+.explain[data-tone="wall"] {
+  font-size: 18px;
+}
+
+.explain[data-tone="wall"] .explainTrigger {
+  font-size: 18px;
+  color: var(--retro-muted);
+  border-color: var(--retro-line);
+}
+
+.explain[data-tone="wall"] .explainPanel {
+  width: min(34rem, calc(100vw - 32px));
+  background: linear-gradient(var(--retro-panel-strong), var(--retro-panel-strong)), var(--retro-bg);
+  border-color: var(--retro-line-strong);
+  color: var(--retro-text);
+  box-shadow: var(--retro-shadow);
+  font-family: var(--retro-font-mono);
+}
+
+.explain[data-tone="wall"] .pill {
+  font-size: 18px;
+}
+
+.explain[data-tone="wall"] .explainFacts > div {
+  grid-template-columns: 9rem minmax(0, 1fr);
+}
+
+.explain[data-tone="wall"] .explainHeading {
+  font-family: var(--retro-font-mono);
+  font-size: 20px;
+}
+
+.explain[data-tone="wall"] .explainFacts dt,
+.explain[data-tone="wall"] .explainAside,
+.explain[data-tone="wall"] .explainMissing,
+.explain[data-tone="wall"] .explainNote {
+  color: var(--retro-muted);
+}
+
+.explain[data-tone="wall"] .explainNode {
+  background: var(--retro-ok);
+  box-shadow: 0 0 0 3px var(--retro-panel-strong);
+}
+
+.explain[data-tone="wall"] li[data-recorded="false"] .explainNode {
+  background: var(--retro-panel-strong);
+  border-color: var(--retro-muted);
+}
+
+.explain[data-tone="wall"] .explainThread::before {
+  border-color: var(--retro-line-strong);
+}
+
+.explain[data-tone="wall"] .inlineLink {
+  color: var(--retro-accent);
+}
+
+@media (max-width: 600px) {
+  /* On a phone the explanation opens in the flow instead of floating, so it
+   * never runs off the edge of the screen. */
+  .explain[open] {
+    display: block;
+  }
+
+  .explain[open] > .explainTrigger {
+    margin-bottom: 8px;
+  }
+
+  .explainPanel {
+    position: static;
+    width: auto;
+  }
+}
+
+/* ---------- ResponsiveTable ---------- */
+
+.rtable {
+  overflow-x: auto;
+  border-radius: 6px;
+}
+
+.rtable:focus-visible {
+  outline-offset: 4px;
+}
+
+.rtable th[data-align="end"],
+.rtable td[data-align="end"] {
+  text-align: right;
+}
+
+.rtable td[data-align="end"] {
+  font-variant-numeric: tabular-nums;
+}
+
+.rtable th + th,
+.rtable td + td {
+  padding-left: 16px;
+}
+
+.rtable[data-dense="true"] th,
+.rtable[data-dense="true"] td {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+@media (max-width: 600px) {
+  .rtable thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .rtable table,
+  .rtable tbody,
+  .rtable tr,
+  .rtable td {
+    display: block;
+  }
+
+  .rtable tr {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .rtable td,
+  .rtable td + td {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 3px 0;
+    border: 0;
+    text-align: right;
+  }
+
+  /* label ........ value */
+  .rtable td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    max-width: 45%;
+    color: var(--muted);
+    font-size: var(--type-scale-2);
+    text-align: left;
+  }
+
+  .rtable td[data-label]::after {
+    content: "";
+    order: 1;
+    flex: 1 1 12px;
+    min-width: 12px;
+    border-bottom: 1px dotted var(--line-strong);
+    transform: translateY(-4px);
+  }
+
+  .rtable td[data-label] > .rtableValue {
+    order: 2;
+    max-width: 60%;
+    overflow-wrap: anywhere;
+  }
+
+  .rtable td:not([data-label]) {
+    text-align: left;
+  }
+
+  .rtable td[data-primary="true"] {
+    padding-bottom: 6px;
+    font-family: var(--font-display);
+    font-size: var(--type-scale-4);
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  .rtable td[data-primary="true"] > .rtableValue {
+    display: block;
+    width: 100%;
+  }
+}
+
+/* ---------- AsOfScrubber: one row per year, one slot per month ---------- */
+
+.asof {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 22px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
+}
+
+.asofHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
+}
+
+.asofTitle {
+  margin: 0;
+  font-size: var(--type-scale-3);
+}
+
+.asofTitle strong {
+  font-family: var(--font-display);
+  font-size: var(--type-scale-4);
+  font-weight: 600;
+}
+
+.asofSteps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: var(--type-scale-2);
+}
+
+.asofSteps [aria-disabled="true"] {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.asofYears {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.asofYear {
+  display: grid;
+  grid-template-columns: 3.2rem minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.asofYearLabel {
+  color: var(--muted);
+  font-size: var(--type-scale-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.asofMonths {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.asofMonth {
+  display: grid;
+  place-items: center;
+  min-height: 34px;
+  border-radius: 8px;
+  font-size: var(--type-scale-2);
+  color: var(--muted);
+}
+
+a.asofMonth {
+  color: var(--ink);
+  background: rgba(15, 118, 110, 0.07);
+}
+
+a.asofMonth:hover {
+  background: rgba(15, 118, 110, 0.16);
+}
+
+a.asofMonth[aria-current="true"] {
+  color: var(--paper);
+  background: var(--accent);
+  font-weight: 700;
+}
+
+span.asofMonth {
+  opacity: 0.45;
+}
+
+.asofLetter {
+  display: none;
+}
+
+.asofNote {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--type-scale-2);
+  max-width: 72ch;
+  line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+  .asof {
+    padding: 12px 14px;
+  }
+
+  .asofYear {
+    grid-template-columns: 2.6rem minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .asofAbbr {
+    display: none;
+  }
+
+  .asofLetter {
+    display: inline;
+  }
+}
+
+/* ---------- Placement helpers ---------- */
+
+/* A label with its Explain trigger (and "Today" marker) on one line. */
+.metricLabelRow,
+.heroEyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.metricLabelRow > span:first-child {
+  margin-right: auto;
+}
+
+.metricLabelRow .pill,
+h2 .pill {
+  font-family: var(--font-sans);
+  font-size: var(--type-scale-1);
+  letter-spacing: normal;
+  text-transform: none;
+  vertical-align: middle;
+}
+
+.rtable a[aria-current="true"] {
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.wallExplain {
+  margin-top: 14px;
+}

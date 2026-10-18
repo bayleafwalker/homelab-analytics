@@ -1258,10 +1258,14 @@ def test_cashflow_map_page_reads_reporting_api_and_discloses_provenance() -> Non
     # Honest disclosure: staleness, transfers, provenance and lineage.
     assert 'tone="stale"' in page
     assert "payload.provenance" in page
-    assert "getPublicationLineage" in page
+    # Lineage and confidence per publication come from the shared <Explain> loader.
+    assert "loadExplanation(key, { user })" in page
+    assert "ExplainBox" in page
+    assert "AsOfScrubber" in page
     assert "Show transfers between own accounts" in page
-    # Confidence detail is an admin read; other roles must not trigger it.
-    assert "isAdmin\n      ? Promise.all(publications.map((key) => safely(getPublicationConfidenceDetail(key))))" in page
+    # Confidence is an admin read; other roles must not trigger it (lib/explain.js).
+    explain_loader = (FRONTEND_ROOT / "lib" / "explain.js").read_text()
+    assert "confidence === undefined && isAdmin ? confidenceIndex() : Promise.resolve(null)" in explain_loader
     # No chart library; readable alternative for narrow screens.
     assert "d3" not in sankey
     assert "export function CashflowFlowList" in sankey
@@ -1326,3 +1330,105 @@ def test_default_shell_has_route_level_error_loading_and_not_found_states() -> N
         assert tone in state_panel
     # The dashboard no longer fails for non-admin roles on the admin-only freshness read.
     assert 'user?.role === "admin" ? getSourceFreshness() : Promise.resolve([])' in dashboard
+
+
+def test_control_confidence_page_is_a_server_component() -> None:
+    page = (FRONTEND_ROOT / "app" / "control" / "confidence" / "page.js").read_text()
+    backend = (FRONTEND_ROOT / "lib" / "backend.ts").read_text()
+
+    # ADR web-surface-shell-decision §4.3: no browser-relative fetches that
+    # split-origin deployments cannot route to the API.
+    assert "use client" not in page
+    assert "fetch(" not in page
+    assert "useEffect" not in page
+    assert "useState" not in page
+    assert "await getCurrentUser()" in page
+    assert "await getPublicationConfidence({ staleOnly" in page
+    # Filters live in the URL.
+    assert 'searchParams?.stale === "1"' in page
+    assert "searchParams?.verdict" in page
+    assert 'action="/control/confidence" method="get"' in page
+    assert 'tone="error"' in page
+    assert "ResponsiveTable" in page
+    assert "data-testid={`lineage-link-${pub.publication_key}`}" in page
+    assert "verdict?: QueryValue<\"/control/confidence\", \"verdict\">" in backend
+
+
+def test_sources_page_joins_runs_per_source_asset() -> None:
+    page = (FRONTEND_ROOT / "app" / "sources" / "page.js").read_text()
+
+    # Regression: rows were keyed and joined by dataset, so every asset of one
+    # dataset showed the same source. Join on the asset's own latest run.
+    assert "lastRunByDataset" not in page
+    assert "runsById.get(ds.latest_run_id)" in page
+    assert "row.source_asset_id || row.dataset_name" in page
+    assert "ResponsiveTable" in page
+    # Status colours use tokens that exist.
+    assert "var(--error)" not in page
+    assert "var(--warning)" not in page
+
+
+def test_explain_primitive_is_server_loaded_and_accessible() -> None:
+    explain = (FRONTEND_ROOT / "components" / "explain.js").read_text()
+    disclosure = (FRONTEND_ROOT / "components" / "explain-disclosure.js").read_text()
+    server = (FRONTEND_ROOT / "components" / "explain-server.js").read_text()
+    loader = (FRONTEND_ROOT / "lib" / "explain.js").read_text()
+    css = (FRONTEND_ROOT / "app" / "primitives.css").read_text()
+
+    # Data comes through lib/backend.ts on the server, deduplicated per request.
+    assert "use client" not in loader
+    assert 'import { cache } from "react"' in loader
+    assert "getPublicationLineage(publicationKey)" in loader
+    assert "fetch(" not in loader + explain + disclosure
+    assert "loadExplanation(publication" in server
+    # Native disclosure: keyboard operable without script; Escape returns focus.
+    assert disclosure.startswith('"use client"')
+    assert "<details" in disclosure and "<summary" in disclosure
+    assert 'event.key === "Escape"' in disclosure
+    assert "summary?.focus()" in disclosure
+    assert 'className="srOnly"' in disclosure
+    # Honest when lineage is a single node.
+    assert "No runs or sources recorded behind it yet" in explain
+    assert "/briefing/lineage?publication_key=" in explain
+    # Stays on screen at phone width.
+    assert "@media (max-width: 600px)" in css
+
+    adopters = {
+        "app/page.js": "<Explain",
+        "app/cashflow/page.js": "<ExplainBox",
+        "app/briefing/page.js": "<Explain",
+        "components/wallboard-view.js": "<ExplainBox",
+    }
+    for path, marker in adopters.items():
+        assert marker in (FRONTEND_ROOT / path).read_text(), path
+    # Briefing adoption is presentation only: it reuses the brief's confidence.
+    assert "confidence={item.confidence || null}" in (FRONTEND_ROOT / "app" / "briefing" / "page.js").read_text()
+
+
+def test_as_of_scrubber_only_offers_published_months() -> None:
+    scrubber = (FRONTEND_ROOT / "components" / "as-of-scrubber.js").read_text()
+    dashboard = (FRONTEND_ROOT / "app" / "page.js").read_text()
+
+    assert "use client" not in scrubber
+    assert 'aria-current={month === selected ? "true" : undefined}' in scrubber
+    assert "no published data" in scrubber
+    # The dashboard rewinds month-keyed publications only and marks snapshot
+    # publications as current; state is in the URL.
+    assert "searchParams?.asof" in dashboard
+    assert "publishedMonths.includes(requestedAsOf)" in dashboard
+    assert "visibleCashflow" in dashboard
+    assert '<span className="pill" data-tone="neutral">Today</span>' in dashboard
+    assert '"mart_monthly_cashflow"' in dashboard
+
+
+def test_responsive_table_keeps_table_semantics_at_phone_width() -> None:
+    table = (FRONTEND_ROOT / "components" / "responsive-table.js").read_text()
+    css = (FRONTEND_ROOT / "app" / "primitives.css").read_text()
+
+    assert "use client" not in table
+    assert "<table>" in table and "<thead>" in table and 'scope="col"' in table
+    assert "data-label=" in table
+    assert 'role="region"' in table and "tabIndex={0}" in table
+    assert "content: attr(data-label);" in css
+    for path in ("app/page.js", "app/sources/page.js", "app/control/confidence/page.js"):
+        assert "<ResponsiveTable" in (FRONTEND_ROOT / path).read_text(), path

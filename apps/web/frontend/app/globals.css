@@ -3,6 +3,7 @@
 @import "./states.css";
 @import "./cashflow.css";
 @import "./wallboard.css";
+@import "./primitives.css";
 
 * {
   box-sizing: border-box;
@@ -140,6 +141,12 @@ textarea,
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.subnav + .panel,
+.subnav + .stack,
+.subnav + .statePanel {
+  margin-top: 18px;
 }
 
 .subnavLink {
@@ -1464,4 +1471,80 @@ th {
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+/* /control/confidence */
+.confidenceDomains {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.confidenceDomains li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.confidenceDomains p {
+  margin: 0;
+}
+
+.confidenceDomainName {
+  font-weight: 700;
+}
+
+.confidenceFilters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-bottom: 10px;
+}
+
+.confidenceFilters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.confidenceFilters select {
+  min-width: 150px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--paper);
+  font: inherit;
+}
+
+.confidenceBar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.confidenceBarTrack {
+  display: inline-block;
+  width: 80px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--line);
+  overflow: hidden;
+}
+
+.confidenceBarFill {
+  display: block;
+  height: 100%;
+  background: var(--accent-warm);
+}
+
+.confidenceBarFill[data-complete="true"] {
+  background: var(--ok);
 }
