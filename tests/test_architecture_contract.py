@@ -740,12 +740,20 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert '"/config/execution-schedules/{schedule_id}"' in web_schedule_update_route
     assert '"/config/execution-schedules/{schedule_id}/archive"' in web_schedule_archive_route
     assert '"/config/execution-schedules/{schedule_id}"' in web_schedule_delete_route
-    assert 'backendRequest("post", "/control/schedule-dispatches"' in web_schedule_dispatch_route
+    web_dispatch_route_helper = (
+        ROOT / "apps" / "web" / "frontend" / "lib" / "execution-dispatch-routes.js"
+    ).read_text()
+    assert 'backendRequest("post", "/control/schedule-dispatches"' in web_dispatch_route_helper
+    assert '"/control/schedule-dispatches/{dispatch_id}/retry"' in web_dispatch_route_helper
+    assert 'createScheduleDispatchHandler({ basePath: "/control/execution" })' in (
+        web_schedule_dispatch_route
+    )
     assert "getScheduleDispatch" in web_dispatch_detail_page
     assert "Requeue dispatch" in web_dispatch_detail_page
     assert "Claim expires" in web_dispatch_detail_page
     assert "Failure reason" in web_dispatch_detail_page
-    assert '"/control/schedule-dispatches/{dispatch_id}/retry"' in web_dispatch_retry_route
+    assert "createScheduleDispatchRetryHandler" in web_dispatch_retry_route
+    assert "retry_of=${dispatchId}" in web_dispatch_retry_route
     assert 'backendJsonRequest("post", "/runs/{run_id}/retry"' in web_run_retry_route
     assert "build_web_environment" in web_main_source
     assert "resolved_api_base_url" in web_main_source

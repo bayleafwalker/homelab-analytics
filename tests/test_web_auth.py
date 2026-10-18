@@ -465,14 +465,16 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert '"/config/execution-schedules/{schedule_id}"' in execution_schedule_update_route
     assert '"/config/execution-schedules/{schedule_id}/archive"' in execution_schedule_archive_route
     assert '"/config/execution-schedules/{schedule_id}"' in execution_schedule_delete_route
-    assert 'backendRequest("post", "/control/schedule-dispatches"' in schedule_dispatch_route
+    assert 'createScheduleDispatchHandler({ basePath: "/control/execution" })' in (
+        schedule_dispatch_route
+    )
     assert "getScheduleDispatch" in dispatch_detail_page
     assert "getOperationalSummary" in dispatch_detail_page
     assert "Requeue dispatch" in dispatch_detail_page
     assert "Claim expires" in dispatch_detail_page
     assert "Failure reason" in dispatch_detail_page
     assert "Worker detail" in dispatch_detail_page
-    assert '"/control/schedule-dispatches/{dispatch_id}/retry"' in dispatch_retry_route
+    assert "createScheduleDispatchRetryHandler" in dispatch_retry_route
     assert '"/ingest/ingestion-definitions/{ingestion_definition_id}/process"' in process_definition_route
     assert 'backendJsonRequest("post", "/runs/{run_id}/retry"' in run_retry_route
     assert "Retry run" in run_detail_page
@@ -858,8 +860,13 @@ def test_nextjs_frontend_exposes_parallel_retro_shell_and_terminal_boundary() ->
     assert "/api/ha/actions/proposals/{action_id}/approve" in retro_approve_route
     assert "/api/ha/actions/proposals/{action_id}/dismiss" in retro_dismiss_route
     assert "id={descriptor.anchor}" in retro_operations_source
-    assert 'backendRequest("post", "/control/schedule-dispatches"' in retro_schedule_dispatch_route
-    assert "/control/schedule-dispatches/{dispatch_id}/retry" in retro_retry_route
+    dispatch_route_helper = (FRONTEND_ROOT / "lib" / "execution-dispatch-routes.js").read_text()
+    assert 'backendRequest("post", "/control/schedule-dispatches"' in dispatch_route_helper
+    assert '"/control/schedule-dispatches/{dispatch_id}/retry"' in dispatch_route_helper
+    assert "createScheduleDispatchHandler" in retro_schedule_dispatch_route
+    assert 'basePath: "/retro/control/execution"' in retro_schedule_dispatch_route
+    assert "createScheduleDispatchRetryHandler" in retro_retry_route
+    assert "/retro/control/execution?notice=schedule-dispatch-retried" in retro_retry_route
     assert 'backendJsonRequest(\n    "get",\n    "/control/terminal/commands"' in retro_commands_route
     assert 'backendJsonRequest(\n    "post",\n    "/control/terminal/execute"' in retro_execute_route
     assert 'href: "/retro/money"' in retro_shell_source
