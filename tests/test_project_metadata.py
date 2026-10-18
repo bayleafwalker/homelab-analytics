@@ -32,6 +32,21 @@ class ProjectMetadataTests(unittest.TestCase):
             scripts["homelab-analytics-worker"],
         )
 
+    def test_chart_image_tags_match_published_release_tags(self) -> None:
+        # publish-images.yaml tags images with the git ref name (`v<version>`),
+        # so the chart must reference that tag or installs fail to pull.
+        version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
+        chart = yaml.safe_load((ROOT / "charts" / "homelab-analytics" / "Chart.yaml").read_text())
+        values = yaml.safe_load(
+            (ROOT / "charts" / "homelab-analytics" / "values.yaml").read_text()
+        )
+        workflow = (ROOT / ".github" / "workflows" / "publish-images.yaml").read_text()
+
+        self.assertIn(":${{ github.ref_name }}", workflow)
+        self.assertEqual(chart["appVersion"], version)
+        for key in ("image", "webImage"):
+            self.assertEqual(values[key]["tag"], f"v{version}")
+
     def test_pyproject_uses_setuptools_package_discovery(self) -> None:
         pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
 
