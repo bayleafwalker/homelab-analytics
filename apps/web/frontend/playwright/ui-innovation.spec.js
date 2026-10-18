@@ -24,7 +24,7 @@ async function expectAccessible(page, selector = "#storybook-root") {
   expect(results.violations, violationMessage(results.violations)).toEqual([]);
 }
 
-for (const story of ["demo-month", "categorised-with-occasional", "focused-payee", "overspent"]) {
+for (const story of ["demo-month", "categorised-with-occasional", "focused-payee", "overspent", "sparse"]) {
   test(`cashflow sankey ${story} renders flows and stays accessible`, async ({ page }) => {
     await gotoStory(page, `cashflow-cashflowsankey--${story}`);
     const svg = page.locator("svg.sankey");
@@ -41,6 +41,28 @@ test("cashflow sankey payees are keyboard reachable links", async ({ page }) => 
   await expect(groceries).toBeFocused();
   await expect(groceries).toHaveAttribute("href", "#out:groceries");
 });
+
+test("cashflow sankey draws nothing when no money has been published", async ({ page }) => {
+  await gotoStory(page, "cashflow-cashflowsankey--empty");
+  await expect(page.locator("svg.sankey")).toHaveCount(0);
+  await expect(page.getByText("No account transactions have been published yet.")).toBeVisible();
+});
+
+for (const story of ["bucket-ledger", "bucket-ledger-overspent", "bucket-ledger-sparse"]) {
+  test(`cashflow ${story} lists the buckets and stays accessible`, async ({ page }) => {
+    await gotoStory(page, `cashflow-cashflowsankey--${story}`);
+    expect(await page.locator(".cashflowLedger > div").count()).toBeGreaterThan(0);
+    await expectAccessible(page);
+  });
+}
+
+for (const story of ["mixed", "nothing-trusted-yet"]) {
+  test(`briefing ${story} renders every section and stays accessible`, async ({ page }) => {
+    await gotoStory(page, `pages-briefing--${story}`);
+    expect(await page.locator('[data-testid^="brief-section-"]').count()).toBe(7);
+    await expectAccessible(page, "main");
+  });
+}
 
 test("cashflow flow list is the narrow-screen alternative", async ({ page }) => {
   await gotoStory(page, "cashflow-cashflowsankey--narrow-flow-list");

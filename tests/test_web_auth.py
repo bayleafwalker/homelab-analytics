@@ -1094,7 +1094,15 @@ def test_retro_shell_mirrors_control_agents_read_only() -> None:
 
 
 def test_nextjs_frontend_exposes_deterministic_morning_brief() -> None:
-    briefing_source = (FRONTEND_ROOT / "app" / "briefing" / "page.js").read_text()
+    briefing_page = (FRONTEND_ROOT / "app" / "briefing" / "page.js").read_text()
+    briefing_view = (FRONTEND_ROOT / "components" / "briefing-view.js").read_text()
+    # The page fetches; BriefingView (shared with Storybook) renders.
+    assert "<BriefingView brief={brief} renderExplain={renderExplain} surfaces={surfacesFor(user)} />" in briefing_page
+    # Reader role does not get the operator-only source-freshness link.
+    assert "surface.operatorOnly && user?.role === \"reader\"" in briefing_page
+    assert "brief-surface-${section.key}" in briefing_view
+    assert "@/lib/backend" not in briefing_view
+    briefing_source = briefing_page + briefing_view
     lineage_source = (FRONTEND_ROOT / "app" / "briefing" / "lineage" / "page.js").read_text()
     backend_source = (FRONTEND_ROOT / "lib" / "backend.ts").read_text()
 
@@ -1108,8 +1116,8 @@ def test_nextjs_frontend_exposes_deterministic_morning_brief() -> None:
     assert 'backendGet("/api/briefing")' in backend_source
 
     # Wave-1 primitives, not ad-hoc chips.
-    for primitive in ("@/components/pill", "@/components/num-mono", "@/components/eyebrow"):
-        assert primitive in briefing_source
+    for primitive in ('"./pill"', '"./num-mono"', '"./eyebrow"'):
+        assert primitive in briefing_view
 
     # Every line shows claim status + confidence and links to the lineage drill.
     assert "item.claim_status" in briefing_source

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { AsOfScrubber } from "@/components/as-of-scrubber";
 import { ExplainBox } from "@/components/explain";
-import { CashflowFlowList, CashflowSankey, BUCKET_COLOR } from "@/components/cashflow-sankey";
+import { CashflowFlowList, CashflowLedger, CashflowSankey, BUCKET_COLOR } from "@/components/cashflow-sankey";
 import { StatePanel } from "@/components/state-panel";
 import { TrendBars } from "@/components/trend-bars";
 import { getCashflowMap, getCurrentUser } from "@/lib/backend";
@@ -55,7 +55,6 @@ export default async function CashflowPage({ searchParams }) {
   const focus = nodes.find((node) => node.id === focusId && node.column === 3) || null;
   const focusBucketLink = focus ? payload.links.find((link) => link.target === focus.id) : null;
   const focusBucket = focusBucketLink ? nodes.find((node) => node.id === focusBucketLink.source) : null;
-  const buckets = nodes.filter((node) => node.column === 2);
   const spendingTotal = Number(totals.mapped_expense || 0);
   const kept = Number(totals.kept || 0);
   const drawn = Number(totals.drawn_from_savings || 0);
@@ -164,22 +163,7 @@ export default async function CashflowPage({ searchParams }) {
                 />
               </div>
             ) : null}
-            <dl className="cashflowLedger">
-              {buckets.map((bucket) => (
-                <div key={bucket.id} style={{ "--swatch": BUCKET_COLOR[bucket.kind] }}>
-                  <dt>{bucket.label}</dt>
-                  <dd className="numMono">
-                    {money(bucket.amount)} <span className="muted">{Math.round(bucket.share * 100)}%</span>
-                  </dd>
-                </div>
-              ))}
-              {Number(totals.transfers || 0) > 0 ? (
-                <div style={{ "--swatch": "var(--line-strong)" }}>
-                  <dt>{includeTransfers ? "Transfers, included" : "Transfers, left out"}</dt>
-                  <dd className="numMono">{money(totals.transfers)}</dd>
-                </div>
-              ) : null}
-            </dl>
+            <CashflowLedger payload={payload} />
           </section>
 
           <section className="panel cashflowCanvas">
