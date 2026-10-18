@@ -22,6 +22,7 @@ from apps.api.routes.adapter_routes import register_adapter_routes
 from apps.api.routes.agent_routes import register_agent_routes
 from apps.api.routes.assistant_routes import register_assistant_routes
 from apps.api.routes.auth_routes import register_auth_routes
+from apps.api.routes.briefing_routes import register_briefing_routes
 from apps.api.routes.category_routes import register_category_routes
 from apps.api.routes.config_routes import register_config_routes
 from apps.api.routes.contract_routes import register_contract_routes
@@ -685,6 +686,13 @@ def create_app(
         resolved_reporting_service=reporting_service,
         to_jsonable=to_jsonable,
         control_plane=resolved_config_repository,
+    )
+    register_briefing_routes(
+        app,
+        resolved_reporting_service=reporting_service,
+        control_plane=resolved_config_repository,
+        metadata_repository=resolved_service.metadata_repository,
+        ha_policy_evaluator=ha_policy_evaluator,
     )
     register_homelab_routes(
         app,

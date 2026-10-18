@@ -104,6 +104,8 @@ type GetOperationIdByPath = {
   "/api/scenarios/{scenario_id}": "get_scenario_metadata_api_scenarios__scenario_id__get";
   "/api/scenarios/{scenario_id}/comparison": "get_scenario_comparison_api_scenarios__scenario_id__comparison_get";
   "/api/scenarios/{scenario_id}/cashflow": "get_income_scenario_cashflow_api_scenarios__scenario_id__cashflow_get";
+  "/api/briefing": "get_briefing_api_briefing_get";
+  "/api/lineage/publication/{publication_key}": "get_publication_lineage_api_lineage_publication__publication_key__get";
 };
 type TypedGetApiPath = keyof GetOperationIdByPath & GetApiPath;
 type GetOperationId<Path extends TypedGetApiPath> = GetOperationIdByPath[Path];
@@ -1050,6 +1052,19 @@ export async function getOperationalSummary() {
 export async function getTerminalCommands() {
   const payload = await backendGet("/control/terminal/commands");
   return getResponseArray(payload, "commands");
+}
+
+// Morning brief (Kotona B1): deterministic brief with lineage drill keys.
+export async function getBriefing() {
+  return backendGet("/api/briefing");
+}
+
+export async function getPublicationLineage(
+  publicationKey: PathValue<"/api/lineage/publication/{publication_key}", "publication_key">
+) {
+  return backendGet("/api/lineage/publication/{publication_key}", {
+    params: { path: { publication_key: publicationKey } }
+  });
 }
 
 export async function getSourceFreshness() {
