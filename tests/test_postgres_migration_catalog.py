@@ -90,9 +90,7 @@ def test_asset_register_package_is_seeded() -> None:
 # Builtin publications a Postgres control plane does not seed yet. Each one is
 # refreshed on promotion but never published to the Postgres reporting store,
 # so PUBLISHED-mode reads of it fail. Shrink this list; never grow it.
-KNOWN_UNSEEDED_PUBLICATIONS = {
-    "pub_budgets_envelope_drift",
-}
+KNOWN_UNSEEDED_PUBLICATIONS: set[str] = set()
 
 
 def test_builtin_package_publications_are_seeded_by_postgres_migrations() -> None:

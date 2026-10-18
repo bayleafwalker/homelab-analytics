@@ -88,7 +88,7 @@ Sprint workflow:
 
 | Store | Latest migration | Count |
 |---|---|---|
-| `migrations/postgres/` | `0021_spend_by_weekday_hour_publication` | 20 (`0019` unused and free) |
+| `migrations/postgres/` | `0022_budget_envelope_drift_publication` | 21 (`0019` unused and free) |
 | `migrations/duckdb/` | `0018_spend_by_weekday_hour_mart` | 12 (gaps: DuckDB-only subset; `0017` unused and free) |
 | `migrations/sqlite/` | `0013_action_proposal_changes_feed` | 12 (`0012` unused: reserved for the as-of/lineage stream; free) |
 | `migrations/postgres_run_metadata/` | `0001_run_metadata_initial_schema` | 1 |
