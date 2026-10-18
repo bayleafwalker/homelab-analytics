@@ -85,6 +85,13 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 publication_key="mart_transaction_anomalies_current",
                 name="Transaction anomalies current mart",
             ),
+            BuiltinPublicationSpec(
+                publication_definition_id=(
+                    "pub_account_transactions_spend_by_weekday_hour"
+                ),
+                publication_key="mart_spend_by_weekday_hour",
+                name="Spend by weekday and hour mart",
+            ),
         ),
         refresh_publication_keys=(
             "mart_monthly_cashflow",
@@ -93,6 +100,7 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
             "mart_recent_large_transactions",
             "mart_account_balance_trend",
             "mart_transaction_anomalies_current",
+            "mart_spend_by_weekday_hour",
             # Overview compositions depend on finance marts
             "mart_household_overview",
             "mart_open_attention_items",

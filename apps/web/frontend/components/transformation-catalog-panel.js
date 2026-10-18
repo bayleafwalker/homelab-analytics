@@ -1,3 +1,5 @@
+import { ResponsiveTable } from "./responsive-table";
+
 function referenceSummary(records, field) {
   if (!records || records.length === 0) {
     return "none";
@@ -216,30 +218,25 @@ export function TransformationCatalogPanel({
             <h2>Available transformation handlers</h2>
           </div>
         </div>
-        {transformationHandlers.length === 0 ? (
-          <div className="empty">No transformation handlers are available.</div>
-        ) : (
-          <div className="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Handler key</th>
-                  <th>Default publications</th>
-                  <th>Supported publications</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transformationHandlers.map((handler) => (
-                  <tr key={handler.handler_key}>
-                    <td>{handler.handler_key}</td>
-                    <td>{summarizeValues(handler.default_publications)}</td>
-                    <td>{summarizeValues(handler.supported_publications)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <ResponsiveTable
+          label="Available transformation handlers"
+          rows={transformationHandlers}
+          rowKey="handler_key"
+          empty={<div className="empty">No transformation handlers are available.</div>}
+          columns={[
+            { key: "handler_key", header: "Handler key", primary: true },
+            {
+              key: "default_publications",
+              header: "Default publications",
+              cell: (handler) => summarizeValues(handler.default_publications),
+            },
+            {
+              key: "supported_publications",
+              header: "Supported publications",
+              cell: (handler) => summarizeValues(handler.supported_publications),
+            },
+          ]}
+        />
       </article>
 
       <article className="panel section">
@@ -249,32 +246,30 @@ export function TransformationCatalogPanel({
             <h2>Available publication keys</h2>
           </div>
         </div>
-        {publicationKeys.length === 0 ? (
-          <div className="empty">No publication keys are available.</div>
-        ) : (
-          <div className="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Publication key</th>
-                  <th>Source kinds</th>
-                  <th>Supported handlers</th>
-                  <th>Reporting extensions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {publicationKeys.map((publication) => (
-                  <tr key={publication.publication_key}>
-                    <td>{publication.publication_key}</td>
-                    <td>{summarizeValues(publication.source_kinds)}</td>
-                    <td>{summarizeValues(publication.supported_handlers)}</td>
-                    <td>{summarizeValues(publication.reporting_extensions)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <ResponsiveTable
+          label="Available publication keys"
+          rows={publicationKeys}
+          rowKey="publication_key"
+          empty={<div className="empty">No publication keys are available.</div>}
+          columns={[
+            { key: "publication_key", header: "Publication key", primary: true },
+            {
+              key: "source_kinds",
+              header: "Source kinds",
+              cell: (publication) => summarizeValues(publication.source_kinds),
+            },
+            {
+              key: "supported_handlers",
+              header: "Supported handlers",
+              cell: (publication) => summarizeValues(publication.supported_handlers),
+            },
+            {
+              key: "reporting_extensions",
+              header: "Reporting extensions",
+              cell: (publication) => summarizeValues(publication.reporting_extensions),
+            },
+          ]}
+        />
       </article>
 
       <article className="panel section">

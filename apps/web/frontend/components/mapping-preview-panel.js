@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { ResponsiveTable } from "./responsive-table";
+
 function initialMappingIdForContract(columnMappings, datasetContractId) {
   return (
     columnMappings.find((record) => record.dataset_contract_id === datasetContractId)
@@ -134,55 +136,30 @@ export function MappingPreviewPanel({
             </div>
           </div>
 
-          {preview.preview_rows.length === 0 ? (
-            <div className="empty">No mapped rows were produced from the sample.</div>
-          ) : (
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    {preview.mapped_header.map((column) => (
-                      <th key={column}>{column}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.preview_rows.map((row, index) => (
-                    <tr key={`preview-row-${index}`}>
-                      {preview.mapped_header.map((column) => (
-                        <td key={`${column}-${index}`}>{row[column] || ""}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ResponsiveTable
+            label="Mapped sample rows"
+            rows={preview.preview_rows}
+            rowKey={(row, index) => `preview-row-${index}`}
+            empty={<div className="empty">No mapped rows were produced from the sample.</div>}
+            columns={preview.mapped_header.map((column, position) => ({
+              key: column,
+              header: column,
+              primary: position === 0,
+              cell: (row) => row[column] || "",
+            }))}
+          />
 
-          {preview.issues.length > 0 ? (
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Code</th>
-                    <th>Message</th>
-                    <th>Column</th>
-                    <th>Row</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.issues.map((issue, index) => (
-                    <tr key={`preview-issue-${index}-${issue.code}`}>
-                      <td>{issue.code}</td>
-                      <td>{issue.message}</td>
-                      <td>{issue.column || "n/a"}</td>
-                      <td>{issue.row_number || "n/a"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
+          <ResponsiveTable
+            label="Mapping validation issues"
+            rows={preview.issues}
+            rowKey={(issue, index) => `preview-issue-${index}-${issue.code}`}
+            columns={[
+              { key: "code", header: "Code", primary: true },
+              { key: "message", header: "Message" },
+              { key: "column", header: "Column", cell: (issue) => issue.column || "n/a" },
+              { key: "row_number", header: "Row", align: "end", cell: (issue) => issue.row_number || "n/a" },
+            ]}
+          />
         </div>
       ) : (
         <div className="empty">

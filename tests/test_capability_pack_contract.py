@@ -468,8 +468,8 @@ def test_all_pack_publications_have_reporting_relations() -> None:
 def test_all_three_packs_have_expected_publication_count() -> None:
     from packages.domains.overview.manifest import OVERVIEW_PACK
 
-    assert len(FINANCE_PACK.publications) == 9, (
-        f"Finance should have 9 publications, got {len(FINANCE_PACK.publications)}"
+    assert len(FINANCE_PACK.publications) == 10, (
+        f"Finance should have 10 publications, got {len(FINANCE_PACK.publications)}"
     )
     assert len(UTILITIES_PACK.publications) == 9, (
         f"Utilities should have 9 publications, got {len(UTILITIES_PACK.publications)}"

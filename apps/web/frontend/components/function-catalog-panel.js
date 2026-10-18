@@ -1,3 +1,5 @@
+import { ResponsiveTable } from "./responsive-table";
+
 function totalFunctions(functionsByKind) {
   return Object.values(functionsByKind || {}).reduce(
     (count, functions) => count + (Array.isArray(functions) ? functions.length : 0),
@@ -8,6 +10,16 @@ function totalFunctions(functionsByKind) {
 function boolCopy(value) {
   return value ? "yes" : "no";
 }
+
+const FUNCTION_COLUMNS = [
+  { key: "function_key", header: "Function key", primary: true },
+  { key: "source", header: "Source" },
+  { key: "module", header: "Module" },
+  { key: "io", header: "Input / output", cell: (record) => `${record.input_type} / ${record.output_type}` },
+  { key: "deterministic", header: "Deterministic", cell: (record) => boolCopy(record.deterministic) },
+  { key: "side_effects", header: "Side effects", cell: (record) => boolCopy(record.side_effects) },
+  { key: "description", header: "Description" },
+];
 
 export function FunctionCatalogPanel({ functionsByKind }) {
   const kindEntries = Object.entries(functionsByKind || {}).filter(([, functions]) =>
@@ -50,36 +62,12 @@ export function FunctionCatalogPanel({ functionsByKind }) {
           {kindEntries.map(([kind, functions]) => (
             <div key={kind} className="stack compactStack">
               <div className="metricLabel">{kind}</div>
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Function key</th>
-                      <th>Source</th>
-                      <th>Module</th>
-                      <th>Input / output</th>
-                      <th>Deterministic</th>
-                      <th>Side effects</th>
-                      <th>Description</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {functions.map((record) => (
-                      <tr key={`${kind}-${record.function_key}`}>
-                        <td>{record.function_key}</td>
-                        <td>{record.source}</td>
-                        <td>{record.module}</td>
-                        <td>
-                          {record.input_type} / {record.output_type}
-                        </td>
-                        <td>{boolCopy(record.deterministic)}</td>
-                        <td>{boolCopy(record.side_effects)}</td>
-                        <td>{record.description}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ResponsiveTable
+                label={`Custom ${kind} functions`}
+                rows={functions}
+                rowKey={(record) => `${kind}-${record.function_key}`}
+                columns={FUNCTION_COLUMNS}
+              />
             </div>
           ))}
         </div>

@@ -22,6 +22,12 @@ from packages.domains.finance.pipelines.category_rules import (
     CATEGORY_OVERRIDE_COLUMNS,
     CATEGORY_RULE_COLUMNS,
 )
+from packages.domains.finance.pipelines.spend_heatmap import (
+    DEFAULT_WINDOW_DAYS,
+    MAX_WINDOW_DAYS,
+    build_spend_heatmap,
+    spend_heatmap_window,
+)
 from packages.domains.finance.pipelines.transaction_models import TRANSFORMATION_AUDIT_COLUMNS
 from packages.domains.utilities.battery_plan_decision import BATTERY_PLAN_DECISION
 from packages.pipelines.household_reporting import (
@@ -455,6 +461,35 @@ class CashflowMapResponse(BaseModel):
     transfers: list[CashflowMapTransfer]
     disclosures: list[CashflowMapDisclosure]
     provenance: CashflowMapProvenance
+
+
+class SpendHeatmapTotals(BaseModel):
+    expense: str
+    timed_expense: str
+    untimed_expense: str
+    transaction_count: int
+    timed_count: int
+    untimed_count: int
+    active_days: int
+
+
+class SpendHeatmapResponse(BaseModel):
+    window_days: int
+    window_start: str | None
+    window_end: str | None
+    data_through: str | None
+    currency: str | None
+    hour_basis: str
+    day_labels: list[str]
+    cells: list[list[str]]
+    counts: list[list[int]]
+    untimed: list[str]
+    untimed_counts: list[int]
+    max_cell: str
+    max_untimed: str
+    coverage: str
+    totals: SpendHeatmapTotals
+    publications: list[str]
 
 
 def register_report_routes(
@@ -949,6 +984,56 @@ def register_report_routes(
             month=month,
             currency=currency,
             include_transfers=include_transfers,
+        )
+        return cast(dict[str, Any], to_jsonable(payload))
+
+    @app.get("/reports/spend-heatmap", response_model=SpendHeatmapResponse)
+    async def get_spend_heatmap(
+        window: int = DEFAULT_WINDOW_DAYS,
+        as_of: date | None = None,
+    ) -> dict[str, Any]:
+        if resolved_reporting_service is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Spend heatmap reporting requires a transformation service.",
+            )
+        if window < 1 or window > MAX_WINDOW_DAYS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"window must be between 1 and {MAX_WINDOW_DAYS} days",
+            )
+        # In PUBLISHED mode a relation that was never published raises
+        # KeyError; that is "not available yet", not a server fault.
+        try:
+            if as_of is not None:
+                from_date, to_date = spend_heatmap_window(as_of, window)
+                rows = resolved_reporting_service.get_spend_by_weekday_hour(
+                    from_date=from_date,
+                    to_date=to_date,
+                )
+            else:
+                rows = resolved_reporting_service.get_spend_by_weekday_hour()
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Spend heatmap publication mart_spend_by_weekday_hour is not "
+                    "published yet; run an account-transactions promotion."
+                ),
+            ) from exc
+        try:
+            overview_rows = resolved_reporting_service.get_household_overview()
+        except KeyError:
+            overview_rows = []
+        currency = next(
+            (str(row["currency"]) for row in overview_rows if row.get("currency")),
+            None,
+        )
+        payload = build_spend_heatmap(
+            rows,
+            window_days=window,
+            end=as_of,
+            currency=currency,
         )
         return cast(dict[str, Any], to_jsonable(payload))
 

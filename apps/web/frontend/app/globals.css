@@ -3,6 +3,7 @@
 @import "./states.css";
 @import "./cashflow.css";
 @import "./wallboard.css";
+@import "./console.css";
 @import "./primitives.css";
 
 * {

@@ -31,6 +31,8 @@ from packages.domains.finance.pipelines.transaction_models import (
     MART_RECENT_LARGE_TRANSACTIONS_TABLE,
     MART_SPEND_BY_CATEGORY_MONTHLY_COLUMNS,
     MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
+    MART_SPEND_BY_WEEKDAY_HOUR_COLUMNS,
+    MART_SPEND_BY_WEEKDAY_HOUR_TABLE,
     MART_TRANSACTION_ANOMALIES_CURRENT_COLUMNS,
     MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
     TRANSACTION_OBSERVATION_COLUMNS,
@@ -84,6 +86,10 @@ def ensure_transaction_storage(store: DuckDBStore) -> None:
     store.ensure_table(
         MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
         MART_TRANSACTION_ANOMALIES_CURRENT_COLUMNS,
+    )
+    store.ensure_table(
+        MART_SPEND_BY_WEEKDAY_HOUR_TABLE,
+        MART_SPEND_BY_WEEKDAY_HOUR_COLUMNS,
     )
     store.ensure_table(TRANSFORMATION_AUDIT_TABLE, TRANSFORMATION_AUDIT_COLUMNS)
 
@@ -447,6 +453,77 @@ def get_recent_large_transactions(
     return store.fetchall_dicts(
         f"SELECT * FROM {MART_RECENT_LARGE_TRANSACTIONS_TABLE}"
         " ORDER BY ABS(amount) DESC, booked_at DESC"
+    )
+
+
+def refresh_spend_by_weekday_hour(store: DuckDBStore) -> int:
+    """Rebuild spend per booking date x UTC hour from the current transaction fact.
+
+    Amounts and membership come from ``fact_transaction_current`` (the
+    reconciled view every other spend mart uses). The current fact keeps only
+    the booking date, so the time of day is borrowed from the append-only
+    ``fact_transaction`` row with the same date, account, counterparty and
+    amount. A booking whose source carried no time of day (stored as exactly
+    midnight UTC) keeps ``hour_of_day`` NULL rather than being counted as a
+    00:00 purchase.
+    """
+    store.execute(f"DELETE FROM {MART_SPEND_BY_WEEKDAY_HOUR_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_SPEND_BY_WEEKDAY_HOUR_TABLE}
+            (booked_at, day_of_week, hour_of_day, total_expense, transaction_count)
+        WITH timed AS (
+            SELECT
+                booked_at,
+                account_id,
+                counterparty_name,
+                amount,
+                MIN(CAST(EXTRACT(hour FROM timezone('UTC', booked_at_utc)) AS INTEGER))
+                    AS hour_of_day
+            FROM {FACT_TRANSACTION_TABLE}
+            WHERE timezone('UTC', booked_at_utc) <> CAST(booked_at AS TIMESTAMP)
+            GROUP BY booked_at, account_id, counterparty_name, amount
+        )
+        SELECT
+            c.booked_at,
+            CAST(isodow(c.booked_at) AS INTEGER) AS day_of_week,
+            t.hour_of_day,
+            SUM(-c.amount) AS total_expense,
+            COUNT(*) AS transaction_count
+        FROM {FACT_TRANSACTION_CURRENT_TABLE} c
+        LEFT JOIN timed t
+          ON t.booked_at = c.booked_at
+         AND t.account_id = c.account_id
+         AND t.counterparty_name = c.counterparty_name
+         AND t.amount = c.amount
+        WHERE c.amount < 0
+        GROUP BY c.booked_at, t.hour_of_day
+        """
+    )
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_SPEND_BY_WEEKDAY_HOUR_TABLE}"
+    )[0][0]
+
+
+def get_spend_by_weekday_hour(
+    store: DuckDBStore,
+    *,
+    from_date: date | None = None,
+    to_date: date | None = None,
+) -> list[dict[str, Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if from_date is not None:
+        clauses.append("booked_at >= ?")
+        params.append(from_date)
+    if to_date is not None:
+        clauses.append("booked_at <= ?")
+        params.append(to_date)
+    where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_SPEND_BY_WEEKDAY_HOUR_TABLE}"
+        f" {where_sql} ORDER BY booked_at, hour_of_day NULLS FIRST",
+        params,
     )
 
 

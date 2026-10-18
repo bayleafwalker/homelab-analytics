@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
 import { ControlNav } from "@/components/control-nav";
+import { ResponsiveTable } from "@/components/responsive-table";
 import {
   getCurrentUser,
   getExecutionSchedules,
@@ -109,6 +110,54 @@ function summaryFor(summaryMap, key) {
 
 function isRetryableDispatch(record) {
   return record.status === "completed" || record.status === "failed";
+}
+
+function statusPill(status) {
+  return <span className={`statusPill status-${status}`}>{status}</span>;
+}
+
+function dispatchLink(record) {
+  return (
+    <Link className="inlineLink" href={`/control/execution/dispatches/${record.dispatch_id}`}>
+      {record.dispatch_id}
+    </Link>
+  );
+}
+
+function runLink(runId) {
+  return runId ? (
+    <Link className="inlineLink" href={`/runs/${runId}`}>
+      {runId}
+    </Link>
+  ) : (
+    "n/a"
+  );
+}
+
+function runLinks(record) {
+  return record.run_ids?.length ? (
+    <span className="stack">
+      {record.run_ids.map((runId) => (
+        <Link key={runId} className="inlineLink" href={`/runs/${runId}`}>
+          {runId}
+        </Link>
+      ))}
+    </span>
+  ) : (
+    "n/a"
+  );
+}
+
+function retryAction(record) {
+  return isRetryableDispatch(record) ? (
+    <form action={`/control/execution/dispatches/${record.dispatch_id}/retry`} method="post">
+      <button className="ghostButton" type="submit">
+        Retry
+      </button>
+    </form>
+  ) : (
+    "n/a"
+  );
 }
 
 export default async function ControlExecutionPage({ searchParams }) {
@@ -235,42 +284,31 @@ export default async function ControlExecutionPage({ searchParams }) {
               <h2>Source freshness</h2>
             </div>
           </div>
-          {sourceFreshness.length === 0 ? (
-            <div className="empty">No ingestion runs recorded yet.</div>
-          ) : (
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Dataset</th>
-                    <th>Status</th>
-                    <th>Last landed</th>
-                    <th>Age</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sourceFreshness.map((row) => {
-                    const landedAt = new Date(row.landed_at);
-                    const ageHours = Math.round((Date.now() - landedAt.getTime()) / 3_600_000);
-                    return (
-                      <tr key={row.dataset_name}>
-                        <td>{row.dataset_name}</td>
-                        <td>
-                          <span className={`statusPill status-${row.status}`}>{row.status}</span>
-                        </td>
-                        <td>
-                          <Link className="inlineLink" href={`/runs/${row.latest_run_id}`}>
-                            {landedAt.toLocaleString()}
-                          </Link>
-                        </td>
-                        <td>{ageHours}h ago</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ResponsiveTable
+            label="Source freshness"
+            rows={sourceFreshness}
+            rowKey="dataset_name"
+            empty={<div className="empty">No ingestion runs recorded yet.</div>}
+            columns={[
+              { key: "dataset_name", header: "Dataset", primary: true },
+              { key: "status", header: "Status", cell: (row) => statusPill(row.status) },
+              {
+                key: "landed_at",
+                header: "Last landed",
+                cell: (row) => (
+                  <Link className="inlineLink" href={`/runs/${row.latest_run_id}`}>
+                    {new Date(row.landed_at).toLocaleString()}
+                  </Link>
+                ),
+              },
+              {
+                key: "age",
+                header: "Age",
+                align: "end",
+                cell: (row) => `${Math.round((Date.now() - new Date(row.landed_at).getTime()) / 3_600_000)}h ago`,
+              },
+            ]}
+          />
         </article>
 
         <section className="layout">
@@ -281,40 +319,36 @@ export default async function ControlExecutionPage({ searchParams }) {
                 <h2>Recent failed runs</h2>
               </div>
             </div>
-            {failedRuns.length === 0 ? (
-              <div className="empty">No failed or rejected runs recorded in the current summary.</div>
-            ) : (
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Run</th>
-                      <th>Status</th>
-                      <th>Dataset</th>
-                      <th>Definition</th>
-                      <th>Failure</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {failedRuns.slice(0, 8).map((run) => (
-                      <tr key={run.run_id}>
-                        <td>
-                          <Link className="inlineLink" href={`/runs/${run.run_id}`}>
-                            {run.run_id}
-                          </Link>
-                        </td>
-                        <td>
-                          <span className={`statusPill status-${run.status}`}>{run.status}</span>
-                        </td>
-                        <td>{run.dataset_name}</td>
-                        <td>{run.context?.ingestion_definition_id || "manual / n/a"}</td>
-                        <td>{run.issues?.[0]?.message || run.recovery?.reason || "n/a"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <ResponsiveTable
+              label="Recent failed runs"
+              rows={failedRuns.slice(0, 8)}
+              rowKey="run_id"
+              empty={<div className="empty">No failed or rejected runs recorded in the current summary.</div>}
+              columns={[
+                {
+                  key: "run_id",
+                  header: "Run",
+                  primary: true,
+                  cell: (run) => (
+                    <Link className="inlineLink" href={`/runs/${run.run_id}`}>
+                      {run.run_id}
+                    </Link>
+                  ),
+                },
+                { key: "status", header: "Status", cell: (run) => statusPill(run.status) },
+                { key: "dataset_name", header: "Dataset" },
+                {
+                  key: "definition",
+                  header: "Definition",
+                  cell: (run) => run.context?.ingestion_definition_id || "manual / n/a",
+                },
+                {
+                  key: "failure",
+                  header: "Failure",
+                  cell: (run) => run.issues?.[0]?.message || run.recovery?.reason || "n/a",
+                },
+              ]}
+            />
           </article>
 
           <article className="panel section">
@@ -324,78 +358,22 @@ export default async function ControlExecutionPage({ searchParams }) {
                 <h2>Recent failed dispatches</h2>
               </div>
             </div>
-            {failedDispatches.length === 0 ? (
-              <div className="empty">No failed schedule dispatches recorded.</div>
-            ) : (
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Dispatch</th>
-                      <th>Schedule</th>
-                      <th>Status</th>
-                      <th>Failure</th>
-                      <th>Runs</th>
-                      <th>Enqueued</th>
-                      <th>Completed</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {failedDispatches.slice(0, 8).map((record) => (
-                      <tr key={record.dispatch_id}>
-                        <td>
-                          <Link
-                            className="inlineLink"
-                            href={`/control/execution/dispatches/${record.dispatch_id}`}
-                          >
-                            {record.dispatch_id}
-                          </Link>
-                        </td>
-                        <td>{record.schedule_id}</td>
-                        <td>
-                          <span className={`statusPill status-${record.status}`}>{record.status}</span>
-                        </td>
-                        <td>{record.failure_reason || "n/a"}</td>
-                        <td>
-                          {record.run_ids?.length ? (
-                            <div className="stack">
-                              {record.run_ids.map((runId) => (
-                                <Link
-                                  key={runId}
-                                  className="inlineLink"
-                                  href={`/runs/${runId}`}
-                                >
-                                  {runId}
-                                </Link>
-                              ))}
-                            </div>
-                          ) : (
-                            "n/a"
-                          )}
-                        </td>
-                        <td>{record.enqueued_at}</td>
-                        <td>{record.completed_at || "n/a"}</td>
-                        <td>
-                          {isRetryableDispatch(record) ? (
-                            <form
-                              action={`/control/execution/dispatches/${record.dispatch_id}/retry`}
-                              method="post"
-                            >
-                              <button className="ghostButton" type="submit">
-                                Retry
-                              </button>
-                            </form>
-                          ) : (
-                            "n/a"
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <ResponsiveTable
+              label="Recent failed dispatches"
+              rows={failedDispatches.slice(0, 8)}
+              rowKey="dispatch_id"
+              empty={<div className="empty">No failed schedule dispatches recorded.</div>}
+              columns={[
+                { key: "dispatch_id", header: "Dispatch", primary: true, cell: dispatchLink },
+                { key: "schedule_id", header: "Schedule" },
+                { key: "status", header: "Status", cell: (record) => statusPill(record.status) },
+                { key: "failure_reason", header: "Failure", cell: (record) => record.failure_reason || "n/a" },
+                { key: "run_ids", header: "Runs", cell: runLinks },
+                { key: "enqueued_at", header: "Enqueued" },
+                { key: "completed_at", header: "Completed", cell: (record) => record.completed_at || "n/a" },
+                { key: "action", header: "Action", hideLabel: true, cell: retryAction },
+              ]}
+            />
           </article>
         </section>
 
@@ -407,39 +385,18 @@ export default async function ControlExecutionPage({ searchParams }) {
                 <h2>Recovered stale dispatches</h2>
               </div>
             </div>
-            {recoveredDispatches.length === 0 ? (
-              <div className="empty">No stale dispatch recoveries recorded.</div>
-            ) : (
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Dispatch</th>
-                      <th>Schedule</th>
-                      <th>Failure</th>
-                      <th>Completed</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recoveredDispatches.slice(0, 8).map((record) => (
-                      <tr key={record.dispatch_id}>
-                        <td>
-                          <Link
-                            className="inlineLink"
-                            href={`/control/execution/dispatches/${record.dispatch_id}`}
-                          >
-                            {record.dispatch_id}
-                          </Link>
-                        </td>
-                        <td>{record.schedule_id}</td>
-                        <td>{record.failure_reason || "n/a"}</td>
-                        <td>{record.completed_at || "n/a"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <ResponsiveTable
+              label="Recovered stale dispatches"
+              rows={recoveredDispatches.slice(0, 8)}
+              rowKey="dispatch_id"
+              empty={<div className="empty">No stale dispatch recoveries recorded.</div>}
+              columns={[
+                { key: "dispatch_id", header: "Dispatch", primary: true, cell: dispatchLink },
+                { key: "schedule_id", header: "Schedule" },
+                { key: "failure_reason", header: "Failure", cell: (record) => record.failure_reason || "n/a" },
+                { key: "completed_at", header: "Completed", cell: (record) => record.completed_at || "n/a" },
+              ]}
+            />
           </article>
         </section>
 
@@ -451,53 +408,44 @@ export default async function ControlExecutionPage({ searchParams }) {
                 <h2>Worker heartbeats</h2>
               </div>
             </div>
-            {workers.length === 0 ? (
-              <div className="empty">No workers have reported heartbeats yet.</div>
-            ) : (
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Worker</th>
-                      <th>Status</th>
-                      <th>Active dispatch</th>
-                      <th>Claim expires</th>
-                      <th>Heartbeat age</th>
-                      <th>Observed</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {workers.map((worker) => (
-                      <tr key={worker.worker_id}>
-                        <td>{worker.worker_id}</td>
-                        <td>
-                          <span
-                            className={`statusPill status-${worker.stale ? "failed" : worker.status}`}
-                          >
-                            {worker.stale ? "stale" : worker.status}
-                          </span>
-                        </td>
-                        <td>
-                          {worker.active_dispatch_id ? (
-                            <Link
-                              className="inlineLink"
-                              href={`/control/execution/dispatches/${worker.active_dispatch_id}`}
-                            >
-                              {worker.active_dispatch_id}
-                            </Link>
-                          ) : (
-                            "n/a"
-                          )}
-                        </td>
-                        <td>{worker.claim_expires_at || "n/a"}</td>
-                        <td>{Math.round(worker.heartbeat_age_seconds || 0)}s</td>
-                        <td>{worker.observed_at}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <ResponsiveTable
+              label="Worker heartbeats"
+              rows={workers}
+              rowKey="worker_id"
+              empty={<div className="empty">No workers have reported heartbeats yet.</div>}
+              columns={[
+                { key: "worker_id", header: "Worker", primary: true },
+                {
+                  key: "status",
+                  header: "Status",
+                  cell: (worker) => (
+                    <span className={`statusPill status-${worker.stale ? "failed" : worker.status}`}>
+                      {worker.stale ? "stale" : worker.status}
+                    </span>
+                  ),
+                },
+                {
+                  key: "active_dispatch_id",
+                  header: "Active dispatch",
+                  cell: (worker) =>
+                    worker.active_dispatch_id ? (
+                      <Link className="inlineLink" href={`/control/execution/dispatches/${worker.active_dispatch_id}`}>
+                        {worker.active_dispatch_id}
+                      </Link>
+                    ) : (
+                      "n/a"
+                    ),
+                },
+                { key: "claim_expires_at", header: "Claim expires", cell: (worker) => worker.claim_expires_at || "n/a" },
+                {
+                  key: "heartbeat_age_seconds",
+                  header: "Heartbeat age",
+                  align: "end",
+                  cell: (worker) => `${Math.round(worker.heartbeat_age_seconds || 0)}s`,
+                },
+                { key: "observed_at", header: "Observed" },
+              ]}
+            />
           </article>
 
           <article className="panel section">
@@ -507,39 +455,18 @@ export default async function ControlExecutionPage({ searchParams }) {
                 <h2>Stale running dispatches</h2>
               </div>
             </div>
-            {staleDispatches.length === 0 ? (
-              <div className="empty">No stale running dispatches detected.</div>
-            ) : (
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Dispatch</th>
-                      <th>Worker</th>
-                      <th>Claim expires</th>
-                      <th>Started</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {staleDispatches.map((record) => (
-                      <tr key={record.dispatch_id}>
-                        <td>
-                          <Link
-                            className="inlineLink"
-                            href={`/control/execution/dispatches/${record.dispatch_id}`}
-                          >
-                            {record.dispatch_id}
-                          </Link>
-                        </td>
-                        <td>{record.claimed_by_worker_id || "n/a"}</td>
-                        <td>{record.claim_expires_at || "n/a"}</td>
-                        <td>{record.started_at || "n/a"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <ResponsiveTable
+              label="Stale running dispatches"
+              rows={staleDispatches}
+              rowKey="dispatch_id"
+              empty={<div className="empty">No stale running dispatches detected.</div>}
+              columns={[
+                { key: "dispatch_id", header: "Dispatch", primary: true, cell: dispatchLink },
+                { key: "claimed_by_worker_id", header: "Worker", cell: (record) => record.claimed_by_worker_id || "n/a" },
+                { key: "claim_expires_at", header: "Claim expires", cell: (record) => record.claim_expires_at || "n/a" },
+                { key: "started_at", header: "Started", cell: (record) => record.started_at || "n/a" },
+              ]}
+            />
           </article>
         </section>
 
@@ -1233,84 +1160,25 @@ export default async function ControlExecutionPage({ searchParams }) {
                 <h2>Schedule dispatches</h2>
               </div>
             </div>
-            {scheduleDispatches.length === 0 ? (
-              <div className="empty">No schedule dispatches recorded yet.</div>
-            ) : (
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Dispatch</th>
-                      <th>Schedule</th>
-                      <th>Status</th>
-                      <th>Started</th>
-                      <th>Worker</th>
-                      <th>Claim expires</th>
-                      <th>Failure</th>
-                      <th>Runs</th>
-                      <th>Enqueued</th>
-                      <th>Completed</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {scheduleDispatches.slice(0, 20).map((record) => (
-                      <tr key={record.dispatch_id}>
-                        <td>
-                          <Link
-                            className="inlineLink"
-                            href={`/control/execution/dispatches/${record.dispatch_id}`}
-                          >
-                            {record.dispatch_id}
-                          </Link>
-                        </td>
-                        <td>{record.schedule_id}</td>
-                        <td>
-                          <span className={`statusPill status-${record.status}`}>{record.status}</span>
-                        </td>
-                        <td>{record.started_at || "n/a"}</td>
-                        <td>{record.claimed_by_worker_id || "n/a"}</td>
-                        <td>{record.claim_expires_at || "n/a"}</td>
-                        <td>{record.failure_reason || "n/a"}</td>
-                        <td>
-                          {record.run_ids?.length ? (
-                            <div className="stack">
-                              {record.run_ids.map((runId) => (
-                                <Link
-                                  key={runId}
-                                  className="inlineLink"
-                                  href={`/runs/${runId}`}
-                                >
-                                  {runId}
-                                </Link>
-                              ))}
-                            </div>
-                          ) : (
-                            "n/a"
-                          )}
-                        </td>
-                        <td>{record.enqueued_at}</td>
-                        <td>{record.completed_at || "n/a"}</td>
-                        <td>
-                          {isRetryableDispatch(record) ? (
-                            <form
-                              action={`/control/execution/dispatches/${record.dispatch_id}/retry`}
-                              method="post"
-                            >
-                              <button className="ghostButton" type="submit">
-                                Retry
-                              </button>
-                            </form>
-                          ) : (
-                            "n/a"
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <ResponsiveTable
+              label="Schedule dispatches"
+              rows={scheduleDispatches.slice(0, 20)}
+              rowKey="dispatch_id"
+              empty={<div className="empty">No schedule dispatches recorded yet.</div>}
+              columns={[
+                { key: "dispatch_id", header: "Dispatch", primary: true, cell: dispatchLink },
+                { key: "schedule_id", header: "Schedule" },
+                { key: "status", header: "Status", cell: (record) => statusPill(record.status) },
+                { key: "started_at", header: "Started", cell: (record) => record.started_at || "n/a" },
+                { key: "claimed_by_worker_id", header: "Worker", cell: (record) => record.claimed_by_worker_id || "n/a" },
+                { key: "claim_expires_at", header: "Claim expires", cell: (record) => record.claim_expires_at || "n/a" },
+                { key: "failure_reason", header: "Failure", cell: (record) => record.failure_reason || "n/a" },
+                { key: "run_ids", header: "Runs", cell: runLinks },
+                { key: "enqueued_at", header: "Enqueued" },
+                { key: "completed_at", header: "Completed", cell: (record) => record.completed_at || "n/a" },
+                { key: "action", header: "Action", hideLabel: true, cell: retryAction },
+              ]}
+            />
           </article>
 
           <article className="panel section">
@@ -1320,40 +1188,18 @@ export default async function ControlExecutionPage({ searchParams }) {
                 <h2>Recent source lineage</h2>
               </div>
             </div>
-            {sourceLineage.length === 0 ? (
-              <div className="empty">No lineage recorded yet.</div>
-            ) : (
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Input run</th>
-                      <th>Target</th>
-                      <th>Layer</th>
-                      <th>Rows</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sourceLineage.slice(0, 20).map((record) => (
-                      <tr key={record.lineage_id}>
-                        <td>
-                          {record.input_run_id ? (
-                            <Link className="inlineLink" href={`/runs/${record.input_run_id}`}>
-                              {record.input_run_id}
-                            </Link>
-                          ) : (
-                            "n/a"
-                          )}
-                        </td>
-                        <td>{record.target_name}</td>
-                        <td>{record.target_layer}</td>
-                        <td>{record.row_count || "n/a"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <ResponsiveTable
+              label="Recent source lineage"
+              rows={sourceLineage.slice(0, 20)}
+              rowKey="lineage_id"
+              empty={<div className="empty">No lineage recorded yet.</div>}
+              columns={[
+                { key: "target_name", header: "Target", primary: true },
+                { key: "input_run_id", header: "Input run", cell: (record) => runLink(record.input_run_id) },
+                { key: "target_layer", header: "Layer" },
+                { key: "row_count", header: "Rows", align: "end", cell: (record) => record.row_count || "n/a" },
+              ]}
+            />
           </article>
         </section>
 
@@ -1364,40 +1210,18 @@ export default async function ControlExecutionPage({ searchParams }) {
               <h2>Recent publication audit</h2>
             </div>
           </div>
-          {publicationAudit.length === 0 ? (
-            <div className="empty">No publication audit records yet.</div>
-          ) : (
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Run</th>
-                    <th>Publication</th>
-                    <th>Relation</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {publicationAudit.slice(0, 20).map((record) => (
-                    <tr key={record.publication_audit_id}>
-                      <td>
-                        {record.run_id ? (
-                          <Link className="inlineLink" href={`/runs/${record.run_id}`}>
-                            {record.run_id}
-                          </Link>
-                        ) : (
-                          "n/a"
-                        )}
-                      </td>
-                      <td>{record.publication_key}</td>
-                      <td>{record.relation_name}</td>
-                      <td>{record.status}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ResponsiveTable
+            label="Recent publication audit"
+            rows={publicationAudit.slice(0, 20)}
+            rowKey="publication_audit_id"
+            empty={<div className="empty">No publication audit records yet.</div>}
+            columns={[
+              { key: "publication_key", header: "Publication", primary: true },
+              { key: "run_id", header: "Run", cell: (record) => runLink(record.run_id) },
+              { key: "relation_name", header: "Relation" },
+              { key: "status", header: "Status" },
+            ]}
+          />
         </article>
       </section>
     </AppShell>

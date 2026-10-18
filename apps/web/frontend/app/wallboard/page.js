@@ -1,6 +1,7 @@
 import { WallClock, WallRefresh } from "@/components/wallboard-live";
 import { WallboardView } from "@/components/wallboard-view";
 import { loadExplanation } from "@/lib/explain";
+import { optional } from "@/lib/optional";
 import {
   getAttentionItems,
   getCurrentUser,
@@ -17,19 +18,6 @@ import {
 export const metadata = {
   title: "Wallboard | Kotona",
 };
-
-// Optional panels must not take the whole board down; a missing adapter
-// renders as that tile's empty state.
-async function optional(promise, fallback) {
-  try {
-    return await promise;
-  } catch (error) {
-    if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) {
-      throw error;
-    }
-    return fallback;
-  }
-}
 
 export default async function WallboardPage({ searchParams }) {
   const user = await getCurrentUser();

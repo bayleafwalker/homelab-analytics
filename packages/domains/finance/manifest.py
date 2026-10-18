@@ -37,6 +37,7 @@ FINANCE_PACK = CapabilityPack(
                 "recent_large_transactions",
                 "account_balance_trend",
                 "transaction_anomalies_current",
+                "spend_by_weekday_hour",
             ),
             identity_strategy_id="bank_transaction_v1",
         ),
@@ -290,6 +291,43 @@ FINANCE_PACK = CapabilityPack(
                 "anomaly_reason": dimension_field(
                     "Human-readable explanation for the anomaly classification.",
                     filterable=False,
+                ),
+            },
+        ),
+        PublicationDefinition(
+            key="spend_by_weekday_hour",
+            schema_name="spend_by_weekday_hour",
+            schema_version="1.0.0",
+            display_name="Spend by Weekday and Hour",
+            description=(
+                "Expense totals per booking date and UTC hour, feeding the "
+                "day-of-week x hour spend heatmap. hour_of_day is null when the "
+                "source recorded a booking date without a time of day."
+            ),
+            visibility="public",
+            lineage_required=True,
+            retention_policy="indefinite",
+            field_semantics={
+                "booked_at": time_field(
+                    "Booking date (UTC) of the contributing transactions.",
+                    grain="day",
+                ),
+                "day_of_week": dimension_field(
+                    "ISO day of week of the booking date, 1 = Monday ... 7 = Sunday."
+                ),
+                "hour_of_day": dimension_field(
+                    "UTC hour (0-23) the transactions were booked; null when the "
+                    "source carried a date only."
+                ),
+                "total_expense": measure_field(
+                    "Sum of expense magnitudes in the bucket.",
+                    aggregation="sum",
+                    unit="currency",
+                ),
+                "transaction_count": measure_field(
+                    "Number of expense transactions in the bucket.",
+                    aggregation="count",
+                    unit="count",
                 ),
             },
         ),

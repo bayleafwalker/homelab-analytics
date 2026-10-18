@@ -198,6 +198,45 @@ def test_reads_use_read_only_and_writes_read_write_then_release(tmp_path: Path) 
     assert 'homelab_analytics_api_warehouse_opens_total{mode="read_write"} 1' in text
 
 
+def test_spend_heatmap_refresh_writes_and_reporting_read_is_read_only(tmp_path: Path) -> None:
+    from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
+
+    manager, _registry = _unit_manager(tmp_path)
+    service = WarehouseSessionTransformationService(manager)
+
+    manager.begin_request()
+    service.load_transactions(
+        [
+            {
+                "booked_at": "2026-03-02T09:15:00Z",
+                "account_id": "CHK-001",
+                "counterparty_name": "Bakery",
+                "amount": "-4.50",
+                "currency": "EUR",
+                "description": "",
+            }
+        ],
+        run_id="run-001",
+    )
+    assert service.refresh_publications(["mart_spend_by_weekday_hour"]) == [
+        "mart_spend_by_weekday_hour"
+    ]
+    assert manager.mode == "read_write"
+    manager.end_request()
+
+    # The heatmap fallback is a pack read over service.store (no facade
+    # getter), so it must run on a read-only lease.
+    reporting = ReportingService(
+        service,  # type: ignore[arg-type]
+        access_mode=ReportingAccessMode.WAREHOUSE,
+    )
+    manager.begin_request()
+    rows = reporting.get_spend_by_weekday_hour()
+    assert manager.mode == "read_only"
+    manager.end_request()
+    assert [(row["day_of_week"], row["hour_of_day"]) for row in rows] == [(1, 9)]
+
+
 def test_misclassified_write_is_retried_read_write(tmp_path: Path) -> None:
     manager, registry = _unit_manager(tmp_path, idle_timeout_seconds=0)
     service = WarehouseSessionTransformationService(manager)

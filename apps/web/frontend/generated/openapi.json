@@ -10339,6 +10339,188 @@
         "title": "SpendByCategoryMonthlyRow",
         "type": "object"
       },
+      "SpendHeatmapResponse": {
+        "properties": {
+          "cells": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "counts": {
+            "items": {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            "title": "Counts",
+            "type": "array"
+          },
+          "coverage": {
+            "title": "Coverage",
+            "type": "string"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "data_through": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Through"
+          },
+          "day_labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Day Labels",
+            "type": "array"
+          },
+          "hour_basis": {
+            "title": "Hour Basis",
+            "type": "string"
+          },
+          "max_cell": {
+            "title": "Max Cell",
+            "type": "string"
+          },
+          "max_untimed": {
+            "title": "Max Untimed",
+            "type": "string"
+          },
+          "publications": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Publications",
+            "type": "array"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/SpendHeatmapTotals"
+          },
+          "untimed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Untimed",
+            "type": "array"
+          },
+          "untimed_counts": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Untimed Counts",
+            "type": "array"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          },
+          "window_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window End"
+          },
+          "window_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Start"
+          }
+        },
+        "required": [
+          "window_days",
+          "window_start",
+          "window_end",
+          "data_through",
+          "currency",
+          "hour_basis",
+          "day_labels",
+          "cells",
+          "counts",
+          "untimed",
+          "untimed_counts",
+          "max_cell",
+          "max_untimed",
+          "coverage",
+          "totals",
+          "publications"
+        ],
+        "title": "SpendHeatmapResponse",
+        "type": "object"
+      },
+      "SpendHeatmapTotals": {
+        "properties": {
+          "active_days": {
+            "title": "Active Days",
+            "type": "integer"
+          },
+          "expense": {
+            "title": "Expense",
+            "type": "string"
+          },
+          "timed_count": {
+            "title": "Timed Count",
+            "type": "integer"
+          },
+          "timed_expense": {
+            "title": "Timed Expense",
+            "type": "string"
+          },
+          "transaction_count": {
+            "title": "Transaction Count",
+            "type": "integer"
+          },
+          "untimed_count": {
+            "title": "Untimed Count",
+            "type": "integer"
+          },
+          "untimed_expense": {
+            "title": "Untimed Expense",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expense",
+          "timed_expense",
+          "untimed_expense",
+          "transaction_count",
+          "timed_count",
+          "untimed_count",
+          "active_days"
+        ],
+        "title": "SpendHeatmapTotals",
+        "type": "object"
+      },
       "SubscriptionSummaryResponse": {
         "properties": {
           "as_of": {
@@ -20800,6 +20982,63 @@
           }
         },
         "summary": "Get Spend By Category Monthly"
+      }
+    },
+    "/reports/spend-heatmap": {
+      "get": {
+        "operationId": "get_spend_heatmap_reports_spend_heatmap_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "window",
+            "required": false,
+            "schema": {
+              "default": 28,
+              "title": "Window",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpendHeatmapResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Spend Heatmap"
       }
     },
     "/reports/subscription-summary": {
