@@ -23,6 +23,14 @@ from packages.domains.utilities.battery_plan_decision import (
 from packages.domains.utilities.battery_plan_publications import (
     BATTERY_PLAN_OUTCOME_PUBLICATION,
 )
+from packages.domains.utilities.energy_contract_decision import (
+    ENERGY_CONTRACT_DECISION,
+    ENERGY_CONTRACT_SUBJECT_SCHEMA_NAME,
+    assess_energy_contract_review,
+    energy_contract_baseline,
+    energy_contract_ids,
+)
+from packages.domains.utilities.manifest import UTILITIES_PACK
 from packages.pipelines.reporting_service import ReportingService
 from packages.platform.decision_definitions import (
     DecisionDefinition,
@@ -31,7 +39,7 @@ from packages.platform.decision_definitions import (
 
 DECISION_DEFINITIONS: dict[str, DecisionDefinition] = {
     definition.decision_key: definition
-    for definition in (BATTERY_PLAN_DECISION,)
+    for definition in (BATTERY_PLAN_DECISION, ENERGY_CONTRACT_DECISION)
 }
 
 
@@ -90,14 +98,71 @@ def _battery_snapshot_components(snapshot: Mapping[str, Any]) -> dict[str, Any] 
     return battery_plan_evidence_components(outcome)
 
 
+def _energy_contract_schema_version() -> str:
+    for publication in UTILITIES_PACK.publications:
+        if publication.schema_name == ENERGY_CONTRACT_SUBJECT_SCHEMA_NAME:
+            return publication.schema_version
+    raise LookupError(ENERGY_CONTRACT_SUBJECT_SCHEMA_NAME)
+
+
+def _read_energy_contract_subject(
+    reporting: ReportingService, period: str
+) -> DecisionSubjectEvidence | None:
+    price_rows = reporting.get_electricity_price_current()
+    if period not in energy_contract_ids(price_rows):
+        return None
+    assessment = assess_energy_contract_review(
+        contract_id=period,
+        price_rows=price_rows,
+        review_candidates=reporting.get_contract_review_candidates(),
+        renewal_watchlist=reporting.get_contract_renewal_watchlist(),
+        cost_trend_rows=reporting.get_utility_cost_trend_monthly(utility_type="electricity"),
+    )
+    components = assessment.pop("evidence_components")
+    return DecisionSubjectEvidence(
+        publication_key=ENERGY_CONTRACT_DECISION.subject_publication_key,
+        schema_version=_energy_contract_schema_version(),
+        period=period,
+        row_ref=str(assessment["assessment_id"]),
+        verdict=str(assessment["verdict"]),
+        reason_codes=tuple(assessment["reason_codes"]),
+        lineage_reference={
+            "publication_keys": [
+                ENERGY_CONTRACT_DECISION.subject_publication_key,
+                *ENERGY_CONTRACT_DECISION.supporting_publication_keys,
+            ],
+            "assessment_id": assessment["assessment_id"],
+            "contract_id": period,
+            "source_layer": "transformation.fact_contract_price",
+            "best_alternative_contract_id": assessment["best_alternative_contract_id"],
+            "usage_months": [assessment["usage_months_from"], assessment["usage_months_to"]],
+        },
+        snapshot={"assessment": assessment, "evidence_components": components},
+        baseline=energy_contract_baseline(assessment),
+        evidence_components=components,
+    )
+
+
+def _list_energy_contract_subjects(reporting: ReportingService) -> list[str]:
+    return energy_contract_ids(reporting.get_electricity_price_current())
+
+
+def _energy_snapshot_components(snapshot: Mapping[str, Any]) -> dict[str, Any] | None:
+    components = snapshot.get("evidence_components")
+    return dict(components) if isinstance(components, Mapping) else None
+
+
 SUBJECT_READERS: dict[str, SubjectReader] = {
     BATTERY_PLAN_DECISION.decision_key: _read_battery_plan_subject,
+    ENERGY_CONTRACT_DECISION.decision_key: _read_energy_contract_subject,
 }
 SUBJECT_LISTERS: dict[str, SubjectLister] = {
     BATTERY_PLAN_DECISION.decision_key: _list_battery_plan_subjects,
+    ENERGY_CONTRACT_DECISION.decision_key: _list_energy_contract_subjects,
 }
 SNAPSHOT_COMPONENT_READERS: dict[str, SnapshotComponentsReader] = {
     BATTERY_PLAN_DECISION.decision_key: _battery_snapshot_components,
+    ENERGY_CONTRACT_DECISION.decision_key: _energy_snapshot_components,
 }
 
 
