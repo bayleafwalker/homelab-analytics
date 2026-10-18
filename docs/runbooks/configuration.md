@@ -190,6 +190,7 @@ Legacy auth-mode migration policy:
 | `HOMELAB_ANALYTICS_OIDC_REDIRECT_URI` | — | OIDC callback URI (`https://<host>/auth/callback`) |
 | `HOMELAB_ANALYTICS_OIDC_JWKS_CACHE_SECONDS` | `3600` | How long discovery metadata and the JWKS stay cached. An unknown `kid` forces one early JWKS refetch (at most every 10 s) so key rotation does not lock users out |
 | `HOMELAB_ANALYTICS_OIDC_CLOCK_SKEW_SECONDS` | `60` | Leeway for `exp` / `iat` / `nbf` checks |
+| `HOMELAB_ANALYTICS_OIDC_POST_LOGOUT_REDIRECT_URI` | — | Optional `post_logout_redirect_uri` for RP-initiated logout. Logout of an OIDC session returns the IdP's `end_session_endpoint` (with `client_id`) and the web app redirects there; with no advertised endpoint, or discovery failing, logout is local only. Must be registered with the IdP |
 | `HOMELAB_ANALYTICS_OIDC_SCOPES` | `openid,profile,email` | Authorization-request scopes |
 | `HOMELAB_ANALYTICS_OIDC_API_AUDIENCE` | OIDC client ID | Accepted bearer-token audience for direct API clients |
 | `HOMELAB_ANALYTICS_OIDC_USERNAME_CLAIM` | `preferred_username` | Username claim for app principals. It is what proposal history and the decision ledger record as the actor |

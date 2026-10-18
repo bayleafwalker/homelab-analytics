@@ -206,7 +206,20 @@ def register_auth_session_routes(
             record_auth_event=record_auth_event,
             request=request,
         )
-        response = JSONResponse({"logged_out": True})
+        # RP-initiated logout: an OIDC session also ends at the IdP when it
+        # advertises end_session_endpoint. Anything else (local or break-glass
+        # sessions, an IdP without the endpoint, discovery failing) is a local
+        # logout only; the app session is cleared either way.
+        end_session_url = None
+        if (
+            resolved_identity_mode == "oidc"
+            and resolved_oidc_provider is not None
+            and principal is not None
+            and principal.auth_provider == "oidc"
+        ):
+            end_session_url = resolved_oidc_provider.build_end_session_url()
+        response = JSONResponse({"logged_out": True, "end_session_url": end_session_url})
+        response.headers["Cache-Control"] = "no-store"
         if resolved_session_manager is not None:
             secure_cookie = cookie_secure_for_request(request)
             response.delete_cookie(

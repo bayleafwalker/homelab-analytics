@@ -360,6 +360,13 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert "copyBackendSetCookies" in callback_route
     assert "copyBackendSetCookies" in login_route
     assert 'backendRequest("post", "/auth/logout"' in logout_route
+    # RP-initiated logout: follow the backend's end_session_url (http(s) only),
+    # otherwise fall back to the local login page; session cookies are cleared
+    # on the redirect either way.
+    assert "end_session_url" in logout_route
+    assert 'url.protocol === "https:" || url.protocol === "http:"' in logout_route
+    assert 'new URL("/login", request.url)' in logout_route
+    assert "copyBackendSetCookies(response, redirectResponse.headers)" in logout_route
     assert 'status: "ready"' in ready_route
     assert "auth_mode" not in ready_route
     assert "HOMELAB_ANALYTICS_IDENTITY_MODE" in ready_route

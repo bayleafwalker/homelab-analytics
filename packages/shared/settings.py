@@ -117,6 +117,9 @@ class AppSettings:
     # unknown ``kid`` also triggers one early JWKS refetch (key rotation).
     oidc_jwks_cache_seconds: int = 3600
     oidc_clock_skew_seconds: int = 60
+    # Where the IdP sends the browser after RP-initiated logout. Optional: it
+    # must be registered with the IdP, so it is only sent when configured.
+    oidc_post_logout_redirect_uri: str | None = None
     enable_bootstrap_local_admin: bool = False
     agent_manifest_enabled: bool = False
     agent_manifest_repo_id: str = "homelab-analytics"
@@ -471,6 +474,9 @@ class AppSettings:
         oidc_clock_skew_seconds = int(
             env.get("HOMELAB_ANALYTICS_OIDC_CLOCK_SKEW_SECONDS", "60")
         )
+        oidc_post_logout_redirect_uri = (
+            env.get("HOMELAB_ANALYTICS_OIDC_POST_LOGOUT_REDIRECT_URI") or None
+        )
         enable_bootstrap_local_admin = env.get(
             "HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN", ""
         ).lower() in {"1", "true", "yes", "on"}
@@ -606,6 +612,7 @@ class AppSettings:
             oidc_discovery_url=oidc_discovery_url,
             oidc_jwks_cache_seconds=oidc_jwks_cache_seconds,
             oidc_clock_skew_seconds=oidc_clock_skew_seconds,
+            oidc_post_logout_redirect_uri=oidc_post_logout_redirect_uri,
             enable_bootstrap_local_admin=enable_bootstrap_local_admin,
             agent_manifest_enabled=agent_manifest_enabled,
             agent_manifest_repo_id=agent_manifest_repo_id,

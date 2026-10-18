@@ -10,6 +10,7 @@ Configuration reference: `docs/runbooks/configuration.md` § Supported defaults:
 - Roles come from Authentik groups. **No group means no access**: a user in none of the role groups is refused with `/login?error=oidc-unmapped`.
 - Service tokens (MCP agents, the HA bridge) keep working unchanged.
 - Proposal approvals and decision-ledger entries record the Authentik username with `auth_provider=oidc`.
+- **Sign out** ends the app session and then sends the browser to Authentik's `end_session_endpoint` (RP-initiated logout), so the Authentik session ends too. If discovery does not advertise that endpoint, or Authentik is unreachable, sign-out stays local and lands on `/login`.
 - The local `admin` login and break-glass stop applying while the mode is `oidc`. Rolling back (below) restores them.
 
 ## 1. Authentik: groups
@@ -82,6 +83,7 @@ Edit it with `sops clusters/main/kubernetes/apps/homelab-analytics/runtime-auth.
 | `HOMELAB_ANALYTICS_OIDC_OPERATOR_GROUPS` | `hla-operators` | api |
 | `HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS` | `hla-admins` | api |
 | `HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET_REF` | `authentik-hla/client_secret` (only if you used the reference form in step 4) | api |
+| `HOMELAB_ANALYTICS_OIDC_POST_LOGOUT_REDIRECT_URI` | optional, e.g. `https://analytics.<your-domain>/login`. Sent to the end-session endpoint only when set; add the same URI to the provider's **Redirect URIs** in step 2. Without it Authentik shows its own logged-out page | api |
 | `HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED` | remove, or leave it; it is ignored outside `local_single_user` | api |
 | `HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN` | `false` | api |
 
@@ -93,7 +95,7 @@ Before merging, from any shell that can reach Authentik:
 
 ```bash
 curl -fsS https://<authentik-host>/application/o/homelab-analytics/.well-known/openid-configuration \
-  | jq '{issuer, id_token_signing_alg_values_supported, code_challenge_methods_supported}'
+  | jq '{issuer, id_token_signing_alg_values_supported, code_challenge_methods_supported, end_session_endpoint}'
 ```
 
 Expected: the `issuer` ends in `/application/o/homelab-analytics/`, the algorithm list contains `RS256` (or `ES256`) and is **not** only `HS256`, and `code_challenge_methods_supported` contains `S256`.
@@ -105,7 +107,8 @@ After Flux reconciles:
 3. Open `https://analytics.<your-domain>/auth/me` (API JSON) in the same browser. Expect `"auth_mode": "oidc"`, `"auth_provider": "oidc"`, your Authentik username, and the role from your group.
 4. As an `hla-operators` member, open `/control/agents`, approve or dismiss a test proposal, and check its history line. It should read `… · <username> (oidc)`.
 5. Sign in as a user with no `hla-*` group. Expect `/login?error=oidc-unmapped`.
-6. Check that an existing MCP service token still works: `curl -H "Authorization: Bearer <token>" https://analytics.<your-domain>/api/agent/catalog` returns `200`.
+6. Click **Sign out**. Expect a redirect to `https://<authentik-host>/application/o/homelab-analytics/end-session/?client_id=…`, after which opening `/login` → "Sign In with OIDC" asks Authentik for credentials again.
+7. Check that an existing MCP service token still works: `curl -H "Authorization: Bearer <token>" https://analytics.<your-domain>/api/agent/catalog` returns `200`.
 
 ## Rollback
 
@@ -115,7 +118,7 @@ Set `HOMELAB_ANALYTICS_IDENTITY_MODE` back to `local_single_user` on api and web
 
 - The issuer URL and the discovery `jq` output from step 6.
 - The `/auth/me` JSON for one operator and one admin. Redact nothing: it holds no secrets.
-- Whether steps 4 to 6 behaved as expected, and the exact `/login?error=…` value if anything failed.
+- Whether steps 4 to 7 behaved as expected, and the exact `/login?error=…` value if anything failed.
 
 ## Troubleshooting
 

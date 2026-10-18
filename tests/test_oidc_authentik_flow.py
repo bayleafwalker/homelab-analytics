@@ -85,8 +85,8 @@ def _provider(
     return provider
 
 
-def _client(temp_dir: str, issuer: MockOidcIssuer) -> TestClient:
-    settings = _settings(temp_dir, issuer)
+def _client(temp_dir: str, issuer: MockOidcIssuer, **env: str) -> TestClient:
+    settings = _settings(temp_dir, issuer, **env)
     service = AccountTransactionService(
         landing_root=Path(temp_dir) / "landing",
         metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
@@ -428,3 +428,69 @@ def test_discovery_url_override_and_defaults() -> None:
         assert override.discovery_url == "https://idp.internal/discovery"
     assert AppSettings.from_env({}).oidc_jwks_cache_seconds == 3600
     assert AppSettings.from_env({}).resolved_auth_mode == "disabled"
+
+
+def _logout(client: TestClient) -> dict[str, object]:
+    response = client.post("/auth/logout", headers=_csrf(client))
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    # The app session ends locally whatever the IdP does.
+    assert client.get("/auth/me").status_code == 401
+    return dict(response.json())
+
+
+def test_logout_is_rp_initiated_when_the_idp_advertises_end_session() -> None:
+    issuer = _issuer(advertise_end_session=True)
+    with TemporaryDirectory() as tmp:
+        client = _client(
+            tmp,
+            issuer,
+            HOMELAB_ANALYTICS_OIDC_POST_LOGOUT_REDIRECT_URI="https://hla.example.test/login",
+        )
+        _login(client, issuer, code="code-logout", username="olivia", groups=("hla-operators",))
+        payload = _logout(client)
+        assert payload["logged_out"] is True
+        url = urlparse(str(payload["end_session_url"]))
+        assert f"{url.scheme}://{url.netloc}{url.path}" == issuer.end_session_endpoint
+        assert parse_qs(url.query) == {
+            "client_id": [issuer.client_id],
+            "post_logout_redirect_uri": ["https://hla.example.test/login"],
+        }
+
+
+def test_logout_omits_post_logout_redirect_unless_configured() -> None:
+    issuer = _issuer(advertise_end_session=True)
+    with TemporaryDirectory() as tmp:
+        client = _client(tmp, issuer)
+        _login(client, issuer, code="code-logout-2", username="olivia", groups=("hla-operators",))
+        url = urlparse(str(_logout(client)["end_session_url"]))
+        assert parse_qs(url.query) == {"client_id": [issuer.client_id]}
+
+
+def test_logout_falls_back_to_local_without_end_session_endpoint() -> None:
+    issuer = _issuer()
+    with TemporaryDirectory() as tmp:
+        client = _client(tmp, issuer)
+        _login(client, issuer, code="code-logout-3", username="olivia", groups=("hla-operators",))
+        assert _logout(client) == {"logged_out": True, "end_session_url": None}
+
+
+def test_logout_falls_back_to_local_when_discovery_is_down() -> None:
+    issuer = _issuer(advertise_end_session=True)
+    with TemporaryDirectory() as tmp:
+        provider = _provider(tmp, issuer, clock=FakeClock())
+        issuer.discovery_down = True
+        assert provider.build_end_session_url() is None
+        issuer.discovery_down = False
+        assert provider.build_end_session_url() is not None
+
+
+def test_logout_without_a_session_never_contacts_the_idp() -> None:
+    issuer = _issuer(advertise_end_session=True)
+    with TemporaryDirectory() as tmp:
+        client = _client(tmp, issuer)
+        before = issuer.discovery_fetches
+        response = client.post("/auth/logout")
+        assert response.status_code == 200
+        assert response.json() == {"logged_out": True, "end_session_url": None}
+        assert issuer.discovery_fetches == before
