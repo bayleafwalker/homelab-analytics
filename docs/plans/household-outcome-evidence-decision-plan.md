@@ -8,8 +8,8 @@ concern: APP
 
 ## Current delivery status
 
-**Partial source-side work is under review on feature branches; this plan is
-not complete.** The HLA branch adds a transformation helper that consumes
+**The source-side evaluator is present on canonical main; this plan is not
+complete.** HLA includes a transformation helper that consumes
 explicitly mapped Home Assistant history, checks complete five-minute windows
 for a selected closed month, validates source freshness, units, duplicate
 conflicts and the Kotiakku evidence contract, and returns a traced review-only
@@ -22,7 +22,7 @@ This does not establish that the integration or HLA has current household data,
 that a recommendation has been published to an application surface, or that a
 household decision or realized result exists. The contract requires explicit
 entity mapping and household timezone. Backfill status remains unknown from HA
-state history. The feature branches and synthetic fixtures do not close the
+state history. The source implementation and synthetic fixtures do not close the
 live measurement gate; an operator still needs to supply authorized source
 history, verify the mapping and tariff assumptions, and record an actual
 decision or explicit non-decision plus a later observation.
@@ -81,3 +81,111 @@ Any future device change must execute through Home Assistant under a separate, c
 ## Completion evidence
 
 A household operator can assess the answer and its evidence quality, record what they decided, and later compare it with observed results without confusing estimates with actuals or recommendations with authorization.
+
+
+## KAOS backcast: sustained household outcomes
+
+Planning addendum, 2026-10-18. All activities below are planned, not deployed or
+accepted. This refines the [estate KAOS 2028 roadmap](https://github.com/bayleafwalker/agentops/blob/main/docs/plans/agentops/2026-10-18-kaos-2028-roadmap.md).
+Sequence is dependency-driven, not a calendar commitment.
+
+### Goal, responsibilities, and obstacles
+
+**G-HLA:** Maintain a household commitment whose recommendations stay qualified
+by evidence, whose actual consequences are observed, and whose supervision
+burden is measurable. AND-refine this goal into G-HLA-1 explicit commitment
+lifecycle, G-HLA-2 evidence-change validity, G-HLA-3 realized-outcome review, and
+G-HLA-4 bounded cross-project feedback. Each child is necessary; one successful
+recommendation does not satisfy the parent.
+
+HLA owns household commitments, observations, domain decisions, and reporting.
+The household operator supplies authorized source access and makes decisions.
+Home Assistant retains device authority. Vuoro owns work/experiment accounting
+and receives references and bounded feedback, not household state. Agentops owns
+the estate baseline and cross-project sequencing.
+
+| Obstacle | Resolution and owner |
+|---|---|
+| Purpose expires while monitoring continues | K01 stop/review semantics; HLA and commitment owner |
+| Source, tariff, or mapping changes invalidate a conclusion | K02 versioned impact and review-required state; HLA |
+| Estimated benefit is presented as realized or causal | K03 observed result separated from baseline and attribution hypothesis; HLA |
+| Missing effort capture appears as zero cost | K04 coverage and explicit unknown values; HLA/Vuoro |
+| Retried feedback duplicates an outcome | K04 stable identity and superseding correction; HLA/Vuoro |
+
+### Feature and activity contracts
+
+**HLA-K01 — Household commitment lifecycle (G-HLA-1).** Depends on AO-K02's
+estate baseline, one named household question, and the existing identity and
+authorization boundary. Extend this plan's decision record with purpose,
+authorized owner, baseline and success measure/window, next review,
+evidence-change triggers, stop conditions, state, and history. Reuse the
+existing operating picture and finance journey; do not add another dashboard.
+Acceptance: fixtures demonstrate success, timed review, source-triggered review,
+operator stop, and missing evidence. Stopped commitments produce no new proactive
+proposals; historical decisions remain readable. An operator can see why the
+commitment remains active and what will stop or reopen review.
+
+**HLA-K02 — Source-change impact and invalidation (G-HLA-2).** Depends on K01
+and existing source/publication identities. Extend freshness and lineage, keeping
+freshness distinct from publication trust. Acceptance: correcting a source
+window, tariff revision, or mapping revision identifies affected publication
+revisions, recommendation, and commitment and marks them review-required with
+reason, time, and source version. Unrelated periods remain valid; repeated
+revision delivery creates no duplicate review. Original evidence remains
+reconstructible and recomputation produces a new version. Stale or unknown
+quality refuses a confident positive savings claim and identifies remediation.
+
+**HLA-K03 — Realized outcome and attribution review (G-HLA-3).** Depends on K02,
+a reporting publication, and actual authorized source observations. Complete the
+existing decision/follow-up scope rather than replace it. Acceptance: link a
+decision or explicit non-decision to exact publication and lineage; retain
+follow-up window, observed result, estimated baseline, attribution hypothesis,
+confounders, uncertainty, and missingness. Show actual result separately from
+estimated avoided cost. Record one real follow-up and a second scheduled review
+that demonstrates continuation or stop. Synthetic fixtures cannot close this
+live gate. Recommendations do not authorize actuation.
+
+**HLA-K04 — Outcome and attention feedback (G-HLA-4).** Depends on K03 and
+VU-K09's experiment contract. Publish a minimal versioned feedback envelope,
+leaving domain state in HLA. Acceptance: export stable commitment/work and
+publication references, observation window, accepted/rejected/insufficient-
+evidence result, measured attention/cost with capture coverage, and an evidence
+pointer. Unknown duration/cost remains unknown. Exclude raw transactions, source
+rows, and credentials. Retry yields one logical event; correction emits a
+superseding version. Demonstrate receipt and correction in Vuoro and provenance
+reconstruction through references without transferring household authority.
+
+Backcast: sustained accepted outcome requires K04 feedback and K03 real reviews;
+those require K02 current evidence validity; that requires K01 commitment identity
+and the existing source-to-reporting foundations. Build deterministic domain
+contracts first; no model provider or new agent platform is required. Consume
+Vuoro's external contract when available rather than building duplicate work or
+experiment storage in HLA.
+
+### Existing work and implementation handoff
+
+Reuse tracker items 1860 (finance-loop integration proof) and 1862 (demo and
+walkthrough); respect the active owner of 1859 (canonical operator journey).
+Items 1868, 1705, 1706, 2332, and 2333 provide existing freshness, snapshot, and
+idempotency foundations. Pending 1964–1965 provide recovery qualification;
+1973–1974 are conditional shared-deployment dependencies, not evidence of a live
+deployment; 1975–1976 provide operating evidence. Items 1966–1967 are optional
+agent-consumption paths. Before selecting unfinished confidence/lineage work,
+reconcile duplicate pending groups 1552–1558 and 1571–1577 with newer delivered
+capabilities. These references come from the 2026-10-18 tracker inspection; live
+state and claims must be checked before execution.
+
+Requirements: ANA-05 remains the utility evidence foundation; ANA-10 specifies
+the outcome contract and APP-18 the lifecycle/feedback surfaces. Implementation
+areas are domain services, transformation/reporting models, existing API/web
+surfaces, versioned persistence where necessary, and targeted tests. Preserve
+immutable landing, normalized transformation/SCD decisions, and reporting-only
+application reads. Do not bypass these layers or add identity provisioning,
+battery controls, deployment changes, or a general assistant platform here.
+
+Verification: lifecycle, invalidation, and feedback tests must exercise the
+negative cases above; retain `tests/test_kotiakku_evidence.py` coverage. For API or
+boundary changes run `make test-target TEST="tests/test_architecture_contract.py -x --tb=short"`. Run targeted tests for changed behavior and
+`make verify-fast` before PR or CI-triggering push. Code-bearing scopes receive
+dispatch review. A documentation landing records planned scope only; each
+implementation and live outcome requires its own evidence before completion.

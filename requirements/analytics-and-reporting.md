@@ -188,6 +188,31 @@ The platform derives household and homelab analytics from normalized canonical m
 
 ---
 
+### ANA-10: Household commitment and realized-outcome evidence
+
+**Description:** Sustain a named household commitment with explicit success,
+review, and stop conditions; preserve changing evidence validity and distinguish
+observed consequences from estimated benefit and attribution hypotheses.
+
+**Rationale:** A useful recommendation needs continued relevance and later
+observation to establish household value.
+
+**Phase:** 10
+**Status:** not-started (planned HLA-K01–HLA-K03 in the [household outcome plan](../docs/plans/household-outcome-evidence-decision-plan.md); source evaluator availability is not live outcome acceptance)
+
+**Acceptance criteria:**
+- Authorized owner, purpose, baseline, success window, review triggers, stop conditions, and historical decisions are persisted; stopped commitments emit no new proactive proposals.
+- Changed source windows, tariffs, and mappings mark only dependent conclusions review-required, preserve original evidence, and deduplicate repeated change delivery.
+- Decision or explicit non-decision points to exact publication and lineage; follow-up separates observed result, estimated baseline, attribution hypothesis, confounders, uncertainty, and missingness.
+- One actual follow-up and a second scheduled review demonstrate continuation or stop; synthetic fixtures cannot satisfy live acceptance.
+- Reporting surfaces consume reporting models, and recommendation does not confer actuation authority.
+
+**Dependencies:** ANA-05, ANA-09, APP-18; AO-K02 baseline; actual authorized source history.
+
+**Traceability:** HLA-K01–HLA-K03; planned domain, transformation/reporting, lifecycle and invalidation tests as specified in the household outcome plan.
+
+---
+
 ## Traceability
 
 | Requirement | Architecture doc section | Implementation module | Test file |
