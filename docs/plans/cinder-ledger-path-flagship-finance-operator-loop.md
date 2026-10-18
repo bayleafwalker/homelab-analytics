@@ -150,3 +150,23 @@ Add or tighten fixture-backed coverage for:
 
 - This packet narrows ambition on purpose. The sprint proves one operator loop rather than broadening the platform story.
 - If scope pressure appears, cut generic cleanup first and preserve the end-to-end finance operator loop.
+
+## Delivery record (2026-10-18, backlog sprint #508)
+
+Sprint #64 became backlog sprint #508. C2 (#1861) and C3 (#1863) landed earlier. This record closes C1, C4 and C5.
+
+- **C1 (#1859), journey lock.** The loop is route-locked as `/upload` → `/ingest-summary/<run_id>` → `/sources` and `/runs` → `/reports` → `/reports#expense-shock` → `/scenarios/<scenario_id>`. The README and `docs/runbooks/operator-walkthrough.md` carry the same marked loop line. `tests/test_finance_operator_journey_contract.py` locks the docs and the web entry points to it:
+  - the ingest summary's primary action is **Open monthly finance** → `/reports`
+  - `/reports` reads trust for `mart_monthly_cashflow`; it previously asked for `monthly_cashflow`, which 404s, so the panel never rendered
+  - the expense-shock panel ends with a saved-scenario next step
+  - Sources and the morning brief link back to `/reports`
+  - browser `/api/*` calls have a same-origin route (`app/api/scenarios/[[...path]]`); without it the what-if panels 404 when web and API are on different origins
+  - no link targets a POST-only route handler
+- **C5 (#1860), end-to-end fixtures.** `tests/test_finance_operator_loop_e2e.py` runs in the fast tier on synthetic fixtures. It covers:
+  - detect, upload, promotion, per-asset freshness and the monthly cashflow read
+  - the confidence snapshot, and morning-brief agreement with its verdict
+  - expense-shock baseline, projected and delta, plus the saved scenario
+  - the rejected-upload remediation branch
+- **C4 (#1862), proof assets.** The walkthrough is rewritten against the current code, with a verified local start path (identity mode `local`). Reference screenshots are in `docs/product/screenshots/finance-loop/`, and the README narrative is refreshed.
+
+Known limit carried forward: on the local warehouse-mode demo, publication confidence for `mart_monthly_cashflow` is `unavailable`, for two reasons. Promotion records no reporting lineage there. And confidence matches run `source_name` against freshness configs keyed by `source_asset_id`. The brief therefore withholds cashflow. The e2e test asserts agreement with the snapshot verdict, not a specific value.

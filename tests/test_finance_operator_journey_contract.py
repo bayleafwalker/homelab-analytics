@@ -16,16 +16,38 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 from packages.application.use_cases.morning_brief_sections import MONTHLY_CASHFLOW_KEY
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "apps" / "web" / "frontend"
 APP = FRONTEND / "app"
 
+LOOP_MARKER = "<!-- finance-operator-loop -->"
+LOOP_ROUTES = (
+    "`/upload`",
+    "`/ingest-summary/<run_id>`",
+    "`/sources`",
+    "`/runs`",
+    "`/reports`",
+    "`/reports#expense-shock`",
+    "`/scenarios/<scenario_id>`",
+)
+LOOP_DOCS = (
+    ROOT / "README.md",
+    ROOT / "docs" / "runbooks" / "operator-walkthrough.md",
+)
 
 
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def _loop_line(path: Path) -> str:
+    lines = _read(path).splitlines()
+    index = lines.index(LOOP_MARKER)
+    return lines[index + 1]
 
 
 def _frontend_sources() -> list[Path]:
@@ -36,6 +58,29 @@ def _frontend_sources() -> list[Path]:
         for path in root.rglob("*")
         if path.suffix in {".js", ".ts", ".tsx", ".jsx"} and "generated" not in path.parts
     )
+
+
+@pytest.mark.parametrize("doc", LOOP_DOCS, ids=lambda p: p.name)
+def test_docs_state_the_canonical_loop_in_order(doc: Path) -> None:
+    line = _loop_line(doc)
+    positions = [line.find(route) for route in LOOP_ROUTES]
+    assert all(pos >= 0 for pos in positions), f"{doc} loop line is missing a route: {line}"
+    assert positions == sorted(positions), f"{doc} loop routes are out of order: {line}"
+
+
+def test_readme_and_walkthrough_share_one_loop_line() -> None:
+    assert len({_loop_line(doc) for doc in LOOP_DOCS}) == 1
+
+
+def test_walkthrough_proof_images_exist() -> None:
+    walkthrough = ROOT / "docs" / "runbooks" / "operator-walkthrough.md"
+    images = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", _read(walkthrough))
+    assert images, "walkthrough should embed the finance-loop proof images"
+    for relative in images:
+        assert (walkthrough.parent / relative).resolve().is_file(), relative
+    readme_images = re.findall(r'<img src="([^"]+)"', _read(ROOT / "README.md"))
+    for relative in readme_images:
+        assert (ROOT / relative).is_file(), relative
 
 
 def test_post_ingest_destination_is_monthly_finance() -> None:

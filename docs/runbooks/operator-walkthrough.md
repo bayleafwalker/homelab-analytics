@@ -1,200 +1,200 @@
-# Operator Walkthrough — Canonical Finance Loop from Upload to /reports
+# Operator Walkthrough — the Finance Operator Loop
 
-**Purpose:** Prove the canonical finance operator journey end-to-end using demo data.
-**Time:** ~10 minutes with the demo bundle pre-generated.  
-**Audience:** Operators and developers validating the first-week onboarding experience.
+**Purpose:** Walk the flagship finance loop end to end on synthetic demo data, from a statement upload to an expense-shock decision.
+**Time:** About 10 minutes once the demo is seeded.
+**Audience:** A first-time operator or developer on a fresh clone.
 
 ---
 
-## Prerequisites
+## The loop
 
-1. A running instance of the platform (API + web, `make dev`).
-2. The demo bundle generated in a local directory:
+The same sequence appears in the README and in this walkthrough. `tests/test_finance_operator_journey_contract.py` keeps the docs and the UI entry points in line with it.
 
+<!-- finance-operator-loop -->
+`/upload` → `/ingest-summary/<run_id>` → `/sources` and `/runs` (source freshness and remediation) → `/reports` (monthly finance and publication trust) → `/reports#expense-shock` (baseline, projected, delta) → `/scenarios/<scenario_id>` (saved scenario, next step)
+
+The loop carries two separate trust signals. They are never merged into one status:
+
+- **Source freshness and remediation** describes the inputs. It lives on Sources, Runs and Run detail. The vocabulary is a run status (`landed`, `rejected`, `failed`), the source freshness states (`current`, `due_soon`, `overdue`, `missing_period`, `parse_failed`, `unconfigured`) and a concrete next action.
+- **Publication trust** describes what you are reading. It lives on `/reports` and in the morning brief. Its fields are `confidence_verdict` (`trustworthy`, `degraded`, `unreliable`, `unavailable`), `freshness_state` (`current`, `due_soon`, `stale`, `unavailable`), completeness and assessment time.
+
+Fixture-backed proof of the whole loop: `tests/test_finance_operator_loop_e2e.py`. It is synthetic, runs in the fast tier and goes through the same API the web shell calls.
+
+---
+
+## 0. Start a demo instance
+
+The simplest path is Docker: `make first-run`. It builds the images, starts the Compose stack in `local_single_user` mode, seeds the demo bundle and prints the onboarding URL. Sign in with the bootstrap admin from `infra/examples/secrets/auth-local.env.example`.
+
+Without Docker, run the entrypoints directly from the repo root:
+
+```bash
+export HOMELAB_ANALYTICS_DATA_DIR=.local/homelab-analytics
+export HOMELAB_ANALYTICS_IDENTITY_MODE=local
+export HOMELAB_ANALYTICS_SESSION_SECRET=change-me-local-demo-secret
+
+# 1. Seed the committed synthetic bundle (bindings, ingest, promotion)
+python -m apps.worker.main seed-demo-data --input-dir infra/examples/demo-data
+
+# 2. Create a local admin so Sources, Runs and Control are reachable
+python -m apps.worker.main create-local-admin-user demo-admin '<choose-a-password>'
+
+# 3. API on :8080
+python -m apps.api.main
+
+# 4. Web on :8081 (another shell, same environment). The launcher serves
+#    the Next.js standalone build, which needs its static assets beside it.
+npm --prefix apps/web/frontend ci
+npm --prefix apps/web/frontend run build
+cp -r apps/web/frontend/.next/static apps/web/frontend/.next/standalone/.next/static
+cp -r apps/web/frontend/public apps/web/frontend/.next/standalone/public
+python -m apps.web.main
 ```
-docker exec -it worker python -m apps.worker.main generate-demo-data --output-dir /tmp/homelab-demo
-```
 
-Or from the project root:
+Open `http://localhost:8081/login` and sign in as `demo-admin`.
 
-```
-python -m apps.worker.main generate-demo-data --output-dir /tmp/homelab-demo
-```
+> Identity mode matters. With the `.env.example` default (`HOMELAB_ANALYTICS_IDENTITY_MODE=disabled`) the API refuses every `/control/*` route ("Unsafe admin routes are disabled until authentication is implemented."). Sources then has nothing to show. Use `local` (above) or `local_single_user` for this walkthrough.
 
-The demo bundle contains 12 months of realistic household data (2025) across three account sources, utility bills, subscriptions, contract prices, budgets, and loan repayments.
+`seed-demo-data` registers stable bindings for the three source-shaped account exports: `demo_op_personal_transactions`, `demo_op_common_transactions` and `demo_revolut_transactions`. It ingests and promotes them along with the canonical subscriptions, contract prices, utility bills, budgets and loan repayments. It then prints a JSON summary with each run ID and the reporting row counts. For the committed bundle, `monthly_cashflow` holds 12 rows (2025-01 to 2025-12).
 
 ---
 
-## The Product Loop
+## 1. Upload, then land on the ingest summary
 
-```
-Upload or refresh source file
-  → Source freshness and remediation in /sources and /runs
-    → /reports monthly operating view
-      → Expense-shock action
-```
+1. Open **Upload** (`/upload`).
+2. In **Configured CSV upload**, pick the source asset `demo_op_personal_transactions` and choose an OP-format CSV.
+   - Re-uploading the seeded file is rejected as a duplicate (HTTP 409), so use a new period: for example, January 2026 rows in the same header layout as `sources/personal account/tapahtumat20250101-20251231.csv`.
+3. Click **Upload file**.
 
----
+A landed upload redirects to `/ingest-summary/<run_id>`:
 
-## Walkthrough Steps
+- The primary action is **Open monthly finance** → `/reports`.
+- The other actions are **Source freshness** → `/sources` and **Upload another file**.
+- The **Cashflow snapshot** card shows the latest month and also links to `/reports`.
+- **Affordability** and the bottom row link to `/reports#expense-shock`.
 
-### Step 1 — Personal account transactions
+If the run did not land, the primary action becomes **Inspect run and remediate** → `/runs/<run_id>`.
 
-1. Go to **Upload** (`/upload`).
-2. Drop `sources/personal account/tapahtumat20250101-20251231.csv` from the demo bundle.
-3. The detection wizard identifies the source as **OP personal account** with high confidence.
-4. Review the publication preview: it shows **Monthly Cashflow** and **Household Overview** as direct publications.
-5. Confirm ingest.
-
-**What you see after ingest:**
-- Post-ingest summary: 144 rows, Jan–Dec 2025, 0 issues.
-- `/reports`: Monthly Cashflow now shows 12 months of income and spending.
-- Salary visible: Employer Corp, EUR 3 200/month.
-- Regular transfers out to shared account and Revolut.
+![Ingest summary after a landed upload](../product/screenshots/finance-loop/01-ingest-summary.png)
 
 ---
 
-### Step 2 — Common household account
+## 2. Source freshness and remediation
 
-1. Go to **Upload** → drop `sources/common account/tapahtumat20250101-20251231.csv`.
-2. Detection: **OP common account**.
-3. Confirm ingest.
+**Sources** (`/sources`, operator or admin) lists every registered source asset. Each row shows:
 
-**What you see:**
-- Household overview enriched - shared spending now visible.
-- Grocery spend: Supermarket Plus, ~EUR 250-320/month.
-- Utility payments via direct debit: City Power (~EUR 38-63/month).
-- Transport: Metro Transport (~EUR 54-68/month).
+- an age-based status (`Fresh`, `Nd ago`, `Nd ago — stale`, `Never loaded`)
+- the latest run status
+- the source name the run arrived under
+- row actions
 
----
+The header carries **Upload files** and **Monthly finance** → `/reports`.
 
-### Step 3 — Revolut card account
+![Sources with all account exports landed](../product/screenshots/finance-loop/02-sources.png)
 
-1. Go to **Upload** → drop `sources/revolut/account-statement_2025-01-01_2025-12-31_en-us_demo.csv`.
-2. Detection: **Revolut personal** format.
-3. Confirm ingest.
+To see the degraded branch, upload a file that misses required columns to the same configured asset:
 
-**What you see:**
-- Entertainment spend appears: Netflix EUR 15.99/month.
-- Health spend: Pharmacy Central.
-- Revolut top-up amounts reconcile with OP personal account outflows - proof of account closure.
+- `/upload` shows the validation issues and **Run recorded: `<run_id>`**.
+- **Run detail** (`/runs/<run_id>`) shows the rejected run with **Retry run**, **Upload corrected file** and **Source remediation** → `/sources`.
+- **Sources** marks that asset's run `rejected` and offers **Inspect run** and **Upload corrected file**. The upload link lands on the matching card on `/upload`.
+- The monthly finance read keeps serving the last good publication. A rejected file never reaches promotion.
 
-At this point `/reports` has the monthly finance inputs needed for the canonical operating view.
+![Rejected run detail](../product/screenshots/finance-loop/07-rejected-run.png)
+![Sources after a rejected upload](../product/screenshots/finance-loop/08-sources-remediation.png)
 
----
+The API exposes the same remediation:
 
-### Step 4 — Utility bills
-
-1. Go to **Upload** (`/upload`) → drop `canonical/utility_bills.csv`.
-2. The wizard detects the utility bill format. Confirm ingest.
-
-**What you see:**
-- Utility Cost Summary: electricity (City Power) and water (City Water) for 12 months.
-- Electricity seasonal pattern: Jun trough ~257 kWh, Dec peak ~421 kWh.
-- Total annual electricity: ~3 762 kWh.
-
-The **Utilities** domain card now has a headline metric and trend indicator.
-The monthly finance view in `/reports` now includes utility context alongside cashflow.
-
----
-
-### Step 5 — Subscriptions
-
-1. Go to **Upload** (`/upload`) → drop `canonical/subscriptions.csv`.
-2. Confirm ingest.
-
-**What you see:**
-- Subscription Summary table populated.
-- Upcoming renewals appear in the Operating Picture **Upcoming Actions** strip.
-
----
-
-### Step 6 — Contract prices, budgets, loan repayments
-
-Upload the remaining canonical files in any order:
-
-| File | Upload path |
-|------|------------|
-| `canonical/contract_prices.csv` | `/upload` |
-| `canonical/budgets.csv` | `/upload` |
-| `canonical/loan_repayments.csv` | `/upload` |
-
-After all three:
-- Budget Variance table populated - compare planned vs actual by category.
-- Loan Overview: outstanding balance and monthly payment visible.
-- Affordability ratio with debt service included in household overview.
-
-With those uploads complete, `/reports` is the stable monthly finance read surface.
-
-### Step 7 — Expense shock
-
-1. Open `/reports`.
-2. Launch the expense-shock action from the monthly finance view.
-3. Confirm the baseline, projected value, and delta are visible before you proceed.
-
----
-
-## Operating Picture - Expected State After All Uploads
-
-| Domain | Headline | Key Attention |
-|--------|----------|---------------|
-| Money | Net cashflow (12 months) | Card payment loop each month |
-| Utilities | Electricity + water cost YTD | Winter peak visible in trend |
-| Operations | Active subscriptions | Renewals in upcoming-actions strip |
-
----
-
-## Control Terminal
-
-The control terminal (`/control/terminal`) is a deliberate operator aid, not an undocumented escape hatch. Commands are grouped by task:
-
-- **diagnostics** - inspect live state: `status`, `runs`, `dispatches`, `heartbeats`, `freshness`
-- **remediation** - trace and validate: `publication-audit`, `lineage`, `verify-config`
-- **configuration** - review registered entities: `source-systems`, `source-assets`, `ingestion-definitions`, `publication-definitions`, `schedules`
-- **admin** - users, tokens, audit trail, and queue operations: `users`, `tokens`, `audit`, `enqueue-due`
-
-Use `help` to list all commands. The `/control/terminal/commands` endpoint returns each command with its `group`, `usage`, and `mutating` flag.
-
----
-
-## Freshness and Remediation
-
-1. Use **Sources** (`/sources`) to inspect freshness and source-level remediation.
-2. Use **Runs** (`/runs`) to inspect run-level remediation such as retry or re-upload guidance.
-3. All datasets should show green (fresh) status after all uploads.
-4. To test remediation: wait for one source to show as stale, or simulate by uploading a bad file.
-5. The **Upload in context** section at the bottom of Sources shows quick-upload buttons for each stale dataset.
-6. After re-upload, the freshness indicator recovers and the monthly finance view in `/reports` reflects the refreshed input.
-
-### Remediation actions
-
-When a run fails or a source goes stale, the platform surfaces a specific action. There are four possible actions:
+| Surface | Field | Actions |
+|---|---|---|
+| `GET /runs/{run_id}` | `remediation.action`, `remediation.reason` | `retry`, `upload_missing_period`, `fix_contract`, `inspect_binding`, `none` |
+| `GET /control/source-freshness` | `freshness_state`, `suggested_action` per source asset | `retry`, `upload_missing_period`, `none` |
 
 | Action | When it appears | What to do |
 |---|---|---|
-| `retry` | Run failed but payload is intact | POST `/runs/{run_id}/retry` - no re-upload needed |
-| `upload_missing_period` | Run failed, payload unavailable or rejected | Correct and re-upload the source file for the affected period |
-| `inspect_binding` | Run passed but promotion was skipped | Check source system / dataset contract / column mapping in Sources config |
-| `fix_contract` | Run rejected due to schema or column violations | Fix the source file or update the dataset contract, then re-upload |
+| `retry` | Run failed but the payload is intact, or freshness is `parse_failed` | **Retry run** (`POST /runs/{run_id}/retry`); no re-upload needed |
+| `upload_missing_period` | Run rejected or failed without a retryable payload, or freshness is `overdue` / `missing_period` | Correct and re-upload the file for the affected period |
+| `fix_contract` | Run rejected for schema or contract violations | Fix the source columns or the dataset contract, then re-upload |
+| `inspect_binding` | Run landed but no source asset binding was found | Check the source system, dataset contract and column mapping |
 
-The run detail endpoint (`GET /runs/{run_id}`) returns `remediation.action` and `remediation.reason` in its response.
-The source freshness endpoint (`GET /control/source-freshness`) returns `suggested_action` per dataset.
-Both use the same four-action vocabulary, so the Sources page and the run detail tell the same story.
-
-The active reporting backend (DuckDB warehouse or Postgres published-reporting) is disclosed at `GET /control/operational-summary` under the `reporting_mode`, `reporting_mode_label`, and `publication_backend_active` fields.
+Freshness attributes each run to its own source asset. The three account exports share one dataset, but each row reports its own latest run.
 
 ---
 
-## Verifying the Product Loop
+## 3. Monthly finance and publication trust on `/reports`
 
-| Check | Where |
-|-------|-------|
-| Monthly Cashflow populated | `/reports` |
-| Budget Variance shows overage in groceries | `/reports` |
-| Loan overview shows balance | `/reports` |
-| Expense-shock action is reachable | `/reports` |
-| Sources: all fresh | `/sources` |
-| Runs: all landed | `/runs` |
+`/reports` is the stable monthly finance read surface, titled **Monthly Finance**. Top to bottom it shows:
+
+1. **Published report views**: renderer discovery for the reporting publications.
+2. **Publication trust — Monthly cashflow snapshot**: the verdict, freshness, completeness and assessed time of the `mart_monthly_cashflow` confidence snapshot.
+   - Admins read the snapshot directly and get **Open confidence view** → `/control/confidence`.
+   - Other roles see the same verdict through the reader-scoped morning brief, with its **Next step** and **Open morning brief**.
+3. **Cashflow**: booking month, income, expense, net and transactions, plus **Expense shock handoff**.
+4. **Expense shock what-if** (`#expense-shock`), then account balance trend, spend by category, subscription summary, utility cost trend and the income-change what-if.
+
+Budget variance and loan overview live on `/budgets` and `/loans`, not on `/reports`.
+
+![Publication trust and monthly cashflow on /reports](../product/screenshots/finance-loop/03-reports-trust.png)
+
+**What the demo shows today:** on the local demo (DuckDB warehouse reporting), the monthly cashflow snapshot reads **Unavailable / Unavailable / 0%**. This is the honest result of the current trust inputs, not a rendering fault:
+
+- Confidence is computed from source lineage that targets the publication.
+- In warehouse mode, promotion records no reporting lineage for refreshed marts.
+- The seed configures no source freshness schedules.
+
+The morning brief therefore withholds the cashflow line and says why. See *Known limits* below.
+
+---
+
+## 4. Expense shock: baseline, projected, delta
+
+1. On `/reports`, open **Expense shock what-if** → **Run scenario**.
+2. Enter an expense change such as `10` (percent) and click **Run**.
+3. Read the headline metrics:
+   - **Expense change**
+   - **Baseline monthly expense** (average of the latest 3 months in the monthly cashflow mart)
+   - **New monthly expense**
+   - **Annual additional cost**
+   - **Months until deficit**, or **Deficit risk: None** when income still covers the shocked expenses
+4. Read the 12-month table. Each month shows baseline and scenario expense, baseline and scenario net, and the net delta.
+
+The panel calls `/api/scenarios/expense-shock` and `/api/scenarios/<id>/cashflow` through the web shell's same-origin proxy (`app/api/scenarios/[[...path]]/route.js`). Browser calls therefore work when web and API run on different origins.
+
+![Expense shock result with next step](../product/screenshots/finance-loop/04-expense-shock.png)
+
+---
+
+## 5. Next step: the saved scenario
+
+Every run is saved, so the panel ends with a **Next step**:
+
+- **Open saved scenario** → `/scenarios/<scenario_id>`, which shows the 12-month outlook with baseline and scenario income and expense, then assumptions.
+- **Compare scenarios** → `/scenarios/compare?left=<scenario_id>`.
+- If the scenario rests on stale inputs, the panel leads with **Refresh stale sources** → `/sources`.
+
+![Saved expense-shock scenario](../product/screenshots/finance-loop/05-saved-scenario.png)
+
+---
+
+## Where else the loop shows up
+
+- **Morning brief** (`/briefing`): its **Money** section is stated only as far as the `mart_monthly_cashflow` verdict allows. It links to **Open monthly finance** → `/reports`, and its **Sources** section links to `/sources` for operators. Withheld lines carry a **Next step** and a lineage drill.
+- **Nav rail and command palette** (`Ctrl K`):
+  - **Money → Reports** (`/reports`; palette keywords include *cashflow*, *expense shock*, *trust*)
+  - **Data → Sources / Upload / Runs**
+  - **Money → Scenarios**
+  - **Today → Morning brief**
+- **Cashflow map** (`/cashflow`) and **Wallboard** (`/wallboard`) are read views over the same reporting layer. The Cashflow map's empty and stale states link to **Upload a statement** → `/upload`.
+
+![Morning brief money section](../product/screenshots/finance-loop/06-morning-brief.png)
+
+## Known limits
+
+- **Demo publication trust is `unavailable`.** Publication confidence resolves contributing sources from reporting lineage keyed by the publication. It then matches each source's run `source_name` against source-freshness configs, which are keyed by `source_asset_id`. In warehouse reporting mode, promotion publishes nothing to a publication store, so no reporting lineage is recorded. Until lineage and source keys line up, the demo verdict stays `unavailable` and the brief withholds cashflow. The e2e test asserts that the brief and `/reports` agree with whatever verdict the snapshot holds, not a specific verdict.
+- **`/control/confidence` is admin-scoped.** Readers and operators get the verdict on `/reports` through the morning brief instead.
+
+## Refreshing the proof screenshots
+
+The images under `docs/product/screenshots/finance-loop/` were captured with Playwright (Chromium, 1440×1000) against a local instance started as in section 0, after `seed-demo-data`. They are reference images for this walkthrough, not visual-test baselines. Never refresh baselines under `apps/web/frontend/playwright/*-snapshots/` for doc purposes.
 
 ---
 

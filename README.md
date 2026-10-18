@@ -16,22 +16,37 @@ Database support model: Postgres is the canonical operational database for contr
 
 Architecture posture: keep one repo and one deployment story. The codebase is being hardened around four internal stability strata: kernel, semantic engine, product packs, and surfaces. The useful boundary is change rate and conceptual ownership, not API vs worker vs web as separate service products.
 
-## Example outcomes
+## The finance operator loop
 
-The demo bundle now produces publish-backed product surfaces that show the intended operator outcomes:
+The flagship journey runs from a bank statement to a household decision. Every step is a page that already ships:
+
+<!-- finance-operator-loop -->
+`/upload` → `/ingest-summary/<run_id>` → `/sources` and `/runs` (source freshness and remediation) → `/reports` (monthly finance and publication trust) → `/reports#expense-shock` (baseline, projected, delta) → `/scenarios/<scenario_id>` (saved scenario, next step)
+
+1. **Upload** a statement in `/upload`. A landed run opens the ingest summary, whose primary action is **Open monthly finance**. A rejected run hands you to run detail instead.
+2. **Check the inputs** on `/sources` and `/runs`. Source freshness and remediation (retry, re-upload the period, fix the contract) live there, per source asset.
+3. **Read the month** on `/reports`. It shows the cashflow, plus the publication trust verdict for `mart_monthly_cashflow`: confidence, freshness and completeness. That trust signal is kept separate from source remediation.
+4. **Run an expense shock** from the same page. You get the baseline and new monthly expense, the annual additional cost, months until deficit and a 12-month projection.
+5. **Keep the result.** The scenario is saved; open it at `/scenarios/<scenario_id>` or compare it with other what-ifs.
+
+The morning brief (`/briefing`) states cashflow only as far as that publication's confidence allows, and links back to `/reports`.
+
+Walk it on demo data with `docs/runbooks/operator-walkthrough.md` (about 10 minutes). `tests/test_finance_operator_loop_e2e.py` proves it on synthetic fixtures in the fast test tier.
 
 <table>
   <tr>
-    <td><img src="docs/product/screenshots/budgets.png" alt="Budget progress and variance view"></td>
-    <td><img src="docs/product/screenshots/costs.png" alt="Household cost model view"></td>
-    <td><img src="docs/product/screenshots/retro.png" alt="Retro operating deck"></td>
+    <td><img src="docs/product/screenshots/finance-loop/01-ingest-summary.png" alt="Ingest summary with Open monthly finance as the primary action"></td>
+    <td><img src="docs/product/screenshots/finance-loop/03-reports-trust.png" alt="Monthly finance with the publication trust panel"></td>
+    <td><img src="docs/product/screenshots/finance-loop/04-expense-shock.png" alt="Expense shock result with baseline, projected, delta and next step"></td>
   </tr>
   <tr>
-    <td>Budget progress</td>
-    <td>Cost model</td>
-    <td>Retro operating deck</td>
+    <td>1. Upload lands on the ingest summary</td>
+    <td>3. Monthly finance and publication trust</td>
+    <td>4–5. Expense shock and next step</td>
   </tr>
 </table>
+
+Other publish-backed surfaces from the same demo bundle: budget progress (`docs/product/screenshots/budgets.png`), the household cost model (`docs/product/screenshots/costs.png`) and the retro operating deck (`docs/product/screenshots/retro.png`).
 
 ## Product direction
 
@@ -55,7 +70,7 @@ Stage 2 is complete. Stage 3 is partially complete. Stage 4 is partially complet
 
 - Four built-in capability packs: finance, utilities, homelab, and cross-domain overview
 - Stable publication-backed operating views across cashflow, planning, utility, homelab, and overview questions
-- Stable monthly finance read surface at `/reports` for monthly cashflow, budget variance, loan overview, and expense-shock follow-through
+- Stable monthly finance read surface at `/reports`: monthly cashflow, publication trust for the cashflow mart, spend by category, subscriptions, utility cost trend, and the expense-shock and income-change what-ifs. Budget variance and loan overview live on `/budgets` and `/loans`
 - Full data pipeline: landing (bronze) → transformation (silver) → reporting (gold)
 - Budget vs Reality: per-category budget targets against actual spend with variance and utilisation tracking
 - Debt and Cost Truth: amortization engine, loan schedule projection, repayment variance, and balance estimates
