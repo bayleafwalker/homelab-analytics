@@ -10087,6 +10087,26 @@
         "summary": "Get Agent Tool Catalog"
       }
     },
+    "/api/agent/manifest": {
+      "get": {
+        "operationId": "get_agent_capability_manifest_api_agent_manifest_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Agent Capability Manifest Api Agent Manifest Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Agent Capability Manifest"
+      }
+    },
     "/api/agent/principals": {
       "get": {
         "operationId": "get_agent_principals_api_agent_principals_get",

@@ -205,6 +205,18 @@ OIDC and trusted-proxy permission grants support canonical static permissions (f
 
 Machine JWT tokens are evaluated by the existing in-app authorization kernel. Scope grants are enforced with the same policy semantics as service tokens for equivalent role/scope combinations. API metrics expose `auth_machine_jwt_authenticated_requests_total` and `auth_machine_jwt_failed_requests_total`, and auth-audit captures `machine_jwt_auth_succeeded`/`machine_jwt_auth_failed` events.
 
+### Power-user override: agent surfaces
+
+The MCP tool surface (`python -m apps.agent.mcp_server`) and the operator agent inbox (`/control/agents`) need no configuration. These switches gate the optional agent-facing pieces; every one is off by default. See `docs/plans/2026-10-agentic-ux-and-vuoro-alignment.md`.
+
+| Variable | Default | Description |
+|---|---|---|
+| `HOMELAB_ANALYTICS_AGENT_MANIFEST_ENABLED` | `false` | Serve the vuoro-aligned agent capability manifest at `GET /api/agent/manifest` (`404` while disabled). |
+| `HOMELAB_ANALYTICS_AGENT_MANIFEST_REPO_ID` | `homelab-analytics` | Repository id the manifest declares (vuoro `repo_id` pattern). |
+| `HOMELAB_ANALYTICS_AGENT_AUTHORITY_REPO_UUID` | — | Locally minted authority repo UUID to echo in the manifest. Always reported as `self-asserted` until a vuoro authority issues and validates it. |
+| `HOMELAB_ANALYTICS_ASSISTANT_RUNTIME` | `disabled` | AssistantRuntime selector (Stage B2 prototype): `disabled`, `deterministic` (offline fake runtime, no model), or `opencode` (reserved; refused in this build). |
+| `HOMELAB_ANALYTICS_ASSISTANT_PROVIDER_CALLS_ALLOWED` | `false` | Second gate required before any runtime that calls an LLM provider may be constructed. |
+
 ### Power-user override: extensions
 
 | Variable | Default | Description |

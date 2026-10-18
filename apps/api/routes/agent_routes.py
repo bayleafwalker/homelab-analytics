@@ -14,6 +14,9 @@ Operator projections of the agent surface (read-only):
   scope, effect, and required service-token scope of every tool.
 - ``GET /api/agent/principals`` — agent identities observed in the proposal
   queue. HLA observes; it is not an agent registration authority.
+- ``GET /api/agent/manifest`` — vuoro-aligned capability manifest projected
+  from the tool catalog; served only when
+  ``HOMELAB_ANALYTICS_AGENT_MANIFEST_ENABLED`` is set (``404`` otherwise).
 
 The ``trust`` block mirrors confidence semantics so agents answer honestly:
 publications without a confidence snapshot read as ``trust_unknown``, never
@@ -192,6 +195,7 @@ def register_agent_routes(
     publication_semantic_index: list[PublicationSemanticIndexEntry] | None = None,
     confidence_lookup: ConfidenceLookup | None = None,
     action_proposal_registry: ActionProposalRegistry | None = None,
+    capability_manifest: Mapping[str, Any] | None = None,
 ) -> None:
     """Register the agent semantic index routes and operator projections."""
     index = (
@@ -290,3 +294,15 @@ def register_agent_routes(
                 for item in summarize_agent_principals(proposals)
             ]
         )
+
+    @app.get("/api/agent/manifest")
+    async def get_agent_capability_manifest() -> dict[str, Any]:
+        if capability_manifest is None:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    "Agent capability manifest is disabled. Set "
+                    "HOMELAB_ANALYTICS_AGENT_MANIFEST_ENABLED=true to publish it."
+                ),
+            )
+        return dict(capability_manifest)

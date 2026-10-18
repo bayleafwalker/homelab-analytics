@@ -9,6 +9,7 @@ from typing import Any, Union
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
 
+from apps.agent.mcp_server import MCP_PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
 from apps.api.auth_policies import API_ROUTE_AUTHORIZATION_LOOKUP
 from apps.api.auth_runtime import (
     build_auth_context,
@@ -76,6 +77,9 @@ from packages.adapters.prometheus_adapter import (
     PrometheusIngestAdapter,
 )
 from packages.adapters.registry import AdapterRegistry
+from packages.application.use_cases.agent_capability_manifest import (
+    build_agent_capability_manifest,
+)
 from packages.application.use_cases.run_management import (
     build_run_detail,
 )
@@ -361,6 +365,19 @@ def _build_container_from_legacy_args(
         capability_packs=BUILTIN_CAPABILITY_PACKS,
     )
 
+
+
+def _agent_capability_manifest(settings: AppSettings) -> dict[str, Any] | None:
+    """The vuoro-aligned manifest when enabled in settings, else ``None``."""
+    if not settings.agent_manifest_enabled:
+        return None
+    return build_agent_capability_manifest(
+        repo_id=settings.agent_manifest_repo_id,
+        authority_repo_uuid=settings.agent_authority_repo_uuid,
+        server_name=SERVER_NAME,
+        server_version=SERVER_VERSION,
+        mcp_protocol_version=MCP_PROTOCOL_VERSION,
+    )
 
 def create_app(
     service_or_container: Union[AppContainer, AccountTransactionService],
@@ -785,6 +802,7 @@ def create_app(
         publication_semantic_index=agent_publication_index,
         confidence_lookup=_agent_confidence_lookup,
         action_proposal_registry=resolved_action_proposal_registry,
+        capability_manifest=_agent_capability_manifest(container.settings),
     )
     register_lineage_routes(
         app,
