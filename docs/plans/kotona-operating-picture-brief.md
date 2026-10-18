@@ -52,6 +52,55 @@ not block A1/A2 closure.
 
 ---
 
+## Stage B1 — deterministic morning brief and lineage drill
+
+*Commentary (not brief text). Status: implemented on branch
+`feat/morning-brief` (2026-10-18), pending review. No LLM anywhere.*
+
+- **Composer:** `packages/application/use_cases/morning_brief.py`, a pure
+  use-case over typed inputs (`BriefInputs`), producing a `MorningBrief`
+  with sections, items, severity, claim status, caveats, remediation,
+  confidence, evidence refs (publication, runs, sources, policies),
+  `as_of`, `generated_at` and a `content_hash` that excludes
+  `generated_at`. Same inputs give identical output
+  (`tests/test_morning_brief.py::test_same_inputs_produce_identical_output`,
+  `::test_gathering_is_order_independent`).
+- **Sources:** built-in sections in `morning_brief_sections.py`: money
+  (`mart_monthly_cashflow`), attention (`mart_open_attention_items`),
+  changes (`mart_recent_significant_changes`), upcoming
+  (`mart_upcoming_fixed_costs_30d`), policies (`PolicyResult` verdicts and
+  `reason`), sources (source freshness via
+  `packages/application/use_cases/source_freshness_overview.py`, shared with
+  `GET /control/source-freshness`). Publications are read through
+  `ReportingService` accessors only; there are no landing shortcuts.
+- **Honesty ladder (`assess_claim`):** `trustworthy` → confirmed; `degraded`
+  with every signal known and no stale source → provisional, with the
+  degrading caveats listed; no snapshot, unreadable rows, `stale` or
+  `unavailable` freshness, unknown validation or completeness, or
+  `unreliable` → withheld. A withheld line states why and gives the
+  remediation instead of the number.
+- **API:** `GET /api/briefing` (`apps/api/routes/briefing_routes.py`),
+  reader role (`apps/api/auth_policies.py`), `MorningBriefResponseModel`,
+  OpenAPI and TypeScript types regenerated. Tests:
+  `tests/test_briefing_api.py`.
+- **Surface:** `/briefing` server component and `/briefing/lineage` drill
+  (server-rendered over `GET /api/lineage/publication/{key}`, down to runs
+  and source systems, each run linking to `/runs/{id}`). Structural test:
+  `tests/test_web_auth.py::test_nextjs_frontend_exposes_deterministic_morning_brief`.
+- **Extension point:** `BriefSectionRegistry`. A new section (for example
+  battery outcomes) implements `BriefSectionProvider`, declares its
+  `publication_keys`, registers with an `order` between the built-ins
+  (they are spaced by ten), and adds its reporting accessor to
+  `ReportingPublicationReader`. A key with no accessor is withheld rather
+  than invented (`tests/test_morning_brief.py::test_extension_section_slots_in_by_order_and_declares_publications`).
+- **Open follow-ups:** a primary-nav entry for `/briefing` (the app shell
+  is owned by the UI track); `/briefing.json` for the worker email digest
+  (W2-3), which `GET /api/briefing` already serves; and the client-side
+  `/control/lineage` viewer, which fetches `/auth/me` and `/api/lineage/*`
+  from the browser with no proxy route.
+
+---
+
 ## Decisions in force
 
 - **Scope of approval:** A1 and A2 are approved with the corrections above.
