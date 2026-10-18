@@ -3956,7 +3956,7 @@ export interface components {
              */
             as_of_status: "current" | "snapshot" | "no_history";
             /** Rows */
-            rows: components["schemas"]["AffordabilityRatiosRow"][];
+            rows: (components["schemas"]["AffordabilityRatiosRow"] | components["schemas"]["AffordabilityRatiosSnapshotRow"])[];
             snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
         };
         /** AffordabilityRatiosRow */
@@ -3977,6 +3977,25 @@ export interface components {
             ratio_name: string;
             /** State */
             state: string;
+        };
+        /** AffordabilityRatiosSnapshotRow */
+        AffordabilityRatiosSnapshotRow: {
+            /** Assessment */
+            assessment: string | null;
+            /** Currency */
+            currency: string | null;
+            /** Denominator */
+            denominator: string | null;
+            /** Numerator */
+            numerator: string | null;
+            /** Period Label */
+            period_label: string | null;
+            /** Ratio */
+            ratio: string | null;
+            /** Ratio Name */
+            ratio_name: string | null;
+            /** State */
+            state: string | null;
         };
         /** AgentColumnGlossaryModel */
         AgentColumnGlossaryModel: {
@@ -4280,6 +4299,21 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** AttentionItemSnapshotRow */
+        AttentionItemSnapshotRow: {
+            /** Detail */
+            detail: string | null;
+            /** Item Id */
+            item_id: string | null;
+            /** Item Type */
+            item_type: string | null;
+            /** Severity */
+            severity: number | null;
+            /** Source Domain */
+            source_domain: string | null;
+            /** Title */
+            title: string | null;
+        };
         /** AttentionItemsResponse */
         AttentionItemsResponse: {
             /** As Of */
@@ -4291,7 +4325,7 @@ export interface components {
              */
             as_of_status: "current" | "snapshot" | "no_history";
             /** Rows */
-            rows: components["schemas"]["AttentionItemRow"][];
+            rows: (components["schemas"]["AttentionItemRow"] | components["schemas"]["AttentionItemSnapshotRow"])[];
             snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
         };
         /** BatteryPlanOutcomeResponse */
@@ -5879,7 +5913,7 @@ export interface components {
              */
             as_of_status: "current" | "snapshot" | "no_history";
             /** Rows */
-            rows: components["schemas"]["HouseholdOverviewRow"][];
+            rows: (components["schemas"]["HouseholdOverviewRow"] | components["schemas"]["HouseholdOverviewSnapshotRow"])[];
             snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
         };
         /** HouseholdOverviewRow */
@@ -5902,6 +5936,27 @@ export interface components {
             subscription_total_monthly: string;
             /** Utility Cost Total */
             utility_cost_total: string;
+        };
+        /** HouseholdOverviewSnapshotRow */
+        HouseholdOverviewSnapshotRow: {
+            /** Account Balance Direction */
+            account_balance_direction: string | null;
+            /** Balance Net Change */
+            balance_net_change: string | null;
+            /** Cashflow Expense */
+            cashflow_expense: string | null;
+            /** Cashflow Income */
+            cashflow_income: string | null;
+            /** Cashflow Net */
+            cashflow_net: string | null;
+            /** Currency */
+            currency: string | null;
+            /** Current Month */
+            current_month: string | null;
+            /** Subscription Total Monthly */
+            subscription_total_monthly: string | null;
+            /** Utility Cost Total */
+            utility_cost_total: string | null;
         };
         /** IncomeChangeRequest */
         IncomeChangeRequest: {
@@ -6871,6 +6926,26 @@ export interface components {
         PublicationSnapshotModel: {
             /** Captured At */
             captured_at: string;
+            /**
+             * Dropped Columns
+             * @default []
+             */
+            dropped_columns: string[];
+            /**
+             * Incompatible Columns
+             * @default []
+             */
+            incompatible_columns: string[];
+            /**
+             * Missing Columns
+             * @default []
+             */
+            missing_columns: string[];
+            /**
+             * Projected
+             * @default false
+             */
+            projected: boolean;
             /** Publication Key */
             publication_key: string;
             /** Reference Month */
@@ -6915,7 +6990,7 @@ export interface components {
              */
             as_of_status: "current" | "snapshot" | "no_history";
             /** Rows */
-            rows: components["schemas"]["RecentSignificantChangeRow"][];
+            rows: (components["schemas"]["RecentSignificantChangeRow"] | components["schemas"]["RecentSignificantChangeSnapshotRow"])[];
             snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
         };
         /** RecentLargeTransactionsResponse */
@@ -6961,6 +7036,23 @@ export interface components {
             /** Previous Value */
             previous_value: string;
         };
+        /** RecentSignificantChangeSnapshotRow */
+        RecentSignificantChangeSnapshotRow: {
+            /** Change Pct */
+            change_pct?: string | null;
+            /** Change Type */
+            change_type: string | null;
+            /** Current Value */
+            current_value: string | null;
+            /** Description */
+            description: string | null;
+            /** Direction */
+            direction: string | null;
+            /** Period */
+            period: string | null;
+            /** Previous Value */
+            previous_value: string | null;
+        };
         /** RecurringCostBaselineResponse */
         RecurringCostBaselineResponse: {
             /** As Of */
@@ -6972,7 +7064,7 @@ export interface components {
              */
             as_of_status: "current" | "snapshot" | "no_history";
             /** Rows */
-            rows: components["schemas"]["RecurringCostBaselineRow"][];
+            rows: (components["schemas"]["RecurringCostBaselineRow"] | components["schemas"]["RecurringCostBaselineSnapshotRow"])[];
             snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
         };
         /** RecurringCostBaselineRow */
@@ -6989,6 +7081,21 @@ export interface components {
             last_occurrence?: string | null;
             /** Monthly Amount */
             monthly_amount: string;
+        };
+        /** RecurringCostBaselineSnapshotRow */
+        RecurringCostBaselineSnapshotRow: {
+            /** Confidence */
+            confidence: string | null;
+            /** Cost Source */
+            cost_source: string | null;
+            /** Counterparty Or Contract */
+            counterparty_or_contract: string | null;
+            /** Currency */
+            currency: string | null;
+            /** Last Occurrence */
+            last_occurrence?: string | null;
+            /** Monthly Amount */
+            monthly_amount: string | null;
         };
         /** RequestHeaderRequest */
         RequestHeaderRequest: {
@@ -7277,7 +7384,7 @@ export interface components {
             /** Currency */
             currency?: string | null;
             /** Rows */
-            rows: components["schemas"]["SubscriptionSummaryRow"][];
+            rows: (components["schemas"]["SubscriptionSummaryRow"] | components["schemas"]["SubscriptionSummarySnapshotRow"])[];
             snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
             /** Status */
             status?: string | null;
@@ -7304,6 +7411,29 @@ export interface components {
             start_date: string;
             /** Status */
             status: string;
+        };
+        /** SubscriptionSummarySnapshotRow */
+        SubscriptionSummarySnapshotRow: {
+            /** Amount */
+            amount: string | null;
+            /** Billing Cycle */
+            billing_cycle: string | null;
+            /** Contract Id */
+            contract_id: string | null;
+            /** Contract Name */
+            contract_name: string | null;
+            /** Currency */
+            currency: string | null;
+            /** End Date */
+            end_date?: string | null;
+            /** Monthly Equivalent */
+            monthly_equivalent: string | null;
+            /** Provider */
+            provider: string | null;
+            /** Start Date */
+            start_date: string | null;
+            /** Status */
+            status: string | null;
         };
         /** TariffShockRequest */
         TariffShockRequest: {
@@ -9267,7 +9397,10 @@ export interface operations {
     };
     get_publication_lineage_api_lineage_publication__publication_key__get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Walk only this many of the most recent runs behind the publication. */
+                run_limit?: number;
+            };
             header?: never;
             path: {
                 publication_key: string;

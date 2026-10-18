@@ -1516,6 +1516,11 @@ def test_explain_primitive_is_server_loaded_and_accessible() -> None:
     # Honest when lineage is a single node.
     assert "No runs or sources recorded behind it yet" in explain
     assert "/briefing/lineage?publication_key=" in explain
+    # Honest when the API capped the lineage walk (run_limit).
+    assert "graph?.truncated === true" in loader
+    assert "graph.total_runs" in loader
+    assert 'data-testid="explain-lineage-truncated"' in explain
+    assert "most recent runs of" in explain
     # Stays on screen at phone width.
     assert "@media (max-width: 600px)" in css
 

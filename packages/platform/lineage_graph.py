@@ -18,12 +18,16 @@ Design
   (source asset) and transformation rows, so a publication shows the real
   chain source asset → run → transformation relations → mart. It never walks
   past the runs themselves.
+- The walk is bounded: only the ``run_limit`` most recent runs (by publication
+  or lineage timestamp, default ``DEFAULT_RUN_LIMIT``) are walked and shown,
+  so a publication refreshed for years does not cost one lookup per run ever
+  recorded. ``truncated`` and ``total_runs`` say when runs were left out.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Iterable, Protocol, runtime_checkable
 
 from packages.storage.control_plane import PublicationAuditRecord, SourceLineageRecord
@@ -41,6 +45,10 @@ EDGE_FEEDS = "feeds"
 LAYER_LANDING = "landing"
 LAYER_TRANSFORMATION = "transformation"
 UPSTREAM_LAYERS = (LAYER_LANDING, LAYER_TRANSFORMATION)
+
+# Runs walked per graph unless the caller asks for another bound.
+DEFAULT_RUN_LIMIT = 50
+MAX_RUN_LIMIT = 500
 
 
 @runtime_checkable
@@ -103,12 +111,19 @@ class LineageGraph:
     publication_key: str
     nodes: tuple[LineageNode, ...]
     edges: tuple[LineageEdge, ...]
+    # Runs behind the publication before the cap, and whether some were left out.
+    total_runs: int = 0
+    run_limit: int | None = None
+    truncated: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "publication_key": self.publication_key,
             "nodes": [node.as_dict() for node in self.nodes],
             "edges": [edge.as_dict() for edge in self.edges],
+            "total_runs": self.total_runs,
+            "run_limit": self.run_limit,
+            "truncated": self.truncated,
         }
 
 
@@ -134,18 +149,64 @@ def _iso(value: datetime | None) -> str | None:
     return value.isoformat()
 
 
+def _sort_key(value: datetime) -> datetime:
+    # Stores return aware timestamps; treat a naive one as UTC so the two
+    # never get compared directly.
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+
+
+def _select_runs(
+    audit_records: Iterable[PublicationAuditRecord],
+    lineage_records: Iterable[SourceLineageRecord],
+    run_limit: int | None,
+) -> tuple[set[str], int]:
+    """The ``run_limit`` most recent run ids, and how many runs there are."""
+    latest: dict[str, datetime] = {}
+    for run_id, stamp in [
+        *((r.run_id, r.published_at) for r in audit_records),
+        *((r.input_run_id, r.recorded_at) for r in lineage_records),
+    ]:
+        if not run_id:
+            continue
+        stamp = _sort_key(stamp)
+        if run_id not in latest or stamp > latest[run_id]:
+            latest[run_id] = stamp
+    ordered = sorted(latest, key=lambda run_id: (latest[run_id], run_id), reverse=True)
+    if run_limit is not None:
+        ordered = ordered[:run_limit]
+    return set(ordered), len(latest)
+
+
 def build_publication_lineage_graph(
     store: LineageStore,
     *,
     publication_key: str,
+    run_limit: int | None = DEFAULT_RUN_LIMIT,
 ) -> LineageGraph:
     """Assemble the lineage graph rooted at ``publication_key``.
 
     The graph is deterministic: node and edge ordering is sorted so equal
     inputs render the same JSON on every call. Duplicate lineage rows (same
     input_run_id + target_name) collapse to one edge.
+
+    Only the ``run_limit`` most recent runs are walked (``None`` walks all);
+    older runs, their edges and their upstream rows are left out and the
+    graph is marked ``truncated``.
     """
-    audit_records = store.list_publication_audit(publication_key=publication_key)
+    if run_limit is not None and run_limit < 1:
+        raise ValueError("run_limit must be at least 1")
+    all_audit_records = store.list_publication_audit(publication_key=publication_key)
+    relation_names: set[str] = {record.relation_name for record in all_audit_records}
+    all_lineage_records = _collect_lineage_for_relations(store, relation_names)
+    kept_runs, total_runs = _select_runs(all_audit_records, all_lineage_records, run_limit)
+    audit_records = [
+        record for record in all_audit_records if not record.run_id or record.run_id in kept_runs
+    ]
+    lineage_records = [
+        record
+        for record in all_lineage_records
+        if not record.input_run_id or record.input_run_id in kept_runs
+    ]
     nodes: dict[str, LineageNode] = {}
     edges: dict[tuple[str, str, str], LineageEdge] = {}
 
@@ -155,8 +216,6 @@ def build_publication_lineage_graph(
         type=NODE_PUBLICATION,
         attributes={"key": publication_key},
     )
-
-    relation_names: set[str] = set()
 
     for record in audit_records:
         if record.run_id:
@@ -179,15 +238,11 @@ def build_publication_lineage_graph(
                         "published_at": _iso(record.published_at),
                     },
                 )
-        relation_names.add(record.relation_name)
 
-    lineage_records = _collect_lineage_for_relations(store, relation_names)
-    run_ids = {record.run_id for record in audit_records if record.run_id}
-    run_ids.update(record.input_run_id for record in lineage_records if record.input_run_id)
     known_ids = {record.lineage_id for record in lineage_records}
     upstream_records = [
         record
-        for record in _collect_upstream_lineage(store, run_ids)
+        for record in _collect_upstream_lineage(store, kept_runs)
         if record.lineage_id not in known_ids
     ]
     # run node id -> upstream (landing/transformation) and reporting relation ids
@@ -273,6 +328,9 @@ def build_publication_lineage_graph(
         publication_key=publication_key,
         nodes=sorted_nodes,
         edges=sorted_edges,
+        total_runs=total_runs,
+        run_limit=run_limit,
+        truncated=len(kept_runs) < total_runs,
     )
 
 

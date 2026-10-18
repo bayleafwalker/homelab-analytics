@@ -73,7 +73,10 @@ export function summariseLineage(graph) {
     }
   }
   const recorded = reportingRecorded || Object.values(counts).some((count) => count > 0);
-  return { counts, runs, sources, relations, assets, recorded };
+  // The API walks only the most recent runs (run_limit) and says when it cut.
+  const truncated = graph?.truncated === true;
+  const totalRuns = Number.isFinite(graph?.total_runs) ? graph.total_runs : counts.run;
+  return { counts, runs, sources, relations, assets, recorded, truncated, totalRuns };
 }
 
 /**

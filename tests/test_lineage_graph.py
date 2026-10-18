@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from packages.platform.lineage_graph import (
+    DEFAULT_RUN_LIMIT,
     EDGE_FEEDS,
     EDGE_PRODUCES,
     EDGE_PUBLISHES,
@@ -447,3 +448,105 @@ class TestUpstreamWalk:
         graph = build_publication_lineage_graph(store, publication_key="mart_cashflow")
         targets = {e.to_id for e in graph.edges if e.type == EDGE_FEEDS}
         assert targets == {"publication:mart_cashflow"}
+
+
+class TestLineageGraphRunCap:
+    """The walk is bounded to the most recent runs, and says when it cut."""
+
+    @staticmethod
+    def _store(run_count: int) -> _FakeStore:
+        audit = []
+        lineage = []
+        for day in range(1, run_count + 1):
+            run_id = f"run-{day:02d}"
+            stamp = datetime(2026, 1, 1, tzinfo=UTC) + timedelta(days=day)
+            audit.append(
+                _audit(
+                    audit_id=f"a-{day}",
+                    publication_key="mart_monthly_cashflow",
+                    relation_name="mart_monthly_cashflow",
+                    run_id=run_id,
+                    published_at=stamp,
+                )
+            )
+            lineage.append(
+                _lineage(
+                    lineage_id=f"L-{day}",
+                    input_run_id=run_id,
+                    target_layer="landing",
+                    target_name=f"asset-{day}",
+                    target_kind="source_asset",
+                    recorded_at=stamp,
+                )
+            )
+        return _FakeStore(audit=audit, lineage=lineage)
+
+    def test_default_cap_leaves_small_graphs_whole(self):
+        graph = build_publication_lineage_graph(
+            self._store(3), publication_key="mart_monthly_cashflow"
+        )
+        assert graph.truncated is False
+        assert graph.total_runs == 3
+        assert graph.run_limit == DEFAULT_RUN_LIMIT
+        assert len([n for n in graph.nodes if n.type == NODE_RUN]) == 3
+        payload = graph.as_dict()
+        assert payload["truncated"] is False
+        assert payload["total_runs"] == 3
+
+    def test_default_cap_bounds_a_long_history(self):
+        store = self._store(DEFAULT_RUN_LIMIT + 10)
+        graph = build_publication_lineage_graph(store, publication_key="mart_monthly_cashflow")
+        assert graph.truncated is True
+        assert graph.total_runs == DEFAULT_RUN_LIMIT + 10
+        assert len([n for n in graph.nodes if n.type == NODE_RUN]) == DEFAULT_RUN_LIMIT
+        # Two upstream lookups (landing, transformation) per kept run, plus
+        # one per publication relation.
+        assert len(store.lineage_calls) == 2 * DEFAULT_RUN_LIMIT + 1
+
+    def test_cap_keeps_the_most_recent_runs_and_flags_truncation(self):
+        store = self._store(10)
+        graph = build_publication_lineage_graph(
+            store, publication_key="mart_monthly_cashflow", run_limit=4
+        )
+
+        runs = sorted(n.attributes["run_id"] for n in graph.nodes if n.type == NODE_RUN)
+        assert runs == ["run-07", "run-08", "run-09", "run-10"]
+        assert graph.truncated is True
+        assert graph.total_runs == 10
+        assert graph.run_limit == 4
+        # Dropped runs leave no edges or upstream relations behind.
+        kept = {f"run:{run_id}" for run_id in runs}
+        assert all(edge.from_id in kept for edge in graph.edges)
+        assets = {n.attributes["name"] for n in graph.nodes if n.type == NODE_RELATION}
+        assert assets == {"asset-7", "asset-8", "asset-9", "asset-10"}
+        # Upstream lookups are made only for the runs kept.
+        upstream_runs = {
+            call["input_run_id"] for call in store.lineage_calls if call["input_run_id"]
+        }
+        assert upstream_runs == set(runs)
+
+    def test_naive_and_aware_timestamps_order_together(self):
+        store = self._store(2)
+        store._audit.append(
+            _audit(
+                audit_id="a-naive",
+                publication_key="mart_monthly_cashflow",
+                relation_name="mart_monthly_cashflow",
+                run_id="run-naive",
+                published_at=datetime(2026, 7, 1),
+            )
+        )
+        graph = build_publication_lineage_graph(
+            store, publication_key="mart_monthly_cashflow", run_limit=1
+        )
+        runs = [n.attributes["run_id"] for n in graph.nodes if n.type == NODE_RUN]
+        assert runs == ["run-naive"]
+        assert graph.truncated is True
+
+    def test_unbounded_walk_when_limit_is_none(self):
+        graph = build_publication_lineage_graph(
+            self._store(60), publication_key="mart_monthly_cashflow", run_limit=None
+        )
+        assert graph.truncated is False
+        assert graph.total_runs == 60
+        assert len([n for n in graph.nodes if n.type == NODE_RUN]) == 60

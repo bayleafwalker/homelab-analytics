@@ -53,6 +53,22 @@ test("explain closes on an outside click", async ({ page }) => {
   await expect(page.locator(".explainPanel")).toBeHidden();
 });
 
+test("explain says when the lineage walk left older runs out", async ({ page }) => {
+  await gotoStory(page, "primitives-explain--truncated-lineage");
+  await page.locator("summary.explainTrigger").click();
+  await expect(page.getByTestId("explain-lineage-truncated")).toContainText(
+    "Showing the 50 most recent runs of 212"
+  );
+  await expectAccessible(page);
+});
+
+test("explain says nothing about truncation for a whole graph", async ({ page }) => {
+  await gotoStory(page, "primitives-explain--recorded-lineage");
+  await page.locator("summary.explainTrigger").click();
+  await expect(page.locator(".explainPanel")).toBeVisible();
+  await expect(page.getByTestId("explain-lineage-truncated")).toHaveCount(0);
+});
+
 for (const story of ["lineage-unavailable", "wallboard"]) {
   test(`explain ${story} stays accessible when open`, async ({ page }) => {
     await gotoStory(page, `primitives-explain--${story}`);

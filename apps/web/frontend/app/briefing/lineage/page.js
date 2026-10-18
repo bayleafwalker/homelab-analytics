@@ -104,6 +104,12 @@ export default async function BriefingLineagePage({ searchParams }) {
           </p>
         ) : (
           <div className={styles.lineageGroups}>
+            {graph.truncated ? (
+              <p className={styles.summary} data-testid="lineage-truncated">
+                Showing the {nodes.filter((node) => node.type === "run").length} most recent runs of{" "}
+                {graph.total_runs}. Older runs are left out.
+              </p>
+            ) : null}
             {NODE_ORDER.map((type) => {
               const group = nodes.filter((node) => node.type === type);
               if (group.length === 0) return null;

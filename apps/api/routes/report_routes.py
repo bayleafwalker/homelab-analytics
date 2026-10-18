@@ -4,7 +4,7 @@ from datetime import date
 from typing import Any, Callable, Literal, cast
 
 from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 import packages.application.use_cases.category_management as category_management
 from apps.api.response_models import (
@@ -35,7 +35,10 @@ from packages.pipelines.household_reporting import (
     PUBLICATION_RELATIONS,
 )
 from packages.pipelines.reporting_service import ReportingService
-from packages.pipelines.reporting_snapshots import is_reference_month
+from packages.pipelines.reporting_snapshots import (
+    is_reference_month,
+    project_snapshot_rows,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.extensions import ExtensionRegistry
 
@@ -48,6 +51,14 @@ class PublicationSnapshotModel(BaseModel):
     captured_at: str
     run_id: str | None = None
     row_count: int
+    # True when the snapshot predates a change to the publication's columns
+    # and its rows were fitted to the current ones: ``missing_columns`` read
+    # as null, ``dropped_columns`` are left out, and ``incompatible_columns``
+    # held values the current column type no longer accepts (now null).
+    projected: bool = False
+    missing_columns: list[str] = []
+    dropped_columns: list[str] = []
+    incompatible_columns: list[str] = []
 
 
 AsOfStatus = Literal["current", "snapshot", "no_history"]
@@ -77,6 +88,22 @@ def _pascal_case(value: str) -> str:
 
 def _row_model(model_name: str, relation_name: str):
     return build_row_model(model_name, PUBLICATION_RELATIONS[relation_name].columns)
+
+
+# Snapshotted publications serve rows captured under older mart columns. Those
+# rows are projected onto the current columns (see ``_rows_as_of``), so a
+# column added since reads as null; the snapshot row model allows that.
+SNAPSHOT_ROW_MODELS: dict[str, type[BaseModel]] = {}
+
+
+def _as_of_row_type(relation_name: str, row_model: type[BaseModel]) -> Any:
+    """Rows of a current read, or of a snapshot projected onto today's columns."""
+    snapshot_name = row_model.__name__.removesuffix("Row") + "SnapshotRow"
+    snapshot_model = build_row_model(
+        snapshot_name, PUBLICATION_RELATIONS[relation_name].columns, nullable=True
+    )
+    SNAPSHOT_ROW_MODELS[relation_name] = snapshot_model
+    return build_row_union_type([row_model, snapshot_model])
 
 
 MONTHLY_CASHFLOW_ROW_MODEL = _row_model("MonthlyCashflowRow", "mart_monthly_cashflow")
@@ -233,7 +260,12 @@ MONTHLY_CASHFLOW_BY_COUNTERPARTY_RESPONSE_MODEL = build_rows_response_model(
 )
 SUBSCRIPTION_SUMMARY_RESPONSE_MODEL = build_rows_response_model(
     "SubscriptionSummaryResponse",
-    build_row_model("SubscriptionSummaryRow", PUBLICATION_RELATIONS["mart_subscription_summary"].columns),
+    _as_of_row_type(
+        "mart_subscription_summary",
+        build_row_model(
+            "SubscriptionSummaryRow", PUBLICATION_RELATIONS["mart_subscription_summary"].columns
+        ),
+    ),
     {"status": (str | None, None), "currency": (str | None, None), **AS_OF_RESPONSE_FIELDS},
 )
 CONTRACT_PRICE_CURRENT_RESPONSE_MODEL = build_rows_response_model(
@@ -340,7 +372,7 @@ COST_TREND_RESPONSE_MODEL = build_rows_response_model(
 )
 HOUSEHOLD_OVERVIEW_RESPONSE_MODEL = build_rows_response_model(
     "HouseholdOverviewResponse",
-    HOUSEHOLD_OVERVIEW_ROW_MODEL,
+    _as_of_row_type("mart_household_overview", HOUSEHOLD_OVERVIEW_ROW_MODEL),
     AS_OF_RESPONSE_FIELDS,
 )
 HOMELAB_ROI_RESPONSE_MODEL = build_rows_response_model(
@@ -349,12 +381,12 @@ HOMELAB_ROI_RESPONSE_MODEL = build_rows_response_model(
 )
 ATTENTION_ITEMS_RESPONSE_MODEL = build_rows_response_model(
     "AttentionItemsResponse",
-    ATTENTION_ITEMS_ROW_MODEL,
+    _as_of_row_type("mart_open_attention_items", ATTENTION_ITEMS_ROW_MODEL),
     AS_OF_RESPONSE_FIELDS,
 )
 RECENT_CHANGES_RESPONSE_MODEL = build_rows_response_model(
     "RecentChangesResponse",
-    RECENT_CHANGES_ROW_MODEL,
+    _as_of_row_type("mart_recent_significant_changes", RECENT_CHANGES_ROW_MODEL),
     AS_OF_RESPONSE_FIELDS,
 )
 OPERATING_BASELINE_RESPONSE_MODEL = build_rows_response_model(
@@ -363,12 +395,12 @@ OPERATING_BASELINE_RESPONSE_MODEL = build_rows_response_model(
 )
 AFFORDABILITY_RATIOS_RESPONSE_MODEL = build_rows_response_model(
     "AffordabilityRatiosResponse",
-    AFFORDABILITY_RATIOS_ROW_MODEL,
+    _as_of_row_type("mart_affordability_ratios", AFFORDABILITY_RATIOS_ROW_MODEL),
     AS_OF_RESPONSE_FIELDS,
 )
 RECURRING_COST_BASELINE_RESPONSE_MODEL = build_rows_response_model(
     "RecurringCostBaselineResponse",
-    RECURRING_COST_BASELINE_ROW_MODEL,
+    _as_of_row_type("mart_recurring_cost_baseline", RECURRING_COST_BASELINE_ROW_MODEL),
     AS_OF_RESPONSE_FIELDS,
 )
 CATEGORY_RULES_RESPONSE_MODEL = build_rows_response_model(
@@ -492,6 +524,27 @@ class SpendHeatmapResponse(BaseModel):
     publications: list[str]
 
 
+def _null_incompatible_values(relation_name: str, rows: list[dict[str, Any]]) -> list[str]:
+    """Null values a snapshot holds that the current column type rejects.
+
+    Returns the affected columns. Rows are changed in place.
+    """
+    model = SNAPSHOT_ROW_MODELS.get(relation_name)
+    if model is None:
+        return []
+    incompatible: set[str] = set()
+    for row in rows:
+        try:
+            model.model_validate(row)
+        except ValidationError as error:
+            for detail in error.errors():
+                column = detail["loc"][0] if detail["loc"] else None
+                if isinstance(column, str) and column in row:
+                    row[column] = None
+                    incompatible.add(column)
+    return sorted(incompatible)
+
+
 def register_report_routes(
     app: FastAPI,
     *,
@@ -522,11 +575,21 @@ def register_report_routes(
         if snapshot is None:
             return {"rows": [], "as_of": as_of, "as_of_status": "no_history", "snapshot": None}
         rows = [row for row in snapshot.rows if row_filter is None or row_filter(row)]
+        projection = project_snapshot_rows(
+            rows, [name for name, _ in PUBLICATION_RELATIONS[relation_name].columns]
+        )
+        incompatible = _null_incompatible_values(relation_name, projection.rows)
         return {
-            "rows": rows,
+            "rows": projection.rows,
             "as_of": as_of,
             "as_of_status": "snapshot",
-            "snapshot": snapshot.metadata(),
+            "snapshot": {
+                **snapshot.metadata(),
+                "projected": projection.projected or bool(incompatible),
+                "missing_columns": list(projection.missing_columns),
+                "dropped_columns": list(projection.dropped_columns),
+                "incompatible_columns": incompatible,
+            },
         }
 
     @app.get("/reports/monthly-cashflow", response_model=MONTHLY_CASHFLOW_RESPONSE_MODEL)

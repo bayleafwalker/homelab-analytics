@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from packages.pipelines.reporting_snapshots import (
     SNAPSHOT_PUBLICATIONS,
     SNAPSHOT_TABLE,
     is_reference_month,
+    project_snapshot_rows,
 )
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
@@ -367,3 +369,78 @@ def test_subscription_summary_as_of_applies_filters(tmp_path: Path) -> None:
     ).json()
     assert filtered["as_of_status"] == "snapshot"
     assert filtered["rows"] == []
+
+
+# Snapshots captured before a mart column change
+# ---------------------------------------------------------------------------
+
+
+def _rewrite_snapshot_rows(ts: TransformationService, publication_key: str, edit) -> None:
+    """Stand in for a snapshot captured under an older mart schema."""
+    (row,) = ts.store.fetchall(
+        f"SELECT rows_json FROM {SNAPSHOT_TABLE} WHERE publication_key = ?",
+        [publication_key],
+    )
+    rows = [edit(dict(item)) for item in json.loads(row[0])]
+    ts.store.execute(
+        f"UPDATE {SNAPSHOT_TABLE} SET rows_json = ? WHERE publication_key = ?",
+        [json.dumps(rows), publication_key],
+    )
+
+
+def test_project_snapshot_rows_fits_rows_to_current_columns() -> None:
+    projection = project_snapshot_rows(
+        [{"a": 1, "old": "x"}, {"a": 2, "b": 3, "old": "y"}], ["a", "b"]
+    )
+    assert projection.rows == [{"a": 1, "b": None}, {"a": 2, "b": 3}]
+    assert projection.missing_columns == ("b",)
+    assert projection.dropped_columns == ("old",)
+    assert projection.projected is True
+
+    exact = project_snapshot_rows([{"a": 1, "b": 2}], ["a", "b"])
+    assert exact.projected is False
+    assert exact.rows == [{"a": 1, "b": 2}]
+
+
+def test_as_of_read_of_a_pre_change_snapshot_is_projected(tmp_path: Path) -> None:
+    client, ts = _client(tmp_path)
+    _seed_snapshot(ts, "2026-04")
+
+    def older_schema(row: dict) -> dict:
+        # A NOT NULL column the mart gained later, a column it has since
+        # dropped, and a value whose column type changed.
+        row.pop("currency")
+        row["legacy_score"] = 7
+        row["account_balance_direction"] = {"was": "an object"}
+        return row
+
+    _rewrite_snapshot_rows(ts, "mart_household_overview", older_schema)
+
+    response = client.get("/reports/household-overview", params={"as_of": "2026-04"})
+
+    assert response.status_code == 200
+    body = response.json()
+    row = body["rows"][0]
+    assert row["currency"] is None
+    assert row["account_balance_direction"] is None
+    assert "legacy_score" not in row
+    assert row["current_month"] == "2026-04"
+    snapshot = body["snapshot"]
+    assert snapshot["projected"] is True
+    assert snapshot["missing_columns"] == ["currency"]
+    assert snapshot["dropped_columns"] == ["legacy_score"]
+    assert snapshot["incompatible_columns"] == ["account_balance_direction"]
+
+
+def test_as_of_read_of_a_current_shape_snapshot_is_not_flagged(tmp_path: Path) -> None:
+    client, ts = _client(tmp_path)
+    _seed_snapshot(ts, "2026-04")
+
+    snapshot = client.get(
+        "/reports/attention-items", params={"as_of": "2026-04"}
+    ).json()["snapshot"]
+
+    assert snapshot["projected"] is False
+    assert snapshot["missing_columns"] == []
+    assert snapshot["dropped_columns"] == []
+    assert snapshot["incompatible_columns"] == []
