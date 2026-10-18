@@ -1,0 +1,170 @@
+/* State panels (empty / stale / error / loading) and standalone pages. */
+
+.statePanel {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  border: 1px dashed var(--line-strong);
+  background: rgba(255, 250, 241, 0.7);
+}
+
+.statePanel[data-compact="true"] {
+  padding: 12px 14px;
+}
+
+.statePanel[data-tone="error"] {
+  border-style: solid;
+  border-color: rgba(209, 73, 91, 0.45);
+  background: rgba(209, 73, 91, 0.06);
+}
+
+.statePanel[data-tone="stale"] {
+  border-style: solid;
+  border-color: rgba(201, 106, 61, 0.45);
+  background: rgba(201, 106, 61, 0.07);
+}
+
+.stateMarker {
+  width: 10px;
+  height: 10px;
+  margin-top: 6px;
+  border-radius: 50%;
+  border: 2px solid var(--muted);
+}
+
+.statePanel[data-tone="error"] .stateMarker {
+  border-color: var(--warn);
+  background: var(--warn);
+}
+
+.statePanel[data-tone="stale"] .stateMarker {
+  border-color: var(--accent-warm);
+  background: var(--accent-warm);
+}
+
+.statePanel[data-tone="loading"] .stateMarker {
+  border-color: var(--accent);
+}
+
+.stateTitle {
+  margin: 0;
+  font-weight: 700;
+}
+
+.stateText {
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: 68ch;
+}
+
+.stateText p {
+  margin: 0.3rem 0 0;
+}
+
+.stateActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.stateActions .primaryButton,
+.stateActions .ghostButton {
+  padding: 0.55rem 0.95rem;
+  font-size: 0.9rem;
+}
+
+.skeleton {
+  display: grid;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.skeletonLine {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(19, 40, 51, 0.08);
+}
+
+.standalonePage {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 56px 16px;
+  display: grid;
+  gap: 24px;
+}
+
+.standalonePage details {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.standalonePage code {
+  word-break: break-word;
+}
+
+/* Lineage viewer (/control/lineage) */
+.lineagePicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.lineagePicker label {
+  font-weight: 700;
+}
+
+.lineagePicker input {
+  flex: 1 1 260px;
+  font: inherit;
+  padding: 0.6rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: white;
+}
+
+.subnav + .lineagePickerPanel {
+  margin-top: 18px;
+}
+
+.lineagePickerPanel + .statePanel,
+.lineagePickerPanel + .panel {
+  margin-top: 18px;
+}
+
+.lineageGroup {
+  margin-top: 18px;
+}
+
+.lineageGroup h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.lineageList,
+.lineageEdges {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.lineageNode {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.5);
+  overflow-wrap: anywhere;
+}
+
+.lineageEdges {
+  margin-top: 6px;
+  padding-left: 12px;
+  font-size: 0.9rem;
+}

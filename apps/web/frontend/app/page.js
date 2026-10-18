@@ -5,6 +5,8 @@ import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { ONBOARDING_SOURCES } from "@/lib/onboarding-sources";
 import { SparklineChart } from "@/components/sparkline-chart";
 import { stateIndicatorBadge } from "@/lib/state-indicators";
+import { StatePanel } from "@/components/state-panel";
+import { formatMoney, formatMonth, monthsBetween } from "@/lib/format";
 import {
   getAffordabilityRatios,
   getAttentionItems,
@@ -34,9 +36,17 @@ export default async function DashboardPage() {
       getUtilityCostTrend(),
       getAffordabilityRatios(),
       getRecurringCostBaseline(),
-      getSourceFreshness(),
+      // Source freshness is an admin control-plane read; other roles get the
+      // checklist without per-source freshness instead of a failed page.
+      user?.role === "admin" ? getSourceFreshness() : Promise.resolve([]),
     ]);
   const latest = cashflowRows.at(-1);
+  const currency = overview?.currency || null;
+  const money = (value) => formatMoney(value, currency);
+  const now = new Date();
+  const dataLagMonths = latest
+    ? monthsBetween(latest.booking_month, `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`)
+    : null;
 
   // Top-5 categories for current month
   const latestMonth = latest?.booking_month;
@@ -103,48 +113,56 @@ export default async function DashboardPage() {
     <AppShell
       currentPath="/"
       user={user}
-      title="Homelab Analytics"
-      eyebrow="API-Backed Dashboard"
-      lede="A minimal Next.js shell over the reporting and run APIs. The web workload no longer computes or reads reporting data directly."
+      title="Dashboard"
+      eyebrow="Household overview"
+      lede="This month's money, commitments and the things that need a decision."
     >
       <section className="hero">
-        <article className="panel heroCard">
-          <div className="eyebrow">Household Overview</div>
-          {overview ? (
+        <article className="panel heroCard heroCardMoney">
+          <div className="eyebrow">{overview?.current_month ? formatMonth(overview.current_month) : "No month published yet"}</div>
+          {overview && overview.cashflow_net != null ? (
             <>
               <h1>
-                {overview.net != null
-                  ? `Net ${overview.net}`
-                  : "Dashboard and control-plane visibility from one API surface."}
+                {Number(overview.cashflow_net) >= 0 ? "Kept " : "Overspent "}
+                {formatMoney(Math.abs(Number(overview.cashflow_net)), currency)}
               </h1>
-              <div className="heroCopy muted">
-                {overview.income != null && (
-                  <span>Income: {overview.income} &nbsp;·&nbsp; </span>
-                )}
-                {overview.expense != null && (
-                  <span>Expense: {overview.expense}</span>
-                )}
-              </div>
+              <p className="heroCopy muted">
+                {money(overview.cashflow_income)} came in and {money(overview.cashflow_expense)} went out.
+                Recurring subscriptions add {money(overview.subscription_total_monthly)} a month.
+              </p>
+              <p className="heroCopy">
+                <Link className="inlineLink" href={`/cashflow?m=${overview.current_month}`}>
+                  See where the money went
+                </Link>
+              </p>
             </>
           ) : (
             <>
-              <h1>Dashboard and control-plane visibility from one API surface.</h1>
+              <h1>No household figures yet.</h1>
               <p className="heroCopy muted">
-                The current slice keeps the UI intentionally narrow: recent runs,
-                monthly cashflow, and authenticated navigation built entirely on the API.
+                Upload an account statement and the dashboard fills in from the published reporting layer.
+              </p>
+              <p className="heroCopy">
+                <Link className="inlineLink" href="/upload">Upload a statement</Link>
               </p>
             </>
           )}
         </article>
-        <aside className="panel heroMetric">
-          <div className="eyebrow">Latest Net</div>
-          <div className="value">{latest ? latest.net : "No successful imports yet."}</div>
-          <div className="muted">
-            {latest
-              ? `${latest.booking_month} / ${latest.transaction_count} rows`
-              : "Import a valid dataset to populate the reporting layer."}
-          </div>
-        </aside>
+        <section className="panel heroMetric" aria-label="Data through">
+          <div className="eyebrow">Data through</div>
+          <div className="value">{latest ? formatMonth(latest.booking_month, { short: true }) : "No imports yet"}</div>
+          {latest && dataLagMonths > 1 ? (
+            <StatePanel tone="stale" compact title={`${dataLagMonths} months behind`}>
+              <p>Figures stop at {formatMonth(latest.booking_month)}. Upload newer statements to catch up.</p>
+            </StatePanel>
+          ) : (
+            <div className="muted">
+              {latest
+                ? `${latest.transaction_count} transactions in the latest month.`
+                : "Import a statement to populate the reporting layer."}
+            </div>
+          )}
+        </section>
       </section>
 
       <OnboardingChecklist freshDatasets={freshDatasetNames} nextSuggestion={nextSuggestion} />
@@ -152,15 +170,15 @@ export default async function DashboardPage() {
       <section className="cards">
         <article className="panel metricCard">
           <div className="metricLabel">Income</div>
-          <div className="metricValue">{latest ? latest.income : "No data"}</div>
+          <div className="metricValue numMono">{latest ? money(latest.income) : "No data"}</div>
         </article>
         <article className="panel metricCard">
           <div className="metricLabel">Expense</div>
-          <div className="metricValue">{latest ? latest.expense : "No data"}</div>
+          <div className="metricValue numMono">{latest ? money(latest.expense) : "No data"}</div>
         </article>
         <article className="panel metricCard">
           <div className="metricLabel">Net</div>
-          <div className="metricValue">{latest ? latest.net : "No data"}</div>
+          <div className="metricValue numMono">{latest ? money(latest.net) : "No data"}</div>
         </article>
       </section>
 
@@ -211,7 +229,7 @@ export default async function DashboardPage() {
                   <tr key={i}>
                     <td>{row.cost_source}</td>
                     <td>{row.counterparty_or_contract}</td>
-                    <td>{Number(row.monthly_amount).toFixed(2)} {row.currency}</td>
+                    <td className="numMono">{formatMoney(row.monthly_amount, row.currency)}</td>
                     <td><span className="muted">{row.confidence}</span></td>
                   </tr>
                 ))}
@@ -244,7 +262,7 @@ export default async function DashboardPage() {
               {categoryTotals.map((c) => (
                 <li key={c.category} style={{ display: "flex", justifyContent: "space-between" }}>
                   <span>{c.category}</span>
-                  <span className="muted">{c.total.toFixed(2)}</span>
+                  <span className="muted numMono">{money(c.total)}</span>
                 </li>
               ))}
             </ul>
@@ -254,7 +272,7 @@ export default async function DashboardPage() {
         <article className="panel section">
           <div className="eyebrow">Utilities</div>
           <h3 style={{ margin: "4px 0 4px" }}>
-            {latestUtilityMonth ? `${latestUtilityMonth}: ${utilityLatestTotal.toFixed(2)}` : "No data"}
+            {latestUtilityMonth ? `${formatMonth(latestUtilityMonth, { short: true })}: ${money(utilityLatestTotal)}` : "No data"}
           </h3>
           {utilityDelta !== null && (
             <div className="muted" style={{ fontSize: "0.85rem" }}>
@@ -266,7 +284,7 @@ export default async function DashboardPage() {
         <article className="panel section">
           <div className="eyebrow">Recurring Costs</div>
           <h3 style={{ margin: "4px 0 4px" }}>
-            {subscriptions.length > 0 ? `${recurringTotal.toFixed(2)} / mo` : "No data"}
+            {subscriptions.length > 0 ? `${money(recurringTotal)} / mo` : "No data"}
           </h3>
           <div className="muted" style={{ fontSize: "0.85rem" }}>
             {subscriptions.filter((r) => r.status === "active").length} active subscriptions
@@ -300,9 +318,9 @@ export default async function DashboardPage() {
                   {cashflowRows.map((row) => (
                     <tr key={row.booking_month}>
                       <td>{row.booking_month}</td>
-                      <td>{row.income}</td>
-                      <td>{row.expense}</td>
-                      <td>{row.net}</td>
+                      <td className="numMono">{money(row.income)}</td>
+                      <td className="numMono">{money(row.expense)}</td>
+                      <td className="numMono">{money(row.net)}</td>
                       <td>{row.transaction_count}</td>
                     </tr>
                   ))}

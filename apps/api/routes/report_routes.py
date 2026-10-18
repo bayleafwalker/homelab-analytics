@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 import packages.application.use_cases.category_management as category_management
 from apps.api.response_models import (
@@ -13,6 +14,10 @@ from apps.api.response_models import (
     build_rows_response_model,
 )
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.cashflow_map import (
+    build_cashflow_map,
+    cashflow_map_window,
+)
 from packages.domains.finance.pipelines.category_rules import (
     CATEGORY_OVERRIDE_COLUMNS,
     CATEGORY_RULE_COLUMNS,
@@ -345,6 +350,74 @@ EXTENSION_REPORT_RESPONSE_MODEL = build_object_response_model(
     "ExtensionReportResponse",
     {"result": (Any, ...)},
 )
+
+
+class CashflowMapTrendPoint(BaseModel):
+    month: str
+    amount: str
+
+
+class CashflowMapNode(BaseModel):
+    id: str
+    label: str
+    column: int
+    kind: str
+    amount: str
+    share: float
+    transaction_count: int
+    members: list[str]
+    trend: list[CashflowMapTrendPoint]
+
+
+class CashflowMapLink(BaseModel):
+    source: str
+    target: str
+    amount: str
+
+
+class CashflowMapTransfer(BaseModel):
+    income_counterparty: str
+    expense_counterparty: str
+    amount: str
+
+
+class CashflowMapDisclosure(BaseModel):
+    code: str
+    severity: str
+    message: str
+
+
+class CashflowMapTotals(BaseModel):
+    income: str
+    expense: str
+    net: str
+    mapped_income: str
+    mapped_expense: str
+    kept: str
+    drawn_from_savings: str
+    transfers: str
+
+
+class CashflowMapProvenance(BaseModel):
+    publications: list[str]
+    data_through: str | None
+    transaction_count: int
+
+
+class CashflowMapResponse(BaseModel):
+    month: str | None
+    months_available: list[str]
+    previous_month: str | None
+    next_month: str | None
+    currency: str | None
+    include_transfers: bool
+    grouping: str
+    totals: CashflowMapTotals
+    nodes: list[CashflowMapNode]
+    links: list[CashflowMapLink]
+    transfers: list[CashflowMapTransfer]
+    disclosures: list[CashflowMapDisclosure]
+    provenance: CashflowMapProvenance
 
 
 def register_report_routes(
@@ -765,6 +838,50 @@ def register_report_routes(
         if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
         return {"rows": to_jsonable(resolved_reporting_service.get_household_overview())}
+
+    @app.get("/reports/cashflow-map", response_model=CashflowMapResponse)
+    async def get_cashflow_map(
+        month: str | None = None,
+        include_transfers: bool = False,
+    ) -> dict[str, Any]:
+        if resolved_reporting_service is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Cashflow map reporting requires a transformation service.",
+            )
+        if month is not None and (
+            len(month) != 7 or month[4] != "-" or not month.replace("-", "").isdigit()
+        ):
+            raise HTTPException(status_code=400, detail="month must be YYYY-MM")
+        monthly_rows = resolved_reporting_service.get_monthly_cashflow()
+        months = sorted(str(row["booking_month"]) for row in monthly_rows)
+        anchor_month = month if month in months else (months[-1] if months else None)
+        counterparty_rows: list[dict[str, Any]] = []
+        category_rows: list[dict[str, Any]] = []
+        if anchor_month is not None:
+            from_month, to_month = cashflow_map_window(anchor_month)
+            counterparty_rows = resolved_reporting_service.get_monthly_cashflow_by_counterparty(
+                from_month=to_month,
+                to_month=to_month,
+            )
+            category_rows = resolved_reporting_service.get_spend_by_category_monthly(
+                from_month=from_month,
+                to_month=to_month,
+            )
+        overview_rows = resolved_reporting_service.get_household_overview()
+        currency = next(
+            (str(row["currency"]) for row in overview_rows if row.get("currency")),
+            None,
+        )
+        payload = build_cashflow_map(
+            monthly_rows=monthly_rows,
+            counterparty_rows=counterparty_rows,
+            category_rows=category_rows,
+            month=month,
+            currency=currency,
+            include_transfers=include_transfers,
+        )
+        return cast(dict[str, Any], to_jsonable(payload))
 
     @app.get("/reports/homelab-roi", response_model=HOMELAB_ROI_RESPONSE_MODEL)
     async def get_homelab_roi() -> dict[str, Any]:

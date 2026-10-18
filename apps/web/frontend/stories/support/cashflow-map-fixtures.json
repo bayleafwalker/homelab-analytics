@@ -1,0 +1,1091 @@
+{
+ "demo": {
+  "month": "2025-12",
+  "months_available": [
+   "2025-01",
+   "2025-02",
+   "2025-03",
+   "2025-04",
+   "2025-05",
+   "2025-06",
+   "2025-07",
+   "2025-08",
+   "2025-09",
+   "2025-10",
+   "2025-11",
+   "2025-12"
+  ],
+  "previous_month": "2025-11",
+  "next_month": null,
+  "currency": "EUR",
+  "include_transfers": false,
+  "grouping": "counterparty",
+  "totals": {
+   "income": "4343.35",
+   "expense": "1868.37",
+   "net": "2474.98",
+   "mapped_income": "3200.00",
+   "mapped_expense": "725.02",
+   "kept": "2474.98",
+   "drawn_from_savings": "0.00",
+   "transfers": "1143.35"
+  },
+  "nodes": [
+   {
+    "id": "in:employer-corp",
+    "label": "Employer Corp",
+    "column": 0,
+    "kind": "income",
+    "amount": "3200.00",
+    "share": 1.0,
+    "transaction_count": 1,
+    "members": [],
+    "trend": []
+   },
+   {
+    "id": "pool",
+    "label": "Money in",
+    "column": 1,
+    "kind": "pool",
+    "amount": "3200.00",
+    "share": 1.0,
+    "transaction_count": 1,
+    "members": [],
+    "trend": []
+   },
+   {
+    "id": "bucket:regular",
+    "label": "Regular spending",
+    "column": 2,
+    "kind": "regular",
+    "amount": "725.02",
+    "share": 0.2266,
+    "transaction_count": 7,
+    "members": [],
+    "trend": []
+   },
+   {
+    "id": "out:supermarket-plus",
+    "label": "Supermarket Plus",
+    "column": 3,
+    "kind": "counterparty",
+    "amount": "253.00",
+    "share": 0.0791,
+    "transaction_count": 1,
+    "members": [],
+    "trend": [
+     {
+      "month": "2025-07",
+      "amount": "299.05"
+     },
+     {
+      "month": "2025-08",
+      "amount": "307.75"
+     },
+     {
+      "month": "2025-09",
+      "amount": "278.76"
+     },
+     {
+      "month": "2025-10",
+      "amount": "262.77"
+     },
+     {
+      "month": "2025-11",
+      "amount": "279.04"
+     },
+     {
+      "month": "2025-12",
+      "amount": "253.00"
+     }
+    ]
+   },
+   {
+    "id": "out:op-korttiyhti-oyj",
+    "label": "OP-Korttiyhtiö Oyj",
+    "column": 3,
+    "kind": "counterparty",
+    "amount": "229.37",
+    "share": 0.0717,
+    "transaction_count": 1,
+    "members": [],
+    "trend": [
+     {
+      "month": "2025-07",
+      "amount": "199.19"
+     },
+     {
+      "month": "2025-08",
+      "amount": "201.42"
+     },
+     {
+      "month": "2025-09",
+      "amount": "193.36"
+     },
+     {
+      "month": "2025-10",
+      "amount": "215.89"
+     },
+     {
+      "month": "2025-11",
+      "amount": "217.37"
+     },
+     {
+      "month": "2025-12",
+      "amount": "229.37"
+     }
+    ]
+   },
+   {
+    "id": "out:city-power",
+    "label": "City Power",
+    "column": 3,
+    "kind": "counterparty",
+    "amount": "86.18",
+    "share": 0.0269,
+    "transaction_count": 1,
+    "members": [],
+    "trend": [
+     {
+      "month": "2025-07",
+      "amount": "95.70"
+     },
+     {
+      "month": "2025-08",
+      "amount": "82.44"
+     },
+     {
+      "month": "2025-09",
+      "amount": "79.42"
+     },
+     {
+      "month": "2025-10",
+      "amount": "91.75"
+     },
+     {
+      "month": "2025-11",
+      "amount": "97.05"
+     },
+     {
+      "month": "2025-12",
+      "amount": "86.18"
+     }
+    ]
+   },
+   {
+    "id": "out:metro-transport",
+    "label": "Metro Transport",
+    "column": 3,
+    "kind": "counterparty",
+    "amount": "65.49",
+    "share": 0.0205,
+    "transaction_count": 1,
+    "members": [],
+    "trend": [
+     {
+      "month": "2025-07",
+      "amount": "67.47"
+     },
+     {
+      "month": "2025-08",
+      "amount": "58.83"
+     },
+     {
+      "month": "2025-09",
+      "amount": "54.25"
+     },
+     {
+      "month": "2025-10",
+      "amount": "67.91"
+     },
+     {
+      "month": "2025-11",
+      "amount": "56.53"
+     },
+     {
+      "month": "2025-12",
+      "amount": "65.49"
+     }
+    ]
+   },
+   {
+    "id": "out:restaurant-roma",
+    "label": "Restaurant Roma",
+    "column": 3,
+    "kind": "counterparty",
+    "amount": "52.05",
+    "share": 0.0163,
+    "transaction_count": 1,
+    "members": [],
+    "trend": [
+     {
+      "month": "2025-07",
+      "amount": "40.09"
+     },
+     {
+      "month": "2025-08",
+      "amount": "48.70"
+     },
+     {
+      "month": "2025-09",
+      "amount": "44.60"
+     },
+     {
+      "month": "2025-10",
+      "amount": "50.63"
+     },
+     {
+      "month": "2025-11",
+      "amount": "52.84"
+     },
+     {
+      "month": "2025-12",
+      "amount": "52.05"
+     }
+    ]
+   },
+   {
+    "id": "out:pharmacy-central",
+    "label": "Pharmacy Central",
+    "column": 3,
+    "kind": "counterparty",
+    "amount": "22.94",
+    "share": 0.0072,
+    "transaction_count": 1,
+    "members": [],
+    "trend": [
+     {
+      "month": "2025-07",
+      "amount": "23.26"
+     },
+     {
+      "month": "2025-08",
+      "amount": "23.88"
+     },
+     {
+      "month": "2025-09",
+      "amount": "26.03"
+     },
+     {
+      "month": "2025-10",
+      "amount": "18.41"
+     },
+     {
+      "month": "2025-11",
+      "amount": "25.66"
+     },
+     {
+      "month": "2025-12",
+      "amount": "22.94"
+     }
+    ]
+   },
+   {
+    "id": "out:netflix-inc",
+    "label": "Netflix Inc.",
+    "column": 3,
+    "kind": "counterparty",
+    "amount": "15.99",
+    "share": 0.005,
+    "transaction_count": 1,
+    "members": [],
+    "trend": [
+     {
+      "month": "2025-07",
+      "amount": "15.99"
+     },
+     {
+      "month": "2025-08",
+      "amount": "15.99"
+     },
+     {
+      "month": "2025-09",
+      "amount": "15.99"
+     },
+     {
+      "month": "2025-10",
+      "amount": "15.99"
+     },
+     {
+      "month": "2025-11",
+      "amount": "15.99"
+     },
+     {
+      "month": "2025-12",
+      "amount": "15.99"
+     }
+    ]
+   },
+   {
+    "id": "bucket:kept",
+    "label": "Kept",
+    "column": 2,
+    "kind": "kept",
+    "amount": "2474.98",
+    "share": 0.7734,
+    "transaction_count": 0,
+    "members": [],
+    "trend": []
+   }
+  ],
+  "links": [
+   {
+    "source": "in:employer-corp",
+    "target": "pool",
+    "amount": "3200.00"
+   },
+   {
+    "source": "pool",
+    "target": "bucket:regular",
+    "amount": "725.02"
+   },
+   {
+    "source": "bucket:regular",
+    "target": "out:supermarket-plus",
+    "amount": "253.00"
+   },
+   {
+    "source": "bucket:regular",
+    "target": "out:op-korttiyhti-oyj",
+    "amount": "229.37"
+   },
+   {
+    "source": "bucket:regular",
+    "target": "out:city-power",
+    "amount": "86.18"
+   },
+   {
+    "source": "bucket:regular",
+    "target": "out:metro-transport",
+    "amount": "65.49"
+   },
+   {
+    "source": "bucket:regular",
+    "target": "out:restaurant-roma",
+    "amount": "52.05"
+   },
+   {
+    "source": "bucket:regular",
+    "target": "out:pharmacy-central",
+    "amount": "22.94"
+   },
+   {
+    "source": "bucket:regular",
+    "target": "out:netflix-inc",
+    "amount": "15.99"
+   },
+   {
+    "source": "pool",
+    "target": "bucket:kept",
+    "amount": "2474.98"
+   }
+  ],
+  "transfers": [
+   {
+    "income_counterparty": "Demo Personal Household",
+    "expense_counterparty": "Demo Shared Household",
+    "amount": "978.27"
+   },
+   {
+    "income_counterparty": "Google Pay deposit by *8221",
+    "expense_counterparty": "Revolut Top Up",
+    "amount": "165.08"
+   }
+  ],
+  "disclosures": [
+   {
+    "code": "stale_data",
+    "severity": "warn",
+    "message": "The newest transactions are from 2025-12, 10 months ago. Upload a newer statement to bring the map up to date."
+   },
+   {
+    "code": "transfers_excluded",
+    "severity": "info",
+    "message": "2 matching in/out pair(s) totalling 1143.35 look like moves between your own accounts and are left out of the map."
+   },
+   {
+    "code": "uncategorised",
+    "severity": "info",
+    "message": "Spending isn't categorised yet, so the map shows payees. Add category rules to group them."
+   }
+  ],
+  "provenance": {
+   "publications": [
+    "mart_monthly_cashflow",
+    "mart_monthly_cashflow_by_counterparty",
+    "mart_spend_by_category_monthly"
+   ],
+   "data_through": "2025-12",
+   "transaction_count": 12
+  }
+ },
+ "categorised": {
+  "month": "2026-05",
+  "months_available": [
+   "2026-01",
+   "2026-02",
+   "2026-03",
+   "2026-04",
+   "2026-05"
+  ],
+  "previous_month": "2026-04",
+  "next_month": null,
+  "currency": "EUR",
+  "include_transfers": false,
+  "grouping": "category",
+  "totals": {
+   "income": "5178.12",
+   "expense": "3679.02",
+   "net": "1499.10",
+   "mapped_income": "5178.12",
+   "mapped_expense": "3679.02",
+   "kept": "1499.10",
+   "drawn_from_savings": "0.00",
+   "transfers": "0.00"
+  },
+  "nodes": [
+   {
+    "id": "in:employer-oy",
+    "label": "Employer Oy",
+    "column": 0,
+    "kind": "income",
+    "amount": "4820.00",
+    "share": 0.9308,
+    "transaction_count": 0,
+    "members": [],
+    "trend": []
+   },
+   {
+    "id": "in:freelance-client",
+    "label": "Freelance client",
+    "column": 0,
+    "kind": "income",
+    "amount": "320.00",
+    "share": 0.0618,
+    "transaction_count": 0,
+    "members": [],
+    "trend": []
+   },
+   {
+    "id": "in:bank-interest",
+    "label": "Bank interest",
+    "column": 0,
+    "kind": "income",
+    "amount": "38.12",
+    "share": 0.0074,
+    "transaction_count": 0,
+    "members": [],
+    "trend": []
+   },
+   {
+    "id": "pool",
+    "label": "Money in",
+    "column": 1,
+    "kind": "pool",
+    "amount": "5178.12",
+    "share": 1.0,
+    "transaction_count": 0,
+    "members": [],
+    "trend": []
+   },
+   {
+    "id": "bucket:regular",
+    "label": "Regular spending",
+    "column": 2,
+    "kind": "regular",
+    "amount": "2650.02",
+    "share": 0.5118,
+    "transaction_count": 24,
+    "members": [],
+    "trend": []
+   },
+   {
+    "id": "out:housing",
+    "label": "Housing",
+    "column": 3,
+    "kind": "category",
+    "amount": "1284.00",
+    "share": 0.248,
+    "transaction_count": 3,
+    "members": [],
+    "trend": [
+     {
+      "month": "2026-01",
+      "amount": "1284.00"
+     },
+     {
+      "month": "2026-02",
+      "amount": "1284.00"
+     },
+     {
+      "month": "2026-03",
+      "amount": "1284.00"
+     },
+     {
+      "month": "2026-04",
+      "amount": "1284.00"
+     },
+     {
+      "month": "2026-05",
+      "amount": "1284.00"
+     }
+    ]
+   },
+   {
+    "id": "out:groceries",
+    "label": "Groceries",
+    "column": 3,
+    "kind": "category",
+    "amount": "612.40",
+    "share": 0.1183,
+    "transaction_count": 3,
+    "members": [],
+    "trend": [
+     {
+      "month": "2026-01",
+      "amount": "612.40"
+     },
+     {
+      "month": "2026-02",
+      "amount": "612.40"
+     },
+     {
+      "month": "2026-03",
+      "amount": "612.40"
+     },
+     {
+      "month": "2026-04",
+      "amount": "612.40"
+     },
+     {
+      "month": "2026-05",
+      "amount": "612.40"
+     }
+    ]
+   },
+   {
+    "id": "out:dining-out",
+    "label": "Dining out",
+    "column": 3,
+    "kind": "category",
+    "amount": "207.35",
+    "share": 0.04,
+    "transaction_count": 3,
+    "members": [],
+    "trend": [
+     {
+      "month": "2026-01",
+      "amount": "207.35"
+     },
+     {
+      "month": "2026-02",
+      "amount": "207.35"
+     },
+     {
+      "month": "2026-03",
+      "amount": "207.35"
+     },
+     {
+      "month": "2026-04",
+      "amount": "207.35"
+     },
+     {
+      "month": "2026-05",
+      "amount": "207.35"
+     }
+    ]
+   },
+   {
+    "id": "out:utilities",
+    "label": "Utilities",
+    "column": 3,
+    "kind": "category",
+    "amount": "172.10",
+    "share": 0.0332,
+    "transaction_count": 3,
+    "members": [],
+    "trend": [
+     {
+      "month": "2026-01",
+      "amount": "172.10"
+     },
+     {
+      "month": "2026-02",
+      "amount": "172.10"
+     },
+     {
+      "month": "2026-03",
+      "amount": "172.10"
+     },
+     {
+      "month": "2026-04",
+      "amount": "172.10"
+     },
+     {
+      "month": "2026-05",
+      "amount": "172.10"
+     }
+    ]
+   },
+   {
+    "id": "out:transport",
+    "label": "Transport",
+    "column": 3,
+    "kind": "category",
+    "amount": "148.00",
+    "share": 0.0286,
+    "transaction_count": 3,
+    "members": [],
+    "trend": [
+     {
+      "month": "2026-01",
+      "amount": "148.00"
+     },
+     {
+      "month": "2026-02",
+      "amount": "148.00"
+     },
+     {
+      "month": "2026-03",
+      "amount": "148.00"
+     },
+     {
+      "month": "2026-04",
+      "amount": "148.00"
+     },
+     {
+      "month": "2026-05",
+      "amount": "148.00"
+     }
+    ]
+   },
+   {
+    "id": "out:gifts",
+    "label": "Gifts",
+    "column": 3,
+    "kind": "category",
+    "amount": "120.00",
+    "share": 0.0232,
+    "transaction_count": 3,
+    "members": [],
+    "trend": [
+     {
+      "month": "2026-01",
+      "amount": "120.00"
+     },
+     {
+      "month": "2026-02",
+      "amount": "120.00"
+     },
+     {
+      "month": "2026-03",
+      "amount": "120.00"
+     },
+     {
+      "month": "2026-04",
+      "amount": "120.00"
+     },
+     {
+      "month": "2026-05",
+      "amount": "120.00"
+     }
+    ]
+   },
+   {
+    "id": "out:other-regular",
+    "label": "Everything else (2)",
+    "column": 3,
+    "kind": "category",
+    "amount": "106.17",
+    "share": 0.0205,
+    "transaction_count": 6,
+    "members": [
+     "Subscriptions",
+     "Health"
+    ],
+    "trend": [
+     {
+      "month": "2026-01",
+      "amount": "106.17"
+     },
+     {
+      "month": "2026-02",
+      "amount": "106.17"
+     },
+     {
+      "month": "2026-03",
+      "amount": "106.17"
+     },
+     {
+      "month": "2026-04",
+      "amount": "106.17"
+     },
+     {
+      "month": "2026-05",
+      "amount": "106.17"
+     }
+    ]
+   },
+   {
+    "id": "bucket:occasional",
+    "label": "Occasional spending",
+    "column": 2,
+    "kind": "occasional",
+    "amount": "1029.00",
+    "share": 0.1987,
+    "transaction_count": 6,
+    "members": [],
+    "trend": []
+   },
+   {
+    "id": "out:travel",
+    "label": "Travel",
+    "column": 3,
+    "kind": "category",
+    "amount": "640.00",
+    "share": 0.1236,
+    "transaction_count": 3,
+    "members": [],
+    "trend": [
+     {
+      "month": "2026-01",
+      "amount": "0.00"
+     },
+     {
+      "month": "2026-02",
+      "amount": "0.00"
+     },
+     {
+      "month": "2026-03",
+      "amount": "0.00"
+     },
+     {
+      "month": "2026-04",
+      "amount": "0.00"
+     },
+     {
+      "month": "2026-05",
+      "amount": "640.00"
+     }
+    ]
+   },
+   {
+    "id": "out:garden",
+    "label": "Garden",
+    "column": 3,
+    "kind": "category",
+    "amount": "389.00",
+    "share": 0.0751,
+    "transaction_count": 3,
+    "members": [],
+    "trend": [
+     {
+      "month": "2026-01",
+      "amount": "0.00"
+     },
+     {
+      "month": "2026-02",
+      "amount": "0.00"
+     },
+     {
+      "month": "2026-03",
+      "amount": "0.00"
+     },
+     {
+      "month": "2026-04",
+      "amount": "0.00"
+     },
+     {
+      "month": "2026-05",
+      "amount": "389.00"
+     }
+    ]
+   },
+   {
+    "id": "bucket:kept",
+    "label": "Kept",
+    "column": 2,
+    "kind": "kept",
+    "amount": "1499.10",
+    "share": 0.2895,
+    "transaction_count": 0,
+    "members": [],
+    "trend": []
+   }
+  ],
+  "links": [
+   {
+    "source": "in:employer-oy",
+    "target": "pool",
+    "amount": "4820.00"
+   },
+   {
+    "source": "in:freelance-client",
+    "target": "pool",
+    "amount": "320.00"
+   },
+   {
+    "source": "in:bank-interest",
+    "target": "pool",
+    "amount": "38.12"
+   },
+   {
+    "source": "pool",
+    "target": "bucket:regular",
+    "amount": "2650.02"
+   },
+   {
+    "source": "bucket:regular",
+    "target": "out:housing",
+    "amount": "1284.00"
+   },
+   {
+    "source": "bucket:regular",
+    "target": "out:groceries",
+    "amount": "612.40"
+   },
+   {
+    "source": "bucket:regular",
+    "target": "out:dining-out",
+    "amount": "207.35"
+   },
+   {
+    "source": "bucket:regular",
+    "target": "out:utilities",
+    "amount": "172.10"
+   },
+   {
+    "source": "bucket:regular",
+    "target": "out:transport",
+    "amount": "148.00"
+   },
+   {
+    "source": "bucket:regular",
+    "target": "out:gifts",
+    "amount": "120.00"
+   },
+   {
+    "source": "bucket:regular",
+    "target": "out:other-regular",
+    "amount": "106.17"
+   },
+   {
+    "source": "pool",
+    "target": "bucket:occasional",
+    "amount": "1029.00"
+   },
+   {
+    "source": "bucket:occasional",
+    "target": "out:travel",
+    "amount": "640.00"
+   },
+   {
+    "source": "bucket:occasional",
+    "target": "out:garden",
+    "amount": "389.00"
+   },
+   {
+    "source": "pool",
+    "target": "bucket:kept",
+    "amount": "1499.10"
+   }
+  ],
+  "transfers": [],
+  "disclosures": [],
+  "provenance": {
+   "publications": [
+    "mart_monthly_cashflow",
+    "mart_monthly_cashflow_by_counterparty",
+    "mart_spend_by_category_monthly"
+   ],
+   "data_through": "2026-05",
+   "transaction_count": 41
+  }
+ },
+ "overspend": {
+  "month": "2026-03",
+  "months_available": [
+   "2026-03"
+  ],
+  "previous_month": null,
+  "next_month": null,
+  "currency": "EUR",
+  "include_transfers": false,
+  "grouping": "counterparty",
+  "totals": {
+   "income": "2100.00",
+   "expense": "2950.00",
+   "net": "-850.00",
+   "mapped_income": "2100.00",
+   "mapped_expense": "2950.00",
+   "kept": "0.00",
+   "drawn_from_savings": "850.00",
+   "transfers": "0.00"
+  },
+  "nodes": [
+   {
+    "id": "in:employer-oy",
+    "label": "Employer Oy",
+    "column": 0,
+    "kind": "income",
+    "amount": "2100.00",
+    "share": 0.7119,
+    "transaction_count": 0,
+    "members": [],
+    "trend": []
+   },
+   {
+    "id": "in:savings",
+    "label": "Drawn from savings",
+    "column": 0,
+    "kind": "savings_draw",
+    "amount": "850.00",
+    "share": 0.2881,
+    "transaction_count": 0,
+    "members": [],
+    "trend": []
+   },
+   {
+    "id": "pool",
+    "label": "Money in",
+    "column": 1,
+    "kind": "pool",
+    "amount": "2950.00",
+    "share": 1.0,
+    "transaction_count": 0,
+    "members": [],
+    "trend": []
+   },
+   {
+    "id": "bucket:spending",
+    "label": "Spending",
+    "column": 2,
+    "kind": "spending",
+    "amount": "2950.00",
+    "share": 1.0,
+    "transaction_count": 9,
+    "members": [],
+    "trend": []
+   },
+   {
+    "id": "out:car-repair-shop",
+    "label": "Car repair shop",
+    "column": 3,
+    "kind": "counterparty",
+    "amount": "1800.00",
+    "share": 0.6102,
+    "transaction_count": 1,
+    "members": [],
+    "trend": [
+     {
+      "month": "2026-03",
+      "amount": "1800.00"
+     }
+    ]
+   },
+   {
+    "id": "out:supermarket",
+    "label": "Supermarket",
+    "column": 3,
+    "kind": "counterparty",
+    "amount": "1150.00",
+    "share": 0.3898,
+    "transaction_count": 8,
+    "members": [],
+    "trend": [
+     {
+      "month": "2026-03",
+      "amount": "1150.00"
+     }
+    ]
+   }
+  ],
+  "links": [
+   {
+    "source": "in:employer-oy",
+    "target": "pool",
+    "amount": "2100.00"
+   },
+   {
+    "source": "in:savings",
+    "target": "pool",
+    "amount": "850.00"
+   },
+   {
+    "source": "pool",
+    "target": "bucket:spending",
+    "amount": "2950.00"
+   },
+   {
+    "source": "bucket:spending",
+    "target": "out:car-repair-shop",
+    "amount": "1800.00"
+   },
+   {
+    "source": "bucket:spending",
+    "target": "out:supermarket",
+    "amount": "1150.00"
+   }
+  ],
+  "transfers": [],
+  "disclosures": [
+   {
+    "code": "uncategorised",
+    "severity": "info",
+    "message": "Spending isn't categorised yet, so the map shows payees. Add category rules to group them."
+   },
+   {
+    "code": "short_history",
+    "severity": "info",
+    "message": "Telling regular from occasional spending needs 4 months of history; all spending is shown together."
+   }
+  ],
+  "provenance": {
+   "publications": [
+    "mart_monthly_cashflow",
+    "mart_monthly_cashflow_by_counterparty",
+    "mart_spend_by_category_monthly"
+   ],
+   "data_through": "2026-03",
+   "transaction_count": 9
+  }
+ },
+ "empty": {
+  "month": null,
+  "months_available": [],
+  "previous_month": null,
+  "next_month": null,
+  "currency": null,
+  "include_transfers": false,
+  "grouping": "counterparty",
+  "totals": {
+   "income": "0.00",
+   "expense": "0.00",
+   "net": "0.00",
+   "mapped_income": "0.00",
+   "mapped_expense": "0.00",
+   "kept": "0.00",
+   "drawn_from_savings": "0.00",
+   "transfers": "0.00"
+  },
+  "nodes": [],
+  "links": [],
+  "transfers": [],
+  "disclosures": [
+   {
+    "code": "no_data",
+    "severity": "info",
+    "message": "No account transactions have been published yet."
+   }
+  ],
+  "provenance": {
+   "publications": [
+    "mart_monthly_cashflow",
+    "mart_monthly_cashflow_by_counterparty",
+    "mart_spend_by_category_monthly"
+   ],
+   "data_through": null,
+   "transaction_count": 0
+  }
+ }
+}

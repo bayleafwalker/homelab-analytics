@@ -8,6 +8,7 @@ import { NumMono } from "./num-mono";
 import { Pill } from "./pill";
 import { Spark } from "./spark";
 import { stateIndicatorBadge } from "../lib/state-indicators";
+import { formatMoney } from "../lib/format";
 
 const ATTENTION_TONE = {
   1: { tone: "warn", label: "urgent" },
@@ -44,7 +45,7 @@ export function OperatingPictureView({
           <h1 className="heroNumber">
             {latestCashflow ? (
               <>
-                Net <NumMono>{latestCashflow.net}</NumMono>
+                Net <NumMono>{formatMoney(latestCashflow.net)}</NumMono>
               </>
             ) : (
               "No data"
@@ -171,7 +172,7 @@ export function OperatingPictureView({
                     <NumMono className="muted categoryDelta">
                       {c.delta === 0 ? "·" : `${c.delta > 0 ? "▲" : "▼"} ${Math.abs(c.delta).toFixed(1)}%`}
                     </NumMono>
-                    <NumMono style={{ fontWeight: 700 }}>{c.amount.toFixed(2)}</NumMono>
+                    <NumMono style={{ fontWeight: 700 }}>{formatMoney(c.amount)}</NumMono>
                   </div>
                 ))}
               </div>
@@ -195,8 +196,8 @@ export function OperatingPictureView({
                 <Pill tone="cool">{row.change_type}</Pill>
                 <span>{row.metric_name}</span>
                 <NumMono>
-                  {row.direction === "up" ? "▲" : "▼"} {row.current_value}
-                  {row.previous_value != null && <span className="muted"> / {row.previous_value}</span>}
+                  {row.direction === "up" ? "▲" : "▼"} {formatMoney(row.current_value)}
+                  {row.previous_value != null && <span className="muted"> / {formatMoney(row.previous_value)}</span>}
                 </NumMono>
                 <span className="muted">{row.booking_month || row.period_label || "—"}</span>
               </div>

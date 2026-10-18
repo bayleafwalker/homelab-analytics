@@ -1917,6 +1917,347 @@
         "title": "BudgetVarianceRow",
         "type": "object"
       },
+      "CashflowMapDisclosure": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "severity",
+          "message"
+        ],
+        "title": "CashflowMapDisclosure",
+        "type": "object"
+      },
+      "CashflowMapLink": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "amount"
+        ],
+        "title": "CashflowMapLink",
+        "type": "object"
+      },
+      "CashflowMapNode": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "column": {
+            "title": "Column",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "share": {
+            "title": "Share",
+            "type": "number"
+          },
+          "transaction_count": {
+            "title": "Transaction Count",
+            "type": "integer"
+          },
+          "trend": {
+            "items": {
+              "$ref": "#/components/schemas/CashflowMapTrendPoint"
+            },
+            "title": "Trend",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "column",
+          "kind",
+          "amount",
+          "share",
+          "transaction_count",
+          "members",
+          "trend"
+        ],
+        "title": "CashflowMapNode",
+        "type": "object"
+      },
+      "CashflowMapProvenance": {
+        "properties": {
+          "data_through": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Through"
+          },
+          "publications": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Publications",
+            "type": "array"
+          },
+          "transaction_count": {
+            "title": "Transaction Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "publications",
+          "data_through",
+          "transaction_count"
+        ],
+        "title": "CashflowMapProvenance",
+        "type": "object"
+      },
+      "CashflowMapResponse": {
+        "properties": {
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "disclosures": {
+            "items": {
+              "$ref": "#/components/schemas/CashflowMapDisclosure"
+            },
+            "title": "Disclosures",
+            "type": "array"
+          },
+          "grouping": {
+            "title": "Grouping",
+            "type": "string"
+          },
+          "include_transfers": {
+            "title": "Include Transfers",
+            "type": "boolean"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/CashflowMapLink"
+            },
+            "title": "Links",
+            "type": "array"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Month"
+          },
+          "months_available": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Months Available",
+            "type": "array"
+          },
+          "next_month": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Month"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/CashflowMapNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "previous_month": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Month"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/CashflowMapProvenance"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/CashflowMapTotals"
+          },
+          "transfers": {
+            "items": {
+              "$ref": "#/components/schemas/CashflowMapTransfer"
+            },
+            "title": "Transfers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "month",
+          "months_available",
+          "previous_month",
+          "next_month",
+          "currency",
+          "include_transfers",
+          "grouping",
+          "totals",
+          "nodes",
+          "links",
+          "transfers",
+          "disclosures",
+          "provenance"
+        ],
+        "title": "CashflowMapResponse",
+        "type": "object"
+      },
+      "CashflowMapTotals": {
+        "properties": {
+          "drawn_from_savings": {
+            "title": "Drawn From Savings",
+            "type": "string"
+          },
+          "expense": {
+            "title": "Expense",
+            "type": "string"
+          },
+          "income": {
+            "title": "Income",
+            "type": "string"
+          },
+          "kept": {
+            "title": "Kept",
+            "type": "string"
+          },
+          "mapped_expense": {
+            "title": "Mapped Expense",
+            "type": "string"
+          },
+          "mapped_income": {
+            "title": "Mapped Income",
+            "type": "string"
+          },
+          "net": {
+            "title": "Net",
+            "type": "string"
+          },
+          "transfers": {
+            "title": "Transfers",
+            "type": "string"
+          }
+        },
+        "required": [
+          "income",
+          "expense",
+          "net",
+          "mapped_income",
+          "mapped_expense",
+          "kept",
+          "drawn_from_savings",
+          "transfers"
+        ],
+        "title": "CashflowMapTotals",
+        "type": "object"
+      },
+      "CashflowMapTransfer": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "expense_counterparty": {
+            "title": "Expense Counterparty",
+            "type": "string"
+          },
+          "income_counterparty": {
+            "title": "Income Counterparty",
+            "type": "string"
+          }
+        },
+        "required": [
+          "income_counterparty",
+          "expense_counterparty",
+          "amount"
+        ],
+        "title": "CashflowMapTransfer",
+        "type": "object"
+      },
+      "CashflowMapTrendPoint": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month",
+          "amount"
+        ],
+        "title": "CashflowMapTrendPoint",
+        "type": "object"
+      },
       "CategoryDeleteResponse": {
         "properties": {
           "rule_id": {
@@ -16741,6 +17082,62 @@
           }
         },
         "summary": "Get Budget Variance"
+      }
+    },
+    "/reports/cashflow-map": {
+      "get": {
+        "operationId": "get_cashflow_map_reports_cashflow_map_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Month"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_transfers",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Transfers",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashflowMapResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Cashflow Map"
       }
     },
     "/reports/contract-prices": {

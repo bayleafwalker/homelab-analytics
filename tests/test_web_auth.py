@@ -1201,3 +1201,128 @@ def test_nextjs_frontend_exposes_agent_control_surface() -> None:
     assert "proposal-forbidden" in resolution
     assert "proposal-already-resolved" in page
     assert "proposal-forbidden" in page
+
+
+def _nav_model_hrefs(source: str) -> set[str]:
+    import re
+
+    return set(re.findall(r'href: "([^"]+)"', source))
+
+
+def test_default_shell_nav_registry_covers_every_top_level_route() -> None:
+    nav_model = (FRONTEND_ROOT / "lib" / "nav-model.js").read_text()
+    app_shell = (FRONTEND_ROOT / "components" / "app-shell.js").read_text()
+    palette = (FRONTEND_ROOT / "components" / "command-palette.js").read_text()
+
+    # One registry, rendered by the rail and the palette (ADR web-surface-shell-decision §4.2).
+    assert "navGroupsForUser" in app_shell
+    assert "paletteEntriesForUser" in app_shell
+    assert "function navItemsForUser" not in app_shell
+    assert "filterPaletteEntries" in palette
+    assert 'aria-label="Primary"' in app_shell
+    assert 'href="#main-content"' in app_shell
+
+    hrefs = _nav_model_hrefs(nav_model)
+    unlisted_block = nav_model.split("NAV_UNLISTED_ROUTES = {", 1)[1].split("};", 1)[0]
+    unlisted = {
+        line.split(":", 1)[0].strip().strip('"')
+        for line in unlisted_block.splitlines()
+        if ":" in line
+    }
+    missing = []
+    for child in sorted((FRONTEND_ROOT / "app").iterdir()):
+        if not child.is_dir():
+            continue
+        if f"/{child.name}" in hrefs or child.name in unlisted:
+            continue
+        missing.append(child.name)
+    assert missing == [], f"top-level routes without a nav entry: {missing}"
+    # Role visibility lives in the registry.
+    assert '{ href: "/control", label: "Control", group: "admin", minRole: "admin"' in nav_model
+    assert 'href: "/upload", label: "Upload", group: "data", minRole: "operator"' in nav_model
+
+
+def test_cashflow_map_page_reads_reporting_api_and_discloses_provenance() -> None:
+    page = (FRONTEND_ROOT / "app" / "cashflow" / "page.js").read_text()
+    sankey = (FRONTEND_ROOT / "components" / "cashflow-sankey.js").read_text()
+    backend = (FRONTEND_ROOT / "lib" / "backend.ts").read_text()
+
+    assert '"/reports/cashflow-map": "get_cashflow_map_reports_cashflow_map_get"' in backend
+    assert "export async function getCashflowMap" in backend
+    assert "getCashflowMap({ month: requestedMonth, includeTransfers })" in page
+    # Month and drill-down state live in the URL, not component state.
+    assert "searchParams?.m" in page
+    assert "searchParams?.focus" in page
+    assert "useState" not in page
+    assert '"use client"' not in page
+    # Honest disclosure: staleness, transfers, provenance and lineage.
+    assert 'tone="stale"' in page
+    assert "payload.provenance" in page
+    assert "getPublicationLineage" in page
+    assert "Show transfers between own accounts" in page
+    # Confidence detail is an admin read; other roles must not trigger it.
+    assert "isAdmin\n      ? Promise.all(publications.map((key) => safely(getPublicationConfidenceDetail(key))))" in page
+    # No chart library; readable alternative for narrow screens.
+    assert "d3" not in sankey
+    assert "export function CashflowFlowList" in sankey
+    assert "fetch(" not in page
+
+
+def test_wallboard_page_is_ambient_and_degrades_per_tile() -> None:
+    page = (FRONTEND_ROOT / "app" / "wallboard" / "page.js").read_text()
+    live = (FRONTEND_ROOT / "components" / "wallboard-live.js").read_text()
+    view = (FRONTEND_ROOT / "components" / "wallboard-view.js").read_text()
+    css = (FRONTEND_ROOT / "app" / "wallboard.css").read_text()
+
+    assert "await getCurrentUser()" in page
+    assert 'searchParams?.compact === "1"' in page
+    assert "optional(getHomelabServices(), [])" in page
+    assert "optional(getHaBridgeStatus(), null)" in page
+    assert "AppShell" not in page
+    # Refresh pauses when hidden or hovered; no streaming.
+    assert "router.refresh()" in live
+    assert "document.hidden" in live
+    assert "pointerenter" in live
+    assert "No services reporting" in view
+    # Mono only and readable from a distance.
+    assert "var(--retro-font-mono)" in css
+    assert "--font-display" not in css
+    import re
+
+    fixed_sizes = [int(size) for size in re.findall(r"font-size: (\d+)px", css)]
+    assert fixed_sizes and min(fixed_sizes) >= 18
+
+
+def test_control_lineage_page_reads_through_the_backend_helper() -> None:
+    page = (FRONTEND_ROOT / "app" / "control" / "lineage" / "page.js").read_text()
+    control_nav = (FRONTEND_ROOT / "components" / "control-nav.js").read_text()
+
+    # Server component over lib/backend.ts (ADR §4.3); no browser-relative fetches
+    # that split-origin deployments cannot route to the API.
+    assert "use client" not in page
+    assert "fetch(" not in page
+    assert "useEffect" not in page
+    assert "await getCurrentUser()" in page
+    assert "await getPublicationLineage(publicationKey)" in page
+    assert "searchParams?.publication_key" in page
+    assert 'tone="error"' in page
+    assert "No lineage recorded yet" in page
+    assert '{ href: "/control/lineage", label: "Lineage" }' in control_nav
+
+
+def test_default_shell_has_route_level_error_loading_and_not_found_states() -> None:
+    error_page = (FRONTEND_ROOT / "app" / "error.js").read_text()
+    not_found = (FRONTEND_ROOT / "app" / "not-found.js").read_text()
+    loading = (FRONTEND_ROOT / "app" / "loading.js").read_text()
+    state_panel = (FRONTEND_ROOT / "components" / "state-panel.js").read_text()
+    dashboard = (FRONTEND_ROOT / "app" / "page.js").read_text()
+
+    assert error_page.startswith('"use client"')
+    assert "reset()" in error_page
+    assert "Backend request failed for" in error_page
+    assert "StatePanel" in not_found
+    assert 'aria-busy="true"' in loading
+    for tone in ("empty", "stale", "error", "loading"):
+        assert tone in state_panel
+    # The dashboard no longer fails for non-admin roles on the admin-only freshness read.
+    assert 'user?.role === "admin" ? getSourceFreshness() : Promise.resolve([])' in dashboard

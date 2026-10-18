@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { OperatingPictureView } from "@/components/operating-picture-view";
+import { formatMoney, formatMonth } from "@/lib/format";
 import {
   getAffordabilityRatios,
   getAttentionItems,
@@ -63,12 +64,12 @@ function buildHeroSummary({ latestCashflow, recurringTotal, utilityDelta, prevUt
   }
   const net = Number(latestCashflow.net);
   const parts = [
-    `${latestCashflow.booking_month}: income ${latestCashflow.income} against expense ${latestCashflow.expense}, net ${
+    `${formatMonth(latestCashflow.booking_month)}: income ${formatMoney(latestCashflow.income)} against expense ${formatMoney(latestCashflow.expense)}, net ${
       net >= 0 ? "positive" : "negative"
     }.`,
   ];
   if (recurringTotal > 0) {
-    parts.push(`Recurring subscriptions add ${recurringTotal.toFixed(2)} per month.`);
+    parts.push(`Recurring subscriptions add ${formatMoney(recurringTotal)} per month.`);
   }
   if (utilityDelta !== null) {
     parts.push(

@@ -5,7 +5,10 @@ const CONTROL_ITEMS = [
   { href: "/control/catalog", label: "Catalog" },
   { href: "/control/execution", label: "Execution" },
   { href: "/control/policies", label: "Policies" },
-  { href: "/control/agents", label: "Agents" }
+  { href: "/control/agents", label: "Agents" },
+  { href: "/control/freshness", label: "Freshness" },
+  { href: "/control/confidence", label: "Confidence" },
+  { href: "/control/lineage", label: "Lineage" }
 ];
 
 export function ControlNav({ currentPath }) {
