@@ -6321,7 +6321,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "drafted" | "refreshed" | "reopened" | "approved" | "dismissed";
+            kind: "drafted" | "refreshed" | "reopened" | "approved" | "dismissed" | "release_failed";
             /** Reason */
             reason?: string | null;
         };

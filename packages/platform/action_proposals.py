@@ -10,7 +10,14 @@ Lifecycle: ``pending`` is the only non-terminal state. ``approve`` and
 resolution raises :class:`ProposalTransitionError` instead of silently
 flipping a decision the operator already made. Every transition appends a
 :class:`ProposalHistoryEvent` (drafted, refreshed, reopened, approved,
-dismissed) so the audit trail survives re-evaluation refreshes.
+dismissed, release_failed) so the audit trail survives re-evaluation refreshes.
+
+Adapter release: the resolution compare-and-set runs *before* the adapter
+releases anything (the HA notification, the HA service call), so of several
+racing resolvers only the winner releases. If that release fails, the winner
+compare-and-sets the proposal back to pending with a ``release_failed`` event
+(:meth:`ActionProposalRegistry.revert_failed_release`) so the operator can
+retry; nobody else can have released it in between.
 
 Persistence: the registry owns the lifecycle rules and delegates storage to an
 :class:`ActionProposalStore`. The control-plane repositories (SQLite and
@@ -48,7 +55,7 @@ ProposalStatus = Literal["pending", "approved", "dismissed"]
 ProposalSourceKind = Literal["policy", "assistant", "operator", "agent"]
 
 ProposalHistoryEventKind = Literal[
-    "drafted", "refreshed", "reopened", "approved", "dismissed"
+    "drafted", "refreshed", "reopened", "approved", "dismissed", "release_failed"
 ]
 ProvenanceTrustSource = Literal["server_stamped", "proposer_supplied"]
 
@@ -589,6 +596,42 @@ class ActionProposalRegistry:
         )
         if not self._store.update_action_proposal(
             proposal, expected_status="pending", event=event
+        ):
+            raise ProposalTransitionError(action_id, self._require(action_id).status)
+        return self._require(action_id)
+
+    def revert_failed_release(
+        self,
+        action_id: str,
+        resolution: Literal["approved", "dismissed"],
+        *,
+        reason: str,
+    ) -> ActionProposal:
+        """Return a just-resolved proposal to pending after its release failed.
+
+        Only the resolver that won the resolution compare-and-set calls this,
+        after the adapter (the HA dispatcher) failed to release the action.
+        The revert is itself a compare-and-set on ``resolution``, and appends
+        a ``release_failed`` event; the earlier ``approved`` / ``dismissed``
+        event stays in the append-only history. Raises
+        :class:`ProposalTransitionError` if the proposal is no longer in
+        ``resolution``.
+        """
+        proposal = self._require(action_id)
+        if proposal.status != resolution:
+            raise ProposalTransitionError(action_id, proposal.status)
+        proposal.status = "pending"
+        proposal.approved_at = None
+        proposal.dismissed_at = None
+        proposal.resolved_by = None
+        proposal.resolution_reason = None
+        event = ProposalHistoryEvent(
+            kind="release_failed",
+            at=_now_iso(),
+            reason=_clean_reason(reason),
+        )
+        if not self._store.update_action_proposal(
+            proposal, expected_status=resolution, event=event
         ):
             raise ProposalTransitionError(action_id, self._require(action_id).status)
         return self._require(action_id)

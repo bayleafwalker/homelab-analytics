@@ -33,8 +33,7 @@ from apps.api.routes.action_proposal_routes import (
     ProposalResolutionModel,
     register_draft,
     request_actor,
-    require_pending_proposal,
-    resolve_proposal,
+    resolve_and_release,
     resolver_identity,
 )
 from packages.pipelines.reporting_service import ReportingService, ScalarMetricSnapshot
@@ -347,17 +346,13 @@ def register_ha_routes(
     ) -> HaApprovalProposalModel:
         registry = _proposal_registry()
         resolver = resolver_identity(request)
-        proposal = require_pending_proposal(registry, action_id)
-        if ha_action_dispatcher is not None and proposal.adapter == ADAPTER_HOME_ASSISTANT:
-            record = await ha_action_dispatcher.resolve_approval(proposal, "approved")
-            if record.result == "failure":
-                raise HTTPException(status_code=502, detail="Failed to release approval notification.")
-        proposal = resolve_proposal(
+        proposal = await resolve_and_release(
             registry,
             action_id,
             "approved",
             resolver=resolver,
             reason=body.reason if body is not None else None,
+            ha_action_dispatcher=ha_action_dispatcher,
         )
         return HaApprovalProposalModel.model_validate(proposal.to_dict())
 
@@ -369,16 +364,12 @@ def register_ha_routes(
     ) -> HaApprovalProposalModel:
         registry = _proposal_registry()
         resolver = resolver_identity(request)
-        proposal = require_pending_proposal(registry, action_id)
-        if ha_action_dispatcher is not None and proposal.adapter == ADAPTER_HOME_ASSISTANT:
-            record = await ha_action_dispatcher.resolve_approval(proposal, "dismissed")
-            if record.result == "failure":
-                raise HTTPException(status_code=502, detail="Failed to release approval notification.")
-        proposal = resolve_proposal(
+        proposal = await resolve_and_release(
             registry,
             action_id,
             "dismissed",
             resolver=resolver,
             reason=body.reason if body is not None else None,
+            ha_action_dispatcher=ha_action_dispatcher,
         )
         return HaApprovalProposalModel.model_validate(proposal.to_dict())

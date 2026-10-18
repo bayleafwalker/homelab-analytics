@@ -25,6 +25,9 @@ cannot omit (or overstate) what its evidence looked like at draft time.
 Resolution rules (shared with the HA approval routes):
 
 - only ``pending`` proposals can be resolved; a second resolution is ``409``
+- the resolution compare-and-set runs before the HA release, so only the
+  winner of a race releases in HA; a failed release reverts the winner's
+  resolution to pending (``release_failed`` event) and answers ``502``
 - machine principals (service tokens, machine JWTs) may draft but never
   resolve a proposal (``403``) — approval is a human decision
 - approve/dismiss accept an optional ``{"reason": ...}`` body; the resolver,
@@ -79,7 +82,9 @@ class ProposalProvenanceModel(ProposalProvenanceInputModel):
 
 
 class ProposalHistoryEventModel(BaseModel):
-    kind: Literal["drafted", "refreshed", "reopened", "approved", "dismissed"]
+    kind: Literal[
+        "drafted", "refreshed", "reopened", "approved", "dismissed", "release_failed"
+    ]
     at: str
     actor: str | None = None
     reason: str | None = None
@@ -270,6 +275,54 @@ def resolve_proposal(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
+RELEASE_FAILED_REASON = "Releasing through the adapter failed; returned to pending for retry."
+
+
+async def resolve_and_release(
+    registry: ActionProposalRegistry,
+    action_id: str,
+    resolution: Literal["approved", "dismissed"],
+    *,
+    resolver: ProposalActor,
+    reason: str | None,
+    ha_action_dispatcher: Any | None,
+) -> ActionProposal:
+    """Resolve a proposal, then release it through its adapter.
+
+    The compare-and-set runs first, so of several resolvers racing on one
+    proposal (two tabs, two API replicas) exactly one wins and only that one
+    releases the HA approval notification; every loser gets ``409`` and never
+    touches HA. If the winner's release fails, it compare-and-sets the
+    proposal back to pending (a ``release_failed`` history event) and answers
+    ``502``, so the operator can retry, as before this reordering.
+    """
+    proposal = require_pending_proposal(registry, action_id)
+    proposal = resolve_proposal(
+        registry, action_id, resolution, resolver=resolver, reason=reason
+    )
+    # Only HA-adapter proposals carry an HA approval notification that must
+    # be released; other adapters resolve in-registry only.
+    if proposal.adapter != ADAPTER_HOME_ASSISTANT or ha_action_dispatcher is None:
+        return proposal
+    try:
+        record = await ha_action_dispatcher.resolve_approval(proposal, resolution)
+        failed = record.result == "failure"
+    except Exception:
+        failed = True
+    if failed:
+        try:
+            registry.revert_failed_release(
+                action_id, resolution, reason=RELEASE_FAILED_REASON
+            )
+        except (KeyError, ProposalTransitionError):
+            pass
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to release approval notification.",
+        )
+    return proposal
+
+
 def register_draft(registry: ActionProposalRegistry, **kwargs: Any) -> ActionProposal:
     """Draft through the API: never reopens a resolved proposal (``409``)."""
     try:
@@ -302,21 +355,6 @@ def register_action_proposal_routes(
 ) -> None:
     """Register the adapter-agnostic proposal queue routes."""
     known_publication_names: Mapping[str, str] = publication_names or {}
-
-    async def _release_through_adapter(
-        proposal: ActionProposal,
-        resolution: Literal["approved", "dismissed"],
-    ) -> None:
-        # Only HA-adapter proposals carry an HA approval notification that
-        # must be released; other adapters resolve in-registry only.
-        if proposal.adapter != ADAPTER_HOME_ASSISTANT or ha_action_dispatcher is None:
-            return
-        record = await ha_action_dispatcher.resolve_approval(proposal, resolution)
-        if record.result == "failure":
-            raise HTTPException(
-                status_code=502,
-                detail="Failed to release approval notification.",
-            )
 
     @app.get("/api/actions/proposals", response_model=ActionProposalListModel)
     async def list_action_proposals(
@@ -424,14 +462,13 @@ def register_action_proposal_routes(
         body: ProposalResolutionModel | None = None,
     ) -> ActionProposalModel:
         resolver = resolver_identity(request)
-        proposal = require_pending_proposal(action_proposal_registry, action_id)
-        await _release_through_adapter(proposal, "approved")
-        proposal = resolve_proposal(
+        proposal = await resolve_and_release(
             action_proposal_registry,
             action_id,
             "approved",
             resolver=resolver,
             reason=body.reason if body is not None else None,
+            ha_action_dispatcher=ha_action_dispatcher,
         )
         return ActionProposalModel.model_validate(proposal.to_dict())
 
@@ -445,13 +482,12 @@ def register_action_proposal_routes(
         body: ProposalResolutionModel | None = None,
     ) -> ActionProposalModel:
         resolver = resolver_identity(request)
-        proposal = require_pending_proposal(action_proposal_registry, action_id)
-        await _release_through_adapter(proposal, "dismissed")
-        proposal = resolve_proposal(
+        proposal = await resolve_and_release(
             action_proposal_registry,
             action_id,
             "dismissed",
             resolver=resolver,
             reason=body.reason if body is not None else None,
+            ha_action_dispatcher=ha_action_dispatcher,
         )
         return ActionProposalModel.model_validate(proposal.to_dict())
