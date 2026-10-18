@@ -34,7 +34,7 @@ const ERROR_COPY = {
   "proposal-missing":
     "That proposal does not exist. Check the link; resolved proposals stay listed under History.",
   "proposal-release-failed":
-    "Home Assistant did not accept the approval release, so the proposal stays pending.",
+    "Home Assistant did not accept the release, so the proposal was returned to pending (see its history). Try again once Home Assistant is reachable.",
   "proposal-resolution-failed": "Could not resolve the proposal."
 };
 

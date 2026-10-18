@@ -102,7 +102,15 @@ class EndpointCaller(Protocol):
 class HttpEndpointCaller:
     """EndpointCaller over HTTP for a running API instance."""
 
-    def __init__(self, base_url: str, *, bearer_token: str | None = None) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        bearer_token: str | None = None,
+        client: Any | None = None,
+    ) -> None:
+        """``client`` injects a pre-built ``httpx.Client`` (tests pass an ASGI
+        test client); otherwise one is created for ``base_url``."""
         try:
             import httpx
         except ImportError as exc:  # pragma: no cover - httpx is a declared dependency
@@ -112,7 +120,12 @@ class HttpEndpointCaller:
         headers = {}
         if bearer_token:
             headers["Authorization"] = f"Bearer {bearer_token}"
-        self._client = httpx.Client(base_url=base_url, headers=headers, timeout=30.0)
+        if client is None:
+            self._client = httpx.Client(base_url=base_url, headers=headers, timeout=30.0)
+        else:
+            client.base_url = base_url
+            client.headers.update(headers)
+            self._client = client
 
     def call(
         self,
@@ -528,7 +541,13 @@ def serve_stdio(
             stdout.flush()
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(
+    argv: list[str] | None = None,
+    *,
+    stdin: TextIO | None = None,
+    stdout: TextIO | None = None,
+    http_client: Any | None = None,
+) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--base-url",
@@ -542,9 +561,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     server = AgentMcpServer(
-        HttpEndpointCaller(args.base_url, bearer_token=args.bearer_token)
+        HttpEndpointCaller(
+            args.base_url, bearer_token=args.bearer_token, client=http_client
+        )
     )
-    serve_stdio(server, stdin=sys.stdin, stdout=sys.stdout)
+    serve_stdio(
+        server,
+        stdin=stdin if stdin is not None else sys.stdin,
+        stdout=stdout if stdout is not None else sys.stdout,
+    )
     return 0
 
 

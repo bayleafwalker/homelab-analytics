@@ -147,6 +147,36 @@ class PayloadValidatorTests(unittest.TestCase):
         violations = validate_agent_semantic_index_payload(payload)
         self.assertTrue(any("row_count_bound" in violation for violation in violations))
 
+    def test_blank_column_description_fails(self) -> None:
+        payload = self._valid_payload()
+        payload["publications"][0]["columns"][0]["description"] = "  "
+        violations = validate_agent_semantic_index_payload(payload)
+        self.assertTrue(any("description" in violation for violation in violations))
+
+    def test_column_unit_grain_aggregation_must_be_text_or_null(self) -> None:
+        for field_name in ("unit", "grain", "aggregation"):
+            payload = self._valid_payload()
+            payload["publications"][0]["columns"][0][field_name] = 3
+            violations = validate_agent_semantic_index_payload(payload)
+            self.assertTrue(
+                any(f".{field_name}" in violation for violation in violations), field_name
+            )
+            payload["publications"][0]["columns"][0][field_name] = None
+            self.assertEqual([], validate_agent_semantic_index_payload(payload))
+
+    def test_truncated_flag_must_match_total_row_count(self) -> None:
+        payload = self._valid_payload()
+        sample = payload["publications"][0]["sample"]
+        sample["total_row_count"] = len(sample["rows"]) + 10
+        sample["truncated"] = False
+        violations = validate_agent_semantic_index_payload(payload)
+        self.assertTrue(any("truncated" in violation for violation in violations))
+        sample["truncated"] = True
+        self.assertEqual([], validate_agent_semantic_index_payload(payload))
+        sample["total_row_count"] = len(sample["rows"])
+        violations = validate_agent_semantic_index_payload(payload)
+        self.assertTrue(any("truncated" in violation for violation in violations))
+
 
 def _build_client(tmp: str, *, load_cashflow: bool = False) -> TestClient:
     from packages.domains.finance.pipelines.account_transaction_service import (
@@ -194,6 +224,68 @@ class AgentSemanticIndexAPITests(unittest.TestCase):
             payload = resp.json()
             self.assertEqual([], validate_agent_semantic_index_payload(payload))
             self.assertGreater(len(payload["publications"]), 0)
+
+    def test_every_page_of_the_full_index_passes_schema_validation(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            cursor = None
+            seen: list[str] = []
+            while True:
+                params = {"limit": 7, **({"cursor": cursor} if cursor else {})}
+                payload = client.get("/api/agent/semantic-index", params=params).json()
+                self.assertEqual([], validate_agent_semantic_index_payload(payload))
+                seen += [entry["publication_key"] for entry in payload["publications"]]
+                cursor = payload.get("next_cursor")
+                if not cursor:
+                    break
+            self.assertEqual(len(seen), len(set(seen)))
+            self.assertEqual(payload["total"], len(seen))
+
+    def test_sample_through_the_api_is_bounded_and_flags_truncation(self) -> None:
+        # _build_client loads at most one month; eight months overflow the
+        # default five-row sample bound.
+        with TemporaryDirectory() as tmp:
+            months = [f"2026-{month:02d}" for month in range(1, 9)]
+            from packages.domains.finance.pipelines.account_transaction_service import (
+                AccountTransactionService,
+            )
+
+            transformation = TransformationService(DuckDBStore.memory())
+            transformation.load_transactions(
+                [
+                    {
+                        "booked_at": f"{month}-03T08:00:00+00:00",
+                        "account_id": "checking",
+                        "counterparty_name": "Employer",
+                        "amount": "3000.00",
+                        "currency": "EUR",
+                        "description": "salary",
+                    }
+                    for month in months
+                ],
+                run_id="run-agent-index-truncation",
+            )
+            transformation.refresh_monthly_cashflow()
+            rich = TestClient(
+                create_app(
+                    AccountTransactionService(
+                        landing_root=Path(tmp) / "landing-rich",
+                        metadata_repository=RunMetadataRepository(Path(tmp) / "rich.db"),
+                    ),
+                    transformation_service=transformation,
+                )
+            )
+            payload = rich.get("/api/agent/semantic-index/monthly_cashflow").json()
+            sample = payload["publication"]["sample"]
+            self.assertEqual(sample["row_count_bound"], len(sample["rows"]))
+            self.assertEqual(len(months), sample["total_row_count"])
+            self.assertTrue(sample["truncated"])
+            wrapped = {
+                "schema_version": payload["schema_version"],
+                "generated_at": payload.get("generated_at", "2026-07-09T00:00:00+00:00"),
+                "publications": [payload["publication"]],
+            }
+            self.assertEqual([], validate_agent_semantic_index_payload(wrapped))
 
     def test_query_filters_publications(self) -> None:
         with TemporaryDirectory() as tmp:

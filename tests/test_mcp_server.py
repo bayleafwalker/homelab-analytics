@@ -279,8 +279,10 @@ class McpProposalToolTests(unittest.TestCase):
             self.assertIn(
                 payload["action_id"], [row["action_id"] for row in ha_view]
             )
+            # ... and approvable through the route the web shell's approve
+            # form posts to (/control/agents → /api/actions/.../approve).
             approved = client.post(
-                f"/api/ha/actions/proposals/{payload['action_id']}/approve"
+                f"/api/actions/proposals/{payload['action_id']}/approve"
             )
             self.assertEqual(200, approved.status_code)
             self.assertEqual("approved", approved.json()["status"])
