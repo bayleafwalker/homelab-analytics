@@ -21,6 +21,7 @@ export const NAV_ENTRIES = [
   { href: "/briefing", label: "Morning brief", group: "today", minRole: "reader", keywords: "brief summary daily morning news" },
   { href: "/cashflow", label: "Cashflow map", group: "today", minRole: "reader", keywords: "sankey income spending money flow where" },
   { href: "/wallboard", label: "Wallboard", group: "today", minRole: "reader", keywords: "kiosk tablet tv ambient status" },
+  { href: "/console", label: "Ops console", group: "today", minRole: "reader", keywords: "power user grid heatmap keyboard runs terminal" },
   { href: "/reports", label: "Reports", group: "money", minRole: "reader", keywords: "finance monthly publications cashflow expense shock trust" },
   { href: "/budgets", label: "Budgets", group: "money", minRole: "reader", keywords: "envelopes variance" },
   { href: "/loans", label: "Loans", group: "money", minRole: "reader", keywords: "mortgage debt repayment" },

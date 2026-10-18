@@ -30,6 +30,7 @@ type GetOperationIdByPath = {
   "/runs/{run_id}": "get_run_runs__run_id__get";
   "/reports/household-overview": "get_household_overview_reports_household_overview_get";
   "/reports/cashflow-map": "get_cashflow_map_reports_cashflow_map_get";
+  "/reports/spend-heatmap": "get_spend_heatmap_reports_spend_heatmap_get";
   "/reports/attention-items": "get_attention_items_reports_attention_items_get";
   "/reports/recent-changes": "get_recent_changes_reports_recent_changes_get";
   "/reports/spend-by-category-monthly": "get_spend_by_category_monthly_reports_spend_by_category_monthly_get";
@@ -599,6 +600,24 @@ export async function getCashflowMap({ month, includeTransfers }: CashflowMapOpt
       query: definedValues({
         month,
         include_transfers: includeTransfers
+      })
+    }
+  });
+}
+
+type SpendHeatmapOptions = {
+  window?: QueryValue<"/reports/spend-heatmap", "window">;
+  asOf?: QueryValue<"/reports/spend-heatmap", "as_of">;
+};
+
+// Day-of-week x UTC-hour spend matrix (7x24) from the reporting mart
+// mart_spend_by_weekday_hour; date-only bookings come back as `untimed`.
+export async function getSpendHeatmap({ window = 28, asOf }: SpendHeatmapOptions = {}) {
+  return backendGet("/reports/spend-heatmap", {
+    params: {
+      query: definedValues({
+        window,
+        as_of: asOf
       })
     }
   });

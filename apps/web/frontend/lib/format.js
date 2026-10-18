@@ -15,7 +15,8 @@ export function toNumber(value) {
   return Number.isFinite(number) ? number : null;
 }
 
-export function formatMoney(value, currency, { signed = false, whole = false } = {}) {
+// grouping: false drops thousands separators (dense console panels).
+export function formatMoney(value, currency, { signed = false, whole = false, grouping = true } = {}) {
   const number = toNumber(value);
   if (number === null) return "—";
   const digits = whole ? 0 : 2;
@@ -23,6 +24,7 @@ export function formatMoney(value, currency, { signed = false, whole = false } =
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
     signDisplay: signed ? "exceptZero" : "auto",
+    useGrouping: grouping,
   };
   const code = typeof currency === "string" && /^[A-Z]{3}$/.test(currency) ? currency : null;
   if (code) {

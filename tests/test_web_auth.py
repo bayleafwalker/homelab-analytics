@@ -1602,3 +1602,48 @@ def test_responsive_table_keeps_table_semantics_at_phone_width() -> None:
         assert 'className="tableWrap"' not in source, path
         assert "<table>" not in source, path
 
+
+
+def test_ops_console_uses_retro_tokens_reporting_reads_and_one_palette() -> None:
+    import re
+
+    page = (FRONTEND_ROOT / "app" / "console" / "page.js").read_text()
+    shell = (FRONTEND_ROOT / "components" / "console-shell.js").read_text()
+    keys = (FRONTEND_ROOT / "components" / "console-keys.js").read_text()
+    view = (FRONTEND_ROOT / "components" / "console-view.js").read_text()
+    grid = (FRONTEND_ROOT / "components" / "heat-grid.js").read_text()
+    css = (FRONTEND_ROOT / "app" / "console.css").read_text()
+    backend = (FRONTEND_ROOT / "lib" / "backend.ts").read_text()
+    nav = (FRONTEND_ROOT / "lib" / "nav-model.js").read_text()
+    globals_css = (FRONTEND_ROOT / "app" / "globals.css").read_text()
+
+    # Server-rendered over lib/backend.ts reporting helpers; each panel degrades.
+    assert "use client" not in page
+    assert "fetch(" not in page
+    assert "<AppShell" not in page and "import { AppShell" not in page
+    assert "optional(getSpendHeatmap({ window: 28 }), null)" in page
+    assert "optional(getRuns(8), [])" in page
+    assert '"/reports/spend-heatmap": "get_spend_heatmap_reports_spend_heatmap_get"' in backend
+    assert '{ href: "/console", label: "Ops console"' in nav
+    assert '@import "./console.css";' in globals_css
+
+    # 3x2 grid, 10px gap; a sibling of RetroShell, not built on it.
+    assert "grid-template-columns: 1.1fr 1.4fr 1fr;" in css
+    assert "grid-template-rows: 1fr 1fr;" in css
+    assert "gap: 10px;" in css
+    assert "retro-shell" not in shell and "<RetroShell" not in shell
+    assert "data-panel-id={id}" in shell
+
+    # Retro colours only, no new fonts, figures tabular.
+    assert not re.search(r"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(", css)
+    assert "@import" not in css and "@font-face" not in css
+    assert "var(--retro-font-mono)" in css
+    assert "font-variant-numeric: tabular-nums;" in css
+    assert "grouping: false" in view and "grouping: false" in grid
+
+    # F1-F5 by data-fkey; Cmd+K belongs to the reused CommandPalette only.
+    assert 'CONSOLE_FKEYS = ["F1", "F2", "F3", "F4", "F5"]' in keys
+    assert '"k"' not in keys and "metaKey &&" not in keys
+    assert "<CommandPalette entries=" in view
+    assert view.count("<CommandPalette") == 1
+    assert 'id="command" title="Command" headerExtra={<ConsoleKeyMap />}' in view
