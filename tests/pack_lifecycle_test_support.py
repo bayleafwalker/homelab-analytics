@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -154,3 +156,110 @@ def assert_pack_lifecycle_store_behaviour(store: Any) -> None:
         store.record_pack_lifecycle_event(_event("evt-blank", "install", reason="  "))
     with pytest.raises(ValueError):
         store.record_pack_lifecycle_event(_event("evt-bad", "uninstall"))
+
+
+# --- Registry fixtures (local files only; nothing is fetched) -----------------
+
+
+def platform_pack(name: str = "core", *publication_keys: str) -> Any:
+    from packages.platform.capability_types import CapabilityPack, PublicationDefinition
+
+    return CapabilityPack(
+        name=name,
+        version="1.0.0",
+        sources=(),
+        workflows=(),
+        publications=tuple(
+            PublicationDefinition(
+                key=key,
+                schema_name=key,
+                schema_version="1.0.0",
+                display_name=key,
+                description=key,
+                visibility="public",
+                lineage_required=False,
+                retention_policy="indefinite",
+            )
+            for key in (publication_keys or ("core_summary",))
+        ),
+        ui_descriptors=(),
+    )
+
+
+def pack_entry(
+    pack_key: str,
+    version: str,
+    *,
+    publications: dict[str, str] | None = None,
+    requires_publications: list[str] | None = None,
+    dependencies: list[str] | None = None,
+    requires_platform_version: str = "",
+    trust_level: str = "community",
+) -> dict[str, Any]:
+    return {
+        "pack_key": pack_key,
+        "display_name": pack_key.replace("_", " ").title(),
+        "version": version,
+        "pack_kind": "domain",
+        "trust_level": trust_level,
+        "requires_platform_version": requires_platform_version,
+        "dependencies": dependencies or [],
+        "publications": [
+            {"publication_key": key, "schema_version": schema}
+            for key, schema in (publications or {}).items()
+        ],
+        "requires_publications": requires_publications or [],
+    }
+
+
+def write_registry_revision(
+    store: Any,
+    root: Path,
+    *,
+    source_id: str,
+    revision_id: str,
+    packs: list[dict[str, Any]],
+    created_at: datetime | None = None,
+    create_source: bool = True,
+    sync_status: str = "validated",
+) -> Path:
+    """Write a cached registry manifest and record it as a synced revision."""
+    from packages.shared.pack_catalog import manifest_core_digest
+    from packages.storage.external_registry_catalog import (
+        ExtensionRegistryRevisionCreate,
+        ExtensionRegistrySourceCreate,
+    )
+
+    revision_root = root / source_id / revision_id
+    revision_root.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, Any] = {
+        "schema_version": 1,
+        "import_paths": ["."],
+        "extension_modules": [f"{source_id.replace('-', '_')}_module"],
+        "packs": packs,
+    }
+    manifest_path = revision_root / "homelab-analytics.registry.json"
+    manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+    if create_source:
+        store.create_extension_registry_source(
+            ExtensionRegistrySourceCreate(
+                extension_registry_source_id=source_id,
+                name=f"{source_id} registry",
+                source_kind="path",
+                location=str(root / source_id),
+            )
+        )
+    store.create_extension_registry_revision(
+        ExtensionRegistryRevisionCreate(
+            extension_registry_revision_id=revision_id,
+            extension_registry_source_id=source_id,
+            runtime_path=str(revision_root),
+            manifest_path=str(manifest_path),
+            manifest_digest=manifest_core_digest(payload),
+            manifest_version=1,
+            extension_modules=tuple(payload["extension_modules"]),
+            sync_status=sync_status,
+            created_at=created_at or INSTALLED_AT,
+        )
+    )
+    return manifest_path
