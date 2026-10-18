@@ -36,6 +36,7 @@ from packages.domains.finance.pipelines.transformation_transactions import (
     refresh_monthly_cashflow_by_counterparty,
     refresh_recent_large_transactions,
     refresh_spend_by_category_monthly,
+    refresh_spend_by_weekday_hour,
     refresh_transaction_anomalies_current,
 )
 from packages.pipelines.transformation_refresh_registry import (
@@ -50,6 +51,7 @@ FINANCE_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
     "mart_recent_large_transactions": StoreRefreshHandler(refresh_recent_large_transactions),
     "mart_account_balance_trend": StoreRefreshHandler(refresh_account_balance_trend),
     "mart_transaction_anomalies_current": StoreRefreshHandler(refresh_transaction_anomalies_current),
+    "mart_spend_by_weekday_hour": StoreRefreshHandler(refresh_spend_by_weekday_hour),
     "mart_subscription_summary": StoreRefreshHandler(refresh_subscription_summary),
     "mart_upcoming_fixed_costs_30d": StoreRefreshHandler(refresh_upcoming_fixed_costs_30d),
     "mart_subscription_changes": StoreRefreshHandler(refresh_subscription_changes),

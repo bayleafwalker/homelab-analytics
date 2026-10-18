@@ -5395,6 +5395,95 @@
       "columns": [
         {
           "aggregation": null,
+          "description": "Booking date (UTC) of the contributing transactions.",
+          "filterable": true,
+          "grain": "day",
+          "json_type": "string",
+          "name": "booked_at",
+          "nullable": false,
+          "semantic_role": "time",
+          "sortable": true,
+          "storage_type": "DATE NOT NULL",
+          "unit": null
+        },
+        {
+          "aggregation": null,
+          "description": "ISO day of week of the booking date, 1 = Monday ... 7 = Sunday.",
+          "filterable": true,
+          "grain": null,
+          "json_type": "number",
+          "name": "day_of_week",
+          "nullable": false,
+          "semantic_role": "dimension",
+          "sortable": true,
+          "storage_type": "INTEGER NOT NULL",
+          "unit": null
+        },
+        {
+          "aggregation": null,
+          "description": "UTC hour (0-23) the transactions were booked; null when the source carried a date only.",
+          "filterable": true,
+          "grain": null,
+          "json_type": "number",
+          "name": "hour_of_day",
+          "nullable": true,
+          "semantic_role": "dimension",
+          "sortable": true,
+          "storage_type": "INTEGER",
+          "unit": null
+        },
+        {
+          "aggregation": "sum",
+          "description": "Sum of expense magnitudes in the bucket.",
+          "filterable": false,
+          "grain": null,
+          "json_type": "string",
+          "name": "total_expense",
+          "nullable": false,
+          "semantic_role": "measure",
+          "sortable": true,
+          "storage_type": "DECIMAL(18,4) NOT NULL",
+          "unit": "currency"
+        },
+        {
+          "aggregation": "count",
+          "description": "Number of expense transactions in the bucket.",
+          "filterable": false,
+          "grain": null,
+          "json_type": "number",
+          "name": "transaction_count",
+          "nullable": false,
+          "semantic_role": "measure",
+          "sortable": true,
+          "storage_type": "INTEGER NOT NULL",
+          "unit": "count"
+        }
+      ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
+      "description": "Expense totals per booking date and UTC hour, feeding the day-of-week x hour spend heatmap. hour_of_day is null when the source recorded a booking date without a time of day.",
+      "display_name": "Spend by Weekday and Hour",
+      "freshness_state": null,
+      "lineage_required": true,
+      "pack_name": "finance",
+      "pack_version": "1.0.0",
+      "publication_key": "spend_by_weekday_hour",
+      "relation_name": "mart_spend_by_weekday_hour",
+      "renderer_hints": {},
+      "retention_policy": "indefinite",
+      "schema_name": "spend_by_weekday_hour",
+      "schema_version": "1.0.0",
+      "supported_renderers": [
+        "web"
+      ],
+      "ui_descriptor_keys": [],
+      "visibility": "public"
+    },
+    {
+      "assessed_at": null,
+      "columns": [
+        {
+          "aggregation": null,
           "description": "Stable storage entity identifier from the telemetry source.",
           "filterable": true,
           "grain": null,

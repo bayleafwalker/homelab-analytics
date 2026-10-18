@@ -155,6 +155,19 @@ MART_TRANSACTION_ANOMALIES_CURRENT_COLUMNS: list[tuple[str, str]] = [
     ("anomaly_reason", "VARCHAR NOT NULL"),
 ]
 
+# Spend by ISO weekday x UTC hour, one row per booking date and hour bucket.
+# hour_of_day is NULL when the source carried a booking date but no time of
+# day; those rows are never folded into hour 0.
+MART_SPEND_BY_WEEKDAY_HOUR_TABLE = "mart_spend_by_weekday_hour"
+
+MART_SPEND_BY_WEEKDAY_HOUR_COLUMNS: list[tuple[str, str]] = [
+    ("booked_at", "DATE NOT NULL"),
+    ("day_of_week", "INTEGER NOT NULL"),
+    ("hour_of_day", "INTEGER"),
+    ("total_expense", "DECIMAL(18,4) NOT NULL"),
+    ("transaction_count", "INTEGER NOT NULL"),
+]
+
 TRANSFORMATION_AUDIT_TABLE = "transformation_audit"
 
 TRANSFORMATION_AUDIT_COLUMNS: list[tuple[str, str]] = [

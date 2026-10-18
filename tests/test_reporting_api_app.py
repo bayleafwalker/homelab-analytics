@@ -527,6 +527,7 @@ class ReportingApiAppTests(unittest.TestCase):
                     "mart_recent_large_transactions",
                     "mart_account_balance_trend",
                     "mart_transaction_anomalies_current",
+                    "mart_spend_by_weekday_hour",
                 ]
             ],
             reporting_service.publications,

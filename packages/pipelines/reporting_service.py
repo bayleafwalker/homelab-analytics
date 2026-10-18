@@ -33,8 +33,12 @@ from packages.domains.finance.pipelines.transaction_models import (
     MART_MONTHLY_CASHFLOW_TABLE,
     MART_RECENT_LARGE_TRANSACTIONS_TABLE,
     MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
+    MART_SPEND_BY_WEEKDAY_HOUR_TABLE,
     MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
     TRANSFORMATION_AUDIT_TABLE,
+)
+from packages.domains.finance.pipelines.transformation_transactions import (
+    get_spend_by_weekday_hour as read_spend_by_weekday_hour,
 )
 from packages.domains.homelab.pipelines.ha_service import get_ha_state_changes_since
 from packages.domains.homelab.pipelines.homelab_models import (
@@ -717,6 +721,29 @@ class ReportingService:
                 ("booking_month <= %s", to_month),
             ),
             "ORDER BY booking_month, account_id",
+        )
+
+    def get_spend_by_weekday_hour(
+        self,
+        *,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_SPEND_BY_WEEKDAY_HOUR_TABLE,
+            # Pack read on the warehouse store, not a facade getter: the
+            # TransformationService surface is a shrink-only ratchet. Under
+            # warehouse_session, store.fetchall_dicts runs on a read-only lease.
+            lambda: read_spend_by_weekday_hour(
+                self._transformation_service.store,
+                from_date=from_date,
+                to_date=to_date,
+            ),
+            _build_where_clause(
+                ("booked_at >= %s", from_date),
+                ("booked_at <= %s", to_date),
+            ),
+            "ORDER BY booked_at, hour_of_day NULLS FIRST",
         )
 
     def get_transaction_anomalies_current(self) -> list[dict[str, Any]]:

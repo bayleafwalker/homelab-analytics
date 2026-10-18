@@ -3526,6 +3526,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reports/spend-heatmap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Spend Heatmap */
+        get: operations["get_spend_heatmap_reports_spend_heatmap_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reports/subscription-summary": {
         parameters: {
             query?: never;
@@ -7025,6 +7042,57 @@ export interface components {
             total_expense: string;
             /** Transaction Count */
             transaction_count: number;
+        };
+        /** SpendHeatmapResponse */
+        SpendHeatmapResponse: {
+            /** Cells */
+            cells: string[][];
+            /** Counts */
+            counts: number[][];
+            /** Coverage */
+            coverage: string;
+            /** Currency */
+            currency: string | null;
+            /** Data Through */
+            data_through: string | null;
+            /** Day Labels */
+            day_labels: string[];
+            /** Hour Basis */
+            hour_basis: string;
+            /** Max Cell */
+            max_cell: string;
+            /** Max Untimed */
+            max_untimed: string;
+            /** Publications */
+            publications: string[];
+            totals: components["schemas"]["SpendHeatmapTotals"];
+            /** Untimed */
+            untimed: string[];
+            /** Untimed Counts */
+            untimed_counts: number[];
+            /** Window Days */
+            window_days: number;
+            /** Window End */
+            window_end: string | null;
+            /** Window Start */
+            window_start: string | null;
+        };
+        /** SpendHeatmapTotals */
+        SpendHeatmapTotals: {
+            /** Active Days */
+            active_days: number;
+            /** Expense */
+            expense: string;
+            /** Timed Count */
+            timed_count: number;
+            /** Timed Expense */
+            timed_expense: string;
+            /** Transaction Count */
+            transaction_count: number;
+            /** Untimed Count */
+            untimed_count: number;
+            /** Untimed Expense */
+            untimed_expense: string;
         };
         /** SubscriptionSummaryResponse */
         SubscriptionSummaryResponse: {
@@ -14320,6 +14388,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SpendByCategoryMonthlyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_spend_heatmap_reports_spend_heatmap_get: {
+        parameters: {
+            query?: {
+                window?: number;
+                as_of?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendHeatmapResponse"];
                 };
             };
             /** @description Validation Error */
