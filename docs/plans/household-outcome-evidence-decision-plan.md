@@ -57,11 +57,36 @@ records whose relevant scope cannot be established remain an explicit evidence
 gap. The source contract carries a month-specific tariff configuration, so a
 later month’s tariff update does not silently replace the selected month’s basis.
 
+### KAOS activities: code delivery (`feat/decision-domains-kaos`, 2026-10-18)
+
+Code for HLA-K01, HLA-K02 and HLA-K04 is implemented and covered by tests on
+synthetic fixtures; none of it is a live or field acceptance. HLA-K03's live
+gate and the Vuoro receipt half of HLA-K04 stay open (see "Still open" below).
+
+| Activity | Delivered | Evidence |
+|---|---|---|
+| HLA-K01 commitment lifecycle | `DecisionDefinition` declares purpose, owner (role, optional principal), baseline, success measure, observation window, review triggers, stop conditions and fingerprinted evidence components; battery decision bumped to **v1.1.0**. `record_decision` enforces the owner, derives the review date from the window (an explicit date may not precede the window end), and flags met stop conditions. Terms are pinned per record (`decision_commitments`); state `active` / `review_due` / `review_required` / `stopped` is derived from append-only `decision_lifecycle_events`. Owner stop/reopen; review queue excludes stopped commitments. | `packages/platform/decision_definitions.py:97` (window), `:181` (stop condition), `:202` (definition); `packages/domains/utilities/battery_plan_decision.py:54`; `packages/application/use_cases/decision_ledger.py:174` (owner), `:201` (window), `:206` (stop flags), `:341`/`:384` (stop/reopen), `:454` (state), `:672` (review queue); `apps/api/routes/decision_routes.py:177`, `:313`, `:337`; SQLite `0010`, Postgres `0017`; `tests/test_decision_commitment_lifecycle.py` (success, timed review, source-triggered review, operator stop, missing evidence) |
+| HLA-K02 correction tracing | Per decision, the pinned evidence fingerprint is compared with the current reporting row for the same period. A changed source window, tariff snapshot, entity mapping or cost basis records one `evidence_superseded` event (dedupe on decision + superseding fingerprint) naming changed components, correction kinds, affected publications, superseded and superseding row refs, source version and fired review triggers; the commitment becomes `review_required`. A plain re-assessment is not a correction, other periods stay valid, and the original snapshot is untouched. Runs from `POST /control/decisions/evidence-trace`, the `trace-decision-evidence` worker command and after `refresh-battery-plan-outcome`; shown on `/utilities/battery-plan`. | `packages/domains/utilities/battery_plan_decision.py:210` (components); `packages/application/use_cases/decision_evidence_trace.py:95`, `:227` (dedupe); `apps/api/routes/decision_routes.py:195`; `apps/worker/command_handlers/ingest_commands.py:339`; `tests/test_decision_evidence_trace.py` (incl. re-landed HA runs end to end) |
+| HLA-K04 outcome reference | `hla-outcome-reference/v1` envelopes replayed from decision history: commitment / publication refs (`work_ref` explicitly `null`), observation window, `accepted` / `rejected` / `insufficient_evidence` / `pending` result, attention and cost with capture coverage (unknown stays `null`, never zero), and a versioned `hla-decision-evidence/v1` pointer. Content-derived `event_id` (a retry is the same event), `supersedes` chain for corrections, `resource-changes/v1` feed. Excludes rationale, snapshots, source rows and credentials. Pull-only: no outbound call. | `packages/application/use_cases/decision_outcome_reference.py:59`, `:240`; `apps/api/routes/decision_routes.py:187`, `:277`; `apps/worker/command_handlers/decision_commands.py` (`export-outcome-references`); `tests/test_decision_outcome_reference.py` |
+| Morning brief | Battery section at order 45 via a `ReportingPublicationReader` accessor; confidence decides confirmed / provisional / withheld; an `insufficient_evidence` verdict is stated as no savings claim with remediation. | `packages/application/use_cases/morning_brief_sections.py:426`, `:798`; `apps/api/routes/briefing_routes.py:64`; `tests/test_morning_brief.py`, `tests/test_briefing_api.py` |
+| Second decision domain | `electricity_contract_keep_or_switch` v1.0.0 over `mart_electricity_price_current` (+ contract review, renewal and cost-trend marts) on the same ledger, lifecycle and trace; insufficient-evidence guard (contract, energy price, comparable alternative, twelve usage months); page `/utilities/energy-contract`. | `packages/domains/utilities/energy_contract_decision.py:89`, `:238`; `packages/pipelines/household_decisions.py`; `tests/test_energy_contract_decision.py` |
+
+Still open after this delivery: HLA-K03's live gate (a real decision and
+follow-up on authorized household data, then a second scheduled review);
+HLA-K04's receipt and correction demonstration in Vuoro (VU-K09's
+experiment contract is not available to HLA yet, and HLA does not hold a
+Vuoro work reference, so `work_ref` stays `null`); operator attention time is
+not captured anywhere in HLA, so attention coverage is `not_captured`.
+
 ## Decision definition
 
-`kotiakku_battery_plan_review`, version `1.0.0`
+`kotiakku_battery_plan_review`, version `1.1.0`
 (`packages/domains/utilities/battery_plan_decision.py`). Bump the version when
 any field below changes; decision records pin the version they were made under.
+Version 1.1.0 adds the commitment lifecycle (purpose, owner, baseline,
+success measure, observation window, review triggers, stop conditions);
+records made under 1.0.0 keep their fixed follow-up date and are traced from
+their evidence snapshot.
 
 - **Question:** Over one closed household-local calendar month, do the
   Kotiakku battery-versus-no-battery estimated savings cover the battery
@@ -84,10 +109,26 @@ any field below changes; decision records pin the version they were made under.
 - **Outcome options (no action preselected):** keep the current plan; open a
   review; change tariff or contract (executed outside HLA); or the explicit
   non-decision "defer until the evidence improves".
-- **Follow-up:** due 45 days after the decision by default; a follow-up
-  records the realized result, an optional realized value labelled `observed`
-  or `user_entered`, and whether evidence confirmed or changed the decision,
-  preserved a deliberate non-decision, or exposed a source or model defect.
+- **Purpose:** keep the battery plan, tariff and contract only while observed
+  economics justify them; reopen when the evidence or the plan changes.
+- **Baseline:** the subject month's estimated savings, user-entered effective
+  monthly cost and their difference (estimates and assumptions, not cash).
+- **Success measure:** realized monthly net benefit at least 0 EUR/month,
+  recorded on a follow-up as `observed` or `user_entered`; otherwise
+  `unmeasured`.
+- **Observation window and follow-up:** the first full calendar month after
+  the decision; the review is due 14 days after it closes, then every 30 days
+  while active. A follow-up records the realized result, an optional realized
+  value labelled `observed` or `user_entered`, and whether evidence confirmed
+  or changed the decision, preserved a deliberate non-decision, or exposed a
+  source or model defect.
+- **Review triggers:** observation window closed (timed); source window
+  corrected, tariff revised, entity mapping revised, cost basis changed
+  (evidence change); verdict changed alongside a correction.
+- **Stop conditions:** battery plan ended (flagged by
+  `battery_cost_basis_missing`); tariff or contract changed (flagged by that
+  outcome); purpose expired (owner stop). Flags recommend a stop; only the
+  owner stops a commitment.
 
 ## Goal
 
@@ -222,7 +263,9 @@ experiment storage in HLA.
 
 Canonical plan items registered for this addendum: HLA-K01 → #2693,
 HLA-K02 → #2694, HLA-K03 → #2695, HLA-K04 → #2696. Registration records
-planned implementation scope, not implementation completion.
+planned implementation scope, not implementation completion. Code delivery
+for K01, K02 and K04 is recorded under "KAOS activities: code delivery"
+above; item status is changed by the coordinator, not by the delivery.
 
 Reuse tracker items 1860 (finance-loop integration proof) and 1862 (demo and
 walkthrough); respect the active owner of 1859 (canonical operator journey).
