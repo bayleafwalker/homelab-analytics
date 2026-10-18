@@ -1,6 +1,11 @@
-SHELL := /usr/bin/bash
+SHELL := /usr/bin/env bash
 
-PYTHON := $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else command -v python; fi)
+# Prefer a venv interpreter that actually runs (a venv built against a since-removed
+# system Python leaves a dangling symlink). PYTHON is expanded lazily and errors when
+# no interpreter is found: an empty PYTHON turns `$(PYTHON) -m ruff` into a recipe
+# line starting with `-`, which make treats as "ignore errors" and reports green.
+PYTHON_BIN := $(shell if .venv/bin/python -c '' 2>/dev/null; then echo .venv/bin/python; else command -v python3 || command -v python; fi)
+PYTHON = $(or $(PYTHON_BIN),$(error No working Python: run `uv sync --extra dev` or pass PYTHON=...))
 
 # duckdb loads libstdc++, which is not on the default loader path when the venv
 # is built against the workstation Python. Glob for a current gcc-lib store (the
@@ -13,13 +18,14 @@ ifneq ($(GCC_LIB),)
 export LD_LIBRARY_PATH := $(GCC_LIB)$(if $(LD_LIBRARY_PATH),:$(LD_LIBRARY_PATH))
 endif
 
-PYTEST := $(PYTHON) -m pytest
-RUFF := $(PYTHON) -m ruff
-MYPY := $(PYTHON) -m mypy
-PIP_AUDIT := $(PYTHON) -m pip_audit
+PYTEST = $(PYTHON) -m pytest
+RUFF = $(PYTHON) -m ruff
+MYPY = $(PYTHON) -m mypy
+PIP_AUDIT = $(PYTHON) -m pip_audit
 WORKFLOW_HELPER := ./tools/workflow.sh
 WEB_DIR := apps/web/frontend
-WEB_NODE_BIN_DIR := $(abspath .tooling/node-v20.20.1-linux-x64/bin)
+# Use the pinned Node when it has been unpacked; otherwise fall back to node on PATH.
+WEB_NODE_BIN_DIR := $(if $(wildcard .tooling/node-v20.20.1-linux-x64/bin/node),$(abspath .tooling/node-v20.20.1-linux-x64/bin),$(patsubst %/,%,$(dir $(shell command -v node))))
 COMPOSE_FILE := infra/examples/compose.yaml
 COMPOSE_SMOKE_PROJECT ?= homelab-analytics-smoke
 COMPOSE_SMOKE_FILES := --project-name $(COMPOSE_SMOKE_PROJECT) -f $(COMPOSE_FILE) -f infra/examples/compose-smoke.override.yaml
