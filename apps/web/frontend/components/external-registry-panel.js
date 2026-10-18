@@ -1,3 +1,5 @@
+import { ResponsiveTable } from "./responsive-table";
+
 function archiveCopy(archived) {
   return archived ? "archived" : "active";
 }
@@ -466,51 +468,51 @@ export function ExternalRegistryPanel({ sources, revisions, activations }) {
                     </form>
                   ) : null}
 
-                  {sourceRevisions.length === 0 ? (
-                    <div className="empty">
-                      No synced revisions for this source yet.
-                    </div>
-                  ) : (
-                    <div className="tableWrap">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Revision</th>
-                            <th>Status</th>
-                            <th>Resolved ref</th>
-                            <th>Imports</th>
-                            <th>Extension modules</th>
-                            <th>Function modules</th>
-                            <th>Created</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sourceRevisions.map((revision) => (
-                            <tr key={revision.extension_registry_revision_id}>
-                              <td>
-                                {revision.extension_registry_revision_id}
-                                {revision.extension_registry_revision_id ===
-                                activation?.extension_registry_revision_id
-                                  ? " / active"
-                                  : ""}
-                              </td>
-                              <td>
-                                {revision.sync_status}
-                                {revision.validation_error
-                                  ? ` / ${revision.validation_error}`
-                                  : ""}
-                              </td>
-                              <td>{revision.resolved_ref || "n/a"}</td>
-                              <td>{summarizeTuple(revision.import_paths || [])}</td>
-                              <td>{summarizeTuple(revision.extension_modules || [])}</td>
-                              <td>{summarizeTuple(revision.function_modules || [])}</td>
-                              <td>{revision.created_at}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                  <ResponsiveTable
+                    label={`Synced revisions for ${source.name || source.extension_registry_source_id}`}
+                    rows={sourceRevisions}
+                    rowKey="extension_registry_revision_id"
+                    empty={
+                      <div className="empty">
+                        No synced revisions for this source yet.
+                      </div>
+                    }
+                    columns={[
+                      {
+                        key: "extension_registry_revision_id",
+                        header: "Revision",
+                        primary: true,
+                        cell: (revision) =>
+                          `${revision.extension_registry_revision_id}${
+                            revision.extension_registry_revision_id ===
+                            activation?.extension_registry_revision_id
+                              ? " / active"
+                              : ""
+                          }`,
+                      },
+                      {
+                        key: "sync_status",
+                        header: "Status",
+                        cell: (revision) =>
+                          `${revision.sync_status}${
+                            revision.validation_error ? ` / ${revision.validation_error}` : ""
+                          }`,
+                      },
+                      { key: "resolved_ref", header: "Resolved ref", cell: (revision) => revision.resolved_ref || "n/a" },
+                      { key: "import_paths", header: "Imports", cell: (revision) => summarizeTuple(revision.import_paths || []) },
+                      {
+                        key: "extension_modules",
+                        header: "Extension modules",
+                        cell: (revision) => summarizeTuple(revision.extension_modules || []),
+                      },
+                      {
+                        key: "function_modules",
+                        header: "Function modules",
+                        cell: (revision) => summarizeTuple(revision.function_modules || []),
+                      },
+                      { key: "created_at", header: "Created" },
+                    ]}
+                  />
                 </article>
               );
             })}

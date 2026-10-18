@@ -1584,3 +1584,21 @@ def test_responsive_table_keeps_table_semantics_at_phone_width() -> None:
     assert "content: attr(data-label);" in css
     for path in ("app/page.js", "app/sources/page.js", "app/control/confidence/page.js"):
         assert "<ResponsiveTable" in (FRONTEND_ROOT / path).read_text(), path
+    # Phone-width follow-up: these pages (and the catalog panels they render)
+    # no longer fall back to sideways-scrolling `.tableWrap` tables.
+    for path in (
+        "app/reports/page.js",
+        "app/budgets/page.js",
+        "app/utilities/page.js",
+        "app/control/catalog/page.js",
+        "app/control/execution/page.js",
+        "components/function-catalog-panel.js",
+        "components/transformation-catalog-panel.js",
+        "components/external-registry-panel.js",
+        "components/mapping-preview-panel.js",
+    ):
+        source = (FRONTEND_ROOT / path).read_text()
+        assert "<ResponsiveTable" in source, path
+        assert 'className="tableWrap"' not in source, path
+        assert "<table>" not in source, path
+

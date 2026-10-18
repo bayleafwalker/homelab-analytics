@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/app-shell";
+import { ResponsiveTable } from "@/components/responsive-table";
 import {
   getBudgetEnvelopes,
   getBudgetProgress,
@@ -6,6 +7,10 @@ import {
   getCurrentUser,
 } from "@/lib/backend";
 import { stateIndicatorBadge } from "@/lib/state-indicators";
+
+function money(value, currency) {
+  return `${Number(value).toFixed(2)} ${currency}`;
+}
 
 export default async function BudgetsPage({ searchParams }) {
   const user = await getCurrentUser();
@@ -39,62 +44,59 @@ export default async function BudgetsPage({ searchParams }) {
                 <h2>Budget progress</h2>
               </div>
             </div>
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Budget</th>
-                    <th>Category</th>
-                    <th>Target</th>
-                    <th>Spent</th>
-                    <th>Remaining</th>
-                    <th>Utilization</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {progress.map((row, i) => {
+            <ResponsiveTable
+              label="Budget progress"
+              rows={progress}
+              columns={[
+                { key: "budget_name", header: "Budget", primary: true },
+                { key: "category_id", header: "Category" },
+                { key: "target_amount", header: "Target", align: "end", cell: (row) => money(row.target_amount, row.currency) },
+                { key: "spent_amount", header: "Spent", align: "end", cell: (row) => money(row.spent_amount, row.currency) },
+                { key: "remaining", header: "Remaining", align: "end", cell: (row) => money(row.remaining, row.currency) },
+                {
+                  key: "utilization_pct",
+                  header: "Utilization",
+                  cell: (row) => {
                     const pct = Number(row.utilization_pct);
                     const badge = stateIndicatorBadge(row.state ?? row.status);
                     return (
-                      <tr key={i}>
-                        <td>{row.budget_name}</td>
-                        <td>{row.category_id}</td>
-                        <td>{Number(row.target_amount).toFixed(2)} {row.currency}</td>
-                        <td>{Number(row.spent_amount).toFixed(2)} {row.currency}</td>
-                        <td>{Number(row.remaining).toFixed(2)} {row.currency}</td>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            <div
-                              style={{
-                                width: "80px",
-                                height: "8px",
-                                background: "var(--surface-2)",
-                                borderRadius: "4px",
-                                overflow: "hidden",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  width: `${Math.min(pct, 100)}%`,
-                                  height: "100%",
-                                  background: badge.color,
-                                  borderRadius: "4px",
-                                }}
-                              />
-                            </div>
-                            <span>{pct.toFixed(0)}%</span>
-                          </div>
-                        </td>
-                        <td>
-                          <span style={{ color: badge.color }}>{badge.label}</span>
-                        </td>
-                      </tr>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            display: "inline-block",
+                            width: "80px",
+                            height: "8px",
+                            background: "var(--surface-2)",
+                            borderRadius: "4px",
+                            overflow: "hidden",
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: "block",
+                              width: `${Math.min(pct, 100)}%`,
+                              height: "100%",
+                              background: badge.color,
+                              borderRadius: "4px",
+                            }}
+                          />
+                        </span>
+                        <span>{pct.toFixed(0)}%</span>
+                      </span>
                     );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                  },
+                },
+                {
+                  key: "status",
+                  header: "Status",
+                  cell: (row) => {
+                    const badge = stateIndicatorBadge(row.state ?? row.status);
+                    return <span style={{ color: badge.color }}>{badge.label}</span>;
+                  },
+                },
+              ]}
+            />
           </article>
         )}
 
@@ -106,54 +108,53 @@ export default async function BudgetsPage({ searchParams }) {
               <h2>Category cost envelopes</h2>
             </div>
           </div>
-          <div className="tableWrap">
-            {envelopes.length === 0 ? (
-              <p className="muted">No budget envelope data for the selected filters.</p>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Budget</th>
-                    <th>Category</th>
-                    <th>Period</th>
-                    <th>Envelope</th>
-                    <th>Actual</th>
-                    <th>Drift</th>
-                    <th>Drift %</th>
-                    <th>State</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {envelopes.map((row, i) => {
-                    const driftAmt = Number(row.drift_amount);
-                    const badge = stateIndicatorBadge(row.state ?? row.drift_state);
-                    return (
-                      <tr key={i}>
-                        <td>{row.budget_name}</td>
-                        <td>{row.category_id}</td>
-                        <td>{row.period_label}</td>
-                        <td>{Number(row.envelope_amount).toFixed(2)} {row.currency}</td>
-                        <td>{Number(row.actual_amount).toFixed(2)} {row.currency}</td>
-                        <td style={{ color: driftAmt <= 0 ? "var(--ok)" : "var(--error)" }}>
-                          {driftAmt <= 0 ? "" : "+"}
-                          {driftAmt.toFixed(2)} {row.currency}
-                        </td>
-                        <td>
-                          {row.drift_pct != null ? `${Number(row.drift_pct).toFixed(1)}%` : "—"}
-                        </td>
-                        <td>
-                          <span style={{ color: badge.color }}>{badge.label}</span>
-                          <div className="muted" style={{ fontSize: "0.8rem" }}>
-                            {row.drift_state}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+          <ResponsiveTable
+            label="Category cost envelopes"
+            rows={envelopes}
+            empty={<p className="muted">No budget envelope data for the selected filters.</p>}
+            columns={[
+              { key: "budget_name", header: "Budget", primary: true },
+              { key: "category_id", header: "Category" },
+              { key: "period_label", header: "Period" },
+              { key: "envelope_amount", header: "Envelope", align: "end", cell: (row) => money(row.envelope_amount, row.currency) },
+              { key: "actual_amount", header: "Actual", align: "end", cell: (row) => money(row.actual_amount, row.currency) },
+              {
+                key: "drift_amount",
+                header: "Drift",
+                align: "end",
+                cell: (row) => {
+                  const driftAmt = Number(row.drift_amount);
+                  return (
+                    <span style={{ color: driftAmt <= 0 ? "var(--ok)" : "var(--warn)" }}>
+                      {driftAmt <= 0 ? "" : "+"}
+                      {driftAmt.toFixed(2)} {row.currency}
+                    </span>
+                  );
+                },
+              },
+              {
+                key: "drift_pct",
+                header: "Drift %",
+                align: "end",
+                cell: (row) => (row.drift_pct != null ? `${Number(row.drift_pct).toFixed(1)}%` : "—"),
+              },
+              {
+                key: "drift_state",
+                header: "State",
+                cell: (row) => {
+                  const badge = stateIndicatorBadge(row.state ?? row.drift_state);
+                  return (
+                    <>
+                      <span style={{ color: badge.color }}>{badge.label}</span>
+                      <span className="muted" style={{ display: "block", fontSize: "0.8rem" }}>
+                        {row.drift_state}
+                      </span>
+                    </>
+                  );
+                },
+              },
+            ]}
+          />
         </article>
 
         {/* Variance filters */}
@@ -211,56 +212,53 @@ export default async function BudgetsPage({ searchParams }) {
 
         {/* Variance table */}
         <article className="panel section">
-          <div className="tableWrap">
-            {variance.length === 0 ? (
-              <p className="muted">No budget variance data for the selected filters.</p>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Budget</th>
-                    <th>Category</th>
-                    <th>Period</th>
-                    <th>Target</th>
-                    <th>Actual</th>
-                    <th>Variance</th>
-                    <th>%</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {variance.map((row, i) => {
-                    const badge = stateIndicatorBadge(row.state ?? row.status);
-                    const varianceAmt = Number(row.variance);
-                    return (
-                      <tr key={i}>
-                        <td>{row.budget_name}</td>
-                        <td>{row.category_id}</td>
-                        <td>{row.period_label}</td>
-                        <td>{Number(row.target_amount).toFixed(2)} {row.currency}</td>
-                        <td>{Number(row.actual_amount).toFixed(2)} {row.currency}</td>
-                        <td style={{ color: varianceAmt >= 0 ? "var(--ok)" : "var(--error)" }}>
-                          {varianceAmt >= 0 ? "+" : ""}
-                          {varianceAmt.toFixed(2)} {row.currency}
-                        </td>
-                        <td>
-                          {row.variance_pct != null
-                            ? `${Number(row.variance_pct).toFixed(1)}%`
-                            : "—"}
-                        </td>
-                        <td>
-                          <span style={{ color: badge.color }}>{badge.label}</span>
-                          <div className="muted" style={{ fontSize: "0.8rem" }}>
-                            {row.status}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+          <ResponsiveTable
+            label="Budget variance by period"
+            rows={variance}
+            empty={<p className="muted">No budget variance data for the selected filters.</p>}
+            columns={[
+              { key: "budget_name", header: "Budget", primary: true },
+              { key: "category_id", header: "Category" },
+              { key: "period_label", header: "Period" },
+              { key: "target_amount", header: "Target", align: "end", cell: (row) => money(row.target_amount, row.currency) },
+              { key: "actual_amount", header: "Actual", align: "end", cell: (row) => money(row.actual_amount, row.currency) },
+              {
+                key: "variance",
+                header: "Variance",
+                align: "end",
+                cell: (row) => {
+                  const varianceAmt = Number(row.variance);
+                  return (
+                    <span style={{ color: varianceAmt >= 0 ? "var(--ok)" : "var(--warn)" }}>
+                      {varianceAmt >= 0 ? "+" : ""}
+                      {varianceAmt.toFixed(2)} {row.currency}
+                    </span>
+                  );
+                },
+              },
+              {
+                key: "variance_pct",
+                header: "%",
+                align: "end",
+                cell: (row) => (row.variance_pct != null ? `${Number(row.variance_pct).toFixed(1)}%` : "—"),
+              },
+              {
+                key: "status",
+                header: "Status",
+                cell: (row) => {
+                  const badge = stateIndicatorBadge(row.state ?? row.status);
+                  return (
+                    <>
+                      <span style={{ color: badge.color }}>{badge.label}</span>
+                      <span className="muted" style={{ display: "block", fontSize: "0.8rem" }}>
+                        {row.status}
+                      </span>
+                    </>
+                  );
+                },
+              },
+            ]}
+          />
         </article>
       </section>
     </AppShell>

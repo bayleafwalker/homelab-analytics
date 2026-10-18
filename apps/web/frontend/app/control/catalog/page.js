@@ -6,6 +6,7 @@ import { ControlNav } from "@/components/control-nav";
 import { ExternalRegistryPanel } from "@/components/external-registry-panel";
 import { FunctionCatalogPanel } from "@/components/function-catalog-panel";
 import { MappingPreviewPanel } from "@/components/mapping-preview-panel";
+import { ResponsiveTable } from "@/components/responsive-table";
 import { TransformationCatalogPanel } from "@/components/transformation-catalog-panel";
 import {
   getColumnMappings,
@@ -136,6 +137,78 @@ function statusCopy(enabled) {
 
 function archiveCopy(archived) {
   return archived ? "archived" : "active";
+}
+
+const DIFF_COLUMNS = [
+  { key: "change", header: "Change", primary: true },
+  { key: "left", header: "Left" },
+  { key: "right", header: "Right" },
+];
+
+function columnShape(column) {
+  return `${column.type} / ${column.required ? "required" : "optional"}`;
+}
+
+function contractDiffRows(diff) {
+  return [
+    ...diff.field_changes.map((change) => ({
+      key: `contract-field-${change.field}`,
+      change: change.field,
+      left: String(change.left),
+      right: String(change.right),
+    })),
+    ...diff.column_changes.added.map((column) => ({
+      key: `contract-added-${column.name}`,
+      change: `${column.name} added`,
+      left: "n/a",
+      right: columnShape(column),
+    })),
+    ...diff.column_changes.removed.map((column) => ({
+      key: `contract-removed-${column.name}`,
+      change: `${column.name} removed`,
+      left: columnShape(column),
+      right: "n/a",
+    })),
+    ...diff.column_changes.changed.map((change) => ({
+      key: `contract-changed-${change.name}`,
+      change: `${change.name} changed`,
+      left: columnShape(change.left),
+      right: columnShape(change.right),
+    })),
+  ];
+}
+
+function ruleSource(rule) {
+  return rule.source_column || rule.default_value || "n/a";
+}
+
+function mappingDiffRows(diff) {
+  return [
+    ...diff.field_changes.map((change) => ({
+      key: `mapping-field-${change.field}`,
+      change: change.field,
+      left: String(change.left),
+      right: String(change.right),
+    })),
+    ...diff.rule_changes.added.map((rule) => ({
+      key: `mapping-added-${rule.target_column}`,
+      change: `${rule.target_column} added`,
+      left: "n/a",
+      right: ruleSource(rule),
+    })),
+    ...diff.rule_changes.removed.map((rule) => ({
+      key: `mapping-removed-${rule.target_column}`,
+      change: `${rule.target_column} removed`,
+      left: ruleSource(rule),
+      right: "n/a",
+    })),
+    ...diff.rule_changes.changed.map((change) => ({
+      key: `mapping-changed-${change.target_column}`,
+      change: `${change.target_column} changed`,
+      left: ruleSource(change.left),
+      right: ruleSource(change.right),
+    })),
+  ];
 }
 
 function optionLabel(record, version, archived = false) {
@@ -836,47 +909,13 @@ export default async function ControlCatalogPage({ searchParams }) {
                     <div>{contractDiff.column_changes.changed.length}</div>
                   </div>
                 </div>
-                <div className="tableWrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Change</th>
-                        <th>Left</th>
-                        <th>Right</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {contractDiff.field_changes.map((change) => (
-                        <tr key={`contract-field-${change.field}`}>
-                          <td>{change.field}</td>
-                          <td>{String(change.left)}</td>
-                          <td>{String(change.right)}</td>
-                        </tr>
-                      ))}
-                      {contractDiff.column_changes.added.map((column) => (
-                        <tr key={`contract-added-${column.name}`}>
-                          <td>{column.name} added</td>
-                          <td>n/a</td>
-                          <td>{`${column.type} / ${column.required ? "required" : "optional"}`}</td>
-                        </tr>
-                      ))}
-                      {contractDiff.column_changes.removed.map((column) => (
-                        <tr key={`contract-removed-${column.name}`}>
-                          <td>{column.name} removed</td>
-                          <td>{`${column.type} / ${column.required ? "required" : "optional"}`}</td>
-                          <td>n/a</td>
-                        </tr>
-                      ))}
-                      {contractDiff.column_changes.changed.map((change) => (
-                        <tr key={`contract-changed-${change.name}`}>
-                          <td>{change.name} changed</td>
-                          <td>{`${change.left.type} / ${change.left.required ? "required" : "optional"}`}</td>
-                          <td>{`${change.right.type} / ${change.right.required ? "required" : "optional"}`}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <ResponsiveTable
+                  label="Contract version changes"
+                  rows={contractDiffRows(contractDiff)}
+                  rowKey="key"
+                  empty={<div className="muted">The two contract versions are identical.</div>}
+                  columns={DIFF_COLUMNS}
+                />
               </div>
             ) : (
               <div className="muted">Select two contract versions to preview the schema diff.</div>
@@ -942,47 +981,13 @@ export default async function ControlCatalogPage({ searchParams }) {
                     <div>{mappingDiff.rule_changes.changed.length}</div>
                   </div>
                 </div>
-                <div className="tableWrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Change</th>
-                        <th>Left</th>
-                        <th>Right</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {mappingDiff.field_changes.map((change) => (
-                        <tr key={`mapping-field-${change.field}`}>
-                          <td>{change.field}</td>
-                          <td>{String(change.left)}</td>
-                          <td>{String(change.right)}</td>
-                        </tr>
-                      ))}
-                      {mappingDiff.rule_changes.added.map((rule) => (
-                        <tr key={`mapping-added-${rule.target_column}`}>
-                          <td>{rule.target_column} added</td>
-                          <td>n/a</td>
-                          <td>{rule.source_column || rule.default_value || "n/a"}</td>
-                        </tr>
-                      ))}
-                      {mappingDiff.rule_changes.removed.map((rule) => (
-                        <tr key={`mapping-removed-${rule.target_column}`}>
-                          <td>{rule.target_column} removed</td>
-                          <td>{rule.source_column || rule.default_value || "n/a"}</td>
-                          <td>n/a</td>
-                        </tr>
-                      ))}
-                      {mappingDiff.rule_changes.changed.map((change) => (
-                        <tr key={`mapping-changed-${change.target_column}`}>
-                          <td>{change.target_column} changed</td>
-                          <td>{change.left.source_column || change.left.default_value || "n/a"}</td>
-                          <td>{change.right.source_column || change.right.default_value || "n/a"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <ResponsiveTable
+                  label="Column mapping version changes"
+                  rows={mappingDiffRows(mappingDiff)}
+                  rowKey="key"
+                  empty={<div className="muted">The two mapping versions are identical.</div>}
+                  columns={DIFF_COLUMNS}
+                />
               </div>
             ) : (
               <div className="muted">Select two mapping versions to preview rule changes.</div>

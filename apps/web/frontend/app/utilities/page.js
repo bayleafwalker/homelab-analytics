@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
+import { ResponsiveTable } from "@/components/responsive-table";
 import { SparklineChart } from "@/components/sparkline-chart";
 import {
   getContractRenewalWatchlist,
@@ -10,6 +11,16 @@ import {
   getUtilityCostSummary,
   getUtilityCostTrend,
 } from "@/lib/backend";
+
+function fixed(value, digits) {
+  return value != null ? Number(value).toFixed(digits) : "—";
+}
+
+function changePct(value) {
+  if (value == null) return "—";
+  const pct = Number(value);
+  return `${pct >= 0 ? "▲" : "▼"} ${Math.abs(pct).toFixed(1)}%`;
+}
 
 export default async function UtilitiesPage({ searchParams }) {
   const user = await getCurrentUser();
@@ -120,44 +131,18 @@ export default async function UtilitiesPage({ searchParams }) {
                 <h2>Usage vs price drivers</h2>
               </div>
             </div>
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Utility type</th>
-                    <th>Period</th>
-                    <th>Usage change</th>
-                    <th>Price change</th>
-                    <th>Cost change</th>
-                    <th>Driver</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {usageVsPrice.map((row, i) => (
-                    <tr key={i}>
-                      <td>{row.utility_type}</td>
-                      <td>{row.period}</td>
-                      <td>
-                        {row.usage_change_pct != null
-                          ? `${Number(row.usage_change_pct) >= 0 ? "▲" : "▼"} ${Math.abs(Number(row.usage_change_pct)).toFixed(1)}%`
-                          : "—"}
-                      </td>
-                      <td>
-                        {row.price_change_pct != null
-                          ? `${Number(row.price_change_pct) >= 0 ? "▲" : "▼"} ${Math.abs(Number(row.price_change_pct)).toFixed(1)}%`
-                          : "—"}
-                      </td>
-                      <td>
-                        {row.cost_change_pct != null
-                          ? `${Number(row.cost_change_pct) >= 0 ? "▲" : "▼"} ${Math.abs(Number(row.cost_change_pct)).toFixed(1)}%`
-                          : "—"}
-                      </td>
-                      <td>{row.dominant_driver || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ResponsiveTable
+              label="Usage vs price drivers"
+              rows={usageVsPrice}
+              columns={[
+                { key: "utility_type", header: "Utility type", primary: true },
+                { key: "period", header: "Period" },
+                { key: "usage_change_pct", header: "Usage change", align: "end", cell: (row) => changePct(row.usage_change_pct) },
+                { key: "price_change_pct", header: "Price change", align: "end", cell: (row) => changePct(row.price_change_pct) },
+                { key: "cost_change_pct", header: "Cost change", align: "end", cell: (row) => changePct(row.cost_change_pct) },
+                { key: "dominant_driver", header: "Driver", cell: (row) => row.dominant_driver || "—" },
+              ]}
+            />
           </article>
         )}
 
@@ -168,40 +153,25 @@ export default async function UtilitiesPage({ searchParams }) {
               <h2>Review candidates</h2>
             </div>
           </div>
-          {reviewCandidates.length === 0 ? (
-            <div className="empty">No contracts flagged for review.</div>
-          ) : (
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Provider</th>
-                    <th>Type</th>
-                    <th>Reason</th>
-                    <th>Score</th>
-                    <th>Current price</th>
-                    <th>Market ref</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reviewCandidates.map((row, i) => (
-                    <tr key={i}>
-                      <td>{row.provider}</td>
-                      <td>{row.utility_type}</td>
-                      <td>{row.reason}</td>
-                      <td>
-                        <span className={`statusPill ${row.score >= 3 ? "status-failed" : "status-enqueued"}`}>
-                          {row.score}
-                        </span>
-                      </td>
-                      <td>{row.current_price != null ? Number(row.current_price).toFixed(4) : "—"}</td>
-                      <td>{row.market_reference != null ? Number(row.market_reference).toFixed(4) : "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ResponsiveTable
+            label="Contract review candidates"
+            rows={reviewCandidates}
+            empty={<div className="empty">No contracts flagged for review.</div>}
+            columns={[
+              { key: "provider", header: "Provider", primary: true },
+              { key: "utility_type", header: "Type" },
+              { key: "reason", header: "Reason" },
+              {
+                key: "score",
+                header: "Score",
+                cell: (row) => (
+                  <span className={`statusPill ${row.score >= 3 ? "status-failed" : "status-enqueued"}`}>{row.score}</span>
+                ),
+              },
+              { key: "current_price", header: "Current price", align: "end", cell: (row) => fixed(row.current_price, 4) },
+              { key: "market_reference", header: "Market ref", align: "end", cell: (row) => fixed(row.market_reference, 4) },
+            ]}
+          />
         </article>
 
         <article className="panel section">
@@ -211,40 +181,29 @@ export default async function UtilitiesPage({ searchParams }) {
               <h2>Renewal watchlist</h2>
             </div>
           </div>
-          {renewalWatchlist.length === 0 ? (
-            <div className="empty">No contracts approaching renewal.</div>
-          ) : (
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Provider</th>
-                    <th>Type</th>
-                    <th>Renewal date</th>
-                    <th>Days away</th>
-                    <th>Current price</th>
-                    <th>Duration</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {renewalWatchlist.map((row, i) => (
-                    <tr key={i}>
-                      <td>{row.provider}</td>
-                      <td>{row.utility_type}</td>
-                      <td>{row.renewal_date}</td>
-                      <td>
-                        <span className={`statusPill ${row.days_until_renewal <= 14 ? "status-failed" : row.days_until_renewal <= 30 ? "status-enqueued" : "status-completed"}`}>
-                          {row.days_until_renewal}d
-                        </span>
-                      </td>
-                      <td>{row.current_price != null ? Number(row.current_price).toFixed(4) : "—"}</td>
-                      <td>{row.contract_duration || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ResponsiveTable
+            label="Contract renewal watchlist"
+            rows={renewalWatchlist}
+            empty={<div className="empty">No contracts approaching renewal.</div>}
+            columns={[
+              { key: "provider", header: "Provider", primary: true },
+              { key: "utility_type", header: "Type" },
+              { key: "renewal_date", header: "Renewal date" },
+              {
+                key: "days_until_renewal",
+                header: "Days away",
+                cell: (row) => (
+                  <span
+                    className={`statusPill ${row.days_until_renewal <= 14 ? "status-failed" : row.days_until_renewal <= 30 ? "status-enqueued" : "status-completed"}`}
+                  >
+                    {row.days_until_renewal}d
+                  </span>
+                ),
+              },
+              { key: "current_price", header: "Current price", align: "end", cell: (row) => fixed(row.current_price, 4) },
+              { key: "contract_duration", header: "Duration", cell: (row) => row.contract_duration || "—" },
+            ]}
+          />
         </article>
 
         <article className="panel section">
@@ -254,46 +213,30 @@ export default async function UtilitiesPage({ searchParams }) {
               <h2>Cost summary by meter</h2>
             </div>
           </div>
-          {summary.length === 0 ? (
-            <div className="empty">No utility data for the selected filters.</div>
-          ) : (
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Period</th>
-                    <th>Meter</th>
-                    <th>Type</th>
-                    <th>Usage</th>
-                    <th>Unit</th>
-                    <th>Billed</th>
-                    <th>Currency</th>
-                    <th>Unit cost</th>
-                    <th>Coverage</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {summary.map((row, i) => (
-                    <tr key={i}>
-                      <td>{row.period}</td>
-                      <td>{row.meter_name || row.meter_id}</td>
-                      <td>{row.utility_type}</td>
-                      <td>{row.usage_quantity != null ? Number(row.usage_quantity).toFixed(2) : "—"}</td>
-                      <td>{row.usage_unit}</td>
-                      <td>{row.billed_amount != null ? Number(row.billed_amount).toFixed(2) : "—"}</td>
-                      <td>{row.currency}</td>
-                      <td>{row.unit_cost != null ? Number(row.unit_cost).toFixed(4) : "—"}</td>
-                      <td>
-                        <span className={`statusPill status-${row.coverage_status === "full" ? "completed" : "enqueued"}`}>
-                          {row.coverage_status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ResponsiveTable
+            label="Cost summary by meter"
+            rows={summary}
+            empty={<div className="empty">No utility data for the selected filters.</div>}
+            columns={[
+              { key: "meter", header: "Meter", primary: true, cell: (row) => row.meter_name || row.meter_id },
+              { key: "period", header: "Period" },
+              { key: "utility_type", header: "Type" },
+              { key: "usage_quantity", header: "Usage", align: "end", cell: (row) => fixed(row.usage_quantity, 2) },
+              { key: "usage_unit", header: "Unit" },
+              { key: "billed_amount", header: "Billed", align: "end", cell: (row) => fixed(row.billed_amount, 2) },
+              { key: "currency", header: "Currency" },
+              { key: "unit_cost", header: "Unit cost", align: "end", cell: (row) => fixed(row.unit_cost, 4) },
+              {
+                key: "coverage_status",
+                header: "Coverage",
+                cell: (row) => (
+                  <span className={`statusPill status-${row.coverage_status === "full" ? "completed" : "enqueued"}`}>
+                    {row.coverage_status}
+                  </span>
+                ),
+              },
+            ]}
+          />
         </article>
       </section>
     </AppShell>

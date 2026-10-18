@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
 import { RendererDiscovery } from "@/components/renderer-discovery";
+import { ResponsiveTable } from "@/components/responsive-table";
 import { SparklineChart } from "@/components/sparkline-chart";
 import { IncomeScenarioPanel } from "@/components/income-scenario-panel";
 import { ExpenseShockPanel } from "@/components/expense-shock-panel";
@@ -185,34 +186,19 @@ export default async function ReportsPage() {
               <h2>{cashflowDescriptor?.nav_label || "Monthly cashflow"}</h2>
             </div>
           </div>
-          {rows.length === 0 ? (
-            <div className="empty">No published rows yet.</div>
-          ) : (
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Booking month</th>
-                    <th>Income</th>
-                    <th>Expense</th>
-                    <th>Net</th>
-                    <th>Transactions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.booking_month}>
-                      <td>{row.booking_month}</td>
-                      <td>{row.income}</td>
-                      <td>{row.expense}</td>
-                      <td>{row.net}</td>
-                      <td>{row.transaction_count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ResponsiveTable
+            label="Monthly cashflow"
+            rows={rows}
+            rowKey="booking_month"
+            empty={<div className="empty">No published rows yet.</div>}
+            columns={[
+              { key: "booking_month", header: "Booking month", primary: true },
+              { key: "income", header: "Income", align: "end" },
+              { key: "expense", header: "Expense", align: "end" },
+              { key: "net", header: "Net", align: "end" },
+              { key: "transaction_count", header: "Transactions", align: "end" },
+            ]}
+          />
           <div style={{ marginTop: "12px" }}>
             <Link className="inlineLink" href="#expense-shock">
               Expense shock handoff
@@ -256,34 +242,18 @@ export default async function ReportsPage() {
               <h2>{spendingDescriptor?.nav_label || "Spend by category"}</h2>
             </div>
           </div>
-          {spendByCategory.length === 0 ? (
-            <div className="empty">No category spend data yet.</div>
-          ) : (
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Month</th>
-                    <th>Category</th>
-                    <th>Counterparty</th>
-                    <th>Total Expense</th>
-                    <th>Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {spendByCategory.map((row, index) => (
-                    <tr key={index}>
-                      <td>{row.booking_month}</td>
-                      <td>{row.category}</td>
-                      <td>{row.counterparty_name}</td>
-                      <td>{row.total_expense}</td>
-                      <td>{row.transaction_count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ResponsiveTable
+            label="Spend by category"
+            rows={spendByCategory}
+            empty={<div className="empty">No category spend data yet.</div>}
+            columns={[
+              { key: "category", header: "Category", primary: true },
+              { key: "booking_month", header: "Month" },
+              { key: "counterparty_name", header: "Counterparty" },
+              { key: "total_expense", header: "Total Expense", align: "end" },
+              { key: "transaction_count", header: "Count", align: "end" },
+            ]}
+          />
         </article>
 
         <article
@@ -300,38 +270,22 @@ export default async function ReportsPage() {
               </h2>
             </div>
           </div>
-          {subscriptions.length === 0 ? (
-            <div className="empty">No subscription data yet.</div>
-          ) : (
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Provider</th>
-                    <th>Billing cycle</th>
-                    <th>Monthly equiv</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {subscriptions.map((row, index) => (
-                    <tr key={index}>
-                      <td>{row.contract_name}</td>
-                      <td>{row.provider}</td>
-                      <td>{row.billing_cycle}</td>
-                      <td>{row.monthly_equivalent}</td>
-                      <td>
-                        <span className={`statusPill status-${row.status}`}>
-                          {row.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ResponsiveTable
+            label="Subscription summary"
+            rows={subscriptions}
+            empty={<div className="empty">No subscription data yet.</div>}
+            columns={[
+              { key: "contract_name", header: "Name", primary: true },
+              { key: "provider", header: "Provider" },
+              { key: "billing_cycle", header: "Billing cycle" },
+              { key: "monthly_equivalent", header: "Monthly equiv", align: "end" },
+              {
+                key: "status",
+                header: "Status",
+                cell: (row) => <span className={`statusPill status-${row.status}`}>{row.status}</span>,
+              },
+            ]}
+          />
         </article>
 
         {utilityTrend.length > 0 && (
