@@ -23,6 +23,7 @@ from packages.storage.backup_bundle import (
     restore_backup,
     verify_backup,
 )
+from packages.storage.backup_drill import run_restore_drill
 from packages.storage.backup_schedule import run_scheduled_backup
 
 
@@ -110,5 +111,26 @@ def handle_scheduled_backup(
     )
     if not result.succeeded:
         error_output.write(f"{result.error}\n")
+        return 1
+    return 0
+
+
+def handle_restore_drill(
+    args: Namespace, settings: AppSettings, output: TextIO, error_output: TextIO
+) -> int:
+    """Restore a bundle (default: newest scheduled bundle) into scratch and check it."""
+    backup_root = Path(args.backup_dir) if getattr(args, "backup_dir", "") else (
+        settings.resolved_backup_dir
+    )
+    receipt = run_restore_drill(
+        backup_root=backup_root,
+        bundle_dir=Path(args.bundle) if getattr(args, "bundle", "") else None,
+        scratch_dir=Path(args.scratch_dir) if getattr(args, "scratch_dir", "") else None,
+        keep_scratch=bool(getattr(args, "keep_scratch", False)),
+    )
+    _write_json(output, {"restore_drill": receipt})
+    if not receipt["passed"]:
+        for error in receipt["errors"]:
+            error_output.write(f"{error}\n")
         return 1
     return 0

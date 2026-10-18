@@ -25,6 +25,7 @@ from .admin_commands import (
 from .backup_commands import (
     handle_backup,
     handle_restore,
+    handle_restore_drill,
     handle_scheduled_backup,
     handle_verify_backup,
 )
@@ -82,6 +83,7 @@ def build_settings_command_handlers() -> dict[str, SettingsCommandHandler]:
         "restore": handle_restore,
         "verify-backup": handle_verify_backup,
         "scheduled-backup": handle_scheduled_backup,
+        "restore-drill": handle_restore_drill,
     }
 
 

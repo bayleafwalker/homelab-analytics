@@ -477,3 +477,51 @@ def test_scheduled_backup_command_and_worker_metrics_endpoint(tmp_path: Path) ->
 
     assert "homelab_analytics_backup_last_success_timestamp_seconds " in body
     assert "homelab_analytics_backup_status_present 1" in body
+
+
+# ---------------------------------------------------------------------------
+# Restore drill
+# ---------------------------------------------------------------------------
+
+
+def test_restore_drill_restores_newest_bundle_into_scratch(tmp_path: Path) -> None:
+    settings = _worker_settings(tmp_path / "live")
+    _seed_warehouse(settings.resolved_analytics_database_path, rows=5)
+    FilesystemBlobStore(settings.landing_root).write_bytes("bank/a.csv", b"x\n")
+    assert main(["scheduled-backup"], stdout=io.StringIO(), stderr=io.StringIO(), settings=settings) == 0
+    live_before = sorted(p.name for p in settings.data_dir.rglob("*"))
+    stdout = io.StringIO()
+
+    exit_code = main(["restore-drill"], stdout=stdout, stderr=io.StringIO(), settings=settings)
+
+    assert exit_code == 0
+    receipt = json.loads(stdout.getvalue())["restore_drill"]
+    assert receipt["passed"] is True, receipt
+    assert receipt["warehouse_tables"] == {"main.facts": 5}
+    assert receipt["landing_files"] == 1
+    assert not Path(receipt["scratch_dir"]).exists()
+    # The live instance is untouched apart from the drill receipt.
+    live_after = sorted(p.name for p in settings.data_dir.rglob("*"))
+    assert sorted(set(live_after) - set(live_before)) == ["restore-drill-status.json"]
+
+    registry = MetricsRegistry()
+    from packages.application.use_cases.ops_metrics import collect_backup_status_metrics
+
+    collect_backup_status_metrics(registry, settings.resolved_backup_dir)
+    text = registry.render_prometheus_text()
+    assert "homelab_analytics_backup_restore_drill_last_passed 1" in text
+
+
+def test_restore_drill_fails_on_tampered_bundle(tmp_path: Path) -> None:
+    settings = _worker_settings(tmp_path)
+    _seed_warehouse(settings.resolved_analytics_database_path)
+    assert main(["scheduled-backup"], stdout=io.StringIO(), stderr=io.StringIO(), settings=settings) == 0
+    bundle = list_bundles(settings.resolved_backup_dir)[-1]
+    with (bundle / "warehouse" / "warehouse.duckdb").open("ab") as handle:
+        handle.write(b"corrupt")
+    stderr = io.StringIO()
+
+    exit_code = main(["restore-drill"], stdout=io.StringIO(), stderr=stderr, settings=settings)
+
+    assert exit_code == 1
+    assert "failed verification" in stderr.getvalue()

@@ -29,6 +29,7 @@ from packages.application.use_cases.source_freshness_overview import (
 from packages.platform.publication_confidence import ConfidenceVerdict
 from packages.platform.source_freshness import SourceFreshnessState
 from packages.shared.metrics import MetricsRegistry
+from packages.storage.backup_drill import read_restore_drill_status
 from packages.storage.backup_schedule import read_backup_status
 from packages.storage.run_metadata import IngestionRunStatus
 
@@ -192,6 +193,18 @@ def collect_worker_heartbeat_metrics(
 
 
 def collect_backup_status_metrics(registry: MetricsRegistry, backup_dir: Path) -> None:
+    drill = read_restore_drill_status(backup_dir)
+    if drill is not None:
+        registry.set(
+            f"{PREFIX}_backup_restore_drill_last_success_timestamp_seconds",
+            _iso_to_epoch(drill.get("last_success_at")),
+            help_text="Unix time of the last passing restore drill (0 if never).",
+        )
+        registry.set(
+            f"{PREFIX}_backup_restore_drill_last_passed",
+            1.0 if drill.get("passed") else 0.0,
+            help_text="1 when the most recent restore drill passed.",
+        )
     status = read_backup_status(backup_dir)
     registry.set(
         f"{PREFIX}_backup_status_present",
