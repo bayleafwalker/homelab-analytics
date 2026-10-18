@@ -334,8 +334,9 @@ def test_read_named_methods_that_issue_ddl_are_classified_as_writes() -> None:
         method = getattr(TransformationService, name)
         source = inspect.getsource(method)
         module = inspect.getmodule(method)
-        # Facet methods delegate to a domain function; scan one level deep.
-        for callee in re.findall(r"return\s+([a-z_][a-z0-9_]*)\(", source):
+        # Facet methods delegate to a domain function (returned directly or
+        # bound first, as registry-dispatched views do); scan one level deep.
+        for callee in re.findall(r"(?:return|=)\s+([a-z_][a-z0-9_]*)\(", source):
             target = getattr(module, callee, None)
             if inspect.isfunction(target):
                 source += inspect.getsource(target)

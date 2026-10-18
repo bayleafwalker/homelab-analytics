@@ -1400,6 +1400,8 @@ def test_scenario_routes_delegate_to_use_case_layer() -> None:
     assert "svc.archive_scenario(" not in scenario_source
     assert "svc.archive_scenario_compare_set(" not in scenario_source
     assert "svc.restore_scenario_compare_set(" not in scenario_source
+    assert "svc.create_scenario(" not in scenario_source
+    assert ".get_scenario_view(" not in scenario_source
 
 
 def _get_route_handlers(path: Path) -> dict[str, ast.AsyncFunctionDef | ast.FunctionDef]:
@@ -1472,3 +1474,36 @@ def test_scenario_read_use_cases_take_reporting_service() -> None:
     }
     assert set(annotations) == read_functions
     assert all("ReportingService" in value for value in annotations.values()), annotations
+
+
+def test_scenario_types_dispatch_through_registry_not_facade_methods() -> None:
+    """Scenario-type logic is owned by domain packs and dispatched by the registry.
+
+    Adding a scenario type must register a handler, not add a facade method or
+    a ``scenario_type`` branch in the use-case layer (sprint #512 item #1880).
+    """
+    from packages.pipelines.scenario_registry import get_default_scenario_registry
+    from packages.pipelines.transformation_service import TransformationService
+
+    scenario_types = get_default_scenario_registry().scenario_types()
+    assert scenario_types
+    facade_methods = [name for name in dir(TransformationService) if not name.startswith("__")]
+    leaked = sorted(
+        name
+        for name in facade_methods
+        for scenario_type in scenario_types
+        if scenario_type in name or scenario_type.split("_", 1)[0] + "_scenario" in name
+    )
+    assert leaked == [], f"scenario-type methods on TransformationService: {leaked}"
+
+    registry_imports = _import_names(ROOT / "packages" / "pipelines" / "scenario_registry.py")
+    assert not any(name.startswith("packages.domains.") for name in registry_imports)
+
+    use_case_path = ROOT / "packages" / "application" / "use_cases" / "scenario_management.py"
+    tree = ast.parse(use_case_path.read_text())
+    branches = [
+        ast.unparse(node)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Compare) and "scenario_type" in ast.unparse(node)
+    ]
+    assert branches == [], f"scenario_management must not branch on scenario_type: {branches}"

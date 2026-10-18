@@ -1,67 +1,54 @@
-"""What-if scenario creation and comparison."""
+"""Scenario lifecycle plus registry-dispatched scenario creation and views.
+
+Type-specific scenario logic lives in the domain packs and is registered with
+``packages.pipelines.scenario_registry``; this facet only dispatches.
+"""
 
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import Any
 
 from packages.domains.finance.pipelines.scenario_service import (
-    ComparisonResult,
-    ExpenseShockResult,
-    IncomeCashflowComparison,
-    IncomeScenarioResult,
     ScenarioCompareSetResult,
-    ScenarioResult,
     archive_scenario,
     archive_scenario_compare_set,
-    create_expense_shock_scenario,
-    create_income_change_scenario,
-    create_loan_what_if_scenario,
     create_scenario_compare_set,
     ensure_scenario_storage,
-    get_expense_shock_comparison,
-    get_income_scenario_comparison,
     get_scenario,
     get_scenario_assumptions,
-    get_scenario_comparison,
     list_scenario_compare_sets,
     list_scenarios,
     restore_scenario_compare_set,
     update_scenario_compare_set_label,
 )
-from packages.domains.overview.pipelines.scenario_models_overview import (
-    HomelabCostBenefitComparison,
-    HomelabCostBenefitResult,
-    TariffShockResult,
-)
-from packages.domains.overview.pipelines.scenario_service_overview import (
-    create_homelab_cost_benefit_scenario,
-    create_tariff_shock_scenario,
-    get_homelab_cost_benefit_comparison,
-    get_tariff_shock_comparison,
-)
+from packages.pipelines.scenario_registry import ScenarioViewContext
 from packages.pipelines.transformation_facets.base import TransformationFacetBase
 
 
 class ScenarioTransformationMixin(TransformationFacetBase):
-    """What-if scenario creation and comparison."""
+    """Scenario lifecycle plus registry-dispatched scenario creation and views."""
 
-    def create_loan_what_if_scenario(
+    def create_scenario(self, scenario_type: str, **params: Any) -> Any:
+        """Create a scenario of a registered type; params are that type's keywords."""
+        return self._scenario_registry.create(self._store, scenario_type, **params)
+
+    def get_scenario_view(
         self,
-        loan_id: str,
+        scenario_id: str,
         *,
-        label: str | None = None,
-        extra_repayment: Decimal | None = None,
-        annual_rate: Decimal | None = None,
-        term_months: int | None = None,
-    ) -> ScenarioResult:
-        return create_loan_what_if_scenario(
+        view: str,
+        current_baseline_run_id: str | None = None,
+    ) -> Any:
+        """Render a stored scenario's view via the handler for its scenario type."""
+        scenario = get_scenario(self._store, scenario_id)
+        if scenario is None:
+            return None
+        return self._scenario_registry.view(
             self._store,
-            loan_id=loan_id,
-            label=label,
-            extra_repayment=extra_repayment,
-            annual_rate=annual_rate,
-            term_months=term_months,
+            scenario_type=scenario["scenario_type"],
+            scenario_id=scenario_id,
+            view=view,
+            context=ScenarioViewContext(current_baseline_run_id=current_baseline_run_id),
         )
 
     def list_scenarios(self, *, include_archived: bool = False) -> list[dict[str, Any]]:
@@ -79,9 +66,6 @@ class ScenarioTransformationMixin(TransformationFacetBase):
 
     def get_scenario(self, scenario_id: str) -> dict[str, Any] | None:
         return get_scenario(self._store, scenario_id)
-
-    def get_scenario_comparison(self, scenario_id: str) -> ComparisonResult | None:
-        return get_scenario_comparison(self._store, scenario_id)
 
     def get_scenario_assumptions(self, scenario_id: str) -> list[dict[str, Any]]:
         return get_scenario_assumptions(self._store, scenario_id)
@@ -123,94 +107,3 @@ class ScenarioTransformationMixin(TransformationFacetBase):
 
     def ensure_scenario_storage(self) -> None:
         ensure_scenario_storage(self._store)
-
-    def create_income_change_scenario(
-        self,
-        *,
-        monthly_income_delta: Decimal,
-        currency: str = "GBP",
-        label: str | None = None,
-        projection_months: int = 12,
-    ) -> IncomeScenarioResult:
-        return create_income_change_scenario(
-            self._store,
-            monthly_income_delta=monthly_income_delta,
-            currency=currency,
-            label=label,
-            projection_months=projection_months,
-        )
-
-    def get_income_scenario_comparison(
-        self, scenario_id: str
-    ) -> IncomeCashflowComparison | None:
-        return get_income_scenario_comparison(self._store, scenario_id)
-
-    def create_expense_shock_scenario(
-        self,
-        *,
-        expense_pct_delta: Decimal,
-        label: str | None = None,
-        projection_months: int = 12,
-    ) -> ExpenseShockResult:
-        return create_expense_shock_scenario(
-            self._store,
-            expense_pct_delta=expense_pct_delta,
-            label=label,
-            projection_months=projection_months,
-        )
-
-    def get_expense_shock_comparison(
-        self, scenario_id: str
-    ) -> IncomeCashflowComparison | None:
-        return get_expense_shock_comparison(self._store, scenario_id)
-
-    def create_homelab_cost_benefit_scenario(
-        self,
-        *,
-        monthly_cost_delta: Decimal,
-        label: str | None = None,
-        service_rows: list[dict[str, Any]] | None = None,
-        workload_rows: list[dict[str, Any]] | None = None,
-        baseline_run_id: str | None = None,
-    ) -> HomelabCostBenefitResult:
-        return create_homelab_cost_benefit_scenario(
-            self._store,
-            monthly_cost_delta=monthly_cost_delta,
-            label=label,
-            service_rows=service_rows,
-            workload_rows=workload_rows,
-            baseline_run_id=baseline_run_id,
-        )
-
-    def get_homelab_cost_benefit_comparison(
-        self,
-        scenario_id: str,
-        *,
-        current_baseline_run_id: str | None = None,
-    ) -> HomelabCostBenefitComparison | None:
-        return get_homelab_cost_benefit_comparison(
-            self._store,
-            scenario_id,
-            current_baseline_run_id=current_baseline_run_id,
-        )
-
-    def create_tariff_shock_scenario(
-        self,
-        *,
-        tariff_pct_delta: Decimal,
-        utility_type: str = "electricity",
-        label: str | None = None,
-        projection_months: int = 12,
-    ) -> TariffShockResult:
-        return create_tariff_shock_scenario(
-            self._store,
-            tariff_pct_delta=tariff_pct_delta,
-            utility_type=utility_type,
-            label=label,
-            projection_months=projection_months,
-        )
-
-    def get_tariff_shock_comparison(
-        self, scenario_id: str
-    ) -> IncomeCashflowComparison | None:
-        return get_tariff_shock_comparison(self._store, scenario_id)

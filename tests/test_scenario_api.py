@@ -112,6 +112,10 @@ class _StubHomelabReportingService(ReportingService):
         self.scenario_reads.append(scenario_id)
         return super().get_scenario(scenario_id)
 
+    def get_scenario_view(self, scenario_id: str, **kwargs):
+        self.scenario_reads.append(scenario_id)
+        return super().get_scenario_view(scenario_id, **kwargs)
+
 
 def _build_homelab_client_with_reporting(
     temp_dir: str,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 
+from packages.pipelines.scenario_registry import ScenarioRegistry
 from packages.storage.control_plane import ControlPlaneStore, SourceLineageCreate
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -13,6 +14,7 @@ class TransformationFacetBase:
 
     _store: DuckDBStore
     _control_plane_store: ControlPlaneStore | None
+    _scenario_registry: ScenarioRegistry
 
     def _record_lineage(
         self,

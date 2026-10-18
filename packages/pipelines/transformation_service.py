@@ -102,6 +102,10 @@ from packages.domains.utilities.pipelines.utility_models import (
 from packages.pipelines.publication_confidence_service import (
     compute_and_record_publication_confidence,
 )
+from packages.pipelines.scenario_registry import (
+    ScenarioRegistry,
+    get_default_scenario_registry,
+)
 from packages.pipelines.transformation_domain_registry import (
     TransformationDomainRegistry,
     get_default_transformation_domain_registry,
@@ -151,6 +155,7 @@ class TransformationService(
         control_plane_store: ControlPlaneStore | None = None,
         publication_refresh_registry: PublicationRefreshRegistry | None = None,
         domain_registry: TransformationDomainRegistry | None = None,
+        scenario_registry: ScenarioRegistry | None = None,
         run_metadata_store: RunMetadataStore | None = None,
         battery_plan_profile_loader: Callable[[], BatteryPlanProfileResolution]
         | None = None,
@@ -171,6 +176,7 @@ class TransformationService(
             publication_refresh_registry or get_default_publication_refresh_registry()
         )
         self._domain_registry = domain_registry or get_default_transformation_domain_registry()
+        self._scenario_registry = scenario_registry or get_default_scenario_registry()
         self._ensure_schema()
 
     def _ensure_schema(self) -> None:
