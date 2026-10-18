@@ -30,6 +30,7 @@ from packages.storage.postgres_execution_control_plane import (
 from packages.storage.postgres_external_registry_catalog import (
     PostgresExternalRegistryCatalogMixin,
 )
+from packages.storage.postgres_pack_lifecycle import PostgresPackLifecycleMixin
 from packages.storage.postgres_policy_registry import (
     PostgresPolicyRegistryMixin,
 )
@@ -63,6 +64,7 @@ class PostgresIngestionConfigRepository(
     PostgresProvenanceControlPlaneMixin,
     PostgresAuthControlPlaneMixin,
     PostgresDecisionLedgerMixin,
+    PostgresPackLifecycleMixin,
 ):
     """Canonical Postgres-backed control-plane repository.
 

@@ -330,6 +330,48 @@ def initialize_sqlite_control_plane_schema(connection: sqlite3.Connection) -> No
         CREATE INDEX IF NOT EXISTS idx_decision_follow_ups_decision
             ON decision_follow_ups (decision_id, observed_at);
 
+        CREATE TABLE IF NOT EXISTS pack_installations (
+            pack_key TEXT PRIMARY KEY,
+            display_name TEXT NOT NULL,
+            pack_kind TEXT NOT NULL,
+            trust_level TEXT NOT NULL,
+            installed_version TEXT NOT NULL,
+            previous_version TEXT,
+            pinned_version TEXT,
+            enabled INTEGER NOT NULL,
+            extension_registry_source_id TEXT NOT NULL,
+            extension_registry_revision_id TEXT NOT NULL,
+            entry_digest TEXT NOT NULL,
+            previous_entry_digest TEXT,
+            available_versions TEXT NOT NULL,
+            compatibility_snapshot TEXT NOT NULL,
+            installed_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS pack_lifecycle_events (
+            event_id TEXT PRIMARY KEY,
+            pack_key TEXT NOT NULL,
+            action TEXT NOT NULL,
+            outcome TEXT NOT NULL,
+            from_version TEXT,
+            to_version TEXT,
+            reason TEXT NOT NULL,
+            extension_registry_source_id TEXT,
+            extension_registry_revision_id TEXT,
+            entry_digest TEXT,
+            compatibility_snapshot TEXT NOT NULL,
+            plan TEXT NOT NULL,
+            actor TEXT NOT NULL,
+            actor_role TEXT,
+            actor_auth_provider TEXT NOT NULL,
+            actor_authenticated INTEGER NOT NULL,
+            occurred_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_pack_lifecycle_events_pack
+            ON pack_lifecycle_events (pack_key, occurred_at);
+
         CREATE TABLE IF NOT EXISTS local_users (
             user_id TEXT PRIMARY KEY,
             username TEXT NOT NULL UNIQUE,
