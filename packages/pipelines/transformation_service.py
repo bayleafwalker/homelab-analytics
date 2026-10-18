@@ -3,9 +3,11 @@
 This module owns construction, schema bootstrap, registry dispatch (domain
 loads/counts, publication refresh, scenario types, current dimensions), and
 publication confidence wiring. Domain packs own the behaviour behind those
-registries. The facets under ``packages.pipelines.transformation_facets`` hold
-the remaining ingestion/lineage entrypoints and the getters ReportingService
-consumes; tests/test_transformation_facade_boundary.py stops that surface
+registries. Reporting mart reads are not on the facade: ReportingService reads
+them through ``packages.pipelines.mart_read_registry``. The facets under
+``packages.pipelines.transformation_facets`` hold the remaining
+ingestion/lineage entrypoints (load/count), category rules and scenario
+operations; tests/test_transformation_facade_boundary.py stops that surface
 from growing.
 """
 
