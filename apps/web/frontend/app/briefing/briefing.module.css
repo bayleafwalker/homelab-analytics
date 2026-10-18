@@ -1,0 +1,167 @@
+/* Morning brief (Kotona B1). Editorial layout: two horizontal rules only,
+   serif for display, sans for body, measure capped at ~52ch. Colours come
+   from the wave-1 tokens in app/generated/ui-tokens.css. */
+
+.brief {
+  display: grid;
+  gap: 28px;
+  max-width: 980px;
+}
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--line-strong);
+}
+
+.headline {
+  font-family: var(--font-display, var(--font-serif));
+  font-size: var(--type-scale-5, 1.6rem);
+  line-height: 1.2;
+  margin: 6px 0 0;
+  max-width: 52ch;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.counts strong {
+  color: var(--ink);
+  font-size: 1.1rem;
+  margin-right: 4px;
+}
+
+.section {
+  display: grid;
+  gap: 12px;
+}
+
+.sectionHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.sectionHeader h2 {
+  font-family: var(--font-serif);
+  font-size: var(--type-scale-3, 1.2rem);
+  margin: 0;
+}
+
+.summary {
+  color: var(--muted);
+  margin: 0;
+  max-width: 52ch;
+}
+
+.items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.item {
+  display: grid;
+  gap: 6px;
+  padding-left: 12px;
+  border-left: 3px solid var(--line);
+}
+
+.item[data-severity="critical"] {
+  border-left-color: var(--warn);
+}
+
+.item[data-severity="warning"] {
+  border-left-color: var(--accent-warm);
+}
+
+.item[data-claim="withheld"] .itemHeadline {
+  color: var(--muted);
+}
+
+.itemTop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.itemHeadline {
+  font-weight: 600;
+  max-width: 52ch;
+}
+
+.detail,
+.caveats,
+.remediation,
+.confidence,
+.evidence {
+  font-size: 0.88rem;
+  max-width: 64ch;
+}
+
+.caveats {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.remediation {
+  color: var(--ink);
+}
+
+.confidence,
+.evidence {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.footer {
+  padding-top: 14px;
+  border-top: 2px solid var(--line-strong);
+  color: var(--muted);
+  font-size: 0.82rem;
+  max-width: 64ch;
+}
+
+.lineageGroups {
+  display: grid;
+  gap: 18px;
+}
+
+.nodeList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.node {
+  padding-left: 12px;
+  border-left: 3px solid var(--line);
+  font-size: 0.9rem;
+}

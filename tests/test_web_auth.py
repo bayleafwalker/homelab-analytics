@@ -1061,3 +1061,44 @@ def test_nextjs_frontend_retro_policy_view_mirrors_verdicts_without_authoring() 
     assert "/control/policies" in retro_policies
 
     assert '{ href: "/retro/control/policies"' in retro_shell
+
+
+def test_nextjs_frontend_exposes_deterministic_morning_brief() -> None:
+    briefing_source = (FRONTEND_ROOT / "app" / "briefing" / "page.js").read_text()
+    lineage_source = (FRONTEND_ROOT / "app" / "briefing" / "lineage" / "page.js").read_text()
+    backend_source = (FRONTEND_ROOT / "lib" / "backend.ts").read_text()
+
+    # Server component reading through the typed backend helper only.
+    assert "'use client'" not in briefing_source
+    assert '"use client"' not in briefing_source
+    assert "getBriefing" in briefing_source
+    assert "getCurrentUser" in briefing_source
+    assert "fetch(" not in briefing_source
+    assert '"/api/briefing": "get_briefing_api_briefing_get"' in backend_source
+    assert 'backendGet("/api/briefing")' in backend_source
+
+    # Wave-1 primitives, not ad-hoc chips.
+    for primitive in ("@/components/pill", "@/components/num-mono", "@/components/eyebrow"):
+        assert primitive in briefing_source
+
+    # Every line shows claim status + confidence and links to the lineage drill.
+    assert "item.claim_status" in briefing_source
+    assert "ConfidenceLine" in briefing_source
+    assert "item.remediation" in briefing_source
+    assert "Next step:" in briefing_source
+    assert "/briefing/lineage?publication_key=" in briefing_source
+    assert "item.lineage_publication_key" in briefing_source
+    assert "/runs/" in briefing_source
+    assert "No language model" in briefing_source
+
+    # The drill is server-rendered down to source runs.
+    assert "'use client'" not in lineage_source
+    assert '"use client"' not in lineage_source
+    assert "getPublicationLineage" in lineage_source
+    assert "fetch(" not in lineage_source
+    assert "/runs/${encodeURIComponent(runId)}" in lineage_source
+    assert '"source"' in lineage_source
+    assert (
+        '"/api/lineage/publication/{publication_key}": '
+        '"get_publication_lineage_api_lineage_publication__publication_key__get"'
+    ) in backend_source
