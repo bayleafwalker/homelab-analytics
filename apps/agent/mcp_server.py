@@ -414,8 +414,8 @@ class AgentMcpServer:
 
     def _propose_action(self, arguments: dict[str, Any]) -> tuple[int, Any]:
         body: dict[str, Any] = {
-            "policy_id": arguments["origin"],
-            "policy_name": arguments["title"],
+            "source_policy_id": arguments["origin"],
+            "source_policy_name": arguments["title"],
             "verdict": arguments["verdict"],
             "value": arguments.get("value"),
             "adapter": "platform",

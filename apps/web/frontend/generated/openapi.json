@@ -51,6 +51,7 @@
         "type": "object"
       },
       "ActionProposalCreateModel": {
+        "description": "A draft. Send the adapter-neutral names; the HA-era aliases still work.\n\nEach pair (``source_policy_id``/``policy_id``,\n``source_policy_name``/``policy_name``, ``delivery_ref``/``notification_id``)\nmay be given in either spelling; giving both with different values is a\n``422``.",
         "properties": {
           "action_id": {
             "anyOf": [
@@ -79,6 +80,17 @@
             ],
             "title": "Created By"
           },
+          "delivery_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Ref"
+          },
           "idempotency_key": {
             "anyOf": [
               {
@@ -105,15 +117,35 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
+            "description": "Deprecated HA-era alias of delivery_ref; carries the same value.",
             "title": "Notification Id"
           },
           "policy_id": {
-            "title": "Policy Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "deprecated": true,
+            "description": "Deprecated HA-era alias of source_policy_id; carries the same value.",
+            "title": "Policy Id"
           },
           "policy_name": {
-            "title": "Policy Name",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "deprecated": true,
+            "description": "Deprecated HA-era alias of source_policy_name; carries the same value.",
+            "title": "Policy Name"
           },
           "provenance": {
             "anyOf": [
@@ -147,6 +179,28 @@
             "title": "Source Kind",
             "type": "string"
           },
+          "source_policy_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Policy Id"
+          },
+          "source_policy_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Policy Name"
+          },
           "source_summary": {
             "anyOf": [
               {
@@ -175,8 +229,6 @@
           }
         },
         "required": [
-          "policy_id",
-          "policy_name",
           "verdict"
         ],
         "title": "ActionProposalCreateModel",
@@ -205,7 +257,6 @@
             "type": "string"
           },
           "adapter": {
-            "default": "home_assistant",
             "title": "Adapter",
             "type": "string"
           },
@@ -234,6 +285,11 @@
               }
             ],
             "title": "Created By"
+          },
+          "delivery_ref": {
+            "description": "The adapter's delivery handle (the HA approval notification for home_assistant proposals; the action_id otherwise).",
+            "title": "Delivery Ref",
+            "type": "string"
           },
           "dismissed_at": {
             "anyOf": [
@@ -270,14 +326,20 @@
             "type": "object"
           },
           "notification_id": {
+            "deprecated": true,
+            "description": "Deprecated HA-era alias of delivery_ref; carries the same value.",
             "title": "Notification Id",
             "type": "string"
           },
           "policy_id": {
+            "deprecated": true,
+            "description": "Deprecated HA-era alias of source_policy_id; carries the same value.",
             "title": "Policy Id",
             "type": "string"
           },
           "policy_name": {
+            "deprecated": true,
+            "description": "Deprecated HA-era alias of source_policy_name; carries the same value.",
             "title": "Policy Name",
             "type": "string"
           },
@@ -335,6 +397,16 @@
             "title": "Source Kind",
             "type": "string"
           },
+          "source_policy_id": {
+            "description": "Proposing origin: a policy id, or a tool/agent identity.",
+            "title": "Source Policy Id",
+            "type": "string"
+          },
+          "source_policy_name": {
+            "description": "Human-readable title of the proposal.",
+            "title": "Source Policy Name",
+            "type": "string"
+          },
           "source_summary": {
             "anyOf": [
               {
@@ -368,10 +440,14 @@
         },
         "required": [
           "action_id",
+          "source_policy_id",
+          "source_policy_name",
+          "delivery_ref",
           "policy_id",
           "policy_name",
-          "verdict",
           "notification_id",
+          "verdict",
+          "adapter",
           "status",
           "created_at"
         ],

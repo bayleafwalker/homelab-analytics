@@ -39,8 +39,16 @@ agent-drafted proposals with no external actuation) resolve in-registry only.
 
 ``origin`` semantics: ``policy_id``/``policy_name`` identify the proposing
 origin — a policy for policy-gated actions, a tool or agent identity for
-agent-drafted proposals. The field names are kept for wire compatibility with
-the HA approval surface and the web shell.
+agent-drafted proposals. ``notification_id`` is the adapter's delivery
+handle (the HA approval notification for HA proposals).
+
+Adapter-neutral names (``PROPOSAL_FIELD_ALIASES``): the generalized queue
+(``/api/actions/proposals``) emits ``source_policy_id``,
+``source_policy_name`` and ``delivery_ref`` alongside the HA-era
+``policy_id``, ``policy_name`` and ``notification_id``, and accepts either
+spelling on input. The HA-era names are deprecated on that surface
+(``docs/architecture/agent-surfaces.md``); storage, the HA approval surface
+(``/api/ha/actions/proposals``) and the HA dispatcher keep them.
 """
 from __future__ import annotations
 
@@ -61,6 +69,36 @@ ProvenanceTrustSource = Literal["server_stamped", "proposer_supplied"]
 
 ADAPTER_HOME_ASSISTANT = "home_assistant"
 ADAPTER_PLATFORM = "platform"
+
+# Deprecated HA-era wire name -> adapter-neutral wire name.
+PROPOSAL_FIELD_ALIASES: dict[str, str] = {
+    "policy_id": "source_policy_id",
+    "policy_name": "source_policy_name",
+    "notification_id": "delivery_ref",
+}
+
+
+def reconcile_proposal_field_aliases(data: dict[str, Any]) -> dict[str, Any]:
+    """Fill both spellings of each aliased proposal field from either one.
+
+    Returns a copy carrying the HA-era and the adapter-neutral name with the
+    same value. Raises ``ValueError`` when both are given with different
+    values: the caller must not have to guess which one wins.
+    """
+    reconciled = dict(data)
+    for legacy, neutral in PROPOSAL_FIELD_ALIASES.items():
+        legacy_value = reconciled.get(legacy)
+        neutral_value = reconciled.get(neutral)
+        if legacy_value is not None and neutral_value is not None:
+            if legacy_value != neutral_value:
+                raise ValueError(
+                    f"{neutral} and its deprecated alias {legacy} disagree; "
+                    f"send {neutral} only"
+                )
+        value = neutral_value if neutral_value is not None else legacy_value
+        reconciled[legacy] = value
+        reconciled[neutral] = value
+    return reconciled
 
 # Principals that authenticate as a machine rather than a person. They may
 # draft proposals but never resolve them: approval is a human decision.
@@ -191,6 +229,10 @@ class ActionProposal:
             "resolution_reason": self.resolution_reason,
             "idempotency_key": self.idempotency_key,
             "history": [event.to_dict() for event in self.history],
+            # Adapter-neutral names of policy_id/policy_name/notification_id.
+            "source_policy_id": self.policy_id,
+            "source_policy_name": self.policy_name,
+            "delivery_ref": self.notification_id,
         }
 
 
