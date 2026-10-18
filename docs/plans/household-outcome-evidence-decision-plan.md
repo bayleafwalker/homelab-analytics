@@ -8,30 +8,86 @@ concern: APP
 
 ## Current delivery status
 
-**The source-side evaluator is present on canonical main; this plan is not
-complete.** HLA includes a transformation helper that consumes
-explicitly mapped Home Assistant history, checks complete five-minute windows
-for a selected closed month, validates source freshness, units, duplicate
-conflicts and the Kotiakku evidence contract, and returns a traced review-only
-recommendation or `insufficient_evidence`. Synthetic tests exercise both
-recommendation outcomes and refusal cases. A companion change in
-`ha-elisa-kotiakku` adds the versioned local sensor attributes that carry its
-monthly savings estimates, tariff snapshot and cost inputs.
+**The code path is implemented end to end; the live measurement gate is still
+open.** PR #24 merged the source-side evidence qualifier
+(`packages/domains/utilities/pipelines/kotiakku_evidence.py`). PR #34
+(`feat/outcome-evidence-loop`) adds the rest of the loop:
 
-This does not establish that the integration or HLA has current household data,
-that a recommendation has been published to an application surface, or that a
-household decision or realized result exists. The contract requires explicit
-entity mapping and household timezone. Backfill status remains unknown from HA
-state history. The source implementation and synthetic fixtures do not close the
-live measurement gate; an operator still needs to supply authorized source
-history, verify the mapping and tariff assumptions, and record an actual
-decision or explicit non-decision plus a later observation.
+| Work item | Delivered | Evidence |
+|---|---|---|
+| 1. Name the decision | Versioned `DecisionDefinition` `kotiakku_battery_plan_review` v1.0.0 (see "Decision definition" below), registered in the composition layer | `packages/domains/utilities/battery_plan_decision.py:24`, `packages/platform/decision_definitions.py`, `packages/pipelines/household_decisions.py` |
+| 2. Qualify sources | Qualifier now also returns observed-flow totals over complete windows only and the user-entered cost basis; profile (explicit entity map + timezone) comes from `HOMELAB_ANALYTICS_BATTERY_PLAN_PROFILE`, never guessed | `kotiakku_evidence.py:449` (`_observed_flow_totals`), `:474` (`_cost_basis`), `battery_plan_outcome.py` (`load_battery_plan_profile`) |
+| 3. Publish the outcome | Reporting marts `mart_battery_plan_outcome` (verdict, coverage, freshness, tariff snapshot, reason codes, remediation, limitations, lineage) and `mart_battery_plan_outcome_values` (per-value status observed/derived/estimated/heuristic/user_entered, role actual/estimate/assumption/quality, explicit `is_missing`); verdict guard; `refresh-battery-plan-outcome` worker command publishes and records reporting lineage (`source_system=home_assistant`) then recomputes publication confidence; `GET /reports/battery-plan-outcome`; web page `/utilities/battery-plan` | `battery_plan_outcome.py:225` (refresh), `:476` (`_guarded_verdict`), `:498` (value disclosures), `:65` (remediation), `packages/pipelines/battery_plan_outcome_publication.py:42`, `apps/api/routes/report_routes.py:595`, DuckDB `0015`, Postgres `0014` |
+| 4. Record realized decision impact | Append-only decision ledger: decision or explicit non-decision pinned to publication key, schema version, period, row reference (`assessment_id`), lineage reference and evidence snapshot; follow-ups record realized result, value status and evidence effect | `packages/storage/decision_ledger.py:118`, `packages/application/use_cases/decision_ledger.py:91`/`:156`, `apps/api/routes/decision_routes.py:66`, SQLite `0008`, Postgres `0015` |
+
+Acceptance mapping:
+
+- *Complete lineage path*: HA history (`fact_ha_state_change`, transformation)
+  → qualifier → reporting marts → publication contracts → control-plane
+  reporting lineage per source run → decision record lineage reference.
+- *Per-value disclosure*: `mart_battery_plan_outcome_values`; missing values
+  stay `NULL` with `is_missing = true` (for example `net_site_cost_eur`, which
+  evidence contract 1.0 does not supply).
+- *No confident positive claim from stale or incomplete data*: `verdict` is
+  `insufficient_evidence` unless the assessment has no reason codes, the
+  source is fresh and coverage is 100%; remediation text names the fix.
+  Tests: `tests/test_battery_plan_outcome.py`.
+- *Reconstructable*: `assessment_id` fingerprints the inputs; rows carry the
+  entity map, source run IDs, tariff snapshot, window counts and freshness.
+- *Decision and follow-up*: `/control/decisions` (reader read, operator
+  write; no service-token scope grants either). Insufficient evidence must be
+  acknowledged; a stale row reference is refused. Tests:
+  `tests/test_decision_ledger.py`.
+- *Read-only*: no device credentials or actuation paths; every verdict is
+  `recommendation_scope = review_only`, `actuation_authorized = false`; static
+  tests assert the modules hold no HA service-call or credential paths.
+
+Still open (operator action, not code): this does not establish that HLA has
+current household data. An operator must set the profile with the verified
+entity mapping and timezone, ingest authorized HA history, run
+`refresh-battery-plan-outcome`, verify the tariff assumptions, record an
+actual decision or explicit non-decision, and later record a follow-up
+observation. With identity disabled, the ledger records the actor as
+`unauthenticated`; it does not treat that as an authenticated household
+decision-maker. Backfill status remains unknown from HA state history.
 
 Evidence reads are bounded by the assessment timestamp. Timestamped rows outside
 the selected decision month do not affect its window-coverage or tariff checks;
 records whose relevant scope cannot be established remain an explicit evidence
 gap. The source contract carries a month-specific tariff configuration, so a
 later month’s tariff update does not silently replace the selected month’s basis.
+
+## Decision definition
+
+`kotiakku_battery_plan_review`, version `1.0.0`
+(`packages/domains/utilities/battery_plan_decision.py`). Bump the version when
+any field below changes; decision records pin the version they were made under.
+
+- **Question:** Over one closed household-local calendar month, do the
+  Kotiakku battery-versus-no-battery estimated savings cover the battery
+  plan's effective monthly cost, so that the current battery plan, tariff and
+  contract need no review?
+- **Authorized decision-maker:** the `operator` role (permission
+  `control.decisions.write`); readers can review the evidence and history.
+- **Evidence window:** one closed calendar month in the household timezone,
+  as complete five-minute source windows from HA history, bounded by the
+  assessment timestamp.
+- **Evidence that could change the decision:** estimated savings moving
+  above or below the effective monthly cost; a change in the battery cost
+  basis; a tariff snapshot change; further months showing seasonality;
+  observed bills contradicting the estimate.
+- **Insufficient evidence:** coverage below 100% of expected windows; source
+  older than 15 minutes at assessment; missing, invalid, conflicting or
+  ambiguously scoped records; missing/mixed tariff snapshot or signature
+  mismatch; missing savings estimate or cost basis, or disagreeing counters;
+  unsupported contract/method/period; month not closed; no profile.
+- **Outcome options (no action preselected):** keep the current plan; open a
+  review; change tariff or contract (executed outside HLA); or the explicit
+  non-decision "defer until the evidence improves".
+- **Follow-up:** due 45 days after the decision by default; a follow-up
+  records the realized result, an optional realized value labelled `observed`
+  or `user_entered`, and whether evidence confirmed or changed the decision,
+  preserved a deliberate non-decision, or exposed a source or model defect.
 
 ## Goal
 
