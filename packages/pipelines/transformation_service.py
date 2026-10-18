@@ -128,7 +128,6 @@ from packages.pipelines.transformation_facets.transactions import TransactionTra
 from packages.pipelines.transformation_facets.utilities import UtilityTransformationMixin
 from packages.pipelines.transformation_household import (
     ensure_household_member_storage,
-    get_household_members,
     seed_default_household_member,
     upsert_household_member,
 )
@@ -316,9 +315,6 @@ class TransformationService(
     def battery_plan_profile_loader(self) -> Callable[[], BatteryPlanProfileResolution]:
         """Injected battery-plan profile source for the utilities refresh handler."""
         return self._battery_plan_profile_loader
-
-    def get_household_members(self) -> list[dict[str, Any]]:
-        return get_household_members(self._store)
 
     def upsert_household_member(
         self,

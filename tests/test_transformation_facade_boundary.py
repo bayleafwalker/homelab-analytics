@@ -111,7 +111,6 @@ FACADE_SURFACE_BASELINE: dict[str, frozenset[str]] = {
         {
             "count_domain_rows",
             "get_current_dimension_rows",
-            "get_household_members",
             "load_domain_rows",
             "record_publication_confidence",
             "refresh_publications",

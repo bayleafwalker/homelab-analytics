@@ -10,6 +10,7 @@ from packages.pipelines.current_dimension_registry import (
     get_default_current_dimension_registry,
 )
 from packages.pipelines.household_reporting import CURRENT_DIMENSION_RELATIONS
+from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -24,11 +25,7 @@ def _owner_module(reader: object) -> str:
 def test_default_registry_covers_every_reporting_current_dimension() -> None:
     registry = get_default_current_dimension_registry()
 
-    # dim_household_member is platform-owned (transformation_household) and was
-    # never served by get_current_dimension_rows; behaviour is unchanged.
-    assert set(registry.dimension_names()) == set(CURRENT_DIMENSION_RELATIONS) - {
-        "dim_household_member"
-    }
+    assert set(registry.dimension_names()) == set(CURRENT_DIMENSION_RELATIONS)
     for name in registry.dimension_names():
         owner = _owner_module(registry.reader(name))
         assert owner == "declared" or owner.startswith("packages.domains."), (name, owner)
@@ -56,6 +53,20 @@ def test_facade_reads_current_dimensions_through_the_registry() -> None:
     assert service.get_current_dimension_rows("dim_category")  # seeded system categories
     with pytest.raises(KeyError, match="Unknown current dimension: dim_nope"):
         service.get_current_dimension_rows("dim_nope")
+
+
+def test_household_members_are_served_through_the_registry() -> None:
+    service = TransformationService(DuckDBStore.memory())
+    service.upsert_household_member(member_id="alex", display_name="Alex", role="partner")
+    reporting = ReportingService(service, access_mode=ReportingAccessMode.WAREHOUSE)
+
+    rows = reporting.get_current_dimension_rows("dim_household_member")
+
+    assert [(row["member_id"], row["role"]) for row in rows] == [
+        ("alex", "partner"),
+        ("household", "head"),
+    ]
+    assert rows == service.get_current_dimension_rows("dim_household_member")
 
 
 def test_registry_rejects_conflicting_readers_and_accepts_injection() -> None:
