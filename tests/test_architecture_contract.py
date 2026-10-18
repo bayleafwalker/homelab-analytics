@@ -26,15 +26,25 @@ def _import_names(path: Path) -> list[str]:
     return names
 
 
-def test_transformation_service_does_not_import_application_or_reporting_modules() -> None:
-    path = ROOT / "packages" / "pipelines" / "transformation_service.py"
-    imports = _import_names(path)
+def _transformation_service_module_paths() -> list[Path]:
+    pipelines = ROOT / "packages" / "pipelines"
+    return [
+        pipelines / "transformation_service.py",
+        *sorted((pipelines / "transformation_facets").glob("*.py")),
+    ]
 
-    assert not any(name.startswith("apps") for name in imports)
+
+def test_transformation_service_does_not_import_application_or_reporting_modules() -> None:
+    for path in _transformation_service_module_paths():
+        imports = _import_names(path)
+
+        assert not any(name.startswith("apps") for name in imports), path
 
 
 def test_transformation_service_imports_split_domain_modules() -> None:
-    imports = _import_names(ROOT / "packages" / "pipelines" / "transformation_service.py")
+    imports = [
+        name for path in _transformation_service_module_paths() for name in _import_names(path)
+    ]
 
     assert "packages.pipelines.transformation_domain_registry" in imports
     assert "packages.pipelines.transformation_refresh_registry" in imports
@@ -46,6 +56,39 @@ def test_transformation_service_imports_split_domain_modules() -> None:
     assert "packages.domains.homelab.pipelines.transformation_infrastructure" in imports
     assert "packages.domains.utilities.pipelines.transformation_utilities" in imports
     assert "packages.domains.overview.pipelines.transformation_overview" in imports
+
+
+def test_transformation_service_composes_every_facet_without_method_overlap() -> None:
+    import importlib
+
+    from packages.pipelines.transformation_facets.base import TransformationFacetBase
+    from packages.pipelines.transformation_service import TransformationService
+
+    facet_dir = ROOT / "packages" / "pipelines" / "transformation_facets"
+    facets = []
+    for path in sorted(facet_dir.glob("*.py")):
+        if path.stem in {"__init__", "base"}:
+            continue
+        module = importlib.import_module(f"packages.pipelines.transformation_facets.{path.stem}")
+        facets.extend(
+            obj
+            for obj in vars(module).values()
+            if isinstance(obj, type)
+            and issubclass(obj, TransformationFacetBase)
+            and obj is not TransformationFacetBase
+            and obj.__module__ == module.__name__
+        )
+    assert facets
+    for facet in facets:
+        assert facet in TransformationService.__mro__, facet
+
+    owners: dict[str, str] = {}
+    for cls in (TransformationService, *facets):
+        for name in vars(cls):
+            if name.startswith("__"):
+                continue
+            assert name not in owners, f"{name} defined in {owners.get(name)} and {cls.__name__}"
+            owners[name] = cls.__name__
 
 
 def test_shared_external_registry_does_not_import_domain_manifests() -> None:
