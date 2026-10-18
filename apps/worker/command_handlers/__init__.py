@@ -3,8 +3,10 @@ from __future__ import annotations
 
 from argparse import Namespace
 from collections.abc import Callable
+from typing import TextIO
 
 from apps.worker.runtime import WorkerRuntime
+from packages.shared.settings import AppSettings
 
 from .admin_commands import (
     handle_create_local_admin_user,
@@ -20,6 +22,7 @@ from .admin_commands import (
     handle_revoke_service_token,
     handle_verify_config,
 )
+from .backup_commands import handle_backup, handle_restore, handle_verify_backup
 from .ingest_commands import (
     handle_generate_demo_data,
     handle_ingest_account_transactions,
@@ -63,6 +66,28 @@ from .schedule_commands import (
 )
 
 WorkerCommandHandler = Callable[[Namespace, WorkerRuntime], int]
+SettingsCommandHandler = Callable[[Namespace, AppSettings, TextIO, TextIO], int]
+
+
+def build_settings_command_handlers() -> dict[str, SettingsCommandHandler]:
+    """Commands that run on settings alone, before the worker runtime is built."""
+    return {
+        "backup": handle_backup,
+        "restore": handle_restore,
+        "verify-backup": handle_verify_backup,
+    }
+
+
+def dispatch_settings_command(
+    args: Namespace,
+    settings: AppSettings,
+    output: TextIO,
+    error_output: TextIO,
+) -> int | None:
+    handler = build_settings_command_handlers().get(args.command)
+    if handler is None:
+        return None
+    return handler(args, settings, output, error_output)
 
 
 def build_worker_command_handlers() -> dict[str, WorkerCommandHandler]:
