@@ -44,6 +44,7 @@ from typing import Any
 
 from packages.shared.external_registry import (
     _build_manifest_digest,
+    _current_platform_version,
     parse_extension_registry_manifest,
 )
 from packages.storage.control_plane import ExternalRegistryStore
@@ -94,6 +95,11 @@ class PackDiscoveryResult:
     errors: tuple[str, ...]
     sources_scanned: int
     revisions_scanned: int
+
+
+def current_platform_version() -> str:
+    """The running platform release, as the registry sync validates against."""
+    return _current_platform_version()
 
 
 def manifest_core_digest(payload: dict[str, object]) -> str:
@@ -277,6 +283,7 @@ __all__ = [
     "PackCatalogEntry",
     "PackDiscoveryResult",
     "PackPublicationContract",
+    "current_platform_version",
     "discover_cached_pack_entries",
     "manifest_core_digest",
     "pack_entry_digest",
