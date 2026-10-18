@@ -28,6 +28,7 @@ from apps.api.routes.config_routes import register_config_routes
 from apps.api.routes.contract_routes import register_contract_routes
 from apps.api.routes.control_routes import register_control_routes
 from apps.api.routes.control_terminal_routes import register_control_terminal_routes
+from apps.api.routes.decision_routes import register_decision_routes
 from apps.api.routes.ha_routes import register_ha_routes
 from apps.api.routes.homelab_routes import register_homelab_routes
 from apps.api.routes.ingest_routes import register_ingest_routes
@@ -628,6 +629,11 @@ def create_app(
         ),
         referenceable_contracts=policy_referenceable_contracts,
         ha_policy_evaluator=ha_policy_evaluator,
+    )
+    register_decision_routes(
+        app,
+        resolved_config_repository=resolved_config_repository,
+        resolved_reporting_service=reporting_service,
     )
     register_control_routes(
         app,

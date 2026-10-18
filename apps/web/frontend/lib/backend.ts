@@ -64,6 +64,8 @@ type GetOperationIdByPath = {
   "/api/ha/mqtt/status": "get_mqtt_status_api_ha_mqtt_status_get";
   "/api/ha/policies": "get_policies_api_ha_policies_get";
   "/control/policies": "list_policies_control_policies_get";
+  "/control/decisions": "list_decisions_control_decisions_get";
+  "/reports/battery-plan-outcome": "get_battery_plan_outcome_reports_battery_plan_outcome_get";
   "/control/policies/referenceable-publications": "list_referenceable_publications_control_policies_referenceable_publications_get";
   "/api/ha/actions": "get_actions_api_ha_actions_get";
   "/api/ha/actions/status": "get_actions_status_api_ha_actions_status_get";
@@ -822,6 +824,29 @@ export async function getHaPolicyEvaluation() {
     policies: getResponseArray(payload, "policies"),
     authority: getResponseField(payload, "authority")
   };
+}
+
+export async function getBatteryPlanOutcome(
+  decisionMonth?: QueryValue<"/reports/battery-plan-outcome", "decision_month">
+) {
+  const payload = await backendGet("/reports/battery-plan-outcome", {
+    params: { query: definedValues({ decision_month: decisionMonth }) }
+  });
+  return {
+    rows: getResponseArray(payload, "rows"),
+    values: getResponseArray(payload, "values"),
+    decision: getResponseField(payload, "decision"),
+    publicationKeys: getResponseArray(payload, "publication_keys")
+  };
+}
+
+export async function getDecisionRecords(
+  decisionKey?: QueryValue<"/control/decisions", "decision_key">
+) {
+  const payload = await backendGet("/control/decisions", {
+    params: { query: definedValues({ decision_key: decisionKey }) }
+  });
+  return getResponseArray(payload, "decisions");
 }
 
 export async function getPolicyDefinitions() {

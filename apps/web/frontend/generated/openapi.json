@@ -644,6 +644,449 @@
         "title": "AttentionItemsResponse",
         "type": "object"
       },
+      "BatteryPlanOutcomeResponse": {
+        "properties": {
+          "decision": {
+            "additionalProperties": true,
+            "title": "Decision",
+            "type": "object"
+          },
+          "decision_month": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Month"
+          },
+          "publication_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Publication Keys",
+            "type": "array"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/BatteryPlanOutcomeRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/BatteryPlanOutcomeValueRow"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "decision",
+          "values",
+          "publication_keys"
+        ],
+        "title": "BatteryPlanOutcomeResponse",
+        "type": "object"
+      },
+      "BatteryPlanOutcomeRow": {
+        "properties": {
+          "actuation_authorized": {
+            "title": "Actuation Authorized",
+            "type": "boolean"
+          },
+          "assessed_at": {
+            "title": "Assessed At",
+            "type": "string"
+          },
+          "assessment_id": {
+            "title": "Assessment Id",
+            "type": "string"
+          },
+          "backfill_status": {
+            "title": "Backfill Status",
+            "type": "string"
+          },
+          "claim_basis": {
+            "title": "Claim Basis",
+            "type": "string"
+          },
+          "complete_window_count": {
+            "title": "Complete Window Count",
+            "type": "integer"
+          },
+          "conflicting_window_count": {
+            "title": "Conflicting Window Count",
+            "type": "integer"
+          },
+          "cost_basis_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Basis Method"
+          },
+          "coverage_pct": {
+            "title": "Coverage Pct",
+            "type": "string"
+          },
+          "decision_key": {
+            "title": "Decision Key",
+            "type": "string"
+          },
+          "decision_month": {
+            "title": "Decision Month",
+            "type": "string"
+          },
+          "decision_version": {
+            "title": "Decision Version",
+            "type": "string"
+          },
+          "duplicate_snapshot_count": {
+            "title": "Duplicate Snapshot Count",
+            "type": "integer"
+          },
+          "effective_monthly_cost_eur": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Monthly Cost Eur"
+          },
+          "estimated_net_benefit_eur": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Net Benefit Eur"
+          },
+          "estimated_savings_eur": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Savings Eur"
+          },
+          "evidence_status": {
+            "title": "Evidence Status",
+            "type": "string"
+          },
+          "expected_window_count": {
+            "title": "Expected Window Count",
+            "type": "integer"
+          },
+          "freshness_age_minutes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness Age Minutes"
+          },
+          "freshness_limit_minutes": {
+            "title": "Freshness Limit Minutes",
+            "type": "integer"
+          },
+          "freshness_status": {
+            "title": "Freshness Status",
+            "type": "string"
+          },
+          "household_timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Household Timezone"
+          },
+          "invalid_record_count": {
+            "title": "Invalid Record Count",
+            "type": "integer"
+          },
+          "limitations_json": {
+            "title": "Limitations Json",
+            "type": "string"
+          },
+          "missing_fields_json": {
+            "title": "Missing Fields Json",
+            "type": "string"
+          },
+          "missing_window_count": {
+            "title": "Missing Window Count",
+            "type": "integer"
+          },
+          "profile_status": {
+            "title": "Profile Status",
+            "type": "string"
+          },
+          "reason_codes_json": {
+            "title": "Reason Codes Json",
+            "type": "string"
+          },
+          "recommendation_scope": {
+            "title": "Recommendation Scope",
+            "type": "string"
+          },
+          "remediation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remediation"
+          },
+          "source_calculation_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Calculation Method"
+          },
+          "source_entity_ids_json": {
+            "title": "Source Entity Ids Json",
+            "type": "string"
+          },
+          "source_evidence_contract_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Evidence Contract Version"
+          },
+          "source_last_period_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Last Period End"
+          },
+          "source_recommendation": {
+            "title": "Source Recommendation",
+            "type": "string"
+          },
+          "source_report_ingested_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Report Ingested At"
+          },
+          "source_run_ids_json": {
+            "title": "Source Run Ids Json",
+            "type": "string"
+          },
+          "tariff_snapshot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tariff Snapshot Id"
+          },
+          "tariff_snapshot_json": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tariff Snapshot Json"
+          },
+          "unknown_scope_timestamp_count": {
+            "title": "Unknown Scope Timestamp Count",
+            "type": "integer"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assessment_id",
+          "decision_key",
+          "decision_version",
+          "decision_month",
+          "assessed_at",
+          "profile_status",
+          "evidence_status",
+          "verdict",
+          "claim_basis",
+          "source_recommendation",
+          "recommendation_scope",
+          "actuation_authorized",
+          "expected_window_count",
+          "complete_window_count",
+          "missing_window_count",
+          "coverage_pct",
+          "duplicate_snapshot_count",
+          "conflicting_window_count",
+          "invalid_record_count",
+          "unknown_scope_timestamp_count",
+          "backfill_status",
+          "freshness_status",
+          "freshness_limit_minutes",
+          "reason_codes_json",
+          "missing_fields_json",
+          "limitations_json",
+          "source_entity_ids_json",
+          "source_run_ids_json"
+        ],
+        "title": "BatteryPlanOutcomeRow",
+        "type": "object"
+      },
+      "BatteryPlanOutcomeValueRow": {
+        "properties": {
+          "assessment_id": {
+            "title": "Assessment Id",
+            "type": "string"
+          },
+          "decision_month": {
+            "title": "Decision Month",
+            "type": "string"
+          },
+          "display_order": {
+            "title": "Display Order",
+            "type": "integer"
+          },
+          "is_missing": {
+            "title": "Is Missing",
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "source_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Reference"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value_key": {
+            "title": "Value Key",
+            "type": "string"
+          },
+          "value_label": {
+            "title": "Value Label",
+            "type": "string"
+          },
+          "value_numeric": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Numeric"
+          },
+          "value_role": {
+            "title": "Value Role",
+            "type": "string"
+          },
+          "value_status": {
+            "title": "Value Status",
+            "type": "string"
+          },
+          "value_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Text"
+          }
+        },
+        "required": [
+          "assessment_id",
+          "decision_month",
+          "display_order",
+          "value_key",
+          "value_label",
+          "value_status",
+          "value_role",
+          "is_missing"
+        ],
+        "title": "BatteryPlanOutcomeValueRow",
+        "type": "object"
+      },
       "BriefConfidenceModel": {
         "additionalProperties": false,
         "properties": {
@@ -1999,6 +2442,150 @@
           "columns"
         ],
         "title": "DatasetContractRequest",
+        "type": "object"
+      },
+      "DecisionCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "decision_key": {
+            "title": "Decision Key",
+            "type": "string"
+          },
+          "evidence_gaps_acknowledged": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Gaps Acknowledged",
+            "type": "array"
+          },
+          "follow_up_due_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Follow Up Due On"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          },
+          "subject_period": {
+            "description": "Period of the subject publication row, e.g. 2026-01.",
+            "title": "Subject Period",
+            "type": "string"
+          },
+          "subject_row_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Row reference (assessment_id) the decision-maker reviewed; refused if stale.",
+            "title": "Subject Row Ref"
+          },
+          "uncertainty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uncertainty"
+          }
+        },
+        "required": [
+          "decision_key",
+          "subject_period",
+          "outcome",
+          "rationale"
+        ],
+        "title": "DecisionCreateRequest",
+        "type": "object"
+      },
+      "DecisionFollowUpCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_effect": {
+            "title": "Evidence Effect",
+            "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "observation_period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Period"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "realized_result": {
+            "title": "Realized Result",
+            "type": "string"
+          },
+          "realized_value_eur": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realized Value Eur"
+          },
+          "realized_value_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realized Value Status"
+          }
+        },
+        "required": [
+          "observed_at",
+          "realized_result",
+          "evidence_effect"
+        ],
+        "title": "DecisionFollowUpCreateRequest",
         "type": "object"
       },
       "DimAccountRow": {
@@ -13598,6 +14185,220 @@
         "summary": "Get Confidence Detail"
       }
     },
+    "/control/decisions": {
+      "get": {
+        "operationId": "list_decisions_control_decisions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "decision_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Decision Key"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject_period",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subject Period"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Decisions Control Decisions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Decisions"
+      },
+      "post": {
+        "operationId": "create_decision_control_decisions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Decision Control Decisions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Decision"
+      }
+    },
+    "/control/decisions/definitions": {
+      "get": {
+        "operationId": "list_decision_definitions_control_decisions_definitions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Decision Definitions Control Decisions Definitions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Decision Definitions"
+      }
+    },
+    "/control/decisions/{decision_id}": {
+      "get": {
+        "operationId": "get_decision_control_decisions__decision_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_id",
+            "required": true,
+            "schema": {
+              "title": "Decision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Decision Control Decisions  Decision Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Decision"
+      }
+    },
+    "/control/decisions/{decision_id}/follow-ups": {
+      "post": {
+        "operationId": "create_decision_follow_up_control_decisions__decision_id__follow_ups_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_id",
+            "required": true,
+            "schema": {
+              "title": "Decision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionFollowUpCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Decision Follow Up Control Decisions  Decision Id  Follow Ups Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Decision Follow Up"
+      }
+    },
     "/control/lineage/downstream": {
       "get": {
         "operationId": "get_lineage_downstream_control_lineage_downstream_get",
@@ -14820,6 +15621,53 @@
           }
         },
         "summary": "Get Attention Items"
+      }
+    },
+    "/reports/battery-plan-outcome": {
+      "get": {
+        "description": "Review-only outcome for the named battery-plan decision.\n\n``rows`` are verdict rows (one per decision month); ``values`` are the\nper-value disclosures. Estimates are never realized savings and the\nresponse authorizes no action.",
+        "operationId": "get_battery_plan_outcome_reports_battery_plan_outcome_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "decision_month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Decision Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatteryPlanOutcomeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Battery Plan Outcome"
       }
     },
     "/reports/budget-envelopes": {

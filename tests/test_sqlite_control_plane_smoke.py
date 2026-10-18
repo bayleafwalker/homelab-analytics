@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from packages.storage.ingestion_config import IngestionConfigRepository
 from tests.control_plane_test_support import (
     FIXED_DUE_AT,
+    assert_decision_ledger_behaviour,
     assert_policy_registry_behaviour,
     seed_source_asset_graph,
 )
@@ -52,3 +53,9 @@ def test_sqlite_control_plane_policy_registry_smoke() -> None:
     with TemporaryDirectory() as temp_dir:
         repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
         assert_policy_registry_behaviour(repository)
+
+
+def test_sqlite_control_plane_decision_ledger_smoke() -> None:
+    with TemporaryDirectory() as temp_dir:
+        repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+        assert_decision_ledger_behaviour(repository)

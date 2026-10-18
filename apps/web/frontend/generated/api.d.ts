@@ -2142,6 +2142,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/control/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Decisions */
+        get: operations["list_decisions_control_decisions_get"];
+        put?: never;
+        /** Create Decision */
+        post: operations["create_decision_control_decisions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/decisions/definitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Decision Definitions */
+        get: operations["list_decision_definitions_control_decisions_definitions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/decisions/{decision_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Decision */
+        get: operations["get_decision_control_decisions__decision_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/decisions/{decision_id}/follow-ups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Decision Follow Up */
+        post: operations["create_decision_follow_up_control_decisions__decision_id__follow_ups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/control/lineage/downstream": {
         parameters: {
             query?: never;
@@ -2681,6 +2750,30 @@ export interface paths {
         };
         /** Get Attention Items */
         get: operations["get_attention_items_reports_attention_items_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/battery-plan-outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Battery Plan Outcome
+         * @description Review-only outcome for the named battery-plan decision.
+         *
+         *     ``rows`` are verdict rows (one per decision month); ``values`` are the
+         *     per-value disclosures. Estimates are never realized savings and the
+         *     response authorizes no action.
+         */
+        get: operations["get_battery_plan_outcome_reports_battery_plan_outcome_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3496,6 +3589,135 @@ export interface components {
             /** Rows */
             rows: components["schemas"]["AttentionItemRow"][];
         };
+        /** BatteryPlanOutcomeResponse */
+        BatteryPlanOutcomeResponse: {
+            /** Decision */
+            decision: {
+                [key: string]: unknown;
+            };
+            /** Decision Month */
+            decision_month?: string | null;
+            /** Publication Keys */
+            publication_keys: string[];
+            /** Rows */
+            rows: components["schemas"]["BatteryPlanOutcomeRow"][];
+            /** Values */
+            values: components["schemas"]["BatteryPlanOutcomeValueRow"][];
+        };
+        /** BatteryPlanOutcomeRow */
+        BatteryPlanOutcomeRow: {
+            /** Actuation Authorized */
+            actuation_authorized: boolean;
+            /** Assessed At */
+            assessed_at: string;
+            /** Assessment Id */
+            assessment_id: string;
+            /** Backfill Status */
+            backfill_status: string;
+            /** Claim Basis */
+            claim_basis: string;
+            /** Complete Window Count */
+            complete_window_count: number;
+            /** Conflicting Window Count */
+            conflicting_window_count: number;
+            /** Cost Basis Method */
+            cost_basis_method?: string | null;
+            /** Coverage Pct */
+            coverage_pct: string;
+            /** Decision Key */
+            decision_key: string;
+            /** Decision Month */
+            decision_month: string;
+            /** Decision Version */
+            decision_version: string;
+            /** Duplicate Snapshot Count */
+            duplicate_snapshot_count: number;
+            /** Effective Monthly Cost Eur */
+            effective_monthly_cost_eur?: string | null;
+            /** Estimated Net Benefit Eur */
+            estimated_net_benefit_eur?: string | null;
+            /** Estimated Savings Eur */
+            estimated_savings_eur?: string | null;
+            /** Evidence Status */
+            evidence_status: string;
+            /** Expected Window Count */
+            expected_window_count: number;
+            /** Freshness Age Minutes */
+            freshness_age_minutes?: string | null;
+            /** Freshness Limit Minutes */
+            freshness_limit_minutes: number;
+            /** Freshness Status */
+            freshness_status: string;
+            /** Household Timezone */
+            household_timezone?: string | null;
+            /** Invalid Record Count */
+            invalid_record_count: number;
+            /** Limitations Json */
+            limitations_json: string;
+            /** Missing Fields Json */
+            missing_fields_json: string;
+            /** Missing Window Count */
+            missing_window_count: number;
+            /** Profile Status */
+            profile_status: string;
+            /** Reason Codes Json */
+            reason_codes_json: string;
+            /** Recommendation Scope */
+            recommendation_scope: string;
+            /** Remediation */
+            remediation?: string | null;
+            /** Source Calculation Method */
+            source_calculation_method?: string | null;
+            /** Source Entity Ids Json */
+            source_entity_ids_json: string;
+            /** Source Evidence Contract Version */
+            source_evidence_contract_version?: string | null;
+            /** Source Last Period End */
+            source_last_period_end?: string | null;
+            /** Source Recommendation */
+            source_recommendation: string;
+            /** Source Report Ingested At */
+            source_report_ingested_at?: string | null;
+            /** Source Run Ids Json */
+            source_run_ids_json: string;
+            /** Tariff Snapshot Id */
+            tariff_snapshot_id?: string | null;
+            /** Tariff Snapshot Json */
+            tariff_snapshot_json?: string | null;
+            /** Unknown Scope Timestamp Count */
+            unknown_scope_timestamp_count: number;
+            /** Verdict */
+            verdict: string;
+        };
+        /** BatteryPlanOutcomeValueRow */
+        BatteryPlanOutcomeValueRow: {
+            /** Assessment Id */
+            assessment_id: string;
+            /** Decision Month */
+            decision_month: string;
+            /** Display Order */
+            display_order: number;
+            /** Is Missing */
+            is_missing: boolean;
+            /** Note */
+            note?: string | null;
+            /** Source Reference */
+            source_reference?: string | null;
+            /** Unit */
+            unit?: string | null;
+            /** Value Key */
+            value_key: string;
+            /** Value Label */
+            value_label: string;
+            /** Value Numeric */
+            value_numeric?: string | null;
+            /** Value Role */
+            value_role: string;
+            /** Value Status */
+            value_status: string;
+            /** Value Text */
+            value_text?: string | null;
+        };
         /** BriefConfidenceModel */
         BriefConfidenceModel: {
             /** Assessed At */
@@ -3942,6 +4164,51 @@ export interface components {
             dataset_name: string;
             /** Version */
             version: number;
+        };
+        /** DecisionCreateRequest */
+        DecisionCreateRequest: {
+            /** Decision Key */
+            decision_key: string;
+            /** Evidence Gaps Acknowledged */
+            evidence_gaps_acknowledged?: string[];
+            /** Follow Up Due On */
+            follow_up_due_on?: string | null;
+            /** Outcome */
+            outcome: string;
+            /** Rationale */
+            rationale: string;
+            /**
+             * Subject Period
+             * @description Period of the subject publication row, e.g. 2026-01.
+             */
+            subject_period: string;
+            /**
+             * Subject Row Ref
+             * @description Row reference (assessment_id) the decision-maker reviewed; refused if stale.
+             */
+            subject_row_ref?: string | null;
+            /** Uncertainty */
+            uncertainty?: string | null;
+        };
+        /** DecisionFollowUpCreateRequest */
+        DecisionFollowUpCreateRequest: {
+            /** Evidence Effect */
+            evidence_effect: string;
+            /** Notes */
+            notes?: string | null;
+            /** Observation Period */
+            observation_period?: string | null;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Realized Result */
+            realized_result: string;
+            /** Realized Value Eur */
+            realized_value_eur?: number | string | null;
+            /** Realized Value Status */
+            realized_value_status?: string | null;
         };
         /** DimAccountRow */
         DimAccountRow: {
@@ -10240,6 +10507,167 @@ export interface operations {
             };
         };
     };
+    list_decisions_control_decisions_get: {
+        parameters: {
+            query?: {
+                decision_key?: string | null;
+                subject_period?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_decision_control_decisions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_decision_definitions_control_decisions_definitions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get_decision_control_decisions__decision_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_decision_follow_up_control_decisions__decision_id__follow_ups_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionFollowUpCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_lineage_downstream_control_lineage_downstream_get: {
         parameters: {
             query: {
@@ -11222,6 +11650,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AttentionItemsResponse"];
+                };
+            };
+        };
+    };
+    get_battery_plan_outcome_reports_battery_plan_outcome_get: {
+        parameters: {
+            query?: {
+                decision_month?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatteryPlanOutcomeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

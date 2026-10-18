@@ -141,9 +141,9 @@ Do not rely on this file for the current sprint roster. Check live `sprintctl` s
 
 | Store | Latest migration | File count |
 |---|---|---|
-| `migrations/postgres/` | `0008_publication_confidence_snapshot` | 8 |
-| `migrations/duckdb/` | `0009_publication_confidence_snapshot` | 4 (DuckDB-only subset — gaps are intentional) |
-| `migrations/sqlite/` | `0006_publication_confidence_snapshot` | 6 |
+| `migrations/postgres/` | `0015_decision_ledger` | 15 |
+| `migrations/duckdb/` | `0015_battery_plan_outcome_marts` | 10 (DuckDB-only subset — gaps are intentional) |
+| `migrations/sqlite/` | `0008_decision_ledger` | 8 |
 | `migrations/postgres_run_metadata/` | `0001_run_metadata_initial_schema` | 1 |
 
 ### Schema versions

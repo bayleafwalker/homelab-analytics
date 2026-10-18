@@ -61,6 +61,7 @@ from packages.storage.sqlite_auth_control_plane import SQLiteAuthControlPlaneMix
 from packages.storage.sqlite_control_plane_schema import (
     initialize_sqlite_control_plane_schema,
 )
+from packages.storage.sqlite_decision_ledger import SQLiteDecisionLedgerMixin
 from packages.storage.sqlite_execution_control_plane import (
     SQLiteExecutionControlPlaneMixin,
 )
@@ -133,6 +134,7 @@ class IngestionConfigRepository(
     SQLiteProvenanceControlPlaneMixin,
     SQLiteAuthControlPlaneMixin,
     SQLitePolicyRegistryMixin,
+    SQLiteDecisionLedgerMixin,
 ):
     def __init__(self, database_path: Path) -> None:
         self.database_path = database_path

@@ -219,6 +219,7 @@ def assess_kotiakku_battery_plan_evidence(
         "effective_monthly_battery_cost_eur": (
             float(monthly_cost) if monthly_cost is not None else None
         ),
+        "battery_cost_basis": _cost_basis(source_attrs),
         "source_calculation_method": source_attrs.get("calculation_method"),
         "source_period_minutes": source_attrs.get("source_period_minutes"),
         "household_timezone": household_timezone,
@@ -413,6 +414,7 @@ def _assess_measurement_coverage(
     if unknown_scope_count:
         reason_codes.append("measurement_scope_timestamp_unknown")
 
+    observed_flow_totals = _observed_flow_totals(values, complete_windows)
     observed_periods = sorted(
         period for period in values if period in expected
     )
@@ -439,7 +441,56 @@ def _assess_measurement_coverage(
         "measurement_source_run_ids": sorted(selected_runs),
         "backfill_status": "not_established_from_ha_state_history",
         "source_window_counters": None,
+        "observed_flow_totals": observed_flow_totals,
         "reason_codes": reason_codes,
+    }
+
+
+def _observed_flow_totals(
+    values: dict[datetime, dict[str, Decimal]], complete_windows: set[datetime]
+) -> dict[str, str] | None:
+    """Sum mapped five-minute power samples over complete windows only.
+
+    Energy is derived as ``kW * 5 / 60`` per complete window; the spot price is
+    averaged over the same windows. Incomplete windows are excluded rather
+    than zero-filled, and no windows means no totals (``None``), never zero.
+    """
+    if not complete_windows:
+        return None
+    hours = Decimal(_SAMPLE_INTERVAL.total_seconds()) / Decimal(3600)
+    totals: dict[str, str] = {}
+    for field in KOTIAKKU_SAMPLE_FIELDS:
+        samples = [values[period][field] for period in complete_windows]
+        if field == "spot_price_cents_per_kwh":
+            totals["spot_price_avg_cents_per_kwh"] = str(
+                round(sum(samples, Decimal(0)) / Decimal(len(samples)), 4)
+            )
+            continue
+        energy_key = field.removesuffix("_kw") + "_kwh"
+        totals[energy_key] = str(round(sum(samples, Decimal(0)) * hours, 4))
+    return totals
+
+
+def _cost_basis(attrs: dict[str, Any]) -> dict[str, Any]:
+    """Expose the user-entered cost inputs behind the effective monthly cost."""
+    direct_cost = _finite_decimal(attrs.get("battery_monthly_cost_eur"))
+    total_cost = _finite_decimal(attrs.get("battery_total_cost_eur"))
+    compensation = _finite_decimal(attrs.get("akkureservihyvitys_monthly_eur"))
+    if direct_cost is not None and direct_cost > 0:
+        method: str | None = "direct_monthly_cost"
+    elif total_cost is not None and total_cost > 0 and compensation is not None:
+        method = "total_cost_over_120_months_minus_compensation"
+    else:
+        method = None
+    return {
+        "method": method,
+        "battery_monthly_cost_eur": (
+            float(direct_cost) if direct_cost is not None else None
+        ),
+        "battery_total_cost_eur": float(total_cost) if total_cost is not None else None,
+        "akkureservihyvitys_monthly_eur": (
+            float(compensation) if compensation is not None else None
+        ),
     }
 
 
@@ -551,6 +602,7 @@ def _empty_assessment(
         "reason_codes": [reason],
         "estimated_monthly_battery_savings_eur": None,
         "effective_monthly_battery_cost_eur": None,
+        "battery_cost_basis": None,
         "source_calculation_method": None,
         "source_period_minutes": None,
         "household_timezone": None,
@@ -572,6 +624,7 @@ def _empty_assessment(
             "latest_period_end": None,
             "backfill_status": "not_established_from_ha_state_history",
             "source_window_counters": None,
+            "observed_flow_totals": None,
         },
         "lineage": {
             "source_entity_ids": dict(sorted(entity_map.items())),

@@ -46,6 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     publication_definitions_parser.add_argument("--include-archived", action="store_true")
     subparsers.add_parser("list-transformation-handlers")
     subparsers.add_parser("list-publication-keys")
+    subparsers.add_parser("refresh-battery-plan-outcome")
     sync_registry_source_parser = subparsers.add_parser("sync-extension-registry-source")
     sync_registry_source_parser.add_argument("source_id")
     sync_registry_source_parser.add_argument("--activate", action="store_true")

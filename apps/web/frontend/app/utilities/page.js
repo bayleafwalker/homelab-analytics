@@ -49,6 +49,11 @@ export default async function UtilitiesPage({ searchParams }) {
       lede="Metered usage and billing data by utility type and period."
     >
       <section className="stack">
+        <div className="buttonRow">
+          <Link className="ghostButton" href="/utilities/battery-plan">
+            Battery plan outcome and decisions
+          </Link>
+        </div>
         <article className="panel section">
           <div className="sectionHeader">
             <div>

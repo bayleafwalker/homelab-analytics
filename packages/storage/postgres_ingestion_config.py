@@ -23,6 +23,7 @@ from packages.storage.postgres_asset_definition_catalog import (
 from packages.storage.postgres_auth_control_plane import (
     PostgresAuthControlPlaneMixin,
 )
+from packages.storage.postgres_decision_ledger import PostgresDecisionLedgerMixin
 from packages.storage.postgres_execution_control_plane import (
     PostgresExecutionControlPlaneMixin,
 )
@@ -61,6 +62,7 @@ class PostgresIngestionConfigRepository(
     PostgresExecutionControlPlaneMixin,
     PostgresProvenanceControlPlaneMixin,
     PostgresAuthControlPlaneMixin,
+    PostgresDecisionLedgerMixin,
 ):
     """Canonical Postgres-backed control-plane repository.
 

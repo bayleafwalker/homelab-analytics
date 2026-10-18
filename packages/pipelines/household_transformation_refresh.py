@@ -41,6 +41,14 @@ BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
         lambda service: service.refresh_usage_vs_price_summary()
     ),
     "mart_energy_daily": (lambda service: service.refresh_energy_daily()),
+    "mart_battery_plan_outcome": (
+        lambda service: service.refresh_battery_plan_outcome()
+    ),
+    # Rebuilt together with mart_battery_plan_outcome; refreshing either key
+    # rebuilds both so a summary row and its value disclosures never diverge.
+    "mart_battery_plan_outcome_values": (
+        lambda service: service.refresh_battery_plan_outcome()
+    ),
     "mart_contract_review_candidates": (
         lambda service: service.refresh_contract_review_candidates()
     ),

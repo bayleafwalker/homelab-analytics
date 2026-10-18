@@ -13,6 +13,7 @@ from tests.control_plane_test_support import (
     assert_control_plane_protocol_conformance,
     assert_control_plane_store_round_trip,
     assert_control_plane_store_update_behaviour,
+    assert_decision_ledger_behaviour,
     assert_policy_registry_behaviour,
     assert_schedule_dispatch_behaviour,
     assert_schedule_dispatch_claim_is_exclusive,
@@ -83,3 +84,9 @@ def test_control_plane_store_manages_policy_definitions(
     control_plane_store: ControlPlaneStore,
 ) -> None:
     assert_policy_registry_behaviour(control_plane_store)
+
+
+def test_control_plane_store_manages_decision_ledger(
+    control_plane_store: ControlPlaneStore,
+) -> None:
+    assert_decision_ledger_behaviour(control_plane_store)

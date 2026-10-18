@@ -16,6 +16,8 @@ from packages.platform.auth.permission_registry import (
     PERMISSION_CONTROL_ACTION_PROPOSALS_WRITE,
     PERMISSION_CONTROL_CONFIG_READ,
     PERMISSION_CONTROL_CONFIG_WRITE,
+    PERMISSION_CONTROL_DECISIONS_READ,
+    PERMISSION_CONTROL_DECISIONS_WRITE,
     PERMISSION_CONTROL_POLICY_READ,
     PERMISSION_CONTROL_POLICY_WRITE,
     PERMISSION_CONTROL_PUBLICATION_AUDIT_READ,
@@ -821,6 +823,32 @@ API_ROUTE_POLICY_CATALOG: tuple[RoutePolicy, ...] = (
             role=_config_request_role,
             permission=_config_request_permission,
             scope=lambda context: SERVICE_TOKEN_SCOPE_ADMIN_WRITE,
+        ),
+    ),
+    RoutePolicy(
+        exact_paths=("/control/decisions",),
+        prefix_paths=("/control/decisions/",),
+        path_decision=_static_decision(
+            role=UserRole.READER,
+            permission=PERMISSION_CONTROL_DECISIONS_READ,
+            scope=SERVICE_TOKEN_SCOPE_REPORTS_READ,
+        ),
+        request_decision=RouteDecision(
+            role=lambda context: (
+                UserRole.READER
+                if (context.method or "").upper() in ("GET", "HEAD")
+                else UserRole.OPERATOR
+            ),
+            permission=lambda context: (
+                PERMISSION_CONTROL_DECISIONS_READ
+                if (context.method or "").upper() in ("GET", "HEAD")
+                else PERMISSION_CONTROL_DECISIONS_WRITE
+            ),
+            scope=lambda context: (
+                SERVICE_TOKEN_SCOPE_REPORTS_READ
+                if (context.method or "").upper() in ("GET", "HEAD")
+                else SERVICE_TOKEN_SCOPE_ADMIN_WRITE
+            ),
         ),
     ),
     RoutePolicy(

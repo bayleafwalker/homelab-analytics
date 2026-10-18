@@ -230,6 +230,18 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 publication_key="mart_energy_daily",
                 name="Energy daily breakdown mart",
             ),
+            # Refreshed by the `refresh-battery-plan-outcome` worker command
+            # from HA history, not by utility-usage promotion.
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_utility_battery_plan_outcome",
+                publication_key="mart_battery_plan_outcome",
+                name="Battery plan outcome mart",
+            ),
+            BuiltinPublicationSpec(
+                publication_definition_id="pub_utility_battery_plan_outcome_values",
+                publication_key="mart_battery_plan_outcome_values",
+                name="Battery plan outcome values mart",
+            ),
         ),
         refresh_publication_keys=(
             "mart_utility_cost_summary",
