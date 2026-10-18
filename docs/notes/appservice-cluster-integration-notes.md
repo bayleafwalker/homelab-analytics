@@ -119,3 +119,8 @@ and pinned in the cluster by attested digest.
 
 Still open from the follow-up list: Authentik OIDC, the `gatus` availability
 check, Prometheus metrics and alert rules, and the CNPG restore drill.
+
+The application side of Authentik OIDC is ready: the PKCE flow, JWKS
+caching and group-to-role mapping are tested against a local fake IdP. The
+live cut-over is an operator task. It is described in
+`docs/runbooks/oidc-authentik-enablement.md`.

@@ -91,7 +91,7 @@ Sources: `/projects/dev/vuoro` (vuoro-client 0.1.2 source / 0.1.1 wheel, vuoro-a
 | Proposal queue vs work items / effects | `pending / approved / dismissed`, human-only resolution | mcp-edge effect intents `proposed / accepted / rejected / applied / failed`; acceptance by an operator or an opt-in acceptor | **Mapped** in the manifest (`vuoro_effect_state_map`). HLA has no `applied` / `failed` because nothing executes yet. 5.3 |
 | Events / inbox | Polling the proposal list | `resource-changes/v1` (`next_cursor`, events) | **Gap.** 5.3 sketches a changes feed. |
 | Envelopes / ids | `approval_<hex12>`; agent idempotency key → `agent_<key>` | ULID-prefixed ids; idempotency key `^[A-Za-z0-9._:-]{8,128}$`; `invocation/v1` | Idempotency-key pattern adopted. ULIDs are deferred because the HA routes require the id format to stay stable. |
-| Auth | Local / `local_single_user`; Authentik OIDC pending | OAuth PKCE (vuoro-cli), PATs `vuo_pat_*`, authorities `work:*` | Independent. Nothing to align until OIDC lands. |
+| Auth | Deployed `local_single_user`. The `oidc` mode (PKCE, Authentik-compatible) is ready, and the live enablement is an operator task (`docs/runbooks/oidc-authentik-enablement.md`) | OAuth PKCE (vuoro-cli), PATs `vuo_pat_*`, authorities `work:*` | Both sides use PKCE. Token and authority alignment stays independent. |
 
 ### 5.1 Proposal to vuoro: issue and validate HLA's authority UUID
 

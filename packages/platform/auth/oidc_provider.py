@@ -1,7 +1,29 @@
-"""OIDC provider: login redirect, token exchange, and callback authentication."""
+"""OIDC provider: login redirect, token exchange, and callback authentication.
+
+Authorization-code flow with PKCE (S256), built for Authentik but standard:
+
+- discovery from ``<issuer>/.well-known/openid-configuration`` (or an explicit
+  discovery URL); the configured issuer must match the advertised one, and
+  tokens are validated against the advertised issuer exactly (Authentik's
+  issuer ends in ``/``)
+- the ``state``, ``nonce`` and PKCE ``code_verifier`` travel in a signed,
+  HttpOnly state cookie; the verifier is sent on the code exchange
+- ID tokens are verified against the IdP's JWKS with asymmetric algorithms
+  only (never ``none`` or HMAC); discovery and JWKS are cached for
+  ``oidc_jwks_cache_seconds`` and an unknown ``kid`` triggers one early JWKS
+  refetch so key rotation does not lock users out
+- groups map to reader/operator/admin roles (and optional permission grants);
+  the session cookie is the app's own signed session, so nothing downstream
+  needs to know the user signed in through OIDC except the recorded
+  ``auth_provider="oidc"``
+"""
 from __future__ import annotations
 
+import base64
+import hashlib
 import secrets
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from http.cookies import SimpleCookie
@@ -15,10 +37,32 @@ from packages.platform.auth._signing import _decode_signed_payload, _encode_sign
 from packages.platform.auth.contracts import UserRole
 from packages.platform.auth.permission_registry import normalize_permission_grants
 from packages.platform.auth.role_hierarchy import AuthenticatedPrincipal
+from packages.shared.secrets import (
+    EnvironmentSecretResolver,
+    SecretReference,
+    SecretResolver,
+)
 from packages.shared.settings import AppSettings
 
 OIDC_STATE_COOKIE_NAME = "homelab_analytics_oidc_state"
 OIDC_STATE_MAX_AGE_SECONDS = 60 * 10
+# ID tokens must be signed with a public-key algorithm. HMAC (HS*) would make
+# the client secret a token-forging key, and "none" is unsigned.
+ASYMMETRIC_SIGNING_ALGORITHMS = (
+    "RS256",
+    "RS384",
+    "RS512",
+    "PS256",
+    "PS384",
+    "PS512",
+    "ES256",
+    "ES384",
+    "ES512",
+    "EdDSA",
+)
+# Minimum spacing between JWKS refetches triggered by an unknown key id, so a
+# flood of tokens with bogus kids cannot hammer the IdP.
+JWKS_UNKNOWN_KID_REFRESH_SECONDS = 10.0
 
 
 class OidcAuthenticationError(ValueError):
@@ -41,6 +85,42 @@ class OidcLoginState:
     state: str
     nonce: str
     return_to: str
+    code_verifier: str
+
+
+def pkce_code_challenge(code_verifier: str) -> str:
+    """RFC 7636 S256 challenge: base64url(sha256(verifier)) without padding."""
+    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+
+
+def parse_secret_reference(raw: str) -> SecretReference:
+    name, separator, key = raw.strip().partition("/")
+    if not separator or not name.strip() or not key.strip():
+        raise ValueError(
+            "HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET_REF must look like '<secret_name>/<secret_key>'."
+        )
+    return SecretReference(secret_name=name.strip(), secret_key=key.strip())
+
+
+def resolve_oidc_client_secret(
+    settings: AppSettings,
+    secret_resolver: SecretResolver | None = None,
+) -> str | None:
+    """The client secret, literal or resolved through the SecretResolver."""
+    if settings.oidc_client_secret:
+        return settings.oidc_client_secret
+    if not settings.oidc_client_secret_ref:
+        return None
+    reference = parse_secret_reference(settings.oidc_client_secret_ref)
+    resolver = secret_resolver or EnvironmentSecretResolver()
+    try:
+        value = resolver.resolve(reference)
+    except KeyError as exc:
+        raise ValueError(f"OIDC client secret reference could not be resolved: {exc}") from exc
+    if not value:
+        raise ValueError("OIDC client secret reference resolved to an empty value.")
+    return value
 
 
 def normalize_return_to(return_to: str | None) -> str:
@@ -96,22 +176,30 @@ def build_oidc_provider(
     settings: AppSettings,
     *,
     http_client: httpx.Client | None = None,
+    secret_resolver: SecretResolver | None = None,
+    clock: Callable[[], float] | None = None,
 ) -> "OidcProvider | None":
     if settings.resolved_auth_mode != "oidc":
         return None
+    client_secret = resolve_oidc_client_secret(settings, secret_resolver)
     missing = [
         variable
         for variable, value in (
             ("HOMELAB_ANALYTICS_OIDC_ISSUER_URL", settings.oidc_issuer_url),
             ("HOMELAB_ANALYTICS_OIDC_CLIENT_ID", settings.oidc_client_id),
-            ("HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET", settings.oidc_client_secret),
+            ("HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET (or _CLIENT_SECRET_REF)", client_secret),
             ("HOMELAB_ANALYTICS_OIDC_REDIRECT_URI", settings.oidc_redirect_uri),
         )
         if not value
     ]
     if missing:
         raise ValueError(f"OIDC auth requires settings: {', '.join(missing)}")
-    return OidcProvider(settings, http_client=http_client)
+    return OidcProvider(
+        settings,
+        http_client=http_client,
+        client_secret=client_secret,
+        clock=clock,
+    )
 
 
 class OidcProvider:
@@ -120,6 +208,8 @@ class OidcProvider:
         settings: AppSettings,
         *,
         http_client: httpx.Client | None = None,
+        client_secret: str | None = None,
+        clock: Callable[[], float] | None = None,
         state_cookie_name: str = OIDC_STATE_COOKIE_NAME,
         state_max_age_seconds: int = OIDC_STATE_MAX_AGE_SECONDS,
     ) -> None:
@@ -133,8 +223,16 @@ class OidcProvider:
         self.same_site: Literal["lax", "strict", "none"] = "lax"
         self.issuer_url = str(settings.oidc_issuer_url)
         self.client_id = str(settings.oidc_client_id)
-        self.client_secret = str(settings.oidc_client_secret)
+        resolved_secret = client_secret or settings.oidc_client_secret
+        if not resolved_secret:
+            raise ValueError("OIDC auth requires a client secret.")
+        self.client_secret = str(resolved_secret)
         self.redirect_uri = str(settings.oidc_redirect_uri)
+        self.discovery_url = settings.oidc_discovery_url or (
+            f"{self.issuer_url.rstrip('/')}/.well-known/openid-configuration"
+        )
+        self.cache_seconds = float(settings.oidc_jwks_cache_seconds)
+        self.clock_skew_seconds = int(settings.oidc_clock_skew_seconds)
         self.scopes = settings.oidc_scopes or ("openid", "profile", "email")
         self.api_audience = settings.oidc_api_audience or self.client_id
         self.username_claim = settings.oidc_username_claim
@@ -149,14 +247,22 @@ class OidcProvider:
         }
         self.admin_groups = {value.strip().lower() for value in settings.oidc_admin_groups if value.strip()}
         self._http = http_client or httpx.Client(timeout=10.0, follow_redirects=False)
+        self._clock = clock or time.monotonic
         self._discovery: dict[str, Any] | None = None
+        self._discovery_fetched_at = 0.0
         self._jwks: dict[str, Any] | None = None
+        self._jwks_fetched_at = 0.0
 
     def build_login_redirect(self, return_to: str | None = None) -> OidcLoginRedirect:
+        discovery = self._load_discovery()
+        challenge_methods = discovery.get("code_challenge_methods_supported")
+        if isinstance(challenge_methods, list) and "S256" not in challenge_methods:
+            raise OidcAuthenticationError("OIDC provider does not support PKCE S256.")
         login_state = OidcLoginState(
             state=secrets.token_urlsafe(24),
             nonce=secrets.token_urlsafe(24),
             return_to=normalize_return_to(return_to),
+            code_verifier=secrets.token_urlsafe(64),
         )
         query = urlencode(
             {
@@ -166,10 +272,15 @@ class OidcProvider:
                 "scope": " ".join(self.scopes),
                 "state": login_state.state,
                 "nonce": login_state.nonce,
+                "code_challenge": pkce_code_challenge(login_state.code_verifier),
+                "code_challenge_method": "S256",
             }
         )
-        discovery = self._load_discovery()
-        authorization_endpoint = str(discovery["authorization_endpoint"])
+        authorization_endpoint = discovery.get("authorization_endpoint")
+        if not isinstance(authorization_endpoint, str) or not authorization_endpoint:
+            raise OidcAuthenticationError(
+                "OIDC discovery response is missing authorization_endpoint."
+            )
         separator = "&" if "?" in authorization_endpoint else "?"
         return OidcLoginRedirect(
             authorization_url=f"{authorization_endpoint}{separator}{query}",
@@ -179,6 +290,7 @@ class OidcProvider:
                     "state": login_state.state,
                     "nonce": login_state.nonce,
                     "return_to": login_state.return_to,
+                    "code_verifier": login_state.code_verifier,
                     "iat": datetime.now(UTC).isoformat(),
                     "exp": (
                         datetime.now(UTC) + timedelta(seconds=self.state_max_age_seconds)
@@ -196,7 +308,7 @@ class OidcProvider:
         cookie_value: str | None,
     ) -> tuple[AuthenticatedPrincipal, str]:
         login_state = self.read_login_state(state=state, cookie_value=cookie_value)
-        token_response = self._exchange_code(code)
+        token_response = self._exchange_code(code, code_verifier=login_state.code_verifier)
         id_token = token_response.get("id_token")
         if not isinstance(id_token, str) or not id_token:
             raise OidcAuthenticationError("OIDC token response did not include an id_token.")
@@ -204,6 +316,7 @@ class OidcProvider:
             id_token,
             audiences=(self.client_id,),
             nonce=login_state.nonce,
+            require_authorized_party=True,
         )
         return self.principal_from_claims(claims), login_state.return_to
 
@@ -220,24 +333,27 @@ class OidcProvider:
         payload = _decode_signed_payload(
             self._secret,
             cookie_value,
-            required_fields={"state", "nonce", "return_to", "exp"},
+            required_fields={"state", "nonce", "return_to", "code_verifier", "exp"},
         )
         if payload is None:
             raise OidcAuthenticationError("OIDC login state is invalid or expired.")
         state_value = payload.get("state")
         nonce_value = payload.get("nonce")
         return_to_value = payload.get("return_to")
+        verifier_value = payload.get("code_verifier")
         if (
             not isinstance(state_value, str)
             or not isinstance(nonce_value, str)
             or not isinstance(return_to_value, str)
-            or state_value != state
+            or not isinstance(verifier_value, str)
+            or not secrets.compare_digest(state_value, state)
         ):
             raise OidcAuthenticationError("OIDC login state is invalid or expired.")
         return OidcLoginState(
             state=state_value,
             nonce=nonce_value,
             return_to=normalize_return_to(return_to_value),
+            code_verifier=verifier_value,
         )
 
     def principal_from_claims(self, claims: dict[str, Any]) -> AuthenticatedPrincipal:
@@ -402,23 +518,30 @@ class OidcProvider:
             permissions.update(self.permission_group_mappings.get(group, ()))
         return tuple(sorted(permissions))
 
+    def _cache_fresh(self, fetched_at: float) -> bool:
+        return self._clock() - fetched_at < self.cache_seconds
+
     def _load_discovery(self) -> dict[str, Any]:
-        if self._discovery is not None:
+        if self._discovery is not None and self._cache_fresh(self._discovery_fetched_at):
             return self._discovery
-        metadata_url = f"{self.issuer_url.rstrip('/')}/.well-known/openid-configuration"
-        response = self._http.get(metadata_url)
+        response = self._http.get(self.discovery_url)
         response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, dict):
             raise OidcAuthenticationError("OIDC discovery response was not a JSON object.")
-        issuer = str(payload.get("issuer", "")).rstrip("/")
-        if issuer != self.issuer_url.rstrip("/"):
+        issuer = payload.get("issuer")
+        if not isinstance(issuer, str) or issuer.rstrip("/") != self.issuer_url.rstrip("/"):
             raise OidcAuthenticationError("OIDC discovery issuer does not match configured issuer.")
         self._discovery = payload
+        self._discovery_fetched_at = self._clock()
         return payload
 
-    def _load_jwks(self) -> dict[str, Any]:
-        if self._jwks is not None:
+    def _load_jwks(self, *, force: bool = False) -> dict[str, Any]:
+        if (
+            not force
+            and self._jwks is not None
+            and self._cache_fresh(self._jwks_fetched_at)
+        ):
             return self._jwks
         discovery = self._load_discovery()
         jwks_uri = discovery.get("jwks_uri")
@@ -430,24 +553,54 @@ class OidcProvider:
         if not isinstance(payload, dict):
             raise OidcAuthenticationError("OIDC JWKS response was not a JSON object.")
         self._jwks = payload
+        self._jwks_fetched_at = self._clock()
         return payload
 
-    def _exchange_code(self, code: str) -> dict[str, Any]:
+    def _signing_key(self, header: dict[str, Any]) -> Any:
+        try:
+            return _resolve_jwt_key(header, self._load_jwks())
+        except OidcAuthenticationError:
+            # An unknown kid usually means the IdP rotated its keys; refetch
+            # once, but not more often than JWKS_UNKNOWN_KID_REFRESH_SECONDS.
+            if self._clock() - self._jwks_fetched_at < JWKS_UNKNOWN_KID_REFRESH_SECONDS:
+                raise
+            return _resolve_jwt_key(header, self._load_jwks(force=True))
+
+    def _allowed_algorithms(self, discovery: dict[str, Any]) -> list[str]:
+        advertised = discovery.get("id_token_signing_alg_values_supported")
+        if not isinstance(advertised, list) or not advertised:
+            return ["RS256"]
+        allowed = [str(value) for value in advertised if value in ASYMMETRIC_SIGNING_ALGORITHMS]
+        if not allowed:
+            raise OidcAuthenticationError(
+                "OIDC provider advertises no asymmetric ID token signing algorithm; "
+                "configure an RSA or EC signing key on the provider."
+            )
+        return allowed
+
+    def _exchange_code(self, code: str, *, code_verifier: str) -> dict[str, Any]:
         discovery = self._load_discovery()
         token_endpoint = discovery.get("token_endpoint")
         if not isinstance(token_endpoint, str) or not token_endpoint:
             raise OidcAuthenticationError("OIDC discovery response is missing token_endpoint.")
-        response = self._http.post(
-            token_endpoint,
-            data={
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": self.redirect_uri,
-                "client_id": self.client_id,
-                "client_secret": self.client_secret,
-            },
-            headers={"accept": "application/json"},
-        )
+        form = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": self.redirect_uri,
+            "client_id": self.client_id,
+            "code_verifier": code_verifier,
+        }
+        request_options: dict[str, Any] = {"headers": {"accept": "application/json"}}
+        auth_methods = discovery.get("token_endpoint_auth_methods_supported")
+        if (
+            isinstance(auth_methods, list)
+            and "client_secret_post" not in auth_methods
+            and "client_secret_basic" in auth_methods
+        ):
+            request_options["auth"] = httpx.BasicAuth(self.client_id, self.client_secret)
+        else:
+            form["client_secret"] = self.client_secret
+        response = self._http.post(token_endpoint, data=form, **request_options)
         response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, dict):
@@ -460,26 +613,41 @@ class OidcProvider:
         *,
         audiences: tuple[str, ...],
         nonce: str | None = None,
+        require_authorized_party: bool = False,
     ) -> dict[str, Any]:
         discovery = self._load_discovery()
-        jwks = self._load_jwks()
-        header = jwt.get_unverified_header(token)
-        key = _resolve_jwt_key(header, jwks)
-        allowed_algorithms = discovery.get("id_token_signing_alg_values_supported")
-        if not isinstance(allowed_algorithms, list) or not allowed_algorithms:
-            allowed_algorithms = [str(header.get("alg", "RS256"))]
+        try:
+            header = jwt.get_unverified_header(token)
+        except jwt.PyJWTError as exc:
+            raise OidcAuthenticationError("OIDC token is malformed.") from exc
+        allowed_algorithms = self._allowed_algorithms(discovery)
+        if header.get("alg") not in allowed_algorithms:
+            raise OidcAuthenticationError("OIDC token signing algorithm is not allowed.")
+        key = self._signing_key(header)
         try:
             claims = jwt.decode(
                 token,
                 key=key,
-                algorithms=[str(value) for value in allowed_algorithms],
+                algorithms=allowed_algorithms,
                 audience=audiences,
-                issuer=self.issuer_url.rstrip("/"),
+                # The advertised issuer, verbatim: Authentik's ends in "/".
+                issuer=str(discovery["issuer"]),
+                leeway=self.clock_skew_seconds,
+                options={"require": ["exp", "iat", "iss", "aud", "sub"]},
             )
         except jwt.PyJWTError as exc:
             raise OidcAuthenticationError("OIDC token validation failed.") from exc
-        if nonce is not None and claims.get("nonce") != nonce:
-            raise OidcAuthenticationError("OIDC token nonce did not match the login state.")
         if not isinstance(claims, dict):
             raise OidcAuthenticationError("OIDC decoded claims were not a JSON object.")
+        if nonce is not None and not secrets.compare_digest(str(claims.get("nonce", "")), nonce):
+            raise OidcAuthenticationError("OIDC token nonce did not match the login state.")
+        if require_authorized_party:
+            audience = claims.get("aud")
+            if isinstance(audience, list) and len(audience) > 1:
+                if claims.get("azp") != self.client_id:
+                    raise OidcAuthenticationError(
+                        "OIDC token has several audiences but azp is not this client."
+                    )
+            elif "azp" in claims and claims.get("azp") != self.client_id:
+                raise OidcAuthenticationError("OIDC token azp is not this client.")
         return claims

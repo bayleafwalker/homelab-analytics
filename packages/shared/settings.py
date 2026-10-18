@@ -107,6 +107,16 @@ class AppSettings:
     oidc_reader_groups: tuple[str, ...] = ()
     oidc_operator_groups: tuple[str, ...] = ()
     oidc_admin_groups: tuple[str, ...] = ()
+    # ``<secret_name>/<secret_key>`` resolved through the SecretResolver
+    # (env ``HOMELAB_ANALYTICS_SECRET__<NAME>__<KEY>``) instead of a literal
+    # HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET.
+    oidc_client_secret_ref: str | None = None
+    # Overrides ``<issuer>/.well-known/openid-configuration``.
+    oidc_discovery_url: str | None = None
+    # How long discovery metadata and JWKS stay cached before a refetch. An
+    # unknown ``kid`` also triggers one early JWKS refetch (key rotation).
+    oidc_jwks_cache_seconds: int = 3600
+    oidc_clock_skew_seconds: int = 60
     enable_bootstrap_local_admin: bool = False
     agent_manifest_enabled: bool = False
     agent_manifest_repo_id: str = "homelab-analytics"
@@ -437,6 +447,14 @@ class AppSettings:
                 delimiter=",",
             )
         )
+        oidc_client_secret_ref = env.get("HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET_REF") or None
+        oidc_discovery_url = env.get("HOMELAB_ANALYTICS_OIDC_DISCOVERY_URL") or None
+        oidc_jwks_cache_seconds = int(
+            env.get("HOMELAB_ANALYTICS_OIDC_JWKS_CACHE_SECONDS", "3600")
+        )
+        oidc_clock_skew_seconds = int(
+            env.get("HOMELAB_ANALYTICS_OIDC_CLOCK_SKEW_SECONDS", "60")
+        )
         enable_bootstrap_local_admin = env.get(
             "HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN", ""
         ).lower() in {"1", "true", "yes", "on"}
@@ -546,6 +564,10 @@ class AppSettings:
             oidc_reader_groups=oidc_reader_groups,
             oidc_operator_groups=oidc_operator_groups,
             oidc_admin_groups=oidc_admin_groups,
+            oidc_client_secret_ref=oidc_client_secret_ref,
+            oidc_discovery_url=oidc_discovery_url,
+            oidc_jwks_cache_seconds=oidc_jwks_cache_seconds,
+            oidc_clock_skew_seconds=oidc_clock_skew_seconds,
             enable_bootstrap_local_admin=enable_bootstrap_local_admin,
             agent_manifest_enabled=agent_manifest_enabled,
             agent_manifest_repo_id=agent_manifest_repo_id,
