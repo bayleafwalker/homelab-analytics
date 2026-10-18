@@ -19,8 +19,8 @@ from __future__ import annotations
 import json
 import unittest
 
-from packages.pipelines.ha_models import entity_class_from_id
-from packages.pipelines.ha_service import (
+from packages.domains.homelab.pipelines.ha_models import entity_class_from_id
+from packages.domains.homelab.pipelines.ha_service import (
     get_ha_entities,
     get_ha_entity_history,
     ingest_ha_states,

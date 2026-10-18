@@ -436,7 +436,7 @@ class PolicyPreviewRouteTests(unittest.TestCase):
         return TestClient(app)
 
     def test_preview_returns_verdict_and_reason(self) -> None:
-        from packages.pipelines.ha_policy import HaPolicyEvaluator
+        from packages.domains.homelab.pipelines.ha_policy import HaPolicyEvaluator
 
         evaluator = HaPolicyEvaluator(
             lambda: {},
@@ -455,7 +455,7 @@ class PolicyPreviewRouteTests(unittest.TestCase):
             self.assertTrue(preview["reason"])
 
     def test_preview_does_not_create_a_policy(self) -> None:
-        from packages.pipelines.ha_policy import HaPolicyEvaluator
+        from packages.domains.homelab.pipelines.ha_policy import HaPolicyEvaluator
 
         evaluator = HaPolicyEvaluator(lambda: {}, publication_fetch_fn=lambda keys: {})
         with TemporaryDirectory() as tmp:
@@ -465,7 +465,7 @@ class PolicyPreviewRouteTests(unittest.TestCase):
             self.assertEqual([], listing.json()["policies"])
 
     def test_preview_rejects_invalid_rule_document(self) -> None:
-        from packages.pipelines.ha_policy import HaPolicyEvaluator
+        from packages.domains.homelab.pipelines.ha_policy import HaPolicyEvaluator
 
         evaluator = HaPolicyEvaluator(lambda: {})
         with TemporaryDirectory() as tmp:
@@ -477,7 +477,7 @@ class PolicyPreviewRouteTests(unittest.TestCase):
             self.assertEqual(422, response.status_code)
 
     def test_preview_rejects_unknown_publication_reference(self) -> None:
-        from packages.pipelines.ha_policy import HaPolicyEvaluator
+        from packages.domains.homelab.pipelines.ha_policy import HaPolicyEvaluator
 
         evaluator = HaPolicyEvaluator(lambda: {})
         unknown = dict(_VALID_RULE, publication_key="not_a_publication")

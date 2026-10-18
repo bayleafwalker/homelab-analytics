@@ -4,7 +4,7 @@
 
 **Status:** Active — scenario storage and five compute types shipped, plus shared saved compare sets
 **Stage:** 4 (see platform roadmap)
-**First scenario type:** Loan what-if (reuses `packages/pipelines/amortization.py`)
+**First scenario type:** Loan what-if (reuses `packages/domains/finance/pipelines/amortization.py`)
 
 ---
 

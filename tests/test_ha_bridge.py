@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import unittest
 
-from packages.pipelines.ha_bridge import HaBridgeWorker, _ws_url_from_ha_url
+from packages.domains.homelab.pipelines.ha_bridge import HaBridgeWorker, _ws_url_from_ha_url
 
 
 def _make_state_changed_msg(entity_id="sensor.temp", state="21.5", attrs=None) -> dict:

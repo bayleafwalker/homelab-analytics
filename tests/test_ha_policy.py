@@ -10,7 +10,7 @@ import json
 import unittest
 from datetime import UTC, datetime, timedelta
 
-from packages.pipelines.ha_policy import (
+from packages.domains.homelab.pipelines.ha_policy import (
     _BUILTIN_POLICIES,
     HaPolicyEvaluator,
     PolicyResult,
@@ -268,7 +268,7 @@ class PolicyEvaluatorTests(unittest.TestCase):
             self.assertIsNone(d["input_freshness"])
 
     def test_to_dict_includes_input_freshness_when_set(self) -> None:
-        from packages.pipelines.ha_policy import ConfidenceSummary
+        from packages.domains.homelab.pipelines.ha_policy import ConfidenceSummary
 
         result = PolicyResult(
             id="test_policy",
@@ -796,7 +796,7 @@ class SeedLifecycleTests(unittest.TestCase):
         self.state_path = root / "seed-state.json"
 
     def _seed(self, policy_id: str = "seed_flag", description: str = "Seeded.", enabled: bool = True):
-        from packages.pipelines.ha_policy import PolicySeedDefinition
+        from packages.domains.homelab.pipelines.ha_policy import PolicySeedDefinition
 
         return PolicySeedDefinition(
             policy_id=policy_id,
@@ -807,7 +807,7 @@ class SeedLifecycleTests(unittest.TestCase):
         )
 
     def _ensure(self, seeds):
-        from packages.pipelines.ha_policy import ensure_builtin_policies
+        from packages.domains.homelab.pipelines.ha_policy import ensure_builtin_policies
 
         return ensure_builtin_policies(
             self.store, seeds=seeds, seed_state_path=self.state_path
@@ -833,7 +833,7 @@ class SeedLifecycleTests(unittest.TestCase):
 
         # Two "processes": separate seed-state sidecars, same registry.
         other_state = Path(self._tmp.name) / "other-seed-state.json"
-        from packages.pipelines.ha_policy import ensure_builtin_policies
+        from packages.domains.homelab.pipelines.ha_policy import ensure_builtin_policies
 
         self._ensure([self._seed()])
         summary = ensure_builtin_policies(

@@ -612,7 +612,7 @@ class TestWorkerGetRuntimeStatus:
     """Integration-style tests for the get_runtime_status() methods added to HA workers."""
 
     def test_ha_bridge_worker_get_runtime_status(self):
-        from packages.pipelines.ha_bridge import HaBridgeWorker
+        from packages.domains.homelab.pipelines.ha_bridge import HaBridgeWorker
 
         worker = HaBridgeWorker.__new__(HaBridgeWorker)
         worker.connected = True
@@ -627,7 +627,7 @@ class TestWorkerGetRuntimeStatus:
         assert status.extra["reconnect_count"] == 4
 
     def test_ha_mqtt_publisher_get_runtime_status(self):
-        from packages.pipelines.ha_mqtt_publisher import HaMqttPublisher
+        from packages.domains.homelab.pipelines.ha_mqtt_publisher import HaMqttPublisher
 
         worker = MagicMock(spec=HaMqttPublisher)
         worker.get_status.return_value = {
@@ -648,7 +648,7 @@ class TestWorkerGetRuntimeStatus:
         assert status.extra["entity_count"] == 4
 
     def test_ha_action_dispatcher_get_runtime_status(self):
-        from packages.pipelines.ha_action_dispatcher import HaActionDispatcher
+        from packages.domains.homelab.pipelines.ha_action_dispatcher import HaActionDispatcher
 
         worker = MagicMock(spec=HaActionDispatcher)
         worker.get_status.return_value = {

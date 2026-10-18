@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from packages.pipelines.ha_action_dispatcher import (
+from packages.domains.homelab.pipelines.ha_action_dispatcher import (
     _ACTION_LOG_MAX_SIZE,
     ActionRecord,
     HaActionDispatcher,
@@ -23,7 +23,7 @@ from packages.pipelines.ha_action_dispatcher import (
     build_notification_dismiss_payload,
     determine_actions,
 )
-from packages.pipelines.ha_action_proposals import ApprovalActionRegistry
+from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
 
 _NOW = datetime(2026, 3, 21, 12, 0, 0, tzinfo=UTC)
 

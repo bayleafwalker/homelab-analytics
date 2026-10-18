@@ -17,7 +17,7 @@ The current baseline includes:
 - SCD-safe backfill of current `dim_counterparty` categories
 - the full `dim_category` contract shape, including `domain`,
   `is_budget_eligible`, and `is_system`
-- startup seeding of system categories through `packages/pipelines/category_seed.py`
+- startup seeding of system categories through `packages/domains/finance/pipelines/category_seed.py`
 - budget ingestion and marts keyed by `category_id`, not free-text category names
 - operator category routes through `GET /api/categories` and `POST /api/categories`
 

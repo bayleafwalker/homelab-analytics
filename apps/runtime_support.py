@@ -12,9 +12,6 @@ from packages.pipelines.transformation_domain_registry import TransformationDoma
 from packages.pipelines.transformation_refresh_registry import PublicationRefreshRegistry
 from packages.pipelines.transformation_service import TransformationService
 from packages.platform.runtime.builder import (
-    build_account_transaction_service as _platform_build_service,
-)
-from packages.platform.runtime.builder import (
     build_container,
 )
 from packages.platform.runtime.builder import (
@@ -72,13 +69,13 @@ def build_pipeline_registries(
 def build_service(
     settings: AppSettings,
     *,
-    metadata_repository=None,
-    blob_store=None,
+    metadata_repository: RunMetadataStore | None = None,
+    blob_store: BlobStore | None = None,
 ) -> AccountTransactionService:
-    return _platform_build_service(
-        settings,
-        metadata_repository=metadata_repository,
-        blob_store=blob_store,
+    return AccountTransactionService(
+        landing_root=settings.landing_root,
+        metadata_repository=metadata_repository or build_run_metadata_store(settings),
+        blob_store=blob_store or build_blob_store(settings),
     )
 
 

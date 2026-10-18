@@ -863,27 +863,39 @@ def test_apps_and_packages_do_not_import_shared_auth_shim() -> None:
     )
 
 
-def test_platform_does_not_import_homelab_or_overview_pipeline_modules() -> None:
-    """Platform layer must not depend on moved homelab/overview pipeline modules."""
-    platform_dir = ROOT / "packages" / "platform"
-    imports = _collect_imports_in_dir(platform_dir)
-    forbidden_prefixes = (
-        "packages.pipelines.ha_",
-        "packages.pipelines.homelab_models",
-        "packages.pipelines.home_automation_models",
-        "packages.pipelines.infrastructure_models",
-        "packages.pipelines.transformation_homelab",
-        "packages.pipelines.transformation_home_automation",
-        "packages.pipelines.transformation_infrastructure",
-        "packages.pipelines.overview_models",
-        "packages.pipelines.transformation_overview",
-    )
-    forbidden_imports = [
-        imp for imp in imports if any(imp.startswith(prefix) for prefix in forbidden_prefixes)
+def _is_reexport_shim(path: Path) -> bool:
+    """True when a module only re-exports another module (star import or globals().update)."""
+    source = path.read_text()
+    tree = ast.parse(source, filename=str(path))
+    body = [
+        node
+        for node in tree.body
+        if not (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant))
     ]
-    assert not forbidden_imports, (
-        "packages/platform must not import homelab/overview domain pipeline modules — "
-        f"found: {forbidden_imports}"
+    if not body:
+        return False
+    has_star_import = any(
+        isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names)
+        for node in body
+    )
+    has_globals_update = "globals().update" in source
+    only_reexport_statements = all(
+        isinstance(node, (ast.Import, ast.ImportFrom, ast.Assign, ast.Expr)) for node in body
+    )
+    return (has_star_import or has_globals_update) and only_reexport_statements
+
+
+def test_no_backward_compat_reexport_shims_remain() -> None:
+    """Moved modules must be imported from their canonical home, not via re-export shims."""
+    shims = sorted(
+        str(py_file.relative_to(ROOT))
+        for directory in (ROOT / "apps", ROOT / "packages")
+        for py_file in directory.rglob("*.py")
+        if "__pycache__" not in py_file.parts and _is_reexport_shim(py_file)
+    )
+    assert not shims, (
+        "Backward-compat re-export shims must not be reintroduced; import the canonical "
+        f"module directly — found: {shims}"
     )
 
 
@@ -922,9 +934,6 @@ def test_current_dimension_contract_instances_live_outside_platform_module() -> 
     composition_current_dimension_source = (
         ROOT / "packages" / "pipelines" / "composition" / "current_dimension_contracts.py"
     ).read_text()
-    legacy_shim_source = (
-        ROOT / "packages" / "pipelines" / "household_current_dimension_contracts.py"
-    ).read_text()
 
     assert "CURRENT_DIMENSION_CONTRACTS" not in platform_current_dimension_source
     assert "CurrentDimensionContractDefinition" in platform_current_dimension_source
@@ -934,14 +943,15 @@ def test_current_dimension_contract_instances_live_outside_platform_module() -> 
     assert "HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS" in contract_routes_source
     assert "packages.pipelines.composition.publication_contract_inputs" in assistant_routes_source
     assert "CURRENT_DIMENSION_CONTRACTS" in composition_current_dimension_source
-    assert "packages.pipelines.composition.current_dimension_contracts" in legacy_shim_source
+    assert not (
+        ROOT / "packages" / "pipelines" / "household_current_dimension_contracts.py"
+    ).exists()
 
 
 def test_source_freshness_evaluator_is_promoted_to_platform() -> None:
-    finance_freshness_source = (ROOT / "packages" / "domains" / "finance" / "freshness.py").read_text()
     platform_freshness_source = (ROOT / "packages" / "platform" / "source_freshness.py").read_text()
 
-    assert "packages.platform.source_freshness" in finance_freshness_source
+    assert not (ROOT / "packages" / "domains" / "finance" / "freshness.py").exists()
     assert "def evaluate_source_freshness(" in platform_freshness_source
 
 
