@@ -628,3 +628,9 @@
     border-bottom: 0;
   }
 }
+
+/* Shared sparkline axis labels default to the light theme's --muted, which
+   fails WCAG AA contrast on the console's dark panels. */
+.console .chartAxis {
+  color: var(--retro-muted);
+}
