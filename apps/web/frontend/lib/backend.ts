@@ -66,6 +66,8 @@ type GetOperationIdByPath = {
   "/api/ha/policies": "get_policies_api_ha_policies_get";
   "/control/policies": "list_policies_control_policies_get";
   "/control/decisions": "list_decisions_control_decisions_get";
+  "/control/decisions/definitions/{decision_key}/subjects": "list_decision_subject_evidence_control_decisions_definitions__decision_key__subjects_get";
+  "/control/decisions/reviews": "list_decision_reviews_control_decisions_reviews_get";
   "/reports/battery-plan-outcome": "get_battery_plan_outcome_reports_battery_plan_outcome_get";
   "/control/policies/referenceable-publications": "list_referenceable_publications_control_policies_referenceable_publications_get";
   "/api/ha/actions": "get_actions_api_ha_actions_get";
@@ -911,6 +913,33 @@ export async function getPackChangePlan(packKey: string, body: PackPlanBody) {
     redirect("/login");
   }
   return response.ok ? data : null;
+}
+
+/** Current reporting-layer subjects a declared decision can be made on. */
+export async function getDecisionSubjects(
+  decisionKey: PathValue<"/control/decisions/definitions/{decision_key}/subjects", "decision_key">,
+  period?: QueryValue<"/control/decisions/definitions/{decision_key}/subjects", "period">
+) {
+  const payload = await backendGet("/control/decisions/definitions/{decision_key}/subjects", {
+    params: {
+      path: { decision_key: decisionKey },
+      query: definedValues({ period })
+    }
+  });
+  return {
+    decision: getResponseField(payload, "decision"),
+    subjects: getResponseArray(payload, "subjects")
+  };
+}
+
+/** Commitments whose review is due or required (stopped ones never appear). */
+export async function getDecisionReviews(
+  decisionKey?: QueryValue<"/control/decisions/reviews", "decision_key">
+) {
+  const payload = await backendGet("/control/decisions/reviews", {
+    params: { query: definedValues({ decision_key: decisionKey }) }
+  });
+  return getResponseArray(payload, "reviews");
 }
 
 export async function getPolicyDefinitions() {

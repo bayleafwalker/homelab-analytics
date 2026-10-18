@@ -53,6 +53,9 @@ export default async function UtilitiesPage({ searchParams }) {
           <Link className="ghostButton" href="/utilities/battery-plan">
             Battery plan outcome and decisions
           </Link>
+          <Link className="ghostButton" href="/utilities/energy-contract">
+            Electricity contract review
+          </Link>
         </div>
         <article className="panel section">
           <div className="sectionHeader">
