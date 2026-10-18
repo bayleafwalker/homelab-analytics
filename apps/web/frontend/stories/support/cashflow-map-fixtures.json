@@ -102,7 +102,7 @@
    },
    {
     "id": "out:op-korttiyhti-oyj",
-    "label": "OP-Korttiyhtiö Oyj",
+    "label": "OP-Korttiyhti\u00f6 Oyj",
     "column": 3,
     "kind": "counterparty",
     "amount": "229.37",
@@ -1086,6 +1086,133 @@
    ],
    "data_through": null,
    "transaction_count": 0
+  }
+ },
+ "sparse": {
+  "month": "2026-09",
+  "months_available": [
+   "2026-09"
+  ],
+  "previous_month": null,
+  "next_month": null,
+  "currency": "EUR",
+  "include_transfers": false,
+  "grouping": "counterparty",
+  "totals": {
+   "income": "1200.00",
+   "expense": "430.00",
+   "net": "770.00",
+   "mapped_income": "1200.00",
+   "mapped_expense": "430.00",
+   "kept": "770.00",
+   "drawn_from_savings": "0.00",
+   "transfers": "0.00"
+  },
+  "nodes": [
+   {
+    "id": "in:part-time-employer",
+    "label": "Part-time Employer",
+    "column": 0,
+    "kind": "income",
+    "amount": "1200.00",
+    "share": 1.0,
+    "transaction_count": 1,
+    "members": [],
+    "trend": []
+   },
+   {
+    "id": "pool",
+    "label": "Money in",
+    "column": 1,
+    "kind": "pool",
+    "amount": "1200.00",
+    "share": 1.0,
+    "transaction_count": 1,
+    "members": [],
+    "trend": []
+   },
+   {
+    "id": "bucket:spending",
+    "label": "Spending",
+    "column": 2,
+    "kind": "spending",
+    "amount": "430.00",
+    "share": 0.3583,
+    "transaction_count": 1,
+    "members": [],
+    "trend": []
+   },
+   {
+    "id": "out:landlord-oy",
+    "label": "Landlord Oy",
+    "column": 3,
+    "kind": "counterparty",
+    "amount": "430.00",
+    "share": 0.3583,
+    "transaction_count": 1,
+    "members": [],
+    "trend": [
+     {
+      "month": "2026-09",
+      "amount": "430.00"
+     }
+    ]
+   },
+   {
+    "id": "bucket:kept",
+    "label": "Kept",
+    "column": 2,
+    "kind": "kept",
+    "amount": "770.00",
+    "share": 0.6417,
+    "transaction_count": 0,
+    "members": [],
+    "trend": []
+   }
+  ],
+  "links": [
+   {
+    "source": "in:part-time-employer",
+    "target": "pool",
+    "amount": "1200.00"
+   },
+   {
+    "source": "pool",
+    "target": "bucket:spending",
+    "amount": "430.00"
+   },
+   {
+    "source": "bucket:spending",
+    "target": "out:landlord-oy",
+    "amount": "430.00"
+   },
+   {
+    "source": "pool",
+    "target": "bucket:kept",
+    "amount": "770.00"
+   }
+  ],
+  "transfers": [],
+  "disclosures": [
+   {
+    "code": "uncategorised",
+    "severity": "info",
+    "message": "Spending isn't categorised yet, so the map shows payees. Add category rules to group them."
+   },
+   {
+    "code": "short_history",
+    "severity": "info",
+    "message": "Telling regular from occasional spending needs 4 months of history; all spending is shown together."
+   }
+  ],
+  "provenance": {
+   "publications": [
+    "mart_monthly_cashflow",
+    "mart_monthly_cashflow_by_counterparty",
+    "mart_spend_by_category_monthly"
+   ],
+   "data_through": "2026-09",
+   "transaction_count": 2
   }
  }
 }

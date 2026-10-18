@@ -1247,6 +1247,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/wallboard/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Wallboard Devices */
+        get: operations["get_wallboard_devices_api_wallboard_devices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wallboard/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Wallboard Events */
+        get: operations["get_wallboard_events_api_wallboard_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wallboard/power": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Wallboard Power */
+        get: operations["get_wallboard_power_api_wallboard_power_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wallboard/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Wallboard Services */
+        get: operations["get_wallboard_services_api_wallboard_services_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/callback": {
         parameters: {
             query?: never;
@@ -7215,6 +7283,156 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** WallboardDevicesModel */
+        WallboardDevicesModel: {
+            /** Available */
+            available: boolean;
+            /** Generated At */
+            generated_at: string;
+            /** Rooms */
+            rooms: components["schemas"]["WallboardRoomModel"][];
+        };
+        /** WallboardEventFeedModel */
+        WallboardEventFeedModel: {
+            /** Events */
+            events: components["schemas"]["WallboardEventModel"][];
+            /** Generated At */
+            generated_at: string;
+            /** Since */
+            since: string;
+            sources: components["schemas"]["WallboardEventSourcesModel"];
+        };
+        /** WallboardEventModel */
+        WallboardEventModel: {
+            /** At */
+            at: string;
+            /** Detail */
+            detail?: string | null;
+            /** Event Id */
+            event_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "ingestion" | "proposal" | "alert";
+            /** Title */
+            title: string;
+            /**
+             * Tone
+             * @enum {string}
+             */
+            tone: "ok" | "warn" | "accent" | "neutral";
+        };
+        /** WallboardEventSourcesModel */
+        WallboardEventSourcesModel: {
+            /** Alerts */
+            alerts: boolean;
+            /** Proposals */
+            proposals: boolean;
+            /** Runs */
+            runs: boolean;
+        };
+        /** WallboardPowerBucketModel */
+        WallboardPowerBucketModel: {
+            /** Hour End */
+            hour_end: string;
+            /** Hour Start */
+            hour_start: string;
+            /** Kwh */
+            kwh?: number | null;
+            /** Partial */
+            partial: boolean;
+        };
+        /** WallboardPowerMeterModel */
+        WallboardPowerMeterModel: {
+            /** Entity Id */
+            entity_id: string;
+            /** Name */
+            name?: string | null;
+            /** Unit */
+            unit?: string | null;
+        };
+        /** WallboardPowerSeriesModel */
+        WallboardPowerSeriesModel: {
+            /** Available */
+            available: boolean;
+            /** Buckets */
+            buckets: components["schemas"]["WallboardPowerBucketModel"][];
+            /** Candidates */
+            candidates: components["schemas"]["WallboardPowerMeterModel"][];
+            /** Generated At */
+            generated_at: string;
+            meter?: components["schemas"]["WallboardPowerMeterModel"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "no_meter" | "ambiguous" | "unavailable";
+            /** Total Kwh */
+            total_kwh?: number | null;
+            /**
+             * Unit
+             * @default kWh
+             * @constant
+             */
+            unit: "kWh";
+            /** Window Hours */
+            window_hours: number;
+        };
+        /** WallboardRoomModel */
+        WallboardRoomModel: {
+            /** Humidity Pct */
+            humidity_pct?: number | null;
+            /** Last Seen */
+            last_seen?: string | null;
+            /** Power W */
+            power_w?: number | null;
+            /** Room */
+            room?: string | null;
+            /** Sensor Count */
+            sensor_count: number;
+            /** Temperature C */
+            temperature_c?: number | null;
+        };
+        /** WallboardServiceModel */
+        WallboardServiceModel: {
+            /** Cpu Pct */
+            cpu_pct?: number | null;
+            /** Criticality */
+            criticality?: string | null;
+            /** Host */
+            host?: string | null;
+            /** Mem Gb */
+            mem_gb?: number | null;
+            /** Metrics Window */
+            metrics_window?: string | null;
+            /** Name */
+            name: string;
+            /** Recorded At */
+            recorded_at?: string | null;
+            /** Service Id */
+            service_id: string;
+            /** Stale */
+            stale: boolean;
+            /** State */
+            state?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "up" | "degraded" | "down" | "unknown";
+            /** Uptime Seconds */
+            uptime_seconds?: number | null;
+        };
+        /** WallboardServicesModel */
+        WallboardServicesModel: {
+            /** Available */
+            available: boolean;
+            /** Generated At */
+            generated_at: string;
+            /** Services */
+            services: components["schemas"]["WallboardServiceModel"][];
+        };
     };
     responses: never;
     parameters: never;
@@ -9314,6 +9532,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_wallboard_devices_api_wallboard_devices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WallboardDevicesModel"];
+                };
+            };
+        };
+    };
+    get_wallboard_events_api_wallboard_events_get: {
+        parameters: {
+            query?: {
+                /** @description ISO-8601 lower bound; defaults to 12 hours ago. */
+                since?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WallboardEventFeedModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_wallboard_power_api_wallboard_power_get: {
+        parameters: {
+            query?: {
+                window_hours?: number;
+                /** @description Energy meter entity; defaults to the house meter when it is unambiguous. */
+                entity_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WallboardPowerSeriesModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_wallboard_services_api_wallboard_services_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WallboardServicesModel"];
                 };
             };
         };

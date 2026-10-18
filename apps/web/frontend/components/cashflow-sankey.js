@@ -274,3 +274,31 @@ export function CashflowFlowList({ payload, focusId = null, hrefForNode }) {
     </div>
   );
 }
+
+// Bucket ledger: the regular / occasional / kept (or drawn) buckets of the
+// map as a definition list, plus transfers when there were any. Replaced the
+// old KPI cards on /cashflow.
+export function CashflowLedger({ payload }) {
+  const currency = payload?.currency || null;
+  const totals = payload?.totals || {};
+  const buckets = (payload?.nodes || []).filter((node) => node.column === 2);
+  const money = (value) => formatMoney(value, currency);
+  return (
+    <dl className="cashflowLedger">
+      {buckets.map((bucket) => (
+        <div key={bucket.id} style={{ "--swatch": BUCKET_COLOR[bucket.kind] }}>
+          <dt>{bucket.label}</dt>
+          <dd className="numMono">
+            {money(bucket.amount)} <span className="muted">{Math.round(bucket.share * 100)}%</span>
+          </dd>
+        </div>
+      ))}
+      {Number(totals.transfers || 0) > 0 ? (
+        <div style={{ "--swatch": "var(--line-strong)" }}>
+          <dt>{payload?.include_transfers ? "Transfers, included" : "Transfers, left out"}</dt>
+          <dd className="numMono">{money(totals.transfers)}</dd>
+        </div>
+      ) : null}
+    </dl>
+  );
+}

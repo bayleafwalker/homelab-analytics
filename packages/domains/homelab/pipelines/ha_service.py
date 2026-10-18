@@ -5,6 +5,7 @@ Phase 1 scope (read-only ingest):
 - ``ingest_ha_states``    — accept a HA /api/states batch, write dim + fact rows
 - ``get_ha_entities``     — current state per entity
 - ``get_ha_entity_history`` — historian log for one entity
+- ``get_ha_state_changes_since`` — historian rows for several entities in a window
 
 HA state object schema (from HA REST /api/states or WebSocket snapshot):
   entity_id   str        e.g. "sensor.living_room_temp"
@@ -18,7 +19,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from packages.domains.homelab.pipelines.ha_models import (
@@ -156,3 +157,62 @@ def get_ha_entity_history(
         " LIMIT ?",
         [entity_id, limit],
     )
+
+
+def get_ha_state_changes_since(
+    store: DuckDBStore,
+    entity_ids: list[str],
+    *,
+    since: datetime,
+) -> list[dict[str, Any]]:
+    """Return historian rows for ``entity_ids`` changed at or after ``since``.
+
+    ``changed_at`` is stored as the ISO text HA sent, so offsets vary. SQL does
+    a coarse lexicographic cut with a one-day margin (covers any UTC offset);
+    the exact cut is made here on parsed, UTC-normalised timestamps. Rows are
+    returned oldest first.
+
+    Read-only on purpose (no ``ensure_ha_storage``): ``fact_ha_state_change``
+    is part of the 0001 schema, so this can run on a read-only warehouse
+    handle.
+    """
+    if not entity_ids:
+        return []
+    since_utc = since if since.tzinfo is not None else since.replace(tzinfo=UTC)
+    since_utc = since_utc.astimezone(UTC)
+    coarse = (since_utc - timedelta(days=1)).strftime("%Y-%m-%d")
+    placeholders = ", ".join("?" for _ in entity_ids)
+    rows = store.fetchall_dicts(
+        f"SELECT * FROM {FACT_HA_STATE_CHANGE_TABLE}"
+        f" WHERE entity_id IN ({placeholders}) AND changed_at >= ?"
+        " ORDER BY changed_at ASC",
+        [*entity_ids, coarse],
+    )
+    selected: list[tuple[datetime, dict[str, Any]]] = []
+    for row in rows:
+        changed = parse_ha_timestamp(row.get("changed_at"))
+        if changed is not None and changed >= since_utc:
+            selected.append((changed, row))
+    selected.sort(key=lambda pair: pair[0])
+    return [row for _, row in selected]
+
+
+def parse_ha_timestamp(value: Any) -> datetime | None:
+    """Parse an HA ISO timestamp into an aware UTC datetime (naive -> UTC)."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        parsed = value
+    else:
+        text = str(value).strip()
+        if not text:
+            return None
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)

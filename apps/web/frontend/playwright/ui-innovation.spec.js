@@ -24,7 +24,7 @@ async function expectAccessible(page, selector = "#storybook-root") {
   expect(results.violations, violationMessage(results.violations)).toEqual([]);
 }
 
-for (const story of ["demo-month", "categorised-with-occasional", "focused-payee", "overspent"]) {
+for (const story of ["demo-month", "categorised-with-occasional", "focused-payee", "overspent", "sparse"]) {
   test(`cashflow sankey ${story} renders flows and stays accessible`, async ({ page }) => {
     await gotoStory(page, `cashflow-cashflowsankey--${story}`);
     const svg = page.locator("svg.sankey");
@@ -42,6 +42,28 @@ test("cashflow sankey payees are keyboard reachable links", async ({ page }) => 
   await expect(groceries).toHaveAttribute("href", "#out:groceries");
 });
 
+test("cashflow sankey draws nothing when no money has been published", async ({ page }) => {
+  await gotoStory(page, "cashflow-cashflowsankey--empty");
+  await expect(page.locator("svg.sankey")).toHaveCount(0);
+  await expect(page.getByText("No account transactions have been published yet.")).toBeVisible();
+});
+
+for (const story of ["bucket-ledger", "bucket-ledger-overspent", "bucket-ledger-sparse"]) {
+  test(`cashflow ${story} lists the buckets and stays accessible`, async ({ page }) => {
+    await gotoStory(page, `cashflow-cashflowsankey--${story}`);
+    expect(await page.locator(".cashflowLedger > div").count()).toBeGreaterThan(0);
+    await expectAccessible(page);
+  });
+}
+
+for (const story of ["mixed", "nothing-trusted-yet"]) {
+  test(`briefing ${story} renders every section and stays accessible`, async ({ page }) => {
+    await gotoStory(page, `pages-briefing--${story}`);
+    expect(await page.locator('[data-testid^="brief-section-"]').count()).toBe(7);
+    await expectAccessible(page, "main");
+  });
+}
+
 test("cashflow flow list is the narrow-screen alternative", async ({ page }) => {
   await gotoStory(page, "cashflow-cashflowsankey--narrow-flow-list");
   await expect(page.getByRole("heading", { name: /Regular spending/ })).toBeVisible();
@@ -56,11 +78,87 @@ for (const story of ["standard", "compact", "nothing-connected"]) {
   });
 }
 
-test("wallboard compact mode drops the homelab and ticker panels", async ({ page }) => {
-  await gotoStory(page, "wallboard-wallboardview--compact");
-  await expect(page.getByText("Homelab")).toHaveCount(0);
-  await expect(page.getByLabel("Upcoming payments")).toHaveCount(0);
+test("wallboard standard lays out the kiosk grid", async ({ page }) => {
+  await gotoStory(page, "wallboard-wallboardview--standard");
+  for (const area of ["services", "events", "devices", "power"]) {
+    await expect(page.locator(`.wallPanel[data-area="${area}"]`)).toBeVisible();
+  }
+  await expect(page.getByLabel("Upcoming payments")).toBeVisible();
+  await expect(page.getByText("R refresh · P pause")).toBeVisible();
+  const columns = await page
+    .locator(".wallGrid")
+    .evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(" ").map(parseFloat));
+  expect(columns).toHaveLength(2);
+  expect(columns[0] / columns[1]).toBeCloseTo(1.4, 1);
 });
+
+test("wallboard compact mode hides the event feed and hotkey hint", async ({ page }) => {
+  await gotoStory(page, "wallboard-wallboardview--compact");
+  await expect(page.locator('.wallPanel[data-area="events"]')).toHaveCount(0);
+  await expect(page.getByText("R refresh · P pause")).toHaveCount(0);
+  await expect(page.getByLabel("Upcoming payments")).toBeVisible();
+  const size = await page
+    .locator(".wallReadingValue")
+    .first()
+    .evaluate((node) => parseFloat(getComputedStyle(node).fontSize));
+  expect(size).toBe(48);
+});
+
+async function setVisibility(page, state) {
+  await page.evaluate((value) => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => value });
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => value === "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, state);
+}
+
+test("wallboard refresh pauses while hidden and refreshes on return", async ({ page }) => {
+  await gotoStory(page, "wallboard-refresh--manual-only");
+  const status = page.getByRole("status");
+  const count = page.getByTestId("refresh-count");
+  await expect(status).toContainText("Live");
+  await setVisibility(page, "hidden");
+  await expect(status).toContainText("Paused, hidden");
+  await expect(count).toHaveText("0");
+  await setVisibility(page, "visible");
+  await expect(status).toContainText("Live");
+  await expect(count).toHaveText("1");
+  // Hotkeys: R refreshes now, P pauses (and a paused board does not
+  // refresh on becoming visible).
+  await page.keyboard.press("r");
+  await expect(count).toHaveText("2");
+  await page.keyboard.press("p");
+  await expect(status).toContainText("Paused");
+  await setVisibility(page, "hidden");
+  await setVisibility(page, "visible");
+  await expect(count).toHaveText("2");
+});
+
+test("wallboard refresh ticks without focus but not while hidden or hovered", async ({ page }) => {
+  await gotoStory(page, "wallboard-refresh--fast-tick");
+  const count = page.getByTestId("refresh-count");
+  // No focus is given to the page: ticks still land.
+  await page.evaluate(() => window.blur());
+  await expect.poll(async () => Number(await count.textContent())).toBeGreaterThan(1);
+  await setVisibility(page, "hidden");
+  const hiddenAt = Number(await count.textContent());
+  await page.waitForTimeout(1000);
+  expect(Number(await count.textContent())).toBe(hiddenAt);
+  await setVisibility(page, "visible");
+  await page.locator(".wall").hover();
+  await expect(page.getByRole("status")).toContainText("Frozen");
+  const hoveredAt = Number(await count.textContent());
+  await page.waitForTimeout(1000);
+  expect(Number(await count.textContent())).toBe(hoveredAt);
+});
+
+for (const story of ["service-tile-up", "devices", "events", "power", "power-ambiguous"]) {
+  test(`wallboard panel ${story} renders`, async ({ page }) => {
+    await gotoStory(page, `wallboard-panels--${story}`);
+    await expect(page.locator(".wall")).toBeVisible();
+    await expectAccessible(page);
+  });
+}
 
 test("app shell rail groups the nav, marks the current page and stays accessible", async ({ page }) => {
   await gotoStory(page, "shells-appshell--admin-control");

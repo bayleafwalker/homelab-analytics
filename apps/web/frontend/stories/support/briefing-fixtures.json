@@ -1,0 +1,267 @@
+{
+ "withheld": {
+  "schema_version": "1.0.0",
+  "as_of": "2026-10-18",
+  "generated_at": "2026-10-18T06:00:00+00:00",
+  "content_hash": "ec715848de4a27df1d372f0d8973acdc8a8213e61d70d0385df5dcfa43a831cc",
+  "headline": "Nothing confirmed needs attention; 6 lines withheld for stale or unknown data.",
+  "overall_severity": "notice",
+  "counts": {
+   "info": 0,
+   "notice": 7,
+   "warning": 0,
+   "critical": 0,
+   "confirmed": 1,
+   "provisional": 0,
+   "withheld": 6
+  },
+  "sections": [
+   {
+    "key": "money",
+    "title": "Money",
+    "order": 10,
+    "status": "unavailable",
+    "summary": "Cashflow is withheld until its publication can be trusted.",
+    "publication_keys": [
+     "mart_monthly_cashflow"
+    ],
+    "items": [
+     {
+      "item_id": "money:cashflow",
+      "severity": "notice",
+      "claim_status": "withheld",
+      "headline": "Cashflow is not stated.",
+      "detail": null,
+      "caveats": [
+       "No confidence snapshot has been recorded for mart_monthly_cashflow."
+      ],
+      "remediation": "Run a transformation refresh for mart_monthly_cashflow so its confidence is assessed.",
+      "confidence": {
+       "publication_key": "mart_monthly_cashflow",
+       "verdict": "unavailable",
+       "freshness_state": "unavailable",
+       "completeness_pct": null,
+       "validation_state": "unknown",
+       "completeness_state": "unknown",
+       "assessed_at": null
+      },
+      "evidence": [
+       {
+        "kind": "publication",
+        "ref": "mart_monthly_cashflow",
+        "label": "mart_monthly_cashflow"
+       }
+      ],
+      "lineage_publication_key": "mart_monthly_cashflow"
+     }
+    ]
+   },
+   {
+    "key": "attention",
+    "title": "Needs attention",
+    "order": 20,
+    "status": "unavailable",
+    "summary": "Open attention items are withheld.",
+    "publication_keys": [
+     "mart_open_attention_items"
+    ],
+    "items": [
+     {
+      "item_id": "attention:items",
+      "severity": "notice",
+      "claim_status": "withheld",
+      "headline": "Open attention items are not stated.",
+      "detail": null,
+      "caveats": [
+       "No confidence snapshot has been recorded for mart_open_attention_items."
+      ],
+      "remediation": "Run a transformation refresh for mart_open_attention_items so its confidence is assessed.",
+      "confidence": {
+       "publication_key": "mart_open_attention_items",
+       "verdict": "unavailable",
+       "freshness_state": "unavailable",
+       "completeness_pct": null,
+       "validation_state": "unknown",
+       "completeness_state": "unknown",
+       "assessed_at": null
+      },
+      "evidence": [
+       {
+        "kind": "publication",
+        "ref": "mart_open_attention_items",
+        "label": "mart_open_attention_items"
+       }
+      ],
+      "lineage_publication_key": "mart_open_attention_items"
+     }
+    ]
+   },
+   {
+    "key": "changes",
+    "title": "What changed",
+    "order": 30,
+    "status": "unavailable",
+    "summary": "Recent changes are withheld.",
+    "publication_keys": [
+     "mart_recent_significant_changes"
+    ],
+    "items": [
+     {
+      "item_id": "changes:recent",
+      "severity": "notice",
+      "claim_status": "withheld",
+      "headline": "Recent changes are not stated.",
+      "detail": null,
+      "caveats": [
+       "No confidence snapshot has been recorded for mart_recent_significant_changes."
+      ],
+      "remediation": "Run a transformation refresh for mart_recent_significant_changes so its confidence is assessed.",
+      "confidence": {
+       "publication_key": "mart_recent_significant_changes",
+       "verdict": "unavailable",
+       "freshness_state": "unavailable",
+       "completeness_pct": null,
+       "validation_state": "unknown",
+       "completeness_state": "unknown",
+       "assessed_at": null
+      },
+      "evidence": [
+       {
+        "kind": "publication",
+        "ref": "mart_recent_significant_changes",
+        "label": "mart_recent_significant_changes"
+       }
+      ],
+      "lineage_publication_key": "mart_recent_significant_changes"
+     }
+    ]
+   },
+   {
+    "key": "upcoming",
+    "title": "Coming up",
+    "order": 40,
+    "status": "unavailable",
+    "summary": "Upcoming fixed costs are withheld.",
+    "publication_keys": [
+     "mart_upcoming_fixed_costs_30d"
+    ],
+    "items": [
+     {
+      "item_id": "upcoming:fixed-costs",
+      "severity": "notice",
+      "claim_status": "withheld",
+      "headline": "Upcoming fixed costs are not stated.",
+      "detail": null,
+      "caveats": [
+       "No confidence snapshot has been recorded for mart_upcoming_fixed_costs_30d."
+      ],
+      "remediation": "Run a transformation refresh for mart_upcoming_fixed_costs_30d so its confidence is assessed.",
+      "confidence": {
+       "publication_key": "mart_upcoming_fixed_costs_30d",
+       "verdict": "unavailable",
+       "freshness_state": "unavailable",
+       "completeness_pct": null,
+       "validation_state": "unknown",
+       "completeness_state": "unknown",
+       "assessed_at": null
+      },
+      "evidence": [
+       {
+        "kind": "publication",
+        "ref": "mart_upcoming_fixed_costs_30d",
+        "label": "mart_upcoming_fixed_costs_30d"
+       }
+      ],
+      "lineage_publication_key": "mart_upcoming_fixed_costs_30d"
+     }
+    ]
+   },
+   {
+    "key": "battery",
+    "title": "Battery plan",
+    "order": 45,
+    "status": "unavailable",
+    "summary": "The battery-plan outcome is withheld.",
+    "publication_keys": [
+     "mart_battery_plan_outcome"
+    ],
+    "items": [
+     {
+      "item_id": "battery:outcome",
+      "severity": "notice",
+      "claim_status": "withheld",
+      "headline": "The battery-plan outcome is not stated.",
+      "detail": null,
+      "caveats": [
+       "No confidence snapshot has been recorded for mart_battery_plan_outcome."
+      ],
+      "remediation": "Run a transformation refresh for mart_battery_plan_outcome so its confidence is assessed.",
+      "confidence": {
+       "publication_key": "mart_battery_plan_outcome",
+       "verdict": "unavailable",
+       "freshness_state": "unavailable",
+       "completeness_pct": null,
+       "validation_state": "unknown",
+       "completeness_state": "unknown",
+       "assessed_at": null
+      },
+      "evidence": [
+       {
+        "kind": "publication",
+        "ref": "mart_battery_plan_outcome",
+        "label": "mart_battery_plan_outcome"
+       }
+      ],
+      "lineage_publication_key": "mart_battery_plan_outcome"
+     }
+    ]
+   },
+   {
+    "key": "policies",
+    "title": "Policies",
+    "order": 50,
+    "status": "unavailable",
+    "summary": "Policy verdicts are unavailable.",
+    "publication_keys": [],
+    "items": [
+     {
+      "item_id": "policies:engine",
+      "severity": "notice",
+      "claim_status": "withheld",
+      "headline": "Policy verdicts are not stated.",
+      "detail": null,
+      "caveats": [
+       "The policy evaluator is not running in this API process."
+      ],
+      "remediation": "Enable the Home Assistant policy runtime so policies are evaluated.",
+      "confidence": null,
+      "evidence": [],
+      "lineage_publication_key": null
+     }
+    ]
+   },
+   {
+    "key": "sources",
+    "title": "Sources",
+    "order": 60,
+    "status": "ok",
+    "summary": "No sources are registered.",
+    "publication_keys": [],
+    "items": [
+     {
+      "item_id": "sources:none",
+      "severity": "notice",
+      "claim_status": "confirmed",
+      "headline": "No sources are registered.",
+      "detail": null,
+      "caveats": [],
+      "remediation": "Register a source asset under Sources and upload its first export.",
+      "confidence": null,
+      "evidence": [],
+      "lineage_publication_key": null
+     }
+    ]
+   }
+  ]
+ }
+}

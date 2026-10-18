@@ -11124,6 +11124,502 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "WallboardDevicesModel": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "rooms": {
+            "items": {
+              "$ref": "#/components/schemas/WallboardRoomModel"
+            },
+            "title": "Rooms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "available",
+          "generated_at",
+          "rooms"
+        ],
+        "title": "WallboardDevicesModel",
+        "type": "object"
+      },
+      "WallboardEventFeedModel": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/WallboardEventModel"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "since": {
+            "title": "Since",
+            "type": "string"
+          },
+          "sources": {
+            "$ref": "#/components/schemas/WallboardEventSourcesModel"
+          }
+        },
+        "required": [
+          "since",
+          "generated_at",
+          "sources",
+          "events"
+        ],
+        "title": "WallboardEventFeedModel",
+        "type": "object"
+      },
+      "WallboardEventModel": {
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "ingestion",
+              "proposal",
+              "alert"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "tone": {
+            "enum": [
+              "ok",
+              "warn",
+              "accent",
+              "neutral"
+            ],
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "kind",
+          "at",
+          "title",
+          "tone"
+        ],
+        "title": "WallboardEventModel",
+        "type": "object"
+      },
+      "WallboardEventSourcesModel": {
+        "properties": {
+          "alerts": {
+            "title": "Alerts",
+            "type": "boolean"
+          },
+          "proposals": {
+            "title": "Proposals",
+            "type": "boolean"
+          },
+          "runs": {
+            "title": "Runs",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "runs",
+          "proposals",
+          "alerts"
+        ],
+        "title": "WallboardEventSourcesModel",
+        "type": "object"
+      },
+      "WallboardPowerBucketModel": {
+        "properties": {
+          "hour_end": {
+            "title": "Hour End",
+            "type": "string"
+          },
+          "hour_start": {
+            "title": "Hour Start",
+            "type": "string"
+          },
+          "kwh": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kwh"
+          },
+          "partial": {
+            "title": "Partial",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "hour_start",
+          "hour_end",
+          "partial"
+        ],
+        "title": "WallboardPowerBucketModel",
+        "type": "object"
+      },
+      "WallboardPowerMeterModel": {
+        "properties": {
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "entity_id"
+        ],
+        "title": "WallboardPowerMeterModel",
+        "type": "object"
+      },
+      "WallboardPowerSeriesModel": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/WallboardPowerBucketModel"
+            },
+            "title": "Buckets",
+            "type": "array"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/WallboardPowerMeterModel"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "meter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WallboardPowerMeterModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "no_meter",
+              "ambiguous",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total_kwh": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Kwh"
+          },
+          "unit": {
+            "const": "kWh",
+            "default": "kWh",
+            "title": "Unit",
+            "type": "string"
+          },
+          "window_hours": {
+            "title": "Window Hours",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "available",
+          "status",
+          "window_hours",
+          "generated_at",
+          "candidates",
+          "buckets"
+        ],
+        "title": "WallboardPowerSeriesModel",
+        "type": "object"
+      },
+      "WallboardRoomModel": {
+        "properties": {
+          "humidity_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Humidity Pct"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "power_w": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power W"
+          },
+          "room": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room"
+          },
+          "sensor_count": {
+            "title": "Sensor Count",
+            "type": "integer"
+          },
+          "temperature_c": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature C"
+          }
+        },
+        "required": [
+          "sensor_count"
+        ],
+        "title": "WallboardRoomModel",
+        "type": "object"
+      },
+      "WallboardServiceModel": {
+        "properties": {
+          "cpu_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Pct"
+          },
+          "criticality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Criticality"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "mem_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mem Gb"
+          },
+          "metrics_window": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metrics Window"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "recorded_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded At"
+          },
+          "service_id": {
+            "title": "Service Id",
+            "type": "string"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "status": {
+            "enum": [
+              "up",
+              "degraded",
+              "down",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "uptime_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uptime Seconds"
+          }
+        },
+        "required": [
+          "service_id",
+          "name",
+          "status",
+          "stale"
+        ],
+        "title": "WallboardServiceModel",
+        "type": "object"
+      },
+      "WallboardServicesModel": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/WallboardServiceModel"
+            },
+            "title": "Services",
+            "type": "array"
+          }
+        },
+        "required": [
+          "available",
+          "generated_at",
+          "services"
+        ],
+        "title": "WallboardServicesModel",
+        "type": "object"
       }
     }
   },
@@ -13708,6 +14204,150 @@
           }
         },
         "summary": "Get Scenario Comparison"
+      }
+    },
+    "/api/wallboard/devices": {
+      "get": {
+        "operationId": "get_wallboard_devices_api_wallboard_devices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WallboardDevicesModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Wallboard Devices"
+      }
+    },
+    "/api/wallboard/events": {
+      "get": {
+        "operationId": "get_wallboard_events_api_wallboard_events_get",
+        "parameters": [
+          {
+            "description": "ISO-8601 lower bound; defaults to 12 hours ago.",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ISO-8601 lower bound; defaults to 12 hours ago.",
+              "title": "Since"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WallboardEventFeedModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Wallboard Events"
+      }
+    },
+    "/api/wallboard/power": {
+      "get": {
+        "operationId": "get_wallboard_power_api_wallboard_power_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "window_hours",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 168,
+              "minimum": 1,
+              "title": "Window Hours",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Energy meter entity; defaults to the house meter when it is unambiguous.",
+            "in": "query",
+            "name": "entity_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Energy meter entity; defaults to the house meter when it is unambiguous.",
+              "title": "Entity Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WallboardPowerSeriesModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Wallboard Power"
+      }
+    },
+    "/api/wallboard/services": {
+      "get": {
+        "operationId": "get_wallboard_services_api_wallboard_services_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WallboardServicesModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Wallboard Services"
       }
     },
     "/auth/callback": {

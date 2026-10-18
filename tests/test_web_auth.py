@@ -1094,7 +1094,15 @@ def test_retro_shell_mirrors_control_agents_read_only() -> None:
 
 
 def test_nextjs_frontend_exposes_deterministic_morning_brief() -> None:
-    briefing_source = (FRONTEND_ROOT / "app" / "briefing" / "page.js").read_text()
+    briefing_page = (FRONTEND_ROOT / "app" / "briefing" / "page.js").read_text()
+    briefing_view = (FRONTEND_ROOT / "components" / "briefing-view.js").read_text()
+    # The page fetches; BriefingView (shared with Storybook) renders.
+    assert "<BriefingView brief={brief} renderExplain={renderExplain} surfaces={surfacesFor(user)} />" in briefing_page
+    # Reader role does not get the operator-only source-freshness link.
+    assert "surface.operatorOnly && user?.role === \"reader\"" in briefing_page
+    assert "brief-surface-${section.key}" in briefing_view
+    assert "@/lib/backend" not in briefing_view
+    briefing_source = briefing_page + briefing_view
     lineage_source = (FRONTEND_ROOT / "app" / "briefing" / "lineage" / "page.js").read_text()
     backend_source = (FRONTEND_ROOT / "lib" / "backend.ts").read_text()
 
@@ -1108,8 +1116,8 @@ def test_nextjs_frontend_exposes_deterministic_morning_brief() -> None:
     assert 'backendGet("/api/briefing")' in backend_source
 
     # Wave-1 primitives, not ad-hoc chips.
-    for primitive in ("@/components/pill", "@/components/num-mono", "@/components/eyebrow"):
-        assert primitive in briefing_source
+    for primitive in ('"./pill"', '"./num-mono"', '"./eyebrow"'):
+        assert primitive in briefing_view
 
     # Every line shows claim status + confidence and links to the lineage drill.
     assert "item.claim_status" in briefing_source
@@ -1358,23 +1366,61 @@ def test_wallboard_page_is_ambient_and_degrades_per_tile() -> None:
     view = (FRONTEND_ROOT / "components" / "wallboard-view.js").read_text()
     css = (FRONTEND_ROOT / "app" / "wallboard.css").read_text()
 
+    panels = (FRONTEND_ROOT / "components" / "wallboard-panels.js").read_text()
+
     assert "await getCurrentUser()" in page
     assert 'searchParams?.compact === "1"' in page
-    assert "optional(getHomelabServices(), [])" in page
-    assert "optional(getHaBridgeStatus(), null)" in page
+    # Adapters are optional: a missing one renders that panel's own state.
+    for adapter in ("getServiceHealth()", "getDeviceReadings()", "getPowerSeries(24)", "getHaBridgeStatus()"):
+        assert f"optional({adapter}, null)" in page
+    assert "compact ? null : optional(getEventFeed(), null)" in page
     assert "AppShell" not in page
-    # Refresh pauses when hidden or hovered; no streaming.
+    # Compact is URL-only.
+    for source in (page, live, view):
+        assert "localStorage" not in source
+    # 30s refresh; pauses while the page is hidden and refreshes on return;
+    # freezes on hover; no streaming. Not gated on focus: kiosk browsers
+    # rarely get it, and hasFocus gating starves the display.
+    assert "REFRESH_MS = 30_000" in live
     assert "router.refresh()" in live
-    assert "document.hidden" in live
+    assert 'document.visibilityState === "hidden"' in live
+    assert 'addEventListener("visibilitychange", onVisibility)' in live
+    assert "if (wasHidden && !hidden && !pauseReason(stateRef.current)) refreshRef.current();" in live
+    assert "hasFocus()" not in live
     assert "pointerenter" in live
-    assert "No services reporting" in view
-    # Mono only and readable from a distance.
+    assert 'key === "r"' in live and 'key === "p"' in live
+    assert "No services reporting" in panels
+    assert "Not connected" in panels
+    # Kiosk grid.
+    assert '"services events"' in css
+    assert '"devices power"' in css
+    assert '"ticker ticker"' in css
+    assert "minmax(0, 1.4fr) minmax(0, 1fr)" in css
+    # Mono only and readable from a distance; status 24px+.
     assert "var(--retro-font-mono)" in css
     assert "--font-display" not in css
+    assert "serif" not in css.replace("monospace", "")
     import re
 
     fixed_sizes = [int(size) for size in re.findall(r"font-size: (\d+)px", css)]
     assert fixed_sizes and min(fixed_sizes) >= 18
+    status_block = css.split(".wallStatus {", 1)[1].split("}", 1)[0]
+    assert "font-size: 24px" in status_block
+    # Cursor blink is the only animation, and it honours reduced motion.
+    assert css.count("@keyframes") == 1
+    assert "transition" not in css
+    assert "@media (prefers-reduced-motion: reduce)" in css
+
+
+def test_wallboard_scanlines_match_retro_root() -> None:
+    css = (FRONTEND_ROOT / "app" / "wallboard.css").read_text()
+    globals_css = (FRONTEND_ROOT / "app" / "globals.css").read_text()
+
+    def block(source: str, selector: str) -> str:
+        return source.split(f"{selector} {{", 1)[1].split("\n}", 1)[0].strip()
+
+    assert block(css, "body:has(.wall)::before") == block(globals_css, ".retroRoot::before")
+    assert block(css, "body:has(.wall)::after") == block(globals_css, ".retroRoot::after")
 
 
 def test_control_lineage_page_reads_through_the_backend_helper() -> None:

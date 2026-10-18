@@ -1,35 +1,53 @@
 /* Wallboard (/wallboard): retro-family tokens, mono only, read from across
- * the room. Nothing below 18px. Colour is reserved for state. */
+ * the room. Nothing below 18px; status words 24px+. Colour is reserved for
+ * state. The only timed animation is the cursor blink. */
+
+/* Scanlines + vignette on body, declared identically to .retroRoot::before
+ * and .retroRoot::after in globals.css. */
+body:has(.wall)::before,
+body:has(.wall)::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body:has(.wall)::before {
+  background:
+    repeating-linear-gradient(
+      180deg,
+      rgba(217, 255, 215, 0.07) 0,
+      rgba(217, 255, 215, 0.07) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  opacity: 0.18;
+}
+
+body:has(.wall)::after {
+  background:
+    linear-gradient(90deg, rgba(138, 230, 255, 0.05), transparent 18%, transparent 82%, rgba(246, 199, 109, 0.05)),
+    radial-gradient(circle at center, transparent 56%, rgba(0, 0, 0, 0.28) 100%);
+}
+
+body:has(.wall) {
+  background: var(--retro-bg);
+}
 
 .wall {
   position: relative;
+  z-index: 1;
   min-height: 100vh;
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: 24px;
+  grid-template-rows: auto auto 1fr;
+  gap: 20px;
   padding: clamp(18px, 3vw, 40px);
   font-family: var(--retro-font-mono);
   font-size: 20px;
   color: var(--retro-text);
-  background:
-    radial-gradient(circle at 15% 0%, rgba(136, 255, 164, 0.08), transparent 40%),
-    var(--retro-bg);
+  background: radial-gradient(circle at 15% 0%, rgba(136, 255, 164, 0.08), transparent 40%);
   font-variant-numeric: tabular-nums;
-}
-
-/* Scanlines; the CRT vignette stays in /retro. */
-.wall::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.025) 0,
-    rgba(255, 255, 255, 0.025) 1px,
-    transparent 1px,
-    transparent 4px
-  );
 }
 
 .wallHeader {
@@ -71,8 +89,18 @@
   color: var(--retro-ok);
 }
 
+.wallCursor {
+  animation: wallBlink 1.1s step-end infinite;
+}
+
+@keyframes wallBlink {
+  50% {
+    opacity: 0;
+  }
+}
+
 .wallStatus {
-  font-size: 18px;
+  font-size: 24px;
   color: var(--retro-muted);
 }
 
@@ -80,14 +108,40 @@
   color: var(--retro-warn);
 }
 
-.wallGrid {
+/* Household strip: the finance tiles from the first wallboard. */
+.wallStrip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-auto-rows: minmax(190px, auto);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
 }
 
-.wallTile {
+/* Kiosk grid. */
+.wallGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-areas:
+    "services events"
+    "devices power"
+    "ticker ticker";
+  grid-auto-rows: minmax(0, auto);
+  gap: 18px;
+}
+
+.wallPanel[data-area="services"] { grid-area: services; }
+.wallPanel[data-area="events"] { grid-area: events; }
+.wallPanel[data-area="devices"] { grid-area: devices; }
+.wallPanel[data-area="power"] { grid-area: power; }
+.wallTicker[data-area="ticker"] { grid-area: ticker; }
+
+.wall[data-compact="true"] .wallGrid {
+  grid-template-areas:
+    "services services"
+    "devices power"
+    "ticker ticker";
+}
+
+.wallTile,
+.wallPanel {
   position: relative;
   display: grid;
   align-content: start;
@@ -96,13 +150,11 @@
   border-radius: var(--retro-radius-panel);
   border: 1px solid var(--retro-line);
   background: var(--retro-panel);
+  min-width: 0;
 }
 
-.wallTile[data-wide="true"] {
-  grid-column: span 1;
-}
-
-.wallTile::after {
+.wallTile::after,
+.wallPanel::after {
   content: "";
   position: absolute;
   left: 0;
@@ -113,15 +165,18 @@
   background: var(--retro-line);
 }
 
-.wallTile[data-tone="ok"]::after {
+.wallTile[data-tone="ok"]::after,
+.wallPanel[data-tone="ok"]::after {
   background: var(--retro-ok);
 }
 
-.wallTile[data-tone="warn"]::after {
+.wallTile[data-tone="warn"]::after,
+.wallPanel[data-tone="warn"]::after {
   background: var(--retro-warn);
 }
 
-.wallTile[data-tone="accent"]::after {
+.wallTile[data-tone="accent"]::after,
+.wallPanel[data-tone="accent"]::after {
   background: var(--retro-accent);
 }
 
@@ -132,9 +187,14 @@
   color: var(--retro-muted);
 }
 
+.wallPanelNote {
+  font-size: 20px;
+  color: var(--retro-text);
+}
+
 .wallBig {
   margin: 0;
-  font-size: clamp(40px, 4.6vw, 72px);
+  font-size: clamp(32px, 3.4vw, 56px);
   line-height: 1;
   font-weight: 700;
   color: var(--retro-text);
@@ -149,8 +209,9 @@
 }
 
 .wallQuiet,
-.wallTile[data-tone="muted"] .wallBig {
-  font-size: clamp(26px, 2.6vw, 38px);
+.wallTile[data-tone="muted"] .wallBig,
+.wallPanel[data-tone="muted"] .wallBig {
+  font-size: clamp(24px, 2.4vw, 34px);
   color: var(--retro-muted);
 }
 
@@ -175,6 +236,152 @@
   color: var(--retro-muted);
 }
 
+/* Services. */
+.wallServices,
+.wallRooms,
+.wallEvents {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.wallService {
+  display: grid;
+  grid-template-columns: 8.5ch minmax(0, 1fr);
+  column-gap: 16px;
+  row-gap: 2px;
+  align-items: baseline;
+}
+
+.wallServiceStatus {
+  grid-row: span 2;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--retro-muted);
+}
+
+.wallService[data-tone="ok"] .wallServiceStatus {
+  color: var(--retro-ok);
+}
+
+.wallService[data-tone="warn"] .wallServiceStatus {
+  color: var(--retro-warn);
+}
+
+.wallServiceName {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.wallServiceMeta,
+.wallServiceMetrics {
+  grid-column: 2;
+  font-size: 18px;
+  color: var(--retro-muted);
+}
+
+/* Rooms. */
+.wallRoom {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: baseline;
+}
+
+.wallRoomName {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.wallReading {
+  display: grid;
+}
+
+.wallReadingValue {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.wallReadingLabel {
+  font-size: 18px;
+  color: var(--retro-muted);
+}
+
+.wall[data-compact="true"] .wallRoomName {
+  font-size: 40px;
+}
+
+.wall[data-compact="true"] .wallReadingValue {
+  font-size: 48px;
+}
+
+.wall[data-compact="true"] .wallReadingLabel {
+  font-size: 36px;
+}
+
+/* Events. */
+.wallEvent {
+  display: grid;
+  grid-template-columns: 6ch 7ch minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  font-size: 20px;
+}
+
+.wallEventTime,
+.wallEventKind {
+  font-size: 18px;
+  color: var(--retro-muted);
+}
+
+.wallEvent[data-tone="warn"] .wallEventKind {
+  color: var(--retro-warn);
+}
+
+.wallEvent[data-tone="ok"] .wallEventKind {
+  color: var(--retro-ok);
+}
+
+.wallEvent[data-tone="accent"] .wallEventKind {
+  color: var(--retro-accent);
+}
+
+.wallEventTitle {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.wallEventDetail {
+  color: var(--retro-muted);
+}
+
+/* Power. */
+.wallPower {
+  width: 100%;
+  height: auto;
+}
+
+.wallPowerBar {
+  fill: var(--retro-ok);
+}
+
+.wallPowerBar[data-partial="true"] {
+  fill: var(--retro-muted);
+}
+
+.wallPowerUnknown {
+  fill: var(--retro-line);
+}
+
+.wallPowerAxis {
+  fill: var(--retro-muted);
+  font-family: var(--retro-font-mono);
+  font-size: 18px;
+}
+
+/* Ticker. */
 .wallTicker {
   display: flex;
   gap: 36px;
@@ -186,18 +393,31 @@
   color: var(--retro-muted);
 }
 
-.wall[data-compact="true"] .wallGrid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.wallHotkeys {
+  margin-left: auto;
+  color: var(--retro-text);
 }
 
-.wall[data-compact="true"] .wallBig {
-  font-size: clamp(56px, 7vw, 112px);
+@media (prefers-reduced-motion: reduce) {
+  .wallCursor {
+    animation: none;
+  }
 }
 
 @media (max-width: 900px) {
+  .wallStrip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .wallGrid,
   .wall[data-compact="true"] .wallGrid {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "services"
+      "events"
+      "devices"
+      "power"
+      "ticker";
   }
 
   .wallMeta {
