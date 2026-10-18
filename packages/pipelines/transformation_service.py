@@ -1,8 +1,12 @@
 """Transformation service facade over domain-specific warehouse processors.
 
-Domain operations live in per-concern facets under
-``packages.pipelines.transformation_facets``; this module owns construction,
-schema bootstrap, domain-registry dispatch, and publication confidence wiring.
+This module owns construction, schema bootstrap, registry dispatch (domain
+loads/counts, publication refresh, scenario types, current dimensions), and
+publication confidence wiring. Domain packs own the behaviour behind those
+registries. The facets under ``packages.pipelines.transformation_facets`` hold
+the remaining ingestion/lineage entrypoints and the getters ReportingService
+consumes; tests/test_transformation_facade_boundary.py stops that surface
+from growing.
 """
 
 from __future__ import annotations
