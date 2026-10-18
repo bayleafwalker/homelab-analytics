@@ -112,11 +112,15 @@ def promote_source_asset_run(
             extension_registry=extension_registry,
         )
     )
-    return _apply_publication_selection(
+    selected = _apply_publication_selection(
         result,
         supported_publications=list(handler.supported_publications),
         configured_publications=configured_publications,
         additional_publications=extension_publications,
+    )
+    return replace(
+        selected,
+        source_asset_id=source_asset.source_asset_id,
     )
 
 

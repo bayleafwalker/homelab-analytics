@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Callable
@@ -73,6 +74,17 @@ from packages.pipelines.household_reporting import (
     PublicationRelation,
 )
 from packages.pipelines.promotion import PromotionResult
+from packages.pipelines.reporting_snapshots import (
+    DEFAULT_SNAPSHOT_RETENTION_MONTHS,
+    SNAPSHOT_PUBLICATIONS,
+    PublicationSnapshot,
+    PublicationSnapshotStore,
+    is_reference_month,
+    read_warehouse_snapshot,
+    record_warehouse_snapshot,
+    warehouse_reference_month,
+    warehouse_snapshot_months,
+)
 from packages.pipelines.transformation_service import TransformationService
 
 if TYPE_CHECKING:
@@ -92,6 +104,8 @@ from packages.storage.control_plane import (
     SourceLineageStore,
 )
 from packages.storage.postgres_reporting import PostgresReportingStore
+
+_logger = logging.getLogger("homelab_analytics.reporting_service")
 
 _AUDIT_TRIGGER_MARTS = frozenset(
     {"mart_monthly_cashflow", "mart_monthly_cashflow_by_counterparty"}
@@ -198,12 +212,31 @@ def _publish_promotion_reporting(
             published.extend(
                 reporting_service.publish_auxiliary_relations(overview_mats_to_push)
             )
+    served = list(published)
+    if not served and hasattr(reporting_service, "record_warehouse_publications"):
+        # DuckDB path: nothing is pushed to a separate store; the refreshed
+        # warehouse marts are what the API serves. Audit them so lineage and
+        # confidence can see the run behind each publication.
+        served = reporting_service.record_warehouse_publications(
+            _dedupe([*promotion.publication_keys, *promotion.marts_refreshed]),
+            run_id=promotion.run_id,
+        )
     if hasattr(reporting_service, "record_reporting_lineage"):
         reporting_service.record_reporting_lineage(
             run_id=promotion.run_id,
-            relation_names=published,
+            relation_names=served,
+            source_asset_id=promotion.source_asset_id,
+        )
+    if hasattr(reporting_service, "capture_publication_snapshots"):
+        reporting_service.capture_publication_snapshots(
+            _dedupe([*promotion.marts_refreshed, *promotion.publication_keys]),
+            run_id=promotion.run_id,
         )
     return published
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    return list(dict.fromkeys(values))
 
 
 class ReportingService:
@@ -214,12 +247,14 @@ class ReportingService:
         extension_registry: ExtensionRegistry | None = None,
         access_mode: ReportingAccessMode = ReportingAccessMode.PREFER_PUBLISHED,
         control_plane_store: SourceLineageStore | PublicationAuditStore | None = None,
+        snapshot_retention_months: int = DEFAULT_SNAPSHOT_RETENTION_MONTHS,
     ) -> None:
         self._transformation_service = transformation_service
         self._publication_store = publication_store
         self._extension_registry = extension_registry
         self._access_mode = access_mode
         self._control_plane_store = control_plane_store
+        self._snapshot_retention_months = snapshot_retention_months
         _validate_extension_publication_conflicts(extension_registry)
 
     def publish_publications(
@@ -1023,24 +1058,183 @@ class ReportingService:
         *,
         run_id: str | None,
         relation_names: list[str],
+        source_asset_id: str | None = None,
     ) -> None:
+        """Record run → reporting lineage, plus the landing hop when known.
+
+        ``source_asset_id`` adds one landing-layer row (the source asset the
+        run was landed for), so the lineage graph reads source asset → run →
+        transformation → publication. Reporting rows keep ``source_system``
+        unset; confidence attributes them to a source through the run.
+        """
         if run_id is None or self._control_plane_store is None:
             return
         if not isinstance(self._control_plane_store, SourceLineageStore):
             return
-        self._control_plane_store.record_source_lineage(
-            tuple(
+        records = [
+            SourceLineageCreate(
+                lineage_id=uuid.uuid4().hex[:16],
+                input_run_id=run_id,
+                source_run_id=run_id,
+                target_layer="reporting",
+                target_name=relation_name,
+                target_kind=_relation_kind(relation_name),
+            )
+            for relation_name in relation_names
+        ]
+        if source_asset_id and relation_names:
+            records.append(
                 SourceLineageCreate(
                     lineage_id=uuid.uuid4().hex[:16],
                     input_run_id=run_id,
                     source_run_id=run_id,
-                    target_layer="reporting",
-                    target_name=relation_name,
-                    target_kind=_relation_kind(relation_name),
+                    target_layer="landing",
+                    target_name=source_asset_id,
+                    target_kind="source_asset",
                 )
-                for relation_name in relation_names
             )
+        if records:
+            self._control_plane_store.record_source_lineage(tuple(records))
+
+    def record_warehouse_publications(
+        self,
+        relation_names: list[str],
+        *,
+        run_id: str | None = None,
+    ) -> list[str]:
+        """Audit warehouse-served publications on the DuckDB path.
+
+        With a Postgres reporting store, ``publish_publications`` audits each
+        relation it pushes. Without one, the warehouse marts are served
+        directly and nothing was audited, so the lineage graph had no run
+        behind any publication. Returns the relations audited.
+        """
+        if self._publication_store is not None or run_id is None:
+            return []
+        audited: list[str] = []
+        for relation_name in relation_names:
+            if not self._is_known_relation(relation_name):
+                continue
+            self._record_publication_audit(
+                publication_key=relation_name,
+                relation_name=relation_name,
+                run_id=run_id,
+                status="warehouse",
+            )
+            audited.append(relation_name)
+        return audited
+
+    # ------------------------------------------------------------------
+    # As-of snapshots of current-only publications
+    # ------------------------------------------------------------------
+
+    def capture_publication_snapshots(
+        self,
+        relation_names: list[str],
+        *,
+        run_id: str | None = None,
+        captured_at: datetime | None = None,
+    ) -> list[str]:
+        """Snapshot the refreshed current-only publications.
+
+        Only relations in ``SNAPSHOT_PUBLICATIONS`` are captured, and only
+        once the household has a published month to key them by. A failed
+        snapshot is logged and never fails the publication refresh.
+        """
+        targets = sorted({name for name in relation_names if name in SNAPSHOT_PUBLICATIONS})
+        if not targets:
+            return []
+        reference_month = self._warehouse_reference_month()
+        if reference_month is None:
+            return []
+        stamp = (captured_at or datetime.now(UTC)).astimezone(UTC).isoformat()
+        published_store = (
+            PublicationSnapshotStore.for_postgres(self._publication_store)
+            if self._publication_store is not None
+            else None
         )
+        captured: list[str] = []
+        for relation_name in targets:
+            try:
+                rows = self._rows_from_relation_source(
+                    self._get_publication_relation(relation_name)
+                )
+                snapshot = PublicationSnapshot(
+                    publication_key=relation_name,
+                    reference_month=reference_month,
+                    captured_at=stamp,
+                    run_id=run_id,
+                    rows=rows,
+                )
+                record_warehouse_snapshot(
+                    self._transformation_service,
+                    snapshot,
+                    retention_months=self._snapshot_retention_months,
+                )
+                if published_store is not None:
+                    published_store.write(
+                        snapshot,
+                        retention_months=self._snapshot_retention_months,
+                    )
+            except Exception:
+                _logger.warning("snapshot capture failed for %s", relation_name, exc_info=True)
+                continue
+            captured.append(relation_name)
+        return captured
+
+    def get_publication_snapshot(
+        self,
+        relation_name: str,
+        reference_month: str,
+    ) -> PublicationSnapshot | None:
+        """Rows of ``relation_name`` as published for ``reference_month``.
+
+        ``None`` means no snapshot exists for that month (before the first
+        capture, or pruned by retention). Callers report "no history" rather
+        than substituting current rows.
+
+        WAREHOUSE reads the DuckDB copy. PUBLISHED reads only the Postgres
+        copy and has no history until that table exists. PREFER_PUBLISHED
+        reads the Postgres copy when present, else the warehouse.
+        """
+        if not is_reference_month(reference_month):
+            raise ValueError("reference_month must be YYYY-MM")
+        published_store = self._published_snapshot_store()
+        if published_store is not None:
+            return published_store.read(relation_name, reference_month)
+        if self._access_mode == ReportingAccessMode.PUBLISHED:
+            return None
+        return read_warehouse_snapshot(
+            self._transformation_service, relation_name, reference_month
+        )
+
+    def list_publication_snapshot_months(self, relation_name: str) -> list[str]:
+        published_store = self._published_snapshot_store()
+        if published_store is not None:
+            return published_store.months(relation_name)
+        if self._access_mode == ReportingAccessMode.PUBLISHED:
+            return []
+        return warehouse_snapshot_months(self._transformation_service, relation_name)
+
+    def _published_snapshot_store(self) -> PublicationSnapshotStore | None:
+        if self._access_mode == ReportingAccessMode.WAREHOUSE or self._publication_store is None:
+            return None
+        store = PublicationSnapshotStore.for_postgres(self._publication_store)
+        return store if store.exists() else None
+
+    def _warehouse_reference_month(self) -> str | None:
+        try:
+            return warehouse_reference_month(self._transformation_service)
+        except Exception:
+            _logger.warning("snapshot capture skipped: warehouse unreadable", exc_info=True)
+            return None
+
+    def _is_known_relation(self, relation_name: str) -> bool:
+        try:
+            self._get_publication_relation(relation_name)
+        except (KeyError, ValueError):
+            return False
+        return True
 
     def sample_publication_rows(
         self,

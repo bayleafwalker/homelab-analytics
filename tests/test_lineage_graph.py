@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from packages.platform.lineage_graph import (
+    EDGE_FEEDS,
     EDGE_PRODUCES,
     EDGE_PUBLISHES,
     EDGE_SOURCES,
@@ -356,3 +357,93 @@ class TestEndToEndChain:
         publish_edge = next(e for e in graph.edges if e.type == EDGE_PUBLISHES)
         assert source_edge.to_id == publish_edge.from_id  # same run bridges them
         assert source_edge.attributes["source_run_id"] == "ha-42"
+
+
+class TestUpstreamWalk:
+    """The graph walks each run's landing and transformation rows."""
+
+    def _store(self) -> _FakeStore:
+        audit = [
+            _audit(
+                audit_id="a1",
+                publication_key="mart_cashflow",
+                relation_name="mart_cashflow",
+                run_id="run-1",
+                status="warehouse",
+            )
+        ]
+        lineage = [
+            _lineage(
+                lineage_id="R1",
+                input_run_id="run-1",
+                target_layer="reporting",
+                target_name="mart_cashflow",
+            ),
+            _lineage(
+                lineage_id="T1",
+                input_run_id="run-1",
+                target_layer="transformation",
+                target_name="fact_transaction",
+                target_kind="fact",
+                source_system="bank-export",
+            ),
+            _lineage(
+                lineage_id="T2",
+                input_run_id="run-1",
+                target_layer="transformation",
+                target_name="dim_account",
+                target_kind="dimension",
+                source_system="bank-export",
+            ),
+            _lineage(
+                lineage_id="L1",
+                input_run_id="run-1",
+                target_layer="landing",
+                target_name="asset-checking",
+                target_kind="source_asset",
+            ),
+            # Another run's transformation rows stay out of this graph.
+            _lineage(
+                lineage_id="T9",
+                input_run_id="run-9",
+                target_layer="transformation",
+                target_name="fact_bill",
+                target_kind="fact",
+            ),
+        ]
+        return _FakeStore(audit=audit, lineage=lineage)
+
+    def test_chain_reaches_source_asset_and_transformation_relations(self):
+        graph = build_publication_lineage_graph(self._store(), publication_key="mart_cashflow")
+        node_ids = {n.id for n in graph.nodes}
+        assert {
+            "publication:mart_cashflow",
+            "run:run-1",
+            "relation:reporting:mart_cashflow",
+            "relation:transformation:fact_transaction",
+            "relation:transformation:dim_account",
+            "relation:landing:asset-checking",
+            "source:bank-export",
+        } <= node_ids
+        assert "relation:transformation:fact_bill" not in node_ids
+        landing = next(n for n in graph.nodes if n.id == "relation:landing:asset-checking")
+        assert landing.attributes == {
+            "layer": "landing",
+            "name": "asset-checking",
+            "kind": "source_asset",
+        }
+
+    def test_transformation_relations_feed_the_mart(self):
+        graph = build_publication_lineage_graph(self._store(), publication_key="mart_cashflow")
+        feeds = sorted((e.from_id, e.to_id) for e in graph.edges if e.type == EDGE_FEEDS)
+        assert feeds == [
+            ("relation:transformation:dim_account", "relation:reporting:mart_cashflow"),
+            ("relation:transformation:fact_transaction", "relation:reporting:mart_cashflow"),
+        ]
+
+    def test_feeds_target_the_publication_when_no_reporting_row_exists(self):
+        store = self._store()
+        store._lineage = [record for record in store._lineage if record.lineage_id != "R1"]
+        graph = build_publication_lineage_graph(store, publication_key="mart_cashflow")
+        targets = {e.to_id for e in graph.edges if e.type == EDGE_FEEDS}
+        assert targets == {"publication:mart_cashflow"}

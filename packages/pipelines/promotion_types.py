@@ -13,3 +13,6 @@ class PromotionResult:
     publication_keys: list[str] = field(default_factory=list)
     skipped: bool = False
     skip_reason: str | None = None
+    # Set when the run was promoted for a configured source asset; recorded
+    # as the landing hop of the publication lineage.
+    source_asset_id: str | None = None

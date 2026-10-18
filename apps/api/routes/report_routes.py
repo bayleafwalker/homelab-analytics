@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any, Callable, cast
+from typing import Any, Callable, Literal, cast
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
 import packages.application.use_cases.category_management as category_management
@@ -29,8 +29,40 @@ from packages.pipelines.household_reporting import (
     PUBLICATION_RELATIONS,
 )
 from packages.pipelines.reporting_service import ReportingService
+from packages.pipelines.reporting_snapshots import is_reference_month
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.extensions import ExtensionRegistry
+
+
+class PublicationSnapshotModel(BaseModel):
+    """Which dated snapshot an as-of read was served from."""
+
+    publication_key: str
+    reference_month: str
+    captured_at: str
+    run_id: str | None = None
+    row_count: int
+
+
+AsOfStatus = Literal["current", "snapshot", "no_history"]
+
+# Extra response fields of the publications that keep dated snapshots.
+# ``as_of_status`` is "current" for a plain read, "snapshot" when rows come
+# from the snapshot for ``as_of``, and "no_history" when none exists for that
+# month (rows are then empty, never today's rows).
+AS_OF_RESPONSE_FIELDS: dict[str, tuple[Any, Any]] = {
+    "as_of": (str | None, None),
+    "as_of_status": (AsOfStatus, "current"),
+    "snapshot": (PublicationSnapshotModel | None, None),
+}
+
+AS_OF_QUERY = Query(
+    None,
+    description=(
+        "YYYY-MM. Return the publication as it was published when this was the "
+        "newest published month (dated snapshot), or as_of_status=no_history."
+    ),
+)
 
 
 def _pascal_case(value: str) -> str:
@@ -196,7 +228,7 @@ MONTHLY_CASHFLOW_BY_COUNTERPARTY_RESPONSE_MODEL = build_rows_response_model(
 SUBSCRIPTION_SUMMARY_RESPONSE_MODEL = build_rows_response_model(
     "SubscriptionSummaryResponse",
     build_row_model("SubscriptionSummaryRow", PUBLICATION_RELATIONS["mart_subscription_summary"].columns),
-    {"status": (str | None, None), "currency": (str | None, None)},
+    {"status": (str | None, None), "currency": (str | None, None), **AS_OF_RESPONSE_FIELDS},
 )
 CONTRACT_PRICE_CURRENT_RESPONSE_MODEL = build_rows_response_model(
     "ContractPriceCurrentResponse",
@@ -303,6 +335,7 @@ COST_TREND_RESPONSE_MODEL = build_rows_response_model(
 HOUSEHOLD_OVERVIEW_RESPONSE_MODEL = build_rows_response_model(
     "HouseholdOverviewResponse",
     HOUSEHOLD_OVERVIEW_ROW_MODEL,
+    AS_OF_RESPONSE_FIELDS,
 )
 HOMELAB_ROI_RESPONSE_MODEL = build_rows_response_model(
     "HomelabRoiResponse",
@@ -311,10 +344,12 @@ HOMELAB_ROI_RESPONSE_MODEL = build_rows_response_model(
 ATTENTION_ITEMS_RESPONSE_MODEL = build_rows_response_model(
     "AttentionItemsResponse",
     ATTENTION_ITEMS_ROW_MODEL,
+    AS_OF_RESPONSE_FIELDS,
 )
 RECENT_CHANGES_RESPONSE_MODEL = build_rows_response_model(
     "RecentChangesResponse",
     RECENT_CHANGES_ROW_MODEL,
+    AS_OF_RESPONSE_FIELDS,
 )
 OPERATING_BASELINE_RESPONSE_MODEL = build_rows_response_model(
     "OperatingBaselineResponse",
@@ -323,10 +358,12 @@ OPERATING_BASELINE_RESPONSE_MODEL = build_rows_response_model(
 AFFORDABILITY_RATIOS_RESPONSE_MODEL = build_rows_response_model(
     "AffordabilityRatiosResponse",
     AFFORDABILITY_RATIOS_ROW_MODEL,
+    AS_OF_RESPONSE_FIELDS,
 )
 RECURRING_COST_BASELINE_RESPONSE_MODEL = build_rows_response_model(
     "RecurringCostBaselineResponse",
     RECURRING_COST_BASELINE_ROW_MODEL,
+    AS_OF_RESPONSE_FIELDS,
 )
 CATEGORY_RULES_RESPONSE_MODEL = build_rows_response_model(
     "CategoryRulesResponse",
@@ -429,6 +466,34 @@ def register_report_routes(
     resolved_reporting_service: ReportingService | None,
     to_jsonable: Callable[[Any], Any],
 ) -> None:
+    def _rows_as_of(
+        relation_name: str,
+        as_of: str | None,
+        current_rows: Callable[[], list[dict[str, Any]]],
+        row_filter: Callable[[dict[str, Any]], bool] | None = None,
+    ) -> dict[str, Any]:
+        if resolved_reporting_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        if as_of is None:
+            return {
+                "rows": to_jsonable(current_rows()),
+                "as_of": None,
+                "as_of_status": "current",
+                "snapshot": None,
+            }
+        if not is_reference_month(as_of):
+            raise HTTPException(status_code=400, detail="as_of must be YYYY-MM")
+        snapshot = resolved_reporting_service.get_publication_snapshot(relation_name, as_of)
+        if snapshot is None:
+            return {"rows": [], "as_of": as_of, "as_of_status": "no_history", "snapshot": None}
+        rows = [row for row in snapshot.rows if row_filter is None or row_filter(row)]
+        return {
+            "rows": rows,
+            "as_of": as_of,
+            "as_of_status": "snapshot",
+            "snapshot": snapshot.metadata(),
+        }
+
     @app.get("/reports/monthly-cashflow", response_model=MONTHLY_CASHFLOW_RESPONSE_MODEL)
     async def get_monthly_cashflow(
         from_month: str | None = None,
@@ -525,22 +590,22 @@ def register_report_routes(
     async def get_subscription_summary(
         status: str | None = None,
         currency: str | None = None,
+        as_of: str | None = AS_OF_QUERY,
     ) -> dict[str, Any]:
         if resolved_reporting_service is None:
             raise HTTPException(
                 status_code=404,
                 detail="Subscription reporting requires a transformation service.",
             )
-        return {
-            "rows": to_jsonable(
-                resolved_reporting_service.get_subscription_summary(
-                    status=status,
-                    currency=currency,
-                )
-            ),
-            "status": status,
-            "currency": currency,
-        }
+        reporting = resolved_reporting_service
+        payload = _rows_as_of(
+            "mart_subscription_summary",
+            as_of,
+            lambda: reporting.get_subscription_summary(status=status, currency=currency),
+            lambda row: (status is None or row.get("status") == status)
+            and (currency is None or row.get("currency") == currency),
+        )
+        return {**payload, "status": status, "currency": currency}
 
     @app.get("/reports/contract-prices", response_model=CONTRACT_PRICE_CURRENT_RESPONSE_MODEL)
     async def get_contract_price_current(
@@ -834,10 +899,14 @@ def register_report_routes(
     # ------------------------------------------------------------------
 
     @app.get("/reports/household-overview", response_model=HOUSEHOLD_OVERVIEW_RESPONSE_MODEL)
-    async def get_household_overview() -> dict[str, Any]:
+    async def get_household_overview(as_of: str | None = AS_OF_QUERY) -> dict[str, Any]:
         if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(resolved_reporting_service.get_household_overview())}
+        return _rows_as_of(
+            "mart_household_overview",
+            as_of,
+            resolved_reporting_service.get_household_overview,
+        )
 
     @app.get("/reports/cashflow-map", response_model=CashflowMapResponse)
     async def get_cashflow_map(
@@ -890,16 +959,24 @@ def register_report_routes(
         return {"rows": to_jsonable(resolved_reporting_service.get_homelab_roi())}
 
     @app.get("/reports/attention-items", response_model=ATTENTION_ITEMS_RESPONSE_MODEL)
-    async def get_attention_items() -> dict[str, Any]:
+    async def get_attention_items(as_of: str | None = AS_OF_QUERY) -> dict[str, Any]:
         if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(resolved_reporting_service.get_open_attention_items())}
+        return _rows_as_of(
+            "mart_open_attention_items",
+            as_of,
+            resolved_reporting_service.get_open_attention_items,
+        )
 
     @app.get("/reports/recent-changes", response_model=RECENT_CHANGES_RESPONSE_MODEL)
-    async def get_recent_changes() -> dict[str, Any]:
+    async def get_recent_changes(as_of: str | None = AS_OF_QUERY) -> dict[str, Any]:
         if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(resolved_reporting_service.get_recent_significant_changes())}
+        return _rows_as_of(
+            "mart_recent_significant_changes",
+            as_of,
+            resolved_reporting_service.get_recent_significant_changes,
+        )
 
     @app.get(
         "/reports/operating-baseline",
@@ -914,19 +991,27 @@ def register_report_routes(
         "/reports/affordability-ratios",
         response_model=AFFORDABILITY_RATIOS_RESPONSE_MODEL,
     )
-    async def get_affordability_ratios() -> dict[str, Any]:
+    async def get_affordability_ratios(as_of: str | None = AS_OF_QUERY) -> dict[str, Any]:
         if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(resolved_reporting_service.get_affordability_ratios())}
+        return _rows_as_of(
+            "mart_affordability_ratios",
+            as_of,
+            resolved_reporting_service.get_affordability_ratios,
+        )
 
     @app.get(
         "/reports/recurring-cost-baseline",
         response_model=RECURRING_COST_BASELINE_RESPONSE_MODEL,
     )
-    async def get_recurring_cost_baseline() -> dict[str, Any]:
+    async def get_recurring_cost_baseline(as_of: str | None = AS_OF_QUERY) -> dict[str, Any]:
         if resolved_reporting_service is None:
             raise HTTPException(status_code=404, detail="Requires a transformation service.")
-        return {"rows": to_jsonable(resolved_reporting_service.get_recurring_cost_baseline())}
+        return _rows_as_of(
+            "mart_recurring_cost_baseline",
+            as_of,
+            resolved_reporting_service.get_recurring_cost_baseline,
+        )
 
     # ------------------------------------------------------------------
     # Category rules and overrides

@@ -76,3 +76,12 @@ class PostgresReportingStore:
     ) -> list[dict[str, Any]]:
         with self._connect(row_factory=dict_row) as connection:
             return list(connection.execute(sql, params or ()).fetchall())
+
+    def execute_statements(
+        self,
+        statements: list[tuple[str, list[Any]]],
+    ) -> None:
+        """Run ``(sql, params)`` statements in one transaction."""
+        with self._connect() as connection:
+            for sql, params in statements:
+                connection.execute(sql, params)

@@ -64,6 +64,7 @@ Use the profile that matches the operator posture you want to support. The fresh
 |---|---|---|
 | `HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND` | `sqlite` (demo/dev only) | Control-plane backend for configuration, auth/control metadata, and run-metadata state. `postgres` is the canonical target for all ongoing operator deployments. `sqlite` is retained only for local bootstrap and smoke tests — it is not a feature-parity guarantee for future schema evolution. |
 | `HOMELAB_ANALYTICS_REPORTING_BACKEND` | `duckdb` | Reporting read path selector. `duckdb` keeps worker/local warehouse reads available; `postgres` selects published reporting relations for shared app-facing reads. |
+| `HOMELAB_ANALYTICS_REPORTING_SNAPSHOT_RETENTION_MONTHS` | `24` | As-of history: reference months of dated snapshots kept per current-only publication (overview, attention items, recent changes, affordability ratios, recurring baseline, subscription summary). Minimum 1. Snapshots are written at publication refresh to the warehouse and, with the Postgres reporting backend, to the published store. |
 | `HOMELAB_ANALYTICS_BLOB_BACKEND` | `filesystem` | Landed payload storage: `filesystem` or `s3` |
 
 Deprecated backend aliases remain supported for compatibility: `HOMELAB_ANALYTICS_CONFIG_BACKEND` and `HOMELAB_ANALYTICS_METADATA_BACKEND`.

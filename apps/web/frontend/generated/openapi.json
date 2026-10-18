@@ -421,12 +421,43 @@
       },
       "AffordabilityRatiosResponse": {
         "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "as_of_status": {
+            "default": "current",
+            "enum": [
+              "current",
+              "snapshot",
+              "no_history"
+            ],
+            "title": "As Of Status",
+            "type": "string"
+          },
           "rows": {
             "items": {
               "$ref": "#/components/schemas/AffordabilityRatiosRow"
             },
             "title": "Rows",
             "type": "array"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicationSnapshotModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -961,12 +992,43 @@
       },
       "AttentionItemsResponse": {
         "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "as_of_status": {
+            "default": "current",
+            "enum": [
+              "current",
+              "snapshot",
+              "no_history"
+            ],
+            "title": "As Of Status",
+            "type": "string"
+          },
           "rows": {
             "items": {
               "$ref": "#/components/schemas/AttentionItemRow"
             },
             "title": "Rows",
             "type": "array"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicationSnapshotModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -6016,12 +6078,43 @@
       },
       "HouseholdOverviewResponse": {
         "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "as_of_status": {
+            "default": "current",
+            "enum": [
+              "current",
+              "snapshot",
+              "no_history"
+            ],
+            "title": "As Of Status",
+            "type": "string"
+          },
           "rows": {
             "items": {
               "$ref": "#/components/schemas/HouseholdOverviewRow"
             },
             "title": "Rows",
             "type": "array"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicationSnapshotModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -8147,6 +8240,17 @@
           "skipped": {
             "title": "Skipped",
             "type": "boolean"
+          },
+          "source_asset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Asset Id"
           }
         },
         "required": [
@@ -9123,6 +9227,46 @@
         "title": "PublicationSemanticIndexResponse",
         "type": "object"
       },
+      "PublicationSnapshotModel": {
+        "description": "Which dated snapshot an as-of read was served from.",
+        "properties": {
+          "captured_at": {
+            "title": "Captured At",
+            "type": "string"
+          },
+          "publication_key": {
+            "title": "Publication Key",
+            "type": "string"
+          },
+          "reference_month": {
+            "title": "Reference Month",
+            "type": "string"
+          },
+          "row_count": {
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          }
+        },
+        "required": [
+          "publication_key",
+          "reference_month",
+          "captured_at",
+          "row_count"
+        ],
+        "title": "PublicationSnapshotModel",
+        "type": "object"
+      },
       "PublicationTrustModel": {
         "properties": {
           "assessed_at": {
@@ -9220,12 +9364,43 @@
       },
       "RecentChangesResponse": {
         "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "as_of_status": {
+            "default": "current",
+            "enum": [
+              "current",
+              "snapshot",
+              "no_history"
+            ],
+            "title": "As Of Status",
+            "type": "string"
+          },
           "rows": {
             "items": {
               "$ref": "#/components/schemas/RecentSignificantChangeRow"
             },
             "title": "Rows",
             "type": "array"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicationSnapshotModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -9360,12 +9535,43 @@
       },
       "RecurringCostBaselineResponse": {
         "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "as_of_status": {
+            "default": "current",
+            "enum": [
+              "current",
+              "snapshot",
+              "no_history"
+            ],
+            "title": "As Of Status",
+            "type": "string"
+          },
           "rows": {
             "items": {
               "$ref": "#/components/schemas/RecurringCostBaselineRow"
             },
             "title": "Rows",
             "type": "array"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicationSnapshotModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -10135,6 +10341,27 @@
       },
       "SubscriptionSummaryResponse": {
         "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "as_of_status": {
+            "default": "current",
+            "enum": [
+              "current",
+              "snapshot",
+              "no_history"
+            ],
+            "title": "As Of Status",
+            "type": "string"
+          },
           "currency": {
             "anyOf": [
               {
@@ -10152,6 +10379,16 @@
             },
             "title": "Rows",
             "type": "array"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicationSnapshotModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "status": {
             "anyOf": [
@@ -19425,6 +19662,26 @@
     "/reports/affordability-ratios": {
       "get": {
         "operationId": "get_affordability_ratios_reports_affordability_ratios_get",
+        "parameters": [
+          {
+            "description": "YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history.",
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history.",
+              "title": "As Of"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -19435,6 +19692,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Get Affordability Ratios"
@@ -19443,6 +19710,26 @@
     "/reports/attention-items": {
       "get": {
         "operationId": "get_attention_items_reports_attention_items_get",
+        "parameters": [
+          {
+            "description": "YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history.",
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history.",
+              "title": "As Of"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -19453,6 +19740,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Get Attention Items"
@@ -19991,6 +20288,26 @@
     "/reports/household-overview": {
       "get": {
         "operationId": "get_household_overview_reports_household_overview_get",
+        "parameters": [
+          {
+            "description": "YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history.",
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history.",
+              "title": "As Of"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -20001,6 +20318,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Get Household Overview"
@@ -20270,6 +20597,26 @@
     "/reports/recent-changes": {
       "get": {
         "operationId": "get_recent_changes_reports_recent_changes_get",
+        "parameters": [
+          {
+            "description": "YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history.",
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history.",
+              "title": "As Of"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -20280,6 +20627,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Get Recent Changes"
@@ -20306,6 +20663,26 @@
     "/reports/recurring-cost-baseline": {
       "get": {
         "operationId": "get_recurring_cost_baseline_reports_recurring_cost_baseline_get",
+        "parameters": [
+          {
+            "description": "YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history.",
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history.",
+              "title": "As Of"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -20316,6 +20693,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Get Recurring Cost Baseline"
@@ -20449,6 +20836,24 @@
                 }
               ],
               "title": "Currency"
+            }
+          },
+          {
+            "description": "YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history.",
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history.",
+              "title": "As Of"
             }
           }
         ],

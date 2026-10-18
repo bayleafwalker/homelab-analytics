@@ -213,6 +213,8 @@ class PromotionResultModel(BaseModel):
     publication_keys: list[str]
     skipped: bool
     skip_reason: str | None = None
+    # Source asset the run was promoted for (configured ingestion only).
+    source_asset_id: str | None = None
 
 
 class RunModel(BaseModel):
