@@ -6,6 +6,9 @@ from fastapi import FastAPI, HTTPException
 
 from apps.api.models import ScheduleDispatchRequest
 from apps.api.response_models import ScheduleDispatchResponseModel
+from packages.application.use_cases.source_freshness_overview import (
+    build_source_freshness_views,
+)
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.platform.publication_confidence import FreshnessState
 from packages.shared.metrics import metrics_registry
@@ -176,80 +179,30 @@ def register_control_routes(
         require_unsafe_admin()
         from datetime import date
 
-        from packages.platform.source_freshness import (
-            SourceFreshnessRunObservation,
-            SourceFreshnessState,
-            SourceFreshnessView,
-            evaluate_source_freshness,
+        views = build_source_freshness_views(
+            resolved_config_repository,
+            service.metadata_repository,
+            as_of=date.today(),
         )
-
-        source_assets = resolved_config_repository.list_source_assets(include_archived=False)
-        freshness_configs = {
-            cfg.source_asset_id: cfg
-            for cfg in resolved_config_repository.list_source_freshness_configs()
-        }
-        as_of = date.today()
-        datasets = []
-        for asset in source_assets:
-            dataset_contract = resolved_config_repository.get_dataset_contract(
-                asset.dataset_contract_id
-            )
-            dataset_name = dataset_contract.dataset_name
-            runs = service.metadata_repository.list_runs(dataset_name=dataset_name)
-            observations = [
-                SourceFreshnessRunObservation(
-                    status=str(run.status),
-                    observed_at=run.created_at,
-                    covered_from=None,
-                    covered_through=None,
-                    dataset_name=dataset_name,
-                )
-                for run in runs
-            ]
-            config = freshness_configs.get(asset.source_asset_id)
-            assessment = evaluate_source_freshness(config, observations, as_of=as_of)
-            latest_run = runs[0] if runs else None
-            if assessment.state == SourceFreshnessState.PARSE_FAILED:
-                suggested_action = "retry"
-            elif assessment.state in (
-                SourceFreshnessState.OVERDUE,
-                SourceFreshnessState.MISSING_PERIOD,
-            ):
-                suggested_action = "upload_missing_period"
-            elif latest_run is not None and str(latest_run.status) == "rejected":
-                suggested_action = "upload_missing_period"
-            else:
-                suggested_action = "none"
-            view = SourceFreshnessView(
-                source_asset_id=asset.source_asset_id,
-                dataset_name=dataset_name,
-                name=asset.name,
-                freshness_state=assessment.state,
-                latest_run_id=latest_run.run_id if latest_run else None,
-                status=str(latest_run.status) if latest_run else None,
-                landed_at=latest_run.created_at if latest_run else None,
-                next_expected_at=assessment.next_expected_at,
-                covered_through=assessment.covered_through,
-                suggested_action=suggested_action,
-            )
-            datasets.append(
-                {
-                    "source_asset_id": view.source_asset_id,
-                    "dataset_name": view.dataset_name,
-                    "name": view.name,
-                    "freshness_state": str(view.freshness_state),
-                    "latest_run_id": view.latest_run_id,
-                    "status": view.status,
-                    "landed_at": view.landed_at.isoformat() if view.landed_at else None,
-                    "next_expected_at": (
-                        view.next_expected_at.isoformat() if view.next_expected_at else None
-                    ),
-                    "covered_through": (
-                        view.covered_through.isoformat() if view.covered_through else None
-                    ),
-                    "suggested_action": view.suggested_action,
-                }
-            )
+        datasets = [
+            {
+                "source_asset_id": view.source_asset_id,
+                "dataset_name": view.dataset_name,
+                "name": view.name,
+                "freshness_state": str(view.freshness_state),
+                "latest_run_id": view.latest_run_id,
+                "status": view.status,
+                "landed_at": view.landed_at.isoformat() if view.landed_at else None,
+                "next_expected_at": (
+                    view.next_expected_at.isoformat() if view.next_expected_at else None
+                ),
+                "covered_through": (
+                    view.covered_through.isoformat() if view.covered_through else None
+                ),
+                "suggested_action": view.suggested_action,
+            }
+            for view in views
+        ]
         return {"datasets": datasets}
 
     @app.get("/control/confidence")
