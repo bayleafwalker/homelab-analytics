@@ -79,6 +79,10 @@ type GetOperationIdByPath = {
   "/api/agent/principals": "get_agent_principals_api_agent_principals_get";
   "/api/homelab/services": "get_service_health_api_homelab_services_get";
   "/api/homelab/workloads": "get_workload_cost_7d_api_homelab_workloads_get";
+  "/api/wallboard/services": "get_wallboard_services_api_wallboard_services_get";
+  "/api/wallboard/devices": "get_wallboard_devices_api_wallboard_devices_get";
+  "/api/wallboard/events": "get_wallboard_events_api_wallboard_events_get";
+  "/api/wallboard/power": "get_wallboard_power_api_wallboard_power_get";
   "/config/transformation-packages": "list_transformation_packages_config_transformation_packages_get";
   "/config/publication-definitions": "list_publication_definitions_config_publication_definitions_get";
   "/config/source-assets": "list_source_assets_config_source_assets_get";
@@ -1028,6 +1032,38 @@ export async function getHomelabServices() {
 export async function getHomelabWorkloads() {
   const payload = await backendGet("/api/homelab/workloads");
   return getResponseArray(payload, "rows");
+}
+
+/**
+ * Wallboard service health: name, host, status, uptime and 7-day CPU/memory
+ * per service (service-health mart joined to the workload mart).
+ */
+export async function getServiceHealth() {
+  return backendGet("/api/wallboard/services");
+}
+
+/** Wallboard per-room temperature/humidity/power from HA bridge entities. */
+export async function getDeviceReadings() {
+  return backendGet("/api/wallboard/devices");
+}
+
+/**
+ * Wallboard event feed: ingestion runs, action proposals and HA alerts,
+ * newest first. `since` is ISO-8601; the API defaults it to 12 hours ago.
+ */
+export async function getEventFeed(since?: QueryValue<"/api/wallboard/events", "since">) {
+  return backendGet("/api/wallboard/events", {
+    params: { query: definedValues({ since }) }
+  });
+}
+
+/** Wallboard hourly kWh (UTC-hour buckets) for the house energy meter. */
+export async function getPowerSeries(
+  windowHours: QueryValue<"/api/wallboard/power", "window_hours"> = 24
+) {
+  return backendGet("/api/wallboard/power", {
+    params: { query: { window_hours: windowHours } }
+  });
 }
 
 export async function getTransformationPackages({ includeArchived = false } = {}) {

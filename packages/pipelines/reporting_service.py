@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Callable
@@ -35,6 +35,7 @@ from packages.domains.finance.pipelines.transaction_models import (
     MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
     TRANSFORMATION_AUDIT_TABLE,
 )
+from packages.domains.homelab.pipelines.ha_service import get_ha_state_changes_since
 from packages.domains.homelab.pipelines.homelab_models import (
     MART_BACKUP_FRESHNESS_TABLE,
     MART_SERVICE_HEALTH_CURRENT_TABLE,
@@ -983,6 +984,18 @@ class ReportingService:
         limit: int = 50,
     ) -> list[dict[str, Any]]:
         return self._transformation_service.get_ha_entity_history(entity_id, limit=limit)
+
+    def get_ha_state_changes_since(
+        self,
+        entity_ids: list[str],
+        *,
+        since: datetime,
+    ) -> list[dict[str, Any]]:
+        # Domain read over the warehouse store, not a facade method: the
+        # TransformationService surface is shrink-only (#50).
+        return get_ha_state_changes_since(
+            self._transformation_service.store, entity_ids, since=since
+        )
 
     def get_homelab_cost_benefit_baseline(self) -> HomelabCostBenefitBaseline:
         service_rows = self.get_service_health_current()

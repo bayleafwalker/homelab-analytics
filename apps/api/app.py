@@ -44,6 +44,7 @@ from apps.api.routes.policy_routes import register_policy_routes
 from apps.api.routes.report_routes import register_report_routes
 from apps.api.routes.run_routes import register_run_routes
 from apps.api.routes.scenario_routes import register_scenario_routes
+from apps.api.routes.wallboard_routes import register_wallboard_routes
 from apps.api.runtime_state import (
     build_operational_summary as build_runtime_operational_summary,
 )
@@ -860,6 +861,14 @@ def create_app(
     register_lineage_routes(
         app,
         control_plane_store=resolved_config_repository,
+    )
+    register_wallboard_routes(
+        app,
+        transformation_service=transformation_service,
+        resolved_reporting_service=reporting_service,
+        run_metadata_repository=resolved_service.metadata_repository,
+        action_proposal_registry=resolved_action_proposal_registry,
+        ha_action_dispatcher=ha_action_dispatcher,
     )
     adapter_registry = _build_default_adapter_registry()
     adapter_instances = AdapterInstanceRegistry()

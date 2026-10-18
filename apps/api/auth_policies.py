@@ -735,6 +735,33 @@ API_ROUTE_POLICY_CATALOG: tuple[RoutePolicy, ...] = (
             scope=SERVICE_TOKEN_SCOPE_RUNS_READ,
         ),
     ),
+    # Wallboard event feed lists ingestion runs and proposals: runs scope.
+    RoutePolicy(
+        exact_paths=("/api/wallboard/events",),
+        path_decision=_static_decision(
+            role=UserRole.READER,
+            permission=PERMISSION_RUNS_READ,
+            scope=SERVICE_TOKEN_SCOPE_RUNS_READ,
+        ),
+        request_decision=_static_decision(
+            role=UserRole.READER,
+            permission=PERMISSION_RUNS_READ,
+            scope=SERVICE_TOKEN_SCOPE_RUNS_READ,
+        ),
+    ),
+    RoutePolicy(
+        prefix_paths=("/api/wallboard/",),
+        path_decision=_static_decision(
+            role=UserRole.READER,
+            permission=PERMISSION_REPORTS_READ,
+            scope=SERVICE_TOKEN_SCOPE_REPORTS_READ,
+        ),
+        request_decision=_static_decision(
+            role=UserRole.READER,
+            permission=PERMISSION_REPORTS_READ,
+            scope=SERVICE_TOKEN_SCOPE_REPORTS_READ,
+        ),
+    ),
     RoutePolicy(
         prefix_paths=("/api/homelab/",),
         path_decision=_static_decision(
