@@ -164,6 +164,10 @@ experiment storage in HLA.
 
 ### Existing work and implementation handoff
 
+Canonical plan items registered for this addendum: HLA-K01 → #2693,
+HLA-K02 → #2694, HLA-K03 → #2695, HLA-K04 → #2696. Registration records
+planned implementation scope, not implementation completion.
+
 Reuse tracker items 1860 (finance-loop integration proof) and 1862 (demo and
 walkthrough); respect the active owner of 1859 (canonical operator journey).
 Items 1868, 1705, 1706, 2332, and 2333 provide existing freshness, snapshot, and
