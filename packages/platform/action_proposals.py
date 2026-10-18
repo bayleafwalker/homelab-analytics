@@ -10,7 +10,14 @@ Lifecycle: ``pending`` is the only non-terminal state. ``approve`` and
 resolution raises :class:`ProposalTransitionError` instead of silently
 flipping a decision the operator already made. Every transition appends a
 :class:`ProposalHistoryEvent` (drafted, refreshed, reopened, approved,
-dismissed) so the audit trail survives re-evaluation refreshes.
+dismissed, release_failed) so the audit trail survives re-evaluation refreshes.
+
+Adapter release: the resolution compare-and-set runs *before* the adapter
+releases anything (the HA notification, the HA service call), so of several
+racing resolvers only the winner releases. If that release fails, the winner
+compare-and-sets the proposal back to pending with a ``release_failed`` event
+(:meth:`ActionProposalRegistry.revert_failed_release`) so the operator can
+retry; nobody else can have released it in between.
 
 Persistence: the registry owns the lifecycle rules and delegates storage to an
 :class:`ActionProposalStore`. The control-plane repositories (SQLite and
@@ -48,7 +55,7 @@ ProposalStatus = Literal["pending", "approved", "dismissed"]
 ProposalSourceKind = Literal["policy", "assistant", "operator", "agent"]
 
 ProposalHistoryEventKind = Literal[
-    "drafted", "refreshed", "reopened", "approved", "dismissed"
+    "drafted", "refreshed", "reopened", "approved", "dismissed", "release_failed"
 ]
 ProvenanceTrustSource = Literal["server_stamped", "proposer_supplied"]
 
@@ -187,6 +194,27 @@ class ActionProposal:
         }
 
 
+@dataclass(frozen=True)
+class ProposalFeedEvent:
+    """One history event as the changes feed serves it.
+
+    ``position`` is the event's place in the queue-wide, commit-ordered feed
+    (``action_proposal_events.feed_position``); ``sequence`` its place in its
+    own proposal's history. The proposal fields are the ones fixed at draft
+    time, so a feed reader can route an event without a second request.
+    """
+
+    position: int
+    event_id: str
+    action_id: str
+    sequence: int
+    event: ProposalHistoryEvent
+    adapter: str
+    source_kind: str
+    policy_id: str
+    policy_name: str
+
+
 @runtime_checkable
 class ActionProposalStore(Protocol):
     """Persistence port for the proposal queue.
@@ -227,6 +255,20 @@ class ActionProposalStore(Protocol):
         """
         ...
 
+    def list_action_proposal_changes(
+        self,
+        *,
+        after_position: int,
+        limit: int,
+        action_id: str | None = None,
+    ) -> list[ProposalFeedEvent]:
+        """History events with ``position > after_position``, oldest first.
+
+        Positions are assigned in commit order, so paging by the last
+        position seen never skips an event that committed later.
+        """
+        ...
+
 
 def build_action_proposal_registry(store_candidate: object | None) -> ActionProposalRegistry:
     """Registry backed by ``store_candidate`` when it implements the store port.
@@ -256,7 +298,40 @@ class InMemoryActionProposalStore:
 
     def __init__(self) -> None:
         self._proposals: dict[str, ActionProposal] = {}
+        self._feed: list[ProposalFeedEvent] = []
         self._lock = threading.Lock()
+
+    def _append_feed(self, proposal: ActionProposal, sequence: int, event: ProposalHistoryEvent) -> None:
+        position = len(self._feed) + 1
+        self._feed.append(
+            ProposalFeedEvent(
+                position=position,
+                event_id=f"ape_memory_{position:012d}",
+                action_id=proposal.action_id,
+                sequence=sequence,
+                event=event,
+                adapter=proposal.adapter,
+                source_kind=proposal.source_kind,
+                policy_id=proposal.policy_id,
+                policy_name=proposal.policy_name,
+            )
+        )
+
+    def list_action_proposal_changes(
+        self,
+        *,
+        after_position: int,
+        limit: int,
+        action_id: str | None = None,
+    ) -> list[ProposalFeedEvent]:
+        with self._lock:
+            matching = [
+                item
+                for item in self._feed
+                if item.position > after_position
+                and (action_id is None or item.action_id == action_id)
+            ]
+        return matching[: max(limit, 0)]
 
     def get_action_proposal(self, action_id: str) -> ActionProposal | None:
         with self._lock:
@@ -289,6 +364,8 @@ class InMemoryActionProposalStore:
                     f"Idempotency key {proposal.idempotency_key} is already in use."
                 )
             self._proposals[proposal.action_id] = copy.deepcopy(proposal)
+            for sequence, event in enumerate(proposal.history, start=1):
+                self._append_feed(proposal, sequence, event)
 
     def update_action_proposal(
         self,
@@ -306,6 +383,7 @@ class InMemoryActionProposalStore:
             updated.history = list(stored.history)
             if event is not None:
                 updated.history.append(event)
+                self._append_feed(stored, len(updated.history), event)
             self._proposals[proposal.action_id] = updated
             return True
 
@@ -593,8 +671,56 @@ class ActionProposalRegistry:
             raise ProposalTransitionError(action_id, self._require(action_id).status)
         return self._require(action_id)
 
+    def revert_failed_release(
+        self,
+        action_id: str,
+        resolution: Literal["approved", "dismissed"],
+        *,
+        reason: str,
+    ) -> ActionProposal:
+        """Return a just-resolved proposal to pending after its release failed.
+
+        Only the resolver that won the resolution compare-and-set calls this,
+        after the adapter (the HA dispatcher) failed to release the action.
+        The revert is itself a compare-and-set on ``resolution``, and appends
+        a ``release_failed`` event; the earlier ``approved`` / ``dismissed``
+        event stays in the append-only history. Raises
+        :class:`ProposalTransitionError` if the proposal is no longer in
+        ``resolution``.
+        """
+        proposal = self._require(action_id)
+        if proposal.status != resolution:
+            raise ProposalTransitionError(action_id, proposal.status)
+        proposal.status = "pending"
+        proposal.approved_at = None
+        proposal.dismissed_at = None
+        proposal.resolved_by = None
+        proposal.resolution_reason = None
+        event = ProposalHistoryEvent(
+            kind="release_failed",
+            at=_now_iso(),
+            reason=_clean_reason(reason),
+        )
+        if not self._store.update_action_proposal(
+            proposal, expected_status=resolution, event=event
+        ):
+            raise ProposalTransitionError(action_id, self._require(action_id).status)
+        return self._require(action_id)
+
     def get(self, action_id: str) -> ActionProposal | None:
         return self._store.get_action_proposal(action_id)
+
+    def list_changes(
+        self,
+        *,
+        after_position: int = 0,
+        limit: int = 100,
+        action_id: str | None = None,
+    ) -> list[ProposalFeedEvent]:
+        """Queue-wide (or one proposal's) history events after a feed position."""
+        return self._store.list_action_proposal_changes(
+            after_position=after_position, limit=limit, action_id=action_id
+        )
 
     def list_pending(self) -> list[ActionProposal]:
         return [proposal for proposal in self.list_all() if proposal.status == "pending"]

@@ -28,6 +28,10 @@ class MockOidcIssuer:
     signing_algs: tuple[str, ...] = ("RS256",)
     code_challenge_methods: tuple[str, ...] | None = ("S256",)
     token_auth_methods: tuple[str, ...] | None = None
+    # Advertise RP-initiated logout (``end_session_endpoint``) when true.
+    advertise_end_session: bool = False
+    # Make the discovery endpoint fail (an IdP outage).
+    discovery_down: bool = False
     # When true the token endpoint refuses codes registered without PKCE.
     require_pkce: bool = False
     _codes: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -72,6 +76,10 @@ class MockOidcIssuer:
     @property
     def token_endpoint(self) -> str:
         return f"{self.issuer_url.rstrip('/')}/token"
+
+    @property
+    def end_session_endpoint(self) -> str:
+        return f"{self.issuer_url.rstrip('/')}/end-session/"
 
     @property
     def jwks_uri(self) -> str:
@@ -136,6 +144,8 @@ class MockOidcIssuer:
         url = str(request.url)
         if url == self.metadata_url:
             self.discovery_fetches += 1
+            if self.discovery_down:
+                return httpx.Response(503, text="unavailable")
             metadata: dict[str, Any] = {
                 "issuer": self.issuer_url,
                 "authorization_endpoint": self.authorization_endpoint,
@@ -147,6 +157,8 @@ class MockOidcIssuer:
                 metadata["code_challenge_methods_supported"] = list(self.code_challenge_methods)
             if self.token_auth_methods is not None:
                 metadata["token_endpoint_auth_methods_supported"] = list(self.token_auth_methods)
+            if self.advertise_end_session:
+                metadata["end_session_endpoint"] = self.end_session_endpoint
             return httpx.Response(200, json=metadata)
         if url == self.jwks_uri:
             self.jwks_fetches += 1

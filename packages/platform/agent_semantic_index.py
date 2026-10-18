@@ -276,14 +276,21 @@ def validate_agent_semantic_index_payload(payload: Any) -> list[str]:
                         and column.get(field_name) != "",
                         f"{column_where}.{field_name} must be a non-empty string",
                     )
+                description = column.get("description")
                 check(
-                    isinstance(column.get("description"), str),
-                    f"{column_where}.description must be a string",
+                    isinstance(description, str) and description.strip() != "",
+                    f"{column_where}.description must be a non-empty string",
                 )
                 check(
                     isinstance(column.get("nullable"), bool),
                     f"{column_where}.nullable must be a boolean",
                 )
+                for field_name in ("unit", "grain", "aggregation"):
+                    value = column.get(field_name)
+                    check(
+                        value is None or (isinstance(value, str) and value != ""),
+                        f"{column_where}.{field_name} must be a non-empty string or null",
+                    )
         trust = entry.get("trust")
         if trust is not None and check(
             isinstance(trust, dict), f"{where}.trust must be an object or null"
@@ -331,5 +338,16 @@ def validate_agent_semantic_index_payload(payload: Any) -> list[str]:
                     check(
                         len(rows) <= bound,
                         f"{where}.sample.rows exceeds row_count_bound",
+                    )
+                truncated = sample.get("truncated")
+                if (
+                    isinstance(total_row_count, int)
+                    and not isinstance(total_row_count, bool)
+                    and isinstance(truncated, bool)
+                ):
+                    check(
+                        truncated == (total_row_count > len(rows)),
+                        f"{where}.sample.truncated must be true exactly when "
+                        "total_row_count exceeds the returned rows",
                     )
     return violations

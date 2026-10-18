@@ -15,3 +15,33 @@ data:
   HOMELAB_ANALYTICS_BACKUP_DIR: {{ . | quote }}
   {{- end }}
   {{- end }}
+  {{- /* Non-secret OIDC settings (values.oidc), only in oidc identity mode.
+         Empty values are skipped; a key already in commonEnv wins. */}}
+  {{- if eq (toString (index .Values.commonEnv "HOMELAB_ANALYTICS_IDENTITY_MODE")) "oidc" }}
+  {{- $oidc := .Values.oidc | default dict }}
+  {{- $common := .Values.commonEnv }}
+  {{- $entries := list
+      (list "HOMELAB_ANALYTICS_OIDC_ISSUER_URL" $oidc.issuerUrl)
+      (list "HOMELAB_ANALYTICS_OIDC_DISCOVERY_URL" $oidc.discoveryUrl)
+      (list "HOMELAB_ANALYTICS_OIDC_REDIRECT_URI" $oidc.redirectUri)
+      (list "HOMELAB_ANALYTICS_OIDC_POST_LOGOUT_REDIRECT_URI" $oidc.postLogoutRedirectUri)
+      (list "HOMELAB_ANALYTICS_OIDC_API_AUDIENCE" $oidc.apiAudience)
+      (list "HOMELAB_ANALYTICS_OIDC_SCOPES" (join "," ($oidc.scopes | default list)))
+      (list "HOMELAB_ANALYTICS_OIDC_USERNAME_CLAIM" $oidc.usernameClaim)
+      (list "HOMELAB_ANALYTICS_OIDC_GROUPS_CLAIM" $oidc.groupsClaim)
+      (list "HOMELAB_ANALYTICS_OIDC_PERMISSIONS_CLAIM" $oidc.permissionsClaim)
+      (list "HOMELAB_ANALYTICS_OIDC_PERMISSION_GROUP_MAPPINGS" (join ";" ($oidc.permissionGroupMappings | default list)))
+      (list "HOMELAB_ANALYTICS_OIDC_READER_GROUPS" (join "," ($oidc.readerGroups | default list)))
+      (list "HOMELAB_ANALYTICS_OIDC_OPERATOR_GROUPS" (join "," ($oidc.operatorGroups | default list)))
+      (list "HOMELAB_ANALYTICS_OIDC_ADMIN_GROUPS" (join "," ($oidc.adminGroups | default list)))
+      (list "HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET_REF" $oidc.clientSecretRef)
+      (list "HOMELAB_ANALYTICS_OIDC_JWKS_CACHE_SECONDS" $oidc.jwksCacheSeconds)
+      (list "HOMELAB_ANALYTICS_OIDC_CLOCK_SKEW_SECONDS" $oidc.clockSkewSeconds) }}
+  {{- range $entry := $entries }}
+  {{- $key := index $entry 0 }}
+  {{- $value := index $entry 1 }}
+  {{- if and (not (kindIs "invalid" $value)) (ne (toString $value) "") (not (hasKey $common $key)) }}
+  {{ $key }}: {{ toString $value | quote }}
+  {{- end }}
+  {{- end }}
+  {{- end }}

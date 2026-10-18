@@ -14,8 +14,12 @@ function navItemsForUser(user) {
       { href: "/retro/control/catalog", label: "Catalog", prefix: "/retro/control/catalog" },
       { href: "/retro/control/execution", label: "Execution", prefix: "/retro/control/execution" },
       { href: "/retro/control/policies", label: "Policies", prefix: "/retro/control/policies" },
+      { href: "/retro/control/agents", label: "Agents", prefix: "/retro/control/agents" },
       { href: "/retro/terminal", label: "Terminal", prefix: "/retro/terminal" },
     );
+  } else if (user?.role === "operator") {
+    // Operators review the proposal queue, as in the classic shell.
+    items.push({ href: "/retro/control/agents", label: "Agents", prefix: "/retro/control/agents" });
   }
   return items;
 }

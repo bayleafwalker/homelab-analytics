@@ -16,6 +16,7 @@ import pytest
 from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.ingestion_config import IngestionConfigRepository
 from tests.control_plane_test_support import (
+    assert_action_proposal_changes_feed,
     assert_action_proposal_resolution_is_exclusive,
     assert_action_proposal_store_behaviour,
     assert_control_plane_store_round_trip,
@@ -41,6 +42,7 @@ def control_plane_store(tmp_path: Path) -> Iterator[ControlPlaneStore]:
         assert_schedule_dispatch_claim_is_exclusive,
         assert_action_proposal_store_behaviour,
         assert_action_proposal_resolution_is_exclusive,
+        assert_action_proposal_changes_feed,
     ],
     ids=lambda assertion: assertion.__name__,
 )

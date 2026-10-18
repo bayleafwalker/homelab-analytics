@@ -6,8 +6,10 @@ the compare-and-set transition and the history append live here, so both
 backends share one implementation.
 
 Schema: ``migrations/sqlite/0009_action_proposal_queue.sql`` and
-``migrations/postgres/0016_action_proposal_queue.sql`` (mirrored in the SQLite
-inline bootstrap ``sqlite_control_plane_schema.py``). The lifecycle rules live
+``migrations/postgres/0016_action_proposal_queue.sql``, plus the changes-feed
+position and counter from sqlite ``0013`` / postgres
+``0020_action_proposal_changes_feed`` (mirrored in the SQLite inline bootstrap
+``sqlite_control_plane_schema.py``). The lifecycle rules live
 in :class:`packages.platform.action_proposals.ActionProposalRegistry`; the
 store only persists state, compare-and-sets status, and appends history.
 """
@@ -27,6 +29,7 @@ import psycopg
 from packages.platform.action_proposals import (
     ActionProposal,
     ProposalConflictError,
+    ProposalFeedEvent,
     ProposalHistoryEvent,
     ProposalHistoryEventKind,
     ProposalProvenance,
@@ -36,7 +39,7 @@ from packages.platform.action_proposals import (
     sort_proposals,
 )
 from packages.storage.decision_ledger import aware_utc
-from packages.storage.sql_dialect import DialectSession, SqlDialect
+from packages.storage.sql_dialect import DialectSession, SqlDialect, row_int
 
 PROPOSAL_COLUMNS: tuple[str, ...] = (
     "action_id",
@@ -81,6 +84,7 @@ EVENT_COLUMNS: tuple[str, ...] = (
     "actor",
     "actor_auth_provider",
     "reason",
+    "feed_position",
 )
 TIMESTAMP_COLUMNS = frozenset(
     {"created_at", "approved_at", "dismissed_at", "updated_at", "occurred_at"}
@@ -145,7 +149,13 @@ def proposal_row(proposal: ActionProposal, *, updated_at: str) -> dict[str, Any]
     }
 
 
-def event_row(action_id: str, sequence: int, event: ProposalHistoryEvent) -> dict[str, Any]:
+def event_row(
+    action_id: str,
+    sequence: int,
+    event: ProposalHistoryEvent,
+    *,
+    feed_position: int,
+) -> dict[str, Any]:
     return {
         "event_id": f"ape_{uuid.uuid4().hex}",
         "action_id": action_id,
@@ -155,6 +165,7 @@ def event_row(action_id: str, sequence: int, event: ProposalHistoryEvent) -> dic
         "actor": event.actor,
         "actor_auth_provider": event.actor_auth_provider,
         "reason": event.reason,
+        "feed_position": feed_position,
     }
 
 
@@ -237,6 +248,30 @@ _NEXT_SEQUENCE = (
     "SELECT COALESCE(MAX(sequence), 0) + 1 AS next_sequence"
     " FROM action_proposal_events WHERE action_id = ?"
 )
+# The changes feed: one counter row hands out commit-ordered feed positions.
+# Bumping it row-locks it (Postgres) until commit; SQLite's BEGIN IMMEDIATE
+# already serializes writers. Either way positions become visible in order.
+FEED_COUNTER_KEY = "action_proposal_events"
+_BUMP_FEED_COUNTER = (
+    "UPDATE action_proposal_feed_counter SET last_position = last_position + ?"
+    " WHERE counter_key = ?"
+)
+_SEED_FEED_COUNTER = (
+    "INSERT INTO action_proposal_feed_counter (counter_key, last_position)"
+    " SELECT ?, COALESCE(MAX(feed_position), 0) FROM action_proposal_events"
+    " WHERE 1 = 1 ON CONFLICT (counter_key) DO NOTHING"
+)
+_READ_FEED_COUNTER = (
+    "SELECT last_position FROM action_proposal_feed_counter WHERE counter_key = ?"
+)
+_FEED_SELECT = (
+    "SELECT e.feed_position, e.event_id, e.action_id, e.sequence, e.kind,"
+    " e.occurred_at, e.actor, e.actor_auth_provider, e.reason,"
+    " p.adapter, p.source_kind, p.policy_id, p.policy_name"
+    " FROM action_proposal_events e"
+    " JOIN action_proposals p ON p.action_id = e.action_id"
+    " WHERE e.feed_position > ?"
+)
 # Uniqueness violations on action_id / idempotency_key, per backend.
 _INTEGRITY_ERRORS: tuple[type[Exception], ...] = (sqlite3.IntegrityError, psycopg.IntegrityError)
 
@@ -252,6 +287,16 @@ def _encode(dialect: SqlDialect, row: Mapping[str, Any], columns: tuple[str, ...
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _reserve_feed_positions(session: DialectSession, count: int) -> int:
+    """Reserve ``count`` consecutive feed positions; return the first one."""
+    if session.execute(_BUMP_FEED_COUNTER, [count, FEED_COUNTER_KEY]) != 1:
+        session.execute(_SEED_FEED_COUNTER, [FEED_COUNTER_KEY])
+        session.execute(_BUMP_FEED_COUNTER, [count, FEED_COUNTER_KEY])
+    row = session.fetchone(_READ_FEED_COUNTER, (FEED_COUNTER_KEY,))
+    last = row_int(cast(Any, row)["last_position"])
+    return last - count + 1
 
 
 class ActionProposalStoreMixin:
@@ -304,12 +349,22 @@ class ActionProposalStoreMixin:
         try:
             with self._session(write_lock=True) as session:
                 session.execute(_INSERT_PROPOSAL, _encode(session.dialect, row, PROPOSAL_COLUMNS))
-                for sequence, event in enumerate(proposal.history, start=1):
+                first_position = (
+                    _reserve_feed_positions(session, len(proposal.history))
+                    if proposal.history
+                    else 0
+                )
+                for offset, event in enumerate(proposal.history):
                     session.execute(
                         _INSERT_EVENT,
                         _encode(
                             session.dialect,
-                            event_row(proposal.action_id, sequence, event),
+                            event_row(
+                                proposal.action_id,
+                                offset + 1,
+                                event,
+                                feed_position=first_position + offset,
+                            ),
                             EVENT_COLUMNS,
                         ),
                     )
@@ -347,8 +402,44 @@ class ActionProposalStoreMixin:
                     _INSERT_EVENT,
                     _encode(
                         session.dialect,
-                        event_row(proposal.action_id, next_sequence, event),
+                        event_row(
+                            proposal.action_id,
+                            next_sequence,
+                            event,
+                            feed_position=_reserve_feed_positions(session, 1),
+                        ),
                         EVENT_COLUMNS,
                     ),
                 )
         return True
+
+    def list_action_proposal_changes(
+        self,
+        *,
+        after_position: int,
+        limit: int,
+        action_id: str | None = None,
+    ) -> list[ProposalFeedEvent]:
+        params: list[object] = [after_position]
+        statement = _FEED_SELECT
+        if action_id is not None:
+            statement += " AND e.action_id = ?"
+            params.append(action_id)
+        statement += " ORDER BY e.feed_position LIMIT ?"
+        params.append(max(limit, 0))
+        with self._session() as session:
+            rows = session.fetchall(statement, params)
+        return [
+            ProposalFeedEvent(
+                position=row_int(row["feed_position"]),
+                event_id=str(row["event_id"]),
+                action_id=str(row["action_id"]),
+                sequence=row_int(row["sequence"]),
+                event=deserialize_event(row),
+                adapter=str(row["adapter"]),
+                source_kind=str(row["source_kind"]),
+                policy_id=str(row["policy_id"]),
+                policy_name=str(row["policy_name"]),
+            )
+            for row in rows
+        ]

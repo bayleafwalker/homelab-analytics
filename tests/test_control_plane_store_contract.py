@@ -9,6 +9,7 @@ import pytest
 from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.postgres_ingestion_config import PostgresIngestionConfigRepository
 from tests.control_plane_test_support import (
+    assert_action_proposal_changes_feed,
     assert_action_proposal_resolution_is_exclusive,
     assert_action_proposal_store_behaviour,
     assert_auth_audit_behaviour,
@@ -99,3 +100,9 @@ def test_control_plane_store_persists_action_proposal_queue(
 ) -> None:
     assert_action_proposal_store_behaviour(control_plane_store)
     assert_action_proposal_resolution_is_exclusive(control_plane_store)
+
+
+def test_control_plane_store_serves_proposal_changes_feed_in_commit_order(
+    control_plane_store: ControlPlaneStore,
+) -> None:
+    assert_action_proposal_changes_feed(control_plane_store)

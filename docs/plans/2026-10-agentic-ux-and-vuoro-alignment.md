@@ -89,7 +89,7 @@ Sources: `/projects/dev/vuoro` (vuoro-client 0.1.2 source / 0.1.1 wheel, vuoro-a
 | Capability catalog | MCP `tools/list` only | adapter-kit operation spec (`domain.noun.verb`, `execution_semantics`, `idempotency`, `required_authority` `domain:verb`, Draft 2020-12 strict schemas, `catalog_revision` sha256) | **Aligned unilaterally.** `GET /api/agent/manifest` (`hla-agent-capability-manifest/v1`, off by default) |
 | Agent registration | None; identities observed from proposals | Proposal only (`docs/plans/2026-10-14-agent-reachability-and-messaging.md`): registered / observed / reachable facts | HLA stays an *observer*. Sessions render the `register_run` shape (`Session.vuoro_run_registration`) without sending it. 5.2 |
 | Proposal queue vs work items / effects | `pending / approved / dismissed`, human-only resolution | mcp-edge effect intents `proposed / accepted / rejected / applied / failed`; acceptance by an operator or an opt-in acceptor | **Mapped** in the manifest (`vuoro_effect_state_map`). HLA has no `applied` / `failed` because nothing executes yet. 5.3 |
-| Events / inbox | Polling the proposal list | `resource-changes/v1` (`next_cursor`, events) | **Gap.** 5.3 sketches a changes feed. |
+| Events / inbox | `GET /api/actions/proposals/changes` (`resource-changes/v1`, opaque `next_cursor`) | `resource-changes/v1` (`next_cursor`, events) | **Aligned (HLA side).** 5.3 ships; vuoro consumption is a vuoro-side change. |
 | Envelopes / ids | `approval_<hex12>`; agent idempotency key → `agent_<key>` | ULID-prefixed ids; idempotency key `^[A-Za-z0-9._:-]{8,128}$`; `invocation/v1` | Idempotency-key pattern adopted. ULIDs are deferred because the HA routes require the id format to stay stable. |
 | Auth | Deployed `local_single_user`. The `oidc` mode (PKCE, Authentik-compatible) is ready, and the live enablement is an operator task (`docs/runbooks/oidc-authentik-enablement.md`) | OAuth PKCE (vuoro-cli), PATs `vuo_pat_*`, authorities `work:*` | Both sides use PKCE. Token and authority alignment stays independent. |
 
@@ -127,6 +127,8 @@ This would let vuoro's catalog route `hla.*` operations without duplicating HLA'
 
 HLA would add `GET /api/actions/proposals/changes?cursor=` emitting `resource-changes/v1` (`events[{event_id, terminal, data}]`, where `terminal` is true for approved or dismissed). This is unilateral on the HLA side once the queue is persisted. vuoro would consume it as an effect-intent source, and map `approved` → `accepted` without HLA ever executing on vuoro's behalf.
 
+**Shipped (HLA side, `feat/agent-platform-followups`).** `GET /api/actions/proposals/changes?cursor=&limit=&action_id=` (`reports:read`) returns exactly the strict vuoro-client shape `{schema_version: "resource-changes/v1", reference, next_cursor, events[{event_id, terminal, data}]}`; `reference` is `action-proposals` or `action-proposals/<action_id>`. Each `data` is an `hla-action-proposal-event/v1` record (kind, actor, reason, status after the event, `effect_state`, adapter, origin). Cursors are opaque (`apf.<position>`); `next_cursor` is always set and equals the input when the reader is caught up. Positions (`action_proposal_events.feed_position`, sqlite `0013` / postgres `0020_action_proposal_changes_feed`) come from a single counter row bumped inside the event's write transaction, so they become visible in commit order across API replicas and a cursor never skips a late commit. `terminal` describes that revision: a later `reopened` (HA re-raise) or `release_failed` (failed HA release) event is non-terminal. The capability manifest advertises `approval.changes_path`.
+
 ## 6. AssistantRuntime (Stage B2): design status
 
 The module is `packages/application/use_cases/assistant_runtime.py` and its broker is `apps/agent/assistant_tools.py`.
@@ -148,7 +150,7 @@ The module is `packages/application/use_cases/assistant_runtime.py` and its brok
 1. ~~**Persist the proposal queue**~~ — done in wave 2 (see 2.8).
 2. ~~**A `proposals:draft` service-token scope**~~ — done in wave 2, along with `policies:draft`. `admin:write` implies `proposals:draft` (`SERVICE_TOKEN_SCOPE_IMPLICATIONS`), so existing agent tokens keep working. The generalized `/api/actions/*` routes and the HA routes now share one model: drafting needs `control.action_proposals.draft`, and resolving needs the operator-level `control.action_proposals.write`. See `docs/runbooks/configuration.md` § Agent service-token scopes.
 3. **Unify the confidence key namespace** (section 2.5) with the confidence owner.
-4. **Retro-shell mirror of `/control/agents`**, read-only, as the policies mirror is.
+4. ~~**Retro-shell mirror of `/control/agents`**~~ — done in `feat/agent-platform-followups`: `/retro/control/agents` (operators and admins) mirrors the pending queue, recent resolutions and observed agents, with no resolution forms; review and resolution link to the classic page.
 5. **An OpenCode adapter** behind both gates, once B1 (the deterministic brief) has shipped.
 
 ## 8. Open questions

@@ -32,6 +32,7 @@ from packages.storage.ingestion_config import IngestionConfigRepository
 from packages.storage.migration_runner import apply_pending_sqlite_migrations
 from packages.storage.run_metadata import RunMetadataRepository
 from tests.control_plane_test_support import (
+    assert_action_proposal_changes_feed,
     assert_action_proposal_resolution_is_exclusive,
     assert_action_proposal_store_behaviour,
 )
@@ -86,15 +87,18 @@ def test_sqlite_inline_bootstrap_matches_migration_columns() -> None:
     with TemporaryDirectory() as tmp:
         IngestionConfigRepository(Path(tmp) / "config.db")
         conn = sqlite3.connect(Path(tmp) / "config.db")
+        # 0013_action_proposal_changes_feed appends feed_position to the events.
+        later_columns = {"action_proposal_events": ["feed_position"]}
         for table, columns in _table_columns(SQLITE_MIGRATION.read_text()).items():
             bootstrapped = [row[1] for row in conn.execute(f"PRAGMA table_info({table})")]
-            assert bootstrapped == columns
+            assert bootstrapped == columns + later_columns.get(table, [])
 
 
 def test_in_memory_store_passes_the_store_contract() -> None:
     store = InMemoryActionProposalStore()
     assert_action_proposal_store_behaviour(store)
     assert_action_proposal_resolution_is_exclusive(InMemoryActionProposalStore())
+    assert_action_proposal_changes_feed(InMemoryActionProposalStore())
     assert ActionProposalRegistry(store=store).durable is False
 
 

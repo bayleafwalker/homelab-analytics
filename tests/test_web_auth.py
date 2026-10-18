@@ -360,6 +360,13 @@ def test_nextjs_frontend_exposes_login_and_logout_routes() -> None:
     assert "copyBackendSetCookies" in callback_route
     assert "copyBackendSetCookies" in login_route
     assert 'backendRequest("post", "/auth/logout"' in logout_route
+    # RP-initiated logout: follow the backend's end_session_url (http(s) only),
+    # otherwise fall back to the local login page; session cookies are cleared
+    # on the redirect either way.
+    assert "end_session_url" in logout_route
+    assert 'url.protocol === "https:" || url.protocol === "http:"' in logout_route
+    assert 'new URL("/login", request.url)' in logout_route
+    assert "copyBackendSetCookies(response, redirectResponse.headers)" in logout_route
     assert 'status: "ready"' in ready_route
     assert "auth_mode" not in ready_route
     assert "HOMELAB_ANALYTICS_IDENTITY_MODE" in ready_route
@@ -1061,6 +1068,29 @@ def test_nextjs_frontend_retro_policy_view_mirrors_verdicts_without_authoring() 
     assert "/control/policies" in retro_policies
 
     assert '{ href: "/retro/control/policies"' in retro_shell
+
+
+def test_retro_shell_mirrors_control_agents_read_only() -> None:
+    retro_agents = (
+        FRONTEND_ROOT / "app" / "retro" / "control" / "agents" / "page.js"
+    ).read_text()
+    retro_shell = (FRONTEND_ROOT / "components" / "retro-shell.js").read_text()
+
+    # Same audience as /control/agents: operators and admins.
+    assert 'user.role !== "admin" && user.role !== "operator"' in retro_agents
+    assert 'redirect("/retro")' in retro_agents
+    # Reads the same typed helpers as the classic page; no direct fetches.
+    for helper in ("getActionProposals()", "getAgentPrincipals()", "getAgentToolCatalog()"):
+        assert helper in retro_agents
+    assert "fetch(" not in retro_agents
+    # Read-only mirror: no resolution forms or routes, resolution links to classic.
+    assert "<form" not in retro_agents
+    assert "/approve" not in retro_agents and "/dismiss" not in retro_agents
+    assert 'href="/control/agents"' in retro_agents
+    assert "resolution_reason" in retro_agents
+    assert "actor_auth_provider" in retro_agents
+    # Navigable for admins and operators.
+    assert retro_shell.count('{ href: "/retro/control/agents"') == 2
 
 
 def test_nextjs_frontend_exposes_deterministic_morning_brief() -> None:

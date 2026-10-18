@@ -12,6 +12,8 @@ Authorization-code flow with PKCE (S256), built for Authentik but standard:
   only (never ``none`` or HMAC); discovery and JWKS are cached for
   ``oidc_jwks_cache_seconds`` and an unknown ``kid`` triggers one early JWKS
   refetch so key rotation does not lock users out
+- logout is RP-initiated when the IdP advertises ``end_session_endpoint``
+  (:meth:`OidcProvider.build_end_session_url`), and local-only otherwise
 - groups map to reader/operator/admin roles (and optional permission grants);
   the session cookie is the app's own signed session, so nothing downstream
   needs to know the user signed in through OIDC except the recorded
@@ -231,6 +233,7 @@ class OidcProvider:
         self.discovery_url = settings.oidc_discovery_url or (
             f"{self.issuer_url.rstrip('/')}/.well-known/openid-configuration"
         )
+        self.post_logout_redirect_uri = settings.oidc_post_logout_redirect_uri or None
         self.cache_seconds = float(settings.oidc_jwks_cache_seconds)
         self.clock_skew_seconds = int(settings.oidc_clock_skew_seconds)
         self.scopes = settings.oidc_scopes or ("openid", "profile", "email")
@@ -319,6 +322,30 @@ class OidcProvider:
             require_authorized_party=True,
         )
         return self.principal_from_claims(claims), login_state.return_to
+
+    def build_end_session_url(self) -> str | None:
+        """RP-initiated logout URL at the IdP's ``end_session_endpoint``.
+
+        Returns ``None`` (the caller falls back to local logout only) when the
+        IdP does not advertise the endpoint or discovery cannot be loaded:
+        logging out of the app must never fail because the IdP is down. The
+        app keeps no ID token, so the request identifies the client with
+        ``client_id`` (OpenID RP-Initiated Logout 1.0 §2) rather than
+        ``id_token_hint``; ``post_logout_redirect_uri`` is only sent when
+        configured, because the IdP must have it registered.
+        """
+        try:
+            discovery = self._load_discovery()
+        except (OidcAuthenticationError, httpx.HTTPError, ValueError):
+            return None
+        endpoint = discovery.get("end_session_endpoint")
+        if not isinstance(endpoint, str) or not endpoint.startswith(("https://", "http://")):
+            return None
+        params = {"client_id": self.client_id}
+        if self.post_logout_redirect_uri:
+            params["post_logout_redirect_uri"] = self.post_logout_redirect_uri
+        separator = "&" if "?" in endpoint else "?"
+        return f"{endpoint}{separator}{urlencode(params)}"
 
     def authenticate_bearer_token(self, token: str) -> AuthenticatedPrincipal:
         claims = self._decode_token(token, audiences=(self.api_audience, self.client_id))

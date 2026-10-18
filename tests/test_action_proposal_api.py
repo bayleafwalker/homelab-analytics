@@ -7,8 +7,10 @@
   POST /api/actions/proposals/{action_id}/dismiss
 
 The queue is shared with the HA approval surface: agent proposals must be
-visible and approvable through the same ``/api/ha/actions/proposals`` routes
-the web shell uses, without triggering the HA dispatcher release path.
+visible and approvable through both the generalized ``/api/actions`` routes
+(which the web shell's ``/control/agents`` page posts to) and the legacy
+``/api/ha/actions/proposals`` routes, without triggering the HA dispatcher
+release path.
 """
 from __future__ import annotations
 
@@ -117,7 +119,8 @@ class ActionProposalQueueAPITests(unittest.TestCase):
                 "/api/actions/proposals", json=_agent_proposal_body()
             ).json()["action_id"]
 
-            # The web shell posts to the HA approve route; a platform-adapter
+            # The legacy HA approve route still resolves agent proposals (the
+            # web shell itself posts to /api/actions/...); a platform-adapter
             # proposal must approve without releasing anything through HA.
             resp = client.post(f"/api/ha/actions/proposals/{action_id}/approve")
             self.assertEqual(200, resp.status_code)
