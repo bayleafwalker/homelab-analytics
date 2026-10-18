@@ -2,6 +2,12 @@
 
 Exposed under /control/policies. Authentication is delegated to the route
 authorization middleware (control.policy.read / control.policy.write).
+
+Machine principals (service tokens, machine JWTs — i.e. agents) may draft
+policies but never activate them: their creates are stored disabled with
+``source_kind="agent"`` and the authenticated token name as creator, and
+enabling a policy is refused for them. Activation is an operator decision,
+like approving an action proposal.
 """
 from __future__ import annotations
 
@@ -9,11 +15,12 @@ import json
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, ValidationError
 
+from packages.platform.action_proposals import MACHINE_AUTH_PROVIDERS
 from packages.platform.policy_schema import RULE_SCHEMA_VERSION, parse_rule_document
 from packages.platform.publication_contracts import PublicationContract
 from packages.storage.control_plane import (
@@ -114,6 +121,16 @@ def _validate_publication_references(
         )
 
 
+def _machine_principal_name(request: Request) -> str | None:
+    """Token name when the caller is a machine principal, else ``None``."""
+    principal = cast(Any, getattr(request.state, "principal", None))
+    if principal is None:
+        return None
+    if getattr(principal, "auth_provider", None) not in MACHINE_AUTH_PROVIDERS:
+        return None
+    return cast(str, getattr(principal, "username", None) or "machine")
+
+
 def register_policy_routes(
     app: FastAPI,
     *,
@@ -199,7 +216,9 @@ def register_policy_routes(
         return {"preview": result.to_dict()}
 
     @app.post("/control/policies", status_code=201)
-    async def create_policy(body: PolicyCreateRequest) -> dict[str, Any]:
+    async def create_policy(
+        body: PolicyCreateRequest, request: Request
+    ) -> dict[str, Any]:
         try:
             parse_rule_document(body.rule_document)
         except (ValueError, ValidationError) as exc:
@@ -207,6 +226,7 @@ def register_policy_routes(
         _validate_publication_references(body.rule_document, known_publication_keys)
 
         now = datetime.now(UTC)
+        machine_name = _machine_principal_name(request)
         create = PolicyDefinitionCreate(
             policy_id=str(uuid.uuid4()),
             display_name=body.display_name,
@@ -214,8 +234,9 @@ def register_policy_routes(
             rule_schema_version=body.rule_schema_version,
             rule_document=json.dumps(body.rule_document),
             description=body.description,
-            creator=body.creator,
-            source_kind="operator",
+            creator=machine_name if machine_name is not None else body.creator,
+            enabled=machine_name is None,
+            source_kind="agent" if machine_name is not None else "operator",
             created_at=now,
             updated_at=now,
         )
@@ -231,7 +252,17 @@ def register_policy_routes(
         return _serialize_policy(record)
 
     @app.patch("/control/policies/{policy_id}")
-    async def update_policy(policy_id: str, body: PolicyUpdateRequest) -> dict[str, Any]:
+    async def update_policy(
+        policy_id: str, body: PolicyUpdateRequest, request: Request
+    ) -> dict[str, Any]:
+        if body.enabled and _machine_principal_name(request) is not None:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Machine principals cannot enable policies; an operator "
+                    "must activate a drafted policy from /control/policies."
+                ),
+            )
         if body.rule_document is not None:
             try:
                 parse_rule_document(body.rule_document)

@@ -58,3 +58,14 @@ The first implemented entrypoint is a single read-only `GET /api/assistant/answe
 - Propose actions, do not execute them.
 - Prefer existing policy and approval rails.
 - Keep the semantic layer reusable by dashboards, APIs, and future agents.
+
+## Honesty, review, and identity (2026-10)
+
+Plan and alignment map: `docs/plans/2026-10-agentic-ux-and-vuoro-alignment.md`.
+
+- **Trust guidance.** Every semantic-index entry carries `trust.guidance` (`state_as_current`, `state_with_caveat`, `do_not_state_as_current`, `trust_unknown`) derived from the latest confidence snapshot, including its validation and completeness signal states. A missing snapshot is `trust_unknown`, never current. The MCP server's `initialize` instructions require agents to follow it.
+- **One tool catalog.** `packages/application/use_cases/agent_tool_catalog.py` feeds the MCP `tools/list`, the operator catalog (`GET /api/agent/catalog`), and the optional vuoro-aligned manifest (`GET /api/agent/manifest`, off by default).
+- **Human-only resolution.** Only `pending` proposals resolve (a second resolution is `409`). Machine principals may draft but never approve, dismiss, or enable a policy. Resolutions record the resolver, a reason, and an append-only history.
+- **Server-stamped provenance.** Trust for cited publications is stamped at draft time by the platform, not by the proposer.
+- **Operator review.** `/control/agents` shows, per proposal, what approval does, a diff-style preview, cited evidence with trust at draft time next to trust now, lineage drill-down, and caveats.
+- **AssistantRuntime boundary.** `packages/application/use_cases/assistant_runtime.py` holds the provider-agnostic contract. Runtimes reach tools only through a grant-enforcing broker. It is disabled by default and is not wired to any route.

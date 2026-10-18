@@ -108,6 +108,9 @@ class AppSettings:
     oidc_operator_groups: tuple[str, ...] = ()
     oidc_admin_groups: tuple[str, ...] = ()
     enable_bootstrap_local_admin: bool = False
+    agent_manifest_enabled: bool = False
+    agent_manifest_repo_id: str = "homelab-analytics"
+    agent_authority_repo_uuid: str | None = None
     bootstrap_admin_username: str | None = None
     bootstrap_admin_password: str | None = None
     auth_failure_window_seconds: int = 900
@@ -437,6 +440,15 @@ class AppSettings:
         enable_bootstrap_local_admin = env.get(
             "HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN", ""
         ).lower() in {"1", "true", "yes", "on"}
+        agent_manifest_enabled = env.get(
+            "HOMELAB_ANALYTICS_AGENT_MANIFEST_ENABLED", ""
+        ).lower() in {"1", "true", "yes", "on"}
+        agent_manifest_repo_id = (
+            env.get("HOMELAB_ANALYTICS_AGENT_MANIFEST_REPO_ID") or "homelab-analytics"
+        )
+        agent_authority_repo_uuid = (
+            env.get("HOMELAB_ANALYTICS_AGENT_AUTHORITY_REPO_UUID") or None
+        )
         bootstrap_admin_username = (
             env.get("HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME") or None
         )
@@ -535,6 +547,9 @@ class AppSettings:
             oidc_operator_groups=oidc_operator_groups,
             oidc_admin_groups=oidc_admin_groups,
             enable_bootstrap_local_admin=enable_bootstrap_local_admin,
+            agent_manifest_enabled=agent_manifest_enabled,
+            agent_manifest_repo_id=agent_manifest_repo_id,
+            agent_authority_repo_uuid=agent_authority_repo_uuid,
             bootstrap_admin_username=bootstrap_admin_username,
             bootstrap_admin_password=bootstrap_admin_password,
             auth_failure_window_seconds=auth_failure_window_seconds,

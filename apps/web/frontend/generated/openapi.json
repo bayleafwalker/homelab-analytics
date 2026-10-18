@@ -234,6 +234,13 @@
             ],
             "title": "Dismissed At"
           },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalHistoryEventModel"
+            },
+            "title": "History",
+            "type": "array"
+          },
           "metadata": {
             "additionalProperties": true,
             "title": "Metadata",
@@ -260,6 +267,28 @@
                 "type": "null"
               }
             ]
+          },
+          "resolution_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Reason"
+          },
+          "resolved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved By"
           },
           "source_key": {
             "anyOf": [
@@ -326,6 +355,47 @@
         "title": "ActionProposalModel",
         "type": "object"
       },
+      "ActionProposalReviewModel": {
+        "properties": {
+          "change_preview": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalChangeRowModel"
+            },
+            "title": "Change Preview",
+            "type": "array"
+          },
+          "effect": {
+            "$ref": "#/components/schemas/ProposalEffectModel"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalEvidenceModel"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "proposal": {
+            "$ref": "#/components/schemas/ActionProposalModel"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "trust": {
+            "$ref": "#/components/schemas/ProposalReviewTrustModel"
+          }
+        },
+        "required": [
+          "schema_version",
+          "proposal",
+          "effect",
+          "change_preview",
+          "evidence",
+          "trust"
+        ],
+        "title": "ActionProposalReviewModel",
+        "type": "object"
+      },
       "AffordabilityRatiosResponse": {
         "properties": {
           "rows": {
@@ -388,6 +458,244 @@
           "currency"
         ],
         "title": "AffordabilityRatiosRow",
+        "type": "object"
+      },
+      "AgentPrincipalListModel": {
+        "properties": {
+          "principals": {
+            "items": {
+              "$ref": "#/components/schemas/AgentPrincipalModel"
+            },
+            "title": "Principals",
+            "type": "array"
+          },
+          "registration_authority": {
+            "const": "none",
+            "default": "none",
+            "title": "Registration Authority",
+            "type": "string"
+          }
+        },
+        "required": [
+          "principals"
+        ],
+        "title": "AgentPrincipalListModel",
+        "type": "object"
+      },
+      "AgentPrincipalModel": {
+        "properties": {
+          "approved": {
+            "title": "Approved",
+            "type": "integer"
+          },
+          "cited_publications": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cited Publications",
+            "type": "array"
+          },
+          "created_by": {
+            "title": "Created By",
+            "type": "string"
+          },
+          "dismissed": {
+            "title": "Dismissed",
+            "type": "integer"
+          },
+          "first_seen_at": {
+            "title": "First Seen At",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "title": "Last Seen At",
+            "type": "string"
+          },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
+          "pending": {
+            "title": "Pending",
+            "type": "integer"
+          },
+          "proposal_count": {
+            "title": "Proposal Count",
+            "type": "integer"
+          },
+          "source_kind": {
+            "title": "Source Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "created_by",
+          "origin",
+          "source_kind",
+          "proposal_count",
+          "pending",
+          "approved",
+          "dismissed",
+          "first_seen_at",
+          "last_seen_at"
+        ],
+        "title": "AgentPrincipalModel",
+        "type": "object"
+      },
+      "AgentToolCatalogEntryModel": {
+        "properties": {
+          "access_note": {
+            "default": "",
+            "title": "Access Note",
+            "type": "string"
+          },
+          "annotations": {
+            "additionalProperties": true,
+            "title": "Annotations",
+            "type": "object"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "effect": {
+            "enum": [
+              "read",
+              "draft"
+            ],
+            "title": "Effect",
+            "type": "string"
+          },
+          "endpoints": {
+            "items": {
+              "$ref": "#/components/schemas/AgentToolEndpointModel"
+            },
+            "title": "Endpoints",
+            "type": "array"
+          },
+          "execution_semantics": {
+            "enum": [
+              "read",
+              "write",
+              "enqueue",
+              "admin"
+            ],
+            "title": "Execution Semantics",
+            "type": "string"
+          },
+          "idempotency": {
+            "enum": [
+              "not-allowed",
+              "optional",
+              "required"
+            ],
+            "title": "Idempotency",
+            "type": "string"
+          },
+          "input_schema": {
+            "additionalProperties": true,
+            "title": "Input Schema",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "publication_note": {
+            "default": "",
+            "title": "Publication Note",
+            "type": "string"
+          },
+          "publication_scope": {
+            "enum": [
+              "catalog",
+              "named",
+              "cited",
+              "scenario_engine",
+              "none"
+            ],
+            "title": "Publication Scope",
+            "type": "string"
+          },
+          "publications": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Publications",
+            "type": "array"
+          },
+          "required_scope": {
+            "title": "Required Scope",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "token_reachable": {
+            "default": true,
+            "title": "Token Reachable",
+            "type": "boolean"
+          },
+          "vuoro_operation": {
+            "title": "Vuoro Operation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "title",
+          "description",
+          "effect",
+          "annotations",
+          "endpoints",
+          "publication_scope",
+          "required_scope",
+          "vuoro_operation",
+          "execution_semantics",
+          "idempotency",
+          "input_schema"
+        ],
+        "title": "AgentToolCatalogEntryModel",
+        "type": "object"
+      },
+      "AgentToolCatalogModel": {
+        "properties": {
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/AgentToolCatalogEntryModel"
+            },
+            "title": "Tools",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema_version",
+          "tools"
+        ],
+        "title": "AgentToolCatalogModel",
+        "type": "object"
+      },
+      "AgentToolEndpointModel": {
+        "properties": {
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "method",
+          "path"
+        ],
+        "title": "AgentToolEndpointModel",
         "type": "object"
       },
       "AnswerConfidenceSummary": {
@@ -6405,6 +6713,195 @@
         "title": "PromotionResultModel",
         "type": "object"
       },
+      "ProposalChangeRowModel": {
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "changes": {
+            "title": "Changes",
+            "type": "boolean"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "label",
+          "changes"
+        ],
+        "title": "ProposalChangeRowModel",
+        "type": "object"
+      },
+      "ProposalEffectModel": {
+        "properties": {
+          "adapter": {
+            "title": "Adapter",
+            "type": "string"
+          },
+          "external_effect": {
+            "title": "External Effect",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "in_registry_only",
+              "release_ha_approval",
+              "adapter_release"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "adapter",
+          "kind",
+          "summary",
+          "external_effect"
+        ],
+        "title": "ProposalEffectModel",
+        "type": "object"
+      },
+      "ProposalEvidenceModel": {
+        "properties": {
+          "at_draft": {
+            "$ref": "#/components/schemas/ProposalTrustAtDraftModel"
+          },
+          "contract_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Path"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "known": {
+            "title": "Known",
+            "type": "boolean"
+          },
+          "lineage_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lineage Path"
+          },
+          "now": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicationTrustModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "publication_key": {
+            "title": "Publication Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publication_key",
+          "known",
+          "at_draft"
+        ],
+        "title": "ProposalEvidenceModel",
+        "type": "object"
+      },
+      "ProposalHistoryEventModel": {
+        "properties": {
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "drafted",
+              "refreshed",
+              "approved",
+              "dismissed"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "kind",
+          "at"
+        ],
+        "title": "ProposalHistoryEventModel",
+        "type": "object"
+      },
       "ProposalProvenanceModel": {
         "properties": {
           "assessed_at": {
@@ -6449,6 +6946,94 @@
           }
         },
         "title": "ProposalProvenanceModel",
+        "type": "object"
+      },
+      "ProposalResolutionModel": {
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "ProposalResolutionModel",
+        "type": "object"
+      },
+      "ProposalReviewTrustModel": {
+        "properties": {
+          "caveats": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Caveats",
+            "type": "array"
+          },
+          "guidance": {
+            "enum": [
+              "state_as_current",
+              "state_with_caveat",
+              "do_not_state_as_current",
+              "trust_unknown"
+            ],
+            "title": "Guidance",
+            "type": "string"
+          },
+          "guidance_detail": {
+            "title": "Guidance Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "guidance",
+          "guidance_detail"
+        ],
+        "title": "ProposalReviewTrustModel",
+        "type": "object"
+      },
+      "ProposalTrustAtDraftModel": {
+        "properties": {
+          "assessed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessed At"
+          },
+          "confidence_verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence Verdict"
+          },
+          "freshness_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness State"
+          }
+        },
+        "title": "ProposalTrustAtDraftModel",
         "type": "object"
       },
       "PublicationColumnContractModel": {
@@ -6837,6 +7422,101 @@
           "publication_index"
         ],
         "title": "PublicationSemanticIndexResponse",
+        "type": "object"
+      },
+      "PublicationTrustModel": {
+        "properties": {
+          "assessed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessed At"
+          },
+          "completeness_pct": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completeness Pct"
+          },
+          "completeness_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completeness State"
+          },
+          "confidence_verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence Verdict"
+          },
+          "freshness_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness State"
+          },
+          "guidance": {
+            "enum": [
+              "state_as_current",
+              "state_with_caveat",
+              "do_not_state_as_current",
+              "trust_unknown"
+            ],
+            "title": "Guidance",
+            "type": "string"
+          },
+          "guidance_detail": {
+            "title": "Guidance Detail",
+            "type": "string"
+          },
+          "publication_key": {
+            "title": "Publication Key",
+            "type": "string"
+          },
+          "validation_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation State"
+          }
+        },
+        "required": [
+          "publication_key",
+          "guidance",
+          "guidance_detail"
+        ],
+        "title": "PublicationTrustModel",
         "type": "object"
       },
       "RecentChangesResponse": {
@@ -9051,6 +9731,28 @@
               ],
               "title": "Status"
             }
+          },
+          {
+            "in": "query",
+            "name": "source_kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "policy",
+                    "assistant",
+                    "operator",
+                    "agent"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Kind"
+            }
           }
         ],
         "responses": {
@@ -9167,6 +9869,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ProposalResolutionModel"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -9206,6 +9925,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ProposalResolutionModel"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -9229,6 +9965,45 @@
           }
         },
         "summary": "Dismiss Action Proposal"
+      }
+    },
+    "/api/actions/proposals/{action_id}/review": {
+      "get": {
+        "operationId": "review_action_proposal_api_actions_proposals__action_id__review_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionProposalReviewModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Action Proposal"
       }
     },
     "/api/adapters/status": {
@@ -9294,6 +10069,62 @@
         "summary": "Get Adapter Instance Status"
       }
     },
+    "/api/agent/catalog": {
+      "get": {
+        "operationId": "get_agent_tool_catalog_api_agent_catalog_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentToolCatalogModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Agent Tool Catalog"
+      }
+    },
+    "/api/agent/manifest": {
+      "get": {
+        "operationId": "get_agent_capability_manifest_api_agent_manifest_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Agent Capability Manifest Api Agent Manifest Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Agent Capability Manifest"
+      }
+    },
+    "/api/agent/principals": {
+      "get": {
+        "operationId": "get_agent_principals_api_agent_principals_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPrincipalListModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Agent Principals"
+      }
+    },
     "/api/agent/semantic-index": {
       "get": {
         "operationId": "get_agent_semantic_index_api_agent_semantic_index_get",
@@ -9312,6 +10143,40 @@
                 }
               ],
               "title": "Query"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
             }
           }
         ],
@@ -9665,6 +10530,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ProposalResolutionModel"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -9704,6 +10586,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ProposalResolutionModel"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {

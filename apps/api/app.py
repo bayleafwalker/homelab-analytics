@@ -9,6 +9,7 @@ from typing import Any, Union
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
 
+from apps.agent.mcp_server import MCP_PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
 from apps.api.auth_policies import API_ROUTE_AUTHORIZATION_LOOKUP
 from apps.api.auth_runtime import (
     build_auth_context,
@@ -19,7 +20,12 @@ from apps.api.auth_runtime import (
 )
 from apps.api.routes.action_proposal_routes import register_action_proposal_routes
 from apps.api.routes.adapter_routes import register_adapter_routes
-from apps.api.routes.agent_routes import register_agent_routes
+from apps.api.routes.agent_routes import (
+    build_agent_publication_index,
+    build_publication_confidence_lookup,
+    publication_display_names,
+    register_agent_routes,
+)
 from apps.api.routes.assistant_routes import register_assistant_routes
 from apps.api.routes.auth_routes import register_auth_routes
 from apps.api.routes.briefing_routes import register_briefing_routes
@@ -71,6 +77,9 @@ from packages.adapters.prometheus_adapter import (
     PrometheusIngestAdapter,
 )
 from packages.adapters.registry import AdapterRegistry
+from packages.application.use_cases.agent_capability_manifest import (
+    build_agent_capability_manifest,
+)
 from packages.application.use_cases.run_management import (
     build_run_detail,
 )
@@ -102,6 +111,7 @@ from packages.platform.auth.oidc_provider import OidcProvider
 from packages.platform.auth.proxy_provider import ProxyProvider
 from packages.platform.auth.route_policy_engine import RouteAuthorizationLookup
 from packages.platform.auth.session_manager import SessionManager
+from packages.platform.publication_confidence import get_latest_publication_confidence
 from packages.platform.runtime.container import AppContainer
 from packages.shared.auth_modes import (
     normalize_auth_mode,
@@ -355,6 +365,19 @@ def _build_container_from_legacy_args(
         capability_packs=BUILTIN_CAPABILITY_PACKS,
     )
 
+
+
+def _agent_capability_manifest(settings: AppSettings) -> dict[str, Any] | None:
+    """The vuoro-aligned manifest when enabled in settings, else ``None``."""
+    if not settings.agent_manifest_enabled:
+        return None
+    return build_agent_capability_manifest(
+        repo_id=settings.agent_manifest_repo_id,
+        authority_repo_uuid=settings.agent_authority_repo_uuid,
+        server_name=SERVER_NAME,
+        server_version=SERVER_VERSION,
+        mcp_protocol_version=MCP_PROTOCOL_VERSION,
+    )
 
 def create_app(
     service_or_container: Union[AppContainer, AccountTransactionService],
@@ -754,16 +777,32 @@ def create_app(
         ha_action_proposal_registry=resolved_action_proposal_registry,
         to_jsonable=to_jsonable,
     )
+    agent_publication_index = build_agent_publication_index(
+        container.capability_packs,
+        container.extension_registry,
+    )
+
+    _agent_confidence_lookup = build_publication_confidence_lookup(
+        agent_publication_index,
+        lambda key: get_latest_publication_confidence(key, resolved_config_repository),
+    )
+
     register_action_proposal_routes(
         app,
         action_proposal_registry=resolved_action_proposal_registry,
         ha_action_dispatcher=ha_action_dispatcher,
+        publication_names=publication_display_names(agent_publication_index),
+        confidence_lookup=_agent_confidence_lookup,
     )
     register_agent_routes(
         app,
         capability_packs=container.capability_packs,
         extension_registry=container.extension_registry,
         resolved_reporting_service=reporting_service,
+        publication_semantic_index=agent_publication_index,
+        confidence_lookup=_agent_confidence_lookup,
+        action_proposal_registry=resolved_action_proposal_registry,
+        capability_manifest=_agent_capability_manifest(container.settings),
     )
     register_lineage_routes(
         app,

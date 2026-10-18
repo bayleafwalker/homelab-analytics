@@ -5,6 +5,13 @@ Any adapter, assistant, or agent submits proposals into this single queue;
 approval and dismissal remain the only state transitions that release a
 proposal, and execution stays owned by the adapter named on the proposal.
 
+Lifecycle: ``pending`` is the only non-terminal state. ``approve`` and
+``dismiss`` move a pending proposal to ``approved`` / ``dismissed``; a second
+resolution raises :class:`ProposalTransitionError` instead of silently
+flipping a decision the operator already made. Every transition appends a
+:class:`ProposalHistoryEvent` (drafted, refreshed, approved, dismissed) so the
+audit trail survives re-evaluation refreshes.
+
 The ``adapter`` field names which adapter must actuate or release the action
 once approved. Proposals with ``adapter="home_assistant"`` keep the existing
 HA dispatcher release path; other adapters (including ``"platform"`` for
@@ -25,8 +32,48 @@ from typing import Any, Literal
 ProposalStatus = Literal["pending", "approved", "dismissed"]
 ProposalSourceKind = Literal["policy", "assistant", "operator", "agent"]
 
+ProposalHistoryEventKind = Literal["drafted", "refreshed", "approved", "dismissed"]
+
 ADAPTER_HOME_ASSISTANT = "home_assistant"
 ADAPTER_PLATFORM = "platform"
+
+# Principals that authenticate as a machine rather than a person. They may
+# draft proposals but never resolve them: approval is a human decision.
+MACHINE_AUTH_PROVIDERS = frozenset({"service_token", "machine_jwt"})
+
+
+class ProposalTransitionError(ValueError):
+    """Raised when a resolution is requested for a non-pending proposal."""
+
+    def __init__(self, action_id: str, status: str) -> None:
+        super().__init__(
+            f"Proposal {action_id} is already {status}; only pending proposals "
+            "can be approved or dismissed."
+        )
+        self.action_id = action_id
+        self.status = status
+
+
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+@dataclass(frozen=True)
+class ProposalHistoryEvent:
+    """One append-only lifecycle event on a proposal."""
+
+    kind: ProposalHistoryEventKind
+    at: str
+    actor: str | None = None
+    reason: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "at": self.at,
+            "actor": self.actor,
+            "reason": self.reason,
+        }
 
 
 @dataclass
@@ -68,11 +115,14 @@ class ActionProposal:
     source_summary: str | None = None
     created_by: str | None = None
     status: ProposalStatus = "pending"
-    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
+    created_at: str = field(default_factory=_now_iso)
     approved_at: str | None = None
     dismissed_at: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     provenance: ProposalProvenance | None = None
+    resolved_by: str | None = None
+    resolution_reason: str | None = None
+    history: list[ProposalHistoryEvent] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -93,6 +143,9 @@ class ActionProposal:
             "dismissed_at": self.dismissed_at,
             "metadata": dict(self.metadata),
             "provenance": self.provenance.to_dict() if self.provenance is not None else None,
+            "resolved_by": self.resolved_by,
+            "resolution_reason": self.resolution_reason,
+            "history": [event.to_dict() for event in self.history],
         }
 
 
@@ -128,9 +181,14 @@ class ActionProposalRegistry:
         # proposals or silently reset one the operator is looking at.
         existing = self._proposals.get(resolved_action_id)
         if existing is not None and existing.status == "pending":
+            changed = existing.verdict != verdict or existing.value != value
             existing.verdict = verdict
             existing.value = value
             existing.metadata = dict(metadata or {})
+            if changed:
+                existing.history.append(
+                    ProposalHistoryEvent(kind="refreshed", at=_now_iso(), actor=created_by)
+                )
             return existing
 
         proposal = ActionProposal(
@@ -148,20 +206,54 @@ class ActionProposalRegistry:
             metadata=dict(metadata or {}),
             provenance=provenance,
         )
+        proposal.history.append(
+            ProposalHistoryEvent(kind="drafted", at=proposal.created_at, actor=created_by)
+        )
         self._proposals[resolved_action_id] = proposal
         return proposal
 
-    def approve(self, action_id: str) -> ActionProposal:
-        proposal = self._require(action_id)
+    def approve(
+        self,
+        action_id: str,
+        *,
+        resolved_by: str | None = None,
+        reason: str | None = None,
+    ) -> ActionProposal:
+        proposal = self._require_pending(action_id)
+        at = _now_iso()
         proposal.status = "approved"
-        proposal.approved_at = datetime.now(UTC).isoformat()
+        proposal.approved_at = at
+        self._record_resolution(proposal, "approved", at, resolved_by, reason)
         return proposal
 
-    def dismiss(self, action_id: str) -> ActionProposal:
-        proposal = self._require(action_id)
+    def dismiss(
+        self,
+        action_id: str,
+        *,
+        resolved_by: str | None = None,
+        reason: str | None = None,
+    ) -> ActionProposal:
+        proposal = self._require_pending(action_id)
+        at = _now_iso()
         proposal.status = "dismissed"
-        proposal.dismissed_at = datetime.now(UTC).isoformat()
+        proposal.dismissed_at = at
+        self._record_resolution(proposal, "dismissed", at, resolved_by, reason)
         return proposal
+
+    @staticmethod
+    def _record_resolution(
+        proposal: ActionProposal,
+        kind: Literal["approved", "dismissed"],
+        at: str,
+        resolved_by: str | None,
+        reason: str | None,
+    ) -> None:
+        cleaned_reason = reason.strip() if reason and reason.strip() else None
+        proposal.resolved_by = resolved_by
+        proposal.resolution_reason = cleaned_reason
+        proposal.history.append(
+            ProposalHistoryEvent(kind=kind, at=at, actor=resolved_by, reason=cleaned_reason)
+        )
 
     def get(self, action_id: str) -> ActionProposal | None:
         return self._proposals.get(action_id)
@@ -191,6 +283,12 @@ class ActionProposalRegistry:
             "approved": sum(1 for proposal in self._proposals.values() if proposal.status == "approved"),
             "dismissed": sum(1 for proposal in self._proposals.values() if proposal.status == "dismissed"),
         }
+
+    def _require_pending(self, action_id: str) -> ActionProposal:
+        proposal = self._require(action_id)
+        if proposal.status != "pending":
+            raise ProposalTransitionError(action_id, proposal.status)
+        return proposal
 
     def _require(self, action_id: str) -> ActionProposal:
         proposal = self._proposals.get(action_id)

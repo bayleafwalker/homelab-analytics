@@ -319,6 +319,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/actions/proposals/{action_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Review Action Proposal */
+        get: operations["review_action_proposal_api_actions_proposals__action_id__review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/adapters/status": {
         parameters: {
             query?: never;
@@ -356,6 +373,57 @@ export interface paths {
          *         404 if the adapter_key is not registered as a live instance.
          */
         get: operations["get_adapter_instance_status_api_adapters__adapter_key__status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Agent Tool Catalog */
+        get: operations["get_agent_tool_catalog_api_agent_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Agent Capability Manifest */
+        get: operations["get_agent_capability_manifest_api_agent_manifest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/principals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Agent Principals */
+        get: operations["get_agent_principals_api_agent_principals_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3458,6 +3526,8 @@ export interface components {
             created_by?: string | null;
             /** Dismissed At */
             dismissed_at?: string | null;
+            /** History */
+            history?: components["schemas"]["ProposalHistoryEventModel"][];
             /** Metadata */
             metadata?: {
                 [key: string]: unknown;
@@ -3469,6 +3539,10 @@ export interface components {
             /** Policy Name */
             policy_name: string;
             provenance?: components["schemas"]["ProposalProvenanceModel"] | null;
+            /** Resolution Reason */
+            resolution_reason?: string | null;
+            /** Resolved By */
+            resolved_by?: string | null;
             /** Source Key */
             source_key?: string | null;
             /**
@@ -3485,6 +3559,18 @@ export interface components {
             value?: string | null;
             /** Verdict */
             verdict: string;
+        };
+        /** ActionProposalReviewModel */
+        ActionProposalReviewModel: {
+            /** Change Preview */
+            change_preview: components["schemas"]["ProposalChangeRowModel"][];
+            effect: components["schemas"]["ProposalEffectModel"];
+            /** Evidence */
+            evidence: components["schemas"]["ProposalEvidenceModel"][];
+            proposal: components["schemas"]["ActionProposalModel"];
+            /** Schema Version */
+            schema_version: string;
+            trust: components["schemas"]["ProposalReviewTrustModel"];
         };
         /** AffordabilityRatiosResponse */
         AffordabilityRatiosResponse: {
@@ -3509,6 +3595,114 @@ export interface components {
             ratio_name: string;
             /** State */
             state: string;
+        };
+        /** AgentPrincipalListModel */
+        AgentPrincipalListModel: {
+            /** Principals */
+            principals: components["schemas"]["AgentPrincipalModel"][];
+            /**
+             * Registration Authority
+             * @default none
+             * @constant
+             */
+            registration_authority: "none";
+        };
+        /** AgentPrincipalModel */
+        AgentPrincipalModel: {
+            /** Approved */
+            approved: number;
+            /** Cited Publications */
+            cited_publications?: string[];
+            /** Created By */
+            created_by: string;
+            /** Dismissed */
+            dismissed: number;
+            /** First Seen At */
+            first_seen_at: string;
+            /** Last Seen At */
+            last_seen_at: string;
+            /** Origin */
+            origin: string;
+            /** Pending */
+            pending: number;
+            /** Proposal Count */
+            proposal_count: number;
+            /** Source Kind */
+            source_kind: string;
+        };
+        /** AgentToolCatalogEntryModel */
+        AgentToolCatalogEntryModel: {
+            /**
+             * Access Note
+             * @default
+             */
+            access_note: string;
+            /** Annotations */
+            annotations: {
+                [key: string]: unknown;
+            };
+            /** Description */
+            description: string;
+            /**
+             * Effect
+             * @enum {string}
+             */
+            effect: "read" | "draft";
+            /** Endpoints */
+            endpoints: components["schemas"]["AgentToolEndpointModel"][];
+            /**
+             * Execution Semantics
+             * @enum {string}
+             */
+            execution_semantics: "read" | "write" | "enqueue" | "admin";
+            /**
+             * Idempotency
+             * @enum {string}
+             */
+            idempotency: "not-allowed" | "optional" | "required";
+            /** Input Schema */
+            input_schema: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name: string;
+            /**
+             * Publication Note
+             * @default
+             */
+            publication_note: string;
+            /**
+             * Publication Scope
+             * @enum {string}
+             */
+            publication_scope: "catalog" | "named" | "cited" | "scenario_engine" | "none";
+            /** Publications */
+            publications?: string[];
+            /** Required Scope */
+            required_scope: string;
+            /** Title */
+            title: string;
+            /**
+             * Token Reachable
+             * @default true
+             */
+            token_reachable: boolean;
+            /** Vuoro Operation */
+            vuoro_operation: string;
+        };
+        /** AgentToolCatalogModel */
+        AgentToolCatalogModel: {
+            /** Schema Version */
+            schema_version: string;
+            /** Tools */
+            tools: components["schemas"]["AgentToolCatalogEntryModel"][];
+        };
+        /** AgentToolEndpointModel */
+        AgentToolEndpointModel: {
+            /** Method */
+            method: string;
+            /** Path */
+            path: string;
         };
         /** AnswerConfidenceSummary */
         AnswerConfidenceSummary: {
@@ -5396,6 +5590,62 @@ export interface components {
             /** Skipped */
             skipped: boolean;
         };
+        /** ProposalChangeRowModel */
+        ProposalChangeRowModel: {
+            /** After */
+            after?: string | null;
+            /** Before */
+            before?: string | null;
+            /** Changes */
+            changes: boolean;
+            /** Field */
+            field: string;
+            /** Label */
+            label: string;
+        };
+        /** ProposalEffectModel */
+        ProposalEffectModel: {
+            /** Adapter */
+            adapter: string;
+            /** External Effect */
+            external_effect: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "in_registry_only" | "release_ha_approval" | "adapter_release";
+            /** Summary */
+            summary: string;
+        };
+        /** ProposalEvidenceModel */
+        ProposalEvidenceModel: {
+            at_draft: components["schemas"]["ProposalTrustAtDraftModel"];
+            /** Contract Path */
+            contract_path?: string | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Known */
+            known: boolean;
+            /** Lineage Path */
+            lineage_path?: string | null;
+            now?: components["schemas"]["PublicationTrustModel"] | null;
+            /** Publication Key */
+            publication_key: string;
+        };
+        /** ProposalHistoryEventModel */
+        ProposalHistoryEventModel: {
+            /** Actor */
+            actor?: string | null;
+            /** At */
+            at: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "drafted" | "refreshed" | "approved" | "dismissed";
+            /** Reason */
+            reason?: string | null;
+        };
         /** ProposalProvenanceModel */
         ProposalProvenanceModel: {
             /** Assessed At */
@@ -5406,6 +5656,32 @@ export interface components {
             freshness_state_at_draft?: string | null;
             /** Publication Keys */
             publication_keys?: string[];
+        };
+        /** ProposalResolutionModel */
+        ProposalResolutionModel: {
+            /** Reason */
+            reason?: string | null;
+        };
+        /** ProposalReviewTrustModel */
+        ProposalReviewTrustModel: {
+            /** Caveats */
+            caveats?: string[];
+            /**
+             * Guidance
+             * @enum {string}
+             */
+            guidance: "state_as_current" | "state_with_caveat" | "do_not_state_as_current" | "trust_unknown";
+            /** Guidance Detail */
+            guidance_detail: string;
+        };
+        /** ProposalTrustAtDraftModel */
+        ProposalTrustAtDraftModel: {
+            /** Assessed At */
+            assessed_at?: string | null;
+            /** Confidence Verdict */
+            confidence_verdict?: string | null;
+            /** Freshness State */
+            freshness_state?: string | null;
         };
         /** PublicationColumnContractModel */
         PublicationColumnContractModel: {
@@ -5515,6 +5791,30 @@ export interface components {
             renderer?: string | null;
             /** Ui Descriptor Key */
             ui_descriptor_key?: string | null;
+        };
+        /** PublicationTrustModel */
+        PublicationTrustModel: {
+            /** Assessed At */
+            assessed_at?: string | null;
+            /** Completeness Pct */
+            completeness_pct?: number | null;
+            /** Completeness State */
+            completeness_state?: string | null;
+            /** Confidence Verdict */
+            confidence_verdict?: string | null;
+            /** Freshness State */
+            freshness_state?: string | null;
+            /**
+             * Guidance
+             * @enum {string}
+             */
+            guidance: "state_as_current" | "state_with_caveat" | "do_not_state_as_current" | "trust_unknown";
+            /** Guidance Detail */
+            guidance_detail: string;
+            /** Publication Key */
+            publication_key: string;
+            /** Validation State */
+            validation_state?: string | null;
         };
         /** RecentChangesResponse */
         RecentChangesResponse: {
@@ -6371,6 +6671,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: ("pending" | "approved" | "dismissed") | null;
+                source_kind?: ("policy" | "assistant" | "operator" | "agent") | null;
             };
             header?: never;
             path?: never;
@@ -6471,7 +6772,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ProposalResolutionModel"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -6502,7 +6807,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ProposalResolutionModel"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -6511,6 +6820,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActionProposalModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_action_proposal_api_actions_proposals__action_id__review_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionProposalReviewModel"];
                 };
             };
             /** @description Validation Error */
@@ -6579,10 +6919,74 @@ export interface operations {
             };
         };
     };
+    get_agent_tool_catalog_api_agent_catalog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentToolCatalogModel"];
+                };
+            };
+        };
+    };
+    get_agent_capability_manifest_api_agent_manifest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get_agent_principals_api_agent_principals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPrincipalListModel"];
+                };
+            };
+        };
+    };
     get_agent_semantic_index_api_agent_semantic_index_get: {
         parameters: {
             query?: {
                 query?: string | null;
+                limit?: number | null;
+                cursor?: string | null;
             };
             header?: never;
             path?: never;
@@ -6880,7 +7284,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ProposalResolutionModel"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -6911,7 +7319,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ProposalResolutionModel"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

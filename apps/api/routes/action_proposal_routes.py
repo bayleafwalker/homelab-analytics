@@ -14,21 +14,46 @@ Routes:
 - ``GET  /api/actions/proposals/{action_id}`` — fetch one proposal
 - ``POST /api/actions/proposals/{action_id}/approve`` — approve
 - ``POST /api/actions/proposals/{action_id}/dismiss`` — dismiss
+- ``GET  /api/actions/proposals/{action_id}/review`` — operator review model:
+  effect, diff-style change preview, cited evidence with trust at draft vs
+  now, and caveats
+
+Drafts that cite ``provenance.publication_keys`` without trust fields get the
+worst-case trust of those publications stamped server-side, so the proposer
+cannot omit (or overstate) what its evidence looked like at draft time.
+
+Resolution rules (shared with the HA approval routes):
+
+- only ``pending`` proposals can be resolved; a second resolution is ``409``
+- machine principals (service tokens, machine JWTs) may draft but never
+  resolve a proposal (``403``) — approval is a human decision
+- approve/dismiss accept an optional ``{"reason": ...}`` body; the resolver
+  and reason are recorded on the proposal and in its append-only history
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, Literal, cast
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from packages.application.use_cases.agent_proposal_review import (
+    build_proposal_review,
+    stamp_provenance_trust,
+)
+from packages.application.use_cases.agent_trust import ConfidenceLookup
 from packages.platform.action_proposals import (
     ADAPTER_HOME_ASSISTANT,
     ADAPTER_PLATFORM,
+    MACHINE_AUTH_PROVIDERS,
     ActionProposal,
     ActionProposalRegistry,
     ProposalProvenance,
+    ProposalTransitionError,
 )
+
+MAX_RESOLUTION_REASON_LENGTH = 500
 
 
 class ProposalProvenanceModel(BaseModel):
@@ -36,6 +61,17 @@ class ProposalProvenanceModel(BaseModel):
     confidence_verdict_at_draft: str | None = None
     freshness_state_at_draft: str | None = None
     assessed_at: str | None = None
+
+
+class ProposalHistoryEventModel(BaseModel):
+    kind: Literal["drafted", "refreshed", "approved", "dismissed"]
+    at: str
+    actor: str | None = None
+    reason: str | None = None
+
+
+class ProposalResolutionModel(BaseModel):
+    reason: str | None = Field(default=None, max_length=MAX_RESOLUTION_REASON_LENGTH)
 
 
 class ActionProposalModel(BaseModel):
@@ -56,6 +92,9 @@ class ActionProposalModel(BaseModel):
     dismissed_at: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     provenance: ProposalProvenanceModel | None = None
+    resolved_by: str | None = None
+    resolution_reason: str | None = None
+    history: list[ProposalHistoryEventModel] = Field(default_factory=list)
 
 
 class ActionProposalCreateModel(BaseModel):
@@ -78,13 +117,139 @@ class ActionProposalListModel(BaseModel):
     proposals: list[ActionProposalModel]
 
 
+class ProposalEffectModel(BaseModel):
+    adapter: str
+    kind: Literal["in_registry_only", "release_ha_approval", "adapter_release"]
+    summary: str
+    external_effect: bool
+
+
+class ProposalChangeRowModel(BaseModel):
+    field: str
+    label: str
+    before: str | None = None
+    after: str | None = None
+    changes: bool
+
+
+class ProposalTrustAtDraftModel(BaseModel):
+    confidence_verdict: str | None = None
+    freshness_state: str | None = None
+    assessed_at: str | None = None
+
+
+class PublicationTrustModel(BaseModel):
+    publication_key: str
+    confidence_verdict: str | None = None
+    freshness_state: str | None = None
+    completeness_pct: int | None = None
+    validation_state: str | None = None
+    completeness_state: str | None = None
+    assessed_at: str | None = None
+    guidance: Literal[
+        "state_as_current",
+        "state_with_caveat",
+        "do_not_state_as_current",
+        "trust_unknown",
+    ]
+    guidance_detail: str
+
+
+class ProposalEvidenceModel(BaseModel):
+    publication_key: str
+    display_name: str | None = None
+    known: bool
+    at_draft: ProposalTrustAtDraftModel
+    now: PublicationTrustModel | None = None
+    contract_path: str | None = None
+    lineage_path: str | None = None
+
+
+class ProposalReviewTrustModel(BaseModel):
+    guidance: Literal[
+        "state_as_current",
+        "state_with_caveat",
+        "do_not_state_as_current",
+        "trust_unknown",
+    ]
+    guidance_detail: str
+    caveats: list[str] = Field(default_factory=list)
+
+
+class ActionProposalReviewModel(BaseModel):
+    schema_version: str
+    proposal: ActionProposalModel
+    effect: ProposalEffectModel
+    change_preview: list[ProposalChangeRowModel]
+    evidence: list[ProposalEvidenceModel]
+    trust: ProposalReviewTrustModel
+
+
+def resolver_identity(request: Request) -> str | None:
+    """Identity recorded as the resolver of a proposal.
+
+    Raises ``403`` for machine principals: agents and service tokens may
+    draft proposals but must never approve or dismiss them, including their
+    own. When auth is disabled there is no principal and the resolution is
+    recorded without an actor.
+    """
+    principal = cast(Any, getattr(request.state, "principal", None))
+    if principal is None:
+        return None
+    if getattr(principal, "auth_provider", None) in MACHINE_AUTH_PROVIDERS:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Machine principals cannot approve or dismiss proposals; "
+                "an operator must resolve them from the control surface."
+            ),
+        )
+    return cast(str | None, getattr(principal, "username", None))
+
+
+def resolve_proposal(
+    registry: ActionProposalRegistry,
+    action_id: str,
+    resolution: Literal["approved", "dismissed"],
+    *,
+    resolved_by: str | None,
+    reason: str | None,
+) -> ActionProposal:
+    """Apply a resolution, mapping registry errors onto HTTP errors."""
+    try:
+        if resolution == "approved":
+            return registry.approve(action_id, resolved_by=resolved_by, reason=reason)
+        return registry.dismiss(action_id, resolved_by=resolved_by, reason=reason)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Unknown approval action.") from exc
+    except ProposalTransitionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+def require_pending_proposal(
+    registry: ActionProposalRegistry, action_id: str
+) -> ActionProposal:
+    proposal = registry.get(action_id)
+    if proposal is None:
+        raise HTTPException(status_code=404, detail="Unknown approval action.")
+    if proposal.status != "pending":
+        raise HTTPException(
+            status_code=409,
+            detail=str(ProposalTransitionError(action_id, proposal.status)),
+        )
+    return proposal
+
+
 def register_action_proposal_routes(
     app: FastAPI,
     *,
     action_proposal_registry: ActionProposalRegistry,
     ha_action_dispatcher: Any | None = None,
+    publication_names: Mapping[str, str] | None = None,
+    confidence_lookup: ConfidenceLookup | None = None,
 ) -> None:
     """Register the adapter-agnostic proposal queue routes."""
+    known_publication_names: Mapping[str, str] = publication_names or {}
 
     async def _release_through_adapter(
         proposal: ActionProposal,
@@ -104,10 +269,15 @@ def register_action_proposal_routes(
     @app.get("/api/actions/proposals", response_model=ActionProposalListModel)
     async def list_action_proposals(
         status: Literal["pending", "approved", "dismissed"] | None = None,
+        source_kind: Literal["policy", "assistant", "operator", "agent"] | None = None,
     ) -> ActionProposalListModel:
         proposals = action_proposal_registry.list_all()
         if status is not None:
             proposals = [proposal for proposal in proposals if proposal.status == status]
+        if source_kind is not None:
+            proposals = [
+                proposal for proposal in proposals if proposal.source_kind == source_kind
+            ]
         return ActionProposalListModel(
             proposals=[
                 ActionProposalModel.model_validate(proposal.to_dict())
@@ -128,12 +298,24 @@ def register_action_proposal_routes(
         )
         provenance = None
         if body.provenance is not None:
-            provenance = ProposalProvenance(
-                publication_keys=list(body.provenance.publication_keys),
-                confidence_verdict_at_draft=body.provenance.confidence_verdict_at_draft,
-                freshness_state_at_draft=body.provenance.freshness_state_at_draft,
-                assessed_at=body.provenance.assessed_at,
-            )
+            publication_keys = list(body.provenance.publication_keys)
+            if publication_keys and confidence_lookup is not None:
+                # The platform, not the proposer, records what the cited
+                # evidence looked like at draft time.
+                stamped = stamp_provenance_trust(publication_keys, confidence_lookup)
+                provenance = ProposalProvenance(
+                    publication_keys=publication_keys,
+                    confidence_verdict_at_draft=stamped["confidence_verdict_at_draft"],
+                    freshness_state_at_draft=stamped["freshness_state_at_draft"],
+                    assessed_at=stamped["assessed_at"],
+                )
+            else:
+                provenance = ProposalProvenance(
+                    publication_keys=publication_keys,
+                    confidence_verdict_at_draft=body.provenance.confidence_verdict_at_draft,
+                    freshness_state_at_draft=body.provenance.freshness_state_at_draft,
+                    assessed_at=body.provenance.assessed_at,
+                )
         proposal = action_proposal_registry.register(
             policy_id=body.policy_id,
             policy_name=body.policy_name,
@@ -165,22 +347,58 @@ def register_action_proposal_routes(
         proposal = _require_proposal(action_id)
         return ActionProposalModel.model_validate(proposal.to_dict())
 
+    @app.get(
+        "/api/actions/proposals/{action_id}/review",
+        response_model=ActionProposalReviewModel,
+    )
+    async def review_action_proposal(action_id: str) -> ActionProposalReviewModel:
+        proposal = _require_proposal(action_id)
+        return ActionProposalReviewModel.model_validate(
+            build_proposal_review(
+                proposal,
+                publication_names=known_publication_names,
+                confidence_lookup=confidence_lookup,
+            )
+        )
+
     @app.post(
         "/api/actions/proposals/{action_id}/approve",
         response_model=ActionProposalModel,
     )
-    async def approve_action_proposal(action_id: str) -> ActionProposalModel:
-        proposal = _require_proposal(action_id)
+    async def approve_action_proposal(
+        action_id: str,
+        request: Request,
+        body: ProposalResolutionModel | None = None,
+    ) -> ActionProposalModel:
+        resolved_by = resolver_identity(request)
+        proposal = require_pending_proposal(action_proposal_registry, action_id)
         await _release_through_adapter(proposal, "approved")
-        proposal = action_proposal_registry.approve(action_id)
+        proposal = resolve_proposal(
+            action_proposal_registry,
+            action_id,
+            "approved",
+            resolved_by=resolved_by,
+            reason=body.reason if body is not None else None,
+        )
         return ActionProposalModel.model_validate(proposal.to_dict())
 
     @app.post(
         "/api/actions/proposals/{action_id}/dismiss",
         response_model=ActionProposalModel,
     )
-    async def dismiss_action_proposal(action_id: str) -> ActionProposalModel:
-        proposal = _require_proposal(action_id)
+    async def dismiss_action_proposal(
+        action_id: str,
+        request: Request,
+        body: ProposalResolutionModel | None = None,
+    ) -> ActionProposalModel:
+        resolved_by = resolver_identity(request)
+        proposal = require_pending_proposal(action_proposal_registry, action_id)
         await _release_through_adapter(proposal, "dismissed")
-        proposal = action_proposal_registry.dismiss(action_id)
+        proposal = resolve_proposal(
+            action_proposal_registry,
+            action_id,
+            "dismissed",
+            resolved_by=resolved_by,
+            reason=body.reason if body is not None else None,
+        )
         return ActionProposalModel.model_validate(proposal.to_dict())

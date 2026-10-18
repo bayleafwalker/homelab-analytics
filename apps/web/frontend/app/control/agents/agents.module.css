@@ -1,0 +1,171 @@
+/* Agent control surface: scoped styles only; shared primitives come from globals. */
+
+.viewNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.viewLink {
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: var(--type-scale-2);
+}
+
+.viewLink[data-active="true"] {
+  border-color: var(--line-strong);
+  background: var(--paper);
+  font-weight: 700;
+}
+
+.reviewCard {
+  display: grid;
+  gap: 16px;
+}
+
+.metaLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  color: var(--muted);
+  font-size: var(--type-scale-1);
+}
+
+.effect {
+  border-left: 3px solid var(--accent-cool);
+  padding: 4px 0 4px 12px;
+}
+
+.effect[data-external="true"] {
+  border-left-color: var(--accent-warm);
+}
+
+.diff {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) minmax(80px, max-content) max-content 1fr;
+  gap: 6px 12px;
+  align-items: baseline;
+  font-family: var(--retro-font-mono), monospace;
+  font-size: var(--type-scale-2);
+}
+
+.diffLabel {
+  color: var(--muted);
+  font-family: var(--font-sans);
+}
+
+.diffBefore {
+  color: var(--muted);
+}
+
+.diffBefore[data-changes="true"][data-empty="false"] {
+  text-decoration: line-through;
+  color: var(--warn);
+}
+
+.diffAfter[data-changes="true"] {
+  color: var(--ok);
+  font-weight: 700;
+}
+
+.diffArrow {
+  color: var(--muted);
+}
+
+.evidenceRow {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.2fr) 1fr 1fr auto;
+  gap: 8px 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  align-items: start;
+}
+
+.evidenceHead {
+  color: var(--muted);
+  font-size: var(--type-scale-1);
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+
+.drillLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.caveats {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--warn);
+}
+
+.resolveForm {
+  display: grid;
+  gap: 8px;
+}
+
+.reason {
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.timeline li {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 10px;
+  font-size: var(--type-scale-2);
+}
+
+.catalogTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-scale-2);
+}
+
+.catalogTable th,
+.catalogTable td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 10px;
+  border-top: 1px solid var(--line);
+}
+
+.catalogTable code {
+  font-size: var(--type-scale-1);
+}
+
+@media (max-width: 760px) {
+  .diff {
+    grid-template-columns: 1fr;
+  }
+
+  .diffArrow {
+    display: none;
+  }
+
+  .evidenceRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.viewBody {
+  padding: 18px 20px;
+}
