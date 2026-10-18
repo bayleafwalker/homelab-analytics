@@ -13,6 +13,7 @@ from packages.application.use_cases.ops_metrics import (
     build_ops_metrics_collector,
     collect_backup_status_metrics,
     collect_confidence_metrics,
+    collect_ha_bridge_metrics,
     collect_ingestion_run_metrics,
     collect_source_freshness_metrics,
     collect_worker_heartbeat_metrics,
@@ -329,3 +330,89 @@ def test_api_metrics_require_scrape_token_when_configured() -> None:
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/plain")
+
+
+class _FakeBridge:
+    def __init__(self, *, connected: bool, last_sync_at: str | None, reconnect_count: int) -> None:
+        self.status: dict[str, object] = {
+            "connected": connected,
+            "last_sync_at": last_sync_at,
+            "reconnect_count": reconnect_count,
+        }
+
+    def get_status(self) -> dict[str, object]:
+        return dict(self.status)
+
+    def get_runtime_status(self) -> SimpleNamespace:
+        return SimpleNamespace(
+            enabled=True,
+            connected=self.status["connected"],
+            last_activity_at=self.status["last_sync_at"],
+            error_count=0,
+            extra={},
+        )
+
+    def start(self) -> None:
+        return None
+
+    async def stop(self) -> None:
+        return None
+
+
+def test_ha_bridge_metrics_absent_bridge_exports_only_enabled() -> None:
+    registry = MetricsRegistry()
+    collect_ha_bridge_metrics(registry, None, now=NOW)
+
+    text = registry.render_prometheus_text()
+    assert "homelab_analytics_ha_bridge_enabled 0" in text
+    assert "homelab_analytics_ha_bridge_connected" not in text
+
+
+def test_ha_bridge_metrics_connected_and_message_age() -> None:
+    registry = MetricsRegistry()
+    last = NOW - timedelta(seconds=90)
+    bridge = _FakeBridge(connected=True, last_sync_at=last.isoformat(), reconnect_count=3)
+
+    collect_ha_bridge_metrics(registry, bridge, now=NOW)
+
+    text = registry.render_prometheus_text()
+    assert "homelab_analytics_ha_bridge_enabled 1" in text
+    assert "homelab_analytics_ha_bridge_connected 1" in text
+    assert f"homelab_analytics_ha_bridge_last_message_timestamp_seconds {int(last.timestamp())}" in text
+    assert "homelab_analytics_ha_bridge_last_message_age_seconds 90" in text
+    assert "# TYPE homelab_analytics_ha_bridge_reconnects_total counter" in text
+    assert "homelab_analytics_ha_bridge_reconnects_total 3" in text
+
+    bridge.status.update(connected=False, last_sync_at=None)
+    collect_ha_bridge_metrics(registry, bridge, now=NOW)
+    text = registry.render_prometheus_text()
+    assert "homelab_analytics_ha_bridge_connected 0" in text
+    assert "homelab_analytics_ha_bridge_last_message_age_seconds -1" in text
+    assert "homelab_analytics_ha_bridge_last_message_timestamp_seconds 0" in text
+
+
+def test_api_metrics_export_ha_bridge_state() -> None:
+    with TemporaryDirectory() as temp_dir:
+        service = AccountTransactionService(
+            landing_root=Path(temp_dir) / "landing",
+            metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+        )
+        bridge = _FakeBridge(
+            connected=True,
+            last_sync_at=datetime.now(UTC).isoformat(),
+            reconnect_count=0,
+        )
+        app = create_app(
+            service,
+            config_repository=IngestionConfigRepository(Path(temp_dir) / "config.db"),
+            ha_bridge=bridge,
+        )
+        client = TestClient(app)
+
+        text = client.get("/metrics").text
+        status = client.get("/api/ha/bridge/status")
+
+    assert "homelab_analytics_ha_bridge_enabled 1" in text
+    assert "homelab_analytics_ha_bridge_connected 1" in text
+    assert 'homelab_analytics_metrics_collector_up{collector="ha_bridge"} 1' in text
+    assert status.json()["connected"] is True

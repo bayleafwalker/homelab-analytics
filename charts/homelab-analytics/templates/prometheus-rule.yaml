@@ -100,6 +100,19 @@ spec:
             clamp_min(sum(increase(homelab_analytics_publication_refresh_duration_seconds_count[6h])), 1e-9)
         - record: homelab_analytics:backup_age_seconds
           expr: time() - max(homelab_analytics_backup_last_success_timestamp_seconds > 0)
+        - record: homelab_analytics:backup_ship_age_seconds
+          expr: time() - max(homelab_analytics_backup_ship_last_success_timestamp_seconds > 0)
+        # Ingestion success: landed / (landed + failed). Rejected runs are data
+        # problems and received runs are in flight; neither counts.
+        - record: homelab_analytics:ingestion_runs_attempted:increase1d
+          expr: sum(max by (status) (increase(homelab_analytics_ingestion_runs_recorded_total{status=~"landed|failed"}[1d])))
+        - record: homelab_analytics:ingestion_failures:ratio_increase1d
+          expr: |-
+            sum(max by (status) (increase(homelab_analytics_ingestion_runs_recorded_total{status="failed"}[1d])))
+            /
+            clamp_min(sum(max by (status) (increase(homelab_analytics_ingestion_runs_recorded_total{status=~"landed|failed"}[1d]))), 1e-9)
+        - record: homelab_analytics:ha_bridge_connected:ratio_avg6h
+          expr: max(avg_over_time(homelab_analytics_ha_bridge_connected[6h]))
         - alert: HomelabAnalyticsApiErrorBudgetFastBurn
           # 14.4x burn of a {{ .apiAvailabilityTarget }} target exhausts a 30-day budget in ~2 days.
           expr: |-
@@ -208,6 +221,74 @@ spec:
           annotations:
             summary: No passing restore drill recently.
             description: Run "homelab-analytics-worker restore-drill" (docs/runbooks/backup-and-restore.md).
+        - alert: HomelabAnalyticsBackupShipStale
+          expr: homelab_analytics:backup_ship_age_seconds > {{ .backupShipMaxAgeSeconds }}
+          for: 30m
+          labels:
+            severity: warning
+            slo: backup-offsite
+          annotations:
+            summary: No backup bundle shipped off-site in more than {{ .backupShipMaxAgeSeconds }}s.
+            description: Check ship-status.json last_error and the backup-ship container log; a stale local backup (BackupStale) also stops shipments.
+        - alert: HomelabAnalyticsBackupShipPending
+          expr: max(homelab_analytics_backup_ship_pending_bundles) > 0
+          for: {{ .backupShipPendingFor }}
+          labels:
+            severity: warning
+            slo: backup-offsite
+          annotations:
+            summary: A verified backup bundle has not been shipped off-site for {{ .backupShipPendingFor }}.
+            description: The backup-ship sidecar retries every pass; check its log ("shipping ... failed", "age not available") and ship-status.json last_error.
+        - alert: HomelabAnalyticsBackupShipStalled
+          expr: time() - max(homelab_analytics_backup_ship_last_pass_timestamp_seconds) > {{ .backupShipPassMaxAgeSeconds }}
+          for: 15m
+          labels:
+            severity: warning
+            slo: backup-offsite
+          annotations:
+            summary: The backup-ship sidecar has not finished a pass in more than {{ .backupShipPassMaxAgeSeconds }}s.
+            description: The sidecar is stuck (a hung upload) or not running; check the backup-ship container status and log.
+        - alert: HomelabAnalyticsIngestionFailing
+          # {{ .ingestionFailureBurnFactor }}x the {{ .ingestionSuccessTarget }} target's failure share over a day, with enough runs to mean something.
+          expr: |-
+            homelab_analytics:ingestion_failures:ratio_increase1d > ({{ .ingestionFailureBurnFactor }} * (1 - {{ .ingestionSuccessTarget }}))
+            and homelab_analytics:ingestion_runs_attempted:increase1d >= {{ .ingestionMinRunsPerDay }}
+          for: 1h
+          labels:
+            severity: warning
+            slo: ingestion-success
+          annotations:
+            summary: Ingestion runs are failing above budget.
+            description: More than {{ printf "%.0f" (mulf .ingestionFailureBurnFactor (subf 1.0 .ingestionSuccessTarget) 100.0) }}% of landed-or-failed ingestion runs failed over 1d. list-runs shows the failed runs and their errors.
+        - alert: HomelabAnalyticsHaBridgeDisconnected
+          expr: max(homelab_analytics_ha_bridge_connected) == 0
+          for: 15m
+          labels:
+            severity: warning
+            slo: ha-bridge-availability
+          annotations:
+            summary: The Home Assistant bridge has been disconnected for 15m.
+            description: GET /api/ha/bridge/status shows reconnect_count; check Home Assistant reachability and the HA token.
+        - alert: HomelabAnalyticsHaBridgeAvailabilityBurn
+          expr: homelab_analytics:ha_bridge_connected:ratio_avg6h < (1 - 6 * (1 - {{ .haBridgeAvailabilityTarget }}))
+          for: 30m
+          labels:
+            severity: warning
+            slo: ha-bridge-availability
+          annotations:
+            summary: The Home Assistant bridge is burning its availability budget (flapping).
+            description: Connected less than {{ printf "%.0f" (mulf (subf 1.0 (mulf 6.0 (subf 1.0 .haBridgeAvailabilityTarget))) 100.0) }}% of the last 6h.
+        - alert: HomelabAnalyticsHaBridgeSilent
+          expr: |-
+            max(homelab_analytics_ha_bridge_connected) == 1
+            and min(homelab_analytics_ha_bridge_last_message_age_seconds) > {{ .haBridgeMaxMessageAgeSeconds }}
+          for: 15m
+          labels:
+            severity: warning
+            slo: ha-bridge-availability
+          annotations:
+            summary: The Home Assistant bridge is connected but has ingested nothing for more than {{ .haBridgeMaxMessageAgeSeconds }}s.
+            description: The state_changed subscription is broken or Home Assistant is idle; restart the api container if Home Assistant is producing events.
         - alert: HomelabAnalyticsMetricsCollectorDown
           expr: min by (collector) (homelab_analytics_metrics_collector_up) == 0
           for: 15m

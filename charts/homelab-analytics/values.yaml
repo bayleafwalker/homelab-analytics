@@ -76,6 +76,18 @@ monitoring:
       workerHeartbeatMaxAgeSeconds: 600
       backupMaxAgeSeconds: 93600
       restoreDrillMaxAgeSeconds: 691200
+      # Off-site shipment (backup-ship sidecar's ship-status.json). Silent where
+      # no sidecar writes the file.
+      backupShipMaxAgeSeconds: 93600
+      backupShipPendingFor: 2h
+      backupShipPassMaxAgeSeconds: 3600
+      # Ingestion success: landed / (landed + failed) runs.
+      ingestionSuccessTarget: 0.98
+      ingestionFailureBurnFactor: 5.0
+      ingestionMinRunsPerDay: 3
+      # Home Assistant bridge (API process). Silent where no bridge runs.
+      haBridgeAvailabilityTarget: 0.99
+      haBridgeMaxMessageAgeSeconds: 3600
   # PodMonitor scraping the api /metrics and the worker metrics port.
   podMonitor:
     enabled: false

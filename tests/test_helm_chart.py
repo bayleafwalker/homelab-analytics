@@ -377,8 +377,23 @@ class HelmChartTests(unittest.TestCase):
             "HomelabAnalyticsPublicationRefreshFailing",
             "HomelabAnalyticsWorkerLoopStalled",
             "HomelabAnalyticsBackupStale",
+            "HomelabAnalyticsBackupShipStale",
+            "HomelabAnalyticsBackupShipPending",
+            "HomelabAnalyticsIngestionFailing",
+            "HomelabAnalyticsHaBridgeDisconnected",
+            "HomelabAnalyticsHaBridgeSilent",
         ):
             self.assertIn(alert, alerts)
+        by_alert = {entry["alert"]: entry for entry in slo_group["rules"] if "alert" in entry}
+        self.assertEqual(
+            "homelab_analytics:backup_ship_age_seconds > 93600",
+            by_alert["HomelabAnalyticsBackupShipStale"]["expr"],
+        )
+        self.assertIn(
+            "homelab_analytics:ingestion_failures:ratio_increase1d > (5 * (1 - 0.98))",
+            by_alert["HomelabAnalyticsIngestionFailing"]["expr"],
+        )
+        self.assertEqual("ha-bridge-availability", by_alert["HomelabAnalyticsHaBridgeDisconnected"]["labels"]["slo"])
 
         monitor = by_kind_name[("PodMonitor", "test-release-homelab-analytics")]
         endpoints = monitor["spec"]["podMetricsEndpoints"]

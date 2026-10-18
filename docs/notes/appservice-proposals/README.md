@@ -19,17 +19,24 @@ applied unpinned.
 
 | File here | Target in appservice (`clusters/main/kubernetes/`) | What it does |
 |---|---|---|
-| `deployment.yaml` | `apps/homelab-analytics/app/deployment.yaml` (replace the first document) | New digest; worker metrics port 9464; daily scheduled backup (retention 3) into `/data/backups`; `backup-ship` sidecar (tar \| age \| rclone to `appservice-pgdump-locked`, prefix `backups/app-bundles/analytics/homelab-analytics/`, 30-day remote retention under Object Lock) |
+| `deployment.yaml` | `apps/homelab-analytics/app/deployment.yaml` (replace the first document) | New digest; worker metrics port 9464; daily scheduled backup (retention 3) into `/data/backups`; `backup-ship` sidecar (tar \| age \| rclone to `appservice-pgdump-locked`, prefix `backups/app-bundles/analytics/homelab-analytics/`, 30-day remote retention under Object Lock) that writes `/data/backups/ship-status.json` after every pass for the off-site shipment SLO |
 | `podmonitor.yaml` | `apps/homelab-analytics/app/podmonitor.yaml` | Scrape api `:8080/metrics` and worker `:9464/metrics` |
-| `prometheusrule-slo.yaml` | `apps/homelab-analytics/app/prometheusrule-slo.yaml` | SLO recording rules + burn-rate/freshness/refresh/worker/backup alerts (generated from the chart; `promtool check rules` passes) |
+| `prometheusrule-slo.yaml` | `apps/homelab-analytics/app/prometheusrule-slo.yaml` | SLO recording rules + burn-rate/freshness/refresh/worker/backup/off-site shipment/ingestion success/HA bridge alerts (generated from the chart; `promtool check rules` passes) |
 | `networkpolicy-observability.cnp.yaml` | `apps/homelab-analytics/app/` | Ingress from Prometheus (8080, 9464) and gatus (8080 api, 8081 web) |
 | `networkpolicy-backup-ship.cnp.yaml` | `apps/homelab-analytics/app/` | Egress 443 to GitHub (age release) and the Hetzner endpoint only, via toFQDNs |
 | `gatus-endpoints.yaml` | append to `apps/gatus/app/configmap.yaml` | `/ready` checks for api (status + body + latency) and web |
-| `grafana-dashboard.configmap.yaml` | `system/kube-prometheus-stack/app/grafana-dashboard-homelab-analytics.yaml` | Ops/SLO dashboard for the Grafana sidecar (`grafana_dashboard: "1"`) |
+| `grafana-dashboard.configmap.yaml` | `system/kube-prometheus-stack/app/grafana-dashboard-homelab-analytics.yaml` | Ops/SLO dashboard for the Grafana sidecar (`grafana_dashboard: "1"`); Flux substitution disabled so Grafana's `${datasource}` variable survives |
 
 Add the four new `apps/homelab-analytics/app/` files to that directory's
 `kustomization.yaml` `resources`, and the dashboard to
 `system/kube-prometheus-stack/app/kustomization.yaml`.
+
+`prometheusrule-slo.yaml` and `grafana-dashboard.configmap.yaml` are
+generated: change the chart, then run
+`python scripts/render_appservice_proposals.py` (needs `helm`);
+`tests/test_appservice_proposals.py` fails on drift. Everything here goes
+through the cluster-wide Flux postBuild substitution, so scripts in these
+manifests use `$var`, never the dollar-brace form, which Flux would blank.
 
 ## Order
 
@@ -50,6 +57,11 @@ Add the four new `apps/homelab-analytics/app/` files to that directory's
   `/data/backups/backup-<stamp>/` exists and `backup-status.json` has
   `last_success_at`; `homelab_analytics_backup_last_success_timestamp_seconds`
   is non-zero; the `backup-ship` log prints `shipped backup-<stamp>.tar.age`.
+- Within one ship interval (15 min) after that:
+  `/data/backups/ship-status.json` has `last_success_at` and
+  `"consecutive_failures": 0`;
+  `homelab_analytics_backup_ship_last_success_timestamp_seconds` is non-zero
+  and `homelab_analytics_backup_ship_pending_bundles` is 0.
 - Drill: `homelab-analytics-worker restore-drill` in the worker container
   prints `"passed": true`
   ([runbook](../../runbooks/backup-and-restore.md#restore-drill)).

@@ -607,6 +607,7 @@ def create_app(
             config_repository=resolved_config_repository,
             metadata_repository=container.run_metadata_store,
             backup_dir=container.settings.resolved_backup_dir,
+            ha_bridge=ha_bridge,
         ),
     )
     install_warehouse_access(app, transformation_service)
