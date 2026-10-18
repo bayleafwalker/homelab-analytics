@@ -2901,6 +2901,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reports/cashflow-map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Cashflow Map */
+        get: operations["get_cashflow_map_reports_cashflow_map_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reports/contract-prices": {
         parameters: {
             query?: never;
@@ -4085,6 +4102,116 @@ export interface components {
             variance: string;
             /** Variance Pct */
             variance_pct?: string | null;
+        };
+        /** CashflowMapDisclosure */
+        CashflowMapDisclosure: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /** Severity */
+            severity: string;
+        };
+        /** CashflowMapLink */
+        CashflowMapLink: {
+            /** Amount */
+            amount: string;
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
+        };
+        /** CashflowMapNode */
+        CashflowMapNode: {
+            /** Amount */
+            amount: string;
+            /** Column */
+            column: number;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Members */
+            members: string[];
+            /** Share */
+            share: number;
+            /** Transaction Count */
+            transaction_count: number;
+            /** Trend */
+            trend: components["schemas"]["CashflowMapTrendPoint"][];
+        };
+        /** CashflowMapProvenance */
+        CashflowMapProvenance: {
+            /** Data Through */
+            data_through: string | null;
+            /** Publications */
+            publications: string[];
+            /** Transaction Count */
+            transaction_count: number;
+        };
+        /** CashflowMapResponse */
+        CashflowMapResponse: {
+            /** Currency */
+            currency: string | null;
+            /** Disclosures */
+            disclosures: components["schemas"]["CashflowMapDisclosure"][];
+            /** Grouping */
+            grouping: string;
+            /** Include Transfers */
+            include_transfers: boolean;
+            /** Links */
+            links: components["schemas"]["CashflowMapLink"][];
+            /** Month */
+            month: string | null;
+            /** Months Available */
+            months_available: string[];
+            /** Next Month */
+            next_month: string | null;
+            /** Nodes */
+            nodes: components["schemas"]["CashflowMapNode"][];
+            /** Previous Month */
+            previous_month: string | null;
+            provenance: components["schemas"]["CashflowMapProvenance"];
+            totals: components["schemas"]["CashflowMapTotals"];
+            /** Transfers */
+            transfers: components["schemas"]["CashflowMapTransfer"][];
+        };
+        /** CashflowMapTotals */
+        CashflowMapTotals: {
+            /** Drawn From Savings */
+            drawn_from_savings: string;
+            /** Expense */
+            expense: string;
+            /** Income */
+            income: string;
+            /** Kept */
+            kept: string;
+            /** Mapped Expense */
+            mapped_expense: string;
+            /** Mapped Income */
+            mapped_income: string;
+            /** Net */
+            net: string;
+            /** Transfers */
+            transfers: string;
+        };
+        /** CashflowMapTransfer */
+        CashflowMapTransfer: {
+            /** Amount */
+            amount: string;
+            /** Expense Counterparty */
+            expense_counterparty: string;
+            /** Income Counterparty */
+            income_counterparty: string;
+        };
+        /** CashflowMapTrendPoint */
+        CashflowMapTrendPoint: {
+            /** Amount */
+            amount: string;
+            /** Month */
+            month: string;
         };
         /** CategoryDeleteResponse */
         CategoryDeleteResponse: {
@@ -12170,6 +12297,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BudgetVarianceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_cashflow_map_reports_cashflow_map_get: {
+        parameters: {
+            query?: {
+                month?: string | null;
+                include_transfers?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CashflowMapResponse"];
                 };
             };
             /** @description Validation Error */

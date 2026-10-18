@@ -29,6 +29,7 @@ type GetOperationIdByPath = {
   "/runs": "list_runs_runs_get";
   "/runs/{run_id}": "get_run_runs__run_id__get";
   "/reports/household-overview": "get_household_overview_reports_household_overview_get";
+  "/reports/cashflow-map": "get_cashflow_map_reports_cashflow_map_get";
   "/reports/attention-items": "get_attention_items_reports_attention_items_get";
   "/reports/recent-changes": "get_recent_changes_reports_recent_changes_get";
   "/reports/spend-by-category-monthly": "get_spend_by_category_monthly_reports_spend_by_category_monthly_get";
@@ -579,6 +580,22 @@ export async function getHouseholdOverview() {
   const payload = await backendGet("/reports/household-overview");
   return getFirstResponseArrayItem(payload, "rows");
 }
+type CashflowMapOptions = {
+  month?: QueryValue<"/reports/cashflow-map", "month">;
+  includeTransfers?: QueryValue<"/reports/cashflow-map", "include_transfers">;
+};
+
+export async function getCashflowMap({ month, includeTransfers }: CashflowMapOptions = {}) {
+  return backendGet("/reports/cashflow-map", {
+    params: {
+      query: definedValues({
+        month,
+        include_transfers: includeTransfers
+      })
+    }
+  });
+}
+
 export async function getAttentionItems() {
   const payload = await backendGet("/reports/attention-items");
   return getResponseArray(payload, "rows");
