@@ -1118,15 +1118,18 @@ export async function getPublicationAudit({
 
 type PublicationConfidenceOptions = {
   staleOnly?: QueryValue<"/control/confidence", "stale_only">;
+  verdict?: QueryValue<"/control/confidence", "verdict">;
 };
 
 export async function getPublicationConfidence({
-  staleOnly = false
+  staleOnly = false,
+  verdict
 }: PublicationConfidenceOptions = {}) {
   return backendGet("/control/confidence", {
     params: {
       query: definedValues({
-        stale_only: staleOnly
+        stale_only: staleOnly,
+        verdict
       })
     }
   });

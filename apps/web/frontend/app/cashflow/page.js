@@ -1,15 +1,13 @@
 import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
+import { AsOfScrubber } from "@/components/as-of-scrubber";
+import { ExplainBox } from "@/components/explain";
 import { CashflowFlowList, CashflowSankey, BUCKET_COLOR } from "@/components/cashflow-sankey";
 import { StatePanel } from "@/components/state-panel";
 import { TrendBars } from "@/components/trend-bars";
-import {
-  getCashflowMap,
-  getCurrentUser,
-  getPublicationConfidenceDetail,
-  getPublicationLineage,
-} from "@/lib/backend";
+import { getCashflowMap, getCurrentUser } from "@/lib/backend";
+import { loadExplanation } from "@/lib/explain";
 import { formatMoney, formatMonth, monthsBetween } from "@/lib/format";
 
 function currentMonth() {
@@ -28,24 +26,6 @@ function hrefFor({ month, transfers, focus }) {
   return query ? `/cashflow?${query}` : "/cashflow";
 }
 
-async function safely(promise) {
-  try {
-    return await promise;
-  } catch (error) {
-    if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) {
-      throw error;
-    }
-    return null;
-  }
-}
-
-function confidenceTone(verdict) {
-  if (verdict === "trustworthy") return "ok";
-  if (verdict === "degraded" || verdict === "stale") return "warm";
-  if (verdict === "unreliable" || verdict === "untrustworthy") return "warn";
-  return "neutral";
-}
-
 export default async function CashflowPage({ searchParams }) {
   const requestedMonth = MONTH_RE.test(searchParams?.m || "") ? searchParams.m : undefined;
   const includeTransfers = searchParams?.transfers === "include";
@@ -56,13 +36,13 @@ export default async function CashflowPage({ searchParams }) {
     getCashflowMap({ month: requestedMonth, includeTransfers }),
   ]);
   const publications = payload?.provenance?.publications || [];
-  const isAdmin = user?.role === "admin";
-  const [lineage, confidence] = await Promise.all([
-    Promise.all(publications.map((key) => safely(getPublicationLineage(key)))),
-    isAdmin
-      ? Promise.all(publications.map((key) => safely(getPublicationConfidenceDetail(key))))
-      : Promise.resolve(publications.map(() => null)),
-  ]);
+  // Lineage for every publication the map reads, plus (admins only, inside
+  // loadExplanation) each publication's confidence verdict.
+  const explanations = await Promise.all(publications.map((key) => loadExplanation(key, { user })));
+  const sentenceExplanation =
+    explanations.find((item) => item.publicationKey === "mart_monthly_cashflow_by_counterparty") ||
+    explanations[0] ||
+    null;
 
   const month = payload?.month || null;
   const currency = payload?.currency || null;
@@ -117,42 +97,22 @@ export default async function CashflowPage({ searchParams }) {
       eyebrow={month ? formatMonth(month) : "Cashflow"}
       lede="Where the household's money came from and where it went, from published reporting."
     >
-      <nav className="cashflowBar" aria-label="Month">
-        {payload?.previous_month ? (
-          <Link className="ghostButton" href={hrefFor({ month: payload.previous_month, transfers: includeTransfers })}>
-            ← {formatMonth(payload.previous_month, { short: true })}
-          </Link>
-        ) : (
-          <span className="ghostButton" aria-disabled="true" data-disabled="true">← Earlier</span>
-        )}
-        <form className="cashflowMonthForm" action="/cashflow" method="get">
-          <label className="srOnly" htmlFor="cashflow-month">Month</label>
-          <select id="cashflow-month" name="m" defaultValue={month || ""}>
-            {(payload?.months_available || []).slice().reverse().map((value) => (
-              <option key={value} value={value}>
-                {formatMonth(value)}
-              </option>
-            ))}
-          </select>
-          {includeTransfers ? <input type="hidden" name="transfers" value="include" /> : null}
-          <button className="ghostButton" type="submit">Show</button>
-        </form>
-        {payload?.next_month ? (
-          <Link className="ghostButton" href={hrefFor({ month: payload.next_month, transfers: includeTransfers })}>
-            {formatMonth(payload.next_month, { short: true })} →
-          </Link>
-        ) : (
-          <span className="ghostButton" aria-disabled="true" data-disabled="true">Later →</span>
-        )}
-        {Number(totals.transfers || 0) > 0 || includeTransfers ? (
+      <AsOfScrubber
+        months={payload?.months_available || []}
+        value={month}
+        hrefFor={(value) => hrefFor({ month: value, transfers: includeTransfers })}
+        label="Choose the month to map"
+      />
+      {Number(totals.transfers || 0) > 0 || includeTransfers ? (
+        <p className="cashflowBar">
           <Link
             className="inlineLink cashflowToggle"
             href={hrefFor({ month, transfers: !includeTransfers, focus: focusId })}
           >
             {includeTransfers ? "Hide transfers between own accounts" : "Show transfers between own accounts"}
           </Link>
-        ) : null}
-      </nav>
+        </p>
+      ) : null}
 
       {stale ? (
         <StatePanel
@@ -193,6 +153,17 @@ export default async function CashflowPage({ searchParams }) {
                 </>
               )}
             </h2>
+            {sentenceExplanation ? (
+              <div className="cashflowExplain">
+                <ExplainBox
+                  explanation={sentenceExplanation}
+                  label={drawn > 0 ? `Drawn from savings, ${formatMonth(month)}` : `Kept, ${formatMonth(month)}`}
+                  filter={{ booking_month: month }}
+                  placement="start"
+                  note={`Money in minus money out, summed per payee for ${formatMonth(month)}${includeTransfers ? "" : ", leaving out transfers between own accounts"}. The total is checked against the monthly cashflow mart and any gap is listed under How the map is built.`}
+                />
+              </div>
+            ) : null}
             <dl className="cashflowLedger">
               {buckets.map((bucket) => (
                 <div key={bucket.id} style={{ "--swatch": BUCKET_COLOR[bucket.kind] }}>
@@ -320,34 +291,17 @@ export default async function CashflowPage({ searchParams }) {
               ) : null}
               <h3 className="cashflowSubhead">Publications read</h3>
               <ul className="cashflowSources">
-                {publications.map((key, index) => {
-                  const graph = lineage[index];
-                  const upstream = graph ? Math.max(0, (graph.nodes || []).length - 1) : null;
-                  const verdict = confidence[index]?.confidence_verdict;
-                  return (
-                    <li key={key}>
-                      {isAdmin ? (
-                        <Link className="inlineLink" href={`/control/lineage?publication_key=${encodeURIComponent(key)}`}>
-                          <code>{key}</code>
-                        </Link>
-                      ) : (
-                        <code>{key}</code>
-                      )}
-                      <span className="muted">
-                        {upstream == null
-                          ? "lineage unavailable"
-                          : upstream === 0
-                            ? "no lineage recorded yet"
-                            : `${upstream} upstream node${upstream === 1 ? "" : "s"}`}
-                      </span>
-                      {verdict ? (
-                        <span className="pill" data-tone={confidenceTone(verdict)}>
-                          {verdict}
-                        </span>
-                      ) : null}
-                    </li>
-                  );
-                })}
+                {explanations.map((explanation) => (
+                  <li key={explanation.publicationKey}>
+                    <code>{explanation.publicationKey}</code>
+                    <ExplainBox
+                      explanation={explanation}
+                      label={explanation.publicationName || explanation.publicationKey}
+                      filter={{ booking_month: month }}
+                      placement="start"
+                    />
+                  </li>
+                ))}
               </ul>
             </section>
           </div>

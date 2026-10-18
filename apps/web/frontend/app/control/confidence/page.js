@@ -1,313 +1,215 @@
-'use client';
+import Link from "next/link";
+import { redirect } from "next/navigation";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { AppShell } from "@/components/app-shell";
+import { ControlNav } from "@/components/control-nav";
+import { Pill } from "@/components/pill";
+import { ResponsiveTable } from "@/components/responsive-table";
+import { StatePanel } from "@/components/state-panel";
+import { getCurrentUser, getPublicationConfidence } from "@/lib/backend";
 
-import { AppShell } from '@/components/app-shell';
-import { ControlNav } from '@/components/control-nav';
+// Server component (ADR web-surface-shell-decision §4.3). The previous client
+// version fetched /auth/me and /api/control/confidence from the browser; in
+// split-origin deployments nothing routes those to the API, so the page
+// bounced to /login. Filters now live in the URL (?stale=1&verdict=…) and the
+// read goes through lib/backend.ts like every other page.
 
-const VERDICT_COLORS = {
-  trustworthy: { bg: '#e8f5e9', text: '#2e7d32', label: 'Trustworthy' },
-  degraded: { bg: '#fff3e0', text: '#e65100', label: 'Degraded' },
-  unreliable: { bg: '#fce4ec', text: '#c2185b', label: 'Unreliable' },
-  unavailable: { bg: '#ffebee', text: '#b71c1c', label: 'Unavailable' },
-};
+const VERDICTS = ["trustworthy", "degraded", "unreliable", "unavailable"];
 
-const FRESHNESS_COLORS = {
-  current: { bg: '#e8f5e9', text: '#2e7d32', label: 'Current' },
-  due_soon: { bg: '#fff3e0', text: '#e65100', label: 'Due soon' },
-  stale: { bg: '#fce4ec', text: '#c2185b', label: 'Stale' },
-  unavailable: { bg: '#ffebee', text: '#b71c1c', label: 'Unavailable' },
-};
+const VERDICT_TONE = { trustworthy: "ok", degraded: "warm", unreliable: "warn", unavailable: "neutral" };
+const FRESHNESS_TONE = { current: "ok", due_soon: "warm", stale: "warn", unavailable: "neutral" };
 
-function Badge({ value, colorMap }) {
-  const normalizedValue = String(value || 'unavailable').toLowerCase();
-  const colors = colorMap[normalizedValue] || {
-    bg: '#f5f5f5',
-    text: '#666',
-    label: normalizedValue,
-  };
-  return (
-    <span style={{
-      display: 'inline-block',
-      padding: '4px 12px',
-      borderRadius: '4px',
-      backgroundColor: colors.bg,
-      color: colors.text,
-      fontSize: '12px',
-      fontWeight: '500',
-    }}>
-      {colors.label}
-    </span>
-  );
+function label(value) {
+  const text = String(value || "unavailable").replace(/_/g, " ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-function DomainCard({ domain, count, verdict, degradedCount, staleCount }) {
-  return (
-    <div style={{
-      padding: '16px',
-      border: '1px solid #e0e0e0',
-      borderRadius: '8px',
-      marginBottom: '12px',
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h3 style={{ margin: '0 0 8px 0', textTransform: 'capitalize', fontSize: '16px' }}>
-            {domain}
-          </h3>
-          <p style={{ margin: '0', color: '#666', fontSize: '12px' }}>
-            {count} publication{count !== 1 ? 's' : ''}
-            {' | '}
-            {degradedCount} degraded
-            {' | '}
-            {staleCount} stale
-          </p>
-        </div>
-        <Badge value={verdict} colorMap={VERDICT_COLORS} />
-      </div>
-    </div>
-  );
-}
-
-function CompletenessBar({ value }) {
-  const boundedValue = Math.max(0, Math.min(100, Number(value || 0)));
-  return (
-    <div style={{ display: 'grid', gap: '6px', minWidth: '120px' }}>
-      <div
-        style={{
-          height: '8px',
-          borderRadius: '999px',
-          backgroundColor: '#eef2f7',
-          overflow: 'hidden',
-        }}
-      >
-        <div
-          style={{
-            width: `${boundedValue}%`,
-            height: '100%',
-            backgroundColor: boundedValue >= 100 ? '#2e7d32' : '#e65100',
-          }}
-        />
-      </div>
-      <span style={{ fontSize: '12px', color: '#4b5563' }}>{boundedValue}%</span>
-    </div>
-  );
-}
-
-function formatAssessedAt(value) {
-  if (!value) return 'No assessment';
-  const assessedAt = new Date(value);
-  const now = new Date();
-  const hoursAgo = Math.floor((now - assessedAt) / (1000 * 60 * 60));
-  if (hoursAgo < 1) return 'just now';
+function formatAssessedAt(value, now) {
+  if (!value) return "Not assessed";
+  const hoursAgo = Math.floor((now - new Date(value)) / (1000 * 60 * 60));
+  if (hoursAgo < 1) return "Just now";
   if (hoursAgo < 24) return `${hoursAgo}h ago`;
   return `${Math.floor(hoursAgo / 24)}d ago`;
 }
 
-function PublicationRow({ pub }) {
-  const verdict = pub.confidence_verdict || 'unavailable';
-  const lineageHref = `/control/lineage?publication_key=${encodeURIComponent(pub.publication_key)}`;
-
+function CompletenessBar({ value }) {
+  const bounded = Math.max(0, Math.min(100, Number(value || 0)));
   return (
-    <tr style={{ borderBottom: '1px solid #e0e0e0' }}>
-      <td style={{ padding: '12px', fontSize: '13px' }}>
-        <div style={{ fontWeight: '700' }}>{pub.publication_name || pub.publication_key}</div>
-        <div style={{ color: '#667085', fontSize: '12px' }}>{pub.publication_key}</div>
-      </td>
-      <td style={{ padding: '12px', fontSize: '13px', textTransform: 'capitalize' }}>
-        {pub.domain || 'platform'}
-      </td>
-      <td style={{ padding: '12px', textAlign: 'center' }}>
-        <Badge value={verdict} colorMap={VERDICT_COLORS} />
-      </td>
-      <td style={{ padding: '12px', textAlign: 'center' }}>
-        <Badge value={pub.freshness_state} colorMap={FRESHNESS_COLORS} />
-      </td>
-      <td style={{ padding: '12px', textAlign: 'center', fontSize: '13px' }}>
-        <CompletenessBar value={pub.completeness_pct} />
-      </td>
-      <td style={{ padding: '12px', textAlign: 'center', fontSize: '13px' }}>
-        {pub.source_count || 0}
-      </td>
-      <td style={{ padding: '12px', fontSize: '11px', color: '#666' }}>
-        {formatAssessedAt(pub.assessed_at)}
-      </td>
-      <td style={{ padding: '12px', textAlign: 'center', fontSize: '12px' }}>
-        <Link href={lineageHref} data-testid={`lineage-link-${pub.publication_key}`}>
-          Lineage
-        </Link>
-      </td>
-    </tr>
+    <span className="confidenceBar">
+      <span className="confidenceBarTrack" aria-hidden="true">
+        <span className="confidenceBarFill" data-complete={bounded >= 100 ? "true" : "false"} style={{ width: `${bounded}%` }} />
+      </span>
+      <span className="numMono">{bounded}%</span>
+    </span>
   );
 }
 
-export default function ConfidencePage() {
-  const [user, setUser] = useState(null);
-  const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
-  const [staleOnly, setStaleOnly] = useState(false);
-  const [verdictFilter, setVerdictFilter] = useState('');
-  const router = useRouter();
+function isRedirect(error) {
+  return Boolean(
+    error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")
+  );
+}
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const meResponse = await fetch('/auth/me');
-        if (!meResponse.ok) { router.push('/login'); return; }
-        const mePayload = await meResponse.json();
-        const currentUser = mePayload?.user;
-        if (!currentUser || currentUser.role === 'reader') {
-          router.push('/');
-          return;
-        }
-        setUser(currentUser);
-
-        const params = new URLSearchParams();
-        if (staleOnly) params.set('stale_only', 'true');
-        if (verdictFilter) params.set('verdict', verdictFilter);
-        const query = params.toString();
-        const response = await fetch(
-          `/api/control/confidence${query ? `?${query}` : ''}`
-        );
-        if (!response.ok) throw new Error(`API error: ${response.status}`);
-        const result = await response.json();
-        setData(result);
-      } catch (err) {
-        setError(err.message);
-      }
-    };
-    loadData();
-  }, [router, staleOnly, verdictFilter]);
-
-  if (!user || !data) {
-    return <AppShell title="Publication confidence" eyebrow="Operator Access">Loading...</AppShell>;
+export default async function ConfidencePage({ searchParams }) {
+  const user = await getCurrentUser();
+  if (!user || user.role === "reader") {
+    redirect("/");
   }
 
-  if (error) {
-    return (
-      <AppShell title="Publication confidence" eyebrow="Operator Access">
-        <p style={{ color: '#b71c1c' }}>Error: {error}</p>
-      </AppShell>
-    );
+  const staleOnly = searchParams?.stale === "1";
+  const verdict = VERDICTS.includes(searchParams?.verdict) ? searchParams.verdict : "";
+
+  let data = null;
+  let loadError = null;
+  try {
+    data = await getPublicationConfidence({ staleOnly, ...(verdict ? { verdict } : {}) });
+  } catch (error) {
+    if (isRedirect(error)) throw error;
+    loadError = error instanceof Error ? error.message : String(error);
   }
+
+  const publications = data?.publications || [];
+  const domains = data?.domain_summaries || [];
+  const now = Date.now();
+  const filtered = staleOnly || verdict;
 
   return (
     <AppShell
-      currentPath="/control"
+      currentPath="/control/confidence"
       user={user}
       title="Publication confidence"
-      eyebrow="Operator Access"
+      eyebrow="Admin control plane"
+      lede="How far each published figure can be trusted, from source freshness, completeness and validation."
     >
-      <ControlNav />
+      <ControlNav currentPath="/control/confidence" />
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
-        <div style={{ marginBottom: '32px' }}>
-          <h2 style={{ margin: '0 0 16px 0', fontSize: '20px' }}>Domain summary</h2>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: '12px',
-            }}
-          >
-            {data.domain_summaries.map((domain) => (
-              <DomainCard
-                key={domain.domain}
-                domain={domain.domain}
-                count={domain.count}
-                verdict={domain.verdict}
-                degradedCount={domain.degraded_count}
-                staleCount={domain.stale_count}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '16px',
-            }}
-          >
-            <h2 style={{ margin: '0', fontSize: '20px' }}>Publications</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '13px',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={staleOnly}
-                  onChange={(e) => setStaleOnly(e.target.checked)}
-                />
-                Stale only
-              </label>
-              <select
-                value={verdictFilter}
-                onChange={(e) => setVerdictFilter(e.target.value)}
-                style={{
-                  minWidth: '160px',
-                  padding: '8px 10px',
-                  border: '1px solid #d0d5dd',
-                  borderRadius: '6px',
-                }}
-                aria-label="Verdict filter"
-              >
-                <option value="">All verdicts</option>
-                <option value="trustworthy">Trustworthy</option>
-                <option value="degraded">Degraded</option>
-                <option value="unreliable">Unreliable</option>
-                <option value="unavailable">Unavailable</option>
-              </select>
+      {loadError ? (
+        <StatePanel tone="error" title="Couldn't load publication confidence">
+          <p>{loadError}</p>
+        </StatePanel>
+      ) : (
+        <div className="stack">
+          <section className="panel section" aria-labelledby="confidence-domains">
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">By domain</div>
+                <h2 id="confidence-domains">Domain summary</h2>
+              </div>
             </div>
-          </div>
+            {domains.length === 0 ? (
+              <StatePanel tone="empty" compact title="No publications assessed yet" />
+            ) : (
+              <ul className="confidenceDomains">
+                {domains.map((domain) => (
+                  <li key={domain.domain}>
+                    <div>
+                      <p className="confidenceDomainName">{label(domain.domain)}</p>
+                      <p className="muted">
+                        {domain.count} publication{domain.count === 1 ? "" : "s"}, {domain.degraded_count} degraded,{" "}
+                        {domain.stale_count} stale
+                      </p>
+                    </div>
+                    <Pill tone={VERDICT_TONE[domain.verdict] || "neutral"}>{label(domain.verdict)}</Pill>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid #e0e0e0', backgroundColor: '#f9f9f9' }}>
-                <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>
-                  Publication
-                </th>
-                <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Domain</th>
-                <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>Verdict</th>
-                <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>
-                  Freshness
-                </th>
-                <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>
-                  Complete
-                </th>
-                <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>Sources</th>
-                <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Assessed</th>
-                <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>Lineage</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.publications.length > 0 ? (
-                data.publications.map((pub) => (
-                  <PublicationRow
-                    key={pub.publication_key}
-                    pub={pub}
-                  />
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="8" style={{ padding: '24px', textAlign: 'center', color: '#666' }}>
-                    No publications found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <section className="panel section" aria-labelledby="confidence-publications">
+            <div className="sectionHeader">
+              <div>
+                <div className="eyebrow">
+                  {publications.length} publication{publications.length === 1 ? "" : "s"}
+                  {filtered ? " matching" : ""}
+                </div>
+                <h2 id="confidence-publications">Publications</h2>
+              </div>
+            </div>
+            <form className="confidenceFilters" action="/control/confidence" method="get">
+                <label>
+                  <input type="checkbox" name="stale" value="1" defaultChecked={staleOnly} /> Stale only
+                </label>
+                <label className="srOnly" htmlFor="confidence-verdict">
+                  Verdict
+                </label>
+                <select id="confidence-verdict" name="verdict" defaultValue={verdict}>
+                  <option value="">All verdicts</option>
+                  {VERDICTS.map((value) => (
+                    <option key={value} value={value}>
+                      {label(value)}
+                    </option>
+                  ))}
+                </select>
+                <button className="ghostButton" type="submit">
+                  Apply
+                </button>
+                {filtered ? (
+                  <Link className="inlineLink" href="/control/confidence">
+                    Clear filters
+                  </Link>
+                ) : null}
+            </form>
+            <ResponsiveTable
+              label="Publication confidence"
+              rows={publications}
+              rowKey="publication_key"
+              empty={
+                <StatePanel tone="empty" compact title="No publications match these filters">
+                  {filtered ? <p>Clear the filters to see every publication.</p> : null}
+                </StatePanel>
+              }
+              columns={[
+                {
+                  key: "publication_key",
+                  header: "Publication",
+                  primary: true,
+                  cell: (pub) => (
+                    <>
+                      <span style={{ display: "block" }}>{pub.publication_name || pub.publication_key}</span>
+                      <code className="muted" style={{ fontSize: "0.78rem", fontWeight: 400 }}>
+                        {pub.publication_key}
+                      </code>
+                    </>
+                  ),
+                },
+                { key: "domain", header: "Domain", cell: (pub) => label(pub.domain || "platform") },
+                {
+                  key: "confidence_verdict",
+                  header: "Verdict",
+                  cell: (pub) => (
+                    <Pill tone={VERDICT_TONE[pub.confidence_verdict] || "neutral"}>{label(pub.confidence_verdict)}</Pill>
+                  ),
+                },
+                {
+                  key: "freshness_state",
+                  header: "Freshness",
+                  cell: (pub) => (
+                    <Pill tone={FRESHNESS_TONE[pub.freshness_state] || "neutral"}>{label(pub.freshness_state)}</Pill>
+                  ),
+                },
+                { key: "completeness_pct", header: "Complete", cell: (pub) => <CompletenessBar value={pub.completeness_pct} /> },
+                { key: "source_count", header: "Sources", align: "end", cell: (pub) => pub.source_count || 0 },
+                { key: "assessed_at", header: "Assessed", cell: (pub) => formatAssessedAt(pub.assessed_at, now) },
+                {
+                  key: "lineage",
+                  header: "Lineage",
+                  hideLabel: true,
+                  cell: (pub) => (
+                    <Link
+                      className="inlineLink"
+                      href={`/control/lineage?publication_key=${encodeURIComponent(pub.publication_key)}`}
+                      data-testid={`lineage-link-${pub.publication_key}`}
+                    >
+                      Lineage<span className="srOnly"> of {pub.publication_key}</span>
+                    </Link>
+                  ),
+                },
+              ]}
+            />
+          </section>
         </div>
-      </div>
+      )}
     </AppShell>
   );
 }

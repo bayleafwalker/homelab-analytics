@@ -1,6 +1,9 @@
 import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
+import { AsOfScrubber } from "@/components/as-of-scrubber";
+import { Explain } from "@/components/explain-server";
+import { ResponsiveTable } from "@/components/responsive-table";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { ONBOARDING_SOURCES } from "@/lib/onboarding-sources";
 import { SparklineChart } from "@/components/sparkline-chart";
@@ -22,7 +25,14 @@ import {
   getUtilityCostTrend,
 } from "@/lib/backend";
 
-export default async function DashboardPage() {
+const MONTH_RE = /^\d{4}-\d{2}$/;
+
+function dashboardHref(month) {
+  return month ? `/?asof=${month}` : "/";
+}
+
+export default async function DashboardPage({ searchParams }) {
+  const requestedAsOf = MONTH_RE.test(searchParams?.asof || "") ? searchParams.asof : null;
   const user = await getCurrentUser();
   const [cashflowRows, runs, overview, attentionItems, recentChanges, spendByCategory, subscriptions, utilityTrend, affordabilityRatios, recurringBaseline, freshnessDatasets] =
     await Promise.all([
@@ -40,12 +50,23 @@ export default async function DashboardPage() {
       // checklist without per-source freshness instead of a failed page.
       user?.role === "admin" ? getSourceFreshness() : Promise.resolve([]),
     ]);
-  const latest = cashflowRows.at(-1);
+  // As-of view: month-keyed publications (monthly cashflow, spend by
+  // category, utility trend) rewind to the chosen month. Snapshot
+  // publications (overview, ratios, baseline, attention, recent changes) have
+  // no history in the reporting layer and keep showing today's state, marked
+  // as such.
+  const publishedMonths = cashflowRows.map((r) => r.booking_month);
+  const newest = cashflowRows.at(-1);
+  const asOf = requestedAsOf && publishedMonths.includes(requestedAsOf) ? requestedAsOf : newest?.booking_month || null;
+  const viewingPast = Boolean(newest && asOf && asOf !== newest.booking_month);
+  const asOfIndex = cashflowRows.findIndex((r) => r.booking_month === asOf);
+  const visibleCashflow = asOfIndex >= 0 ? cashflowRows.slice(0, asOfIndex + 1) : cashflowRows;
+  const latest = visibleCashflow.at(-1);
   const currency = overview?.currency || null;
   const money = (value) => formatMoney(value, currency);
   const now = new Date();
-  const dataLagMonths = latest
-    ? monthsBetween(latest.booking_month, `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`)
+  const dataLagMonths = newest
+    ? monthsBetween(newest.booking_month, `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`)
     : null;
 
   // Top-5 categories for current month
@@ -63,7 +84,9 @@ export default async function DashboardPage() {
     .slice(0, 5);
 
   // Utility snapshot: latest month total and previous month for delta
-  const utilityMonths = [...new Set(utilityTrend.map((r) => r.billing_month))].sort();
+  const utilityMonths = [...new Set(utilityTrend.map((r) => r.billing_month))]
+    .filter((m) => !asOf || !MONTH_RE.test(m || "") || m <= asOf)
+    .sort();
   const latestUtilityMonth = utilityMonths.at(-1);
   const prevUtilityMonth = utilityMonths.at(-2);
   const utilityLatestTotal = utilityTrend
@@ -90,24 +113,51 @@ export default async function DashboardPage() {
 
   const nextSuggestion = ONBOARDING_SOURCES.find((s) => !freshDatasetNames.includes(s.dataset)) || null;
 
-  const trendLabels = cashflowRows.slice(-12).map((r) => r.booking_month);
+  const trendRows = visibleCashflow.slice(-12);
+  const trendLabels = trendRows.map((r) => r.booking_month);
   const trendSeries = [
     {
       label: "Income",
       color: "var(--ok)",
-      values: cashflowRows.slice(-12).map((r) => Number(r.income)),
+      values: trendRows.map((r) => Number(r.income)),
     },
     {
       label: "Expense",
       color: "var(--warn)",
-      values: cashflowRows.slice(-12).map((r) => Number(r.expense)),
+      values: trendRows.map((r) => Number(r.expense)),
     },
     {
       label: "Net",
       color: "var(--accent)",
-      values: cashflowRows.slice(-12).map((r) => Number(r.net)),
+      values: trendRows.map((r) => Number(r.net)),
     },
   ];
+
+  const hero = viewingPast
+    ? latest && {
+        month: latest.booking_month,
+        net: latest.net,
+        income: latest.income,
+        expense: latest.expense,
+        subscriptions: null,
+        publication: "mart_monthly_cashflow",
+        field: "net",
+        filter: { booking_month: latest.booking_month },
+      }
+    : overview && overview.cashflow_net != null
+      ? {
+          month: overview.current_month,
+          net: overview.cashflow_net,
+          income: overview.cashflow_income,
+          expense: overview.cashflow_expense,
+          subscriptions: overview.subscription_total_monthly,
+          publication: "mart_household_overview",
+          field: "cashflow_net",
+          filter: null,
+        }
+      : null;
+  const monthFilter = latest ? { booking_month: latest.booking_month } : null;
+  const todayOnly = viewingPast ? <span className="pill" data-tone="neutral">Today</span> : null;
 
   return (
     <AppShell
@@ -119,19 +169,38 @@ export default async function DashboardPage() {
     >
       <section className="hero">
         <article className="panel heroCard heroCardMoney">
-          <div className="eyebrow">{overview?.current_month ? formatMonth(overview.current_month) : "No month published yet"}</div>
-          {overview && overview.cashflow_net != null ? (
+          <div className="eyebrow heroEyebrow">
+            <span>{hero?.month ? formatMonth(hero.month) : "No month published yet"}</span>
+            {hero ? (
+              <Explain
+                publication={hero.publication}
+                user={user}
+                label={`${Number(hero.net) >= 0 ? "Kept" : "Overspent"} in ${formatMonth(hero.month)}`}
+                field={hero.field}
+                filter={hero.filter}
+                placement="start"
+                note={
+                  viewingPast
+                    ? "Past months are read from the monthly cashflow mart; the household overview only holds the current month."
+                    : null
+                }
+              />
+            ) : null}
+          </div>
+          {hero ? (
             <>
               <h1>
-                {Number(overview.cashflow_net) >= 0 ? "Kept " : "Overspent "}
-                {formatMoney(Math.abs(Number(overview.cashflow_net)), currency)}
+                {Number(hero.net) >= 0 ? "Kept " : "Overspent "}
+                {formatMoney(Math.abs(Number(hero.net)), currency)}
               </h1>
               <p className="heroCopy muted">
-                {money(overview.cashflow_income)} came in and {money(overview.cashflow_expense)} went out.
-                Recurring subscriptions add {money(overview.subscription_total_monthly)} a month.
+                {money(hero.income)} came in and {money(hero.expense)} went out.
+                {hero.subscriptions != null
+                  ? ` Recurring subscriptions add ${money(hero.subscriptions)} a month.`
+                  : null}
               </p>
               <p className="heroCopy">
-                <Link className="inlineLink" href={`/cashflow?m=${overview.current_month}`}>
+                <Link className="inlineLink" href={`/cashflow?m=${hero.month}`}>
                   See where the money went
                 </Link>
               </p>
@@ -150,36 +219,59 @@ export default async function DashboardPage() {
         </article>
         <section className="panel heroMetric" aria-label="Data through">
           <div className="eyebrow">Data through</div>
-          <div className="value">{latest ? formatMonth(latest.booking_month, { short: true }) : "No imports yet"}</div>
-          {latest && dataLagMonths > 1 ? (
+          <div className="value">{newest ? formatMonth(newest.booking_month, { short: true }) : "No imports yet"}</div>
+          {newest && dataLagMonths > 1 ? (
             <StatePanel tone="stale" compact title={`${dataLagMonths} months behind`}>
-              <p>Figures stop at {formatMonth(latest.booking_month)}. Upload newer statements to catch up.</p>
+              <p>Figures stop at {formatMonth(newest.booking_month)}. Upload newer statements to catch up.</p>
             </StatePanel>
           ) : (
             <div className="muted">
-              {latest
-                ? `${latest.transaction_count} transactions in the latest month.`
+              {newest
+                ? `${newest.transaction_count} transactions in the latest month.`
                 : "Import a statement to populate the reporting layer."}
             </div>
           )}
         </section>
       </section>
 
-      <OnboardingChecklist freshDatasets={freshDatasetNames} nextSuggestion={nextSuggestion} />
+      <AsOfScrubber
+        months={publishedMonths}
+        value={asOf}
+        hrefFor={dashboardHref}
+        label="View the dashboard as of a month"
+        note={
+          viewingPast
+            ? "Money, categories, utilities and the trend are shown as they were published for this month. Ratios, fixed commitments, items to review and recent changes keep no history, so they still show today and are marked Today."
+            : null
+        }
+      />
+
+      {viewingPast ? null : (
+        <OnboardingChecklist freshDatasets={freshDatasetNames} nextSuggestion={nextSuggestion} />
+      )}
 
       <section className="cards">
-        <article className="panel metricCard">
-          <div className="metricLabel">Income</div>
-          <div className="metricValue numMono">{latest ? money(latest.income) : "No data"}</div>
-        </article>
-        <article className="panel metricCard">
-          <div className="metricLabel">Expense</div>
-          <div className="metricValue numMono">{latest ? money(latest.expense) : "No data"}</div>
-        </article>
-        <article className="panel metricCard">
-          <div className="metricLabel">Net</div>
-          <div className="metricValue numMono">{latest ? money(latest.net) : "No data"}</div>
-        </article>
+        {[
+          { key: "income", label: "Income" },
+          { key: "expense", label: "Expense" },
+          { key: "net", label: "Net" },
+        ].map((metric) => (
+          <article key={metric.key} className="panel metricCard">
+            <div className="metricLabel metricLabelRow">
+              <span>{metric.label}</span>
+              {latest ? (
+                <Explain
+                  publication="mart_monthly_cashflow"
+                  user={user}
+                  label={`${metric.label}, ${formatMonth(latest.booking_month)}`}
+                  field={metric.key}
+                  filter={monthFilter}
+                />
+              ) : null}
+            </div>
+            <div className="metricValue numMono">{latest ? money(latest[metric.key]) : "No data"}</div>
+          </article>
+        ))}
       </section>
 
       {affordabilityRatios.length > 0 && (
@@ -193,7 +285,10 @@ export default async function DashboardPage() {
             }[r.ratio_name] || r.ratio_name;
             return (
               <article key={r.ratio_name} className="panel metricCard">
-                <div className="metricLabel">{label}</div>
+                <div className="metricLabel metricLabelRow">
+                  <span>{label}</span>
+                  {todayOnly}
+                </div>
                 <div className="metricValue" style={{ color: state.color }}>
                   {(Number(r.ratio) * 100).toFixed(1)}%
                 </div>
@@ -210,32 +305,25 @@ export default async function DashboardPage() {
           <div className="sectionHeader">
             <div>
               <div className="eyebrow">Recurring baseline</div>
-              <h2>Fixed monthly commitments</h2>
+              <h2>Fixed monthly commitments {todayOnly}</h2>
             </div>
             <Link className="inlineLink" href="/costs">View cost model</Link>
           </div>
-          <div className="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Source</th>
-                  <th>Description</th>
-                  <th>Monthly</th>
-                  <th>Confidence</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recurringBaseline.map((row, i) => (
-                  <tr key={i}>
-                    <td>{row.cost_source}</td>
-                    <td>{row.counterparty_or_contract}</td>
-                    <td className="numMono">{formatMoney(row.monthly_amount, row.currency)}</td>
-                    <td><span className="muted">{row.confidence}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable
+            label="Fixed monthly commitments"
+            rows={recurringBaseline}
+            columns={[
+              { key: "counterparty_or_contract", header: "Description", primary: true },
+              { key: "cost_source", header: "Source" },
+              {
+                key: "monthly_amount",
+                header: "Monthly",
+                align: "end",
+                cell: (row) => <span className="numMono">{formatMoney(row.monthly_amount, row.currency)}</span>,
+              },
+              { key: "confidence", header: "Confidence", cell: (row) => <span className="muted">{row.confidence}</span> },
+            ]}
+          />
         </article>
       )}
 
@@ -244,7 +332,7 @@ export default async function DashboardPage() {
           <div className="sectionHeader">
             <div>
               <div className="eyebrow">Trend</div>
-              <h2>Cashflow — last 12 months</h2>
+              <h2>Cashflow, 12 months to {formatMonth(latest?.booking_month, { short: true })}</h2>
             </div>
           </div>
           <SparklineChart series={trendSeries} labels={trendLabels} height={120} width={600} />
@@ -253,8 +341,20 @@ export default async function DashboardPage() {
 
       <section className="cards" style={{ marginBottom: "24px" }}>
         <article className="panel section">
-          <div className="eyebrow">Top Categories</div>
-          <h3 style={{ margin: "4px 0 12px" }}>{latestMonth || "—"}</h3>
+          <div className="eyebrow metricLabelRow">
+            <span>Top Categories</span>
+            {latestMonth ? (
+              <Explain
+                publication="mart_spend_by_category_monthly"
+                user={user}
+                label={`Top categories, ${formatMonth(latestMonth)}`}
+                field="total_expense"
+                filter={{ booking_month: latestMonth }}
+                note="The five categories with the most spending that month, summed across accounts."
+              />
+            ) : null}
+          </div>
+          <h3 style={{ margin: "4px 0 12px" }}>{latestMonth ? formatMonth(latestMonth) : "—"}</h3>
           {categoryTotals.length === 0 ? (
             <div className="empty">No category data yet.</div>
           ) : (
@@ -270,7 +370,18 @@ export default async function DashboardPage() {
         </article>
 
         <article className="panel section">
-          <div className="eyebrow">Utilities</div>
+          <div className="eyebrow metricLabelRow">
+            <span>Utilities</span>
+            {latestUtilityMonth ? (
+              <Explain
+                publication="mart_utility_cost_trend_monthly"
+                user={user}
+                label={`Utilities, ${formatMonth(latestUtilityMonth)}`}
+                field="total_cost"
+                filter={{ billing_month: latestUtilityMonth }}
+              />
+            ) : null}
+          </div>
           <h3 style={{ margin: "4px 0 4px" }}>
             {latestUtilityMonth ? `${formatMonth(latestUtilityMonth, { short: true })}: ${money(utilityLatestTotal)}` : "No data"}
           </h3>
@@ -282,7 +393,20 @@ export default async function DashboardPage() {
         </article>
 
         <article className="panel section">
-          <div className="eyebrow">Recurring Costs</div>
+          <div className="eyebrow metricLabelRow">
+            <span>Recurring Costs</span>
+            {todayOnly}
+            {subscriptions.length > 0 ? (
+              <Explain
+                publication="mart_subscription_summary"
+                user={user}
+                label="Recurring costs per month"
+                field="monthly_equivalent"
+                filter={{ status: "active" }}
+                note="Sum of the monthly equivalent of every active subscription."
+              />
+            ) : null}
+          </div>
           <h3 style={{ margin: "4px 0 4px" }}>
             {subscriptions.length > 0 ? `${money(recurringTotal)} / mo` : "No data"}
           </h3>
@@ -300,34 +424,32 @@ export default async function DashboardPage() {
               <h2>Monthly cashflow</h2>
             </div>
           </div>
-          {cashflowRows.length === 0 ? (
-            <div className="empty">No successful imports yet.</div>
-          ) : (
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Month</th>
-                    <th>Income</th>
-                    <th>Expense</th>
-                    <th>Net</th>
-                    <th>Rows</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cashflowRows.map((row) => (
-                    <tr key={row.booking_month}>
-                      <td>{row.booking_month}</td>
-                      <td className="numMono">{money(row.income)}</td>
-                      <td className="numMono">{money(row.expense)}</td>
-                      <td className="numMono">{money(row.net)}</td>
-                      <td>{row.transaction_count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ResponsiveTable
+            label="Monthly cashflow"
+            rows={visibleCashflow.slice().reverse()}
+            rowKey="booking_month"
+            empty={<div className="empty">No successful imports yet.</div>}
+            columns={[
+              {
+                key: "booking_month",
+                header: "Month",
+                primary: true,
+                cell: (row) => (
+                  <Link
+                    className="inlineLink"
+                    href={dashboardHref(row.booking_month === newest?.booking_month ? null : row.booking_month)}
+                    aria-current={row.booking_month === asOf ? "true" : undefined}
+                  >
+                    {formatMonth(row.booking_month)}
+                  </Link>
+                ),
+              },
+              { key: "income", header: "Income", align: "end", cell: (row) => <span className="numMono">{money(row.income)}</span> },
+              { key: "expense", header: "Expense", align: "end", cell: (row) => <span className="numMono">{money(row.expense)}</span> },
+              { key: "net", header: "Net", align: "end", cell: (row) => <span className="numMono">{money(row.net)}</span> },
+              { key: "transaction_count", header: "Rows", align: "end" },
+            ]}
+          />
         </article>
 
         <div className="stack">
@@ -335,7 +457,7 @@ export default async function DashboardPage() {
             <div className="sectionHeader">
               <div>
                 <div className="eyebrow">Attention</div>
-                <h2>Items to review</h2>
+                <h2>Items to review {todayOnly}</h2>
               </div>
               <Link className="inlineLink" href="/review">See all →</Link>
             </div>
@@ -368,41 +490,36 @@ export default async function DashboardPage() {
             <div className="sectionHeader">
               <div>
                 <div className="eyebrow">Activity</div>
-                <h2>Recent changes</h2>
+                <h2>Recent changes {todayOnly}</h2>
               </div>
             </div>
-            {recentChanges.length === 0 ? (
-              <div className="empty">No recent changes recorded.</div>
-            ) : (
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Type</th>
-                      <th>Metric</th>
-                      <th>Change</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentChanges.map((row, i) => (
-                      <tr key={i}>
-                        <td>
-                          <span className="statusPill status-enqueued">{row.change_type}</span>
-                        </td>
-                        <td>{row.metric_name}</td>
-                        <td>
-                          {row.direction === "up" ? "▲" : "▼"}{" "}
-                          {row.current_value}
-                          {row.previous_value != null && (
-                            <span className="muted"> / {row.previous_value}</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <ResponsiveTable
+              label="Recent changes"
+              rows={recentChanges}
+              dense
+              empty={<div className="empty">No recent changes recorded.</div>}
+              columns={[
+                // The mart carries description + period; there is no metric_name.
+                { key: "description", header: "What changed", primary: true },
+                { key: "period", header: "Month", cell: (row) => formatMonth(row.period, { short: true }) },
+                {
+                  key: "current_value",
+                  header: "Now",
+                  align: "end",
+                  cell: (row) => (
+                    <span className="numMono">
+                      {row.direction === "up" ? "▲" : "▼"} {money(row.current_value)}
+                    </span>
+                  ),
+                },
+                {
+                  key: "previous_value",
+                  header: "Before",
+                  align: "end",
+                  cell: (row) => <span className="numMono muted">{money(row.previous_value)}</span>,
+                },
+              ]}
+            />
           </article>
 
           <article className="panel section">
@@ -412,43 +529,41 @@ export default async function DashboardPage() {
                 <h2>Recent runs</h2>
               </div>
             </div>
-            {runs.length === 0 ? (
-              <div className="empty">No ingestion runs recorded yet.</div>
-            ) : (
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Status</th>
-                      <th>Source</th>
-                      <th>File</th>
-                      <th>Rows</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {runs.map((run) => (
-                      <tr key={run.run_id}>
-                        <td>
-                          <span className={`statusPill status-${run.status}`}>{run.status}</span>
-                          {(run.issues || []).slice(0, 2).map((issue) => (
-                            <div className="issue" key={`${run.run_id}-${issue.code}-${issue.message}`}>
-                              {issue.code}: {issue.message}
-                            </div>
-                          ))}
-                        </td>
-                        <td>
-                          <Link className="inlineLink" href={`/runs/${run.run_id}`}>
-                            {run.source_name}
-                          </Link>
-                        </td>
-                        <td>{run.file_name}</td>
-                        <td>{run.row_count}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <ResponsiveTable
+              label="Recent runs"
+              rows={runs}
+              rowKey="run_id"
+              dense
+              empty={<div className="empty">No ingestion runs recorded yet.</div>}
+              columns={[
+                {
+                  key: "source_name",
+                  header: "Source",
+                  primary: true,
+                  cell: (run) => (
+                    <Link className="inlineLink" href={`/runs/${run.run_id}`}>
+                      {run.source_name}
+                    </Link>
+                  ),
+                },
+                {
+                  key: "status",
+                  header: "Status",
+                  cell: (run) => (
+                    <>
+                      <span className={`statusPill status-${run.status}`}>{run.status}</span>
+                      {(run.issues || []).slice(0, 2).map((issue) => (
+                        <div className="issue" key={`${run.run_id}-${issue.code}-${issue.message}`}>
+                          {issue.code}: {issue.message}
+                        </div>
+                      ))}
+                    </>
+                  ),
+                },
+                { key: "file_name", header: "File" },
+                { key: "row_count", header: "Rows", align: "end" },
+              ]}
+            />
           </article>
         </div>
       </section>

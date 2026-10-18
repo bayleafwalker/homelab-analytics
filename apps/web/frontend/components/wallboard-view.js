@@ -1,6 +1,7 @@
 import React from "react";
 
 import { formatMoney, formatMonth, monthsBetween, toNumber } from "../lib/format";
+import { ExplainBox } from "./explain";
 
 // Ambient household status for a wall tablet or TV. Read from across the
 // room: mono type only, nothing under 18px, one big number per tile, colour
@@ -59,6 +60,9 @@ export function WallboardView({
   compact = false,
   clock = null,
   status = null,
+  // Optional preloaded <Explain> data per tile ({ money, data }); the page
+  // loads it server-side, stories leave it out.
+  explanations = {},
 }) {
   const today = now instanceof Date ? now : new Date(now);
   const currency = overview?.currency || null;
@@ -100,6 +104,17 @@ export function WallboardView({
                 {net >= 0 ? "kept" : "overspent"} from {formatMoney(overview.cashflow_income, currency, { whole: true })} in and{" "}
                 {formatMoney(overview.cashflow_expense, currency, { whole: true })} out
               </p>
+              {explanations.money ? (
+                <div className="wallExplain">
+                  <ExplainBox
+                    explanation={explanations.money}
+                    tone="wall"
+                    placement="start"
+                    label={`Money, ${formatMonth(overview.current_month)}`}
+                    field="cashflow_net"
+                  />
+                </div>
+              ) : null}
             </>
           )}
         </Tile>

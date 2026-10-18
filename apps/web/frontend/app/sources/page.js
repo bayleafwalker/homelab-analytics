@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
+import { ResponsiveTable } from "@/components/responsive-table";
 import { getCurrentUser, getSourceFreshness, getRuns } from "@/lib/backend";
 
 const BUILTIN_UPLOAD_PATH = {
@@ -13,13 +14,13 @@ const BUILTIN_UPLOAD_PATH = {
 };
 
 function stalenessLabel(landedAt) {
-  if (!landedAt) return { label: "Never loaded", color: "var(--error)", indicator: "red" };
+  if (!landedAt) return { label: "Never loaded", color: "var(--warn)", indicator: "red" };
   const now = new Date();
   const then = new Date(landedAt);
   const diffDays = (now - then) / (1000 * 60 * 60 * 24);
   if (diffDays < 2)  return { label: "Fresh", color: "var(--ok)", indicator: "green" };
-  if (diffDays < 7)  return { label: `${Math.floor(diffDays)}d ago`, color: "var(--warning)", indicator: "yellow" };
-  return { label: `${Math.floor(diffDays)}d ago — stale`, color: "var(--error)", indicator: "red" };
+  if (diffDays < 7)  return { label: `${Math.floor(diffDays)}d ago`, color: "var(--accent-warm)", indicator: "yellow" };
+  return { label: `${Math.floor(diffDays)}d ago — stale`, color: "var(--warn)", indicator: "red" };
 }
 
 function formatDatasetLabel(datasetName) {
@@ -53,19 +54,14 @@ export default async function SourcesPage() {
     getRuns(200),
   ]);
 
-  // Build last-run-per-dataset for run status details
-  const lastRunByDataset = {};
-  for (const run of recentRuns) {
-    const ds = run.dataset_name;
-    if (!ds) continue;
-    if (!lastRunByDataset[ds] || run.created_at > lastRunByDataset[ds].created_at) {
-      lastRunByDataset[ds] = run;
-    }
-  }
+  // Each row is one source asset. Several assets can feed the same dataset
+  // (three bank accounts into account_transactions), so run details are
+  // joined on the asset's own latest_run_id from the freshness API — never on
+  // the dataset's newest run, which made every row show the same source.
+  const runsById = new Map(recentRuns.map((run) => [run.run_id, run]));
 
-  // Merge freshness API data with run details
   const rows = freshnessDatasets.map((ds) => {
-    const lastRun = lastRunByDataset[ds.dataset_name];
+    const lastRun = ds.latest_run_id ? runsById.get(ds.latest_run_id) || null : null;
     const uploadPath = BUILTIN_UPLOAD_PATH[ds.dataset_name] || null;
     const staleness = stalenessLabel(ds.landed_at);
     const actions = remediationActions(ds.status, uploadPath);
@@ -78,7 +74,7 @@ export default async function SourcesPage() {
     const aOrd = order[a.staleness.indicator] ?? 3;
     const bOrd = order[b.staleness.indicator] ?? 3;
     if (aOrd !== bOrd) return aOrd - bOrd;
-    return a.dataset_name.localeCompare(b.dataset_name);
+    return (a.name || a.dataset_name).localeCompare(b.name || b.dataset_name);
   });
 
   const staleCount = rows.filter((r) => r.staleness.indicator === "red").length;
@@ -100,13 +96,13 @@ export default async function SourcesPage() {
           </article>
           <article className="panel metricCard">
             <div className="metricLabel">Stale / never loaded</div>
-            <div className="metricValue" style={{ color: staleCount > 0 ? "var(--error)" : "var(--ok)" }}>
+            <div className="metricValue" style={{ color: staleCount > 0 ? "var(--warn)" : "var(--ok)" }}>
               {staleCount}
             </div>
           </article>
           <article className="panel metricCard">
             <div className="metricLabel">Getting stale</div>
-            <div className="metricValue" style={{ color: warnCount > 0 ? "var(--warning)" : "var(--ok)" }}>
+            <div className="metricValue" style={{ color: warnCount > 0 ? "var(--accent-warm)" : "var(--ok)" }}>
               {warnCount}
             </div>
           </article>
@@ -122,100 +118,101 @@ export default async function SourcesPage() {
               Upload files
             </Link>
           </div>
-          {rows.length === 0 ? (
-            <div className="empty">No source freshness data available. Run an upload or retry first.</div>
-          ) : (
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Status</th>
-                    <th>Dataset</th>
-                    <th>Last ingested</th>
-                    <th>Run status</th>
-                    <th>Source</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.dataset_name}>
-                      <td>
-                        <span
-                          title={row.staleness.label}
-                          style={{
-                            display: "inline-block",
-                            width: "10px",
-                            height: "10px",
-                            borderRadius: "50%",
-                            background: row.staleness.color,
-                          }}
-                        />
-                        <span className="muted" style={{ marginLeft: "6px", fontSize: "0.82rem" }}>
-                          {row.staleness.label}
-                        </span>
-                      </td>
-                      <td>{formatDatasetLabel(row.dataset_name)}</td>
-                      <td>
-                        {row.latest_run_id ? (
-                          <Link className="inlineLink" href={`/runs/${row.latest_run_id}`}>
-                            {row.landed_at ? new Date(row.landed_at).toLocaleDateString() : row.latest_run_id}
-                          </Link>
-                        ) : (
-                          <span className="muted">Never</span>
-                        )}
-                      </td>
-                      <td>
-                        {row.status ? (
-                          <span
-                            className={`statusPill ${
-                              row.status === "landed" || row.status === "promoted"
-                                ? "status-landed"
-                                : row.status === "rejected" || row.status === "failed"
-                                ? "status-rejected"
-                                : "status-pending"
-                            }`}
-                          >
-                            {row.status}
-                          </span>
-                        ) : (
-                          <span className="muted">—</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className="muted">
-                          {row.lastRun?.source_name || "—"}
-                        </span>
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                          {row.actions.map((action) => (
-                            action.kind === "run" && row.latest_run_id ? (
-                              <Link
-                                key={action.label}
-                                className="inlineLink"
-                                href={`/runs/${row.latest_run_id}`}
-                              >
-                                {action.label}
-                              </Link>
-                            ) : action.href ? (
-                              <Link
-                                key={action.label}
-                                className="inlineLink"
-                                href={action.href}
-                              >
-                                {action.label}
-                              </Link>
-                            ) : null
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <ResponsiveTable
+            label="Source status and remediation"
+            rows={rows}
+            rowKey={(row) => row.source_asset_id || row.dataset_name}
+            empty={<div className="empty">No source freshness data available. Run an upload or retry first.</div>}
+            columns={[
+              {
+                key: "name",
+                header: "Source",
+                primary: true,
+                cell: (row) => (
+                  <>
+                    <span style={{ display: "block" }}>{row.name || formatDatasetLabel(row.dataset_name)}</span>
+                    <span className="muted" style={{ fontSize: "0.82rem", fontFamily: "var(--font-sans)", fontWeight: 400 }}>
+                      {formatDatasetLabel(row.dataset_name)}
+                    </span>
+                  </>
+                ),
+              },
+              {
+                key: "staleness",
+                header: "Status",
+                cell: (row) => (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        display: "inline-block",
+                        width: "10px",
+                        height: "10px",
+                        borderRadius: "50%",
+                        background: row.staleness.color,
+                      }}
+                    />
+                    <span className="muted" style={{ fontSize: "0.82rem" }}>{row.staleness.label}</span>
+                  </span>
+                ),
+              },
+              {
+                key: "landed_at",
+                header: "Last ingested",
+                cell: (row) =>
+                  row.latest_run_id ? (
+                    <Link className="inlineLink" href={`/runs/${row.latest_run_id}`}>
+                      {row.landed_at ? new Date(row.landed_at).toLocaleDateString("en-GB") : row.latest_run_id}
+                    </Link>
+                  ) : (
+                    <span className="muted">Never</span>
+                  ),
+              },
+              {
+                key: "status",
+                header: "Run status",
+                cell: (row) =>
+                  row.status ? (
+                    <span
+                      className={`statusPill ${
+                        row.status === "landed" || row.status === "promoted"
+                          ? "status-landed"
+                          : row.status === "rejected" || row.status === "failed"
+                          ? "status-rejected"
+                          : "status-pending"
+                      }`}
+                    >
+                      {row.status}
+                    </span>
+                  ) : null,
+              },
+              {
+                key: "source_name",
+                header: "Uploaded as",
+                cell: (row) => <span className="muted">{row.lastRun?.source_name || null}</span>,
+              },
+              {
+                key: "actions",
+                header: "Actions",
+                hideLabel: true,
+                cell: (row) => (
+                  <span style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    {row.actions.map((action) =>
+                      action.kind === "run" && row.latest_run_id ? (
+                        <Link key={action.label} className="inlineLink" href={`/runs/${row.latest_run_id}`}>
+                          {action.label}
+                        </Link>
+                      ) : action.href ? (
+                        <Link key={action.label} className="inlineLink" href={action.href}>
+                          {action.label}
+                        </Link>
+                      ) : null
+                    )}
+                  </span>
+                ),
+              },
+            ]}
+          />
         </article>
 
         <article className="panel section">
@@ -237,9 +234,9 @@ export default async function SourcesPage() {
                 .filter((r) => r.uploadPath && r.staleness.indicator !== "green")
                 .map((r) => {
                   return (
-                    <div key={r.dataset_name} style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+                    <div key={r.source_asset_id || r.dataset_name} style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600 }}>{formatDatasetLabel(r.dataset_name)}</div>
+                        <div style={{ fontWeight: 600 }}>{r.name || formatDatasetLabel(r.dataset_name)}</div>
                         <div className="muted" style={{ fontSize: "0.82rem", marginTop: "2px" }}>
                           {r.latest_run_id
                             ? "Open the latest run to inspect validation and remediation context."

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
+import { Explain } from "@/components/explain-server";
 import { Eyebrow } from "@/components/eyebrow";
 import { NumMono } from "@/components/num-mono";
 import { Pill } from "@/components/pill";
@@ -44,11 +45,22 @@ function ConfidenceLine({ confidence }) {
   );
 }
 
-function EvidenceLine({ item }) {
+function EvidenceLine({ item, user }) {
   const runs = item.evidence.filter((ref) => ref.kind === "run");
   if (!item.lineage_publication_key && runs.length === 0) return null;
   return (
     <div className={styles.evidence}>
+      {item.lineage_publication_key ? (
+        // Presentation only: the brief already carries this line's confidence,
+        // so the explanation reuses it instead of a second read.
+        <Explain
+          publication={item.lineage_publication_key}
+          user={user}
+          confidence={item.confidence || null}
+          label={item.headline}
+          placement="start"
+        />
+      ) : null}
       {item.lineage_publication_key ? (
         <Link
           href={lineageDrillHref(item.lineage_publication_key)}
@@ -66,7 +78,7 @@ function EvidenceLine({ item }) {
   );
 }
 
-function BriefItem({ item }) {
+function BriefItem({ item, user }) {
   return (
     <li
       className={styles.item}
@@ -93,12 +105,12 @@ function BriefItem({ item }) {
         </div>
       ) : null}
       <ConfidenceLine confidence={item.confidence} />
-      <EvidenceLine item={item} />
+      <EvidenceLine item={item} user={user} />
     </li>
   );
 }
 
-function BriefSection({ section }) {
+function BriefSection({ section, user }) {
   return (
     <section className={styles.section} data-testid={`brief-section-${section.key}`}>
       <div className={styles.sectionHeader}>
@@ -108,7 +120,7 @@ function BriefSection({ section }) {
       <p className={styles.summary}>{section.summary}</p>
       <ul className={styles.items}>
         {section.items.map((item) => (
-          <BriefItem key={item.item_id} item={item} />
+          <BriefItem key={item.item_id} item={item} user={user} />
         ))}
       </ul>
     </section>
@@ -156,7 +168,7 @@ export default async function BriefingPage() {
         </div>
 
         {brief.sections.map((section) => (
-          <BriefSection key={section.key} section={section} />
+          <BriefSection key={section.key} section={section} user={user} />
         ))}
 
         <footer className={styles.footer}>

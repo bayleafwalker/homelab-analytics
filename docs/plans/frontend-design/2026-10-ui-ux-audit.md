@@ -78,3 +78,14 @@ The ADR unblocks it, but its centre panel (`getSpendHeatmap`, day-of-week × hou
 6. **Freshness pulse noise.** Show "not configured" instead of "Never" when a dataset has data but no freshness config.
 7. **Fix the remaining defects found** (§1 #8, #9) in their owning sprints: migrate `/control/confidence` to server fetches (ADR §4.3) and make `/control/source-freshness` resolve each asset's own latest run.
 8. **Retro rail parity (optional).** `retro-shell.js` could consume `lib/nav-model.js` for its module launcher; left alone per the no-parity rule.
+
+## 4. Wave 3 delivery (`feat/ui-wave-3`)
+
+Reference shots: `refs/2026-10-ui-wave-3/` (demo-seeded local API, local identity mode, axe clean on every captured page).
+
+- **§1 #9 fixed (backend).** `build_source_freshness_views` attributes runs to a source asset through the `source_asset_id` in each run's manifest context, so three accounts on one dataset no longer share a run. `/sources` keys rows by asset and joins the asset's own `latest_run_id`. Regression tests: `tests/test_source_freshness_overview.py`, `tests/test_freshness_remediation_flow.py::test_assets_sharing_a_dataset_report_their_own_latest_run`.
+- **§1 #8 fixed.** `/control/confidence` is a server component over `getPublicationConfidence({ staleOnly, verdict })`; filters are URL state.
+- **Proposal 1, `<Explain>`.** `components/explain.js` (+ `explain-disclosure.js`, `explain-server.js`, `lib/explain.js`). Adopted on dashboard KPIs, the Cashflow Map sentence and publication list, morning-brief lines (presentation only) and the wallboard money tile. Lineage on the DuckDB path is still a single publication node, and the panel says so.
+- **Proposal 2, as-of, within its limits.** The reporting layer has no historical snapshots for `household-overview`, `attention-items`, affordability ratios, the recurring baseline or recent changes, and no `as_of` read, so no API parameter was added. `<AsOfScrubber>` offers only the months the monthly marts hold. On the dashboard (`?asof=YYYY-MM`) it rewinds monthly cashflow, top categories, utilities and the trend, and marks the snapshot-only panels "Today". The Cashflow Map uses it for `?m=`. A real as-of view needs dated snapshots of the overview and attention marts.
+- **Proposal 5, `<ResponsiveTable>`.** Under 600 px rows become "label .... value" slips while staying a `<table>`. Applied to `/sources`, `/control/confidence` and the dashboard tables. `/reports`, `/budgets`, `/utilities`, `/control/catalog` and `/control/execution` still use scrolling `.tableWrap` tables and are the next candidates.
+- Dashboard "Recent changes" read a non-existent `metric_name`; it now shows `description`, period and formatted values.

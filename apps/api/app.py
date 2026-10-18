@@ -730,6 +730,7 @@ def create_app(
         control_plane=resolved_config_repository,
         metadata_repository=resolved_service.metadata_repository,
         ha_policy_evaluator=ha_policy_evaluator,
+        blob_store=getattr(resolved_service, "blob_store", None),
     )
     register_homelab_routes(
         app,
