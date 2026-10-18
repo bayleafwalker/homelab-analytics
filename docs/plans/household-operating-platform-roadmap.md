@@ -436,11 +436,21 @@ Automation packs that produce HA automations, scripts, or dashboard cards withou
 - `docs/architecture/pack-ecosystem.md` — manifest standard, compatibility model, trust boundaries
 - `docs/product/pack-model.md` — what a pack is, how operators discover and manage them
 
-Neither document is written yet.
+Both documents are written.
 
 ### Status
 
-Partially complete. A unified `PackManifest` with `AdapterPack` as the adapter specialization (b55aff3) and `PackCompatibilityChecker` with platform, dependency, and publication diagnostics (`packages/adapters/pack_compatibility.py`, 80e5589) are shipped, along with the external registry manifest (`packages/shared/external_registry.py`). There is no operator-facing install, upgrade, or rollback surface over the registry.
+Partially complete. A unified `PackManifest` with `AdapterPack` as the adapter specialization (b55aff3) and `PackCompatibilityChecker` with platform, dependency, and publication diagnostics (`packages/adapters/pack_compatibility.py`, 80e5589) are shipped, along with the external registry manifest (`packages/shared/external_registry.py`).
+
+The operator lifecycle surface is shipped (branch `feat/pack-lifecycle`):
+
+- Control-plane state: `pack_installations` and the append-only `pack_lifecycle_events` (sqlite `0011_pack_lifecycle`, postgres `0018_pack_lifecycle`; `packages/storage/pack_lifecycle.py` with SQLite and Postgres mixins; contract coverage in `tests/test_pack_lifecycle_store.py`, including a Postgres testcontainer run).
+- Discovery from the validated local registry cache through an optional `packs` array in the registry manifest (`schema_version` stays 1; `packages/shared/pack_catalog.py`).
+- Lifecycle use cases with dry-run plans and safety refusals: install, upgrade, rollback, disable, enable, pin, unpin (`packages/application/use_cases/pack_lifecycle.py`; `tests/test_pack_lifecycle_use_cases.py`).
+- Admin-only API under `/control/packs` (`apps/api/routes/pack_routes.py`; `tests/test_pack_lifecycle_api.py`) and the `/control/packs` page with catalog badges, dry-run preview, reason-required actions and history (`apps/web/frontend/app/control/packs/`; `tests/test_web_pack_lifecycle.py`).
+- Design and operator docs: `docs/architecture/pack-ecosystem.md`, `docs/product/pack-model.md`.
+
+Remaining: lifecycle enablement does not yet gate runtime loading of extension modules (loading still follows external registry activation); there is no uninstall action; pack lifecycle state is not in the control-plane snapshot export; distribution beyond local paths and Git clones is not started.
 
 ---
 

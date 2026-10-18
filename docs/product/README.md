@@ -53,6 +53,7 @@ The current product direction is defined by these documents:
 - `product-slice-template.md`
 - `finance-source-contracts.md`
 - `source-freshness-workflow.md`
+- `pack-model.md`
 - `manual-reference-inputs.md`
 - `retro-crt-shell.md`
 
