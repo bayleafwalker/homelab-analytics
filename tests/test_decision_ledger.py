@@ -166,7 +166,7 @@ def test_record_decision_links_exact_publication_and_lineage_then_follow_up() ->
             "row_ref": row["assessment_id"],
             "verdict": "no_benefit_estimated",
         }
-        assert decision["decision_version"] == "1.0.0"
+        assert decision["decision_version"] == "1.1.0"
         assert decision["lineage_reference"]["source_run_ids"] == [
             "synthetic-economics-run",
             "synthetic-measurement-run",

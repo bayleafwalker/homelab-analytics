@@ -8,8 +8,15 @@ the acting identity as the auth layer reported it. Follow-ups record what was
 later observed. Both are append-only: a record is never edited, so projected
 evidence and realized outcomes stay distinct and auditable.
 
+Each record also opens a *commitment* (HLA-K01): the lifecycle terms pinned
+from the definition at record time (purpose, owner, baseline, success
+measure, observation window, review triggers, stop conditions). Its state is
+derived from append-only lifecycle events: operator stop/reopen and
+evidence supersession from correction tracing (HLA-K02). Events carry a
+``dedupe_key`` so a repeated correction delivery records one event.
+
 The model is generic (``decision_key`` + subject publication) so other
-domains can reuse it; only the Kotiakku battery-plan decision is declared.
+domains reuse it.
 """
 
 from __future__ import annotations
@@ -30,6 +37,7 @@ FOLLOW_UP_EVIDENCE_EFFECTS = frozenset(
     }
 )
 REALIZED_VALUE_STATUSES = frozenset({"observed", "user_entered"})
+LIFECYCLE_EVENT_KINDS = frozenset({"evidence_superseded", "stopped", "reopened"})
 
 
 @dataclass(frozen=True)
@@ -38,6 +46,57 @@ class DecisionActor:
     actor_role: str | None
     actor_auth_provider: str
     actor_authenticated: bool
+
+
+@dataclass(frozen=True)
+class DecisionCommitment:
+    """Commitment terms pinned at record time. JSON fields are documents."""
+
+    decision_id: str
+    purpose: str
+    owner_role: str
+    owner_principal: str | None
+    owner_verified: bool
+    baseline: str  # JSON object of baseline values
+    success_measure: str  # JSON object
+    observation_window_start: date
+    observation_window_end: date
+    next_review_due_on: date
+    review_cadence_days: int
+    review_triggers: str  # JSON list
+    stop_conditions: str  # JSON list
+    stop_conditions_met: str  # JSON list of condition keys flagged at record time
+    evidence_fingerprint: str
+    evidence_components: str  # JSON object
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class DecisionLifecycleEventCreate:
+    event_id: str
+    decision_id: str
+    event_kind: str
+    dedupe_key: str
+    reason_code: str
+    reason: str
+    details: str  # JSON object (affected publications, pointers, source version)
+    actor: DecisionActor
+    occurred_at: datetime
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass(frozen=True)
+class DecisionLifecycleEvent:
+    event_id: str
+    decision_id: str
+    event_kind: str
+    dedupe_key: str
+    reason_code: str
+    reason: str
+    details: str
+    actor: DecisionActor
+    occurred_at: datetime
+    created_at: datetime
 
 
 @dataclass(frozen=True)
@@ -59,6 +118,7 @@ class DecisionRecordCreate:
     uncertainty: str | None
     actor: DecisionActor
     follow_up_due_on: date
+    commitment: DecisionCommitment | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -82,6 +142,8 @@ class DecisionRecord:
     actor: DecisionActor
     follow_up_due_on: date
     created_at: datetime
+    # ``None`` for records made before commitment lifecycles (definition 1.0.0).
+    commitment: DecisionCommitment | None = None
 
 
 @dataclass(frozen=True)
@@ -132,6 +194,18 @@ class DecisionLedgerStore(Protocol):
     ) -> DecisionFollowUpRecord: ...
 
     def list_decision_follow_ups(self, decision_id: str) -> list[DecisionFollowUpRecord]: ...
+
+    def append_decision_lifecycle_event(
+        self, event: DecisionLifecycleEventCreate
+    ) -> tuple[DecisionLifecycleEvent, bool]:
+        """Append an event; returns ``(event, created)``.
+
+        An event whose ``dedupe_key`` already exists is not appended again:
+        the stored event is returned with ``created = False``.
+        """
+        ...
+
+    def list_decision_lifecycle_events(self, decision_id: str) -> list[DecisionLifecycleEvent]: ...
 
 
 def aware_utc(value: datetime) -> datetime:

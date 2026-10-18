@@ -6,6 +6,7 @@ from argparse import Namespace
 from pathlib import Path
 
 from apps.api.app import serialize_promotion, serialize_run
+from apps.worker.command_handlers.decision_commands import trace_decision_evidence
 from apps.worker.control_plane import (
     _process_account_transaction_watch_folder,
     _process_configured_ingestion_definition,
@@ -22,6 +23,7 @@ from apps.worker.serialization import (
     _write_json,
 )
 from packages.demo import seed_demo_data, write_demo_bundle
+from packages.domains.utilities.battery_plan_decision import BATTERY_PLAN_DECISION_KEY
 from packages.pipelines.battery_plan_outcome_publication import (
     publish_battery_plan_outcome,
 )
@@ -317,7 +319,10 @@ def handle_report_monthly_cashflow(args: Namespace, runtime: WorkerRuntime) -> i
 
 
 def handle_refresh_battery_plan_outcome(args: Namespace, runtime: WorkerRuntime) -> int:
-    """Assess the Kotiakku battery-plan decision from HA history and publish it."""
+    """Assess the Kotiakku battery-plan decision from HA history and publish it.
+
+    Afterwards, decisions made on corrected evidence are marked superseded.
+    """
     transformation_service, reporting_service = _build_reporting_runtime(runtime)
     result = publish_battery_plan_outcome(
         transformation_service,
@@ -331,6 +336,11 @@ def handle_refresh_battery_plan_outcome(args: Namespace, runtime: WorkerRuntime)
             "published": result.published,
             "lineage_run_ids": result.lineage_run_ids,
             "outcomes": result.outcomes,
+            "decision_evidence_trace": trace_decision_evidence(
+                runtime.config_repository,
+                reporting_service,
+                decision_key=BATTERY_PLAN_DECISION_KEY,
+            ),
         },
     )
     return 0

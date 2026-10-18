@@ -29,6 +29,10 @@ from .backup_commands import (
     handle_scheduled_backup,
     handle_verify_backup,
 )
+from .decision_commands import (
+    handle_export_outcome_references,
+    handle_trace_decision_evidence,
+)
 from .ingest_commands import (
     handle_generate_demo_data,
     handle_ingest_account_transactions,
@@ -134,6 +138,8 @@ def build_worker_command_handlers() -> dict[str, WorkerCommandHandler]:
         "promote-run": handle_promote_run,
         "recover-stale-schedule-dispatches": handle_recover_stale_schedule_dispatches,
         "refresh-battery-plan-outcome": handle_refresh_battery_plan_outcome,
+        "trace-decision-evidence": handle_trace_decision_evidence,
+        "export-outcome-references": handle_export_outcome_references,
         "report-contract-prices": handle_report_contract_prices,
         "report-electricity-prices": handle_report_electricity_prices,
         "report-monthly-cashflow": handle_report_monthly_cashflow,

@@ -1421,6 +1421,101 @@ def assert_decision_ledger_behaviour(store: Any) -> None:
         pass
     else:
         raise AssertionError("expected KeyError for follow-up on unknown decision")
+    _assert_decision_commitment_lifecycle(store, actor)
+
+
+def _assert_decision_commitment_lifecycle(store: Any, actor: Any) -> None:
+    """Commitment terms persist with the record; lifecycle events dedupe."""
+    from packages.storage.decision_ledger import (
+        DecisionCommitment,
+        DecisionLifecycleEventCreate,
+        DecisionRecordCreate,
+    )
+
+    created_at = datetime(2026, 2, 4, 9, 30, tzinfo=UTC)
+    commitment = DecisionCommitment(
+        decision_id="dec-contract-2",
+        purpose="Keep the plan while economics justify it.",
+        owner_role="operator",
+        owner_principal=None,
+        owner_verified=True,
+        baseline='{"values":{}}',
+        success_measure='{"key":"m"}',
+        observation_window_start=date(2026, 3, 1),
+        observation_window_end=date(2026, 3, 31),
+        next_review_due_on=date(2026, 4, 14),
+        review_cadence_days=30,
+        review_triggers="[]",
+        stop_conditions='[{"key":"purpose_expired"}]',
+        stop_conditions_met="[]",
+        evidence_fingerprint="evf_contract",
+        evidence_components='{"source_windows":{}}',
+        created_at=created_at,
+    )
+    record = store.create_decision_record(
+        DecisionRecordCreate(
+            decision_id="dec-contract-2",
+            decision_key="kotiakku_battery_plan_review",
+            decision_version="1.1.0",
+            subject_publication_key="mart_battery_plan_outcome",
+            subject_schema_version="1.0.0",
+            subject_period="2026-01",
+            subject_row_ref="bpo_contract_2",
+            subject_verdict="no_benefit_estimated",
+            lineage_reference="{}",
+            evidence_snapshot="{}",
+            outcome="keep_current_plan",
+            is_non_decision=False,
+            rationale="Estimate below cost but within tolerance.",
+            evidence_gaps_acknowledged="[]",
+            uncertainty=None,
+            actor=actor,
+            follow_up_due_on=date(2026, 4, 14),
+            commitment=commitment,
+            created_at=created_at,
+        )
+    )
+    assert record.commitment == commitment
+    assert store.get_decision_record("dec-contract-2").commitment == commitment
+    legacy = store.get_decision_record("dec-contract-1")
+    assert legacy.commitment is None
+
+    event = DecisionLifecycleEventCreate(
+        event_id="dle-contract-1",
+        decision_id="dec-contract-2",
+        event_kind="evidence_superseded",
+        dedupe_key="dec-contract-2:evidence_superseded:evf_new",
+        reason_code="evidence_superseded",
+        reason="Tariff revised.",
+        details='{"superseding_row_ref":"bpo_new"}',
+        actor=actor,
+        occurred_at=datetime(2026, 2, 10, tzinfo=UTC),
+        created_at=datetime(2026, 2, 10, tzinfo=UTC),
+    )
+    stored, created = store.append_decision_lifecycle_event(event)
+    assert created is True
+    assert stored.event_id == "dle-contract-1"
+    assert stored.occurred_at == datetime(2026, 2, 10, tzinfo=UTC)
+    duplicate, created_again = store.append_decision_lifecycle_event(
+        DecisionLifecycleEventCreate(
+            **{**event.__dict__, "event_id": "dle-contract-dup"}
+        )
+    )
+    assert created_again is False
+    assert duplicate.event_id == "dle-contract-1"
+    assert store.list_decision_lifecycle_events("dec-contract-2") == [stored]
+    assert store.list_decision_lifecycle_events("dec-contract-1") == []
+    try:
+        store.append_decision_lifecycle_event(
+            DecisionLifecycleEventCreate(
+                **{**event.__dict__, "event_id": "dle-orphan", "decision_id": "missing",
+                   "dedupe_key": "missing:x"}
+            )
+        )
+    except KeyError:
+        pass
+    else:
+        raise AssertionError("expected KeyError for an event on an unknown decision")
 
 
 def assert_action_proposal_store_behaviour(store: Any) -> None:

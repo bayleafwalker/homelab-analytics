@@ -2,15 +2,24 @@
 
 Each definition has a subject reader that resolves the exact reporting-layer
 publication row a decision is made on (never landing or transformation data),
-so a decision record can pin its row reference, schema version and lineage.
+so a decision record can pin its row reference, schema version, lineage,
+baseline and evidence fingerprint. A subject lister enumerates the periods a
+decision can currently be made on, and a snapshot reader recovers the
+fingerprinted evidence components from a stored decision snapshot so
+correction tracing also covers records made before fingerprints were pinned.
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from typing import Any
 
-from packages.domains.utilities.battery_plan_decision import BATTERY_PLAN_DECISION
+from packages.domains.utilities.battery_plan_decision import (
+    BATTERY_PLAN_DECISION,
+    battery_plan_baseline,
+    battery_plan_evidence_components,
+)
 from packages.domains.utilities.battery_plan_publications import (
     BATTERY_PLAN_OUTCOME_PUBLICATION,
 )
@@ -21,11 +30,14 @@ from packages.platform.decision_definitions import (
 )
 
 DECISION_DEFINITIONS: dict[str, DecisionDefinition] = {
-    definition.decision_key: definition for definition in (BATTERY_PLAN_DECISION,)
+    definition.decision_key: definition
+    for definition in (BATTERY_PLAN_DECISION,)
 }
 
 
 SubjectReader = Callable[[ReportingService, str], DecisionSubjectEvidence | None]
+SubjectLister = Callable[[ReportingService], list[str]]
+SnapshotComponentsReader = Callable[[Mapping[str, Any]], dict[str, Any] | None]
 
 
 def _read_battery_plan_subject(
@@ -62,11 +74,30 @@ def _read_battery_plan_subject(
             "tariff_snapshot_id": row.get("tariff_snapshot_id"),
         },
         snapshot={"outcome": row, "values": values},
+        baseline=battery_plan_baseline(row),
+        evidence_components=battery_plan_evidence_components(row),
     )
+
+
+def _list_battery_plan_subjects(reporting: ReportingService) -> list[str]:
+    return [str(row["decision_month"]) for row in reporting.get_battery_plan_outcome()]
+
+
+def _battery_snapshot_components(snapshot: Mapping[str, Any]) -> dict[str, Any] | None:
+    outcome = snapshot.get("outcome")
+    if not isinstance(outcome, Mapping):
+        return None
+    return battery_plan_evidence_components(outcome)
 
 
 SUBJECT_READERS: dict[str, SubjectReader] = {
     BATTERY_PLAN_DECISION.decision_key: _read_battery_plan_subject,
+}
+SUBJECT_LISTERS: dict[str, SubjectLister] = {
+    BATTERY_PLAN_DECISION.decision_key: _list_battery_plan_subjects,
+}
+SNAPSHOT_COMPONENT_READERS: dict[str, SnapshotComponentsReader] = {
+    BATTERY_PLAN_DECISION.decision_key: _battery_snapshot_components,
 }
 
 
@@ -79,3 +110,20 @@ def read_decision_subject(
 ) -> DecisionSubjectEvidence | None:
     reader = SUBJECT_READERS.get(decision_key)
     return reader(reporting, period) if reader is not None else None
+
+
+def list_decision_subjects(
+    decision_key: str, reporting: ReportingService
+) -> list[DecisionSubjectEvidence]:
+    lister = SUBJECT_LISTERS.get(decision_key)
+    if lister is None:
+        return []
+    subjects = (read_decision_subject(decision_key, reporting, period) for period in lister(reporting))
+    return [subject for subject in subjects if subject is not None]
+
+
+def snapshot_evidence_components(
+    decision_key: str, snapshot: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    reader = SNAPSHOT_COMPONENT_READERS.get(decision_key)
+    return reader(snapshot) if reader is not None else None
