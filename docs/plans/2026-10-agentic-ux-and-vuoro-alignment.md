@@ -150,7 +150,7 @@ The module is `packages/application/use_cases/assistant_runtime.py` and its brok
 1. ~~**Persist the proposal queue**~~ — done in wave 2 (see 2.8).
 2. ~~**A `proposals:draft` service-token scope**~~ — done in wave 2, along with `policies:draft`. `admin:write` implies `proposals:draft` (`SERVICE_TOKEN_SCOPE_IMPLICATIONS`), so existing agent tokens keep working. The generalized `/api/actions/*` routes and the HA routes now share one model: drafting needs `control.action_proposals.draft`, and resolving needs the operator-level `control.action_proposals.write`. See `docs/runbooks/configuration.md` § Agent service-token scopes.
 3. **Unify the confidence key namespace** (section 2.5) with the confidence owner.
-4. **Retro-shell mirror of `/control/agents`**, read-only, as the policies mirror is.
+4. ~~**Retro-shell mirror of `/control/agents`**~~ — done in `feat/agent-platform-followups`: `/retro/control/agents` (operators and admins) mirrors the pending queue, recent resolutions and observed agents, with no resolution forms; review and resolution link to the classic page.
 5. **An OpenCode adapter** behind both gates, once B1 (the deterministic brief) has shipped.
 
 ## 8. Open questions

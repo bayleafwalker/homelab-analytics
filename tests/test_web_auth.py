@@ -1070,6 +1070,29 @@ def test_nextjs_frontend_retro_policy_view_mirrors_verdicts_without_authoring() 
     assert '{ href: "/retro/control/policies"' in retro_shell
 
 
+def test_retro_shell_mirrors_control_agents_read_only() -> None:
+    retro_agents = (
+        FRONTEND_ROOT / "app" / "retro" / "control" / "agents" / "page.js"
+    ).read_text()
+    retro_shell = (FRONTEND_ROOT / "components" / "retro-shell.js").read_text()
+
+    # Same audience as /control/agents: operators and admins.
+    assert 'user.role !== "admin" && user.role !== "operator"' in retro_agents
+    assert 'redirect("/retro")' in retro_agents
+    # Reads the same typed helpers as the classic page; no direct fetches.
+    for helper in ("getActionProposals()", "getAgentPrincipals()", "getAgentToolCatalog()"):
+        assert helper in retro_agents
+    assert "fetch(" not in retro_agents
+    # Read-only mirror: no resolution forms or routes, resolution links to classic.
+    assert "<form" not in retro_agents
+    assert "/approve" not in retro_agents and "/dismiss" not in retro_agents
+    assert 'href="/control/agents"' in retro_agents
+    assert "resolution_reason" in retro_agents
+    assert "actor_auth_provider" in retro_agents
+    # Navigable for admins and operators.
+    assert retro_shell.count('{ href: "/retro/control/agents"') == 2
+
+
 def test_nextjs_frontend_exposes_deterministic_morning_brief() -> None:
     briefing_source = (FRONTEND_ROOT / "app" / "briefing" / "page.js").read_text()
     lineage_source = (FRONTEND_ROOT / "app" / "briefing" / "lineage" / "page.js").read_text()
