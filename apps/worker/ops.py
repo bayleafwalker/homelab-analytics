@@ -5,7 +5,8 @@ between dispatches. Dispatch processing is synchronous on the loop thread and
 every promotion closes its warehouse connection before returning, so at that
 point this process holds no DuckDB handle and none of its own ingestion can be
 in flight. ``create_backup`` then takes a read-only DuckDB connection, which
-fails cleanly if another process (e.g. an API that opened the warehouse) holds
+is retried with backoff while another process (an API write session, a long
+promotion) holds
 the write lock; the failure is recorded and retried later.
 """
 

@@ -219,7 +219,7 @@ else:
 def test_backup_fails_cleanly_while_another_process_holds_the_warehouse(tmp_path: Path) -> None:
     sources = _sources(tmp_path)
     _seed_warehouse(sources.warehouse_database_path)
-    policy = _policy(tmp_path)
+    policy = replace(_policy(tmp_path), lock_retry_attempts=3, lock_retry_backoff_seconds=0.05)
     holder = subprocess.Popen(
         [sys.executable, "-c", _HOLD_WRITE_LOCK, str(sources.warehouse_database_path)],
         stdin=subprocess.PIPE,
@@ -249,6 +249,37 @@ def test_backup_fails_cleanly_while_another_process_holds_the_warehouse(tmp_path
         assert connection.execute("SELECT count(*) FROM facts").fetchone() == (4,)
     finally:
         connection.close()
+
+
+_HOLD_WRITE_LOCK_BRIEFLY = """
+import sys, time, duckdb
+connection = duckdb.connect(sys.argv[1])
+print("locked", flush=True)
+time.sleep(float(sys.argv[2]))
+connection.close()
+"""
+
+
+def test_backup_retries_a_brief_lock_inside_the_same_attempt(tmp_path: Path) -> None:
+    sources = _sources(tmp_path)
+    _seed_warehouse(sources.warehouse_database_path)
+    # 0.2 + 0.4 + 0.8 + 1.6 s of backoff outlasts a 1 s writer.
+    policy = replace(_policy(tmp_path), lock_retry_attempts=5, lock_retry_backoff_seconds=0.2)
+    holder = subprocess.Popen(
+        [sys.executable, "-c", _HOLD_WRITE_LOCK_BRIEFLY, str(sources.warehouse_database_path), "1.0"],
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        assert holder.stdout is not None and holder.stdout.readline().strip() == "locked"
+        result = run_scheduled_backup(sources, policy, now=T0)
+    finally:
+        holder.wait(timeout=30)
+
+    assert result.succeeded, result.error
+    status = read_backup_status(policy.destination_root)
+    assert status is not None
+    assert status.failures_total == 0 and status.consecutive_failures == 0
 
 
 def test_writers_are_excluded_while_the_warehouse_is_copied(

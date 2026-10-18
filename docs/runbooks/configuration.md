@@ -111,6 +111,9 @@ Deprecation rollout:
 | `HOMELAB_ANALYTICS_API_HOST` | `0.0.0.0` | API listen address |
 | `HOMELAB_ANALYTICS_API_PORT` | `8080` | API listen port |
 | `HOMELAB_ANALYTICS_API_BASE_URL` | `http://127.0.0.1:<api_port>` | Backend API origin used by the Next.js web workload |
+| `HOMELAB_ANALYTICS_API_WAREHOUSE_IDLE_SECONDS` | `5` | Close the API's DuckDB warehouse handle after this many idle seconds when no request is in flight (handles are also released at request end) |
+| `HOMELAB_ANALYTICS_WAREHOUSE_LOCK_RETRY_ATTEMPTS` | `4` | API warehouse opens retried on a cross-process lock conflict before answering 503 |
+| `HOMELAB_ANALYTICS_WAREHOUSE_LOCK_RETRY_BACKOFF_SECONDS` | `0.1` | First retry delay (doubles per attempt) |
 | `HOMELAB_ANALYTICS_METRICS_TOKEN` | unset | When set, API and worker `/metrics` require `Authorization: Metrics <token>`; unset keeps them network-internal and unauthenticated. See [slo.md](slo.md) |
 
 ## Supported defaults: worker

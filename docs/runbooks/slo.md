@@ -59,6 +59,9 @@ most every 15 s):
 | `homelab_analytics_worker_newest_heartbeat_age_seconds` | gauge | | Age of that heartbeat (-1 if none) |
 | `homelab_analytics_backup_*` | gauge/counter | | Scheduled-backup status (below) |
 | `homelab_analytics_metrics_collector_up` | gauge | `collector` | 1 when a scrape-time collector succeeded |
+| `homelab_analytics_api_warehouse_handle_open` | gauge | `mode` (`read_only`, `read_write`) | 1 while the API process holds a DuckDB warehouse handle; normally 0 between requests |
+| `homelab_analytics_api_warehouse_opens_total` | counter | `mode` | Short-lived warehouse handles opened by the API |
+| `homelab_analytics_api_warehouse_busy_total` | counter | | API warehouse opens that hit a lock held by another process for the whole retry window (answered 503) |
 
 Worker process (`GET /metrics` on `HOMELAB_ANALYTICS_WORKER_METRICS_PORT`):
 
@@ -112,10 +115,11 @@ the JSON into Grafana.
 | Alert | First checks |
 |---|---|
 | `ApiErrorBudgetFastBurn` / `SlowBurn` | Dashboard "5xx ratio" and "Latency p95 by route" to find the route; api container logs; `/ready` (control plane / reporting backend reachable?) |
+| 503 responses with `Retry-After` | A worker promotion held the warehouse write lock longer than the API retry window; `homelab_analytics_api_warehouse_busy_total` rises. Short bursts during promotions are expected and spend the availability budget |
 | `ApiLatencySloAtRisk` | Slow route on the dashboard; Postgres load (CNPG); a worker refresh holding locks |
 | `SourceOverdue` | `/control/source-freshness`; upload the missing period or fix the ingestion definition |
 | `PublicationRefreshFailing` | Worker logs `schedule dispatch processing failed`; `list-schedule-dispatches --status failed` |
 | `WorkerLoopStalled` | Worker container restarts/OOM; `list-worker-heartbeats`; stale dispatches |
-| `BackupStale` / `BackupFailing` / `BackupNeverSucceeded` | `cat /data/backups/backup-status.json` (`last_error`). "Could not open DuckDB warehouse read-only": another process holds the warehouse write lock; "inside the landing root": fix `HOMELAB_ANALYTICS_BACKUP_DIR`; ENOSPC: the PVC is full, lower retention |
+| `BackupStale` / `BackupFailing` / `BackupNeverSucceeded` | `cat /data/backups/backup-status.json` (`last_error`). "Could not open DuckDB warehouse read-only": a writer held the lock through the backup's retry window (about 7.5 s) — a long worker promotion; check `homelab_analytics_api_warehouse_handle_open` (the API only holds short-lived handles); "inside the landing root": fix `HOMELAB_ANALYTICS_BACKUP_DIR`; ENOSPC: the PVC is full, lower retention |
 | `RestoreDrillStale` | Run the drill: [backup-and-restore.md](backup-and-restore.md#restore-drill) |
 | `MetricsCollectorDown` | API logs `metrics collector failed` with the collector name; the store behind it |

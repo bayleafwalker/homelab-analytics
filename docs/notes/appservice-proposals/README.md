@@ -54,10 +54,13 @@ Add the four new `apps/homelab-analytics/app/` files to that directory's
   prints `"passed": true`
   ([runbook](../../runbooks/backup-and-restore.md#restore-drill)).
 
-If `backup-status.json` shows `Could not open DuckDB warehouse read-only`,
-another process (the api, if a request opened the warehouse) holds the DuckDB
-write lock; the worker retries every 15 minutes and `HomelabAnalyticsBackupFailing`
-fires after three failures.
+If `backup-status.json` shows `Could not open DuckDB warehouse read-only`, a
+writer held the DuckDB lock through the whole retry window (about 7.5 s). The
+api only holds short-lived handles (read-only for reads, read-write for the
+duration of a write), so this means a long write; the worker retries after
+15 minutes and `HomelabAnalyticsBackupFailing` fires after three failures.
+`homelab_analytics_api_warehouse_handle_open{mode}` on the api shows whether the
+api holds a handle at scrape time.
 
 ## Not included
 

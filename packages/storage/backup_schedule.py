@@ -36,6 +36,8 @@ from typing import Any
 
 from packages.storage.backup_bundle import (
     MANIFEST_FILENAME,
+    WAREHOUSE_LOCK_RETRY_ATTEMPTS,
+    WAREHOUSE_LOCK_RETRY_BACKOFF_SECONDS,
     BackupError,
     BackupSources,
     create_backup,
@@ -69,6 +71,10 @@ class BackupSchedulePolicy:
     destination_root: Path
     interval_seconds: int
     retention_count: int
+    # Retry a warehouse lock conflict inside the same idle window before the
+    # attempt is recorded as failed (another process writing briefly).
+    lock_retry_attempts: int = WAREHOUSE_LOCK_RETRY_ATTEMPTS
+    lock_retry_backoff_seconds: float = WAREHOUSE_LOCK_RETRY_BACKOFF_SECONDS
 
     @property
     def enabled(self) -> bool:
@@ -240,7 +246,13 @@ def run_scheduled_backup(
                 shutil.rmtree(stale, ignore_errors=True)
             stamp = moment.strftime("%Y%m%dT%H%M%SZ")
             staging = root / f"{STAGING_PREFIX}{stamp}-{uuid.uuid4().hex[:8]}"
-            create(sources, staging, now=moment)
+            create(
+                sources,
+                staging,
+                now=moment,
+                lock_retry_attempts=policy.lock_retry_attempts,
+                lock_retry_backoff_seconds=policy.lock_retry_backoff_seconds,
+            )
             verification = verify_backup(staging)
             if not verification.passed:
                 raise BackupError(

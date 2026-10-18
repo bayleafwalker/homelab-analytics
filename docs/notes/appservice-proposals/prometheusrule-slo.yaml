@@ -151,7 +151,7 @@ spec:
         slo: backup-recency
       annotations:
         summary: Three or more consecutive scheduled backups failed.
-        description: A process other than the worker may hold the DuckDB warehouse write lock, or the backup volume is full.
+        description: A writer held the DuckDB warehouse lock through every retry window (a long worker promotion or a stuck process), or the backup volume is full.
     - alert: HomelabAnalyticsRestoreDrillStale
       expr: time() - max(homelab_analytics_backup_restore_drill_last_success_timestamp_seconds) > 691200
       for: 1h

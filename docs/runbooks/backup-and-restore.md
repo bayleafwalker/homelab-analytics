@@ -41,7 +41,7 @@ python -m apps.worker.main backup /backups/homelab-$(date +%F)
 
 - The destination must be new or empty. The command refuses to write into a non-empty directory.
 - The SQLite control plane is captured consistently while the API and worker are running.
-- The DuckDB warehouse is opened read-only during the copy. If another process holds the write lock, the command fails with `Stop worker and API processes that hold the warehouse before backing up`. Stop the worker (and API in warehouse mode), then rerun — or let the running worker take the backup itself ([scheduled backups](#scheduled-backups-running-worker)).
+- The DuckDB warehouse is opened read-only during the copy. A lock conflict is retried with backoff (about 7.5 s); if a writer holds the lock throughout, the command fails with `Stop worker and API processes that hold the warehouse`. Stop the long-running writer, then rerun — or let the running worker take the backup itself ([scheduled backups](#scheduled-backups-running-worker)).
 - Landing payloads are written atomically (temporary `.partial` name, then rename), and backups skip `.partial` files, so a bundle never captures a half-written payload.
 - The JSON output lists every component with `included` and, for excluded ones, `reason`.
 
@@ -93,6 +93,20 @@ HOMELAB_ANALYTICS_DATA_DIR=$(mktemp -d)/target python -m apps.worker.main restor
 
 `tests/test_worker_backup_restore.py` runs the same round trip in CI. It compares SQLite rows, DuckDB rows and landing bytes, and also covers the refusal paths.
 
+## API warehouse access
+
+DuckDB admits one read-write process per file, or any number of read-only ones. The API therefore never keeps the warehouse open:
+
+- Reads (`get_*`, `count_*`, `list_*` and store `fetchall*`/`query_*`) run on a **read-only** handle. Read-only handles coexist with the backup's read-only guard in another process.
+- Writes (promotion after an upload or run retry, category edits, scenario create/archive, HA state ingest) open a **read-write** handle for the duration of the call.
+- The handle is closed when the last in-flight request finishes, or after `HOMELAB_ANALYTICS_API_WAREHOUSE_IDLE_SECONDS` (default 5) for background callers such as the HA bridge.
+- Opening while another process holds the write lock is retried (`HOMELAB_ANALYTICS_WAREHOUSE_LOCK_RETRY_ATTEMPTS`, default 4, backoff from `..._BACKOFF_SECONDS` = 0.1 doubling). If the lock is still held, the request returns **503** with `Retry-After: 5` instead of a 500.
+- `homelab_analytics_api_warehouse_handle_open{mode="read_only"|"read_write"}` is 1 while the API holds a handle; `..._busy_total` counts 503s from lock conflicts.
+
+The worker also retries lock conflicts when it opens the warehouse for a promotion (6 attempts, about 3 s), so a short API session never fails a dispatch.
+
+`tests/test_api_warehouse_sessions.py` shows that, after an API read, another process can open the warehouse read-only and read-write; that a scheduled backup in another process succeeds while the API serves reads; and that a held write lock produces 503, then 200 once it is released.
+
 ## Scheduled backups (running worker)
 
 A one-off `worker backup` cannot run beside the long-running worker: the DuckDB warehouse admits one writer process, and the read-only capture is refused while a writer holds the lock. The worker therefore owns the schedule itself.
@@ -101,7 +115,7 @@ A one-off `worker backup` cannot run beside the long-running worker: the DuckDB 
 
 1. `watch-schedule-dispatches` checks the schedule at its *idle yield point*: an iteration that claimed no dispatch. Dispatch processing is synchronous on the loop thread, so none of this worker's ingestion or promotion can be in flight.
 2. Every promotion closes its DuckDB connection before returning, so at that point the worker process holds no warehouse handle.
-3. `create_backup` opens the warehouse read-only. DuckDB refuses that while another process (for example an API that opened the warehouse) holds the write lock, and while the read-only handle is open no writer can attach — the file and its WAL are quiescent for the copy. A refused open is recorded as a failure and retried after `min(interval, 15 min)`; ingestion is never blocked or interrupted.
+3. `create_backup` opens the warehouse read-only. DuckDB refuses that while another process holds the write lock, and while the read-only handle is open no writer can attach — the file and its WAL are quiescent for the copy. The API never keeps a write handle: it reads through short-lived read-only handles (which coexist with the backup's) and opens read-write only for the duration of a write ([API warehouse access](#api-warehouse-access)). A lock conflict is retried inside the same idle window (5 attempts, 0.5 s doubling, about 7.5 s); only if a writer holds the lock throughout is the attempt recorded as a failure and retried after `min(interval, 15 min)`. Ingestion is never blocked or interrupted.
 4. The control plane (SQLite) is captured with the online-backup API; Postgres stores are excluded (pg_dump covers them).
 5. The bundle is staged as `.staging-<stamp>-<id>/`, verified with `verify_backup` (checksums + schema heads), then atomically renamed to `backup-<UTC stamp>/`. Only then are bundles beyond the retention count pruned (oldest first). An advisory lock (`.backup.lock`) prevents two schedulers from running at once.
 6. The outcome goes to `backup-status.json` (`last_success_at`, `last_error`, `consecutive_failures`, sizes). The API and the worker export it as `homelab_analytics_backup_*` metrics; see [slo.md](slo.md).
