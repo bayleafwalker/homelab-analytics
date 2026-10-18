@@ -1,76 +1,85 @@
 import React from "react";
 import Link from "next/link";
 
-function hasRequiredRole(user, requiredRole) {
-  const roleOrder = { reader: 0, operator: 1, admin: 2 };
-  return roleOrder[user?.role] >= roleOrder[requiredRole];
-}
+import { isActivePath, navGroupsForUser, paletteEntriesForUser } from "../lib/nav-model";
+import { CommandPalette } from "./command-palette";
+import { NavToggle } from "./nav-toggle";
 
-function navItemsForUser(user) {
-  const items = [
-    { href: "/", label: "Dashboard" },
-    { href: "/runs", label: "Runs" },
-    { href: "/review", label: "Review" },
-    { href: "/reports", label: "Reports" },
-    { href: "/utilities", label: "Utilities" },
-    { href: "/budgets", label: "Budgets" },
-    { href: "/loans", label: "Loans" },
-    { href: "/scenarios", label: "Scenarios" },
-    { href: "/costs", label: "Costs" },
-    { href: "/homelab", label: "Homelab" },
-  ];
-  if (hasRequiredRole(user, "operator")) {
-    items.push({ href: "/sources", label: "Sources" });
-    items.push({ href: "/upload", label: "Upload" });
-    items.push({ href: "/onboarding", label: "Onboarding" });
-  }
-  if (user?.role === "admin") {
-    items.push({ href: "/control", label: "Control" });
-  }
-  return items;
-}
+const RAIL_ID = "shell-rail";
 
 export function AppShell({ currentPath, user, title, eyebrow, lede, children }) {
-  const navItems = navItemsForUser(user);
+  const groups = navGroupsForUser(user);
+  const paletteEntries = paletteEntriesForUser(user);
   return (
-    <main className="page">
-      <header className="topbar">
-        <div className="brand">
-          <div className="eyebrow">{eyebrow || "Authenticated Control Plane"}</div>
-          <h1>{title || "Homelab Analytics"}</h1>
-          {lede ? <div className="lede">{lede}</div> : null}
-        </div>
-        <div className="actions">
-          <nav className="navLinks" aria-label="Primary">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="navLink"
-                data-active={currentPath === item.href}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-          {user ? (
-            <>
+    <div className="shell">
+      <a className="skipLink" href="#main-content">
+        Skip to content
+      </a>
+      <header className="rail" id={RAIL_ID} data-open="false">
+        <Link href="/" className="wordmark" aria-label="Kotona home">
+          Kotona
+        </Link>
+        <CommandPalette entries={paletteEntries} currentPath={currentPath} />
+        <nav className="railNav" aria-label="Primary">
+          {groups.map((group) => (
+            <div className="railGroup" key={group.id}>
+              <p className="railGroupLabel" id={`rail-group-${group.id}`}>
+                {group.label}
+              </p>
+              <ul className="railList" aria-labelledby={`rail-group-${group.id}`}>
+                {group.entries.map((item) => {
+                  const active = isActivePath(item.href, currentPath);
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className="navLink"
+                        data-active={active}
+                        aria-current={active ? "page" : undefined}
+                      >
+                        {item.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </nav>
+        {user ? (
+          <div className="railFooter">
+            <span className="userBadge">
+              {user.username} / {user.role}
+            </span>
+            <div className="railFooterActions">
               <Link className="ghostButton" href="/retro">
                 Retro
               </Link>
-              <span className="userBadge">
-                {user.username} / {user.role}
-              </span>
               <form action="/auth/logout" method="post">
                 <button className="ghostButton" type="submit">
                   Sign Out
                 </button>
               </form>
-            </>
-          ) : null}
-        </div>
+            </div>
+          </div>
+        ) : null}
       </header>
-      {children}
-    </main>
+      <main className="page shellMain" id="main-content" tabIndex={-1}>
+        <div className="mobileBar">
+          <Link href="/" className="wordmark">
+            Kotona
+          </Link>
+          <NavToggle controls={RAIL_ID} />
+        </div>
+        <header className="topbar">
+          <div className="brand">
+            <div className="eyebrow">{eyebrow || "Household operating picture"}</div>
+            <h1>{title || "Homelab Analytics"}</h1>
+            {lede ? <div className="lede">{lede}</div> : null}
+          </div>
+        </header>
+        {children}
+      </main>
+    </div>
   );
 }

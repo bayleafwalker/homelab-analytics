@@ -1201,3 +1201,60 @@ def test_nextjs_frontend_exposes_agent_control_surface() -> None:
     assert "proposal-forbidden" in resolution
     assert "proposal-already-resolved" in page
     assert "proposal-forbidden" in page
+
+
+def _nav_model_hrefs(source: str) -> set[str]:
+    import re
+
+    return set(re.findall(r'href: "([^"]+)"', source))
+
+
+def test_default_shell_nav_registry_covers_every_top_level_route() -> None:
+    nav_model = (FRONTEND_ROOT / "lib" / "nav-model.js").read_text()
+    app_shell = (FRONTEND_ROOT / "components" / "app-shell.js").read_text()
+    palette = (FRONTEND_ROOT / "components" / "command-palette.js").read_text()
+
+    # One registry, rendered by the rail and the palette (ADR web-surface-shell-decision §4.2).
+    assert "navGroupsForUser" in app_shell
+    assert "paletteEntriesForUser" in app_shell
+    assert "function navItemsForUser" not in app_shell
+    assert "filterPaletteEntries" in palette
+    assert 'aria-label="Primary"' in app_shell
+    assert 'href="#main-content"' in app_shell
+
+    hrefs = _nav_model_hrefs(nav_model)
+    unlisted_block = nav_model.split("NAV_UNLISTED_ROUTES = {", 1)[1].split("};", 1)[0]
+    unlisted = {
+        line.split(":", 1)[0].strip().strip('"')
+        for line in unlisted_block.splitlines()
+        if ":" in line
+    }
+    missing = []
+    for child in sorted((FRONTEND_ROOT / "app").iterdir()):
+        if not child.is_dir():
+            continue
+        if f"/{child.name}" in hrefs or child.name in unlisted:
+            continue
+        missing.append(child.name)
+    assert missing == [], f"top-level routes without a nav entry: {missing}"
+    # Role visibility lives in the registry.
+    assert '{ href: "/control", label: "Control", group: "admin", minRole: "admin"' in nav_model
+    assert 'href: "/upload", label: "Upload", group: "data", minRole: "operator"' in nav_model
+
+
+def test_default_shell_has_route_level_error_loading_and_not_found_states() -> None:
+    error_page = (FRONTEND_ROOT / "app" / "error.js").read_text()
+    not_found = (FRONTEND_ROOT / "app" / "not-found.js").read_text()
+    loading = (FRONTEND_ROOT / "app" / "loading.js").read_text()
+    state_panel = (FRONTEND_ROOT / "components" / "state-panel.js").read_text()
+    dashboard = (FRONTEND_ROOT / "app" / "page.js").read_text()
+
+    assert error_page.startswith('"use client"')
+    assert "reset()" in error_page
+    assert "Backend request failed for" in error_page
+    assert "StatePanel" in not_found
+    assert 'aria-busy="true"' in loading
+    for tone in ("empty", "stale", "error", "loading"):
+        assert tone in state_panel
+    # The dashboard no longer fails for non-admin roles on the admin-only freshness read.
+    assert 'user?.role === "admin" ? getSourceFreshness() : Promise.resolve([])' in dashboard

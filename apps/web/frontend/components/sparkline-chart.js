@@ -38,12 +38,22 @@ export function SparklineChart({ series = [], labels = [], height = 100, width =
           );
         })}
         {/* x-axis labels */}
-        {labels.map((label, i) => (
-          <text key={label} x={toX(i, labels.length)} y={height - 4}
-                textAnchor="middle" fontSize="9" fill="var(--muted)">
-            {label}
-          </text>
-        ))}
+        {/* Thin the axis to at most six labels so they never collide. */}
+        {labels.map((label, i) => {
+          const step = Math.ceil(labels.length / 6);
+          const last = i === labels.length - 1;
+          if (i % step !== 0 && !last) return null;
+          if (!last && labels.length - 1 - i < step && i !== 0) return null;
+          // The first label is start-anchored and runs right; give it room.
+          if (i !== 0 && !last && i < step * 1.5) return null;
+          const anchor = i === 0 ? "start" : last ? "end" : "middle";
+          return (
+            <text key={label} x={toX(i, labels.length)} y={height - 4}
+                  textAnchor={anchor} fontSize="9" fill="var(--muted)">
+              {label}
+            </text>
+          );
+        })}
       </svg>
       <div className="chartLegend">
         {series.map((s) => (
