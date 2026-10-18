@@ -6,13 +6,27 @@ routed through the existing HTTP endpoints, so authentication, authorization,
 policy checks, and the approval queue stay in charge
 (``docs/architecture/agent-surfaces.md``).
 
-Tools:
+The tool list is built from the shared catalog
+(``packages.application.use_cases.agent_tool_catalog``), the same catalog the
+operator control surface shows at ``GET /api/agent/catalog``:
 
-- ``list_publications`` — search the LLM semantic index
-- ``get_publication_summary`` — one publication with glossary + samples
+- ``list_publications`` — page through the semantic index, with trust
+- ``get_publication_summary`` — one publication with glossary, sample, trust
+- ``get_publication_lineage`` — runs, relations, and sources behind it
+- ``get_proposal`` — status, resolver, and history of a drafted proposal
 - ``propose_scenario`` — draft a what-if scenario through /api/scenarios/*
-- ``propose_policy`` — draft a disabled operator policy through /control/policies
-- ``propose_action`` — enter an action proposal into the shared approval queue
+- ``propose_policy`` — draft a (disabled) operator policy
+- ``propose_action`` — enter an action proposal into the approval queue
+
+What the agent sees is designed for honest answers:
+
+- every publication carries ``trust.guidance``; ``initialize`` returns
+  instructions telling the agent to follow it
+- arguments are validated against each tool's ``inputSchema`` before any
+  endpoint call, and failures come back as ``isError`` results with a
+  structured ``error`` object ``{code, http_status, message, hint, retryable}``
+  instead of raw HTTP payloads
+- draft tools say plainly that nothing has happened until an operator acts
 
 Run against a live API::
 
@@ -26,25 +40,49 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from typing import Any, Callable, Protocol, TextIO
 
+from packages.application.use_cases.agent_tool_catalog import (
+    AGENT_TOOL_SPECS,
+    AGENT_TOOL_SPECS_BY_NAME,
+    DEFAULT_PAGE_LIMIT,
+    SCENARIO_KINDS,
+)
+
 MCP_PROTOCOL_VERSION = "2025-06-18"
 SERVER_NAME = "homelab-analytics-agent"
-SERVER_VERSION = "1.0.0"
+SERVER_VERSION = "1.1.0"
 
 JSONRPC_PARSE_ERROR = -32700
 JSONRPC_METHOD_NOT_FOUND = -32601
 JSONRPC_INVALID_PARAMS = -32602
 
-# Scenario kinds an agent may propose; keys map onto /api/scenarios/{kind}.
-SCENARIO_KINDS = (
-    "income-change",
-    "expense-shock",
-    "tariff-shock",
-    "loan-what-if",
-    "homelab-cost-benefit",
+SERVER_INSTRUCTIONS = (
+    "You are reading a household's published analytics through "
+    "homelab-analytics. Rules: (1) Read only through these tools; never "
+    "assume data you were not given. (2) Before stating any figure, check "
+    "the publication's trust.guidance: state_as_current — you may state it "
+    "as current; state_with_caveat — state it with the assessed_at date and "
+    "the caveat; do_not_state_as_current or trust_unknown — say the data may "
+    "be out of date and do not present it as current. (3) Samples are "
+    "bounded; when sample.truncated is true, do not compute totals from it. "
+    "(4) propose_* tools only draft: nothing changes until an operator "
+    "approves. Never tell the user an action was taken. (5) Cite the "
+    "publication_keys you used in propose_action."
 )
+
+__all__ = [
+    "AgentMcpServer",
+    "EndpointCaller",
+    "HttpEndpointCaller",
+    "SCENARIO_KINDS",
+    "SERVER_INSTRUCTIONS",
+    "build_tool_definitions",
+    "serve_stdio",
+    "validate_tool_arguments",
+]
 
 
 class EndpointCaller(Protocol):
@@ -94,126 +132,165 @@ class HttpEndpointCaller:
 
 def build_tool_definitions() -> list[dict[str, Any]]:
     """MCP tool definitions served by ``tools/list``."""
-    return [
-        {
-            "name": "list_publications",
-            "description": (
-                "Search the semantic publication index. Returns publication "
-                "keys, display names, and summaries; use "
-                "get_publication_summary for columns and sample values."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Free-text filter over names, columns, and descriptions.",
-                    }
-                },
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "get_publication_summary",
-            "description": (
-                "Retrieve one publication from the semantic index: summary, "
-                "column glossary, bounded sample rows, and its contract and "
-                "lineage endpoints."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "publication_key": {
-                        "type": "string",
-                        "description": "Publication key from list_publications.",
-                    }
-                },
-                "required": ["publication_key"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "propose_scenario",
-            "description": (
-                "Draft a what-if scenario (income change, expense shock, "
-                "tariff shock, loan what-if, or homelab cost-benefit). The "
-                "scenario is computed from published data and stored for "
-                "operator review; it does not change any canonical state."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "scenario_kind": {
-                        "type": "string",
-                        "enum": list(SCENARIO_KINDS),
-                    },
-                    "parameters": {
-                        "type": "object",
-                        "description": (
-                            "Body for /api/scenarios/{scenario_kind}, e.g. "
-                            '{"monthly_income_delta": "-250.00"} for income-change.'
-                        ),
-                    },
-                },
-                "required": ["scenario_kind", "parameters"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "propose_policy",
-            "description": (
-                "Draft an operator policy definition. The policy is created "
-                "through the policy registry and stays subject to the "
-                "platform's policy engine and review flow."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "display_name": {"type": "string"},
-                    "policy_kind": {"type": "string"},
-                    "rule_document": {"type": "object"},
-                    "description": {"type": "string"},
-                },
-                "required": ["display_name", "policy_kind", "rule_document"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "propose_action",
-            "description": (
-                "Enter an action proposal into the approval queue. The "
-                "proposal stays pending until an operator approves or "
-                "dismisses it from the web shell; agents cannot execute "
-                "actions directly."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "origin": {
-                        "type": "string",
-                        "description": "Identity of the proposing agent or tool.",
-                    },
-                    "title": {"type": "string"},
-                    "verdict": {
-                        "type": "string",
-                        "description": "Proposed action verdict, e.g. notify or approval_required.",
-                    },
-                    "value": {"type": "string"},
-                    "summary": {"type": "string"},
-                    "publication_keys": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Publications consulted while drafting (provenance).",
-                    },
-                },
-                "required": ["origin", "title", "verdict"],
-                "additionalProperties": False,
-            },
-        },
-    ]
+    return [spec.mcp_definition() for spec in AGENT_TOOL_SPECS]
+
+
+# -- argument validation ------------------------------------------------------
+
+_JSON_TYPES: dict[str, tuple[type, ...]] = {
+    "string": (str,),
+    "integer": (int,),
+    "number": (int, float),
+    "boolean": (bool,),
+    "object": (dict,),
+    "array": (list,),
+}
+
+
+def _type_ok(value: Any, expected: str) -> bool:
+    if expected in ("integer", "number") and isinstance(value, bool):
+        return False
+    return isinstance(value, _JSON_TYPES.get(expected, (object,)))
+
+
+def validate_tool_arguments(schema: dict[str, Any], arguments: Any) -> list[str]:
+    """Validate arguments against the subset of JSON Schema tools use.
+
+    Covers required keys, ``additionalProperties: false``, primitive types,
+    ``enum``, integer bounds, string ``pattern``, and array item types — the
+    constraints declared in the catalog. Returns human-readable problems.
+    """
+    if not isinstance(arguments, dict):
+        return ["arguments must be an object"]
+    problems: list[str] = []
+    properties: dict[str, Any] = schema.get("properties", {})
+    for name in schema.get("required", []):
+        if name not in arguments:
+            problems.append(f"missing required argument {name!r}")
+    if schema.get("additionalProperties") is False:
+        for name in arguments:
+            if name not in properties:
+                allowed = ", ".join(sorted(properties)) or "none"
+                problems.append(f"unknown argument {name!r} (allowed: {allowed})")
+    for name, value in arguments.items():
+        spec = properties.get(name)
+        if spec is None:
+            continue
+        expected = spec.get("type")
+        if isinstance(expected, str) and not _type_ok(value, expected):
+            problems.append(f"argument {name!r} must be of type {expected}")
+            continue
+        if "enum" in spec and value not in spec["enum"]:
+            problems.append(
+                f"argument {name!r} must be one of {', '.join(map(str, spec['enum']))}"
+            )
+        if expected == "integer":
+            if "minimum" in spec and value < spec["minimum"]:
+                problems.append(f"argument {name!r} must be >= {spec['minimum']}")
+            if "maximum" in spec and value > spec["maximum"]:
+                problems.append(f"argument {name!r} must be <= {spec['maximum']}")
+        if expected == "string" and "pattern" in spec:
+            if not re.fullmatch(spec["pattern"], value):
+                problems.append(f"argument {name!r} must match {spec['pattern']}")
+        if expected == "array":
+            item_type = spec.get("items", {}).get("type")
+            if isinstance(item_type, str) and not all(
+                _type_ok(item, item_type) for item in value
+            ):
+                problems.append(f"argument {name!r} items must be of type {item_type}")
+    return problems
+
+
+# -- error envelope -----------------------------------------------------------
+
+_STATUS_CODES: dict[int, str] = {
+    400: "invalid_arguments",
+    401: "unauthenticated",
+    403: "forbidden",
+    404: "not_found",
+    409: "conflict",
+    422: "invalid_arguments",
+}
+
+_DEFAULT_HINTS: dict[str, str] = {
+    "invalid_arguments": "Fix the arguments using the tool's inputSchema and retry.",
+    "unauthenticated": (
+        "The MCP server's credentials were rejected; tell the user the "
+        "service token needs to be configured or rotated."
+    ),
+    "forbidden": (
+        "The configured token lacks the scope this tool needs (see the tool "
+        "catalog). Do not retry; tell the user which tool was refused."
+    ),
+    "not_found": "Check the identifier; list_publications returns valid publication keys.",
+    "conflict": "The target changed state; re-read it before deciding what to do.",
+    "upstream_error": "The platform failed; retry once, then report the failure.",
+    "unavailable": "The platform could not be reached; report that it is unavailable.",
+}
+
+
+def _error_result(
+    code: str,
+    message: str,
+    *,
+    http_status: int | None = None,
+    hint: str | None = None,
+) -> dict[str, Any]:
+    error = {
+        "code": code,
+        "http_status": http_status,
+        "message": message,
+        "hint": hint or _DEFAULT_HINTS.get(code, ""),
+        "retryable": code in ("upstream_error", "unavailable"),
+    }
+    text = f"{code}: {message}"
+    if error["hint"]:
+        text += f" Hint: {error['hint']}"
+    return {
+        "content": [{"type": "text", "text": text}],
+        "structuredContent": {"error": error},
+        "isError": True,
+    }
+
+
+def _detail_message(payload: Any) -> str:
+    if isinstance(payload, dict):
+        detail = payload.get("detail")
+        if isinstance(detail, str):
+            return detail
+        if isinstance(detail, list):
+            parts = []
+            for item in detail:
+                if isinstance(item, dict):
+                    location = ".".join(str(part) for part in item.get("loc", []))
+                    parts.append(f"{location}: {item.get('msg', '')}".strip(": "))
+            if parts:
+                return "; ".join(parts)
+    return json.dumps(payload, default=str)[:500]
+
+
+def _http_error_result(status: int, payload: Any) -> dict[str, Any]:
+    code = _STATUS_CODES.get(status, "upstream_error" if status >= 500 else "invalid_arguments")
+    return _error_result(code, _detail_message(payload), http_status=status)
+
+
+# -- payload shaping ----------------------------------------------------------
+
+
+def _compact_trust(trust: Any) -> dict[str, Any] | None:
+    if not isinstance(trust, dict):
+        return None
+    return {
+        "guidance": trust.get("guidance"),
+        "guidance_detail": trust.get("guidance_detail"),
+        "confidence_verdict": trust.get("confidence_verdict"),
+        "freshness_state": trust.get("freshness_state"),
+        "assessed_at": trust.get("assessed_at"),
+    }
 
 
 def _compact_index(payload: dict[str, Any]) -> dict[str, Any]:
+    publications = payload.get("publications", [])
     return {
         "schema_version": payload.get("schema_version"),
         "publications": [
@@ -221,10 +298,23 @@ def _compact_index(payload: dict[str, Any]) -> dict[str, Any]:
                 "publication_key": entry.get("publication_key"),
                 "display_name": entry.get("display_name"),
                 "summary": entry.get("summary"),
+                "trust": _compact_trust(entry.get("trust")),
             }
-            for entry in payload.get("publications", [])
+            for entry in publications
         ],
+        "total": payload.get("total", len(publications)),
+        "next_cursor": payload.get("next_cursor"),
     }
+
+
+_DRAFT_GUIDANCE = (
+    "This is a draft awaiting operator approval. Nothing has been executed; "
+    "do not tell the user the action was taken. Use get_proposal with this "
+    "action_id to check whether an operator approved or dismissed it."
+)
+
+
+ToolHandler = Callable[[dict[str, Any]], tuple[int, Any]]
 
 
 class AgentMcpServer:
@@ -232,20 +322,27 @@ class AgentMcpServer:
 
     def __init__(self, caller: EndpointCaller) -> None:
         self._caller = caller
-        self._tool_handlers: dict[str, Callable[[dict[str, Any]], tuple[int, Any]]] = {
+        self._tool_handlers: dict[str, ToolHandler] = {
             "list_publications": self._list_publications,
             "get_publication_summary": self._get_publication_summary,
+            "get_publication_lineage": self._get_publication_lineage,
+            "get_proposal": self._get_proposal,
             "propose_scenario": self._propose_scenario,
             "propose_policy": self._propose_policy,
             "propose_action": self._propose_action,
         }
+        missing = set(AGENT_TOOL_SPECS_BY_NAME) ^ set(self._tool_handlers)
+        if missing:  # pragma: no cover - guarded by tests
+            raise RuntimeError(f"Tool catalog and handlers disagree: {sorted(missing)}")
 
     # -- tool handlers -----------------------------------------------------
 
     def _list_publications(self, arguments: dict[str, Any]) -> tuple[int, Any]:
-        params: dict[str, Any] = {}
+        params: dict[str, Any] = {"limit": arguments.get("limit", DEFAULT_PAGE_LIMIT)}
         if arguments.get("query"):
             params["query"] = arguments["query"]
+        if arguments.get("cursor"):
+            params["cursor"] = arguments["cursor"]
         status, payload = self._caller.call(
             "GET", "/api/agent/semantic-index", params=params
         )
@@ -255,14 +352,24 @@ class AgentMcpServer:
 
     def _get_publication_summary(self, arguments: dict[str, Any]) -> tuple[int, Any]:
         publication_key = arguments["publication_key"]
-        return self._caller.call(
+        status, payload = self._caller.call(
             "GET", f"/api/agent/semantic-index/{publication_key}"
         )
+        if status == 200 and isinstance(payload, dict):
+            publication = payload.get("publication") or {}
+            payload = {**payload, "answer_guidance": _compact_trust(publication.get("trust"))}
+        return status, payload
+
+    def _get_publication_lineage(self, arguments: dict[str, Any]) -> tuple[int, Any]:
+        return self._caller.call(
+            "GET", f"/api/lineage/publication/{arguments['publication_key']}"
+        )
+
+    def _get_proposal(self, arguments: dict[str, Any]) -> tuple[int, Any]:
+        return self._caller.call("GET", f"/api/actions/proposals/{arguments['action_id']}")
 
     def _propose_scenario(self, arguments: dict[str, Any]) -> tuple[int, Any]:
         scenario_kind = arguments["scenario_kind"]
-        if scenario_kind not in SCENARIO_KINDS:
-            raise ValueError(f"Unsupported scenario kind: {scenario_kind}")
         return self._caller.call(
             "POST",
             f"/api/scenarios/{scenario_kind}",
@@ -289,10 +396,16 @@ class AgentMcpServer:
             "source_kind": "agent",
             "source_summary": arguments.get("summary"),
         }
+        if arguments.get("idempotency_key"):
+            # Same key -> same pending proposal (the registry refreshes it).
+            body["action_id"] = f"agent_{arguments['idempotency_key']}"
         publication_keys = arguments.get("publication_keys") or []
         if publication_keys:
             body["provenance"] = {"publication_keys": list(publication_keys)}
-        return self._caller.call("POST", "/api/actions/proposals", json_body=body)
+        status, payload = self._caller.call("POST", "/api/actions/proposals", json_body=body)
+        if status == 200 and isinstance(payload, dict):
+            payload = {**payload, "agent_guidance": _DRAFT_GUIDANCE}
+        return status, payload
 
     # -- MCP dispatch ------------------------------------------------------
 
@@ -308,11 +421,12 @@ class AgentMcpServer:
                 message_id,
                 {
                     "protocolVersion": MCP_PROTOCOL_VERSION,
-                    "capabilities": {"tools": {}},
+                    "capabilities": {"tools": {"listChanged": False}},
                     "serverInfo": {
                         "name": SERVER_NAME,
                         "version": SERVER_VERSION,
                     },
+                    "instructions": SERVER_INSTRUCTIONS,
                 },
             )
         if method == "ping":
@@ -330,22 +444,36 @@ class AgentMcpServer:
     ) -> dict[str, Any]:
         tool_name = params.get("name")
         handler = self._tool_handlers.get(tool_name or "")
-        if handler is None:
+        spec = AGENT_TOOL_SPECS_BY_NAME.get(tool_name or "")
+        if handler is None or spec is None:
+            known = ", ".join(sorted(self._tool_handlers))
             return self._error(
-                message_id, JSONRPC_INVALID_PARAMS, f"Unknown tool: {tool_name}"
+                message_id,
+                JSONRPC_INVALID_PARAMS,
+                f"Unknown tool: {tool_name}. Available tools: {known}",
             )
-        arguments = params.get("arguments") or {}
+        arguments = params.get("arguments")
+        if arguments is None:
+            arguments = {}
+        problems = validate_tool_arguments(spec.input_schema, arguments)
+        if problems:
+            return self._result(
+                message_id,
+                _error_result("invalid_arguments", "; ".join(problems)),
+            )
         try:
             status, payload = handler(arguments)
         except (KeyError, TypeError, ValueError) as exc:
             return self._result(
-                message_id,
-                {
-                    "content": [{"type": "text", "text": f"Invalid arguments: {exc}"}],
-                    "isError": True,
-                },
+                message_id, _error_result("invalid_arguments", str(exc))
             )
-        is_error = status >= 400
+        except Exception as exc:  # noqa: BLE001 - transport failures become tool errors
+            return self._result(
+                message_id,
+                _error_result("unavailable", f"{type(exc).__name__}: {exc}"),
+            )
+        if status >= 400:
+            return self._result(message_id, _http_error_result(status, payload))
         return self._result(
             message_id,
             {
@@ -355,8 +483,8 @@ class AgentMcpServer:
                         "text": json.dumps(payload, default=str, indent=2),
                     }
                 ],
-                "structuredContent": payload if isinstance(payload, dict) else None,
-                "isError": is_error,
+                "structuredContent": payload if isinstance(payload, dict) else {"result": payload},
+                "isError": False,
             },
         )
 
