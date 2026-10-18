@@ -104,6 +104,12 @@ def test_s3_landing_postgres_control_plane_and_postgres_publication_work_end_to_
             "mart_account_balance_trend",
             "mart_transaction_anomalies_current",
             "mart_spend_by_weekday_hour",
+            # Cross-domain overview marts rebuilt after every transaction
+            # promotion.
+            "mart_household_overview",
+            "mart_open_attention_items",
+            "mart_recent_significant_changes",
+            "mart_current_operating_baseline",
             "transformation_audit",
         }
 
@@ -140,7 +146,9 @@ def test_s3_landing_postgres_control_plane_and_postgres_publication_work_end_to_
         ]
 
         lineage = control_repository.list_source_lineage(input_run_id=run.run_id)
-        assert {"reporting", "transformation"} == {
+        # Promotion records the run's source asset at the landing layer, then
+        # the transformation and reporting targets it rebuilt.
+        assert {"landing", "reporting", "transformation"} == {
             record.target_layer for record in lineage
         }
         assert "fact_transaction" in {record.target_name for record in lineage}

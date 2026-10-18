@@ -13,7 +13,10 @@ import pytest
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
-MINIO_IMAGE = "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1"
+# MinIO no longer publishes community images (quay.io returns 401, Docker Hub
+# has none), so the S3 integration tests run against moto's S3-compatible
+# server. It accepts any credentials and serves path-style requests on 5000.
+S3_TEST_IMAGE = "docker.io/motoserver/moto:5.1.14"
 
 
 @dataclass(frozen=True)
@@ -69,7 +72,7 @@ def _wait_for_minio(connection_info: MinioConnectionInfo, *, timeout_seconds: fl
             return
         except (BotoCoreError, ClientError):
             time.sleep(0.5)
-    raise TimeoutError("Timed out waiting for MinIO test container.")
+    raise TimeoutError("Timed out waiting for the S3 test container.")
 
 
 @contextmanager
@@ -89,22 +92,16 @@ def running_minio_container() -> Iterator[MinioConnectionInfo]:
             "--detach",
             "--name",
             container_name,
-            "--env",
-            f"MINIO_ROOT_USER={access_key_id}",
-            "--env",
-            f"MINIO_ROOT_PASSWORD={secret_access_key}",
             "--publish",
-            "127.0.0.1::9000",
-            MINIO_IMAGE,
-            "server",
-            "/data",
+            "127.0.0.1::5000",
+            S3_TEST_IMAGE,
         ],
         check=True,
         capture_output=True,
         text=True,
     )
     try:
-        host_port = _container_host_port(container_name, "9000/tcp")
+        host_port = _container_host_port(container_name, "5000/tcp")
         connection_info = MinioConnectionInfo(
             endpoint_url=f"http://127.0.0.1:{host_port}",
             access_key_id=access_key_id,
