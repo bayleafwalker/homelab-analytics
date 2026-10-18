@@ -24,6 +24,7 @@ from packages.domains.finance.pipelines.account_transaction_service import (
     AccountTransactionService,
 )
 from packages.domains.homelab.pipelines.ha_models import FACT_HA_STATE_CHANGE_TABLE
+from packages.domains.utilities.pipelines.battery_plan_outcome import get_battery_plan_outcome
 from packages.domains.utilities.pipelines.publication_refresh import (
     refresh_battery_plan_publication,
 )
@@ -224,7 +225,7 @@ def test_relanded_ha_history_supersedes_decision_through_the_api() -> None:
         store, assessed_at = _store_with_history()
         transformation = _service(store, assessed_at=assessed_at, resolution=_profile())
         refresh_battery_plan_publication(transformation)
-        [row] = transformation.get_battery_plan_outcome()
+        [row] = get_battery_plan_outcome(transformation.store)
         app = create_app(
             AccountTransactionService(
                 landing_root=Path(temp_dir) / "landing",

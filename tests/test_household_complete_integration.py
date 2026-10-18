@@ -37,6 +37,9 @@ from packages.domains.finance.pipelines.transformation_transactions import (
     get_spend_by_category_monthly,
     refresh_spend_by_category_monthly,
 )
+from packages.domains.utilities.pipelines.transformation_utilities import (
+    get_utility_cost_trend_monthly,
+)
 from packages.domains.utilities.pipelines.utility_bill_service import UtilityBillService
 from packages.pipelines.household_promotion_handlers import (
     promote_budget_run,
@@ -156,7 +159,7 @@ class AllDomainsMartPopulationTests(unittest.TestCase):
         self.assertGreater(len(rows), 0)
 
     def test_utility_cost_trend_monthly_populated(self) -> None:
-        rows = self.ts.get_utility_cost_trend_monthly()
+        rows = get_utility_cost_trend_monthly(self.ts.store)
         self.assertGreater(len(rows), 0)
 
     def test_budget_variance_populated(self) -> None:

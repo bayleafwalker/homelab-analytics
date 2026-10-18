@@ -18,6 +18,10 @@ from packages.domains.finance.pipelines.transformation_contract_prices import (
     refresh_contract_price_current,
 )
 from packages.domains.utilities.pipelines.transformation_utilities import (
+    get_contract_renewal_watchlist,
+    get_contract_review_candidates,
+    get_usage_vs_price_summary,
+    get_utility_cost_trend_monthly,
     refresh_contract_renewal_watchlist,
     refresh_contract_review_candidates,
     refresh_usage_vs_price_summary,
@@ -173,13 +177,13 @@ class TestUtilityCostTrendMonthly:
 
     def test_rows_grouped_by_utility_type(self, svc: TransformationService) -> None:
         refresh_utility_cost_trend_monthly(svc.store)
-        rows = svc.get_utility_cost_trend_monthly()
+        rows = get_utility_cost_trend_monthly(svc.store)
         types = {r["utility_type"] for r in rows}
         assert "electricity" in types
 
     def test_type_filter(self, svc: TransformationService) -> None:
         refresh_utility_cost_trend_monthly(svc.store)
-        elec = svc.get_utility_cost_trend_monthly(utility_type="electricity")
+        elec = get_utility_cost_trend_monthly(svc.store, utility_type="electricity")
         assert all(r["utility_type"] == "electricity" for r in elec)
 
     def test_idempotent(self, svc: TransformationService) -> None:
@@ -204,7 +208,7 @@ class TestUsageVsPriceSummary:
     def test_dominant_driver_populated(self, svc: TransformationService) -> None:
         refresh_utility_cost_trend_monthly(svc.store)
         refresh_usage_vs_price_summary(svc.store)
-        rows = svc.get_usage_vs_price_summary()
+        rows = get_usage_vs_price_summary(svc.store)
         for row in rows:
             assert row["dominant_driver"] in ("price", "usage", "unknown")
 
@@ -228,7 +232,7 @@ class TestContractReviewCandidates:
 
     def test_reason_populated(self, svc: TransformationService) -> None:
         refresh_contract_review_candidates(svc.store)
-        rows = svc.get_contract_review_candidates()
+        rows = get_contract_review_candidates(svc.store)
         for row in rows:
             assert row["reason"], f"Empty reason for contract {row['contract_id']}"
 
@@ -251,7 +255,7 @@ class TestContractRenewalWatchlist:
 
     def test_days_until_renewal_populated(self, svc: TransformationService) -> None:
         refresh_contract_renewal_watchlist(svc.store)
-        rows = svc.get_contract_renewal_watchlist()
+        rows = get_contract_renewal_watchlist(svc.store)
         for row in rows:
             assert row["days_until_renewal"] is not None
             assert row["days_until_renewal"] >= 0

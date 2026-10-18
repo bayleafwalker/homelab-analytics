@@ -474,7 +474,8 @@ class ReportingService:
             raise ValueError(f"Unsupported granularity: {granularity!r}")
 
         if self._access_mode == ReportingAccessMode.WAREHOUSE:
-            return self._transformation_service.get_utility_cost_summary(
+            return self._read_mart(
+                MART_UTILITY_COST_SUMMARY_TABLE,
                 utility_type=utility_type,
                 meter_id=meter_id,
                 from_period=from_period,
@@ -488,7 +489,8 @@ class ReportingService:
                 raise KeyError(
                     "Published reporting relation is unavailable: mart_utility_cost_summary"
                 )
-            return self._transformation_service.get_utility_cost_summary(
+            return self._read_mart(
+                MART_UTILITY_COST_SUMMARY_TABLE,
                 utility_type=utility_type,
                 meter_id=meter_id,
                 from_period=from_period,
@@ -778,7 +780,8 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_UTILITY_COST_TREND_MONTHLY_TABLE,
-            lambda: self._transformation_service.get_utility_cost_trend_monthly(
+            lambda: self._read_mart(
+                MART_UTILITY_COST_TREND_MONTHLY_TABLE,
                 utility_type=utility_type,
             ),
             _build_where_clause(("utility_type = %s", utility_type)),
@@ -792,7 +795,8 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_BATTERY_PLAN_OUTCOME_TABLE,
-            lambda: self._transformation_service.get_battery_plan_outcome(
+            lambda: self._read_mart(
+                MART_BATTERY_PLAN_OUTCOME_TABLE,
                 decision_month=decision_month,
             ),
             _build_where_clause(("decision_month = %s", decision_month)),
@@ -806,7 +810,8 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_BATTERY_PLAN_OUTCOME_VALUES_TABLE,
-            lambda: self._transformation_service.get_battery_plan_outcome_values(
+            lambda: self._read_mart(
+                MART_BATTERY_PLAN_OUTCOME_VALUES_TABLE,
                 decision_month=decision_month,
             ),
             _build_where_clause(("decision_month = %s", decision_month)),
@@ -820,7 +825,8 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_USAGE_VS_PRICE_SUMMARY_TABLE,
-            lambda: self._transformation_service.get_usage_vs_price_summary(
+            lambda: self._read_mart(
+                MART_USAGE_VS_PRICE_SUMMARY_TABLE,
                 utility_type=utility_type,
             ),
             _build_where_clause(("utility_type = %s", utility_type)),
@@ -830,7 +836,7 @@ class ReportingService:
     def get_contract_review_candidates(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_CONTRACT_REVIEW_CANDIDATES_TABLE,
-            self._transformation_service.get_contract_review_candidates,
+            lambda: self._read_mart(MART_CONTRACT_REVIEW_CANDIDATES_TABLE),
             ("", []),
             "ORDER BY score DESC, contract_id",
         )
@@ -838,7 +844,7 @@ class ReportingService:
     def get_contract_renewal_watchlist(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_CONTRACT_RENEWAL_WATCHLIST_TABLE,
-            self._transformation_service.get_contract_renewal_watchlist,
+            lambda: self._read_mart(MART_CONTRACT_RENEWAL_WATCHLIST_TABLE),
             ("", []),
             "ORDER BY renewal_date, contract_name",
         )

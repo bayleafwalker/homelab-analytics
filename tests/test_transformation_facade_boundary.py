@@ -141,13 +141,6 @@ FACADE_SURFACE_BASELINE: dict[str, frozenset[str]] = {
         {
             "count_bills",
             "count_utility_usage",
-            "get_battery_plan_outcome",
-            "get_battery_plan_outcome_values",
-            "get_contract_renewal_watchlist",
-            "get_contract_review_candidates",
-            "get_usage_vs_price_summary",
-            "get_utility_cost_summary",
-            "get_utility_cost_trend_monthly",
             "load_bills",
             "load_utility_usage",
         }

@@ -25,6 +25,8 @@ from packages.domains.utilities.pipelines.battery_plan_outcome import (
     BATTERY_PLAN_PROFILE_ENV,
     BatteryPlanProfileResolution,
     build_battery_plan_outcome_rows,
+    get_battery_plan_outcome,
+    get_battery_plan_outcome_values,
     load_battery_plan_profile,
     parse_battery_plan_profile,
 )
@@ -105,7 +107,7 @@ def _service(
 
 
 def _values(service: TransformationService) -> dict[str, dict[str, Any]]:
-    return {row["value_key"]: row for row in service.get_battery_plan_outcome_values()}
+    return {row["value_key"]: row for row in get_battery_plan_outcome_values(service.store)}
 
 
 def test_qualified_month_below_cost_publishes_no_benefit_estimate_with_disclosures() -> None:
@@ -115,7 +117,7 @@ def test_qualified_month_below_cost_publishes_no_benefit_estimate_with_disclosur
     assert service.refresh_publications([BATTERY_PLAN_OUTCOME_PUBLICATION_KEY]) == [
         BATTERY_PLAN_OUTCOME_PUBLICATION_KEY
     ]
-    [row] = service.get_battery_plan_outcome()
+    [row] = get_battery_plan_outcome(service.store)
 
     assert row["verdict"] == "no_benefit_estimated"
     assert row["evidence_status"] == "qualified"
@@ -166,7 +168,7 @@ def test_qualified_month_covering_cost_is_benefit_estimate_not_realized_savings(
     service = _service(store, assessed_at=assessed_at)
     refresh_battery_plan_publication(service)
 
-    [row] = service.get_battery_plan_outcome()
+    [row] = get_battery_plan_outcome(service.store)
     assert row["verdict"] == "benefit_estimated"
     assert row["claim_basis"] == "source_estimate"
     limitations = json.loads(row["limitations_json"])
@@ -178,7 +180,7 @@ def test_stale_source_cannot_produce_positive_claim_and_gives_remediation() -> N
     service = _service(store, assessed_at=assessed_at + timedelta(hours=2))
     refresh_battery_plan_publication(service)
 
-    [row] = service.get_battery_plan_outcome()
+    [row] = get_battery_plan_outcome(service.store)
     assert row["verdict"] == "insufficient_evidence"
     assert row["claim_basis"] == "none"
     assert row["source_recommendation"] == "insufficient_evidence"
@@ -192,7 +194,7 @@ def test_incomplete_coverage_cannot_produce_positive_claim() -> None:
     service = _service(store, assessed_at=assessed_at)
     refresh_battery_plan_publication(service)
 
-    [row] = service.get_battery_plan_outcome()
+    [row] = get_battery_plan_outcome(service.store)
     assert row["verdict"] == "insufficient_evidence"
     assert row["missing_window_count"] == 1
     assert "Backfill the missing five-minute" in row["remediation"]
@@ -212,7 +214,7 @@ def test_missing_cost_basis_stays_missing_not_zero() -> None:
     service = _service(store, assessed_at=assessed_at)
     refresh_battery_plan_publication(service)
 
-    [row] = service.get_battery_plan_outcome()
+    [row] = get_battery_plan_outcome(service.store)
     assert row["verdict"] == "insufficient_evidence"
     assert row["effective_monthly_cost_eur"] is None
     assert row["estimated_net_benefit_eur"] is None
@@ -271,7 +273,7 @@ def test_unconfigured_profile_publishes_insufficient_row_with_remediation() -> N
     )
     refresh_battery_plan_publication(service)
 
-    [row] = service.get_battery_plan_outcome()
+    [row] = get_battery_plan_outcome(service.store)
     assert row["profile_status"] == "unconfigured"
     assert row["decision_month"] == "2026-02"
     assert row["verdict"] == "insufficient_evidence"
