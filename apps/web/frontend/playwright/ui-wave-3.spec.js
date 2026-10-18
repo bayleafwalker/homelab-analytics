@@ -45,6 +45,10 @@ test("explain closes on an outside click", async ({ page }) => {
   await gotoStory(page, "primitives-explain--recorded-lineage");
   await page.locator("summary.explainTrigger").click();
   await expect(page.locator(".explainPanel")).toContainText("3 ingestion runs behind it");
+  // The DuckDB path records the chain: mart <- relations <- runs <- assets <- systems.
+  await expect(page.locator(".explainPanel")).toContainText("2 relations it was built from");
+  await expect(page.locator(".explainPanel")).toContainText("fact_transaction");
+  await expect(page.locator(".explainPanel")).toContainText("3 source assets landed");
   await page.mouse.click(5, 500);
   await expect(page.locator(".explainPanel")).toBeHidden();
 });
@@ -95,4 +99,31 @@ test("as-of scrubber marks the viewed month and shows gaps as inert", async ({ p
   await expect(nav.getByRole("link", { name: "August 2025" })).toHaveAttribute("href", "#latest");
   await expect(nav.getByRole("link", { name: "Back to latest" })).toBeVisible();
   await expectAccessible(page);
+});
+
+test("sparkline month labels stay readable and never overlap at any card width", async ({ page }) => {
+  await gotoStory(page, "primitives-sparklinechart--dashboard-trend-widths");
+  for (const [cardWidth, expected] of [
+    [300, ["2025-01", "2025-07", "2025-12"]],
+    [1000, ["2025-01", "2025-04", "2025-07", "2025-09", "2025-12"]],
+  ]) {
+    const card = page.getByTestId(`trend-${cardWidth}`);
+    const boxes = await card.locator(".chartAxisLabel").evaluateAll((nodes) =>
+      nodes
+        .filter((node) => getComputedStyle(node).display !== "none")
+        .map((node) => {
+          const rect = node.getBoundingClientRect();
+          return { text: node.textContent, left: rect.left, right: rect.right, size: parseFloat(getComputedStyle(node).fontSize) };
+        })
+    );
+    expect(boxes.map((box) => box.text)).toEqual(expected);
+    const chart = await card.locator(".chartWrap").boundingBox();
+    for (let i = 0; i < boxes.length; i += 1) {
+      // Same type size at every width (the old SVG text shrank to ~5px).
+      expect(boxes[i].size).toBeGreaterThanOrEqual(11);
+      expect(boxes[i].left).toBeGreaterThanOrEqual(chart.x - 0.5);
+      expect(boxes[i].right).toBeLessThanOrEqual(chart.x + chart.width + 0.5);
+      if (i > 0) expect(boxes[i].left).toBeGreaterThan(boxes[i - 1].right + 4);
+    }
+  }
 });
