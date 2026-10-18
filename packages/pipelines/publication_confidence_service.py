@@ -6,13 +6,21 @@ and landing validation state, then stores them in the control plane.
 Inputs per publication:
 
 - **Contributing sources** come from source lineage targeting the publication
-  key. A lineage record names its source either directly (``source_system``)
-  or indirectly through its run, which is resolved via run metadata
-  (``source_name``). The latest run per source is the contributing run.
+  key, keyed by the source asset each contributing run was landed for. The
+  asset is read from the landing-layer lineage row that promotion records for
+  the run (``target_kind="source_asset"``), so it matches the
+  ``source_asset_id`` that source-freshness configs are keyed by. A run with
+  no recorded asset falls back to the source the lineage row declares
+  (``source_system``), else to the run's ``source_name`` from run metadata;
+  such a fallback source is never matched against freshness configs and
+  reads as unconfigured. The latest run per source is the contributing run.
 - **Validation** reads the landing validation outcome recorded in run
   metadata for each contributing run, plus any landing attempt for the same
   source and dataset that was rejected after the contributing run and before
-  ``as_of`` (newer data that failed validation).
+  ``as_of`` (newer data that failed validation). For an asset-attributed
+  run, any rejected landing of the same dataset counts: a rejected run never
+  reaches promotion, so it has no lineage naming its asset, and the free-text
+  ``source_name`` of an upload is not a reliable stand-in for it.
 - **Completeness** is the share of contributing sources whose contributing
   run is verifiably present: found in run metadata, passed validation and
   landed at least one row (and loaded at least one row when lineage records
@@ -60,12 +68,16 @@ class _RunLookup(Protocol):
     def get_run(self, run_id: str) -> IngestionRunRecord: ...
 
 
+_SOURCE_ASSET_TARGET_KIND = "source_asset"
+
+
 @dataclass
 class _ContributingSource:
     source_key: str
     run_id: str
     lineage_row_count: int | None
     declared: bool  # source named by lineage.source_system (vs resolved from run)
+    source_asset_id: str | None = None  # asset the run was landed for, if recorded
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -100,9 +112,17 @@ class _RunResolver:
         return self._cache[run_id]
 
     def later_failed_runs(
-        self, run: IngestionRunRecord, *, as_of: datetime
+        self,
+        run: IngestionRunRecord,
+        *,
+        as_of: datetime,
+        match_source_name: bool = True,
     ) -> list[IngestionRunRecord]:
-        """Rejected/failed landings for the same source+dataset after ``run``."""
+        """Rejected/failed landings of the same dataset after ``run``.
+
+        With ``match_source_name`` (sources not attributed to an asset) the
+        landing must also share the run's ``source_name``.
+        """
         list_runs = getattr(self._lookup, "list_runs", None)
         if list_runs is None:
             return []
@@ -116,15 +136,38 @@ class _RunResolver:
             candidate
             for candidate in candidates
             if candidate.run_id != run.run_id
-            and candidate.source_name == run.source_name
+            and (not match_source_name or candidate.source_name == run.source_name)
             and _status_value(candidate.status) in _FAILED_RUN_STATUSES
             and run_created < _as_utc(candidate.created_at) <= as_of_utc
         ]
 
 
+class _RunAssetResolver:
+    """Cached run -> source asset lookup over landing-layer lineage."""
+
+    def __init__(self, control_plane: Any) -> None:
+        self._list_lineage = getattr(control_plane, "list_source_lineage", None)
+        self._cache: dict[str, str | None] = {}
+
+    def get(self, run_id: str) -> str | None:
+        if self._list_lineage is None:
+            return None
+        if run_id not in self._cache:
+            records = self._list_lineage(input_run_id=run_id, target_layer="landing")
+            assets = [
+                record.target_name
+                for record in records
+                if record.target_kind == _SOURCE_ASSET_TARGET_KIND and record.target_name
+            ]
+            # Records come in recorded_at order; a re-promotion repeats the row.
+            self._cache[run_id] = assets[-1] if assets else None
+        return self._cache[run_id]
+
+
 def _resolve_contributing_sources(
     lineage_records: list[Any],
     resolver: _RunResolver,
+    assets: _RunAssetResolver,
 ) -> dict[str, _ContributingSource]:
     """Latest contributing run per source, in lineage ``recorded_at`` order."""
     sources: dict[str, _ContributingSource] = {}
@@ -132,7 +175,11 @@ def _resolve_contributing_sources(
         run_id = record.source_run_id or record.input_run_id
         if not run_id:
             continue
-        if record.source_system:
+        source_asset_id = assets.get(run_id)
+        if source_asset_id:
+            source_key = source_asset_id
+            declared = False
+        elif record.source_system:
             source_key = record.source_system
             declared = True
         else:
@@ -148,6 +195,7 @@ def _resolve_contributing_sources(
             run_id=run_id,
             lineage_row_count=record.row_count,
             declared=declared or (previous.declared if previous else False),
+            source_asset_id=source_asset_id,
         )
     return sources
 
@@ -171,7 +219,12 @@ def _validation_flags(
         errors += len(run.issues)
         if not run.passed or _status_value(run.status) in _FAILED_RUN_STATUSES:
             rejected += 1
-        for later in resolver.later_failed_runs(run, as_of=as_of):
+        later_failures = resolver.later_failed_runs(
+            run,
+            as_of=as_of,
+            match_source_name=source.source_asset_id is None,
+        )
+        for later in later_failures:
             rejected += 1
             errors += len(later.issues)
     flags = {REJECTED_RUNS_FLAG: rejected, VALIDATION_UNKNOWN_RUNS_FLAG: unknown}
@@ -248,7 +301,9 @@ def compute_and_record_publication_confidence(
         if hasattr(control_plane, "list_source_lineage")
         else []
     )
-    sources = _resolve_contributing_sources(list(lineage_records), resolver)
+    sources = _resolve_contributing_sources(
+        list(lineage_records), resolver, _RunAssetResolver(control_plane)
+    )
     contributing_run_ids: list[str] = []
     for source in sources.values():
         if source.run_id not in contributing_run_ids:
@@ -263,10 +318,15 @@ def compute_and_record_publication_confidence(
     unconfigured_defaulted = 0
 
     for source_key, source in sources.items():
-        freshness_config = all_freshness_configs.get(source_key)
+        if source.source_asset_id is not None or source.declared:
+            freshness_config = all_freshness_configs.get(source_key)
+        else:
+            # A source_name fallback is not a source asset id; matching it against
+            # configs could attach another asset's schedule.
+            freshness_config = None
 
         if freshness_config is None:
-            if source.declared:
+            if source.declared and source.source_asset_id is None:
                 # Lineage-declared sources without config keep the historical
                 # CURRENT default; counted so the gap stays visible.
                 unconfigured_defaulted += 1

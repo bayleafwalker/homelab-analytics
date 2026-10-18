@@ -20,12 +20,14 @@ from packages.pipelines.publication_confidence_service import (
 from packages.pipelines.transformation_service import TransformationService
 from packages.platform.publication_confidence import (
     ConfidenceVerdict,
+    FreshnessState,
     SignalState,
     get_latest_publication_confidence,
 )
 from packages.platform.source_freshness import SourceFreshnessState
 from packages.storage.control_plane import SourceLineageCreate
 from packages.storage.duckdb_store import DuckDBStore
+from packages.storage.ingestion_catalog import SourceFreshnessConfigCreate
 from packages.storage.ingestion_config import IngestionConfigRepository
 from packages.storage.run_metadata import (
     IngestionRunCreate,
@@ -296,3 +298,261 @@ def test_transformation_service_feeds_run_metadata_into_confidence(
     assert latest.quality_flags["validation_errors"] == 0
     assert latest.quality_flags["validation_unknown_runs"] == 0
     assert latest.completeness_pct == 100
+
+
+# --- Source-asset attribution (#2801) -------------------------------------
+#
+# Freshness configs are keyed by source_asset_id. Confidence attributes each
+# contributing run to the asset recorded by its landing-layer lineage row,
+# the row ReportingService.record_reporting_lineage writes on promotion.
+
+
+class _FreshnessConfigured:
+    """Control plane whose freshness configs are set in-test.
+
+    The SQLite catalog enforces a source-asset foreign key on freshness
+    configs; these tests only need the configs the service lists.
+    """
+
+    def __init__(self, inner: IngestionConfigRepository) -> None:
+        self._inner = inner
+        self.freshness_configs: list[SourceFreshnessConfigCreate] = []
+
+    def list_source_freshness_configs(self) -> list[SourceFreshnessConfigCreate]:
+        return list(self.freshness_configs)
+
+    def __getattr__(self, name: str):
+        return getattr(self._inner, name)
+
+
+@pytest.fixture
+def plane(control_plane: IngestionConfigRepository) -> _FreshnessConfigured:
+    return _FreshnessConfigured(control_plane)
+
+
+def _asset_lineage(
+    plane: _FreshnessConfigured, run_id: str, source_asset_id: str
+) -> None:
+    plane.record_source_lineage(
+        (
+            SourceLineageCreate(
+                lineage_id=uuid.uuid4().hex[:16],
+                input_run_id=run_id,
+                source_run_id=run_id,
+                target_layer="landing",
+                target_name=source_asset_id,
+                target_kind="source_asset",
+            ),
+        )
+    )
+
+
+def _promoted(
+    plane: _FreshnessConfigured,
+    runs: RunMetadataRepository,
+    run_id: str,
+    source_asset_id: str,
+    **land_kwargs,
+) -> None:
+    """A run as the DuckDB promotion path records it: reporting + landing rows."""
+    _land(runs, run_id, **land_kwargs)
+    _lineage(plane, run_id, source_system=None, row_count=None)
+    _asset_lineage(plane, run_id, source_asset_id)
+
+
+def _freshness_config(
+    plane: _FreshnessConfigured,
+    source_asset_id: str,
+    *,
+    expected_frequency: str = "ad_hoc",
+) -> None:
+    plane.freshness_configs.append(
+        SourceFreshnessConfigCreate(
+            source_asset_id=source_asset_id,
+            acquisition_mode="manual_export",
+            expected_frequency=expected_frequency,
+            coverage_kind="rolling_period",
+            due_day_of_month=5 if expected_frequency == "monthly" else None,
+            expected_window_days=5,
+            freshness_sla_days=40,
+            sensitivity_class="financial",
+            reminder_channel="dashboard",
+            requires_human_action=True,
+        )
+    )
+
+
+def test_configured_source_asset_yields_real_freshness_and_verdict(
+    plane, runs
+) -> None:
+    """Regression: run source_name ("bank") never matched the asset-keyed config."""
+    _promoted(plane, runs, "run-1", "bank_asset", source_name="bank")
+    _freshness_config(plane, "bank_asset")
+
+    snapshot = _compute(plane, runs)
+
+    assert set(snapshot.source_freshness_states) == {"bank_asset"}
+    state = snapshot.source_freshness_states["bank_asset"]
+    assert state.freshness_state == SourceFreshnessState.CURRENT
+    assert state.last_ingest_at is not None
+    assert snapshot.freshness_state == FreshnessState.CURRENT
+    assert snapshot.confidence_verdict == ConfidenceVerdict.TRUSTWORTHY
+    assert snapshot.quality_flags["freshness_unconfigured_sources"] == 0
+
+
+def test_configured_schedule_is_evaluated_for_the_asset(plane, runs) -> None:
+    """A monthly schedule is evaluated, not skipped: never CURRENT without coverage."""
+    _promoted(plane, runs, "run-1", "bank_asset")
+    _freshness_config(plane, "bank_asset", expected_frequency="monthly")
+
+    snapshot = _compute(plane, runs)
+
+    state = snapshot.source_freshness_states["bank_asset"].freshness_state
+    assert state in {SourceFreshnessState.DUE_SOON, SourceFreshnessState.OVERDUE}
+    assert snapshot.confidence_verdict == ConfidenceVerdict.DEGRADED
+
+
+def test_unconfigured_source_asset_is_unavailable(plane, runs) -> None:
+    _promoted(plane, runs, "run-1", "bank_asset")
+
+    snapshot = _compute(plane, runs)
+
+    assert (
+        snapshot.source_freshness_states["bank_asset"].freshness_state
+        == SourceFreshnessState.UNCONFIGURED
+    )
+    # Validation and completeness are still read from the run.
+    assert snapshot.completeness_pct == 100
+    assert snapshot.quality_flags["validation_errors"] == 0
+    assert snapshot.confidence_verdict == ConfidenceVerdict.UNAVAILABLE
+
+
+def test_run_without_asset_never_matches_a_config_by_source_name(
+    plane, runs
+) -> None:
+    """The source_name fallback reads as unconfigured even if an asset shares the name."""
+    _land(runs, "run-1", source_name="bank")
+    _lineage(plane, "run-1", source_system=None, row_count=None)
+    _freshness_config(plane, "bank")
+
+    snapshot = _compute(plane, runs)
+
+    assert (
+        snapshot.source_freshness_states["bank"].freshness_state
+        == SourceFreshnessState.UNCONFIGURED
+    )
+    assert snapshot.confidence_verdict == ConfidenceVerdict.UNAVAILABLE
+
+
+def test_recorded_asset_takes_precedence_over_declared_source(
+    plane, runs
+) -> None:
+    _land(runs, "run-1")
+    _lineage(plane, "run-1", source_system="bank")
+    _asset_lineage(plane, "run-1", "bank_asset")
+
+    snapshot = _compute(plane, runs)
+
+    # Keyed by the asset; the declared-source CURRENT default does not apply.
+    assert set(snapshot.source_freshness_states) == {"bank_asset"}
+    assert (
+        snapshot.source_freshness_states["bank_asset"].freshness_state
+        == SourceFreshnessState.UNCONFIGURED
+    )
+    assert snapshot.quality_flags["freshness_unconfigured_sources"] == 0
+
+
+def test_multi_asset_publication_keys_each_source_asset(plane, runs) -> None:
+    _promoted(plane, runs, "run-bank", "bank_asset", source_name="upload")
+    _promoted(plane, runs, "run-card", "card_asset", source_name="upload")
+    _freshness_config(plane, "bank_asset")
+    _freshness_config(plane, "card_asset")
+
+    snapshot = _compute(plane, runs)
+
+    # Same source_name, distinct assets: two contributing sources.
+    assert set(snapshot.source_freshness_states) == {"bank_asset", "card_asset"}
+    assert snapshot.contributing_run_ids == ["run-bank", "run-card"]
+    assert snapshot.quality_flags["completeness_expected_sources"] == 2
+    assert snapshot.confidence_verdict == ConfidenceVerdict.TRUSTWORTHY
+
+
+def test_multi_asset_publication_with_one_unconfigured_asset_is_degraded(
+    plane, runs
+) -> None:
+    _promoted(plane, runs, "run-bank", "bank_asset")
+    _promoted(plane, runs, "run-card", "card_asset", source_name="card")
+    _freshness_config(plane, "bank_asset")
+
+    snapshot = _compute(plane, runs)
+
+    states = {
+        key: snap.freshness_state for key, snap in snapshot.source_freshness_states.items()
+    }
+    assert states == {
+        "bank_asset": SourceFreshnessState.CURRENT,
+        "card_asset": SourceFreshnessState.UNCONFIGURED,
+    }
+    # The unconfigured asset cannot upgrade the verdict to trustworthy.
+    assert snapshot.confidence_verdict == ConfidenceVerdict.DEGRADED
+
+
+def test_latest_run_per_asset_is_used(plane, runs) -> None:
+    _promoted(
+        plane, runs, "run-old", "bank_asset", created_at=AS_OF - timedelta(days=3)
+    )
+    _promoted(
+        plane, runs, "run-new", "bank_asset", created_at=AS_OF - timedelta(days=1)
+    )
+    _freshness_config(plane, "bank_asset")
+
+    snapshot = _compute(plane, runs)
+
+    assert snapshot.contributing_run_ids == ["run-new"]
+
+
+def test_later_rejection_for_asset_dataset_counts_regardless_of_source_name(
+    plane, runs
+) -> None:
+    """A rejected run has no asset lineage; its dataset is the asset's dataset."""
+    _promoted(
+        plane,
+        runs,
+        "run-1",
+        "bank_asset",
+        source_name="operator-upload",
+        created_at=AS_OF - timedelta(days=2),
+    )
+    _freshness_config(plane, "bank_asset")
+    _land(
+        runs,
+        "run-rejected",
+        source_name="configured-upload",
+        issues=(_issue(),),
+        created_at=AS_OF - timedelta(hours=1),
+    )
+    _land(
+        runs,
+        "run-other-dataset",
+        dataset_name="utility_bills",
+        issues=(_issue(),),
+        created_at=AS_OF - timedelta(hours=1),
+    )
+
+    snapshot = _compute(plane, runs)
+
+    assert snapshot.quality_flags["rejected_runs"] == 1
+    assert snapshot.quality_flags["validation_errors"] == 1
+    assert snapshot.confidence_verdict == ConfidenceVerdict.DEGRADED
+
+
+def test_asset_attributed_run_without_run_metadata_stays_unknown(plane) -> None:
+    _lineage(plane, "run-1", source_system=None, row_count=None)
+    _asset_lineage(plane, "run-1", "bank_asset")
+    _freshness_config(plane, "bank_asset")
+
+    snapshot = _compute(plane, runs=None)
+
+    assert snapshot.quality_flags["validation_unknown_runs"] == 1
+    assert snapshot.quality_flags["completeness_unknown_sources"] == 1
+    assert snapshot.confidence_verdict != ConfidenceVerdict.TRUSTWORTHY

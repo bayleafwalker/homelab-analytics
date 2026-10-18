@@ -1092,7 +1092,11 @@ class ReportingService:
         ``source_asset_id`` adds one landing-layer row (the source asset the
         run was landed for), so the lineage graph reads source asset → run →
         transformation → publication. Reporting rows keep ``source_system``
-        unset; confidence attributes them to a source through the run.
+        unset; confidence attributes them to the run's source asset.
+
+        The refresh recorded its confidence snapshots before this lineage
+        existed, so the snapshots for ``relation_names`` are recorded again
+        once it is stored.
         """
         if run_id is None or self._control_plane_store is None:
             return
@@ -1122,6 +1126,11 @@ class ReportingService:
             )
         if records:
             self._control_plane_store.record_source_lineage(tuple(records))
+            record_confidence = getattr(
+                self._transformation_service, "record_publication_confidence", None
+            )
+            if record_confidence is not None:
+                record_confidence(relation_names)
 
     def record_warehouse_publications(
         self,

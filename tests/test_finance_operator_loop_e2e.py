@@ -33,8 +33,10 @@ from apps.api.app import create_app
 from packages.domains.finance.pipelines.account_transaction_service import (
     AccountTransactionService,
 )
+from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
+from packages.storage.ingestion_catalog import SourceFreshnessConfigCreate
 from packages.storage.ingestion_config import IngestionConfigRepository
 from packages.storage.run_metadata import RunMetadataRepository
 from tests.control_plane_test_support import seed_source_asset_graph
@@ -77,6 +79,41 @@ class LoopHarness:
             files={"file": (file_name, payload, "text/csv")},
         )
 
+    def configure_freshness(self) -> None:
+        """Ad-hoc freshness config: CURRENT whenever a run has landed."""
+        self.control_plane.create_source_freshness_config(
+            SourceFreshnessConfigCreate(
+                source_asset_id=SOURCE_ASSET_ID,
+                acquisition_mode="manual_export",
+                expected_frequency="ad_hoc",
+                coverage_kind="rolling_period",
+                due_day_of_month=None,
+                expected_window_days=5,
+                freshness_sla_days=40,
+                sensitivity_class="financial",
+                reminder_channel="dashboard",
+                requires_human_action=True,
+            )
+        )
+
+    def confidence(self) -> dict:
+        response = self.client.get(f"/control/confidence/{MONTHLY_CASHFLOW_KEY}")
+        assert response.status_code == 200
+        return response.json()
+
+    def cashflow_brief_item(self) -> dict:
+        brief = self.client.get("/api/briefing")
+        assert brief.status_code == 200
+        money = next(
+            section for section in brief.json()["sections"] if section["key"] == "money"
+        )
+        assert MONTHLY_CASHFLOW_KEY in money["publication_keys"]
+        return next(
+            item
+            for item in money["items"]
+            if (item.get("confidence") or {}).get("publication_key") == MONTHLY_CASHFLOW_KEY
+        )
+
     def freshness_row(self) -> dict:
         response = self.client.get("/control/source-freshness")
         assert response.status_code == 200
@@ -107,18 +144,27 @@ def loop() -> Iterator[LoopHarness]:
             include_lineage=False,
             include_audit=False,
         )
+        run_metadata = RunMetadataRepository(root / "runs.db")
+        # Wired as the runtime builder wires the DuckDB-only path: confidence
+        # reads run metadata, and reporting records lineage in the control
+        # plane with no Postgres publication store.
         transformation_service = TransformationService(
             DuckDBStore.memory(),
             control_plane_store=control_plane,
+            run_metadata_store=run_metadata,
         )
         client = TestClient(
             create_app(
                 AccountTransactionService(
                     landing_root=root / "landing",
-                    metadata_repository=RunMetadataRepository(root / "runs.db"),
+                    metadata_repository=run_metadata,
                 ),
                 config_repository=control_plane,
                 transformation_service=transformation_service,
+                reporting_service=ReportingService(
+                    transformation_service,
+                    control_plane_store=control_plane,
+                ),
                 enable_unsafe_admin=True,
             )
         )
@@ -134,6 +180,8 @@ def test_finance_operator_loop_from_upload_to_expense_shock(loop: LoopHarness) -
     assert before["latest_run_id"] is None
     assert before["freshness_state"] == "unconfigured"
     assert loop.monthly_cashflow() == []
+    # The operator gives the source asset a freshness expectation.
+    loop.configure_freshness()
 
     # 2. Detection names the configured asset and previews the monthly
     #    finance publication the upload will refresh.
@@ -177,35 +225,26 @@ def test_finance_operator_loop_from_upload_to_expense_shock(loop: LoopHarness) -
         assert Decimal(row["net"]) == SALARY - expected_expense
         assert row["transaction_count"] == 3
 
-    # 6. Publication trust: the refresh recorded a confidence snapshot for
-    #    the monthly cashflow publication, readable by key.
-    detail = client.get(f"/control/confidence/{MONTHLY_CASHFLOW_KEY}")
-    assert detail.status_code == 200
-    snapshot = detail.json()
+    # 6. Publication trust: confidence attributes the run to its source
+    #    asset, finds that asset's freshness config, and with a clean,
+    #    complete landing the monthly cashflow publication is trustworthy.
+    snapshot = loop.confidence()
     verdict = snapshot["confidence_verdict"]
-    assert verdict in CLAIM_FOR_VERDICT
+    assert verdict == "trustworthy"
+    assert snapshot["freshness_state"] == "current"
+    assert snapshot["completeness_pct"] == 100
+    assert snapshot["contributing_run_ids"] == [run_id]
     assert snapshot["assessed_at"] is not None
-    assert snapshot["freshness_state"]
     listed = {
         pub["publication_key"]: pub for pub in client.get("/control/confidence").json()["publications"]
     }
     assert listed[MONTHLY_CASHFLOW_KEY]["confidence_verdict"] == verdict
 
-    # 7. The morning brief states cashflow only as far as that verdict allows,
-    #    and says what to do when it withholds.
-    brief = client.get("/api/briefing")
-    assert brief.status_code == 200
-    money = next(section for section in brief.json()["sections"] if section["key"] == "money")
-    assert MONTHLY_CASHFLOW_KEY in money["publication_keys"]
-    cashflow_item = next(
-        item
-        for item in money["items"]
-        if (item.get("confidence") or {}).get("publication_key") == MONTHLY_CASHFLOW_KEY
-    )
+    # 7. The morning brief states cashflow as far as that verdict allows:
+    #    confirmed, not withheld.
+    cashflow_item = loop.cashflow_brief_item()
     assert cashflow_item["confidence"]["verdict"] == verdict
-    assert cashflow_item["claim_status"] == CLAIM_FOR_VERDICT[verdict]
-    if cashflow_item["claim_status"] == "withheld":
-        assert cashflow_item["remediation"]
+    assert cashflow_item["claim_status"] == CLAIM_FOR_VERDICT[verdict] == "confirmed"
     assert cashflow_item["lineage_publication_key"] == MONTHLY_CASHFLOW_KEY
 
     # 8. Expense shock from the same finance story: baseline, projected, delta.
@@ -277,3 +316,24 @@ def test_rejected_upload_surfaces_remediation_and_keeps_last_good_finance_read(
     assert recovered["status"] == "landed"
     assert recovered["latest_run_id"] == fixed.json()["run"]["run_id"]
     assert [row["booking_month"] for row in loop.monthly_cashflow()] == [*MONTHS, "2026-10"]
+
+
+def test_unconfigured_source_asset_keeps_cashflow_withheld(loop: LoopHarness) -> None:
+    """Without a freshness config for its asset the verdict stays unavailable."""
+    upload = loop.upload(
+        _account_export_csv(), file_name="statement.csv", source_name="operator-upload"
+    )
+    assert upload.status_code == 201
+    run_id = upload.json()["run"]["run_id"]
+
+    snapshot = loop.confidence()
+    # The run is attributed (completeness is known) but its asset has no
+    # freshness expectation, so trust is not claimed.
+    assert snapshot["contributing_run_ids"] == [run_id]
+    assert snapshot["completeness_pct"] == 100
+    assert snapshot["freshness_state"] == "unavailable"
+    assert snapshot["confidence_verdict"] == "unavailable"
+
+    cashflow_item = loop.cashflow_brief_item()
+    assert cashflow_item["claim_status"] == "withheld"
+    assert cashflow_item["remediation"]
