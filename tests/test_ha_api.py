@@ -11,7 +11,7 @@ from typing import Any, Callable, cast
 from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
-from packages.pipelines.ha_action_proposals import ApprovalActionRegistry
+from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
@@ -562,7 +562,7 @@ class HaPoliciesDetailAPITests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             class MockEvaluator:
                 def evaluate(self):
-                    from packages.pipelines.ha_policy import PolicyResult
+                    from packages.domains.homelab.pipelines.ha_policy import PolicyResult
                     return [
                         PolicyResult(
                             id="budget_status",
@@ -583,7 +583,7 @@ class HaPoliciesDetailAPITests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             class MockEvaluator:
                 def evaluate(self):
-                    from packages.pipelines.ha_policy import PolicyResult
+                    from packages.domains.homelab.pipelines.ha_policy import PolicyResult
                     return [
                         PolicyResult(
                             id="budget_status",
@@ -618,7 +618,7 @@ class HaPolicyAuthorityRouteTests(unittest.TestCase):
             self.assertEqual(404, resp.status_code)
 
     def test_authority_reports_evaluator_status(self) -> None:
-        from packages.pipelines.ha_policy import HaPolicyEvaluator
+        from packages.domains.homelab.pipelines.ha_policy import HaPolicyEvaluator
 
         with TemporaryDirectory() as tmp:
             evaluator = HaPolicyEvaluator(lambda: {})
@@ -631,7 +631,7 @@ class HaPolicyAuthorityRouteTests(unittest.TestCase):
             self.assertIn("snapshot_version", body)
 
     def test_policies_payload_includes_authority(self) -> None:
-        from packages.pipelines.ha_policy import HaPolicyEvaluator
+        from packages.domains.homelab.pipelines.ha_policy import HaPolicyEvaluator
 
         with TemporaryDirectory() as tmp:
             evaluator = HaPolicyEvaluator(lambda: {})

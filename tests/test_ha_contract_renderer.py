@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from packages.domains.homelab.manifest import HOMELAB_PACK
-from packages.pipelines.ha_contract_renderer import (
+from packages.domains.homelab.pipelines.ha_contract_renderer import (
     HaContractRenderer,
     build_ha_publication_entities,
 )

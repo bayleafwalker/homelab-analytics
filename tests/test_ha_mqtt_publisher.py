@@ -9,8 +9,8 @@ from __future__ import annotations
 import json
 import unittest
 
-from packages.pipelines.ha_mqtt_models import HaMqttEntityDefinition
-from packages.pipelines.ha_mqtt_publisher import (
+from packages.domains.homelab.pipelines.ha_mqtt_models import HaMqttEntityDefinition
+from packages.domains.homelab.pipelines.ha_mqtt_publisher import (
     _DEVICE_AVAILABILITY_TOPIC,
     _STATIC_ENTITIES,
     HaMqttPublisher,

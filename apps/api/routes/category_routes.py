@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from packages.domains.finance.pipelines.category_seed import SYSTEM_CATEGORY_IDS
 from packages.domains.finance.pipelines.subscription_models import DIM_CATEGORY
+from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_]*$")
@@ -34,6 +35,7 @@ def register_category_routes(
     app: FastAPI,
     *,
     transformation_service: TransformationService | None,
+    resolved_reporting_service: ReportingService | None = None,
     to_jsonable: Callable[[Any], Any],
 ) -> None:
     def _ts() -> TransformationService:
@@ -44,9 +46,17 @@ def register_category_routes(
             )
         return transformation_service
 
+    def _reporting() -> ReportingService:
+        # Reads go through the reporting layer; category creation below is a
+        # control operation and keeps using the transformation service.
+        ts = _ts()
+        if resolved_reporting_service is not None:
+            return resolved_reporting_service
+        return ReportingService(ts)
+
     @app.get("/api/categories")
     async def list_categories() -> dict[str, Any]:
-        rows = _ts().get_current_categories()
+        rows = _reporting().get_current_categories()
         return {"categories": to_jsonable(rows)}
 
     @app.post("/api/categories", status_code=201)

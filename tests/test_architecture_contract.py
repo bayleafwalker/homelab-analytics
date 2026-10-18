@@ -740,12 +740,20 @@ def test_app_and_web_routes_are_auth_protected_when_local_auth_is_enabled() -> N
     assert '"/config/execution-schedules/{schedule_id}"' in web_schedule_update_route
     assert '"/config/execution-schedules/{schedule_id}/archive"' in web_schedule_archive_route
     assert '"/config/execution-schedules/{schedule_id}"' in web_schedule_delete_route
-    assert 'backendRequest("post", "/control/schedule-dispatches"' in web_schedule_dispatch_route
+    web_dispatch_route_helper = (
+        ROOT / "apps" / "web" / "frontend" / "lib" / "execution-dispatch-routes.js"
+    ).read_text()
+    assert 'backendRequest("post", "/control/schedule-dispatches"' in web_dispatch_route_helper
+    assert '"/control/schedule-dispatches/{dispatch_id}/retry"' in web_dispatch_route_helper
+    assert 'createScheduleDispatchHandler({ basePath: "/control/execution" })' in (
+        web_schedule_dispatch_route
+    )
     assert "getScheduleDispatch" in web_dispatch_detail_page
     assert "Requeue dispatch" in web_dispatch_detail_page
     assert "Claim expires" in web_dispatch_detail_page
     assert "Failure reason" in web_dispatch_detail_page
-    assert '"/control/schedule-dispatches/{dispatch_id}/retry"' in web_dispatch_retry_route
+    assert "createScheduleDispatchRetryHandler" in web_dispatch_retry_route
+    assert "retry_of=${dispatchId}" in web_dispatch_retry_route
     assert 'backendJsonRequest("post", "/runs/{run_id}/retry"' in web_run_retry_route
     assert "build_web_environment" in web_main_source
     assert "resolved_api_base_url" in web_main_source
@@ -863,27 +871,39 @@ def test_apps_and_packages_do_not_import_shared_auth_shim() -> None:
     )
 
 
-def test_platform_does_not_import_homelab_or_overview_pipeline_modules() -> None:
-    """Platform layer must not depend on moved homelab/overview pipeline modules."""
-    platform_dir = ROOT / "packages" / "platform"
-    imports = _collect_imports_in_dir(platform_dir)
-    forbidden_prefixes = (
-        "packages.pipelines.ha_",
-        "packages.pipelines.homelab_models",
-        "packages.pipelines.home_automation_models",
-        "packages.pipelines.infrastructure_models",
-        "packages.pipelines.transformation_homelab",
-        "packages.pipelines.transformation_home_automation",
-        "packages.pipelines.transformation_infrastructure",
-        "packages.pipelines.overview_models",
-        "packages.pipelines.transformation_overview",
-    )
-    forbidden_imports = [
-        imp for imp in imports if any(imp.startswith(prefix) for prefix in forbidden_prefixes)
+def _is_reexport_shim(path: Path) -> bool:
+    """True when a module only re-exports another module (star import or globals().update)."""
+    source = path.read_text()
+    tree = ast.parse(source, filename=str(path))
+    body = [
+        node
+        for node in tree.body
+        if not (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant))
     ]
-    assert not forbidden_imports, (
-        "packages/platform must not import homelab/overview domain pipeline modules — "
-        f"found: {forbidden_imports}"
+    if not body:
+        return False
+    has_star_import = any(
+        isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names)
+        for node in body
+    )
+    has_globals_update = "globals().update" in source
+    only_reexport_statements = all(
+        isinstance(node, (ast.Import, ast.ImportFrom, ast.Assign, ast.Expr)) for node in body
+    )
+    return (has_star_import or has_globals_update) and only_reexport_statements
+
+
+def test_no_backward_compat_reexport_shims_remain() -> None:
+    """Moved modules must be imported from their canonical home, not via re-export shims."""
+    shims = sorted(
+        str(py_file.relative_to(ROOT))
+        for directory in (ROOT / "apps", ROOT / "packages")
+        for py_file in directory.rglob("*.py")
+        if "__pycache__" not in py_file.parts and _is_reexport_shim(py_file)
+    )
+    assert not shims, (
+        "Backward-compat re-export shims must not be reintroduced; import the canonical "
+        f"module directly — found: {shims}"
     )
 
 
@@ -922,9 +942,6 @@ def test_current_dimension_contract_instances_live_outside_platform_module() -> 
     composition_current_dimension_source = (
         ROOT / "packages" / "pipelines" / "composition" / "current_dimension_contracts.py"
     ).read_text()
-    legacy_shim_source = (
-        ROOT / "packages" / "pipelines" / "household_current_dimension_contracts.py"
-    ).read_text()
 
     assert "CURRENT_DIMENSION_CONTRACTS" not in platform_current_dimension_source
     assert "CurrentDimensionContractDefinition" in platform_current_dimension_source
@@ -934,14 +951,15 @@ def test_current_dimension_contract_instances_live_outside_platform_module() -> 
     assert "HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS" in contract_routes_source
     assert "packages.pipelines.composition.publication_contract_inputs" in assistant_routes_source
     assert "CURRENT_DIMENSION_CONTRACTS" in composition_current_dimension_source
-    assert "packages.pipelines.composition.current_dimension_contracts" in legacy_shim_source
+    assert not (
+        ROOT / "packages" / "pipelines" / "household_current_dimension_contracts.py"
+    ).exists()
 
 
 def test_source_freshness_evaluator_is_promoted_to_platform() -> None:
-    finance_freshness_source = (ROOT / "packages" / "domains" / "finance" / "freshness.py").read_text()
     platform_freshness_source = (ROOT / "packages" / "platform" / "source_freshness.py").read_text()
 
-    assert "packages.platform.source_freshness" in finance_freshness_source
+    assert not (ROOT / "packages" / "domains" / "finance" / "freshness.py").exists()
     assert "def evaluate_source_freshness(" in platform_freshness_source
 
 
@@ -1338,3 +1356,75 @@ def test_scenario_routes_delegate_to_use_case_layer() -> None:
     assert "svc.archive_scenario(" not in scenario_source
     assert "svc.archive_scenario_compare_set(" not in scenario_source
     assert "svc.restore_scenario_compare_set(" not in scenario_source
+
+
+def _get_route_handlers(path: Path) -> dict[str, ast.AsyncFunctionDef | ast.FunctionDef]:
+    """Return route handlers decorated with ``@app.get(...)`` keyed by route path."""
+    tree = ast.parse(path.read_text(), filename=str(path))
+    handlers: dict[str, ast.AsyncFunctionDef | ast.FunctionDef] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef)):
+            continue
+        for decorator in node.decorator_list:
+            if (
+                isinstance(decorator, ast.Call)
+                and isinstance(decorator.func, ast.Attribute)
+                and decorator.func.attr == "get"
+                and decorator.args
+                and isinstance(decorator.args[0], ast.Constant)
+            ):
+                handlers[str(decorator.args[0].value)] = node
+    return handlers
+
+
+@pytest.mark.parametrize(
+    ("route_module", "transformation_accessors"),
+    [
+        ("category_routes.py", {"_ts", "transformation_service"}),
+        ("scenario_routes.py", {"_svc", "transformation_service"}),
+    ],
+)
+def test_category_and_scenario_read_routes_use_reporting_layer(
+    route_module: str, transformation_accessors: set[str]
+) -> None:
+    """GET handlers must read through ReportingService, not the TransformationService.
+
+    Writes and control operations (category creation, scenario create/archive)
+    may still use the transformation service.
+    """
+    handlers = _get_route_handlers(ROOT / "apps" / "api" / "routes" / route_module)
+    assert handlers, f"no GET handlers found in {route_module}"
+    offenders: dict[str, list[str]] = {}
+    for route_path, handler in handlers.items():
+        names = {node.id for node in ast.walk(handler) if isinstance(node, ast.Name)}
+        leaked = sorted(names & transformation_accessors)
+        if leaked:
+            offenders[route_path] = leaked
+        assert "_reporting" in names, f"{route_module} GET {route_path} must read via _reporting()"
+    assert not offenders, (
+        f"{route_module} GET handlers must not read from the transformation layer: {offenders}"
+    )
+
+
+def test_scenario_read_use_cases_take_reporting_service() -> None:
+    source = (
+        ROOT / "packages" / "application" / "use_cases" / "scenario_management.py"
+    ).read_text()
+    tree = ast.parse(source)
+    read_functions = {
+        "list_scenarios",
+        "get_scenario",
+        "get_scenario_assumptions",
+        "load_scenario_comparison",
+        "load_scenario_cashflow",
+        "list_compare_sets",
+    }
+    annotations = {
+        node.name: ast.unparse(node.args.args[0].annotation)
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name in read_functions
+        and node.args.args[0].annotation is not None
+    }
+    assert set(annotations) == read_functions
+    assert all("ReportingService" in value for value in annotations.values()), annotations

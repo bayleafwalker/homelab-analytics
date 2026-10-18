@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Sequence
 
-from packages.pipelines.account_transaction_service import AccountTransactionService
 from packages.pipelines.configured_ingestion_definition import (
     ConfiguredIngestionDefinitionService,
 )
@@ -118,19 +117,6 @@ def build_capability_packs(
         extension_modules=(
             resolved.extension_modules if resolved is not None else settings.extension_modules
         ),
-    )
-
-
-def build_account_transaction_service(
-    settings: AppSettings,
-    *,
-    metadata_repository: RunMetadataStore | None = None,
-    blob_store=None,
-) -> AccountTransactionService:
-    return AccountTransactionService(
-        landing_root=settings.landing_root,
-        metadata_repository=metadata_repository or build_run_metadata_store(settings),
-        blob_store=blob_store or build_blob_store(settings),
     )
 
 

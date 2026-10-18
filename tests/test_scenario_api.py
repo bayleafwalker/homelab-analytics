@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
 from packages.domains.finance.pipelines.scenario_service import create_loan_what_if_scenario
-from packages.pipelines.reporting_service import HomelabCostBenefitBaseline
+from packages.pipelines.reporting_service import HomelabCostBenefitBaseline, ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository
@@ -77,8 +77,16 @@ def _build_homelab_client(temp_dir: str) -> tuple[TestClient, TransformationServ
     return TestClient(app), ts
 
 
-class _StubHomelabReportingService:
-    def __init__(self) -> None:
+class _StubHomelabReportingService(ReportingService):
+    """Reporting service with a pinned homelab baseline signature.
+
+    Scenario reads are served by the real reporting layer over ``ts``; only the
+    published homelab baseline is stubbed.
+    """
+
+    def __init__(self, transformation_service: TransformationService) -> None:
+        super().__init__(transformation_service)
+        self.scenario_reads: list[str] = []
         self._baseline = HomelabCostBenefitBaseline(
             service_rows=[
                 {"service_id": "svc-a", "state": "running"},
@@ -100,6 +108,10 @@ class _StubHomelabReportingService:
     def get_homelab_cost_benefit_baseline(self) -> HomelabCostBenefitBaseline:
         return self._baseline
 
+    def get_scenario(self, scenario_id: str):
+        self.scenario_reads.append(scenario_id)
+        return super().get_scenario(scenario_id)
+
 
 def _build_homelab_client_with_reporting(
     temp_dir: str,
@@ -117,7 +129,7 @@ def _build_homelab_client_with_reporting(
     ts.refresh_service_health_current()
     ts.load_workload_sensors(_workload_rows(), run_id="run-homelab-workloads")
     ts.refresh_workload_cost_7d()
-    reporting_service = _StubHomelabReportingService()
+    reporting_service = _StubHomelabReportingService(ts)
     app = create_app(
         service,
         transformation_service=ts,
@@ -543,6 +555,27 @@ class HomelabCostBenefitScenarioAPITests(unittest.TestCase):
             resp = client.get(f"/api/scenarios/{scenario_id}/comparison")
             self.assertEqual(200, resp.status_code)
             self.assertTrue(resp.json()["is_stale"])
+
+    def test_scenario_read_routes_go_through_reporting_service(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _, reporting_service = _build_homelab_client_with_reporting(tmp)
+            create_resp = client.post(
+                "/api/scenarios/homelab-cost-benefit",
+                json={"monthly_cost_delta": "1.00"},
+            )
+            scenario_id = create_resp.json()["scenario_id"]
+            self.assertEqual([], reporting_service.scenario_reads)
+
+            for path in (
+                f"/api/scenarios/{scenario_id}",
+                f"/api/scenarios/{scenario_id}/comparison",
+                f"/api/scenarios/{scenario_id}/cashflow",
+            ):
+                self.assertEqual(200, client.get(path).status_code, path)
+
+            self.assertEqual([scenario_id] * 3, reporting_service.scenario_reads)
+            listed = client.get("/api/scenarios").json()["rows"]
+            self.assertIn(scenario_id, [row["scenario_id"] for row in listed])
 
     def test_homelab_cost_benefit_becomes_stale_after_new_fact_run(self) -> None:
         with TemporaryDirectory() as tmp:
