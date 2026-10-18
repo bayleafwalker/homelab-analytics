@@ -18,7 +18,7 @@ from packages.pipelines.household_reporting import PUBLICATION_RELATIONS
 from packages.pipelines.household_transformation_refresh import (
     BUILTIN_PUBLICATION_REFRESH_HANDLERS,
 )
-from packages.pipelines.reporting_service import ReportingService
+from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository
@@ -225,3 +225,24 @@ def test_spend_heatmap_endpoint_reads_the_reporting_mart() -> None:
             )
         )
         assert bare_client.get("/reports/spend-heatmap").status_code == 404
+
+
+def test_spend_heatmap_endpoint_is_503_when_publication_is_not_published() -> None:
+    with TemporaryDirectory() as temp_dir:
+        service = TransformationService(DuckDBStore.memory())
+        # PUBLISHED mode with nothing published: every relation read raises
+        # KeyError, as on a Postgres reporting store missing the mart.
+        published_only = ReportingService(service, access_mode=ReportingAccessMode.PUBLISHED)
+        client = TestClient(
+            create_app(
+                AccountTransactionService(
+                    landing_root=Path(temp_dir) / "landing",
+                    metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+                ),
+                transformation_service=service,
+                reporting_service=published_only,
+            )
+        )
+        response = client.get("/reports/spend-heatmap")
+        assert response.status_code == 503
+        assert "mart_spend_by_weekday_hour" in response.json()["detail"]

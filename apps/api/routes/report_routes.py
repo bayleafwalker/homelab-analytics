@@ -1002,15 +1002,29 @@ def register_report_routes(
                 status_code=400,
                 detail=f"window must be between 1 and {MAX_WINDOW_DAYS} days",
             )
-        if as_of is not None:
-            from_date, to_date = spend_heatmap_window(as_of, window)
-            rows = resolved_reporting_service.get_spend_by_weekday_hour(
-                from_date=from_date,
-                to_date=to_date,
-            )
-        else:
-            rows = resolved_reporting_service.get_spend_by_weekday_hour()
-        overview_rows = resolved_reporting_service.get_household_overview()
+        # In PUBLISHED mode a relation that was never published raises
+        # KeyError; that is "not available yet", not a server fault.
+        try:
+            if as_of is not None:
+                from_date, to_date = spend_heatmap_window(as_of, window)
+                rows = resolved_reporting_service.get_spend_by_weekday_hour(
+                    from_date=from_date,
+                    to_date=to_date,
+                )
+            else:
+                rows = resolved_reporting_service.get_spend_by_weekday_hour()
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Spend heatmap publication mart_spend_by_weekday_hour is not "
+                    "published yet; run an account-transactions promotion."
+                ),
+            ) from exc
+        try:
+            overview_rows = resolved_reporting_service.get_household_overview()
+        except KeyError:
+            overview_rows = []
         currency = next(
             (str(row["currency"]) for row in overview_rows if row.get("currency")),
             None,

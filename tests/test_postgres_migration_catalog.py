@@ -85,3 +85,30 @@ def test_asset_register_package_is_seeded() -> None:
         seeded.update(_first_column_values(migration.read_text(), "transformation_packages"))
 
     assert "builtin_asset_register" in seeded
+
+
+# Builtin publications a Postgres control plane does not seed yet. Each one is
+# refreshed on promotion but never published to the Postgres reporting store,
+# so PUBLISHED-mode reads of it fail. Shrink this list; never grow it.
+KNOWN_UNSEEDED_PUBLICATIONS = {
+    "pub_budgets_envelope_drift",
+}
+
+
+def test_builtin_package_publications_are_seeded_by_postgres_migrations() -> None:
+    from packages.pipelines.household_packages import BUILTIN_TRANSFORMATION_PACKAGE_SPECS
+
+    seeded: set[str] = set()
+    for migration in _ordered_migrations():
+        seeded.update(_first_column_values(migration.read_text(), "publication_definitions"))
+
+    expected = {
+        publication.publication_definition_id
+        for spec in BUILTIN_TRANSFORMATION_PACKAGE_SPECS
+        for publication in spec.publications
+    }
+    missing = sorted(expected - seeded - KNOWN_UNSEEDED_PUBLICATIONS)
+    assert not missing, f"builtin publications missing a Postgres seed migration: {missing}"
+    assert "pub_account_transactions_spend_by_weekday_hour" in seeded
+    stale = sorted(KNOWN_UNSEEDED_PUBLICATIONS & seeded)
+    assert not stale, f"now seeded, drop from KNOWN_UNSEEDED_PUBLICATIONS: {stale}"
