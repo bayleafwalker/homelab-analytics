@@ -174,7 +174,7 @@ class BudgetTransformationTests(unittest.TestCase):
     def test_load_budget_targets_upserts_dim_budget(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_budget_targets(self._make_rows(), run_id="run-001")
-        budgets = svc.get_current_budgets()
+        budgets = svc.get_current_dimension_rows("dim_budget")
         categories = {row["category_id"] for row in budgets}
         self.assertIn("groceries", categories)
         self.assertIn("entertainment", categories)

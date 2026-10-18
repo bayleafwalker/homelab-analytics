@@ -6,15 +6,12 @@ from datetime import date
 from typing import Any
 
 from packages.domains.finance.pipelines.budget_models import (
-    CURRENT_DIM_BUDGET_VIEW,
     DIM_BUDGET,
 )
 from packages.domains.finance.pipelines.loan_models import (
-    CURRENT_DIM_LOAN_VIEW,
     DIM_LOAN,
 )
 from packages.domains.finance.pipelines.subscription_models import (
-    CURRENT_DIM_CONTRACT_VIEW,
     DIM_CONTRACT,
 )
 from packages.domains.finance.pipelines.transformation_balances import (
@@ -59,21 +56,6 @@ class CommitmentTransformationMixin(TransformationFacetBase):
 
     def count_contract_prices(self, run_id: str | None = None) -> int:
         return count_contract_prices(self._store, run_id=run_id)
-
-    def get_current_contracts(self) -> list[dict[str, Any]]:
-        return self._store.fetchall_dicts(
-            f"SELECT * FROM {CURRENT_DIM_CONTRACT_VIEW} ORDER BY contract_name"
-        )
-
-    def get_current_budgets(self) -> list[dict[str, Any]]:
-        return self._store.fetchall_dicts(
-            f"SELECT * FROM {CURRENT_DIM_BUDGET_VIEW} ORDER BY budget_id"
-        )
-
-    def get_current_loans(self) -> list[dict[str, Any]]:
-        return self._store.fetchall_dicts(
-            f"SELECT * FROM {CURRENT_DIM_LOAN_VIEW} ORDER BY loan_id"
-        )
 
     def load_subscriptions(
         self,

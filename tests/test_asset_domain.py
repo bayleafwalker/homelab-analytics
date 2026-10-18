@@ -34,7 +34,7 @@ class AssetDomainTests(unittest.TestCase):
 
         self.assertEqual(1, inserted)
         self.assertEqual(1, service.count_asset_event_rows())
-        assets = service.get_current_assets()
+        assets = service.get_current_dimension_rows("dim_asset")
         self.assertEqual(1, len(assets))
         asset = assets[0]
         self.assertEqual("UPS Rack A", asset["asset_name"])
@@ -59,7 +59,7 @@ class AssetDomainTests(unittest.TestCase):
             source_system="manual-upload",
         )
 
-        asset_id = service.get_current_assets()[0]["asset_id"]
+        asset_id = service.get_current_dimension_rows("dim_asset")[0]["asset_id"]
         appended = service.load_asset_events(
             [
                 {
@@ -78,7 +78,7 @@ class AssetDomainTests(unittest.TestCase):
 
         self.assertEqual(1, appended)
         self.assertEqual(2, service.count_asset_event_rows())
-        assets = service.get_current_assets()
+        assets = service.get_current_dimension_rows("dim_asset")
         self.assertEqual(1, len(assets))
         self.assertEqual("NAS Rack B", assets[0]["asset_name"])
 
@@ -115,7 +115,7 @@ class AssetDomainTests(unittest.TestCase):
             ],
             run_id="asset-run-010",
         )
-        assets = {row["asset_name"]: row["asset_id"] for row in service.get_current_assets()}
+        assets = {row["asset_name"]: row["asset_id"] for row in service.get_current_dimension_rows("dim_asset")}
         service.load_asset_events(
             [
                 # NAS switches to recorded-events valuation
@@ -181,7 +181,7 @@ class AssetDomainTests(unittest.TestCase):
             ],
             run_id="asset-run-020",
         )
-        asset_id = service.get_current_assets()[0]["asset_id"]
+        asset_id = service.get_current_dimension_rows("dim_asset")[0]["asset_id"]
         service.load_asset_events(
             [
                 # a second asset with explicit depreciation only contributes

@@ -169,7 +169,7 @@ class SubscriptionTransformationTests(unittest.TestCase):
     def test_load_subscriptions_upserts_dim_contract(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_subscriptions(self._make_rows(), run_id="run-001")
-        contracts = svc.get_current_contracts()
+        contracts = svc.get_current_dimension_rows("dim_contract")
         names = {row["contract_name"] for row in contracts}
         self.assertIn("Netflix", names)
         self.assertIn("GitHub Pro", names)

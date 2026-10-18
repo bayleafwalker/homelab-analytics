@@ -562,7 +562,7 @@ class ReportingService:
         to make operator writes visible immediately instead of waiting for the
         next publication of ``rpt_current_dim_category``.
         """
-        return self._transformation_service.get_current_categories()
+        return self._transformation_service.get_current_dimension_rows("dim_category")
 
     # ------------------------------------------------------------------
     # Scenario read models

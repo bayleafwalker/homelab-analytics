@@ -182,7 +182,7 @@ class LoanTransformationTests(unittest.TestCase):
     def test_load_loan_repayments_upserts_dim_loan(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_loan_repayments(self._make_rows(), run_id="run-001")
-        loans = svc.get_current_loans()
+        loans = svc.get_current_dimension_rows("dim_loan")
         loan_ids = {row["loan_id"] for row in loans}
         self.assertIn("loan-001", loan_ids)
 

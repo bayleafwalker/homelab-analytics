@@ -24,7 +24,6 @@ from packages.domains.utilities.pipelines.transformation_utilities import (
     load_utility_usage,
 )
 from packages.domains.utilities.pipelines.utility_models import (
-    CURRENT_DIM_METER_VIEW,
     DIM_METER,
 )
 from packages.pipelines.transformation_facets.base import TransformationFacetBase
@@ -41,11 +40,6 @@ class UtilityTransformationMixin(TransformationFacetBase):
 
     def count_bills(self, run_id: str | None = None) -> int:
         return count_bills(self._store, run_id=run_id)
-
-    def get_current_meters(self) -> list[dict[str, Any]]:
-        return self._store.fetchall_dicts(
-            f"SELECT * FROM {CURRENT_DIM_METER_VIEW} ORDER BY meter_id"
-        )
 
     def load_utility_usage(
         self,

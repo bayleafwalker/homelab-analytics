@@ -17,12 +17,7 @@ from packages.domains.finance.pipelines.category_rules import (
     set_category_override,
 )
 from packages.domains.finance.pipelines.reconciliation import reconcile_batch
-from packages.domains.finance.pipelines.subscription_models import (
-    CURRENT_DIM_CATEGORY_VIEW,
-)
 from packages.domains.finance.pipelines.transaction_models import (
-    CURRENT_DIM_ACCOUNT_VIEW,
-    CURRENT_DIM_COUNTERPARTY_VIEW,
     DIM_ACCOUNT,
     DIM_COUNTERPARTY,
 )
@@ -163,21 +158,6 @@ class TransactionTransformationMixin(TransformationFacetBase):
 
     def get_transaction_anomalies_current(self) -> list[dict[str, Any]]:
         return get_transaction_anomalies_current(self._store)
-
-    def get_current_accounts(self) -> list[dict[str, Any]]:
-        return self._store.fetchall_dicts(
-            f"SELECT * FROM {CURRENT_DIM_ACCOUNT_VIEW} ORDER BY account_id"
-        )
-
-    def get_current_counterparties(self) -> list[dict[str, Any]]:
-        return self._store.fetchall_dicts(
-            f"SELECT * FROM {CURRENT_DIM_COUNTERPARTY_VIEW} ORDER BY counterparty_name"
-        )
-
-    def get_current_categories(self) -> list[dict[str, Any]]:
-        return self._store.fetchall_dicts(
-            f"SELECT * FROM {CURRENT_DIM_CATEGORY_VIEW} ORDER BY category_id"
-        )
 
     def add_category_rule(
         self,

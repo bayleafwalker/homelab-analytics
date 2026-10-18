@@ -50,7 +50,7 @@ class HomeAutomationDomainTests(unittest.TestCase):
         self.assertEqual(2, inserted)
         self.assertEqual(2, service.count_sensor_reading_rows())
         self.assertEqual(0, service.count_automation_event_rows())
-        entities = {row["entity_id"]: row for row in service.get_current_entities()}
+        entities = {row["entity_id"]: row for row in service.get_current_dimension_rows("dim_entity")}
         self.assertEqual("Living Room Temperature", entities["sensor.living_room_temperature"]["entity_name"])
         self.assertEqual("sensor", entities["sensor.living_room_temperature"]["entity_class"])
         self.assertEqual("living-room", entities["sensor.living_room_temperature"]["area"])
@@ -98,7 +98,7 @@ class HomeAutomationDomainTests(unittest.TestCase):
 
         self.assertEqual(2, service.count_automation_event_rows())
         self.assertEqual(2, service.count_home_automation_state_rows())
-        entities = {row["entity_id"]: row for row in service.get_current_entities()}
+        entities = {row["entity_id"]: row for row in service.get_current_dimension_rows("dim_entity")}
         self.assertEqual("Morning Routine v2", entities["automation.morning_routine"]["entity_name"])
         self.assertEqual("automation", entities["automation.morning_routine"]["entity_class"])
         self.assertEqual("hallway", entities["automation.morning_routine"]["area"])

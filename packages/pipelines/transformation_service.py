@@ -99,6 +99,10 @@ from packages.domains.utilities.pipelines.utility_models import (
     CURRENT_DIM_METER_VIEW,
     DIM_METER,
 )
+from packages.pipelines.current_dimension_registry import (
+    CurrentDimensionRegistry,
+    get_default_current_dimension_registry,
+)
 from packages.pipelines.publication_confidence_service import (
     compute_and_record_publication_confidence,
 )
@@ -156,6 +160,7 @@ class TransformationService(
         publication_refresh_registry: PublicationRefreshRegistry | None = None,
         domain_registry: TransformationDomainRegistry | None = None,
         scenario_registry: ScenarioRegistry | None = None,
+        current_dimension_registry: CurrentDimensionRegistry | None = None,
         run_metadata_store: RunMetadataStore | None = None,
         battery_plan_profile_loader: Callable[[], BatteryPlanProfileResolution]
         | None = None,
@@ -177,6 +182,9 @@ class TransformationService(
         )
         self._domain_registry = domain_registry or get_default_transformation_domain_registry()
         self._scenario_registry = scenario_registry or get_default_scenario_registry()
+        self._current_dimension_registry = (
+            current_dimension_registry or get_default_current_dimension_registry()
+        )
         self._ensure_schema()
 
     def _ensure_schema(self) -> None:
@@ -307,33 +315,7 @@ class TransformationService(
         )
 
     def get_current_dimension_rows(self, dimension_name: str) -> list[dict[str, Any]]:
-        if dimension_name == "dim_account":
-            return self.get_current_accounts()
-        if dimension_name == "dim_counterparty":
-            return self.get_current_counterparties()
-        if dimension_name == "dim_contract":
-            return self.get_current_contracts()
-        if dimension_name == "dim_category":
-            return self.get_current_categories()
-        if dimension_name == "dim_meter":
-            return self.get_current_meters()
-        if dimension_name == "dim_budget":
-            return self.get_current_budgets()
-        if dimension_name == "dim_loan":
-            return self.get_current_loans()
-        if dimension_name == "dim_asset":
-            return self.get_current_assets()
-        if dimension_name == "dim_entity":
-            return self.get_current_entities()
-        if dimension_name == "dim_node":
-            return self.get_current_nodes()
-        if dimension_name == "dim_device":
-            return self.get_current_devices()
-        if dimension_name == "dim_service":
-            return self.get_current_services()
-        if dimension_name == "dim_workload":
-            return self.get_current_workloads()
-        raise KeyError(f"Unknown current dimension: {dimension_name}")
+        return self._current_dimension_registry.read(self._store, dimension_name)
 
     @property
     def store(self) -> DuckDBStore:

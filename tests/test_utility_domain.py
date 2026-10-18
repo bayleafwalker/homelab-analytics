@@ -293,7 +293,7 @@ class UtilityTransformationTests(unittest.TestCase):
             effective_date=date(2026, 2, 1),
         )
 
-        current = service.get_current_meters()
+        current = service.get_current_dimension_rows("dim_meter")
         history = service.store.fetchall_dicts(
             f"SELECT * FROM {DIM_METER.table_name} ORDER BY valid_from"
         )

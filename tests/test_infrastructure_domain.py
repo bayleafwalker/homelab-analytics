@@ -65,8 +65,8 @@ class InfrastructureDomainTests(unittest.TestCase):
 
         self.assertEqual(3, inserted)
         self.assertEqual(3, service.count_cluster_metric_rows())
-        self.assertEqual(2, len(service.get_current_nodes()))
-        current = {row["hostname"]: row for row in service.get_current_nodes()}
+        self.assertEqual(2, len(service.get_current_dimension_rows("dim_node")))
+        current = {row["hostname"]: row for row in service.get_current_dimension_rows("dim_node")}
         self.assertEqual("node-01 v2", current["node-01"]["node_name"])
         self.assertEqual("node-02", current["node-02"]["node_name"])
 
@@ -109,7 +109,7 @@ class InfrastructureDomainTests(unittest.TestCase):
 
         self.assertEqual(3, inserted)
         self.assertEqual(3, service.count_power_consumption_rows())
-        devices = {row["device_id"]: row for row in service.get_current_devices()}
+        devices = {row["device_id"]: row for row in service.get_current_dimension_rows("dim_device")}
         self.assertEqual(2, len(devices))
         self.assertEqual("UPS Rack A v2", devices["ups-01"]["device_name"])
 

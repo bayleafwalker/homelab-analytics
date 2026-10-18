@@ -8,7 +8,6 @@ from typing import Any
 from packages.domains.finance.pipelines.transformation_assets import (
     count_asset_event_rows,
     get_asset_value,
-    get_current_assets,
     get_depreciation_schedule,
     load_asset_event_rows,
     load_asset_register_rows,
@@ -50,9 +49,6 @@ class AssetTransformationMixin(TransformationFacetBase):
             run_id=run_id,
             source_system=source_system,
         )
-
-    def get_current_assets(self) -> list[dict[str, Any]]:
-        return get_current_assets(self._store)
 
     def get_asset_value(
         self,

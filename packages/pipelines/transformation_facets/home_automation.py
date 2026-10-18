@@ -16,7 +16,6 @@ from packages.domains.homelab.pipelines.transformation_home_automation import (
     count_sensor_reading_rows,
     get_automation_reliability,
     get_climate_summary,
-    get_current_entities,
     get_device_battery,
     load_automation_events,
     load_home_automation_state_rows,
@@ -78,9 +77,6 @@ class HomeAutomationTransformationMixin(TransformationFacetBase):
             effective_date=effective_date,
             source_system=source_system,
         )
-
-    def get_current_entities(self) -> list[dict[str, Any]]:
-        return get_current_entities(self._store)
 
     def get_climate_summary(
         self,

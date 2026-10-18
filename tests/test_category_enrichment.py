@@ -127,7 +127,7 @@ class TestCategoryResolution:
         svc.add_category_rule(rule_id="r1", pattern="supermarket", category="groceries")
         svc.load_transactions(LANDING_ROWS, run_id="run-001")
 
-        counterparties = svc.get_current_counterparties()
+        counterparties = svc.get_current_dimension_rows("dim_counterparty")
         by_name = {c["counterparty_name"]: c for c in counterparties}
         assert by_name["REWE Supermarket"]["category"] == "groceries"
         assert by_name["ALDI Supermarket"]["category"] == "groceries"
@@ -135,7 +135,7 @@ class TestCategoryResolution:
     def test_no_rule_leaves_category_none(self, svc: TransformationService) -> None:
         svc.load_transactions(LANDING_ROWS, run_id="run-001")
 
-        counterparties = svc.get_current_counterparties()
+        counterparties = svc.get_current_dimension_rows("dim_counterparty")
         by_name = {c["counterparty_name"]: c for c in counterparties}
         assert by_name["Shell Gas Station"]["category"] is None
 
@@ -146,7 +146,7 @@ class TestCategoryResolution:
         )
         svc.load_transactions(LANDING_ROWS, run_id="run-001")
 
-        counterparties = svc.get_current_counterparties()
+        counterparties = svc.get_current_dimension_rows("dim_counterparty")
         by_name = {c["counterparty_name"]: c for c in counterparties}
         # Override wins for REWE
         assert by_name["REWE Supermarket"]["category"] == "preferred-grocer"
@@ -162,7 +162,7 @@ class TestCategoryResolution:
         )
         svc.load_transactions(LANDING_ROWS, run_id="run-001")
 
-        counterparties = svc.get_current_counterparties()
+        counterparties = svc.get_current_dimension_rows("dim_counterparty")
         by_name = {c["counterparty_name"]: c for c in counterparties}
         # REWE matches both rules — higher priority wins
         assert by_name["REWE Supermarket"]["category"] == "rewe-specific"
