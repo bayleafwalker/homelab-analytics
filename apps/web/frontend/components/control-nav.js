@@ -4,7 +4,8 @@ const CONTROL_ITEMS = [
   { href: "/control", label: "Security" },
   { href: "/control/catalog", label: "Catalog" },
   { href: "/control/execution", label: "Execution" },
-  { href: "/control/policies", label: "Policies" }
+  { href: "/control/policies", label: "Policies" },
+  { href: "/control/agents", label: "Agents" }
 ];
 
 export function ControlNav({ currentPath }) {

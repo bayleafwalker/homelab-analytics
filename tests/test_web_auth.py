@@ -1152,3 +1152,52 @@ def test_nextjs_frontend_exposes_battery_plan_outcome_and_decision_ledger() -> N
     assert 'backendRequest("post", "/control/decisions"' in decision_route
     assert '"/control/decisions/{decision_id}/follow-ups"' in follow_up_route
     assert "toISOString()" in follow_up_route
+
+
+def test_nextjs_frontend_exposes_agent_control_surface() -> None:
+    agents_root = FRONTEND_ROOT / "app" / "control" / "agents"
+    page = (agents_root / "page.js").read_text()
+    approve_route = (agents_root / "proposals" / "[actionId]" / "approve" / "route.js").read_text()
+    dismiss_route = (agents_root / "proposals" / "[actionId]" / "dismiss" / "route.js").read_text()
+    resolution = (FRONTEND_ROOT / "lib" / "agent-proposal-resolution.js").read_text()
+    control_nav = (FRONTEND_ROOT / "components" / "control-nav.js").read_text()
+    backend = (FRONTEND_ROOT / "lib" / "backend.ts").read_text()
+
+    # Admin-only, server-fetched through the shared backend helper (ADR 4.3).
+    assert 'user.role !== "admin"' in page
+    assert "'use client'" not in page and '"use client"' not in page
+    for helper in (
+        "getActionProposals(",
+        "getActionProposalReview(",
+        "getAgentPrincipals(",
+        "getAgentToolCatalog(",
+    ):
+        assert helper in page
+    assert 'backendGet("/api/actions/proposals/{action_id}/review"' in backend
+    assert 'backendGet("/api/agent/catalog")' in backend
+
+    # A nav entry exists, so the page is reachable (ADR section 5).
+    assert '{ href: "/control/agents", label: "Agents" }' in control_nav
+
+    # The inbox shows what approval does, the diff, evidence, and caveats.
+    for marker in ("What approval does.", "ChangePreview", "EvidenceList", "trust.caveats"):
+        assert marker in page
+    # Lineage drill-down from each cited publication.
+    assert "/control/lineage?publication_key=" in page
+    # Approve and reject share one reason field.
+    assert 'name="reason"' in page
+    assert "formAction=" in page
+
+    # Mutations follow the BFF pattern with typed literal paths.
+    for source in (approve_route, dismiss_route):
+        assert "// @ts-check" in source
+        assert "cookieHeader" in source
+        assert "resolutionReason(request)" in source
+    assert 'backendRequest(\n    "post",\n    "/api/actions/proposals/{action_id}/approve"' in approve_route
+    assert 'backendRequest(\n    "post",\n    "/api/actions/proposals/{action_id}/dismiss"' in dismiss_route
+
+    # Conflict and machine-principal refusals get their own notices.
+    assert "proposal-already-resolved" in resolution
+    assert "proposal-forbidden" in resolution
+    assert "proposal-already-resolved" in page
+    assert "proposal-forbidden" in page

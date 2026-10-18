@@ -70,6 +70,10 @@ type GetOperationIdByPath = {
   "/api/ha/actions": "get_actions_api_ha_actions_get";
   "/api/ha/actions/status": "get_actions_status_api_ha_actions_status_get";
   "/api/ha/actions/proposals": "get_action_proposals_api_ha_actions_proposals_get";
+  "/api/actions/proposals": "list_action_proposals_api_actions_proposals_get";
+  "/api/actions/proposals/{action_id}/review": "review_action_proposal_api_actions_proposals__action_id__review_get";
+  "/api/agent/catalog": "get_agent_tool_catalog_api_agent_catalog_get";
+  "/api/agent/principals": "get_agent_principals_api_agent_principals_get";
   "/api/homelab/services": "get_service_health_api_homelab_services_get";
   "/api/homelab/workloads": "get_workload_cost_7d_api_homelab_workloads_get";
   "/config/transformation-packages": "list_transformation_packages_config_transformation_packages_get";
@@ -884,6 +888,47 @@ export async function getHaActionsStatus() {
 export async function getHaActionProposals() {
   const payload = await backendGet("/api/ha/actions/proposals");
   return getResponseArray(payload, "proposals");
+}
+
+/**
+ * The shared, adapter-agnostic proposal queue (agents, assistant, policies,
+ * HA). Filters are optional and pass straight through to the API.
+ */
+export async function getActionProposals({
+  status,
+  sourceKind
+}: {
+  status?: QueryValue<"/api/actions/proposals", "status">;
+  sourceKind?: QueryValue<"/api/actions/proposals", "source_kind">;
+} = {}) {
+  const payload = await backendGet("/api/actions/proposals", {
+    params: { query: definedValues({ status, source_kind: sourceKind }) }
+  });
+  return getResponseArray(payload, "proposals");
+}
+
+/**
+ * Operator review model for one proposal: effect, diff-style change preview,
+ * cited evidence with trust at draft vs now, and caveats.
+ */
+export async function getActionProposalReview(
+  actionId: PathValue<"/api/actions/proposals/{action_id}/review", "action_id">
+) {
+  return backendGet("/api/actions/proposals/{action_id}/review", {
+    params: { path: { action_id: actionId } }
+  });
+}
+
+/** MCP tool catalog: what each agent tool reads, may change, and needs. */
+export async function getAgentToolCatalog() {
+  const payload = await backendGet("/api/agent/catalog");
+  return getResponseArray(payload, "tools");
+}
+
+/** Agent identities observed in the proposal queue (not a registry). */
+export async function getAgentPrincipals() {
+  const payload = await backendGet("/api/agent/principals");
+  return getResponseArray(payload, "principals");
 }
 
 export async function getHomelabServices() {
