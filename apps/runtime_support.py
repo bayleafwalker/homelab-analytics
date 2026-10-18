@@ -115,6 +115,7 @@ def build_transformation_service(
     publication_refresh_registry: PublicationRefreshRegistry | None = None,
     domain_registry: TransformationDomainRegistry | None = None,
     container=None,
+    run_metadata_store: RunMetadataStore | None = None,
 ) -> TransformationService:
     resolved_container = container
     if resolved_container is None and (
@@ -129,11 +130,14 @@ def build_transformation_service(
         publication_refresh_registry = resolved_container.publication_refresh_registry
     if domain_registry is None:
         domain_registry = resolved_container.transformation_domain_registry
+    if run_metadata_store is None and resolved_container is not None:
+        run_metadata_store = resolved_container.run_metadata_store
     return _platform_build_transformation_service(
         settings,
         control_plane_store=control_plane_store,
         publication_refresh_registry=publication_refresh_registry,
         domain_registry=domain_registry,
+        run_metadata_store=run_metadata_store,
     )
 
 

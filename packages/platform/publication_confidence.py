@@ -3,6 +3,20 @@
 Provides deterministic confidence verdicts based on source freshness, completeness,
 and validation state. Every publication refresh triggers a snapshot capture that
 makes stale or degraded data degrade visibly rather than silently.
+
+Signal semantics (see ``docs/architecture/semantic-contracts.md``):
+
+- **Validation** comes from landing validation results recorded in run
+  metadata for the runs that fed the publication. It is reported through
+  ``quality_flags``: ``validation_errors`` (issue count), ``rejected_runs``
+  and ``validation_unknown_runs``. A missing ``validation_errors`` key or a
+  non-zero ``validation_unknown_runs`` means the signal is *unknown*.
+- **Completeness** is the share of contributing sources whose latest input
+  run is verifiably present (landed, passed, non-empty). Sources whose run
+  metadata cannot be resolved count as not covered in ``completeness_pct``
+  and are reported in ``completeness_unknown_sources``.
+- An unknown signal never upgrades confidence: a snapshot is only
+  ``trustworthy`` when every signal is known and clean.
 """
 
 from __future__ import annotations
@@ -26,6 +40,24 @@ class ConfidenceVerdict(StrEnum):
     DEGRADED = "degraded"  # Some source staleness, but usable (>= 50% complete)
     UNRELIABLE = "unreliable"  # Significant source gaps or staleness (<50% complete)
     UNAVAILABLE = "unavailable"  # No data or all sources unconfigured
+
+
+class SignalState(StrEnum):
+    """Whether a confidence signal could be computed from real inputs."""
+
+    KNOWN = "known"  # Fully computed from recorded inputs
+    PARTIAL = "partial"  # Computed for some inputs; others unavailable
+    UNKNOWN = "unknown"  # Inputs unavailable; signal not computed
+
+
+# quality_flags keys written by the confidence service.
+VALIDATION_ERRORS_FLAG = "validation_errors"
+REJECTED_RUNS_FLAG = "rejected_runs"
+VALIDATION_UNKNOWN_RUNS_FLAG = "validation_unknown_runs"
+COMPLETENESS_EXPECTED_SOURCES_FLAG = "completeness_expected_sources"
+COMPLETENESS_COVERED_SOURCES_FLAG = "completeness_covered_sources"
+COMPLETENESS_UNKNOWN_SOURCES_FLAG = "completeness_unknown_sources"
+FRESHNESS_UNCONFIGURED_SOURCES_FLAG = "freshness_unconfigured_sources"
 
 
 class FreshnessState(StrEnum):
@@ -55,16 +87,27 @@ class PublicationConfidenceSnapshot:
     publication_key: str
     assessed_at: datetime
     freshness_state: FreshnessState
-    completeness_pct: int  # 0 or 100: binary presence flag (lineage records exist or not).
-    # TODO: replace with genuine proportional calculation (contributing runs / expected runs)
+    # Percentage (0-100) of contributing sources whose latest input run is
+    # verifiably present; unresolvable sources count as not covered.
+    completeness_pct: int
     source_freshness_states: Mapping[str, SourceFreshnessSnapshot] = field(
         default_factory=dict
     )
     contributing_run_ids: list[str] = field(default_factory=list)
     quality_flags: dict[str, int] = field(
         default_factory=dict
-    )  # e.g. {"validation_errors": 5, "parse_failures": 0}
+    )  # e.g. {"validation_errors": 5, "rejected_runs": 1}; see module docstring
     confidence_verdict: ConfidenceVerdict = ConfidenceVerdict.TRUSTWORTHY
+
+    @property
+    def validation_state(self) -> SignalState:
+        """Whether validation was evaluated for every contributing run."""
+        return validation_signal_state(self.quality_flags)
+
+    @property
+    def completeness_state(self) -> SignalState:
+        """Whether completeness was resolved for every contributing source."""
+        return completeness_signal_state(self.quality_flags)
 
     @classmethod
     def create(
@@ -85,7 +128,9 @@ class PublicationConfidenceSnapshot:
         if quality_flags is None:
             quality_flags = {}
 
-        verdict = _compute_verdict(source_freshness_states, completeness_pct)
+        verdict = _compute_verdict(
+            source_freshness_states, completeness_pct, quality_flags
+        )
 
         return cls(
             snapshot_id=str(uuid.uuid4()),
@@ -100,46 +145,110 @@ class PublicationConfidenceSnapshot:
         )
 
 
+def validation_signal_state(quality_flags: Mapping[str, int] | None) -> SignalState:
+    """Classify the validation signal recorded in ``quality_flags``.
+
+    Snapshots without a ``validation_errors`` key carry no validation input
+    and are UNKNOWN. A non-zero ``validation_unknown_runs`` makes it PARTIAL.
+    """
+    flags = quality_flags or {}
+    if VALIDATION_ERRORS_FLAG not in flags:
+        return SignalState.UNKNOWN
+    if int(flags.get(VALIDATION_UNKNOWN_RUNS_FLAG, 0)) > 0:
+        return SignalState.PARTIAL
+    return SignalState.KNOWN
+
+
+def completeness_signal_state(
+    quality_flags: Mapping[str, int] | None,
+) -> SignalState:
+    """Classify the completeness signal recorded in ``quality_flags``.
+
+    Snapshots that do not record ``completeness_unknown_sources`` predate
+    proportional completeness and are treated as KNOWN (their stored
+    ``completeness_pct`` is taken at face value).
+    """
+    flags = quality_flags or {}
+    unknown = int(flags.get(COMPLETENESS_UNKNOWN_SOURCES_FLAG, 0))
+    if unknown <= 0:
+        return SignalState.KNOWN
+    expected = int(flags.get(COMPLETENESS_EXPECTED_SOURCES_FLAG, unknown))
+    if unknown >= expected:
+        return SignalState.UNKNOWN
+    return SignalState.PARTIAL
+
+
+def _has_validation_errors(quality_flags: Mapping[str, int]) -> bool:
+    return (
+        int(quality_flags.get(VALIDATION_ERRORS_FLAG, 0)) > 0
+        or int(quality_flags.get(REJECTED_RUNS_FLAG, 0)) > 0
+    )
+
+
+def _completeness_upper_bound(
+    completeness_pct: int, quality_flags: Mapping[str, int]
+) -> float:
+    """Best possible completeness if every unknown source turned out covered."""
+    unknown = int(quality_flags.get(COMPLETENESS_UNKNOWN_SOURCES_FLAG, 0))
+    expected = int(quality_flags.get(COMPLETENESS_EXPECTED_SOURCES_FLAG, 0))
+    if unknown <= 0 or expected <= 0:
+        return float(completeness_pct)
+    return min(100.0, completeness_pct + 100.0 * unknown / expected)
+
+
 def _compute_verdict(
     source_freshness_states: Mapping[str, SourceFreshnessSnapshot],
     completeness_pct: int,
+    quality_flags: Mapping[str, int] | None = None,
 ) -> ConfidenceVerdict:
-    """Compute verdict from source freshness and completeness.
+    """Compute verdict from source freshness, completeness and validation.
 
-    Logic:
-    - All sources CURRENT and completeness == 100% → TRUSTWORTHY
-    - Any source OVERDUE or MISSING_PERIOD → DEGRADED if >=50% complete, else UNRELIABLE
-    - All sources UNCONFIGURED → UNAVAILABLE
-    - Otherwise → DEGRADED
+    Logic (evaluated in order):
+    - No sources, or all sources UNCONFIGURED → UNAVAILABLE
+    - All sources CURRENT, completeness known and == 100%, validation known
+      with zero errors and zero rejected runs → TRUSTWORTHY
+    - Any source OVERDUE/MISSING_PERIOD, or validation errors present →
+      UNRELIABLE when completeness is below 50% even counting every unknown
+      source as covered, else DEGRADED
+    - Otherwise → DEGRADED (this includes any unknown or partial signal)
+
+    Unknown signals can never produce TRUSTWORTHY, and an unknown source is
+    never counted toward the 50% threshold as missing (it cannot make a
+    verdict UNRELIABLE on its own).
     """
+    flags: Mapping[str, int] = quality_flags or {}
     if not source_freshness_states:
         return ConfidenceVerdict.UNAVAILABLE
 
     states = [snap.freshness_state for snap in source_freshness_states.values()]
 
-    # All current and fully complete
-    if (
-        all(state == SourceFreshnessState.CURRENT for state in states)
-        and completeness_pct == 100
-    ):
-        return ConfidenceVerdict.TRUSTWORTHY
-
-    # Any source overdue or with missing period
-    if any(
-        state in (SourceFreshnessState.OVERDUE, SourceFreshnessState.MISSING_PERIOD)
-        for state in states
-    ):
-        return (
-            ConfidenceVerdict.DEGRADED
-            if completeness_pct >= 50
-            else ConfidenceVerdict.UNRELIABLE
-        )
-
-    # All sources unconfigured
     if all(state == SourceFreshnessState.UNCONFIGURED for state in states):
         return ConfidenceVerdict.UNAVAILABLE
 
-    # Default: degraded but usable
+    validation_state = validation_signal_state(flags)
+    completeness_state = completeness_signal_state(flags)
+    has_errors = _has_validation_errors(flags)
+
+    if (
+        all(state == SourceFreshnessState.CURRENT for state in states)
+        and completeness_pct == 100
+        and completeness_state == SignalState.KNOWN
+        and validation_state == SignalState.KNOWN
+        and not has_errors
+    ):
+        return ConfidenceVerdict.TRUSTWORTHY
+
+    stale = any(
+        state in (SourceFreshnessState.OVERDUE, SourceFreshnessState.MISSING_PERIOD)
+        for state in states
+    )
+    if stale or has_errors:
+        return (
+            ConfidenceVerdict.UNRELIABLE
+            if _completeness_upper_bound(completeness_pct, flags) < 50
+            else ConfidenceVerdict.DEGRADED
+        )
+
     return ConfidenceVerdict.DEGRADED
 
 

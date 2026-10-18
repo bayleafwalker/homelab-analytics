@@ -293,6 +293,7 @@ from packages.pipelines.transformation_refresh_registry import (
 )
 from packages.storage.control_plane import ControlPlaneStore, SourceLineageCreate
 from packages.storage.duckdb_store import DuckDBStore
+from packages.storage.run_metadata import RunMetadataStore
 
 
 class TransformationService:
@@ -305,9 +306,12 @@ class TransformationService:
         control_plane_store: ControlPlaneStore | None = None,
         publication_refresh_registry: PublicationRefreshRegistry | None = None,
         domain_registry: TransformationDomainRegistry | None = None,
+        run_metadata_store: RunMetadataStore | None = None,
     ) -> None:
         self._store = store
         self._control_plane_store = control_plane_store
+        # Landing validation outcomes feed publication confidence; optional.
+        self._run_metadata_store = run_metadata_store
         self._publication_refresh_registry = (
             publication_refresh_registry or get_default_publication_refresh_registry()
         )
@@ -488,6 +492,7 @@ class TransformationService:
                         self._control_plane_store,
                         self._store,
                         as_of=as_of,
+                        run_metadata_store=self._run_metadata_store,
                     )
                 except Exception:
                     # Silently skip on error; confidence snapshot is optional

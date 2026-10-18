@@ -140,6 +140,7 @@ def build_transformation_service(
     control_plane_store: ControlPlaneStore | None = None,
     publication_refresh_registry: PublicationRefreshRegistry | None = None,
     domain_registry: TransformationDomainRegistry | None = None,
+    run_metadata_store: RunMetadataStore | None = None,
 ) -> TransformationService:
     analytics_path = settings.resolved_analytics_database_path
     analytics_path.parent.mkdir(parents=True, exist_ok=True)
@@ -148,6 +149,7 @@ def build_transformation_service(
         control_plane_store=control_plane_store or build_config_store(settings),
         publication_refresh_registry=publication_refresh_registry,
         domain_registry=domain_registry,
+        run_metadata_store=run_metadata_store,
     )
 
 

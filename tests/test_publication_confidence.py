@@ -147,9 +147,58 @@ class TestVerdictComputation:
     """Test confidence verdict logic."""
 
     def test_trustworthy_all_current_complete(self, source_current):
-        """Verdict is TRUSTWORTHY when all sources current and 100% complete."""
-        verdict = _compute_verdict({source_current.source_asset_id: source_current}, 100)
+        """Verdict is TRUSTWORTHY when all sources current, 100% complete, clean validation."""
+        verdict = _compute_verdict(
+            {source_current.source_asset_id: source_current},
+            100,
+            {"validation_errors": 0},
+        )
         assert verdict == ConfidenceVerdict.TRUSTWORTHY
+
+    def test_unknown_validation_never_trustworthy(self, source_current):
+        """No validation input (no validation_errors flag) caps the verdict at DEGRADED."""
+        verdict = _compute_verdict({source_current.source_asset_id: source_current}, 100)
+        assert verdict == ConfidenceVerdict.DEGRADED
+
+    def test_validation_errors_degrade_current_complete(self, source_current):
+        """Validation errors on otherwise perfect inputs degrade the verdict."""
+        sources = {source_current.source_asset_id: source_current}
+        assert (
+            _compute_verdict(sources, 100, {"validation_errors": 3})
+            == ConfidenceVerdict.DEGRADED
+        )
+        assert (
+            _compute_verdict(sources, 100, {"validation_errors": 0, "rejected_runs": 1})
+            == ConfidenceVerdict.DEGRADED
+        )
+
+    def test_validation_errors_with_low_completeness_unreliable(self, source_current):
+        verdict = _compute_verdict(
+            {source_current.source_asset_id: source_current},
+            0,
+            {"validation_errors": 1, "rejected_runs": 1},
+        )
+        assert verdict == ConfidenceVerdict.UNRELIABLE
+
+    def test_unknown_completeness_not_trustworthy_nor_unreliable(self, source_overdue):
+        """Unknown sources count as uncovered in pct but cannot alone force UNRELIABLE."""
+        flags = {
+            "validation_errors": 0,
+            "completeness_expected_sources": 1,
+            "completeness_unknown_sources": 1,
+        }
+        verdict = _compute_verdict(
+            {source_overdue.source_asset_id: source_overdue}, 0, flags
+        )
+        assert verdict == ConfidenceVerdict.DEGRADED
+
+    def test_partial_unknown_validation_not_trustworthy(self, source_current):
+        verdict = _compute_verdict(
+            {source_current.source_asset_id: source_current},
+            100,
+            {"validation_errors": 0, "validation_unknown_runs": 1},
+        )
+        assert verdict == ConfidenceVerdict.DEGRADED
 
     def test_trustworthy_multiple_sources_current_complete(
         self, source_current, source_due_soon
