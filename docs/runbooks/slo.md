@@ -19,16 +19,28 @@ All windows are rolling 30 days unless stated.
 | Refresh success | publication refreshes that succeed (`homelab_analytics_publication_refresh_duration_seconds_count{outcome}`) | 99% | 1% of refreshes | `PublicationRefreshFailing` (6h error share above budget), `PublicationsUnreliable` (info) |
 | Worker liveness | newest worker heartbeat younger than 10 min (`homelab_analytics_worker_last_heartbeat_timestamp_seconds`) | 99.5% of time | ~3.6 h without a heartbeat | `WorkerLoopStalled` (critical) |
 | Backup recency | a verified warehouse + landing bundle younger than 26 h (`homelab_analytics_backup_last_success_timestamp_seconds`) | 99% of time | ~7 h past the 26 h limit | `BackupStale`, `BackupFailing` (3 consecutive), `BackupNeverSucceeded` |
+| Off-site shipment | a bundle shipped off-site (encrypted, size-checked in the Object-Lock bucket) within 26 h (`homelab_analytics_backup_ship_last_success_timestamp_seconds`, from the `backup-ship` sidecar's `ship-status.json`) | 99% of time | ~7 h past the 26 h limit | `BackupShipStale`, `BackupShipPending` (a verified bundle unshipped for 2 h), `BackupShipStalled` (no sidecar pass for 1 h) |
 | Restore drill | a passing `restore-drill` within 8 days (`homelab_analytics_backup_restore_drill_last_success_timestamp_seconds`) | weekly | one missed week | `RestoreDrillStale` (info) |
+| Ingestion success | landed share of ingestion runs that finished landed or failed (`homelab_analytics_ingestion_runs_recorded_total{status}`); `rejected` and in-flight `received` runs are excluded | 98% | 2% of finished runs | `IngestionFailing` (failed share > 5x budget, i.e. 10%, over 1 d with at least 3 runs, for 1 h) |
+| HA bridge availability | share of time the Home Assistant WebSocket bridge is connected (`homelab_analytics_ha_bridge_connected`); only where the API runs a bridge | 99% of time | ~7.2 h disconnected | `HaBridgeDisconnected` (15 min), `HaBridgeAvailabilityBurn` (< 94% connected over 6 h: flapping), `HaBridgeSilent` (connected but no `state_changed` message for 1 h) |
 
 Postgres (control plane + reporting) recovery is covered by the hourly
 `cnpg-pgdump-age` dumps and the cluster's `cnpg-dump-drill`; see
-[backup-and-restore.md](backup-and-restore.md#cnpg-restore-drill-outline).
+[backup-and-restore.md](backup-and-restore.md#cnpg-restore-drill).
 
 Burn-rate alerts stay quiet below `minRequestRate` (0.01 req/s) so a single
 failed request on an idle homelab instance does not page. Ingestion `rejected`
-runs are data problems, not platform errors, and do not count against
-refresh success; they show up in source freshness and confidence instead.
+runs are data problems, not platform errors, and count against neither
+refresh success nor ingestion success; they show up in source freshness and
+confidence instead. Ingestion success counts `failed` runs (the platform could
+not land a valid payload) against `landed` ones. A homelab lands a handful of
+runs a day, so `IngestionFailing` needs at least `ingestionMinRunsPerDay` (3)
+finished runs in the day before one failure can page.
+
+The shipment and HA bridge alerts are silent where their source does not
+exist: without a `backup-ship` sidecar there is no `ship-status.json` (only
+`homelab_analytics_backup_ship_status_present 0` is exported), and without a
+bridge only `homelab_analytics_ha_bridge_enabled 0` is.
 
 ### Spending the budget
 
@@ -57,7 +69,12 @@ most every 15 s):
 | `homelab_analytics_ingestion_runs_recorded_total` | counter | `status` | Runs in run metadata, across processes |
 | `homelab_analytics_worker_last_heartbeat_timestamp_seconds` | gauge | | Newest heartbeat from any worker |
 | `homelab_analytics_worker_newest_heartbeat_age_seconds` | gauge | | Age of that heartbeat (-1 if none) |
-| `homelab_analytics_backup_*` | gauge/counter | | Scheduled-backup status (below) |
+| `homelab_analytics_backup_*` | gauge/counter | | Scheduled-backup and off-site shipment status (below) |
+| `homelab_analytics_ha_bridge_enabled` | gauge | | 1 when this API process runs the Home Assistant bridge |
+| `homelab_analytics_ha_bridge_connected` | gauge | | 1 while the bridge is connected and subscribed (same source as `GET /api/ha/bridge/status`) |
+| `homelab_analytics_ha_bridge_last_message_timestamp_seconds` | gauge | | Last ingested `state_changed` message (0 if none) |
+| `homelab_analytics_ha_bridge_last_message_age_seconds` | gauge | | Age of that message (-1 if none since API start) |
+| `homelab_analytics_ha_bridge_reconnects_total` | counter | | Bridge reconnects since API start |
 | `homelab_analytics_metrics_collector_up` | gauge | `collector` | 1 when a scrape-time collector succeeded |
 | `homelab_analytics_api_warehouse_handle_open` | gauge | `mode` (`read_only`, `read_write`) | 1 while the API process holds a DuckDB warehouse handle; normally 0 between requests |
 | `homelab_analytics_api_warehouse_opens_total` | counter | `mode` | Short-lived warehouse handles opened by the API |
@@ -77,11 +94,35 @@ Worker process (`GET /metrics` on `HOMELAB_ANALYTICS_WORKER_METRICS_PORT`):
 | `homelab_analytics_backup_last_duration_seconds`, `_last_size_bytes`, `_bundles_retained` | gauge | | Last bundle facts |
 | `homelab_analytics_backup_successes_total`, `_failures_total` | counter | | From the durable status file |
 | `homelab_analytics_backup_restore_drill_last_success_timestamp_seconds`, `_restore_drill_last_passed` | gauge | | Restore drill receipt |
+| `homelab_analytics_backup_ship_status_present` | gauge | | 1 when `ship-status.json` exists |
+| `homelab_analytics_backup_ship_last_success_timestamp_seconds` | gauge | | Last bundle shipped off-site and size-checked (0 if never) |
+| `homelab_analytics_backup_ship_last_attempt_timestamp_seconds`, `_last_failure_timestamp_seconds` | gauge | | Upload attempt / failed pass times |
+| `homelab_analytics_backup_ship_last_pass_timestamp_seconds` | gauge | | Sidecar liveness: last finished pass |
+| `homelab_analytics_backup_ship_consecutive_failures`, `_last_size_bytes` | gauge | | Failed passes since a clean one; encrypted size of the last shipped bundle |
+| `homelab_analytics_backup_ship_pending_bundles` | gauge | | Complete local bundles not in `.shipped` |
+| `homelab_analytics_backup_ship_shipped_total`, `_failures_total` | counter | | From the durable status file |
 
-Backup metrics come from `backup-status.json` and `restore-drill-status.json`
-in the backup directory, so the API (sharing `/data`) and the worker export
+Backup metrics come from `backup-status.json`, `restore-drill-status.json` and
+`ship-status.json` (plus `.shipped`) in the backup directory, so the API (sharing `/data`) and the worker export
 the same values; rules aggregate them with `max()`. The legacy unprefixed
-series (`worker_*`, `auth_*`, `ingestion_*`) are unchanged.
+series (`worker_*`, `auth_*`, `ingestion_*`) are unchanged apart from two
+naming fixes.
+
+### Deprecated metric names (removed after one release)
+
+Two legacy API series broke the Prometheus naming rules (`_total` is only for
+counters, and every counter ends in `_total`). Release 0.1.3 emits the new
+name next to the old one; the release after it drops the old name. Move any
+private dashboards or recording rules to the new names now. The chart rules
+and the ops dashboard use neither series.
+
+| Deprecated | Replacement | Type | Why |
+|---|---|---|---|
+| `auth_service_tokens_total` | `auth_service_tokens` | gauge | A token count that can go down is a gauge; `_total` implies a counter |
+| `ingestion_duration_seconds` | `ingestion_duration_seconds_total` | counter | Cumulative seconds is a counter and needs the `_total` suffix |
+
+The deprecated series carry `DEPRECATED: use <new name>` in their `# HELP`
+line.
 
 ## Scrape auth posture
 
@@ -99,9 +140,12 @@ tokens, machine JWT, OIDC), which would otherwise reject it.
 
 `charts/homelab-analytics/dashboards/homelab-analytics-ops.json`
 (uid `homelab-analytics-ops`): SLO overview with 30-day availability and
-budget left, API rate/latency by route, freshness and confidence, ingestion
+budget left, off-site ship age, ingestion success and its budget, HA bridge
+availability, API rate/latency by route, freshness and confidence, ingestion
 and refresh outcomes, worker dispatches, backup and drill status, collector
-health. The chart ships it as a sidecar ConfigMap
+health. The appservice copy is generated:
+`python scripts/render_appservice_proposals.py` (needs `helm` for the rules
+file; `tests/test_appservice_proposals.py` fails on drift). The chart ships it as a sidecar ConfigMap
 (`monitoring.grafanaDashboard.enabled`); the appservice proposal does the
 same in the `kube-prometheus-stack` namespace.
 
@@ -122,4 +166,9 @@ the JSON into Grafana.
 | `WorkerLoopStalled` | Worker container restarts/OOM; `list-worker-heartbeats`; stale dispatches |
 | `BackupStale` / `BackupFailing` / `BackupNeverSucceeded` | `cat /data/backups/backup-status.json` (`last_error`). "Could not open DuckDB warehouse read-only": a writer held the lock through the backup's retry window (about 7.5 s) — a long worker promotion; check `homelab_analytics_api_warehouse_handle_open` (the API only holds short-lived handles); "inside the landing root": fix `HOMELAB_ANALYTICS_BACKUP_DIR`; ENOSPC: the PVC is full, lower retention |
 | `RestoreDrillStale` | Run the drill: [backup-and-restore.md](backup-and-restore.md#restore-drill) |
+| `BackupShipStale` / `BackupShipPending` | `cat /data/backups/ship-status.json` (`last_error`, `consecutive_failures`) and `kubectl logs ... -c backup-ship`. "age not available": GitHub unreachable (egress policy); "shipping ... failed": Hetzner credentials or endpoint; "implausibly small": the upload truncated. `BackupStale` firing too means there was nothing new to ship |
+| `BackupShipStalled` | The `backup-ship` container is not running or an upload hangs; its restart count and log |
+| `IngestionFailing` | `homelab-analytics-worker list-runs` for `failed` runs and their errors; landing volume full; a source format change shows as `rejected`, not here |
+| `HaBridgeDisconnected` / `HaBridgeAvailabilityBurn` | `GET /api/ha/bridge/status` (`reconnect_count`); Home Assistant reachable from the api pod; HA long-lived token still valid |
+| `HaBridgeSilent` | Connected but no `state_changed` events: the subscription died without a disconnect. Restart the api container if Home Assistant is producing events |
 | `MetricsCollectorDown` | API logs `metrics collector failed` with the collector name; the store behind it |

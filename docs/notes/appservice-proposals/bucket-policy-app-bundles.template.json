@@ -1,0 +1,58 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AppBundlesKeyOnlyItsPrefix",
+      "Effect": "Deny",
+      "Principal": {"AWS": ["REPLACE_WITH_PRINCIPAL_OF_APP_BUNDLES_KEY"]},
+      "Action": "s3:*",
+      "NotResource": [
+        "arn:aws:s3:::appservice-pgdump-locked",
+        "arn:aws:s3:::appservice-pgdump-locked/backups/app-bundles/analytics/homelab-analytics/*"
+      ]
+    },
+    {
+      "Sid": "AppBundlesKeyListOnlyItsPrefix",
+      "Effect": "Deny",
+      "Principal": {"AWS": ["REPLACE_WITH_PRINCIPAL_OF_APP_BUNDLES_KEY"]},
+      "Action": ["s3:ListBucket", "s3:ListBucketVersions", "s3:ListBucketMultipartUploads"],
+      "Resource": "arn:aws:s3:::appservice-pgdump-locked",
+      "Condition": {
+        "StringNotLike": {
+          "s3:prefix": [
+            "backups/app-bundles/analytics/homelab-analytics/",
+            "backups/app-bundles/analytics/homelab-analytics/*"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AppBundlesKeyNoBucketAdministration",
+      "Effect": "Deny",
+      "Principal": {"AWS": ["REPLACE_WITH_PRINCIPAL_OF_APP_BUNDLES_KEY"]},
+      "Action": [
+        "s3:DeleteBucket",
+        "s3:DeleteBucketPolicy",
+        "s3:PutBucketPolicy",
+        "s3:PutBucketAcl",
+        "s3:PutBucketCORS",
+        "s3:PutBucketVersioning",
+        "s3:PutBucketObjectLockConfiguration",
+        "s3:PutLifecycleConfiguration"
+      ],
+      "Resource": "arn:aws:s3:::appservice-pgdump-locked"
+    },
+    {
+      "Sid": "AppBundlesKeyNoRetentionChangesOrVersionDeletes",
+      "Effect": "Deny",
+      "Principal": {"AWS": ["REPLACE_WITH_PRINCIPAL_OF_APP_BUNDLES_KEY"]},
+      "Action": [
+        "s3:BypassGovernanceRetention",
+        "s3:PutObjectRetention",
+        "s3:PutObjectLegalHold",
+        "s3:DeleteObjectVersion"
+      ],
+      "Resource": "arn:aws:s3:::appservice-pgdump-locked/backups/app-bundles/analytics/homelab-analytics/*"
+    }
+  ]
+}

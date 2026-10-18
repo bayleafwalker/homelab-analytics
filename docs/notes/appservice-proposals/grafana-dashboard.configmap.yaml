@@ -1,10 +1,13 @@
-# GENERATED from charts/homelab-analytics/dashboards/homelab-analytics-ops.json.
+# GENERATED from charts/homelab-analytics/dashboards/homelab-analytics-ops.json by
+#   python scripts/render_appservice_proposals.py
 # Target path in appservice:
 #   clusters/main/kubernetes/system/kube-prometheus-stack/app/grafana-dashboard-homelab-analytics.yaml
 # (add it to that directory's kustomization.yaml). The kube-prometheus-stack
 # Grafana sidecar loads ConfigMaps labelled grafana_dashboard="1" from its
 # own namespace by default; keep it there unless sidecar.dashboards.searchNamespace
-# is widened.
+# is widened. Flux postBuild substitution is disabled on this object: the
+# dashboard JSON uses Grafana's own ${datasource} variable, which Flux would
+# otherwise replace with an empty string.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -13,6 +16,8 @@ metadata:
   labels:
     grafana_dashboard: '1'
     app.kubernetes.io/name: homelab-analytics
+  annotations:
+    kustomize.toolkit.fluxcd.io/substitute: disabled
 data:
   homelab-analytics-ops.json: |
     {
@@ -25,7 +30,7 @@ data:
       ],
       "timezone": "browser",
       "schemaVersion": 39,
-      "version": 1,
+      "version": 2,
       "editable": false,
       "refresh": "1m",
       "time": {
@@ -414,6 +419,357 @@ data:
           }
         },
         {
+          "type": "stat",
+          "title": "Off-site ship age",
+          "id": 29,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Since the last bundle shipped off-site (backup-ship sidecar); SLO < 26h.",
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 0,
+            "y": 5
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "homelab_analytics:backup_ship_age_seconds",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "instant": true
+            }
+          ],
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "none",
+            "textMode": "value"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 93600
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "stat",
+          "title": "Bundles pending ship",
+          "id": 30,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Verified local bundles not yet shipped off-site.",
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 4,
+            "y": 5
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "max(homelab_analytics_backup_ship_pending_bundles)",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "instant": true
+            }
+          ],
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "none",
+            "textMode": "value"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "stat",
+          "title": "Ingestion success (30d)",
+          "id": 31,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Landed / (landed + failed) ingestion runs; target 98%. Rejected runs are excluded.",
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 8,
+            "y": 5
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(max by (status) (increase(homelab_analytics_ingestion_runs_recorded_total{status=\"landed\"}[30d]))) / clamp_min(sum(max by (status) (increase(homelab_analytics_ingestion_runs_recorded_total{status=~\"landed|failed\"}[30d]))), 1)",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "instant": true
+            }
+          ],
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "none",
+            "textMode": "value"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 0.98
+                  }
+                ]
+              },
+              "decimals": 2
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "stat",
+          "title": "Ingestion error budget left",
+          "id": 32,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Share of the 2% failed-run budget left over 30d.",
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 12,
+            "y": 5
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "1 - ((1 - (sum(max by (status) (increase(homelab_analytics_ingestion_runs_recorded_total{status=\"landed\"}[30d]))) / clamp_min(sum(max by (status) (increase(homelab_analytics_ingestion_runs_recorded_total{status=~\"landed|failed\"}[30d]))), 1))) / (1 - 0.98))",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "instant": true
+            }
+          ],
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "none",
+            "textMode": "value"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 0.25
+                  }
+                ]
+              },
+              "decimals": 1
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "stat",
+          "title": "HA bridge connected (30d)",
+          "id": 33,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Share of time the Home Assistant bridge was connected; target 99%.",
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 16,
+            "y": 5
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "max(avg_over_time(homelab_analytics_ha_bridge_connected[30d]))",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "instant": true
+            }
+          ],
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "none",
+            "textMode": "value"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 0.99
+                  }
+                ]
+              },
+              "decimals": 2
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "stat",
+          "title": "HA bridge last message age",
+          "id": 34,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Since the bridge last ingested a state_changed message (-1: none since api start).",
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 20,
+            "y": 5
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "max(homelab_analytics_ha_bridge_last_message_age_seconds)",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "instant": true
+            }
+          ],
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "background",
+            "graphMode": "none",
+            "textMode": "value"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 3600
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
           "type": "row",
           "title": "API",
           "id": 8,
@@ -422,7 +778,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 5
+            "y": 9
           },
           "panels": []
         },
@@ -439,7 +795,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 6
+            "y": 10
           },
           "targets": [
             {
@@ -485,7 +841,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 6
+            "y": 10
           },
           "targets": [
             {
@@ -549,7 +905,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 14
+            "y": 18
           },
           "targets": [
             {
@@ -595,7 +951,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 14
+            "y": 18
           },
           "targets": [
             {
@@ -655,7 +1011,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 22
+            "y": 26
           },
           "panels": []
         },
@@ -672,7 +1028,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 23
+            "y": 27
           },
           "targets": [
             {
@@ -716,7 +1072,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 23
+            "y": 27
           },
           "targets": [
             {
@@ -762,7 +1118,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 31
+            "y": 35
           },
           "targets": [
             {
@@ -808,7 +1164,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 31
+            "y": 35
           },
           "targets": [
             {
@@ -848,7 +1204,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 39
+            "y": 43
           },
           "panels": []
         },
@@ -865,7 +1221,7 @@ data:
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 40
+            "y": 44
           },
           "targets": [
             {
@@ -911,7 +1267,7 @@ data:
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 40
+            "y": 44
           },
           "targets": [
             {
@@ -957,7 +1313,7 @@ data:
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 40
+            "y": 44
           },
           "targets": [
             {
@@ -1008,7 +1364,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 48
+            "y": 52
           },
           "panels": []
         },
@@ -1025,7 +1381,7 @@ data:
             "h": 4,
             "w": 6,
             "x": 0,
-            "y": 49
+            "y": 53
           },
           "targets": [
             {
@@ -1083,7 +1439,7 @@ data:
             "h": 4,
             "w": 6,
             "x": 6,
-            "y": 49
+            "y": 53
           },
           "targets": [
             {
@@ -1137,7 +1493,7 @@ data:
             "h": 4,
             "w": 6,
             "x": 12,
-            "y": 49
+            "y": 53
           },
           "targets": [
             {
@@ -1191,7 +1547,7 @@ data:
             "h": 4,
             "w": 6,
             "x": 18,
-            "y": 49
+            "y": 53
           },
           "targets": [
             {
@@ -1249,7 +1605,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 53
+            "y": 57
           },
           "targets": [
             {
@@ -1304,13 +1660,246 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 53
+            "y": 57
           },
           "targets": [
             {
               "refId": "A",
               "expr": "min by (collector) (homelab_analytics_metrics_collector_up)",
               "legendFormat": "{{collector}}",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "type": "row",
+          "title": "Off-site shipment, ingestion success, HA bridge",
+          "id": 35,
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 65
+          },
+          "panels": []
+        },
+        {
+          "type": "timeseries",
+          "title": "Off-site ship age vs 26h SLO",
+          "id": 36,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 66
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "homelab_analytics:backup_ship_age_seconds",
+              "legendFormat": "ship age",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              }
+            },
+            {
+              "refId": "B",
+              "expr": "homelab_analytics:backup_age_seconds",
+              "legendFormat": "local backup age",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              }
+            },
+            {
+              "refId": "C",
+              "expr": "93600",
+              "legendFormat": "SLO limit",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Ingestion failure ratio (1d) vs budget",
+          "id": 37,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 66
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "homelab_analytics:ingestion_failures:ratio_increase1d",
+              "legendFormat": "failed share 1d",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              }
+            },
+            {
+              "refId": "B",
+              "expr": "5 * (1 - 0.98)",
+              "legendFormat": "alert threshold",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "HA bridge",
+          "id": 38,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "connected (0/1) and 6h availability",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 74
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "max(homelab_analytics_ha_bridge_connected)",
+              "legendFormat": "connected",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              }
+            },
+            {
+              "refId": "B",
+              "expr": "homelab_analytics:ha_bridge_connected:ratio_avg6h",
+              "legendFormat": "connected share 6h",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "HA bridge reconnects (1h increase)",
+          "id": 39,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 74
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "max(increase(homelab_analytics_ha_bridge_reconnects_total[1h]))",
+              "legendFormat": "reconnects",
               "datasource": {
                 "type": "prometheus",
                 "uid": "${datasource}"

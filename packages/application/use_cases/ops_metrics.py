@@ -4,7 +4,9 @@ The API and worker are separate processes, so in-process counters only see
 their own work. Everything an SLO or alert depends on across processes is
 derived here from the control plane, run metadata, and the backup status file
 at scrape time: source freshness lag, latest confidence verdicts, recorded
-ingestion outcomes, worker heartbeats, and backup recency.
+ingestion outcomes, worker heartbeats, backup recency, and off-site shipment
+recency (from the ``backup-ship`` sidecar's ``ship-status.json``). The API
+also exports its in-process Home Assistant bridge state.
 
 Collectors are rate-limited (``min_interval_seconds``) so a fast scrape
 interval does not turn into a query storm, and a failing collector is
@@ -31,12 +33,15 @@ from packages.platform.source_freshness import SourceFreshnessState
 from packages.shared.metrics import MetricsRegistry
 from packages.storage.backup_drill import read_restore_drill_status
 from packages.storage.backup_schedule import read_backup_status
+from packages.storage.backup_ship import pending_bundle_names, read_ship_status
 from packages.storage.run_metadata import IngestionRunStatus
 
 __all__ = [
     "OpsMetricsCollector",
+    "collect_backup_ship_metrics",
     "collect_backup_status_metrics",
     "collect_confidence_metrics",
+    "collect_ha_bridge_metrics",
     "collect_ingestion_run_metrics",
     "collect_source_freshness_metrics",
     "collect_worker_heartbeat_metrics",
@@ -205,6 +210,7 @@ def collect_backup_status_metrics(registry: MetricsRegistry, backup_dir: Path) -
             1.0 if drill.get("passed") else 0.0,
             help_text="1 when the most recent restore drill passed.",
         )
+    collect_backup_ship_metrics(registry, backup_dir)
     status = read_backup_status(backup_dir)
     registry.set(
         f"{PREFIX}_backup_status_present",
@@ -258,6 +264,118 @@ def collect_backup_status_metrics(registry: MetricsRegistry, backup_dir: Path) -
         f"{PREFIX}_backup_failures_total",
         float(status.failures_total),
         help_text="Scheduled backups that failed.",
+        metric_type="counter",
+    )
+
+
+def collect_ha_bridge_metrics(
+    registry: MetricsRegistry, ha_bridge: Any | None, *, now: datetime
+) -> None:
+    """Home Assistant WebSocket bridge state (the API process runs the bridge).
+
+    ``ha_bridge`` is the object behind ``GET /api/ha/bridge/status``: its
+    ``get_status()`` returns ``connected``, ``last_sync_at`` (time of the last
+    ingested ``state_changed`` message) and ``reconnect_count``. Without a
+    bridge only ``..._ha_bridge_enabled 0`` is exported, so bridge alerts stay
+    silent on instances that do not run one.
+    """
+    registry.set(
+        f"{PREFIX}_ha_bridge_enabled",
+        1.0 if ha_bridge is not None else 0.0,
+        help_text="1 when this API process runs the Home Assistant bridge.",
+    )
+    if ha_bridge is None:
+        return
+    status = ha_bridge.get_status()
+    now = _as_utc(now)
+    last_message = status.get("last_sync_at")
+    last_epoch = _iso_to_epoch(last_message) if isinstance(last_message, str) else 0.0
+    registry.set(
+        f"{PREFIX}_ha_bridge_connected",
+        1.0 if status.get("connected") else 0.0,
+        help_text="1 while the Home Assistant WebSocket bridge is connected and subscribed.",
+    )
+    registry.set(
+        f"{PREFIX}_ha_bridge_last_message_timestamp_seconds",
+        last_epoch,
+        help_text="Unix time of the last state_changed message the bridge ingested (0 if none).",
+    )
+    registry.set(
+        f"{PREFIX}_ha_bridge_last_message_age_seconds",
+        max(0.0, now.timestamp() - last_epoch) if last_epoch > 0 else -1.0,
+        help_text=(
+            "Seconds since the bridge last ingested a state_changed message "
+            "(-1 if none since process start)."
+        ),
+    )
+    registry.set(
+        f"{PREFIX}_ha_bridge_reconnects_total",
+        float(status.get("reconnect_count") or 0),
+        help_text="Home Assistant bridge reconnects since process start.",
+        metric_type="counter",
+    )
+
+
+def collect_backup_ship_metrics(registry: MetricsRegistry, backup_dir: Path) -> None:
+    """Off-site shipment status written by the ``backup-ship`` sidecar.
+
+    Absent ``ship-status.json`` (no sidecar, e.g. the chart or compose
+    deployments) exports only ``..._ship_status_present 0``, so the shipment
+    alerts never fire where nothing ships.
+    """
+    status = read_ship_status(backup_dir)
+    registry.set(
+        f"{PREFIX}_backup_ship_status_present",
+        1.0 if status is not None else 0.0,
+        help_text="1 when an off-site shipment status file (ship-status.json) exists.",
+    )
+    if status is None:
+        return
+    registry.set(
+        f"{PREFIX}_backup_ship_last_success_timestamp_seconds",
+        _iso_to_epoch(status.last_success_at),
+        help_text="Unix time of the last bundle shipped off-site and size-checked (0 if never).",
+    )
+    registry.set(
+        f"{PREFIX}_backup_ship_last_attempt_timestamp_seconds",
+        _iso_to_epoch(status.last_attempt_at),
+        help_text="Unix time of the last off-site shipment attempt (0 if never).",
+    )
+    registry.set(
+        f"{PREFIX}_backup_ship_last_failure_timestamp_seconds",
+        _iso_to_epoch(status.last_failure_at),
+        help_text="Unix time of the last failed off-site shipment pass (0 if never).",
+    )
+    registry.set(
+        f"{PREFIX}_backup_ship_last_pass_timestamp_seconds",
+        _iso_to_epoch(status.last_pass_at),
+        help_text="Unix time the backup-ship sidecar last finished a pass (its liveness).",
+    )
+    registry.set(
+        f"{PREFIX}_backup_ship_consecutive_failures",
+        float(status.consecutive_failures),
+        help_text="Off-site shipment passes that failed since the last clean pass.",
+    )
+    registry.set(
+        f"{PREFIX}_backup_ship_last_size_bytes",
+        float(status.last_size_bytes),
+        help_text="Encrypted size of the last bundle shipped off-site.",
+    )
+    registry.set(
+        f"{PREFIX}_backup_ship_pending_bundles",
+        float(len(pending_bundle_names(backup_dir))),
+        help_text="Complete local bundles not yet recorded as shipped off-site.",
+    )
+    registry.set(
+        f"{PREFIX}_backup_ship_shipped_total",
+        float(status.shipped_total),
+        help_text="Bundles shipped off-site, from the durable status file.",
+        metric_type="counter",
+    )
+    registry.set(
+        f"{PREFIX}_backup_ship_failures_total",
+        float(status.failures_total),
+        help_text="Failed off-site shipment passes, from the durable status file.",
         metric_type="counter",
     )
 
@@ -317,12 +435,14 @@ def build_ops_metrics_collector(
     backup_dir: Path | None,
     clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     min_interval_seconds: float = 15.0,
+    ha_bridge: Any | None = None,
 ) -> OpsMetricsCollector:
     collectors: dict[str, Callable[[], None]] = {
         "confidence": lambda: collect_confidence_metrics(registry, config_repository),
         "worker_heartbeat": lambda: collect_worker_heartbeat_metrics(
             registry, config_repository, now=clock()
         ),
+        "ha_bridge": lambda: collect_ha_bridge_metrics(registry, ha_bridge, now=clock()),
     }
     if metadata_repository is not None:
         collectors["source_freshness"] = lambda: collect_source_freshness_metrics(

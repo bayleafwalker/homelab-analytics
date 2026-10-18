@@ -114,6 +114,12 @@ from packages.platform.action_proposals import ActionProposalRegistry as Approva
 from packages.platform.action_proposals import build_action_proposal_registry
 from packages.platform.auth.break_glass import BreakGlassController
 from packages.platform.auth.machine_jwt_provider import MachineJwtProvider
+from packages.platform.auth.middleware_metrics import (
+    DEPRECATED_INGESTION_DURATION_HELP,
+    DEPRECATED_INGESTION_DURATION_METRIC,
+    INGESTION_DURATION_HELP,
+    INGESTION_DURATION_METRIC,
+)
 from packages.platform.auth.oidc_provider import OidcProvider
 from packages.platform.auth.proxy_provider import ProxyProvider
 from packages.platform.auth.route_policy_engine import RouteAuthorizationLookup
@@ -146,7 +152,10 @@ def _initialize_metrics() -> None:
     """Pre-declare all Prometheus counters/gauges so /metrics renders at cold start."""
     metrics_registry.inc("ingestion_runs_total", 0, help_text="Total ingestion runs observed by the API.")
     metrics_registry.inc("ingestion_failures_total", 0, help_text="Total failed or rejected ingestion runs observed by the API.")
-    metrics_registry.inc("ingestion_duration_seconds", 0, help_text="Cumulative ingestion handling duration in seconds.")
+    metrics_registry.inc(INGESTION_DURATION_METRIC, 0, help_text=INGESTION_DURATION_HELP)
+    metrics_registry.inc(
+        DEPRECATED_INGESTION_DURATION_METRIC, 0, help_text=DEPRECATED_INGESTION_DURATION_HELP
+    )
     metrics_registry.set("worker_queue_depth", 0, help_text="Current queued schedule-dispatch count.")
     metrics_registry.set("worker_running_dispatches", 0, help_text="Current running schedule-dispatch count.")
     metrics_registry.set("worker_failed_dispatches", 0, help_text="Current failed schedule-dispatch count.")
@@ -598,6 +607,7 @@ def create_app(
             config_repository=resolved_config_repository,
             metadata_repository=container.run_metadata_store,
             backup_dir=container.settings.resolved_backup_dir,
+            ha_bridge=ha_bridge,
         ),
     )
     install_warehouse_access(app, transformation_service)

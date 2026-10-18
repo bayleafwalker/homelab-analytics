@@ -12,6 +12,8 @@
 #      tar | age | rclone rcat to the same Object-Lock bucket and recipients as
 #      cnpg-pgdump-age, under backups/app-bundles/analytics/homelab-analytics/.
 #      It never blocks app start: age is fetched lazily inside its loop.
+#      After each pass it writes /data/backups/ship-status.json, exported by
+#      the worker /metrics as homelab_analytics_backup_ship_*.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -151,61 +153,136 @@ spec:
         # only renamed to backup-<stamp>/ after it verified, so every such
         # directory is complete. Shipped names are recorded in
         # /data/backups/.shipped; a failed ship is retried on the next pass.
+        # After every pass the sidecar rewrites /data/backups/ship-status.json
+        # (last pass / attempt / success / failure, consecutive failures,
+        # totals); the worker and api /metrics export it as
+        # homelab_analytics_backup_ship_* for the "shipped off-site within 26h"
+        # SLO (docs/runbooks/slo.md).
         - name: backup-ship
           # renovate: datasource=docker depName=rclone/rclone
           image: rclone/rclone:1.75.1@sha256:45401ad7410db1d67ffdb58e19059ad20b0d8e0285a60e38bbec55cc1019c7a5
           command: ["/bin/sh", "-c"]
           args:
             - |
+              # No dollar-brace expansions in this script: Flux postBuild substitution runs on
+              # this file (for HETZNER_S3_BUCKET_ENDPOINT) and would blank it.
               set -u
+              # A failed tar or age must fail the upload, not ship a truncated
+              # object (busybox ash supports pipefail).
+              set -o pipefail
+              backups="$BACKUP_DIR"
+              tools="$TOOLS_DIR"
               prefix="hetzner:$BUCKET/backups/app-bundles/$NAMESPACE/homelab-analytics"
-              state=/data/backups/.shipped
+              state="$backups/.shipped"
+              status_file="$backups/ship-status.json"
+
+              now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+              # Reload the durable fields so a restart keeps last_success_at and
+              # the totals. One "key": value per line, as write_status writes it.
+              load() {
+                v="$(sed -n "s/^  \"$1\": \"\{0,1\}\([^\",]*\)\"\{0,1\},\{0,1\}\$/\1/p" "$status_file" 2>/dev/null | head -n 1)"
+                [ "$v" = null ] && v=""
+                printf '%s' "$v"
+              }
+              count() { case "$1" in ''|*[!0-9]*) echo 0 ;; *) echo "$1" ;; esac; }
+              q() { if [ -n "$1" ]; then printf '"%s"' "$1"; else printf null; fi; }
+              last_pass_at="$(load last_pass_at)"
+              last_attempt_at="$(load last_attempt_at)"
+              last_success_at="$(load last_success_at)"
+              last_failure_at="$(load last_failure_at)"
+              last_error="$(load last_error)"
+              last_shipped_bundle="$(load last_shipped_bundle)"
+              last_size_bytes="$(count "$(load last_size_bytes)")"
+              consecutive_failures="$(count "$(load consecutive_failures)")"
+              shipped_total="$(count "$(load shipped_total)")"
+              failures_total="$(count "$(load failures_total)")"
+
+              write_status() {
+                tmp="$backups/.ship-status.json.tmp"
+                {
+                  printf '{\n'
+                  printf '  "last_pass_at": %s,\n' "$(q "$last_pass_at")"
+                  printf '  "last_attempt_at": %s,\n' "$(q "$last_attempt_at")"
+                  printf '  "last_success_at": %s,\n' "$(q "$last_success_at")"
+                  printf '  "last_failure_at": %s,\n' "$(q "$last_failure_at")"
+                  printf '  "last_error": %s,\n' "$(q "$last_error")"
+                  printf '  "last_shipped_bundle": %s,\n' "$(q "$last_shipped_bundle")"
+                  printf '  "last_size_bytes": %s,\n' "$last_size_bytes"
+                  printf '  "consecutive_failures": %s,\n' "$consecutive_failures"
+                  printf '  "shipped_total": %s,\n' "$shipped_total"
+                  printf '  "failures_total": %s\n' "$failures_total"
+                  printf '}\n'
+                } > "$tmp" && mv -f "$tmp" "$status_file"
+              }
 
               fetch_age() {
-                [ -x /tools/age ] && return 0
+                [ -x "$tools/age" ] && return 0
                 cd /tmp || return 1
                 wget -q -O age.tgz "https://github.com/FiloSottile/age/releases/download/v$AGE_VERSION/age-v$AGE_VERSION-linux-amd64.tar.gz" \
                   && echo "$AGE_SHA256  age.tgz" | sha256sum -c - >/dev/null \
                   && tar -xzf age.tgz age/age \
-                  && install -m 0555 age/age /tools/age
+                  && install -m 0555 age/age "$tools/age"
                 status=$?
                 rm -rf age age.tgz
                 return $status
               }
 
               while true; do
+                pass_failed=0
                 if fetch_age; then
-                  for dir in /data/backups/backup-*/; do
-                    [ -f "${dir}manifest.json" ] || continue
+                  for dir in "$backups"/backup-*/; do
+                    [ -f "$dir"manifest.json ] || continue
                     name="$(basename "$dir")"
                     grep -qx "$name" "$state" 2>/dev/null && continue
                     object="$name.tar.age"
+                    last_attempt_at="$(now)"
                     if tar -C "$dir" -cf - . \
-                      | /tools/age -r "$AGE_RECIPIENT_RECOVERY" -r "$AGE_RECIPIENT_OPERATOR" -r "$AGE_RECIPIENT_DRILL" \
+                      | "$tools/age" -r "$AGE_RECIPIENT_RECOVERY" -r "$AGE_RECIPIENT_OPERATOR" -r "$AGE_RECIPIENT_DRILL" \
                       | rclone rcat --s3-chunk-size 16M --s3-upload-concurrency 1 "$prefix/$object"; then
                       size="$(rclone size --json "$prefix/$object" | sed -n 's/.*"bytes":\([0-9]*\).*/\1/p')"
                       if [ -n "$size" ] && [ "$size" -ge 512 ]; then
                         echo "$name" >> "$state"
+                        last_success_at="$(now)"
+                        last_shipped_bundle="$name"
+                        last_size_bytes="$size"
+                        shipped_total=$((shipped_total + 1))
                         echo "shipped $object ($size bytes)"
                       else
-                        echo "shipped $object is missing or implausibly small; will retry"
+                        pass_failed=1
+                        last_error="shipped $object is missing or implausibly small"
+                        echo "$last_error; will retry"
                       fi
                     else
-                      echo "shipping $name failed; will retry"
+                      pass_failed=1
+                      last_error="shipping $name failed"
+                      echo "$last_error; will retry"
                     fi
                   done
                   # Remote retention: 30 days. Object Lock keeps each version 14
                   # more days after the delete marker, like the pgdump series.
                   rclone delete --min-age 30d --include "backup-*.tar.age" "$prefix/" || true
                 else
-                  echo "age not available yet; will retry"
+                  pass_failed=1
+                  last_error="age not available"
+                  echo "$last_error yet; will retry"
                 fi
+                if [ "$pass_failed" = 1 ]; then
+                  consecutive_failures=$((consecutive_failures + 1))
+                  failures_total=$((failures_total + 1))
+                  last_failure_at="$(now)"
+                else
+                  consecutive_failures=0
+                fi
+                last_pass_at="$(now)"
+                write_status || echo "could not write $status_file"
                 sleep "$SHIP_INTERVAL_SECONDS"
               done
           env:
             - {name: NAMESPACE, value: analytics}
             - {name: BUCKET, value: appservice-pgdump-locked}
             - {name: SHIP_INTERVAL_SECONDS, value: "900"}
+            - {name: BACKUP_DIR, value: /data/backups}
+            - {name: TOOLS_DIR, value: /tools}
             - {name: AGE_VERSION, value: "1.3.2"}
             - {name: AGE_SHA256, value: cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10}
             # Same recipients as cnpg-pgdump-age (docs/rebuild/security-authority.recipients.json).
@@ -230,7 +307,7 @@ spec:
             requests: {cpu: 10m, memory: 32Mi}
             limits: {cpu: 500m, memory: 256Mi}
           volumeMounts:
-            # Needs write access only for /data/backups/.shipped.
+            # Writes only /data/backups/.shipped and ship-status.json.
             - {name: data, mountPath: /data}
             - {name: ship-tools, mountPath: /tools}
             - {name: ship-tmp, mountPath: /tmp}
