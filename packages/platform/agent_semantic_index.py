@@ -211,13 +211,137 @@ def build_agent_semantic_index(
     return agent_entries
 
 
-def validate_agent_semantic_index_payload(payload: Any) -> list[str]:
-    """Validate a serialized agent semantic index payload.
+def _is_int(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
 
-    Returns a list of violations (empty when the payload is valid). This is
-    the schema contract for ``GET /api/agent/semantic-index``; agents may rely
-    on every field validated here.
-    """
+
+def _text_or_null(value: Any, *, non_empty: bool = False) -> bool:
+    return value is None or (isinstance(value, str) and (value != "" or not non_empty))
+
+
+_ENTRY_STRING_FIELDS = (
+    "publication_key",
+    "display_name",
+    "summary",
+    "schema_name",
+    "schema_version",
+    "visibility",
+    "contract_path",
+    "lineage_path",
+)
+_TRUST_OPTIONAL_TEXT_FIELDS = (
+    "confidence_verdict",
+    "freshness_state",
+    "validation_state",
+    "completeness_state",
+    "assessed_at",
+)
+
+
+def _validate_entry(entry: Any, where: str, check: Callable[[bool, str], bool]) -> None:
+    if not check(isinstance(entry, dict), f"{where} must be an object"):
+        return
+    for field_name in _ENTRY_STRING_FIELDS:
+        check(
+            isinstance(entry.get(field_name), str) and entry.get(field_name) != "",
+            f"{where}.{field_name} must be a non-empty string",
+        )
+    for field_name in ("pack_name", "pack_version"):
+        check(
+            _text_or_null(entry.get(field_name)),
+            f"{where}.{field_name} must be a string or null",
+        )
+    for field_name in ("supported_renderers", "ui_descriptor_keys"):
+        value = entry.get(field_name)
+        check(
+            isinstance(value, list) and all(isinstance(item, str) for item in value),
+            f"{where}.{field_name} must be an array of strings",
+        )
+    columns = entry.get("columns")
+    if check(isinstance(columns, list), f"{where}.columns must be an array"):
+        for column_position, column in enumerate(columns):
+            column_where = f"{where}.columns[{column_position}]"
+            if not check(isinstance(column, dict), f"{column_where} must be an object"):
+                continue
+            for field_name in ("name", "json_type", "semantic_role"):
+                check(
+                    isinstance(column.get(field_name), str) and column.get(field_name) != "",
+                    f"{column_where}.{field_name} must be a non-empty string",
+                )
+            description = column.get("description")
+            check(
+                isinstance(description, str) and description.strip() != "",
+                f"{column_where}.description must be a non-empty string",
+            )
+            check(
+                isinstance(column.get("nullable"), bool),
+                f"{column_where}.nullable must be a boolean",
+            )
+            for field_name in ("unit", "grain", "aggregation"):
+                check(
+                    _text_or_null(column.get(field_name), non_empty=True),
+                    f"{column_where}.{field_name} must be a non-empty string or null",
+                )
+    trust = entry.get("trust")
+    if trust is not None and check(
+        isinstance(trust, dict), f"{where}.trust must be an object or null"
+    ):
+        check(
+            isinstance(trust.get("publication_key"), str)
+            and trust.get("publication_key") != "",
+            f"{where}.trust.publication_key must be a non-empty string",
+        )
+        check(
+            trust.get("guidance") in AGENT_TRUST_GUIDANCE_VALUES,
+            f"{where}.trust.guidance must be one of {AGENT_TRUST_GUIDANCE_VALUES}",
+        )
+        check(
+            isinstance(trust.get("guidance_detail"), str),
+            f"{where}.trust.guidance_detail must be a string",
+        )
+        for field_name in _TRUST_OPTIONAL_TEXT_FIELDS:
+            check(
+                _text_or_null(trust.get(field_name)),
+                f"{where}.trust.{field_name} must be a string or null",
+            )
+        completeness_pct = trust.get("completeness_pct")
+        check(
+            completeness_pct is None or (_is_int(completeness_pct) and completeness_pct >= 0),
+            f"{where}.trust.completeness_pct must be a non-negative integer or null",
+        )
+    sample = entry.get("sample")
+    if sample is not None and check(
+        isinstance(sample, dict), f"{where}.sample must be an object or null"
+    ):
+        rows = sample.get("rows")
+        check(
+            isinstance(rows, list) and all(isinstance(row, dict) for row in rows),
+            f"{where}.sample.rows must be an array of objects",
+        )
+        bound = sample.get("row_count_bound")
+        check(
+            _is_int(bound) and bound > 0,
+            f"{where}.sample.row_count_bound must be a positive integer",
+        )
+        total_row_count = sample.get("total_row_count")
+        check(
+            total_row_count is None or (_is_int(total_row_count) and total_row_count >= 0),
+            f"{where}.sample.total_row_count must be a non-negative integer or null",
+        )
+        truncated = sample.get("truncated")
+        check(isinstance(truncated, bool), f"{where}.sample.truncated must be a boolean")
+        if isinstance(rows, list):
+            if _is_int(bound):
+                check(len(rows) <= bound, f"{where}.sample.rows exceeds row_count_bound")
+            if _is_int(total_row_count) and isinstance(truncated, bool):
+                check(
+                    truncated == (total_row_count > len(rows)),
+                    f"{where}.sample.truncated must be true exactly when "
+                    "total_row_count exceeds the returned rows",
+                )
+
+
+def _validator() -> tuple[list[str], Callable[[bool, str], bool]]:
     violations: list[str] = []
 
     def check(condition: bool, message: str) -> bool:
@@ -225,129 +349,50 @@ def validate_agent_semantic_index_payload(payload: Any) -> list[str]:
             violations.append(message)
         return condition
 
-    if not check(isinstance(payload, dict), "payload must be an object"):
-        return violations
+    return violations, check
+
+
+def _validate_envelope(payload: dict[str, Any], check: Callable[[bool, str], bool]) -> None:
     check(
         payload.get("schema_version") == AGENT_SEMANTIC_INDEX_SCHEMA_VERSION,
         f"schema_version must be {AGENT_SEMANTIC_INDEX_SCHEMA_VERSION!r}",
     )
     check(isinstance(payload.get("generated_at"), str), "generated_at must be a string")
+
+
+def validate_agent_semantic_index_payload(payload: Any) -> list[str]:
+    """Validate a serialized ``GET /api/agent/semantic-index`` page.
+
+    Returns a list of violations (empty when the payload is valid). This is
+    the schema contract for the semantic index; agents may rely on every
+    field validated here. The typed response models in
+    ``packages.platform.agent_semantic_index_models`` mirror it and are held
+    to it by ``tests/test_agent_semantic_index_models.py``.
+    """
+    violations, check = _validator()
+    if not check(isinstance(payload, dict), "payload must be an object"):
+        return violations
+    _validate_envelope(payload, check)
+    total = payload.get("total")
+    check(_is_int(total) and total >= 0, "total must be a non-negative integer")
+    check("next_cursor" in payload, "next_cursor must be present (null on the last page)")
+    check(
+        _text_or_null(payload.get("next_cursor"), non_empty=True),
+        "next_cursor must be a non-empty string or null",
+    )
     publications = payload.get("publications")
     if not check(isinstance(publications, list), "publications must be an array"):
         return violations
-
-    string_fields = (
-        "publication_key",
-        "display_name",
-        "summary",
-        "schema_name",
-        "schema_version",
-        "visibility",
-        "contract_path",
-        "lineage_path",
-    )
     for position, entry in enumerate(publications):
-        where = f"publications[{position}]"
-        if not check(isinstance(entry, dict), f"{where} must be an object"):
-            continue
-        for field_name in string_fields:
-            check(
-                isinstance(entry.get(field_name), str) and entry.get(field_name) != "",
-                f"{where}.{field_name} must be a non-empty string",
-            )
-        for field_name in ("supported_renderers", "ui_descriptor_keys"):
-            value = entry.get(field_name)
-            check(
-                isinstance(value, list)
-                and all(isinstance(item, str) for item in value),
-                f"{where}.{field_name} must be an array of strings",
-            )
-        columns = entry.get("columns")
-        if check(isinstance(columns, list), f"{where}.columns must be an array"):
-            for column_position, column in enumerate(columns):
-                column_where = f"{where}.columns[{column_position}]"
-                if not check(
-                    isinstance(column, dict), f"{column_where} must be an object"
-                ):
-                    continue
-                for field_name in ("name", "json_type", "semantic_role"):
-                    check(
-                        isinstance(column.get(field_name), str)
-                        and column.get(field_name) != "",
-                        f"{column_where}.{field_name} must be a non-empty string",
-                    )
-                description = column.get("description")
-                check(
-                    isinstance(description, str) and description.strip() != "",
-                    f"{column_where}.description must be a non-empty string",
-                )
-                check(
-                    isinstance(column.get("nullable"), bool),
-                    f"{column_where}.nullable must be a boolean",
-                )
-                for field_name in ("unit", "grain", "aggregation"):
-                    value = column.get(field_name)
-                    check(
-                        value is None or (isinstance(value, str) and value != ""),
-                        f"{column_where}.{field_name} must be a non-empty string or null",
-                    )
-        trust = entry.get("trust")
-        if trust is not None and check(
-            isinstance(trust, dict), f"{where}.trust must be an object or null"
-        ):
-            check(
-                trust.get("guidance") in AGENT_TRUST_GUIDANCE_VALUES,
-                f"{where}.trust.guidance must be one of {AGENT_TRUST_GUIDANCE_VALUES}",
-            )
-            check(
-                isinstance(trust.get("guidance_detail"), str),
-                f"{where}.trust.guidance_detail must be a string",
-            )
-        sample = entry.get("sample")
-        if sample is not None and check(
-            isinstance(sample, dict), f"{where}.sample must be an object or null"
-        ):
-            check(
-                isinstance(sample.get("rows"), list),
-                f"{where}.sample.rows must be an array",
-            )
-            check(
-                isinstance(sample.get("row_count_bound"), int)
-                and not isinstance(sample.get("row_count_bound"), bool)
-                and sample.get("row_count_bound") > 0,
-                f"{where}.sample.row_count_bound must be a positive integer",
-            )
-            total_row_count = sample.get("total_row_count")
-            check(
-                total_row_count is None
-                or (
-                    isinstance(total_row_count, int)
-                    and not isinstance(total_row_count, bool)
-                    and total_row_count >= 0
-                ),
-                f"{where}.sample.total_row_count must be a non-negative integer or null",
-            )
-            check(
-                isinstance(sample.get("truncated"), bool),
-                f"{where}.sample.truncated must be a boolean",
-            )
-            rows = sample.get("rows")
-            if isinstance(rows, list):
-                bound = sample.get("row_count_bound")
-                if isinstance(bound, int) and not isinstance(bound, bool):
-                    check(
-                        len(rows) <= bound,
-                        f"{where}.sample.rows exceeds row_count_bound",
-                    )
-                truncated = sample.get("truncated")
-                if (
-                    isinstance(total_row_count, int)
-                    and not isinstance(total_row_count, bool)
-                    and isinstance(truncated, bool)
-                ):
-                    check(
-                        truncated == (total_row_count > len(rows)),
-                        f"{where}.sample.truncated must be true exactly when "
-                        "total_row_count exceeds the returned rows",
-                    )
+        _validate_entry(entry, f"publications[{position}]", check)
+    return violations
+
+
+def validate_agent_semantic_index_entry_payload(payload: Any) -> list[str]:
+    """Validate a serialized ``GET /api/agent/semantic-index/{key}`` payload."""
+    violations, check = _validator()
+    if not check(isinstance(payload, dict), "payload must be an object"):
+        return violations
+    _validate_envelope(payload, check)
+    _validate_entry(payload.get("publication"), "publication", check)
     return violations

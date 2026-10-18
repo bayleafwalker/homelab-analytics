@@ -40,6 +40,24 @@ Required properties:
 
 The assistant layer may suggest, summarize, or draft proposals. It may not directly mutate canonical state or dispatch external actions without the approval path.
 
+Agents follow the queue through `GET /api/actions/proposals/changes` (MCP tool `list_proposal_changes`), a cursor-paged `resource-changes/v1` feed; its envelope and event `data` keys are a strict contract with vuoro-client and do not change with the field renames below.
+
+### Proposal field names (deprecation)
+
+The generalized queue (`/api/actions/proposals`) was born from the HA approval queue and kept its HA-era field names. It now carries adapter-neutral names as well:
+
+| Adapter-neutral name | Deprecated HA-era alias | Meaning |
+|---|---|---|
+| `source_policy_id` | `policy_id` | proposing origin: a policy id, or a tool/agent identity |
+| `source_policy_name` | `policy_name` | human-readable title |
+| `delivery_ref` | `notification_id` | the adapter's delivery handle (the HA approval notification for `home_assistant` proposals; the `action_id` otherwise) |
+
+- Responses emit both names with the same value. OpenAPI marks the aliases `deprecated`.
+- Drafts accept either name. Both with different values is a `422`. `source_policy_id` and `source_policy_name` are required in one of the two spellings.
+- `adapter` has no HA default on this surface: a draft without one is a `platform` proposal, and responses always state the adapter. HA proposals come from the HA dispatcher and `/api/ha/actions/proposals`.
+- Unchanged: storage columns, the HA approval surface `/api/ha/actions/proposals` (HA names only), the HA dispatcher, and the changes feed.
+- Removal of the aliases from `/api/actions/proposals` is not scheduled yet. It needs the web shell and any external drafter to send the new names first, and a release note one release ahead.
+
 ## Assistant scope
 
 The initial assistant surfaces should stay narrow:

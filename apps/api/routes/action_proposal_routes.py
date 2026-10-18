@@ -49,7 +49,7 @@ from dataclasses import dataclass
 from typing import Any, Literal, cast
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from packages.application.use_cases.action_proposal_changes import (
     DEFAULT_LIMIT as DEFAULT_CHANGES_LIMIT,
@@ -75,11 +75,20 @@ from packages.platform.action_proposals import (
     ProposalConflictError,
     ProposalProvenance,
     ProposalTransitionError,
+    reconcile_proposal_field_aliases,
 )
 
 MAX_RESOLUTION_REASON_LENGTH = 500
 # Matches the vuoro invocation envelope's idempotency-key pattern.
 IDEMPOTENCY_KEY_PATTERN = r"^[A-Za-z0-9._:-]{8,128}$"
+
+
+def _deprecated_alias(neutral: str) -> dict[str, Any]:
+    """OpenAPI marker for an HA-era field kept as an alias of ``neutral``."""
+    return {
+        "deprecated": True,
+        "description": f"Deprecated HA-era alias of {neutral}; carries the same value.",
+    }
 
 
 class ProposalProvenanceInputModel(BaseModel):
@@ -109,12 +118,22 @@ class ProposalResolutionModel(BaseModel):
 
 class ActionProposalModel(BaseModel):
     action_id: str
-    policy_id: str
-    policy_name: str
+    source_policy_id: str = Field(
+        description="Proposing origin: a policy id, or a tool/agent identity."
+    )
+    source_policy_name: str = Field(description="Human-readable title of the proposal.")
+    delivery_ref: str = Field(
+        description=(
+            "The adapter's delivery handle (the HA approval notification for "
+            "home_assistant proposals; the action_id otherwise)."
+        )
+    )
+    policy_id: str = Field(json_schema_extra=_deprecated_alias("source_policy_id"))
+    policy_name: str = Field(json_schema_extra=_deprecated_alias("source_policy_name"))
+    notification_id: str = Field(json_schema_extra=_deprecated_alias("delivery_ref"))
     verdict: str
     value: str | None = None
-    notification_id: str
-    adapter: str = ADAPTER_HOME_ASSISTANT
+    adapter: str
     source_kind: Literal["policy", "assistant", "operator", "agent"] = "policy"
     source_key: str | None = None
     source_summary: str | None = None
@@ -132,11 +151,28 @@ class ActionProposalModel(BaseModel):
 
 
 class ActionProposalCreateModel(BaseModel):
-    policy_id: str
-    policy_name: str
+    """A draft. Send the adapter-neutral names; the HA-era aliases still work.
+
+    Each pair (``source_policy_id``/``policy_id``,
+    ``source_policy_name``/``policy_name``, ``delivery_ref``/``notification_id``)
+    may be given in either spelling; giving both with different values is a
+    ``422``.
+    """
+
+    source_policy_id: str | None = None
+    source_policy_name: str | None = None
+    delivery_ref: str | None = None
+    policy_id: str | None = Field(
+        default=None, json_schema_extra=_deprecated_alias("source_policy_id")
+    )
+    policy_name: str | None = Field(
+        default=None, json_schema_extra=_deprecated_alias("source_policy_name")
+    )
+    notification_id: str | None = Field(
+        default=None, json_schema_extra=_deprecated_alias("delivery_ref")
+    )
     verdict: str
     value: str | None = None
-    notification_id: str | None = None
     adapter: str = ADAPTER_PLATFORM
     source_kind: Literal["policy", "assistant", "operator", "agent"] = "agent"
     source_key: str | None = None
@@ -146,6 +182,27 @@ class ActionProposalCreateModel(BaseModel):
     idempotency_key: str | None = Field(default=None, pattern=IDEMPOTENCY_KEY_PATTERN)
     metadata: dict[str, Any] = Field(default_factory=dict)
     provenance: ProposalProvenanceInputModel | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reconcile_aliases(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        return reconcile_proposal_field_aliases(data)
+
+    @model_validator(mode="after")
+    def _origin_required(self) -> ActionProposalCreateModel:
+        missing = [
+            name
+            for name in ("source_policy_id", "source_policy_name")
+            if not getattr(self, name)
+        ]
+        if missing:
+            raise ValueError(
+                f"{' and '.join(missing)} required (or the deprecated "
+                "policy_id/policy_name)"
+            )
+        return self
 
 
 class ActionProposalListModel(BaseModel):
@@ -477,11 +534,11 @@ def register_action_proposal_routes(
                 )
         proposal = register_draft(
             action_proposal_registry,
-            policy_id=body.policy_id,
-            policy_name=body.policy_name,
+            policy_id=body.source_policy_id,
+            policy_name=body.source_policy_name,
             verdict=body.verdict,
             value=body.value,
-            notification_id=body.notification_id,
+            notification_id=body.delivery_ref,
             adapter=body.adapter,
             source_kind=body.source_kind,
             source_key=body.source_key,

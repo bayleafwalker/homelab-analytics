@@ -3786,7 +3786,15 @@ export interface components {
             /** Transaction Count */
             transaction_count: number;
         };
-        /** ActionProposalCreateModel */
+        /**
+         * ActionProposalCreateModel
+         * @description A draft. Send the adapter-neutral names; the HA-era aliases still work.
+         *
+         *     Each pair (``source_policy_id``/``policy_id``,
+         *     ``source_policy_name``/``policy_name``, ``delivery_ref``/``notification_id``)
+         *     may be given in either spelling; giving both with different values is a
+         *     ``422``.
+         */
         ActionProposalCreateModel: {
             /** Action Id */
             action_id?: string | null;
@@ -3797,18 +3805,32 @@ export interface components {
             adapter: string;
             /** Created By */
             created_by?: string | null;
+            /** Delivery Ref */
+            delivery_ref?: string | null;
             /** Idempotency Key */
             idempotency_key?: string | null;
             /** Metadata */
             metadata?: {
                 [key: string]: unknown;
             };
-            /** Notification Id */
+            /**
+             * Notification Id
+             * @deprecated
+             * @description Deprecated HA-era alias of delivery_ref; carries the same value.
+             */
             notification_id?: string | null;
-            /** Policy Id */
-            policy_id: string;
-            /** Policy Name */
-            policy_name: string;
+            /**
+             * Policy Id
+             * @deprecated
+             * @description Deprecated HA-era alias of source_policy_id; carries the same value.
+             */
+            policy_id?: string | null;
+            /**
+             * Policy Name
+             * @deprecated
+             * @description Deprecated HA-era alias of source_policy_name; carries the same value.
+             */
+            policy_name?: string | null;
             provenance?: components["schemas"]["ProposalProvenanceInputModel"] | null;
             /** Source Key */
             source_key?: string | null;
@@ -3818,6 +3840,10 @@ export interface components {
              * @enum {string}
              */
             source_kind: "policy" | "assistant" | "operator" | "agent";
+            /** Source Policy Id */
+            source_policy_id?: string | null;
+            /** Source Policy Name */
+            source_policy_name?: string | null;
             /** Source Summary */
             source_summary?: string | null;
             /** Value */
@@ -3834,10 +3860,7 @@ export interface components {
         ActionProposalModel: {
             /** Action Id */
             action_id: string;
-            /**
-             * Adapter
-             * @default home_assistant
-             */
+            /** Adapter */
             adapter: string;
             /** Approved At */
             approved_at?: string | null;
@@ -3845,6 +3868,11 @@ export interface components {
             created_at: string;
             /** Created By */
             created_by?: string | null;
+            /**
+             * Delivery Ref
+             * @description The adapter's delivery handle (the HA approval notification for home_assistant proposals; the action_id otherwise).
+             */
+            delivery_ref: string;
             /** Dismissed At */
             dismissed_at?: string | null;
             /** History */
@@ -3855,11 +3883,23 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             };
-            /** Notification Id */
+            /**
+             * Notification Id
+             * @deprecated
+             * @description Deprecated HA-era alias of delivery_ref; carries the same value.
+             */
             notification_id: string;
-            /** Policy Id */
+            /**
+             * Policy Id
+             * @deprecated
+             * @description Deprecated HA-era alias of source_policy_id; carries the same value.
+             */
             policy_id: string;
-            /** Policy Name */
+            /**
+             * Policy Name
+             * @deprecated
+             * @description Deprecated HA-era alias of source_policy_name; carries the same value.
+             */
             policy_name: string;
             provenance?: components["schemas"]["ProposalProvenanceModel"] | null;
             /** Resolution Reason */
@@ -3874,6 +3914,16 @@ export interface components {
              * @enum {string}
              */
             source_kind: "policy" | "assistant" | "operator" | "agent";
+            /**
+             * Source Policy Id
+             * @description Proposing origin: a policy id, or a tool/agent identity.
+             */
+            source_policy_id: string;
+            /**
+             * Source Policy Name
+             * @description Human-readable title of the proposal.
+             */
+            source_policy_name: string;
             /** Source Summary */
             source_summary?: string | null;
             /** Status */
@@ -3928,6 +3978,25 @@ export interface components {
             /** State */
             state: string;
         };
+        /** AgentColumnGlossaryModel */
+        AgentColumnGlossaryModel: {
+            /** Aggregation */
+            aggregation?: string | null;
+            /** Description */
+            description: string;
+            /** Grain */
+            grain?: string | null;
+            /** Json Type */
+            json_type: string;
+            /** Name */
+            name: string;
+            /** Nullable */
+            nullable: boolean;
+            /** Semantic Role */
+            semantic_role: string;
+            /** Unit */
+            unit?: string | null;
+        };
         /** AgentPrincipalListModel */
         AgentPrincipalListModel: {
             /** Principals */
@@ -3961,6 +4030,107 @@ export interface components {
             proposal_count: number;
             /** Source Kind */
             source_kind: string;
+        };
+        /** AgentPublicationSampleModel */
+        AgentPublicationSampleModel: {
+            /** Row Count Bound */
+            row_count_bound: number;
+            /** Rows */
+            rows: {
+                [key: string]: unknown;
+            }[];
+            /** Total Row Count */
+            total_row_count?: number | null;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** AgentPublicationTrustModel */
+        AgentPublicationTrustModel: {
+            /** Assessed At */
+            assessed_at?: string | null;
+            /** Completeness Pct */
+            completeness_pct?: number | null;
+            /** Completeness State */
+            completeness_state?: string | null;
+            /** Confidence Verdict */
+            confidence_verdict?: string | null;
+            /** Freshness State */
+            freshness_state?: string | null;
+            /**
+             * Guidance
+             * @enum {string}
+             */
+            guidance: "state_as_current" | "state_with_caveat" | "do_not_state_as_current" | "trust_unknown";
+            /** Guidance Detail */
+            guidance_detail: string;
+            /** Publication Key */
+            publication_key: string;
+            /** Validation State */
+            validation_state?: string | null;
+        };
+        /** AgentSemanticIndexEntryModel */
+        AgentSemanticIndexEntryModel: {
+            /** Columns */
+            columns: components["schemas"]["AgentColumnGlossaryModel"][];
+            /** Contract Path */
+            contract_path: string;
+            /** Display Name */
+            display_name: string;
+            /** Lineage Path */
+            lineage_path: string;
+            /** Pack Name */
+            pack_name?: string | null;
+            /** Pack Version */
+            pack_version?: string | null;
+            /** Publication Key */
+            publication_key: string;
+            sample?: components["schemas"]["AgentPublicationSampleModel"] | null;
+            /** Schema Name */
+            schema_name: string;
+            /** Schema Version */
+            schema_version: string;
+            /** Summary */
+            summary: string;
+            /** Supported Renderers */
+            supported_renderers: string[];
+            trust?: components["schemas"]["AgentPublicationTrustModel"] | null;
+            /** Ui Descriptor Keys */
+            ui_descriptor_keys: string[];
+            /** Visibility */
+            visibility: string;
+        };
+        /**
+         * AgentSemanticIndexEntryResponseModel
+         * @description ``GET /api/agent/semantic-index/{publication_key}``: one publication.
+         */
+        AgentSemanticIndexEntryResponseModel: {
+            /** Generated At */
+            generated_at: string;
+            publication: components["schemas"]["AgentSemanticIndexEntryModel"];
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "1.1.0";
+        };
+        /**
+         * AgentSemanticIndexPageModel
+         * @description ``GET /api/agent/semantic-index``: one page of the index.
+         */
+        AgentSemanticIndexPageModel: {
+            /** Generated At */
+            generated_at: string;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Publications */
+            publications: components["schemas"]["AgentSemanticIndexEntryModel"][];
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "1.1.0";
+            /** Total */
+            total: number;
         };
         /** AgentToolCatalogEntryModel */
         AgentToolCatalogEntryModel: {
@@ -8179,9 +8349,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["AgentSemanticIndexPageModel"];
                 };
             };
             /** @description Validation Error */
@@ -8212,9 +8380,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["AgentSemanticIndexEntryResponseModel"];
                 };
             };
             /** @description Validation Error */

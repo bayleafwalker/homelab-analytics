@@ -116,8 +116,6 @@ from packages.platform.action_proposals import build_action_proposal_registry
 from packages.platform.auth.break_glass import BreakGlassController
 from packages.platform.auth.machine_jwt_provider import MachineJwtProvider
 from packages.platform.auth.middleware_metrics import (
-    DEPRECATED_INGESTION_DURATION_HELP,
-    DEPRECATED_INGESTION_DURATION_METRIC,
     INGESTION_DURATION_HELP,
     INGESTION_DURATION_METRIC,
 )
@@ -154,9 +152,6 @@ def _initialize_metrics() -> None:
     metrics_registry.inc("ingestion_runs_total", 0, help_text="Total ingestion runs observed by the API.")
     metrics_registry.inc("ingestion_failures_total", 0, help_text="Total failed or rejected ingestion runs observed by the API.")
     metrics_registry.inc(INGESTION_DURATION_METRIC, 0, help_text=INGESTION_DURATION_HELP)
-    metrics_registry.inc(
-        DEPRECATED_INGESTION_DURATION_METRIC, 0, help_text=DEPRECATED_INGESTION_DURATION_HELP
-    )
     metrics_registry.set("worker_queue_depth", 0, help_text="Current queued schedule-dispatch count.")
     metrics_registry.set("worker_running_dispatches", 0, help_text="Current running schedule-dispatch count.")
     metrics_registry.set("worker_failed_dispatches", 0, help_text="Current failed schedule-dispatch count.")

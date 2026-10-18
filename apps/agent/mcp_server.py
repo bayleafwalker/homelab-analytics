@@ -14,6 +14,8 @@ operator control surface shows at ``GET /api/agent/catalog``:
 - ``get_publication_summary`` — one publication with glossary, sample, trust
 - ``get_publication_lineage`` — runs, relations, and sources behind it
 - ``get_proposal`` — status, resolver, and history of a drafted proposal
+- ``list_proposal_changes`` — cursor-paged ``resource-changes/v1`` feed of
+  approval-queue history (``GET /api/actions/proposals/changes``)
 - ``propose_scenario`` — draft a what-if scenario through /api/scenarios/*
 - ``propose_policy`` — draft a (disabled) operator policy
 - ``propose_action`` — enter an action proposal into the approval queue
@@ -340,6 +342,7 @@ class AgentMcpServer:
             "get_publication_summary": self._get_publication_summary,
             "get_publication_lineage": self._get_publication_lineage,
             "get_proposal": self._get_proposal,
+            "list_proposal_changes": self._list_proposal_changes,
             "propose_scenario": self._propose_scenario,
             "propose_policy": self._propose_policy,
             "propose_action": self._propose_action,
@@ -381,6 +384,16 @@ class AgentMcpServer:
     def _get_proposal(self, arguments: dict[str, Any]) -> tuple[int, Any]:
         return self._caller.call("GET", f"/api/actions/proposals/{arguments['action_id']}")
 
+    def _list_proposal_changes(self, arguments: dict[str, Any]) -> tuple[int, Any]:
+        # The feed's envelope passes through untouched: it is the strict
+        # resource-changes/v1 shape vuoro-client validates.
+        params = {
+            name: arguments[name]
+            for name in ("cursor", "limit", "action_id")
+            if arguments.get(name) not in (None, "")
+        }
+        return self._caller.call("GET", "/api/actions/proposals/changes", params=params)
+
     def _propose_scenario(self, arguments: dict[str, Any]) -> tuple[int, Any]:
         scenario_kind = arguments["scenario_kind"]
         return self._caller.call(
@@ -401,8 +414,8 @@ class AgentMcpServer:
 
     def _propose_action(self, arguments: dict[str, Any]) -> tuple[int, Any]:
         body: dict[str, Any] = {
-            "policy_id": arguments["origin"],
-            "policy_name": arguments["title"],
+            "source_policy_id": arguments["origin"],
+            "source_policy_name": arguments["title"],
             "verdict": arguments["verdict"],
             "value": arguments.get("value"),
             "adapter": "platform",

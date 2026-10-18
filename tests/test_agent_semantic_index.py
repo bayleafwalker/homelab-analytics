@@ -20,6 +20,7 @@ from packages.pipelines.transformation_service import TransformationService
 from packages.platform.agent_semantic_index import (
     AGENT_SEMANTIC_INDEX_SCHEMA_VERSION,
     build_agent_semantic_index,
+    validate_agent_semantic_index_entry_payload,
     validate_agent_semantic_index_payload,
 )
 from packages.platform.publication_contracts import (
@@ -125,10 +126,42 @@ class PayloadValidatorTests(unittest.TestCase):
             "schema_version": AGENT_SEMANTIC_INDEX_SCHEMA_VERSION,
             "generated_at": "2026-07-09T00:00:00+00:00",
             "publications": [entry.as_dict() for entry in entries],
+            "total": len(entries),
+            "next_cursor": None,
         }
 
     def test_valid_payload_passes(self) -> None:
         self.assertEqual([], validate_agent_semantic_index_payload(self._valid_payload()))
+
+    def test_page_fields_are_required(self) -> None:
+        for field_name in ("total", "next_cursor"):
+            payload = self._valid_payload()
+            del payload[field_name]
+            violations = validate_agent_semantic_index_payload(payload)
+            self.assertTrue(any(field_name in violation for violation in violations))
+
+    def test_trust_fields_are_typed(self) -> None:
+        payload = self._valid_payload()
+        payload["publications"][0]["trust"] = {
+            "publication_key": "mart_demo",
+            "guidance": "trust_unknown",
+            "guidance_detail": "No snapshot.",
+            "completeness_pct": True,
+        }
+        violations = validate_agent_semantic_index_payload(payload)
+        self.assertTrue(any("completeness_pct" in violation for violation in violations))
+
+    def test_entry_payload_validator(self) -> None:
+        publication = self._valid_payload()["publications"][0]
+        payload = {
+            "schema_version": AGENT_SEMANTIC_INDEX_SCHEMA_VERSION,
+            "generated_at": "2026-07-09T00:00:00+00:00",
+            "publication": publication,
+        }
+        self.assertEqual([], validate_agent_semantic_index_entry_payload(payload))
+        del publication["columns"]
+        violations = validate_agent_semantic_index_entry_payload(payload)
+        self.assertEqual(["publication.columns must be an array"], violations)
 
     def test_wrong_schema_version_fails(self) -> None:
         payload = self._valid_payload()
@@ -281,12 +314,7 @@ class AgentSemanticIndexAPITests(unittest.TestCase):
             self.assertEqual(sample["row_count_bound"], len(sample["rows"]))
             self.assertEqual(len(months), sample["total_row_count"])
             self.assertTrue(sample["truncated"])
-            wrapped = {
-                "schema_version": payload["schema_version"],
-                "generated_at": payload.get("generated_at", "2026-07-09T00:00:00+00:00"),
-                "publications": [payload["publication"]],
-            }
-            self.assertEqual([], validate_agent_semantic_index_payload(wrapped))
+            self.assertEqual([], validate_agent_semantic_index_entry_payload(payload))
 
     def test_query_filters_publications(self) -> None:
         with TemporaryDirectory() as tmp:

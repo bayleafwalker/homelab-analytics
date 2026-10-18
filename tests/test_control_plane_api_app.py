@@ -203,10 +203,15 @@ def test_control_plane_api_exposes_schedules_lineage_audit_and_metrics() -> None
             assert "ingestion_runs_total 1" in metrics_response.text
             assert "auth_service_tokens 2" in metrics_response.text
             assert "# TYPE auth_service_tokens gauge" in metrics_response.text
-            # Deprecated aliases stay for one release.
-            assert "auth_service_tokens_total 2" in metrics_response.text
             assert "# TYPE ingestion_duration_seconds_total counter" in metrics_response.text
-            assert "# HELP ingestion_duration_seconds DEPRECATED" in metrics_response.text
+            # The deprecated names were removed in 0.1.6 (docs/runbooks/slo.md).
+            series = {
+                line.split()[0].split("{")[0]
+                for line in metrics_response.text.splitlines()
+                if line and not line.startswith("#")
+            }
+            assert not {"auth_service_tokens_total", "ingestion_duration_seconds"} & series
+            assert "# HELP ingestion_duration_seconds DEPRECATED" not in metrics_response.text
             assert "auth_service_tokens_active 2" in metrics_response.text
             assert "auth_service_tokens_expiring_7d 1" in metrics_response.text
             assert "auth_service_tokens_never_used 1" in metrics_response.text

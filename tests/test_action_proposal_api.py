@@ -179,6 +179,143 @@ class ActionProposalQueueAPITests(unittest.TestCase):
             self.assertIsNotNone(registry.get(action_id))
 
 
+def _neutral_body(**overrides) -> dict:
+    body = _agent_proposal_body()
+    body["source_policy_id"] = body.pop("policy_id")
+    body["source_policy_name"] = body.pop("policy_name")
+    del body["adapter"]
+    body.update(overrides)
+    return body
+
+
+class AdapterNeutralFieldNameTests(unittest.TestCase):
+    """#2816: adapter-neutral names beside the deprecated HA-era ones."""
+
+    def _assert_both_spellings(self, data: dict) -> None:
+        self.assertEqual(data["source_policy_id"], data["policy_id"])
+        self.assertEqual(data["source_policy_name"], data["policy_name"])
+        self.assertEqual(data["delivery_ref"], data["notification_id"])
+
+    def test_neutral_names_draft_and_both_spellings_are_emitted(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            created = client.post("/api/actions/proposals", json=_neutral_body())
+            self.assertEqual(200, created.status_code, created.text)
+            data = created.json()
+            self._assert_both_spellings(data)
+            self.assertEqual("mcp:propose_action", data["source_policy_id"])
+            # No adapter given: an API-originated draft is a platform proposal,
+            # never an HA one, and its delivery handle is its own action_id.
+            self.assertEqual("platform", data["adapter"])
+            self.assertEqual(data["action_id"], data["delivery_ref"])
+
+            for path in (
+                "/api/actions/proposals",
+                f"/api/actions/proposals/{data['action_id']}",
+                f"/api/actions/proposals/{data['action_id']}/review",
+            ):
+                payload = client.get(path).json()
+                proposal = (
+                    payload["proposals"][0]
+                    if "proposals" in payload
+                    else payload.get("proposal", payload)
+                )
+                self._assert_both_spellings(proposal)
+
+    def test_deprecated_names_still_draft(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            created = client.post(
+                "/api/actions/proposals",
+                json=_agent_proposal_body(notification_id="notify-42"),
+            )
+            self.assertEqual(200, created.status_code, created.text)
+            data = created.json()
+            self._assert_both_spellings(data)
+            self.assertEqual("Agent drafted: lower office heating", data["source_policy_name"])
+            self.assertEqual("notify-42", data["delivery_ref"])
+
+    def test_both_spellings_agreeing_is_accepted_disagreeing_is_422(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            agreeing = _neutral_body(
+                policy_id="mcp:propose_action", delivery_ref="d-1", notification_id="d-1"
+            )
+            self.assertEqual(
+                200, client.post("/api/actions/proposals", json=agreeing).status_code
+            )
+            for field_name, alias in (
+                ("source_policy_id", "policy_id"),
+                ("source_policy_name", "policy_name"),
+                ("delivery_ref", "notification_id"),
+            ):
+                body = _neutral_body(**{field_name: "one", alias: "other"})
+                resp = client.post("/api/actions/proposals", json=body)
+                self.assertEqual(422, resp.status_code, field_name)
+                self.assertIn(alias, resp.text)
+
+    def test_origin_is_required_in_one_spelling(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            body = _neutral_body()
+            del body["source_policy_id"]
+            resp = client.post("/api/actions/proposals", json=body)
+            self.assertEqual(422, resp.status_code)
+            self.assertIn("source_policy_id", resp.text)
+
+    def test_ha_proposals_carry_their_notification_as_delivery_ref(self) -> None:
+        dispatcher = _StubDispatcher()
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp, dispatcher=dispatcher)
+            ha_created = client.post(
+                "/api/ha/actions/proposals",
+                json={
+                    "policy_id": "office_temp_low",
+                    "policy_name": "Office temperature low",
+                    "verdict": "approval_required",
+                    "notification_id": "ha-notify-7",
+                },
+            )
+            self.assertEqual(200, ha_created.status_code)
+            # The HA surface keeps its HA names (and only those).
+            self.assertNotIn("delivery_ref", ha_created.json())
+            action_id = ha_created.json()["action_id"]
+            generic = client.get(f"/api/actions/proposals/{action_id}").json()
+            self._assert_both_spellings(generic)
+            self.assertEqual(("home_assistant", "ha-notify-7"), (
+                generic["adapter"],
+                generic["delivery_ref"],
+            ))
+            client.post(f"/api/actions/proposals/{action_id}/approve")
+            self.assertEqual([(action_id, "approved")], dispatcher.resolutions)
+
+    def test_openapi_marks_ha_era_names_deprecated(self) -> None:
+        with TemporaryDirectory() as tmp:
+            schemas = _build_client(tmp).get("/openapi.json").json()["components"]["schemas"]
+        output = schemas.get("ActionProposalModel-Output") or schemas["ActionProposalModel"]
+        create = schemas["ActionProposalCreateModel"]
+        for legacy in ("policy_id", "policy_name", "notification_id"):
+            self.assertIs(True, output["properties"][legacy].get("deprecated"), legacy)
+            self.assertIs(True, create["properties"][legacy].get("deprecated"), legacy)
+        self.assertLessEqual(
+            {"source_policy_id", "source_policy_name", "delivery_ref", "adapter"},
+            set(output["required"]),
+        )
+
+    def test_changes_feed_envelope_keeps_its_keys(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client = _build_client(tmp)
+            client.post("/api/actions/proposals", json=_neutral_body())
+            feed = client.get("/api/actions/proposals/changes").json()
+            self.assertEqual(
+                {"schema_version", "reference", "next_cursor", "events"}, set(feed)
+            )
+            data = feed["events"][0]["data"]
+            self.assertEqual("mcp:propose_action", data["origin"])
+            self.assertNotIn("source_policy_id", data)
+            self.assertNotIn("policy_id", data)
+
+
 class LegacyAliasTests(unittest.TestCase):
     def test_ha_module_aliases_platform_model(self) -> None:
         self.assertIs(ApprovalActionRegistry, ActionProposalRegistry)

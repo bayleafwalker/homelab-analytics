@@ -51,6 +51,7 @@
         "type": "object"
       },
       "ActionProposalCreateModel": {
+        "description": "A draft. Send the adapter-neutral names; the HA-era aliases still work.\n\nEach pair (``source_policy_id``/``policy_id``,\n``source_policy_name``/``policy_name``, ``delivery_ref``/``notification_id``)\nmay be given in either spelling; giving both with different values is a\n``422``.",
         "properties": {
           "action_id": {
             "anyOf": [
@@ -79,6 +80,17 @@
             ],
             "title": "Created By"
           },
+          "delivery_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Ref"
+          },
           "idempotency_key": {
             "anyOf": [
               {
@@ -105,15 +117,35 @@
                 "type": "null"
               }
             ],
+            "deprecated": true,
+            "description": "Deprecated HA-era alias of delivery_ref; carries the same value.",
             "title": "Notification Id"
           },
           "policy_id": {
-            "title": "Policy Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "deprecated": true,
+            "description": "Deprecated HA-era alias of source_policy_id; carries the same value.",
+            "title": "Policy Id"
           },
           "policy_name": {
-            "title": "Policy Name",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "deprecated": true,
+            "description": "Deprecated HA-era alias of source_policy_name; carries the same value.",
+            "title": "Policy Name"
           },
           "provenance": {
             "anyOf": [
@@ -147,6 +179,28 @@
             "title": "Source Kind",
             "type": "string"
           },
+          "source_policy_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Policy Id"
+          },
+          "source_policy_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Policy Name"
+          },
           "source_summary": {
             "anyOf": [
               {
@@ -175,8 +229,6 @@
           }
         },
         "required": [
-          "policy_id",
-          "policy_name",
           "verdict"
         ],
         "title": "ActionProposalCreateModel",
@@ -205,7 +257,6 @@
             "type": "string"
           },
           "adapter": {
-            "default": "home_assistant",
             "title": "Adapter",
             "type": "string"
           },
@@ -234,6 +285,11 @@
               }
             ],
             "title": "Created By"
+          },
+          "delivery_ref": {
+            "description": "The adapter's delivery handle (the HA approval notification for home_assistant proposals; the action_id otherwise).",
+            "title": "Delivery Ref",
+            "type": "string"
           },
           "dismissed_at": {
             "anyOf": [
@@ -270,14 +326,20 @@
             "type": "object"
           },
           "notification_id": {
+            "deprecated": true,
+            "description": "Deprecated HA-era alias of delivery_ref; carries the same value.",
             "title": "Notification Id",
             "type": "string"
           },
           "policy_id": {
+            "deprecated": true,
+            "description": "Deprecated HA-era alias of source_policy_id; carries the same value.",
             "title": "Policy Id",
             "type": "string"
           },
           "policy_name": {
+            "deprecated": true,
+            "description": "Deprecated HA-era alias of source_policy_name; carries the same value.",
             "title": "Policy Name",
             "type": "string"
           },
@@ -335,6 +397,16 @@
             "title": "Source Kind",
             "type": "string"
           },
+          "source_policy_id": {
+            "description": "Proposing origin: a policy id, or a tool/agent identity.",
+            "title": "Source Policy Id",
+            "type": "string"
+          },
+          "source_policy_name": {
+            "description": "Human-readable title of the proposal.",
+            "title": "Source Policy Name",
+            "type": "string"
+          },
           "source_summary": {
             "anyOf": [
               {
@@ -368,10 +440,14 @@
         },
         "required": [
           "action_id",
+          "source_policy_id",
+          "source_policy_name",
+          "delivery_ref",
           "policy_id",
           "policy_name",
-          "verdict",
           "notification_id",
+          "verdict",
+          "adapter",
           "status",
           "created_at"
         ],
@@ -514,6 +590,78 @@
         "title": "AffordabilityRatiosRow",
         "type": "object"
       },
+      "AgentColumnGlossaryModel": {
+        "properties": {
+          "aggregation": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggregation"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "grain": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grain"
+          },
+          "json_type": {
+            "minLength": 1,
+            "title": "Json Type",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "nullable": {
+            "title": "Nullable",
+            "type": "boolean"
+          },
+          "semantic_role": {
+            "minLength": 1,
+            "title": "Semantic Role",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "name",
+          "json_type",
+          "description",
+          "semantic_role",
+          "nullable"
+        ],
+        "title": "AgentColumnGlossaryModel",
+        "type": "object"
+      },
       "AgentPrincipalListModel": {
         "properties": {
           "principals": {
@@ -594,6 +742,336 @@
           "last_seen_at"
         ],
         "title": "AgentPrincipalModel",
+        "type": "object"
+      },
+      "AgentPublicationSampleModel": {
+        "properties": {
+          "row_count_bound": {
+            "exclusiveMinimum": 0.0,
+            "title": "Row Count Bound",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "total_row_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Row Count"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rows",
+          "row_count_bound",
+          "truncated"
+        ],
+        "title": "AgentPublicationSampleModel",
+        "type": "object"
+      },
+      "AgentPublicationTrustModel": {
+        "properties": {
+          "assessed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessed At"
+          },
+          "completeness_pct": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completeness Pct"
+          },
+          "completeness_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completeness State"
+          },
+          "confidence_verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence Verdict"
+          },
+          "freshness_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness State"
+          },
+          "guidance": {
+            "enum": [
+              "state_as_current",
+              "state_with_caveat",
+              "do_not_state_as_current",
+              "trust_unknown"
+            ],
+            "title": "Guidance",
+            "type": "string"
+          },
+          "guidance_detail": {
+            "title": "Guidance Detail",
+            "type": "string"
+          },
+          "publication_key": {
+            "minLength": 1,
+            "title": "Publication Key",
+            "type": "string"
+          },
+          "validation_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation State"
+          }
+        },
+        "required": [
+          "publication_key",
+          "guidance",
+          "guidance_detail"
+        ],
+        "title": "AgentPublicationTrustModel",
+        "type": "object"
+      },
+      "AgentSemanticIndexEntryModel": {
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/AgentColumnGlossaryModel"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "contract_path": {
+            "minLength": 1,
+            "title": "Contract Path",
+            "type": "string"
+          },
+          "display_name": {
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "lineage_path": {
+            "minLength": 1,
+            "title": "Lineage Path",
+            "type": "string"
+          },
+          "pack_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Name"
+          },
+          "pack_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Version"
+          },
+          "publication_key": {
+            "minLength": 1,
+            "title": "Publication Key",
+            "type": "string"
+          },
+          "sample": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentPublicationSampleModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_name": {
+            "minLength": 1,
+            "title": "Schema Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "minLength": 1,
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "summary": {
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          },
+          "supported_renderers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Supported Renderers",
+            "type": "array"
+          },
+          "trust": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentPublicationTrustModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ui_descriptor_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ui Descriptor Keys",
+            "type": "array"
+          },
+          "visibility": {
+            "minLength": 1,
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publication_key",
+          "display_name",
+          "summary",
+          "schema_name",
+          "schema_version",
+          "visibility",
+          "supported_renderers",
+          "ui_descriptor_keys",
+          "columns",
+          "contract_path",
+          "lineage_path"
+        ],
+        "title": "AgentSemanticIndexEntryModel",
+        "type": "object"
+      },
+      "AgentSemanticIndexEntryResponseModel": {
+        "description": "``GET /api/agent/semantic-index/{publication_key}``: one publication.",
+        "properties": {
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "publication": {
+            "$ref": "#/components/schemas/AgentSemanticIndexEntryModel"
+          },
+          "schema_version": {
+            "const": "1.1.0",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "generated_at",
+          "publication"
+        ],
+        "title": "AgentSemanticIndexEntryResponseModel",
+        "type": "object"
+      },
+      "AgentSemanticIndexPageModel": {
+        "description": "``GET /api/agent/semantic-index``: one page of the index.",
+        "properties": {
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "publications": {
+            "items": {
+              "$ref": "#/components/schemas/AgentSemanticIndexEntryModel"
+            },
+            "title": "Publications",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schema_version",
+          "generated_at",
+          "publications",
+          "total",
+          "next_cursor"
+        ],
+        "title": "AgentSemanticIndexPageModel",
         "type": "object"
       },
       "AgentToolCatalogEntryModel": {
@@ -12874,9 +13352,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Agent Semantic Index Api Agent Semantic Index Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AgentSemanticIndexPageModel"
                 }
               }
             },
@@ -12915,9 +13391,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Agent Semantic Index Entry Api Agent Semantic Index  Publication Key  Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AgentSemanticIndexEntryResponseModel"
                 }
               }
             },
