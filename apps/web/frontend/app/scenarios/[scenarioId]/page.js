@@ -130,7 +130,8 @@ export default async function ScenarioDetailPage({ params }) {
                     <th>Month</th>
                     <th>Baseline income</th>
                     <th>Scenario income</th>
-                    <th>Expenses</th>
+                    <th>Baseline expense</th>
+                    <th>Scenario expense</th>
                     <th>Baseline net</th>
                     <th>Scenario net</th>
                     <th>Net delta</th>
@@ -146,6 +147,15 @@ export default async function ScenarioDetailPage({ params }) {
                         <td>{fmt(row.baseline_income)}</td>
                         <td>{fmt(row.scenario_income)}</td>
                         <td>{fmt(row.baseline_expense)}</td>
+                        <td
+                          className={
+                            Number(row.scenario_expense) > Number(row.baseline_expense)
+                              ? "status-failed"
+                              : ""
+                          }
+                        >
+                          {fmt(row.scenario_expense)}
+                        </td>
                         <td>{fmt(row.baseline_net)}</td>
                         <td className={Number(row.scenario_net) < 0 ? "status-failed" : ""}>
                           {fmt(row.scenario_net)}

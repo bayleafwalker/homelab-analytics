@@ -119,7 +119,7 @@ export default async function ControlPage({ searchParams }) {
           </article>
         </section>
 
-        <article className="panel section">
+        <article className="panel section" id="service-tokens">
           <div className="sectionHeader">
             <div>
               <div className="eyebrow">Automation Access</div>
@@ -154,7 +154,7 @@ export default async function ControlPage({ searchParams }) {
           <ServiceTokenPanel initialTokens={serviceTokens} />
         </article>
 
-        <article className="panel section">
+        <article className="panel section" id="users">
           <div className="sectionHeader">
             <div>
               <div className="eyebrow">Bootstrap Admin</div>

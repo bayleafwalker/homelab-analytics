@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 function fmt(val) {
@@ -231,6 +232,36 @@ export function ExpenseShockPanel() {
                   </div>
                 </details>
               )}
+
+              <div className="sectionHeader" style={{ marginTop: "1rem" }}>
+                <div>
+                  <div className="eyebrow">Next step</div>
+                  <p className="muted" style={{ margin: "4px 0 0" }}>
+                    {result.is_stale
+                      ? "This scenario rests on stale inputs. Refresh the source before acting on it."
+                      : "The scenario is saved. Open it to compare against other what-ifs or revisit it later."}
+                  </p>
+                </div>
+              </div>
+              <div className="buttonRow">
+                {result.is_stale ? (
+                  <Link className="primaryButton" href="/sources">
+                    Refresh stale sources
+                  </Link>
+                ) : null}
+                <Link
+                  className={result.is_stale ? "ghostButton" : "primaryButton"}
+                  href={`/scenarios/${encodeURIComponent(result.scenario_id)}`}
+                >
+                  Open saved scenario
+                </Link>
+                <Link
+                  className="ghostButton"
+                  href={`/scenarios/compare?left=${encodeURIComponent(result.scenario_id)}`}
+                >
+                  Compare scenarios
+                </Link>
+              </div>
             </div>
           )}
         </>

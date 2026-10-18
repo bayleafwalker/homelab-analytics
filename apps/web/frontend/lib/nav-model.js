@@ -21,7 +21,7 @@ export const NAV_ENTRIES = [
   { href: "/briefing", label: "Morning brief", group: "today", minRole: "reader", keywords: "brief summary daily morning news" },
   { href: "/cashflow", label: "Cashflow map", group: "today", minRole: "reader", keywords: "sankey income spending money flow where" },
   { href: "/wallboard", label: "Wallboard", group: "today", minRole: "reader", keywords: "kiosk tablet tv ambient status" },
-  { href: "/reports", label: "Reports", group: "money", minRole: "reader", keywords: "finance monthly publications" },
+  { href: "/reports", label: "Reports", group: "money", minRole: "reader", keywords: "finance monthly publications cashflow expense shock trust" },
   { href: "/budgets", label: "Budgets", group: "money", minRole: "reader", keywords: "envelopes variance" },
   { href: "/loans", label: "Loans", group: "money", minRole: "reader", keywords: "mortgage debt repayment" },
   { href: "/costs", label: "Costs", group: "money", minRole: "reader", keywords: "cost model tariff" },
@@ -46,8 +46,8 @@ export const NAV_DEEP_LINKS = [
   { href: "/control/freshness", label: "Control: freshness", minRole: "admin", keywords: "stale sla" },
   { href: "/control/lineage", label: "Control: lineage", minRole: "admin", keywords: "graph upstream" },
   { href: "/control/confidence", label: "Control: confidence", minRole: "admin", keywords: "trust verdict" },
-  { href: "/control/users", label: "Control: users", minRole: "admin", keywords: "accounts roles" },
-  { href: "/control/service-tokens", label: "Control: service tokens", minRole: "admin", keywords: "api tokens" },
+  { href: "/control#users", label: "Control: users", minRole: "admin", keywords: "accounts roles" },
+  { href: "/control#service-tokens", label: "Control: service tokens", minRole: "admin", keywords: "api tokens" },
   { href: "/first-answer", label: "First answer", minRole: "reader", keywords: "first run result" },
   { href: "/retro", label: "Retro shell", minRole: "reader", keywords: "crt cockpit terminal" },
 ];
@@ -63,6 +63,7 @@ export const NAV_UNLISTED_ROUTES = {
   retro: "secondary shell, linked from the rail footer",
   "first-answer": "post-upload landing, reached from onboarding",
   "ingest-summary": "post-upload landing, reached from upload",
+  api: "same-origin API proxy route handlers for client components",
 };
 
 export function hasRequiredRole(user, requiredRole) {
