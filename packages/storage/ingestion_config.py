@@ -54,6 +54,7 @@ from packages.storage.ingestion_catalog import (
     validate_publication_support,
     validate_transformation_handler_key,
 )
+from packages.storage.sqlite_action_proposal_store import SQLiteActionProposalStoreMixin
 from packages.storage.sqlite_asset_definition_catalog import (
     SQLiteAssetDefinitionCatalogMixin,
 )
@@ -137,6 +138,7 @@ class IngestionConfigRepository(
     SQLitePolicyRegistryMixin,
     SQLiteDecisionLedgerMixin,
     SQLitePackLifecycleMixin,
+    SQLiteActionProposalStoreMixin,
 ):
     def __init__(self, database_path: Path) -> None:
         self.database_path = database_path

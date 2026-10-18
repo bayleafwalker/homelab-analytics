@@ -32,7 +32,7 @@ const ERROR_COPY = {
   "proposal-forbidden":
     "This session cannot resolve proposals. Agents and service tokens can draft but never approve; sign in as an operator.",
   "proposal-missing":
-    "That proposal no longer exists. The queue is held in memory and is cleared when the API restarts.",
+    "That proposal does not exist. Check the link; resolved proposals stay listed under History.",
   "proposal-release-failed":
     "Home Assistant did not accept the approval release, so the proposal stays pending.",
   "proposal-resolution-failed": "Could not resolve the proposal."
@@ -257,6 +257,7 @@ function HistoryCard({ proposal }) {
             <span>
               {event.at}
               {event.actor ? ` · ${event.actor}` : ""}
+              {event.actor_auth_provider ? ` (${event.actor_auth_provider})` : ""}
               {event.reason ? ` — “${event.reason}”` : ""}
             </span>
           </li>
@@ -485,7 +486,7 @@ export default async function ControlAgentsPage({ searchParams }) {
           <article className="panel metricCard">
             <div className="metricLabel">Resolved</div>
             <div className="metricValue">{resolved.length}</div>
-            <div className="muted">Since the API last started (queue is in memory).</div>
+            <div className="muted">Kept in the control plane with their full history.</div>
           </article>
           <article className="panel metricCard">
             <div className="metricLabel">Agent identities</div>

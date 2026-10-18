@@ -429,7 +429,8 @@ AGENT_TOOL_SPECS: tuple[AgentToolSpec, ...] = (
                     "pattern": "^[A-Za-z0-9._:-]{8,128}$",
                     "description": (
                         "Retry-safe key; the same key refreshes the same "
-                        "pending proposal instead of creating a duplicate."
+                        "pending proposal instead of creating a duplicate, "
+                        "and returns it unchanged once it is resolved."
                     ),
                 },
             },

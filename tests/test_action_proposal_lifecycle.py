@@ -59,6 +59,7 @@ def test_registry_records_drafted_and_resolution_history() -> None:
         "at": resolved.approved_at,
         "actor": "operator",
         "reason": "looks right",
+        "actor_auth_provider": None,
     }
 
 
@@ -76,8 +77,9 @@ def test_registry_refresh_appends_history_only_on_change() -> None:
     registry = ActionProposalRegistry()
     proposal = _register(registry, action_id="fixed")
     _register(registry, action_id="fixed")
-    _register(registry, action_id="fixed", value="2")
-    assert [event.kind for event in proposal.history] == ["drafted", "refreshed"]
+    refreshed = _register(registry, action_id="fixed", value="2")
+    assert refreshed.created_at == proposal.created_at
+    assert [event.kind for event in refreshed.history] == ["drafted", "refreshed"]
 
 
 def _open_client(tmp: str) -> TestClient:
@@ -175,6 +177,7 @@ def test_machine_principal_can_draft_but_not_resolve() -> None:
         drafted = agent.post("/api/actions/proposals", json=_BODY, headers=bearer)
         assert drafted.status_code == 200
         assert drafted.json()["created_by"] == "mcp-agent"
+        assert drafted.json()["history"][0]["actor_auth_provider"] == "service_token"
         action_id = drafted.json()["action_id"]
 
         for prefix in ("/api/actions/proposals", "/api/ha/actions/proposals"):
@@ -191,3 +194,4 @@ def test_machine_principal_can_draft_but_not_resolve() -> None:
         payload = approved.json()
         assert payload["resolved_by"] == "admin"
         assert payload["history"][-1]["actor"] == "admin"
+        assert payload["history"][-1]["actor_auth_provider"] == "local"

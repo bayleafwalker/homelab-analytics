@@ -372,6 +372,49 @@ def initialize_sqlite_control_plane_schema(connection: sqlite3.Connection) -> No
         CREATE INDEX IF NOT EXISTS idx_pack_lifecycle_events_pack
             ON pack_lifecycle_events (pack_key, occurred_at);
 
+        CREATE TABLE IF NOT EXISTS action_proposals (
+            action_id TEXT PRIMARY KEY,
+            policy_id TEXT NOT NULL,
+            policy_name TEXT NOT NULL,
+            verdict TEXT NOT NULL,
+            value TEXT,
+            notification_id TEXT NOT NULL,
+            adapter TEXT NOT NULL,
+            source_kind TEXT NOT NULL,
+            source_key TEXT,
+            source_summary TEXT,
+            created_by TEXT,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            approved_at TEXT,
+            dismissed_at TEXT,
+            metadata_json TEXT NOT NULL,
+            provenance_publication_keys_json TEXT,
+            provenance_confidence_verdict TEXT,
+            provenance_freshness_state TEXT,
+            provenance_assessed_at TEXT,
+            provenance_trust_source TEXT,
+            resolved_by TEXT,
+            resolution_reason TEXT,
+            idempotency_key TEXT UNIQUE,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_action_proposals_status_created
+            ON action_proposals (status, created_at);
+
+        CREATE TABLE IF NOT EXISTS action_proposal_events (
+            event_id TEXT PRIMARY KEY,
+            action_id TEXT NOT NULL REFERENCES action_proposals (action_id),
+            sequence INTEGER NOT NULL,
+            kind TEXT NOT NULL,
+            occurred_at TEXT NOT NULL,
+            actor TEXT,
+            actor_auth_provider TEXT,
+            reason TEXT,
+            UNIQUE (action_id, sequence)
+        );
+
         CREATE TABLE IF NOT EXISTS local_users (
             user_id TEXT PRIMARY KEY,
             username TEXT NOT NULL UNIQUE,

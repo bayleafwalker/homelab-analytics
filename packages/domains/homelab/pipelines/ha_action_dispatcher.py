@@ -486,6 +486,9 @@ class HaActionDispatcher:
                             **dict(getattr(result, "metadata", {}) or {}),
                         },
                         action_id=target,
+                        # The same HA gate re-raises after an earlier
+                        # resolution; history keeps the prior decision.
+                        reopen_resolved=True,
                     )
                 else:
                     try:

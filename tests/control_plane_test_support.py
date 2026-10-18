@@ -1421,3 +1421,267 @@ def assert_decision_ledger_behaviour(store: Any) -> None:
         pass
     else:
         raise AssertionError("expected KeyError for follow-up on unknown decision")
+
+
+def assert_action_proposal_store_behaviour(store: Any) -> None:
+    """Durable proposal queue: CAS transitions, idempotency, append-only history.
+
+    Runs against every ``ActionProposalStore`` (in-memory, SQLite, Postgres)
+    through the registry, so all backends enforce the same lifecycle.
+    """
+    from packages.platform.action_proposals import (
+        ActionProposal,
+        ActionProposalRegistry,
+        ActionProposalStore,
+        ProposalConflictError,
+        ProposalHistoryEvent,
+        ProposalProvenance,
+        ProposalTransitionError,
+    )
+
+    assert isinstance(store, ActionProposalStore)
+    registry = ActionProposalRegistry(store=store)
+
+    drafted = registry.register(
+        policy_id="mcp:propose_action",
+        policy_name="Lower office heating",
+        verdict="notify",
+        value="19.5",
+        notification_id=None,
+        adapter="platform",
+        source_kind="agent",
+        created_by="mcp-agent",
+        metadata={"room": "office", "nested": {"a": 1}},
+        provenance=ProposalProvenance(
+            publication_keys=["monthly_cashflow", "energy_usage"],
+            confidence_verdict_at_draft="degraded",
+            freshness_state_at_draft="due_soon",
+            assessed_at="2026-10-01T08:00:00+00:00",
+            trust_source="server_stamped",
+        ),
+        idempotency_key="contract-key-0001",
+        actor_auth_provider="service_token",
+    )
+    assert drafted.action_id == "agent_contract-key-0001"
+    assert drafted.status == "pending"
+    assert drafted.idempotency_key == "contract-key-0001"
+    assert drafted.metadata == {"room": "office", "nested": {"a": 1}}
+    assert drafted.provenance is not None
+    assert drafted.provenance.publication_keys == ["monthly_cashflow", "energy_usage"]
+    assert drafted.provenance.confidence_verdict_at_draft == "degraded"
+    assert drafted.provenance.trust_source == "server_stamped"
+    assert datetime.fromisoformat(drafted.created_at).tzinfo is not None
+    assert [(e.kind, e.actor, e.actor_auth_provider) for e in drafted.history] == [
+        ("drafted", "mcp-agent", "service_token")
+    ]
+
+    # Replays of the key refresh the pending proposal, never duplicate it.
+    replay = registry.register(
+        policy_id="mcp:propose_action",
+        policy_name="Lower office heating",
+        verdict="notify",
+        value="19.0",
+        notification_id=None,
+        adapter="platform",
+        source_kind="agent",
+        created_by="mcp-agent",
+        idempotency_key="contract-key-0001",
+    )
+    assert replay.action_id == drafted.action_id
+    assert replay.value == "19.0"
+    assert replay.created_at == drafted.created_at
+    assert [e.kind for e in replay.history] == ["drafted", "refreshed"]
+    assert len(registry.list_all()) == 1
+
+    # Another drafter cannot reuse the key.
+    try:
+        registry.register(
+            policy_id="x",
+            policy_name="x",
+            verdict="notify",
+            value=None,
+            notification_id=None,
+            created_by="someone-else",
+            idempotency_key="contract-key-0001",
+        )
+    except ProposalConflictError:
+        pass
+    else:
+        raise AssertionError("expected ProposalConflictError for a foreign key replay")
+
+    # Direct inserts collide on the action id and on the idempotency key.
+    for duplicate in (
+        ActionProposal(
+            action_id=drafted.action_id,
+            policy_id="x",
+            policy_name="x",
+            verdict="notify",
+            value=None,
+            notification_id="n",
+        ),
+        ActionProposal(
+            action_id="other-id",
+            policy_id="x",
+            policy_name="x",
+            verdict="notify",
+            value=None,
+            notification_id="n",
+            idempotency_key="contract-key-0001",
+        ),
+    ):
+        try:
+            store.insert_action_proposal(duplicate)
+        except ProposalConflictError:
+            pass
+        else:
+            raise AssertionError("expected ProposalConflictError on duplicate insert")
+
+    approved = registry.approve(
+        drafted.action_id,
+        resolved_by="operator-a",
+        reason=" checked ",
+        actor_auth_provider="oidc",
+    )
+    assert approved.status == "approved"
+    assert approved.approved_at is not None
+    assert approved.resolved_by == "operator-a"
+    assert approved.resolution_reason == "checked"
+    assert approved.history[-1] == ProposalHistoryEvent(
+        kind="approved",
+        at=approved.approved_at,
+        actor="operator-a",
+        reason="checked",
+        actor_auth_provider="oidc",
+    )
+
+    # Second resolution is refused and leaves the decision intact.
+    try:
+        registry.dismiss(drafted.action_id, resolved_by="operator-b")
+    except ProposalTransitionError as exc:
+        assert exc.status == "approved"
+    else:
+        raise AssertionError("expected ProposalTransitionError on second resolution")
+    # A stale compare-and-set writes nothing, not even an event.
+    assert (
+        store.update_action_proposal(
+            approved,
+            expected_status="pending",
+            event=ProposalHistoryEvent(kind="dismissed", at=approved.created_at),
+        )
+        is False
+    )
+
+    # A key replay after resolution returns the decision unchanged.
+    after = registry.register(
+        policy_id="mcp:propose_action",
+        policy_name="Lower office heating",
+        verdict="notify",
+        value="18.0",
+        notification_id=None,
+        created_by="mcp-agent",
+        idempotency_key="contract-key-0001",
+    )
+    assert after == approved
+
+    # Re-registering a resolved action id is refused unless reopening.
+    gate = registry.register(
+        policy_id="policy-1",
+        policy_name="Gate",
+        verdict="approval_required",
+        value="on",
+        notification_id="ha-gate-1",
+        action_id="ha-gate-1",
+        created_by="ha_action_dispatcher",
+    )
+    registry.dismiss(gate.action_id, resolved_by="ha_action_dispatcher", reason="cleared")
+    try:
+        registry.register(
+            policy_id="policy-1",
+            policy_name="Gate",
+            verdict="approval_required",
+            value="on",
+            notification_id="ha-gate-1",
+            action_id="ha-gate-1",
+        )
+    except ProposalTransitionError:
+        pass
+    else:
+        raise AssertionError("expected ProposalTransitionError without reopen_resolved")
+    reopened = registry.register(
+        policy_id="policy-1",
+        policy_name="Gate",
+        verdict="approval_required",
+        value="on",
+        notification_id="ha-gate-1",
+        action_id="ha-gate-1",
+        created_by="ha_action_dispatcher",
+        reopen_resolved=True,
+    )
+    assert reopened.status == "pending"
+    assert reopened.resolved_by is None and reopened.dismissed_at is None
+    assert [e.kind for e in reopened.history] == ["drafted", "dismissed", "reopened"]
+
+    listed = registry.list_all()
+    assert [p.action_id for p in listed] == ["ha-gate-1", drafted.action_id]
+    assert registry.get_status() == {
+        "tracked": 2,
+        "pending": 1,
+        "approved": 1,
+        "dismissed": 0,
+    }
+    assert store.get_action_proposal("missing") is None
+    assert store.find_action_proposal_by_idempotency_key("missing-key") is None
+    try:
+        registry.approve("missing")
+    except KeyError:
+        pass
+    else:
+        raise AssertionError("expected KeyError for unknown proposal")
+
+
+def assert_action_proposal_resolution_is_exclusive(store: Any) -> None:
+    """Concurrent resolvers on one proposal: exactly one wins."""
+    from packages.platform.action_proposals import (
+        ActionProposalRegistry,
+        ProposalTransitionError,
+    )
+
+    registry = ActionProposalRegistry(store=store)
+    proposal = registry.register(
+        policy_id="race",
+        policy_name="Race",
+        verdict="notify",
+        value=None,
+        notification_id=None,
+        adapter="platform",
+        source_kind="agent",
+        created_by="agent",
+    )
+    workers = 6
+    barrier = Barrier(workers)
+    outcomes: list[str] = []
+    outcome_lock = Lock()
+
+    def resolve(index: int) -> None:
+        barrier.wait()
+        try:
+            if index % 2:
+                registry.approve(proposal.action_id, resolved_by=f"op-{index}")
+            else:
+                registry.dismiss(proposal.action_id, resolved_by=f"op-{index}")
+            result = "won"
+        except ProposalTransitionError:
+            result = "conflict"
+        with outcome_lock:
+            outcomes.append(result)
+
+    threads = [Thread(target=resolve, args=(index,)) for index in range(workers)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert sorted(outcomes) == ["conflict"] * (workers - 1) + ["won"]
+    stored = registry.get(proposal.action_id)
+    assert stored is not None
+    assert [e.kind for e in stored.history].count("drafted") == 1
+    assert len(stored.history) == 2

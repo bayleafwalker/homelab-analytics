@@ -17,6 +17,7 @@ from packages.storage.migration_runner import (
     apply_pending_postgres_migrations,
     resolve_migrations_dir,
 )
+from packages.storage.postgres_action_proposal_store import PostgresActionProposalStoreMixin
 from packages.storage.postgres_asset_definition_catalog import (
     PostgresAssetDefinitionCatalogMixin,
 )
@@ -65,6 +66,7 @@ class PostgresIngestionConfigRepository(
     PostgresAuthControlPlaneMixin,
     PostgresDecisionLedgerMixin,
     PostgresPackLifecycleMixin,
+    PostgresActionProposalStoreMixin,
 ):
     """Canonical Postgres-backed control-plane repository.
 

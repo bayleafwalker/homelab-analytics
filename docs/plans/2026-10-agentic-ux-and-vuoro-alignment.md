@@ -27,7 +27,7 @@ These are ordered by severity. Every item marked **fixed** is fixed in this bran
 5. **Confidence key namespace split (worked around).** The refresh path records confidence snapshots under the relation name (`mart_monthly_cashflow`). Contracts, the semantic index, and agents use the contract key (`monthly_cashflow`). A naive lookup would read every publication as `trust_unknown`. `build_publication_confidence_lookup` (`apps/api/routes/agent_routes.py`) bridges the two. The assistant routes' hardcoded `mart_*` key lists happen to match the snapshot namespace. The real fix is to pick one key, and that needs a coordination decision with the confidence owner. **Resolved (wave 2, `refactor/core-split-and-dedupe`):** the relation name is the canonical snapshot key, matching lineage, refresh handlers, control-plane publication definitions, policies, and the morning brief. `PublicationKeyResolver` (`packages/platform/publication_keys.py`) is the single mapping; writes canonicalize through it, contract and agent reads resolve through `get_latest_publication_confidence(..., key_resolver=...)` and still read legacy contract-keyed snapshots, and the agent-route bridge is removed.
 6. **No answer-honesty signal for agents (fixed).** See section 3.
 7. **No resolver audit (fixed).** Proposals now record `resolved_by`, `resolution_reason`, and an append-only `history` (`drafted` / `refreshed` / `approved` / `dismissed`).
-8. **The proposal queue lives in memory (open).** It is lost on API restart, and the UI says so. Persisting it needs a migration, and the decision-ledger work currently owns that space (section 7).
+8. **The proposal queue lived in memory (fixed in wave 2, `feat/agent-platform-identity`).** The control plane now persists it (sqlite `0009_action_proposal_queue`, postgres `0016_action_proposal_queue`): `action_proposals` holds current state and `action_proposal_events` the append-only history. Every transition is a compare-and-set on status, so concurrent resolvers get one resolution and one `409`. `idempotency_key` is unique; a replay returns the proposal it created and never reopens a resolved one, and a key reused by another drafter is a `409`. Drafting over a resolved `action_id` through the API is a `409`; only the HA dispatcher re-raises a resolved gate, which appends a `reopened` event. Provenance records `trust_source` (`server_stamped` or `proposer_supplied`), and history events record `actor_auth_provider`. The UI caveat is gone.
 
 ## 3. What agents see now (MCP and API)
 
@@ -145,7 +145,7 @@ The module is `packages/application/use_cases/assistant_runtime.py` and its brok
 
 ## 7. Follow-ups (not in this branch)
 
-1. **Persist the proposal queue** (postgres + sqlite migrations). Wait for the decision-ledger migrations to land, so the two do not collide on migration numbers.
+1. ~~**Persist the proposal queue**~~ — done in wave 2 (see 2.8).
 2. **A `proposals:draft` service-token scope**, so an MCP agent token stops needing `admin:write`. This needs the route-policy engine to accept a scope set during migration.
 3. **Unify the confidence key namespace** (section 2.5) with the confidence owner.
 4. **Retro-shell mirror of `/control/agents`**, read-only, as the policies mirror is.

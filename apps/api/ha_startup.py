@@ -15,6 +15,7 @@ from packages.domains.homelab.pipelines.ha_policy import (
 )
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
+from packages.platform.action_proposals import build_action_proposal_registry
 from packages.platform.capability_types import CapabilityPack
 from packages.shared.settings import AppSettings
 
@@ -268,7 +269,8 @@ def build_ha_startup_runtime(
         logging.getLogger("homelab_analytics.ha_startup").info(
             "policy seed reconciliation", extra={"summary": seed_summary}
         )
-    ha_action_proposal_registry = ApprovalActionRegistry()
+    # The control-plane store persists the approval queue across restarts.
+    ha_action_proposal_registry = build_action_proposal_registry(control_plane_store)
 
     ha_action_dispatcher = None
     if settings.ha_url and settings.ha_token:
