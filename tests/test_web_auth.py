@@ -1102,3 +1102,53 @@ def test_nextjs_frontend_exposes_deterministic_morning_brief() -> None:
         '"/api/lineage/publication/{publication_key}": '
         '"get_publication_lineage_api_lineage_publication__publication_key__get"'
     ) in backend_source
+
+
+def test_nextjs_frontend_exposes_battery_plan_outcome_and_decision_ledger() -> None:
+    page_root = FRONTEND_ROOT / "app" / "utilities" / "battery-plan"
+    page = (page_root / "page.js").read_text()
+    decision_route = (page_root / "decisions" / "route.js").read_text()
+    follow_up_route = (
+        page_root / "decisions" / "[decisionId]" / "follow-ups" / "route.js"
+    ).read_text()
+    backend = (FRONTEND_ROOT / "lib" / "backend.ts").read_text()
+    utilities_page = (FRONTEND_ROOT / "app" / "utilities" / "page.js").read_text()
+
+    # Reads only through the typed reporting/control helpers.
+    assert "getCurrentUser()" in page
+    assert "getBatteryPlanOutcome(" in page
+    assert "getDecisionRecords(DECISION_KEY)" in page
+    assert "ReportingService(" not in page
+    assert "export async function getBatteryPlanOutcome(" in backend
+    assert "export async function getDecisionRecords(" in backend
+    assert (
+        '"/reports/battery-plan-outcome": '
+        '"get_battery_plan_outcome_reports_battery_plan_outcome_get";'
+    ) in backend
+    assert '"/control/decisions": "list_decisions_control_decisions_get";' in backend
+    assert 'href="/utilities/battery-plan"' in utilities_page
+
+    # Disclosures: verdict, remediation, per-value status, missing values,
+    # tariff assumptions and lineage are rendered; estimates are not cash.
+    for marker in (
+        "insufficient_evidence",
+        "row.remediation",
+        "value.value_status",
+        "value.is_missing",
+        "tariff_snapshot_id",
+        "source_run_ids_json",
+        "not realized cash",
+    ):
+        assert marker in page
+
+    # Only operators/admins see the decision forms; readers see history.
+    assert 'user.role === "operator" || user.role === "admin"' in page
+    assert "evidence_gaps_acknowledged" in page
+    assert "Recording a decision authorizes nothing" in page
+
+    for source in (decision_route, follow_up_route):
+        assert "// @ts-check" in source
+        assert "cookieHeader" in source
+    assert 'backendRequest("post", "/control/decisions"' in decision_route
+    assert '"/control/decisions/{decision_id}/follow-ups"' in follow_up_route
+    assert "toISOString()" in follow_up_route
