@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
 import { AsOfScrubber } from "@/components/as-of-scrubber";
+import { HistoryTag, NoHistory, currentRead, historyNote } from "@/components/as-of-history";
 import { Explain } from "@/components/explain-server";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
@@ -12,16 +13,22 @@ import { StatePanel } from "@/components/state-panel";
 import { formatMoney, formatMonth, monthsBetween } from "@/lib/format";
 import {
   getAffordabilityRatios,
+  getAffordabilityRatiosAsOf,
   getAttentionItems,
+  getAttentionItemsAsOf,
   getCurrentUser,
   getHouseholdOverview,
+  getHouseholdOverviewAsOf,
   getMonthlyCashflow,
   getRecentChanges,
+  getRecentChangesAsOf,
   getRecurringCostBaseline,
+  getRecurringCostBaselineAsOf,
   getRuns,
   getSourceFreshness,
   getSpendByCategoryMonthly,
   getSubscriptionSummary,
+  getSubscriptionSummaryAsOf,
   getUtilityCostTrend,
 } from "@/lib/backend";
 
@@ -31,10 +38,32 @@ function dashboardHref(month) {
   return month ? `/?asof=${month}` : "/";
 }
 
+// Snapshot reads for the current-only publications, fetched alongside the
+// live reads whenever a month is requested. Used only if that month turns
+// out to be a past published month.
+function snapshotReads(month) {
+  if (!month) return Promise.resolve(null);
+  return Promise.all([
+    getHouseholdOverviewAsOf(month),
+    getAttentionItemsAsOf(month),
+    getRecentChangesAsOf(month),
+    getSubscriptionSummaryAsOf(month),
+    getAffordabilityRatiosAsOf(month),
+    getRecurringCostBaselineAsOf(month),
+  ]).then(([overview, attention, changes, subscriptions, ratios, baseline]) => ({
+    overview,
+    attention,
+    changes,
+    subscriptions,
+    ratios,
+    baseline,
+  }));
+}
+
 export default async function DashboardPage({ searchParams }) {
   const requestedAsOf = MONTH_RE.test(searchParams?.asof || "") ? searchParams.asof : null;
   const user = await getCurrentUser();
-  const [cashflowRows, runs, overview, attentionItems, recentChanges, spendByCategory, subscriptions, utilityTrend, affordabilityRatios, recurringBaseline, freshnessDatasets] =
+  const [cashflowRows, runs, liveOverview, liveAttention, liveChanges, spendByCategory, liveSubscriptions, utilityTrend, liveRatios, liveBaseline, freshnessDatasets, pastReads] =
     await Promise.all([
       getMonthlyCashflow(),
       getRuns(8),
@@ -49,20 +78,39 @@ export default async function DashboardPage({ searchParams }) {
       // Source freshness is an admin control-plane read; other roles get the
       // checklist without per-source freshness instead of a failed page.
       user?.role === "admin" ? getSourceFreshness() : Promise.resolve([]),
+      snapshotReads(requestedAsOf),
     ]);
   // As-of view: month-keyed publications (monthly cashflow, spend by
-  // category, utility trend) rewind to the chosen month. Snapshot
-  // publications (overview, ratios, baseline, attention, recent changes) have
-  // no history in the reporting layer and keep showing today's state, marked
-  // as such.
+  // category, utility trend) rewind by filtering their own months. The
+  // current-only publications (overview, attention items, recent changes,
+  // subscriptions, ratios, recurring baseline) are read from the reporting
+  // layer's dated snapshot for that month; a month without one shows
+  // "No history" instead of today's rows.
   const publishedMonths = cashflowRows.map((r) => r.booking_month);
   const newest = cashflowRows.at(-1);
   const asOf = requestedAsOf && publishedMonths.includes(requestedAsOf) ? requestedAsOf : newest?.booking_month || null;
-  const viewingPast = Boolean(newest && asOf && asOf !== newest.booking_month);
+  const viewingPast = Boolean(newest && asOf && asOf !== newest.booking_month && pastReads);
+  const reads = viewingPast
+    ? pastReads
+    : {
+        overview: currentRead(liveOverview ? [liveOverview] : []),
+        attention: currentRead(liveAttention),
+        changes: currentRead(liveChanges),
+        subscriptions: currentRead(liveSubscriptions),
+        ratios: currentRead(liveRatios),
+        baseline: currentRead(liveBaseline),
+      };
+  const overview = reads.overview.rows[0] || null;
+  const attentionItems = reads.attention.rows;
+  const recentChanges = reads.changes.rows;
+  const subscriptions = reads.subscriptions.rows;
+  const affordabilityRatios = reads.ratios.rows;
+  const recurringBaseline = reads.baseline.rows;
+  const noHistory = (read) => read.status === "no_history";
   const asOfIndex = cashflowRows.findIndex((r) => r.booking_month === asOf);
   const visibleCashflow = asOfIndex >= 0 ? cashflowRows.slice(0, asOfIndex + 1) : cashflowRows;
   const latest = visibleCashflow.at(-1);
-  const currency = overview?.currency || null;
+  const currency = overview?.currency || liveOverview?.currency || null;
   const money = (value) => formatMoney(value, currency);
   const now = new Date();
   const dataLagMonths = newest
@@ -133,7 +181,10 @@ export default async function DashboardPage({ searchParams }) {
     },
   ];
 
-  const hero = viewingPast
+  // A past month's hero comes from that month's overview snapshot when one
+  // exists, and from the monthly cashflow mart otherwise.
+  const pastOverview = viewingPast && overview?.cashflow_net != null && overview.current_month === asOf;
+  const hero = viewingPast && !pastOverview
     ? latest && {
         month: latest.booking_month,
         net: latest.net,
@@ -157,7 +208,11 @@ export default async function DashboardPage({ searchParams }) {
         }
       : null;
   const monthFilter = latest ? { booking_month: latest.booking_month } : null;
-  const todayOnly = viewingPast ? <span className="pill" data-tone="neutral">Today</span> : null;
+  const heroNote = !viewingPast
+    ? null
+    : pastOverview
+      ? historyNote(reads.overview)
+      : "No household overview snapshot for this month, so the figures are read from the monthly cashflow mart.";
 
   return (
     <AppShell
@@ -179,11 +234,7 @@ export default async function DashboardPage({ searchParams }) {
                 field={hero.field}
                 filter={hero.filter}
                 placement="start"
-                note={
-                  viewingPast
-                    ? "Past months are read from the monthly cashflow mart; the household overview only holds the current month."
-                    : null
-                }
+                note={heroNote}
               />
             ) : null}
           </div>
@@ -241,7 +292,7 @@ export default async function DashboardPage({ searchParams }) {
         label="View the dashboard as of a month"
         note={
           viewingPast
-            ? "Money, categories, utilities and the trend are shown as they were published for this month. Ratios, fixed commitments, items to review and recent changes keep no history, so they still show today and are marked Today."
+            ? "Money, categories, utilities and the trend are shown for this month. Ratios, fixed commitments, recurring costs, items to review and recent changes are shown as the reporting layer snapshotted them when this was the newest month; a panel with no snapshot for it says so instead of showing today."
             : null
         }
       />
@@ -274,6 +325,13 @@ export default async function DashboardPage({ searchParams }) {
         ))}
       </section>
 
+      {noHistory(reads.ratios) && (
+        <section className="panel section" aria-label="Affordability ratios">
+          <div className="eyebrow">Affordability ratios</div>
+          <NoHistory month={asOf} what="the affordability ratios" />
+        </section>
+      )}
+
       {affordabilityRatios.length > 0 && (
         <section className="cards">
           {affordabilityRatios.map((r) => {
@@ -287,7 +345,7 @@ export default async function DashboardPage({ searchParams }) {
               <article key={r.ratio_name} className="panel metricCard">
                 <div className="metricLabel metricLabelRow">
                   <span>{label}</span>
-                  {todayOnly}
+                  <HistoryTag read={reads.ratios} />
                 </div>
                 <div className="metricValue" style={{ color: state.color }}>
                   {(Number(r.ratio) * 100).toFixed(1)}%
@@ -300,15 +358,18 @@ export default async function DashboardPage({ searchParams }) {
         </section>
       )}
 
-      {recurringBaseline.length > 0 && (
+      {(recurringBaseline.length > 0 || noHistory(reads.baseline)) && (
         <article className="panel section">
           <div className="sectionHeader">
             <div>
               <div className="eyebrow">Recurring baseline</div>
-              <h2>Fixed monthly commitments {todayOnly}</h2>
+              <h2>Fixed monthly commitments <HistoryTag read={reads.baseline} /></h2>
             </div>
             <Link className="inlineLink" href="/costs">View cost model</Link>
           </div>
+          {noHistory(reads.baseline) ? (
+            <NoHistory month={asOf} what="the fixed monthly commitments" />
+          ) : (
           <ResponsiveTable
             label="Fixed monthly commitments"
             rows={recurringBaseline}
@@ -324,6 +385,7 @@ export default async function DashboardPage({ searchParams }) {
               { key: "confidence", header: "Confidence", cell: (row) => <span className="muted">{row.confidence}</span> },
             ]}
           />
+          )}
         </article>
       )}
 
@@ -332,7 +394,10 @@ export default async function DashboardPage({ searchParams }) {
           <div className="sectionHeader">
             <div>
               <div className="eyebrow">Trend</div>
-              <h2>Cashflow, 12 months to {formatMonth(latest?.booking_month, { short: true })}</h2>
+              <h2>
+                Cashflow, {trendRows.length === 1 ? "1 month" : `${trendRows.length} months`} to{" "}
+                {formatMonth(latest?.booking_month, { short: true })}
+              </h2>
             </div>
           </div>
           <SparklineChart series={trendSeries} labels={trendLabels} height={120} width={600} />
@@ -395,7 +460,7 @@ export default async function DashboardPage({ searchParams }) {
         <article className="panel section">
           <div className="eyebrow metricLabelRow">
             <span>Recurring Costs</span>
-            {todayOnly}
+            <HistoryTag read={reads.subscriptions} />
             {subscriptions.length > 0 ? (
               <Explain
                 publication="mart_subscription_summary"
@@ -403,16 +468,27 @@ export default async function DashboardPage({ searchParams }) {
                 label="Recurring costs per month"
                 field="monthly_equivalent"
                 filter={{ status: "active" }}
-                note="Sum of the monthly equivalent of every active subscription."
+                note={[
+                  "Sum of the monthly equivalent of every active subscription.",
+                  historyNote(reads.subscriptions),
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
               />
             ) : null}
           </div>
-          <h3 style={{ margin: "4px 0 4px" }}>
-            {subscriptions.length > 0 ? `${money(recurringTotal)} / mo` : "No data"}
-          </h3>
-          <div className="muted" style={{ fontSize: "0.85rem" }}>
-            {subscriptions.filter((r) => r.status === "active").length} active subscriptions
-          </div>
+          {noHistory(reads.subscriptions) ? (
+            <NoHistory month={asOf} what="the subscriptions" />
+          ) : (
+            <>
+              <h3 style={{ margin: "4px 0 4px" }}>
+                {subscriptions.length > 0 ? `${money(recurringTotal)} / mo` : "No data"}
+              </h3>
+              <div className="muted" style={{ fontSize: "0.85rem" }}>
+                {subscriptions.filter((r) => r.status === "active").length} active subscriptions
+              </div>
+            </>
+          )}
         </article>
       </section>
 
@@ -457,15 +533,17 @@ export default async function DashboardPage({ searchParams }) {
             <div className="sectionHeader">
               <div>
                 <div className="eyebrow">Attention</div>
-                <h2>Items to review {todayOnly}</h2>
+                <h2>Items to review <HistoryTag read={reads.attention} /></h2>
               </div>
               <Link className="inlineLink" href="/review">See all →</Link>
             </div>
-            {attentionItems.length === 0 ? (
+            {noHistory(reads.attention) ? (
+              <NoHistory month={asOf} what="the items to review" />
+            ) : attentionItems.length === 0 ? (
               <div className="empty">Nothing requires attention.</div>
             ) : (
               <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "10px" }}>
-                {attentionItems
+                {[...attentionItems]
                   .sort((a, b) => (a.severity ?? 9) - (b.severity ?? 9))
                   .map((item, i) => (
                     <li key={i} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
@@ -490,14 +568,20 @@ export default async function DashboardPage({ searchParams }) {
             <div className="sectionHeader">
               <div>
                 <div className="eyebrow">Activity</div>
-                <h2>Recent changes {todayOnly}</h2>
+                <h2>Recent changes <HistoryTag read={reads.changes} /></h2>
               </div>
             </div>
             <ResponsiveTable
               label="Recent changes"
               rows={recentChanges}
               dense
-              empty={<div className="empty">No recent changes recorded.</div>}
+              empty={
+                noHistory(reads.changes) ? (
+                  <NoHistory month={asOf} what="the recent changes" />
+                ) : (
+                  <div className="empty">No recent changes recorded.</div>
+                )
+              }
               columns={[
                 // The mart carries description + period; there is no metric_name.
                 { key: "description", header: "What changed", primary: true },

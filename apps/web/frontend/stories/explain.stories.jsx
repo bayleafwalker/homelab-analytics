@@ -13,7 +13,14 @@ export default meta;
 const singleNode = {
   publicationKey: "mart_monthly_cashflow",
   publicationName: "Monthly cashflow mart",
-  lineage: { counts: { source: 0, run: 0, relation: 0 }, runs: [], sources: [], recorded: false },
+  lineage: {
+    counts: { relation: 0, run: 0, asset: 0, source: 0 },
+    runs: [],
+    sources: [],
+    relations: [],
+    assets: [],
+    recorded: false,
+  },
   lineageError: null,
   confidence: { verdict: "degraded", freshness: "due_soon", completeness: 80, assessedAt: "2026-10-18T06:00:00Z" },
   canSeeControl: true,
@@ -23,9 +30,11 @@ const recorded = {
   publicationKey: "mart_spend_by_category_monthly",
   publicationName: "Spend by category",
   lineage: {
-    counts: { source: 2, run: 3, relation: 1 },
+    counts: { relation: 2, run: 3, asset: 3, source: 2 },
     runs: ["run-a", "run-b", "run-c"],
     sources: ["demo_op_personal_export", "demo_revolut_export"],
+    relations: ["fact_transaction", "dim_category"],
+    assets: ["demo_op_personal", "demo_op_common", "demo_revolut"],
     recorded: true,
   },
   lineageError: null,

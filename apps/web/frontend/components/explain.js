@@ -23,10 +23,13 @@ const VERDICT_TONE = {
   unavailable: "neutral",
 };
 
+// Walks upstream from the figure: what the mart was built from, the runs that
+// loaded it, the source assets they landed and the systems those came from.
 const THREAD = [
-  { type: "relation", one: "relation it was built from", many: "relations it was built from" },
+  { type: "relation", one: "relation it was built from", many: "relations it was built from", names: "relations" },
   { type: "run", one: "ingestion run behind it", many: "ingestion runs behind it" },
-  { type: "source", one: "source system", many: "source systems" },
+  { type: "asset", one: "source asset landed", many: "source assets landed", names: "assets" },
+  { type: "source", one: "source system", many: "source systems", names: "sources" },
 ];
 
 function lineageHref(key) {
@@ -111,8 +114,12 @@ export function ExplainPanel({ explanation, label, field, filter, note }) {
                     {count > 0 ? (
                       <>
                         <span className="numMono">{count}</span> {count === 1 ? step.one : step.many}
-                        {step.type === "source" && lineage.sources.length ? (
-                          <span className="explainAside"> {lineage.sources.slice(0, 3).join(", ")}</span>
+                        {step.names && lineage[step.names]?.length ? (
+                          <span className="explainAside">
+                            {" "}
+                            {lineage[step.names].slice(0, 3).join(", ")}
+                            {lineage[step.names].length > 3 ? ` +${lineage[step.names].length - 3}` : ""}
+                          </span>
                         ) : null}
                       </>
                     ) : (
