@@ -175,6 +175,9 @@ spec:
               prefix="hetzner:$BUCKET/backups/app-bundles/$NAMESPACE/homelab-analytics"
               state="$backups/.shipped"
               status_file="$backups/ship-status.json"
+              # The sidecar can start before the worker's first backup creates
+              # the directory; create it so the first pass can record status.
+              mkdir -p "$backups"
 
               now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
               # Reload the durable fields so a restart keeps last_success_at and
