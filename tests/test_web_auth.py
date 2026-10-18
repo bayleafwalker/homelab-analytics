@@ -1293,6 +1293,23 @@ def test_wallboard_page_is_ambient_and_degrades_per_tile() -> None:
     assert fixed_sizes and min(fixed_sizes) >= 18
 
 
+def test_control_lineage_page_reads_through_the_backend_helper() -> None:
+    page = (FRONTEND_ROOT / "app" / "control" / "lineage" / "page.js").read_text()
+    control_nav = (FRONTEND_ROOT / "components" / "control-nav.js").read_text()
+
+    # Server component over lib/backend.ts (ADR §4.3); no browser-relative fetches
+    # that split-origin deployments cannot route to the API.
+    assert "use client" not in page
+    assert "fetch(" not in page
+    assert "useEffect" not in page
+    assert "await getCurrentUser()" in page
+    assert "await getPublicationLineage(publicationKey)" in page
+    assert "searchParams?.publication_key" in page
+    assert 'tone="error"' in page
+    assert "No lineage recorded yet" in page
+    assert '{ href: "/control/lineage", label: "Lineage" }' in control_nav
+
+
 def test_default_shell_has_route_level_error_loading_and_not_found_states() -> None:
     error_page = (FRONTEND_ROOT / "app" / "error.js").read_text()
     not_found = (FRONTEND_ROOT / "app" / "not-found.js").read_text()
