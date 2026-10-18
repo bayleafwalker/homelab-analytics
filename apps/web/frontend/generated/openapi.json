@@ -7448,6 +7448,17 @@
             ],
             "title": "Completeness Pct"
           },
+          "completeness_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completeness State"
+          },
           "confidence_verdict": {
             "anyOf": [
               {
@@ -7487,6 +7498,17 @@
           "publication_key": {
             "title": "Publication Key",
             "type": "string"
+          },
+          "validation_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation State"
           }
         },
         "required": [

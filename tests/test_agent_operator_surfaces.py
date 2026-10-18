@@ -75,13 +75,21 @@ def _client(tmp: str, *, stale_cashflow: bool = False) -> tuple[TestClient, Inge
     return TestClient(app), repository
 
 
-def _snapshot(verdict: ConfidenceVerdict, freshness: FreshnessState) -> PublicationConfidenceSnapshot:
+_KNOWN_SIGNALS = {"validation_errors": 0}
+
+
+def _snapshot(
+    verdict: ConfidenceVerdict,
+    freshness: FreshnessState,
+    quality_flags: dict[str, int] | None = None,
+) -> PublicationConfidenceSnapshot:
     return PublicationConfidenceSnapshot(
         snapshot_id="s",
         publication_key=CASHFLOW,
         assessed_at=datetime(2026, 10, 1, tzinfo=UTC),
         freshness_state=freshness,
         completeness_pct=100,
+        quality_flags=dict(_KNOWN_SIGNALS if quality_flags is None else quality_flags),
         confidence_verdict=verdict,
     )
 
@@ -95,6 +103,27 @@ def test_trust_guidance_never_reads_missing_snapshot_as_current() -> None:
     stale = _snapshot(ConfidenceVerdict.DEGRADED, FreshnessState.STALE)
     assert assess_publication_trust(CASHFLOW, stale).guidance == "do_not_state_as_current"
     assert worst_guidance(["state_as_current", "trust_unknown"]) == "trust_unknown"
+
+
+def test_unknown_signals_never_upgrade_guidance() -> None:
+    # A legacy "trustworthy" snapshot without a validation signal.
+    legacy = _snapshot(ConfidenceVerdict.TRUSTWORTHY, FreshnessState.CURRENT, quality_flags={})
+    trust = assess_publication_trust(CASHFLOW, legacy)
+    assert trust.validation_state == "unknown"
+    assert trust.guidance == "state_with_caveat"
+    partial = _snapshot(
+        ConfidenceVerdict.TRUSTWORTHY,
+        FreshnessState.CURRENT,
+        quality_flags={
+            "validation_errors": 0,
+            "completeness_expected_sources": 2,
+            "completeness_unknown_sources": 1,
+        },
+    )
+    trust = assess_publication_trust(CASHFLOW, partial)
+    assert trust.completeness_state == "partial"
+    assert trust.guidance == "state_with_caveat"
+    assert trust.as_dict()["validation_state"] == "known"
     assert worst_guidance([]) == "trust_unknown"
 
 

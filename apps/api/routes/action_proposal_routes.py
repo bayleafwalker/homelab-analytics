@@ -143,6 +143,8 @@ class PublicationTrustModel(BaseModel):
     confidence_verdict: str | None = None
     freshness_state: str | None = None
     completeness_pct: int | None = None
+    validation_state: str | None = None
+    completeness_state: str | None = None
     assessed_at: str | None = None
     guidance: Literal[
         "state_as_current",

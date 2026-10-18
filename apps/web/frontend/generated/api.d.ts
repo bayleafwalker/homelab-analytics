@@ -5781,6 +5781,8 @@ export interface components {
             assessed_at?: string | null;
             /** Completeness Pct */
             completeness_pct?: number | null;
+            /** Completeness State */
+            completeness_state?: string | null;
             /** Confidence Verdict */
             confidence_verdict?: string | null;
             /** Freshness State */
@@ -5794,6 +5796,8 @@ export interface components {
             guidance_detail: string;
             /** Publication Key */
             publication_key: string;
+            /** Validation State */
+            validation_state?: string | null;
         };
         /** RecentChangesResponse */
         RecentChangesResponse: {

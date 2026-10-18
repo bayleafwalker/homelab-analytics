@@ -7,6 +7,12 @@ caveat, or must refuse a confident claim. The mapping mirrors the operator
 semantics of the confidence surface (``/control/confidence``) and the policy
 engine: stale or degraded data degrades visibly, and *no snapshot* is never
 treated as *trustworthy*.
+
+Validation and completeness signal states (``known`` / ``partial`` /
+``unknown``) are surfaced alongside the verdict. An unknown or partial signal
+never upgrades guidance: even a snapshot stored as ``trustworthy`` (e.g. one
+recorded before signal states existed) is capped at ``state_with_caveat``
+unless both signals are known.
 """
 from __future__ import annotations
 
@@ -17,6 +23,7 @@ from packages.platform.publication_confidence import (
     ConfidenceVerdict,
     FreshnessState,
     PublicationConfidenceSnapshot,
+    SignalState,
 )
 
 AnswerGuidance = Literal[
@@ -39,7 +46,8 @@ _GUIDANCE_COPY: dict[AnswerGuidance, str] = {
         "Sources are current and complete; figures may be stated as current."
     ),
     "state_with_caveat": (
-        "Usable but degraded or due for refresh; state figures with the "
+        "Usable but degraded, due for refresh, or with a validation or "
+        "completeness signal that is not fully known; state figures with the "
         "assessed_at date and the caveat."
     ),
     "do_not_state_as_current": (
@@ -66,6 +74,8 @@ class PublicationTrust:
     assessed_at: str | None
     guidance: AnswerGuidance
     guidance_detail: str
+    validation_state: str | None = None
+    completeness_state: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -73,6 +83,8 @@ class PublicationTrust:
             "confidence_verdict": self.confidence_verdict,
             "freshness_state": self.freshness_state,
             "completeness_pct": self.completeness_pct,
+            "validation_state": self.validation_state,
+            "completeness_state": self.completeness_state,
             "assessed_at": self.assessed_at,
             "guidance": self.guidance,
             "guidance_detail": self.guidance_detail,
@@ -87,6 +99,11 @@ def _guidance_for(snapshot: PublicationConfidenceSnapshot) -> AnswerGuidance:
     if freshness in (FreshnessState.STALE, FreshnessState.UNAVAILABLE):
         return "do_not_state_as_current"
     if verdict == ConfidenceVerdict.DEGRADED or freshness == FreshnessState.DUE_SOON:
+        return "state_with_caveat"
+    if (
+        snapshot.validation_state != SignalState.KNOWN
+        or snapshot.completeness_state != SignalState.KNOWN
+    ):
         return "state_with_caveat"
     return "state_as_current"
 
@@ -114,6 +131,8 @@ def assess_publication_trust(
         assessed_at=snapshot.assessed_at.isoformat(),
         guidance=guidance,
         guidance_detail=_GUIDANCE_COPY[guidance],
+        validation_state=str(snapshot.validation_state),
+        completeness_state=str(snapshot.completeness_state),
     )
 
 
