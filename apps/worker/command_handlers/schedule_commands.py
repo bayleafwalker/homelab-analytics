@@ -10,6 +10,7 @@ from apps.worker.control_plane import (
     _set_worker_queue_depth,
     _watch_schedule_dispatches,
 )
+from apps.worker.ops import ScheduledBackupRunner, start_worker_metrics_server
 from apps.worker.runtime import WorkerRuntime
 from apps.worker.serialization import _write_json
 
@@ -102,6 +103,21 @@ def handle_watch_schedule_dispatches(args: Namespace, runtime: WorkerRuntime) ->
         runtime.settings,
         getattr(args, "worker_id", "") or None,
     )
+    backup_runner = ScheduledBackupRunner(runtime.settings, logger=runtime.logger)
+    metrics_server = start_worker_metrics_server(runtime.settings, logger=runtime.logger)
+    try:
+        return _run_watch_loop(args, runtime, worker_id, backup_runner)
+    finally:
+        if metrics_server is not None:
+            metrics_server.stop()
+
+
+def _run_watch_loop(
+    args: Namespace,
+    runtime: WorkerRuntime,
+    worker_id: str,
+    backup_runner: ScheduledBackupRunner,
+) -> int:
     return _watch_schedule_dispatches(
         output=runtime.output,
         settings=runtime.settings,
@@ -119,4 +135,5 @@ def handle_watch_schedule_dispatches(args: Namespace, runtime: WorkerRuntime) ->
         max_iterations=getattr(args, "max_iterations", None),
         enqueue_limit=getattr(args, "enqueue_limit", None),
         recover_limit=getattr(args, "recover_limit", None),
+        backup_runner=backup_runner if backup_runner.enabled else None,
     )

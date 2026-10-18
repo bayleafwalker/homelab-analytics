@@ -1,0 +1,29 @@
+# PROPOSED: clusters/main/kubernetes/apps/homelab-analytics/app/podmonitor.yaml
+# Scrapes the api (/metrics on the "http" port) and the worker (/metrics on the
+# "metrics" port, HOMELAB_ANALYTICS_WORKER_METRICS_PORT=9464) in the single
+# homelab-analytics pod. kube-prometheus-stack selects every PodMonitor
+# (podMonitorSelector: {}). Ingress from Prometheus is admitted by
+# networkpolicy-observability.cnp.yaml.
+#
+# Scrape auth: /metrics is network-internal (api Service not on the Gateway).
+# To add a token, put HOMELAB_ANALYTICS_METRICS_TOKEN in the SOPS secret
+# homelab-analytics-auth (both containers already envFrom it), create a Secret
+# with the same value under key "token", and uncomment the authorization blocks.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: homelab-analytics
+  namespace: analytics
+  labels: {app.kubernetes.io/name: homelab-analytics}
+spec:
+  selector:
+    matchLabels: {app.kubernetes.io/name: homelab-analytics}
+  podMetricsEndpoints:
+    - port: http
+      path: /metrics
+      interval: 60s
+      # authorization: {type: Metrics, credentials: {name: homelab-analytics-metrics-token, key: token}}
+    - port: metrics
+      path: /metrics
+      interval: 60s
+      # authorization: {type: Metrics, credentials: {name: homelab-analytics-metrics-token, key: token}}

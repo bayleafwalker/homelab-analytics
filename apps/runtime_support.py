@@ -6,11 +6,15 @@ from packages.domains.finance.pipelines.account_transaction_service import Accou
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.pipelines.extension_registries import PipelineRegistries
-from packages.pipelines.lazy_transformation_service import LazyTransformationService
 from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
 from packages.pipelines.transformation_domain_registry import TransformationDomainRegistry
 from packages.pipelines.transformation_refresh_registry import PublicationRefreshRegistry
 from packages.pipelines.transformation_service import TransformationService
+from packages.pipelines.warehouse_session import (
+    WarehouseSessionManager,
+    WarehouseSessionTransformationService,
+    build_read_only_aware_service_factory,
+)
 from packages.platform.publication_keys import PublicationKeyResolver
 from packages.platform.runtime.builder import (
     build_container,
@@ -149,13 +153,30 @@ def build_lazy_transformation_service(
     *,
     container=None,
 ) -> TransformationService:
+    """Warehouse access for the API: read-only, short-lived DuckDB handles.
+
+    Nothing is opened until first use; each call runs on a read-only handle
+    unless it writes, and handles are released at request end or when idle
+    (packages/pipelines/warehouse_session.py).
+    """
     resolved_container = container or build_container(settings)
-    return cast(
-        TransformationService,
-        LazyTransformationService(
-            lambda: build_transformation_service(settings, container=resolved_container)
+    manager = WarehouseSessionManager(
+        settings.resolved_analytics_database_path,
+        build_read_only_aware_service_factory(
+            control_plane_store=resolved_container.control_plane_store,
+            publication_refresh_registry=resolved_container.publication_refresh_registry,
+            domain_registry=resolved_container.transformation_domain_registry,
+            run_metadata_store=resolved_container.run_metadata_store,
+            publication_key_resolver=PublicationKeyResolver.from_capability_packs(
+                resolved_container.capability_packs
+            ),
         ),
+        idle_timeout_seconds=settings.api_warehouse_idle_seconds,
+        lock_retry_attempts=settings.warehouse_lock_retry_attempts,
+        lock_retry_backoff_seconds=settings.warehouse_lock_retry_backoff_seconds,
     )
+    manager.start_reaper()
+    return cast(TransformationService, WarehouseSessionTransformationService(manager))
 
 
 def build_reporting_service(

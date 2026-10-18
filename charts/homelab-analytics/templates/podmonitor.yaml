@@ -1,0 +1,38 @@
+{{- if .Values.monitoring.podMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "homelab-analytics.fullname" . }}
+  labels:
+    {{- include "homelab-analytics.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.podMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchExpressions:
+      - key: app.kubernetes.io/instance
+        operator: In
+        values: [{{ .Release.Name | quote }}]
+      - key: app.kubernetes.io/component
+        operator: In
+        values: [api, worker]
+  podMetricsEndpoints:
+    {{- $token := .Values.monitoring.podMonitor.scrapeTokenSecret }}
+    {{- $endpoints := list "http" }}
+    {{- if gt (int .Values.worker.metricsPort) 0 }}
+    {{- $endpoints = append $endpoints "metrics" }}
+    {{- end }}
+    {{- range $endpoints }}
+    - port: {{ . }}
+      path: /metrics
+      interval: {{ $.Values.monitoring.podMonitor.interval }}
+      {{- if $token.name }}
+      authorization:
+        type: Metrics
+        credentials:
+          name: {{ $token.name | quote }}
+          key: {{ $token.key | quote }}
+      {{- end }}
+    {{- end }}
+{{- end }}

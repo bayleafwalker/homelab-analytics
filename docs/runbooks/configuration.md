@@ -111,6 +111,10 @@ Deprecation rollout:
 | `HOMELAB_ANALYTICS_API_HOST` | `0.0.0.0` | API listen address |
 | `HOMELAB_ANALYTICS_API_PORT` | `8080` | API listen port |
 | `HOMELAB_ANALYTICS_API_BASE_URL` | `http://127.0.0.1:<api_port>` | Backend API origin used by the Next.js web workload |
+| `HOMELAB_ANALYTICS_API_WAREHOUSE_IDLE_SECONDS` | `5` | Close the API's DuckDB warehouse handle after this many idle seconds when no request is in flight (handles are also released at request end) |
+| `HOMELAB_ANALYTICS_WAREHOUSE_LOCK_RETRY_ATTEMPTS` | `4` | API warehouse opens retried on a cross-process lock conflict before answering 503 |
+| `HOMELAB_ANALYTICS_WAREHOUSE_LOCK_RETRY_BACKOFF_SECONDS` | `0.1` | First retry delay (doubles per attempt) |
+| `HOMELAB_ANALYTICS_METRICS_TOKEN` | unset | When set, API and worker `/metrics` require `Authorization: Metrics <token>`; unset keeps them network-internal and unauthenticated. See [slo.md](slo.md) |
 
 ## Supported defaults: worker
 
@@ -118,6 +122,11 @@ Deprecation rollout:
 |---|---|---|
 | `HOMELAB_ANALYTICS_WORKER_ID` | `<hostname>-<pid>` | Stable worker identifier for queue claims and heartbeat records |
 | `HOMELAB_ANALYTICS_DISPATCH_LEASE_SECONDS` | `300` | Running-dispatch claim window for stale-dispatch detection |
+| `HOMELAB_ANALYTICS_WORKER_METRICS_PORT` | `0` (off) | Port for the worker process `GET /metrics` endpoint (loop heartbeat, dispatch outcomes, refresh durations) |
+| `HOMELAB_ANALYTICS_WORKER_METRICS_HOST` | `0.0.0.0` | Listen address for the worker metrics endpoint |
+| `HOMELAB_ANALYTICS_BACKUP_INTERVAL_SECONDS` | `0` (off) | Worker-loop scheduled backup interval; `86400` = daily. See [backup-and-restore.md](backup-and-restore.md#scheduled-backups-running-worker) |
+| `HOMELAB_ANALYTICS_BACKUP_RETENTION_COUNT` | `7` | Verified bundles kept under the backup directory (minimum 1) |
+| `HOMELAB_ANALYTICS_BACKUP_DIR` | `<data_dir>/backups` | Scheduled-backup root; must not be inside the landing root |
 | `HOMELAB_ANALYTICS_BATTERY_PLAN_PROFILE` | unset | Path to a JSON profile (`entity_map`, `household_timezone`, optional `decision_months`, `freshness_limit_minutes`) for the read-only Kotiakku battery-plan outcome; unset publishes an `insufficient_evidence` row with remediation. Used by `refresh-battery-plan-outcome` |
 
 ## Supported defaults: authentication

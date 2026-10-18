@@ -1,0 +1,245 @@
+# PROPOSED replacement for the first document (Deployment homelab-analytics) of
+#   clusters/main/kubernetes/apps/homelab-analytics/app/deployment.yaml
+# The homelab-analytics-web Deployment (second document) is unchanged.
+#
+# Changes against the v0.1.2 rollout, each marked "PROPOSED":
+#   1. image digest -> a release that contains feat/ops-observability-backup
+#      (worker metrics endpoint, scheduled backups, restore-drill). The digest
+#      below is a placeholder on purpose: Flux rejects it until it is replaced.
+#   2. worker: metrics port 9464 + env, daily scheduled backup of the DuckDB
+#      warehouse and filesystem landing into /data/backups (retention 3).
+#   3. backup-ship sidecar: streams each new verified bundle as
+#      tar | age | rclone rcat to the same Object-Lock bucket and recipients as
+#      cnpg-pgdump-age, under backups/app-bundles/analytics/homelab-analytics/.
+#      It never blocks app start: age is fetched lazily inside its loop.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homelab-analytics
+  namespace: analytics
+  labels: {app.kubernetes.io/name: homelab-analytics}
+  annotations:
+    appservice.kotona.app/release: homelab-analytics-vX.Y.Z  # PROPOSED: new release
+    appservice.kotona.app/image-digest: sha256:REPLACE_WITH_RELEASE_DIGEST  # PROPOSED
+spec:
+  replicas: 1
+  # The api and worker share /data (the ingest inbox/processed/failed folders
+  # are a filesystem hand-off between them) and the claim is Longhorn
+  # ReadWriteOnce, so they run as two containers in one pod rather than two
+  # deployments that could be scheduled onto different nodes.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {app.kubernetes.io/name: homelab-analytics}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: homelab-analytics}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Unchanged from the first rollout apart from the image digest.
+        - name: migrate
+          image: ghcr.io/bayleafwalker/homelab-analytics@sha256:REPLACE_WITH_RELEASE_DIGEST  # PROPOSED
+          command: [python, -c]
+          args:
+            - |
+              import os
+
+              import psycopg
+              from packages.storage.migration_runner import (
+                  apply_pending_postgres_migrations,
+                  resolve_migrations_dir,
+              )
+              from packages.storage.postgres_support import (
+                  configure_search_path,
+                  initialize_schema,
+              )
+
+              dsn = os.environ["HOMELAB_ANALYTICS_CONTROL_PLANE_DSN"]
+              schema = os.environ.get("HOMELAB_ANALYTICS_CONTROL_SCHEMA", "control")
+              initialize_schema(dsn, schema)
+              with psycopg.connect(dsn) as connection:
+                  configure_search_path(connection, schema)
+                  for track in ("postgres", "postgres_run_metadata"):
+                      applied = apply_pending_postgres_migrations(
+                          connection, resolve_migrations_dir(track)
+                      )
+                      print(track, "applied", len(applied), flush=True)
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          env:
+            - {name: HOMELAB_ANALYTICS_CONTROL_PLANE_DSN, valueFrom: {secretKeyRef: {name: analytics-postgres-app, key: uri}}}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: "1", memory: 512Mi}
+      containers:
+        - name: api
+          image: ghcr.io/bayleafwalker/homelab-analytics@sha256:REPLACE_WITH_RELEASE_DIGEST  # PROPOSED
+          command: [homelab-analytics-api]
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          envFrom:
+            - configMapRef: {name: homelab-analytics-config}
+            - secretRef: {name: homelab-analytics-auth}
+          env:
+            - {name: HOMELAB_ANALYTICS_CONTROL_PLANE_DSN, valueFrom: {secretKeyRef: {name: analytics-postgres-app, key: uri}}}
+            - {name: HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN, valueFrom: {secretKeyRef: {name: analytics-postgres-app, key: uri}}}
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests: {cpu: 100m, memory: 512Mi}
+            limits: {cpu: "2", memory: 2Gi}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+        - name: worker
+          image: ghcr.io/bayleafwalker/homelab-analytics@sha256:REPLACE_WITH_RELEASE_DIGEST  # PROPOSED
+          command: [homelab-analytics-worker, watch-schedule-dispatches]
+          # PROPOSED: worker process /metrics (loop heartbeat, dispatch outcomes,
+          # refresh durations, backup status) for the PodMonitor.
+          ports:
+            - name: metrics
+              containerPort: 9464
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          envFrom:
+            - configMapRef: {name: homelab-analytics-config}
+            - secretRef: {name: homelab-analytics-auth}
+          env:
+            - {name: HOMELAB_ANALYTICS_CONTROL_PLANE_DSN, valueFrom: {secretKeyRef: {name: analytics-postgres-app, key: uri}}}
+            - {name: HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN, valueFrom: {secretKeyRef: {name: analytics-postgres-app, key: uri}}}
+            # The api owns the bootstrap admin. Both containers run the same
+            # startup path, so on first boot they both insert the row and the
+            # loser dies on local_users_username_key. Overrides the ConfigMap.
+            - {name: HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN, value: "false"}
+            # PROPOSED: worker-only settings.
+            - {name: HOMELAB_ANALYTICS_WORKER_METRICS_PORT, value: "9464"}
+            # Daily verified bundle of the DuckDB warehouse + filesystem landing,
+            # taken by the dispatch loop between dispatches (it holds no
+            # warehouse handle then). Postgres stays with cnpg-pgdump-age.
+            - {name: HOMELAB_ANALYTICS_BACKUP_INTERVAL_SECONDS, value: "86400"}
+            - {name: HOMELAB_ANALYTICS_BACKUP_RETENTION_COUNT, value: "3"}
+            - {name: HOMELAB_ANALYTICS_BACKUP_DIR, value: /data/backups}
+          resources:
+            requests: {cpu: 50m, memory: 256Mi}
+            limits: {cpu: "2", memory: 2Gi}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+        # PROPOSED: off-site shipping of verified bundles. A bundle directory is
+        # only renamed to backup-<stamp>/ after it verified, so every such
+        # directory is complete. Shipped names are recorded in
+        # /data/backups/.shipped; a failed ship is retried on the next pass.
+        - name: backup-ship
+          # renovate: datasource=docker depName=rclone/rclone
+          image: rclone/rclone:1.75.1@sha256:45401ad7410db1d67ffdb58e19059ad20b0d8e0285a60e38bbec55cc1019c7a5
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -u
+              prefix="hetzner:$BUCKET/backups/app-bundles/$NAMESPACE/homelab-analytics"
+              state=/data/backups/.shipped
+
+              fetch_age() {
+                [ -x /tools/age ] && return 0
+                cd /tmp || return 1
+                wget -q -O age.tgz "https://github.com/FiloSottile/age/releases/download/v$AGE_VERSION/age-v$AGE_VERSION-linux-amd64.tar.gz" \
+                  && echo "$AGE_SHA256  age.tgz" | sha256sum -c - >/dev/null \
+                  && tar -xzf age.tgz age/age \
+                  && install -m 0555 age/age /tools/age
+                status=$?
+                rm -rf age age.tgz
+                return $status
+              }
+
+              while true; do
+                if fetch_age; then
+                  for dir in /data/backups/backup-*/; do
+                    [ -f "${dir}manifest.json" ] || continue
+                    name="$(basename "$dir")"
+                    grep -qx "$name" "$state" 2>/dev/null && continue
+                    object="$name.tar.age"
+                    if tar -C "$dir" -cf - . \
+                      | /tools/age -r "$AGE_RECIPIENT_RECOVERY" -r "$AGE_RECIPIENT_OPERATOR" -r "$AGE_RECIPIENT_DRILL" \
+                      | rclone rcat --s3-chunk-size 16M --s3-upload-concurrency 1 "$prefix/$object"; then
+                      size="$(rclone size --json "$prefix/$object" | sed -n 's/.*"bytes":\([0-9]*\).*/\1/p')"
+                      if [ -n "$size" ] && [ "$size" -ge 512 ]; then
+                        echo "$name" >> "$state"
+                        echo "shipped $object ($size bytes)"
+                      else
+                        echo "shipped $object is missing or implausibly small; will retry"
+                      fi
+                    else
+                      echo "shipping $name failed; will retry"
+                    fi
+                  done
+                  # Remote retention: 30 days. Object Lock keeps each version 14
+                  # more days after the delete marker, like the pgdump series.
+                  rclone delete --min-age 30d --include "backup-*.tar.age" "$prefix/" || true
+                else
+                  echo "age not available yet; will retry"
+                fi
+                sleep "$SHIP_INTERVAL_SECONDS"
+              done
+          env:
+            - {name: NAMESPACE, value: analytics}
+            - {name: BUCKET, value: appservice-pgdump-locked}
+            - {name: SHIP_INTERVAL_SECONDS, value: "900"}
+            - {name: AGE_VERSION, value: "1.3.2"}
+            - {name: AGE_SHA256, value: cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10}
+            # Same recipients as cnpg-pgdump-age (docs/rebuild/security-authority.recipients.json).
+            - {name: AGE_RECIPIENT_RECOVERY, value: age1secuwmnjmyke02d9zvfdgxstrknmxdcaw0l4vd2mp2fx8l2cqv8s9ux522}
+            - {name: AGE_RECIPIENT_OPERATOR, value: age13dx7hmvvs4rdwz024shq8xhpgjyxnpwvrrz5k87g8z8czc27vfzqdrf78l}
+            - {name: AGE_RECIPIENT_DRILL, value: age1mqha36dd33yknuptag8mgskt9sjxd482rdnmgslyhxwy0e2pmycsx5en5g}
+            - {name: HOME, value: /tmp}
+            - {name: RCLONE_CONFIG, value: /notfound}
+            - {name: RCLONE_CONFIG_HETZNER_TYPE, value: s3}
+            - {name: RCLONE_CONFIG_HETZNER_PROVIDER, value: Other}
+            - {name: RCLONE_CONFIG_HETZNER_ENDPOINT, value: "https://${HETZNER_S3_BUCKET_ENDPOINT}"}
+            - {name: RCLONE_CONFIG_HETZNER_REGION, value: hel1}
+            - {name: RCLONE_CONFIG_HETZNER_NO_CHECK_BUCKET, value: "true"}
+            - {name: RCLONE_CONFIG_HETZNER_ACCESS_KEY_ID, valueFrom: {secretKeyRef: {name: analytics-cnpg-backup-s3, key: ACCESS_KEY_ID}}}
+            - {name: RCLONE_CONFIG_HETZNER_SECRET_ACCESS_KEY, valueFrom: {secretKeyRef: {name: analytics-cnpg-backup-s3, key: SECRET_ACCESS_KEY}}}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          volumeMounts:
+            # Needs write access only for /data/backups/.shipped.
+            - {name: data, mountPath: /data}
+            - {name: ship-tools, mountPath: /tools}
+            - {name: ship-tmp, mountPath: /tmp}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: homelab-analytics-data
+        # PROPOSED: scratch for the backup-ship sidecar.
+        - name: ship-tools
+          emptyDir: {sizeLimit: 64Mi}
+        - name: ship-tmp
+          emptyDir: {sizeLimit: 128Mi}

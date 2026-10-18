@@ -352,6 +352,67 @@ class HelmChartTests(unittest.TestCase):
             ],
         )
 
+    def test_observability_and_backup_resources_render_when_enabled(self) -> None:
+        import json
+
+        documents = self._rendered_documents(
+            "--set", "monitoring.prometheusRule.enabled=true",
+            "--set", "monitoring.podMonitor.enabled=true",
+            "--set", "monitoring.podMonitor.scrapeTokenSecret.name=metrics-token",
+            "--set", "monitoring.grafanaDashboard.enabled=true",
+            "--set", "backup.intervalSeconds=86400",
+        )
+        by_kind_name = {
+            (document["kind"], document["metadata"]["name"]): document
+            for document in documents
+        }
+
+        rule = by_kind_name[("PrometheusRule", "test-release-homelab-analytics")]
+        slo_group = rule["spec"]["groups"][1]
+        self.assertTrue(slo_group["name"].endswith(".slo"))
+        alerts = {entry.get("alert") for entry in slo_group["rules"]}
+        for alert in (
+            "HomelabAnalyticsApiErrorBudgetFastBurn",
+            "HomelabAnalyticsSourceOverdue",
+            "HomelabAnalyticsPublicationRefreshFailing",
+            "HomelabAnalyticsWorkerLoopStalled",
+            "HomelabAnalyticsBackupStale",
+        ):
+            self.assertIn(alert, alerts)
+
+        monitor = by_kind_name[("PodMonitor", "test-release-homelab-analytics")]
+        endpoints = monitor["spec"]["podMetricsEndpoints"]
+        self.assertEqual(["http", "metrics"], [endpoint["port"] for endpoint in endpoints])
+        self.assertEqual("Metrics", endpoints[0]["authorization"]["type"])
+
+        dashboard = by_kind_name[
+            ("ConfigMap", "test-release-homelab-analytics-ops-dashboard")
+        ]
+        self.assertEqual("1", dashboard["metadata"]["labels"]["grafana_dashboard"])
+        parsed = json.loads(dashboard["data"]["homelab-analytics-ops.json"])
+        self.assertEqual("homelab-analytics-ops", parsed["uid"])
+
+        config = by_kind_name[("ConfigMap", "test-release-homelab-analytics-config")]
+        self.assertEqual("86400", config["data"]["HOMELAB_ANALYTICS_BACKUP_INTERVAL_SECONDS"])
+        worker = by_kind_name[("Deployment", "test-release-homelab-analytics-worker")]
+        container = worker["spec"]["template"]["spec"]["containers"][0]
+        self.assertEqual(9464, container["ports"][0]["containerPort"])
+        self.assertIn(
+            {"name": "HOMELAB_ANALYTICS_WORKER_METRICS_PORT", "value": "9464"},
+            container["env"],
+        )
+
+    def test_observability_resources_are_off_by_default(self) -> None:
+        kinds = {document["kind"] for document in self._rendered_documents()}
+        self.assertNotIn("PodMonitor", kinds)
+        self.assertNotIn("PrometheusRule", kinds)
+        config = next(
+            document
+            for document in self._rendered_documents()
+            if document["kind"] == "ConfigMap"
+        )
+        self.assertNotIn("HOMELAB_ANALYTICS_BACKUP_INTERVAL_SECONDS", config["data"])
+
 
 if __name__ == "__main__":
     unittest.main()

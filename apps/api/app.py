@@ -6,7 +6,7 @@ from ipaddress import ip_network
 from pathlib import Path
 from typing import Any, Union
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from apps.agent.mcp_server import MCP_PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
@@ -18,6 +18,7 @@ from apps.api.auth_runtime import (
     cookie_secure_for_request,
     register_auth_middleware,
 )
+from apps.api.ops_metrics import install_http_metrics, render_metrics_response
 from apps.api.routes.action_proposal_routes import register_action_proposal_routes
 from apps.api.routes.adapter_routes import register_adapter_routes
 from apps.api.routes.agent_routes import (
@@ -62,6 +63,7 @@ from apps.api.support import (
     serialize_run,
     to_jsonable,
 )
+from apps.api.warehouse_access import install_warehouse_access
 from packages.adapters.contracts import AdapterPack, TrustLevel
 from packages.adapters.export_renderer import EXPORT_RENDERER_MANIFEST
 from packages.adapters.ha_adapters import (
@@ -79,6 +81,10 @@ from packages.adapters.prometheus_adapter import (
 from packages.adapters.registry import AdapterRegistry
 from packages.application.use_cases.agent_capability_manifest import (
     build_agent_capability_manifest,
+)
+from packages.application.use_cases.ops_metrics import (
+    OpsMetricsCollector,
+    build_ops_metrics_collector,
 )
 from packages.application.use_cases.run_management import (
     build_run_detail,
@@ -236,6 +242,8 @@ def _register_base_routes(
     config_repository: ControlPlaneStore,
     control_plane_backend: str = "sqlite",
     reporting_backend: str = "duckdb",
+    metrics_token: str | None = None,
+    ops_collector: OpsMetricsCollector | None = None,
 ) -> None:
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -262,12 +270,16 @@ def _register_base_routes(
         return payload
 
     @app.get("/metrics")
-    async def metrics() -> PlainTextResponse:
-        update_worker_runtime_metrics(config_repository)
-        update_auth_runtime_metrics(config_repository)
-        return PlainTextResponse(
-            metrics_registry.render_prometheus_text(),
-            media_type="text/plain; version=0.0.4",
+    async def metrics(request: Request) -> PlainTextResponse:
+        return render_metrics_response(
+            request,
+            registry=metrics_registry,
+            metrics_token=metrics_token,
+            refreshers=(
+                lambda: update_worker_runtime_metrics(config_repository),
+                lambda: update_auth_runtime_metrics(config_repository),
+            ),
+            ops_collector=ops_collector,
         )
 
 
@@ -579,7 +591,16 @@ def create_app(
         config_repository=resolved_config_repository,
         control_plane_backend=container.settings.resolved_control_plane_backend,
         reporting_backend=container.settings.reporting_backend,
+        metrics_token=container.settings.metrics_token,
+        ops_collector=build_ops_metrics_collector(
+            metrics_registry,
+            config_repository=resolved_config_repository,
+            metadata_repository=container.run_metadata_store,
+            backup_dir=container.settings.resolved_backup_dir,
+        ),
     )
+    install_warehouse_access(app, transformation_service)
+    install_http_metrics(app, metrics_registry)
 
     register_auth_routes(
         app,

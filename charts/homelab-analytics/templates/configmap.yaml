@@ -8,3 +8,10 @@ data:
   {{- range $key, $value := .Values.commonEnv }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}
+  {{- if gt (int .Values.backup.intervalSeconds) 0 }}
+  HOMELAB_ANALYTICS_BACKUP_INTERVAL_SECONDS: {{ .Values.backup.intervalSeconds | quote }}
+  HOMELAB_ANALYTICS_BACKUP_RETENTION_COUNT: {{ .Values.backup.retentionCount | quote }}
+  {{- with .Values.backup.dir }}
+  HOMELAB_ANALYTICS_BACKUP_DIR: {{ . | quote }}
+  {{- end }}
+  {{- end }}

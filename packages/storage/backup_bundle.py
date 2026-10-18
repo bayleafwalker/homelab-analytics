@@ -40,6 +40,8 @@ from typing import Any
 
 import duckdb
 
+from packages.storage.blob import PARTIAL_WRITE_SUFFIX
+from packages.storage.duckdb_store import WarehouseBusyError, connect_with_lock_retry
 from packages.storage.migration_runner import resolve_migrations_dir
 
 __all__ = [
@@ -75,6 +77,9 @@ _COMPONENT_SCHEMA_TRACK: dict[str, str] = {
 }
 
 _CHUNK_SIZE = 1024 * 1024
+# 0.5 + 1 + 2 + 4 s: outlasts an API read session or a short worker promotion.
+WAREHOUSE_LOCK_RETRY_ATTEMPTS = 5
+WAREHOUSE_LOCK_RETRY_BACKOFF_SECONDS = 0.5
 
 
 class BackupError(RuntimeError):
@@ -166,6 +171,8 @@ def create_backup(
     *,
     schema_heads: Mapping[str, str | None] | None = None,
     now: datetime | None = None,
+    lock_retry_attempts: int = WAREHOUSE_LOCK_RETRY_ATTEMPTS,
+    lock_retry_backoff_seconds: float = WAREHOUSE_LOCK_RETRY_BACKOFF_SECONDS,
 ) -> dict[str, Any]:
     """Write a backup bundle to ``destination`` and return its manifest.
 
@@ -183,7 +190,12 @@ def create_backup(
 
     components: list[dict[str, Any]] = [
         _backup_control_plane(sources, destination),
-        _backup_warehouse(sources, destination),
+        _backup_warehouse(
+            sources,
+            destination,
+            lock_retry_attempts=lock_retry_attempts,
+            lock_retry_backoff_seconds=lock_retry_backoff_seconds,
+        ),
         _backup_landing(sources, destination),
     ]
     if sources.reporting_backend.lower() == "postgres":
@@ -253,7 +265,13 @@ def _backup_control_plane(sources: BackupSources, destination: Path) -> dict[str
     }
 
 
-def _backup_warehouse(sources: BackupSources, destination: Path) -> dict[str, Any]:
+def _backup_warehouse(
+    sources: BackupSources,
+    destination: Path,
+    *,
+    lock_retry_attempts: int = WAREHOUSE_LOCK_RETRY_ATTEMPTS,
+    lock_retry_backoff_seconds: float = WAREHOUSE_LOCK_RETRY_BACKOFF_SECONDS,
+) -> dict[str, Any]:
     source_path = sources.warehouse_database_path
     if not source_path.exists():
         return _excluded(
@@ -262,12 +280,21 @@ def _backup_warehouse(sources: BackupSources, destination: Path) -> dict[str, An
         )
     try:
         # A read-only connection fails while another process holds the write
-        # lock and blocks writers from attaching while the copy runs.
-        guard = duckdb.connect(str(source_path), read_only=True)
-    except duckdb.Error as exc:
+        # lock and blocks writers from attaching while the copy runs. Writers
+        # hold the lock only briefly (API sessions, worker promotions), so a
+        # conflict is retried with backoff before the backup gives up.
+        guard = connect_with_lock_retry(
+            str(source_path),
+            read_only=True,
+            attempts=lock_retry_attempts,
+            backoff_seconds=lock_retry_backoff_seconds,
+        )
+    except (duckdb.Error, WarehouseBusyError) as exc:
         raise BackupError(
             f"Could not open DuckDB warehouse read-only ({exc}). "
-            "Stop worker and API processes that hold the warehouse before backing up."
+            "A writer held the warehouse lock for the whole retry window. "
+            "Stop worker and API processes that hold the warehouse, or let the "
+            "running worker take a scheduled backup."
         ) from exc
     try:
         files = []
@@ -312,6 +339,10 @@ def _iter_regular_files(root: Path) -> Iterable[Path]:
         for name in filenames:
             candidate = current / name
             if candidate.is_symlink() or not candidate.is_file():
+                continue
+            if name.endswith(PARTIAL_WRITE_SUFFIX):
+                # In-flight blob write; the payload appears under its final
+                # name only once complete (FilesystemBlobStore.write_bytes).
                 continue
             yield candidate
 

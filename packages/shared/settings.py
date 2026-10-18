@@ -122,6 +122,18 @@ class AppSettings:
     ha_mqtt_broker_url: str | None = None   # e.g. "mqtt://mosquitto.local:1883"
     ha_mqtt_username: str | None = None
     ha_mqtt_password: str | None = None
+    # Operations: scrape auth and scheduled backups (docs/runbooks/slo.md,
+    # docs/runbooks/backup-and-restore.md).
+    metrics_token: str | None = None
+    worker_metrics_host: str = "0.0.0.0"
+    worker_metrics_port: int = 0
+    backup_interval_seconds: int = 0
+    backup_retention_count: int = 7
+    backup_dir: Path | None = None
+    # API warehouse access: read-only, short-lived DuckDB handles.
+    api_warehouse_idle_seconds: float = 5.0
+    warehouse_lock_retry_attempts: int = 4
+    warehouse_lock_retry_backoff_seconds: float = 0.1
 
     @property
     def resolved_config_database_path(self) -> Path:
@@ -137,6 +149,10 @@ class AppSettings:
         return self.analytics_database_path or (
             self.data_dir / "analytics" / "warehouse.duckdb"
         )
+
+    @property
+    def resolved_backup_dir(self) -> Path:
+        return self.backup_dir or (self.data_dir / "backups")
 
     @property
     def resolved_external_registry_cache_root(self) -> Path:
@@ -472,6 +488,28 @@ class AppSettings:
         ha_mqtt_broker_url = env.get("HOMELAB_ANALYTICS_HA_MQTT_BROKER_URL") or None
         ha_mqtt_username = env.get("HOMELAB_ANALYTICS_HA_MQTT_USERNAME") or None
         ha_mqtt_password = env.get("HOMELAB_ANALYTICS_HA_MQTT_PASSWORD") or None
+        metrics_token = env.get("HOMELAB_ANALYTICS_METRICS_TOKEN") or None
+        worker_metrics_host = env.get("HOMELAB_ANALYTICS_WORKER_METRICS_HOST", "0.0.0.0")
+        worker_metrics_port = int(env.get("HOMELAB_ANALYTICS_WORKER_METRICS_PORT", "0"))
+        backup_interval_seconds = int(
+            env.get("HOMELAB_ANALYTICS_BACKUP_INTERVAL_SECONDS", "0")
+        )
+        backup_retention_count = int(
+            env.get("HOMELAB_ANALYTICS_BACKUP_RETENTION_COUNT", "7")
+        )
+        if backup_retention_count < 1:
+            raise ValueError("HOMELAB_ANALYTICS_BACKUP_RETENTION_COUNT must be at least 1.")
+        backup_dir_override = env.get("HOMELAB_ANALYTICS_BACKUP_DIR")
+        backup_dir = Path(backup_dir_override) if backup_dir_override else None
+        api_warehouse_idle_seconds = float(
+            env.get("HOMELAB_ANALYTICS_API_WAREHOUSE_IDLE_SECONDS", "5")
+        )
+        warehouse_lock_retry_attempts = int(
+            env.get("HOMELAB_ANALYTICS_WAREHOUSE_LOCK_RETRY_ATTEMPTS", "4")
+        )
+        warehouse_lock_retry_backoff_seconds = float(
+            env.get("HOMELAB_ANALYTICS_WAREHOUSE_LOCK_RETRY_BACKOFF_SECONDS", "0.1")
+        )
         return cls(
             data_dir=data_dir,
             landing_root=data_dir / "landing",
@@ -561,6 +599,15 @@ class AppSettings:
             ha_mqtt_broker_url=ha_mqtt_broker_url,
             ha_mqtt_username=ha_mqtt_username,
             ha_mqtt_password=ha_mqtt_password,
+            metrics_token=metrics_token,
+            worker_metrics_host=worker_metrics_host,
+            worker_metrics_port=worker_metrics_port,
+            backup_interval_seconds=backup_interval_seconds,
+            backup_retention_count=backup_retention_count,
+            backup_dir=backup_dir,
+            api_warehouse_idle_seconds=api_warehouse_idle_seconds,
+            warehouse_lock_retry_attempts=warehouse_lock_retry_attempts,
+            warehouse_lock_retry_backoff_seconds=warehouse_lock_retry_backoff_seconds,
         )
 
 

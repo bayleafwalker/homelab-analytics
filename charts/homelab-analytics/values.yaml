@@ -62,6 +62,44 @@ monitoring:
     authFailuresFor: 15m
     serviceTokensExpiringThreshold: 1
     serviceTokensExpiringFor: 30m
+    # SLO recording rules and burn-rate alerts (docs/runbooks/slo.md).
+    slo:
+      enabled: true
+      apiAvailabilityTarget: 0.995
+      apiLatencyTarget: 0.95
+      # Must match a histogram bucket bound exactly (rendered like "1.0").
+      latencyThresholdSeconds: "1.0"
+      # Below this request rate (req/s) burn-rate alerts stay quiet.
+      minRequestRate: 0.01
+      refreshSuccessTarget: 0.99
+      freshnessOverdueSeconds: 86400
+      workerHeartbeatMaxAgeSeconds: 600
+      backupMaxAgeSeconds: 93600
+      restoreDrillMaxAgeSeconds: 691200
+  # PodMonitor scraping the api /metrics and the worker metrics port.
+  podMonitor:
+    enabled: false
+    labels: {}
+    interval: 60s
+    # Optional Secret holding HOMELAB_ANALYTICS_METRICS_TOKEN for scrapes
+    # ("Authorization: Metrics <token>"). Leave name empty for network-internal
+    # scrapes without a token.
+    scrapeTokenSecret:
+      name: ""
+      key: token
+  # Grafana dashboard ConfigMap for the kube-prometheus-stack sidecar.
+  grafanaDashboard:
+    enabled: false
+    namespace: ""
+    labels:
+      grafana_dashboard: "1"
+
+backup:
+  # Worker-loop scheduled backups of the DuckDB warehouse + filesystem landing.
+  # 0 disables; 86400 = daily. Bundles land in dir (default <data>/backups).
+  intervalSeconds: 0
+  retentionCount: 7
+  dir: ""
 
 persistence:
   enabled: true
@@ -98,4 +136,6 @@ worker:
   command:
     - homelab-analytics-worker
     - watch-schedule-dispatches
+  # Worker /metrics port (HOMELAB_ANALYTICS_WORKER_METRICS_PORT); 0 disables.
+  metricsPort: 9464
   resources: {}
