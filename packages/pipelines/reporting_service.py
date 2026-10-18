@@ -860,7 +860,7 @@ class ReportingService:
     def get_household_overview(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_HOUSEHOLD_OVERVIEW_TABLE,
-            self._transformation_service.get_household_overview,
+            lambda: self._read_mart(MART_HOUSEHOLD_OVERVIEW_TABLE),
             ("", []),
             "ORDER BY current_month DESC",
         )
@@ -868,7 +868,7 @@ class ReportingService:
     def get_homelab_roi(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_HOMELAB_ROI_TABLE,
-            self._transformation_service.get_homelab_roi,
+            lambda: self._read_mart(MART_HOMELAB_ROI_TABLE),
             ("", []),
             "ORDER BY roi_state, service_count DESC",
         )
@@ -876,7 +876,7 @@ class ReportingService:
     def get_open_attention_items(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_OPEN_ATTENTION_ITEMS_TABLE,
-            self._transformation_service.get_open_attention_items,
+            lambda: self._read_mart(MART_OPEN_ATTENTION_ITEMS_TABLE),
             ("", []),
             "ORDER BY severity, item_type",
         )
@@ -884,7 +884,7 @@ class ReportingService:
     def get_recent_significant_changes(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_RECENT_SIGNIFICANT_CHANGES_TABLE,
-            self._transformation_service.get_recent_significant_changes,
+            lambda: self._read_mart(MART_RECENT_SIGNIFICANT_CHANGES_TABLE),
             ("", []),
             "ORDER BY period DESC, change_type",
         )
@@ -892,7 +892,7 @@ class ReportingService:
     def get_current_operating_baseline(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_CURRENT_OPERATING_BASELINE_TABLE,
-            self._transformation_service.get_current_operating_baseline,
+            lambda: self._read_mart(MART_CURRENT_OPERATING_BASELINE_TABLE),
             ("", []),
             "ORDER BY baseline_type",
         )
@@ -905,7 +905,8 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_HOUSEHOLD_COST_MODEL_TABLE,
-            lambda: self._transformation_service.get_household_cost_model(
+            lambda: self._read_mart(
+                MART_HOUSEHOLD_COST_MODEL_TABLE,
                 period_label=period_label,
                 cost_type=cost_type,
             ),
@@ -919,7 +920,7 @@ class ReportingService:
     def get_cost_trend_12m(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_COST_TREND_12M_TABLE,
-            self._transformation_service.get_cost_trend_12m,
+            lambda: self._read_mart(MART_COST_TREND_12M_TABLE),
             ("", []),
             "ORDER BY period_label, cost_type",
         )
@@ -927,7 +928,7 @@ class ReportingService:
     def get_affordability_ratios(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_AFFORDABILITY_RATIOS_TABLE,
-            self._transformation_service.get_affordability_ratios,
+            lambda: self._read_mart(MART_AFFORDABILITY_RATIOS_TABLE),
             ("", []),
             "ORDER BY ratio_name",
         )
@@ -935,7 +936,7 @@ class ReportingService:
     def get_recurring_cost_baseline(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_RECURRING_COST_BASELINE_TABLE,
-            self._transformation_service.get_recurring_cost_baseline,
+            lambda: self._read_mart(MART_RECURRING_COST_BASELINE_TABLE),
             ("", []),
             "ORDER BY cost_source, counterparty_or_contract",
         )

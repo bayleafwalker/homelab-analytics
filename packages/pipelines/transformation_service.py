@@ -123,7 +123,6 @@ from packages.pipelines.transformation_facets.home_automation import (
     HomeAutomationTransformationMixin,
 )
 from packages.pipelines.transformation_facets.homelab import HomelabTransformationMixin
-from packages.pipelines.transformation_facets.overview import OverviewTransformationMixin
 from packages.pipelines.transformation_facets.scenarios import ScenarioTransformationMixin
 from packages.pipelines.transformation_facets.transactions import TransactionTransformationMixin
 from packages.pipelines.transformation_facets.utilities import UtilityTransformationMixin
@@ -148,7 +147,6 @@ class TransformationService(
     CommitmentTransformationMixin,
     AssetTransformationMixin,
     UtilityTransformationMixin,
-    OverviewTransformationMixin,
     HomelabTransformationMixin,
     HomeAutomationTransformationMixin,
     ScenarioTransformationMixin,

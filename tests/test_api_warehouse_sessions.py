@@ -418,7 +418,7 @@ def test_read_classified_facet_methods_run_on_a_read_only_handle(tmp_path: Path)
 
     # Mart getters moved to the mart read registry (covered below); what is
     # left here is counts, lists and registry-dispatched reads.
-    assert len(called) > 20
+    assert len(called) >= 15
     assert needed_write == [], needed_write
 
 

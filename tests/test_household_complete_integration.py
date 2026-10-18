@@ -37,6 +37,15 @@ from packages.domains.finance.pipelines.transformation_transactions import (
     get_spend_by_category_monthly,
     refresh_spend_by_category_monthly,
 )
+from packages.domains.overview.pipelines.transformation_overview import (
+    get_affordability_ratios,
+    get_cost_trend_12m,
+    get_current_operating_baseline,
+    get_household_cost_model,
+    get_household_overview,
+    get_open_attention_items,
+    get_recurring_cost_baseline,
+)
 from packages.domains.utilities.pipelines.transformation_utilities import (
     get_utility_cost_trend_monthly,
 )
@@ -192,23 +201,23 @@ class OverviewCompositionTests(unittest.TestCase):
         cls._temp.cleanup()
 
     def test_household_overview_populated(self) -> None:
-        rows = self.ts.get_household_overview()
+        rows = get_household_overview(self.ts.store)
         self.assertGreater(len(rows), 0)
 
     def test_household_overview_has_cashflow_columns(self) -> None:
-        rows = self.ts.get_household_overview()
+        rows = get_household_overview(self.ts.store)
         row = rows[0]
         # Overview uses cashflow_income / cashflow_expense column names
         self.assertIsNotNone(row["cashflow_income"])
         self.assertIsNotNone(row["cashflow_expense"])
 
     def test_open_attention_items_populated(self) -> None:
-        rows = self.ts.get_open_attention_items()
+        rows = get_open_attention_items(self.ts.store)
         # With real data at least some items should be raised
         self.assertIsInstance(rows, list)
 
     def test_current_operating_baseline_populated(self) -> None:
-        rows = self.ts.get_current_operating_baseline()
+        rows = get_current_operating_baseline(self.ts.store)
         self.assertGreater(len(rows), 0)
 
 
@@ -267,29 +276,29 @@ class AffordabilityRatiosEndToEndTests(unittest.TestCase):
         cls._temp.cleanup()
 
     def test_affordability_ratios_populated(self) -> None:
-        rows = self.ts.get_affordability_ratios()
+        rows = get_affordability_ratios(self.ts.store)
         self.assertGreater(len(rows), 0)
 
     def test_affordability_ratio_names_present(self) -> None:
-        rows = self.ts.get_affordability_ratios()
+        rows = get_affordability_ratios(self.ts.store)
         names = {r["ratio_name"] for r in rows}
         self.assertIn("total_cost_to_income", names)
 
     def test_affordability_assessment_values_are_valid(self) -> None:
-        rows = self.ts.get_affordability_ratios()
+        rows = get_affordability_ratios(self.ts.store)
         valid = {"healthy", "caution", "critical"}
         for row in rows:
             if row.get("assessment") is not None:
                 self.assertIn(row["assessment"], valid)
 
     def test_affordability_state_values_are_valid(self) -> None:
-        rows = self.ts.get_affordability_ratios()
+        rows = get_affordability_ratios(self.ts.store)
         valid_states = {"good", "warning", "needs_action"}
         for row in rows:
             self.assertIn(row.get("state"), valid_states)
 
     def test_total_cost_to_income_ratio_is_positive(self) -> None:
-        rows = self.ts.get_affordability_ratios()
+        rows = get_affordability_ratios(self.ts.store)
         total_cost_row = next(
             (r for r in rows if r["ratio_name"] == "total_cost_to_income"), None
         )
@@ -313,21 +322,21 @@ class HouseholdCostModelTests(unittest.TestCase):
         cls._temp.cleanup()
 
     def test_cost_model_populated(self) -> None:
-        rows = self.ts.get_household_cost_model()
+        rows = get_household_cost_model(self.ts.store)
         self.assertGreater(len(rows), 0)
 
     def test_cost_model_amounts_are_positive(self) -> None:
-        rows = self.ts.get_household_cost_model()
+        rows = get_household_cost_model(self.ts.store)
         for row in rows:
             self.assertGreater(float(row["amount"]), 0)
 
     def test_cost_model_has_multiple_cost_types(self) -> None:
-        rows = self.ts.get_household_cost_model()
+        rows = get_household_cost_model(self.ts.store)
         cost_types = {r["cost_type"] for r in rows}
         self.assertGreater(len(cost_types), 1)
 
     def test_cost_trend_12m_populated(self) -> None:
-        rows = self.ts.get_cost_trend_12m()
+        rows = get_cost_trend_12m(self.ts.store)
         self.assertGreater(len(rows), 0)
 
 
@@ -347,16 +356,16 @@ class RecurringCostBaselineTests(unittest.TestCase):
         cls._temp.cleanup()
 
     def test_recurring_baseline_populated(self) -> None:
-        rows = self.ts.get_recurring_cost_baseline()
+        rows = get_recurring_cost_baseline(self.ts.store)
         self.assertGreater(len(rows), 0)
 
     def test_recurring_baseline_has_multiple_sources(self) -> None:
-        rows = self.ts.get_recurring_cost_baseline()
+        rows = get_recurring_cost_baseline(self.ts.store)
         sources = {r["cost_source"] for r in rows}
         self.assertGreater(len(sources), 1)
 
     def test_recurring_baseline_monthly_amounts_positive(self) -> None:
-        rows = self.ts.get_recurring_cost_baseline()
+        rows = get_recurring_cost_baseline(self.ts.store)
         for row in rows:
             self.assertGreater(float(row["monthly_amount"]), 0)
 

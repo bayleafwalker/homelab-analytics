@@ -78,19 +78,6 @@ FACADE_SURFACE_BASELINE: dict[str, frozenset[str]] = {
             "load_workload_sensors",
         }
     ),
-    "overview": frozenset(
-        {
-            "get_affordability_ratios",
-            "get_cost_trend_12m",
-            "get_current_operating_baseline",
-            "get_homelab_roi",
-            "get_household_cost_model",
-            "get_household_overview",
-            "get_open_attention_items",
-            "get_recent_significant_changes",
-            "get_recurring_cost_baseline",
-        }
-    ),
     "scenarios": frozenset(
         {
             "archive_scenario",

@@ -29,6 +29,11 @@ from packages.domains.homelab.pipelines.transformation_homelab import (
     refresh_workload_cost_7d,
 )
 from packages.domains.overview.pipelines.transformation_overview import (
+    get_current_operating_baseline,
+    get_homelab_roi,
+    get_household_overview,
+    get_open_attention_items,
+    get_recent_significant_changes,
     refresh_current_operating_baseline,
     refresh_homelab_roi,
     refresh_household_overview,
@@ -193,7 +198,7 @@ class TestHouseholdOverview:
 
     def test_overview_fields_populated(self, svc: TransformationService) -> None:
         refresh_household_overview(svc.store)
-        rows = svc.get_household_overview()
+        rows = get_household_overview(svc.store)
         assert len(rows) == 1
         row = rows[0]
         assert row["current_month"] != ""
@@ -205,7 +210,7 @@ class TestHouseholdOverview:
         count1 = refresh_household_overview(svc.store)
         count2 = refresh_household_overview(svc.store)
         assert count1 == count2
-        rows = svc.get_household_overview()
+        rows = get_household_overview(svc.store)
         assert len(rows) == 1
 
 
@@ -222,7 +227,7 @@ class TestOpenAttentionItems:
 
     def test_items_have_required_fields(self, svc: TransformationService) -> None:
         refresh_open_attention_items(svc.store)
-        rows = svc.get_open_attention_items()
+        rows = get_open_attention_items(svc.store)
         for row in rows:
             assert row["item_id"]
             assert row["item_type"]
@@ -250,7 +255,7 @@ class TestRecentSignificantChanges:
 
     def test_change_fields_populated(self, svc: TransformationService) -> None:
         refresh_recent_significant_changes(svc.store)
-        rows = svc.get_recent_significant_changes()
+        rows = get_recent_significant_changes(svc.store)
         for row in rows:
             assert row["change_type"]
             assert row["period"]
@@ -275,13 +280,13 @@ class TestCurrentOperatingBaseline:
 
     def test_baseline_types(self, svc: TransformationService) -> None:
         refresh_current_operating_baseline(svc.store)
-        rows = svc.get_current_operating_baseline()
+        rows = get_current_operating_baseline(svc.store)
         types = {r["baseline_type"] for r in rows}
         assert types == {"monthly_spend", "recurring_costs", "utility_baseline", "account_balance"}
 
     def test_descriptions_populated(self, svc: TransformationService) -> None:
         refresh_current_operating_baseline(svc.store)
-        rows = svc.get_current_operating_baseline()
+        rows = get_current_operating_baseline(svc.store)
         for row in rows:
             assert row["description"], f"Empty description for {row['baseline_type']}"
 
@@ -314,7 +319,7 @@ class TestHomelabRoi:
 
     def test_roi_fields_populated(self, homelab_svc: TransformationService) -> None:
         refresh_homelab_roi(homelab_svc.store)
-        rows = homelab_svc.get_homelab_roi()
+        rows = get_homelab_roi(homelab_svc.store)
         assert len(rows) == 1
         row = rows[0]
         assert row["roi_state"] in {"good", "warning", "needs_action", "empty"}
