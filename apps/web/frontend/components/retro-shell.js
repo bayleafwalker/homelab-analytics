@@ -7,6 +7,9 @@ function navItemsForUser(user) {
     { href: "/retro/money", label: "Money", prefix: "/retro/money" },
     { href: "/retro/utilities", label: "Utilities", prefix: "/retro/utilities" },
     { href: "/retro/operations", label: "Operations", prefix: "/retro/operations" },
+    // The Ops console is a reader surface outside /retro; it shares the CRT
+    // vocabulary, so the retro shell links straight to it.
+    { href: "/console", label: "Console", prefix: "/console" },
   ];
   if (user?.role === "admin") {
     items.push(

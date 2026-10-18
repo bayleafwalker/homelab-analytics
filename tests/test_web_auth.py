@@ -879,6 +879,7 @@ def test_nextjs_frontend_exposes_parallel_retro_shell_and_terminal_boundary() ->
     assert 'href: "/retro/money"' in retro_shell_source
     assert 'href: "/retro/utilities"' in retro_shell_source
     assert 'href: "/retro/operations"' in retro_shell_source
+    assert 'href: "/console", label: "Console"' in retro_shell_source
     assert 'href: "/retro/terminal"' in retro_shell_source
     assert 'fetch("/retro/terminal/execute"' in retro_terminal_panel_source
     assert "SYNC / NO SHELL ACCESS" in retro_terminal_panel_source
@@ -1374,6 +1375,12 @@ def test_wallboard_page_is_ambient_and_degrades_per_tile() -> None:
     for adapter in ("getServiceHealth()", "getDeviceReadings()", "getPowerSeries(24)", "getHaBridgeStatus()"):
         assert f"optional({adapter}, null)" in page
     assert "compact ? null : optional(getEventFeed(), null)" in page
+    # Utilities tile: in the household strip (not the kiosk grid), optional
+    # data, hidden in compact.
+    assert "compact ? [] : optional(getUtilityCostTrend(), [])" in page
+    assert "utilityLatest={latestUtilityBill(utilityTrend)}" in page
+    assert '<Tile label="Utilities"' in view
+    assert "No bills yet" in view
     assert "AppShell" not in page
     # Compact is URL-only.
     for source in (page, live, view):

@@ -113,3 +113,10 @@ test("policy template refuses submission until required inputs are supplied", as
   const results = await new AxeBuilder({ page }).include("form").analyze();
   expect(results.violations, violationMessage(results.violations)).toEqual([]);
 });
+
+test("operating picture v2 story shows the grouped net in the hero", async ({ page }) => {
+  // The story's play function asserts the same text; a stale "1600.00"
+  // expectation failed it while the page rendered formatMoney's "1,600.00".
+  await gotoStory(page, "operatingpicture-pagesnapshot--v-2-layout");
+  await expect(page.locator(".heroNumber")).toHaveText(/Net\s*1,600\.00/);
+});

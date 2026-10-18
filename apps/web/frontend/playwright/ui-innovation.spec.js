@@ -90,11 +90,23 @@ test("wallboard standard lays out the kiosk grid", async ({ page }) => {
     .evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(" ").map(parseFloat));
   expect(columns).toHaveLength(2);
   expect(columns[0] / columns[1]).toBeCloseTo(1.4, 1);
+  // Utilities sits in the household strip, one equal column per tile, so the
+  // kiosk grid above keeps its four panels and two columns.
+  const strip = page.locator(".wallStrip");
+  await expect(strip.locator(".wallTile")).toHaveCount(5);
+  await expect(strip.getByText("Utilities")).toBeVisible();
+  const stripColumns = await strip.evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(" ").length);
+  expect(stripColumns).toBe(5);
+  const tops = await strip
+    .locator(".wallTile")
+    .evaluateAll((nodes) => [...new Set(nodes.map((node) => Math.round(node.getBoundingClientRect().top)))]);
+  expect(tops).toHaveLength(1);
 });
 
 test("wallboard compact mode hides the event feed and hotkey hint", async ({ page }) => {
   await gotoStory(page, "wallboard-wallboardview--compact");
   await expect(page.locator('.wallPanel[data-area="events"]')).toHaveCount(0);
+  await expect(page.locator(".wallStrip .wallTile")).toHaveCount(4);
   await expect(page.getByText("R refresh · P pause")).toHaveCount(0);
   await expect(page.getByLabel("Upcoming payments")).toBeVisible();
   const size = await page

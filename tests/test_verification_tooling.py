@@ -83,6 +83,24 @@ def test_makefile_contains_required_verification_targets() -> None:
     assert "migrations/postgres_run_metadata" in content
 
 
+def test_makefile_web_local_copies_standalone_assets_like_the_image() -> None:
+    content = (ROOT / "Makefile").read_text()
+    recipe = content.split("\nweb-local:\n", 1)[1].split("\n\n", 1)[0]
+
+    # Same layout as infra/docker/web.Dockerfile's runner stage.
+    dockerfile = (ROOT / "infra" / "docker" / "web.Dockerfile").read_text()
+    assert "COPY --from=builder /app/.next/static ./.next/static" in dockerfile
+    assert "COPY --from=builder /app/public ./public" in dockerfile
+
+    assert "run build" in recipe
+    # Stale copies are removed first so a rebuild never nests static/static.
+    assert "rm -rf $(WEB_STANDALONE_DIR)/.next/static $(WEB_STANDALONE_DIR)/public" in recipe
+    assert "cp -R $(WEB_DIR)/.next/static $(WEB_STANDALONE_DIR)/.next/static" in recipe
+    assert "cp -R $(WEB_DIR)/public $(WEB_STANDALONE_DIR)/public" in recipe
+    assert "WEB_STANDALONE_DIR := $(WEB_DIR)/.next/standalone" in content
+    assert "web-local-serve: web-local\n\t$(PYTHON) -m apps.web.main" in content
+
+
 def test_workflow_helper_wraps_canonical_sprint_and_knowledge_flows() -> None:
     content = (ROOT / "tools" / "workflow.sh").read_text()
 

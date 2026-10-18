@@ -60,6 +60,7 @@ export const Standard = {
     power: powerData,
     bridge: { enabled: true, connected: true },
     latestMonth: "2026-09",
+    utilityLatest: { month: "2026-09", total: 142.6 },
     clock: <Clock />,
     status: <span className="wallStatus">Live, updated 07:42</span>,
   },
@@ -70,6 +71,8 @@ export const Standard = {
     await expect(canvas.getByText("Review contract: Helen (2)")).toBeInTheDocument();
     await expect(canvas.getByLabelText("Events, last 12h")).toBeInTheDocument();
     await expect(canvas.getByText("R refresh · P pause")).toBeInTheDocument();
+    await expect(canvas.getByText("Utilities")).toBeInTheDocument();
+    await expect(canvas.getByText("billed for September 2026")).toBeInTheDocument();
   },
 };
 
@@ -81,6 +84,7 @@ export const Compact = {
     await expect(canvas.queryByLabelText("Events, last 12h")).toBeNull();
     await expect(canvas.queryByText("R refresh · P pause")).toBeNull();
     await expect(canvas.getByLabelText("Rooms")).toBeInTheDocument();
+    await expect(canvas.queryByText("Utilities")).toBeNull();
   },
 };
 
@@ -103,5 +107,6 @@ export const NothingConnected = {
     await expect(canvas.getByText("No services reporting")).toBeInTheDocument();
     await expect(canvas.getAllByText("Not connected").length).toBe(3);
     await expect(canvas.getByText("All clear")).toBeInTheDocument();
+    await expect(canvas.getByText("No bills yet")).toBeInTheDocument();
   },
 };

@@ -1,5 +1,5 @@
 import { WallClock, WallRefresh } from "@/components/wallboard-live";
-import { WallboardView } from "@/components/wallboard-view";
+import { WallboardView, latestUtilityBill } from "@/components/wallboard-view";
 import { loadExplanation } from "@/lib/explain";
 import { optional } from "@/lib/optional";
 import {
@@ -13,6 +13,7 @@ import {
   getPowerSeries,
   getServiceHealth,
   getUpcomingFixedCosts,
+  getUtilityCostTrend,
 } from "@/lib/backend";
 
 export const metadata = {
@@ -23,7 +24,7 @@ export default async function WallboardPage({ searchParams }) {
   const user = await getCurrentUser();
   // URL-only: the kiosk's bookmark decides the mode; nothing is remembered.
   const compact = searchParams?.compact === "1";
-  const [overview, attentionItems, upcomingCosts, cashflowRows, bridge, services, devices, events, power] =
+  const [overview, attentionItems, upcomingCosts, cashflowRows, bridge, services, devices, events, power, utilityTrend] =
     await Promise.all([
       getHouseholdOverview(),
       getAttentionItems(),
@@ -34,6 +35,7 @@ export default async function WallboardPage({ searchParams }) {
       optional(getDeviceReadings(), null),
       compact ? null : optional(getEventFeed(), null),
       optional(getPowerSeries(24), null),
+      compact ? [] : optional(getUtilityCostTrend(), []),
     ]);
   const renderedAt = new Date().toISOString();
   const moneyExplanation = overview ? await loadExplanation("mart_household_overview", { user }) : null;
@@ -52,6 +54,7 @@ export default async function WallboardPage({ searchParams }) {
         devices={devices}
         events={events}
         power={power}
+        utilityLatest={latestUtilityBill(utilityTrend)}
         compact={compact}
         clock={<WallClock initial={renderedAt} />}
         status={<WallRefresh renderedAt={renderedAt} />}

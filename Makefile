@@ -63,7 +63,7 @@ export SPRINTCTL_INSTANCE_ID SPRINTCTL_RUNTIME_SESSION_ID CODEX_THREAD_ID
 	docker-build compose-smoke audit-deps db-migrate-sqlite db-migrate-postgres \
 	db-migrate-postgres-control-plane db-migrate-postgres-run-metadata \
 	web-codegen web-codegen-check web-token-check web-typecheck web-contracts-check web-build demo-generate demo-seed \
-	web-ui-test first-run hooks-install \
+	web-ui-test web-local web-local-serve first-run hooks-install \
 	contract-export-check contract-compat-report contract-release-artifacts \
 	agent-preflight sprintctl-health sprintctl-preflight sprintctl-close \
 	sprint-resume claim-recover claim-heartbeat item-verify-auth snapshot-refresh knowledge-publish
@@ -165,6 +165,24 @@ web-build:
 
 web-ui-test:
 	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run ui:test
+
+# Local web launch: `python -m apps.web.main` runs the Next.js standalone
+# server, which serves /_next/static and public/ only from beside server.js.
+# `next build` leaves them outside .next/standalone, so copy them in the way
+# infra/docker/web.Dockerfile does. Installs node_modules on first use.
+WEB_STANDALONE_DIR := $(WEB_DIR)/.next/standalone
+
+web-local:
+	@test -d $(WEB_DIR)/node_modules || PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) ci
+	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run build
+	rm -rf $(WEB_STANDALONE_DIR)/.next/static $(WEB_STANDALONE_DIR)/public
+	mkdir -p $(WEB_STANDALONE_DIR)/.next
+	cp -R $(WEB_DIR)/.next/static $(WEB_STANDALONE_DIR)/.next/static
+	cp -R $(WEB_DIR)/public $(WEB_STANDALONE_DIR)/public
+	@echo "Standalone build ready with static assets: run 'python -m apps.web.main' (or 'make web-local-serve')."
+
+web-local-serve: web-local
+	$(PYTHON) -m apps.web.main
 
 demo-generate:
 	$(PYTHON) -m apps.worker.main generate-demo-data --output-dir infra/examples/demo-data

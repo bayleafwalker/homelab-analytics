@@ -55,8 +55,9 @@ export const V2Layout = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    // Hero
-    await expect(canvas.getByText("1600.00")).toBeInTheDocument();
+    // Hero: the net goes through formatMoney, which groups thousands
+    // ("1600.00" from the mart reads "1,600.00").
+    await expect(canvas.getByText("1,600.00")).toBeInTheDocument();
     // Freshness pulse — rendered in exactly one place
     await expect(canvas.getByText("Source freshness pulse")).toBeInTheDocument();
     await expect(canvas.getByText("Budgets", { selector: ".pulseCardName" })).toBeInTheDocument();

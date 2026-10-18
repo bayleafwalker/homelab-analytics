@@ -9,10 +9,26 @@ import { DevicePanel, EventFeed, PowerChart, ServicesPanel } from "./wallboard-p
 // reserved for state. Data arrives as props so the view renders identically
 // in Storybook and on the live /wallboard route.
 //
-// Layout: a household strip under the clock, then the kiosk grid
+// Layout: a household strip under the clock (Money, Next payment, Needs a
+// decision, Data, Utilities), then the specified kiosk grid
 //   [services 1.4fr][events 1fr] / [devices 1fr][power-24h 1fr] / [ticker]
-// ?compact=1 hides the event feed, doubles the room readings and drops the
+// The Utilities tile lives in the strip, which has no fixed slot count, so
+// restoring it leaves the kiosk grid untouched. ?compact=1 hides the event
+// feed and the Utilities tile, doubles the room readings and drops the
 // ticker's hotkey hint.
+
+// Latest billing month's total across utility types, from
+// /reports/utility-cost-trend rows; null when there are no bills.
+export function latestUtilityBill(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const months = [...new Set(list.map((row) => row.billing_month).filter(Boolean))].sort();
+  const month = months.at(-1);
+  if (!month) return null;
+  const total = list
+    .filter((row) => row.billing_month === month)
+    .reduce((sum, row) => sum + (toNumber(row.total_cost) || 0), 0);
+  return { month, total };
+}
 
 function daysUntil(dateText, today) {
   if (!dateText) return null;
@@ -65,6 +81,7 @@ export function WallboardView({
   devices = null,
   events = null,
   power = null,
+  utilityLatest = null,
   compact = false,
   clock = null,
   status = null,
@@ -162,6 +179,19 @@ export function WallboardView({
             {bridge ? `. Home bridge ${bridge.connected ? "connected" : bridge.enabled ? "offline" : "off"}.` : ""}
           </p>
         </Tile>
+
+        {!compact ? (
+          <Tile label="Utilities" tone={utilityLatest ? "neutral" : "muted"}>
+            {utilityLatest ? (
+              <>
+                <p className="wallBig">{formatMoney(utilityLatest.total, currency, { whole: true })}</p>
+                <p className="wallLine">billed for {formatMonth(utilityLatest.month)}</p>
+              </>
+            ) : (
+              <p className="wallBig wallQuiet">No bills yet</p>
+            )}
+          </Tile>
+        ) : null}
       </div>
 
       <div className="wallGrid">
