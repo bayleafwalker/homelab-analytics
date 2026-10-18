@@ -4,6 +4,13 @@
 **Classification:** ARCHITECTURE — CROSS-CUTTING
 **Status:** Backlog dispatch source. Every sprint proposed here is registered in remote `sprintctl` with `kind=backlog`.
 
+> **Status update (2026-10-18).** The §3 status column and §6 are a snapshot from 2026-07-07. The rows below were checked against `main` and recorded in `sprintctl`. Rows not listed here were not re-checked.
+>
+> - **U12 / B8 `portability-anchor`: shipped.** Worker `backup` / `verify-backup` / `restore` (PR #29), scheduled verified backups and `restore-drill` (PR #40), and `docs/runbooks/backup-and-restore.md`. Postgres is backed up by the CNPG `pg_dump` CronJob, not by the worker bundle.
+> - **U13 / B9 `agent-surface-mcp`: shipped.** Semantic index at `/api/agent/semantic-index`, the MCP server in `apps/agent/mcp_server.py`, and the shared `ActionProposal` queue (commit `5e0929e`, PR #33, persisted in PR #42).
+> - **U14 / B11 `appservice-first-deploy`: partial.** Live on `appservice` with CNPG Postgres since 2026-08-29 (`bayleafwalker/appservice#1564`; v0.1.3 is deployed), using plain manifests rather than the chart. Still open: the Authentik OIDC cut-over (the cluster runs `local_single_user`) and a recorded smoke check through the Gateway.
+> - **U15 / B12 `self-observ-canvas`: partial.** SLOs and error budgets are in `docs/runbooks/slo.md`, with chart alert rules and the ops Grafana dashboard (PR #40). Still open: an HA bridge availability SLO and metric, an explicit ingestion-success SLO, and applying the PrometheusRule and dashboard proposals in `appservice`.
+
 ## 1. Purpose
 
 Take a full pass over homelab-analytics as a solutions architect: name the target application shape, name the supported use cases, name the architectural functionalities still required to reach that shape, and turn each remaining architectural gap into a backlog sprint with entry/exit criteria. The follow-on implementation session plan is `docs/plans/2026-07-implementation-session-plan.md`.

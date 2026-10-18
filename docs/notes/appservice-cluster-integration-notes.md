@@ -117,8 +117,14 @@ Where the shipped shape differs from the guidance above, and why:
 Images are published by `.github/workflows/publish-images.yaml` on a `v*` tag
 and pinned in the cluster by attested digest.
 
-Still open from the follow-up list: Authentik OIDC, the `gatus` availability
-check, Prometheus metrics and alert rules, and the CNPG restore drill.
+Still open from the follow-up list: Authentik OIDC and the `gatus`
+availability check. The application now exports Prometheus metrics, and the
+chart ships SLO alert rules and an ops dashboard (`docs/runbooks/slo.md`).
+The matching PodMonitor, PrometheusRule, dashboard and gatus manifests are
+proposals in `docs/notes/appservice-proposals/`; they are not yet applied in
+`appservice`. The api/worker `/data` warehouse has a scheduled backup and a
+`restore-drill`. Postgres is dumped by the `cnpg-pgdump-age` CronJob; see
+`docs/runbooks/backup-and-restore.md`.
 
 The application side of Authentik OIDC is ready: the PKCE flow, JWKS
 caching and group-to-role mapping are tested against a local fake IdP. The
