@@ -268,3 +268,15 @@ requires_human_action: true
 - Calendar export (iCal feed of due dates) — designed for but not built initially
 - Auto-retry of failed parses — operator intervention required
 - Source acquisition automation — the platform tracks freshness, not bank login
+
+
+## Planned dependent-conclusion review
+
+[HLA-K02 in the household outcome plan](../plans/household-outcome-evidence-decision-plan.md#kaos-backcast-sustained-household-outcomes)
+extends source revision lineage into review of dependent conclusions. This is
+planned scope: a corrected source window, tariff, or mapping must identify only
+affected publication versions, recommendations, and commitments, preserve their
+original evidence, and deduplicate repeat notifications. Freshness still answers
+whether source acquisition is current; publication trust and conclusion validity
+remain separate concerns. A newer tariff must not silently replace a historical
+decision's month-specific basis. See ANA-10 and APP-18 for planned acceptance.

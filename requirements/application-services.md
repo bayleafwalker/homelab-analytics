@@ -357,3 +357,27 @@ The platform exposes its capabilities through three application workloads: a JSO
 | APP-15 | `apps/api/app.py`, `apps/api/response_models.py`, `apps/api/routes/assistant_routes.py`, `packages/platform/auth/scope_authorization.py` | `tests/test_api_app.py`, `tests/test_api_auth.py`, `tests/test_auth_permission_registry.py` |
 | APP-16 | `apps/web/frontend/ui-contracts/default-shell/intent.md`, `apps/web/frontend/ui-contracts/default-shell/baseline.tokens.json`, `apps/web/frontend/ui-contracts/default-shell/ui-contract.yaml`, `apps/web/frontend/ui-contracts/retro-shell/intent.md`, `apps/web/frontend/ui-contracts/retro-shell/baseline.tokens.json`, `apps/web/frontend/ui-contracts/retro-shell/ui-contract.yaml`, `apps/web/frontend/scripts/build-ui-tokens.mjs`, `apps/web/frontend/app/generated/ui-tokens.css`, `apps/web/frontend/.storybook/main.ts`, `apps/web/frontend/.storybook/preview.js`, `apps/web/frontend/stories/app-shell.stories.jsx`, `apps/web/frontend/stories/retro-shell.stories.jsx`, `apps/web/frontend/stories/sparkline-chart.stories.jsx`, `apps/web/frontend/stories/mock-status-card.stories.jsx`, `apps/web/frontend/playwright.config.js`, `apps/web/frontend/playwright/storybook-ui.spec.js` | `tests/test_web_ui_contract_tooling.py` |
 | APP-17 | `packages/domains/homelab/pipelines/ha_policy.py`, future policy registry store, future policy definition routes | future policy registry/API/e2e tests |
+
+
+### APP-18: Household commitment lifecycle and outcome feedback
+
+**Description:** Expose household commitment lifecycle and bounded acceptance,
+outcome, attention, and cost feedback while HLA retains household domain state.
+
+**Rationale:** Operators and agents need to understand ongoing commitments and
+learn from their results without creating another household authority.
+
+**Phase:** 10
+**Status:** not-started (planned HLA-K01 and HLA-K04 in the [household outcome plan](../docs/plans/household-outcome-evidence-decision-plan.md))
+
+**Acceptance criteria:**
+- Existing authenticated/authorized surfaces show commitment purpose, owner, success conditions, next review, stop state, and decision history.
+- Feedback follows VU-K09's versioned experiment contract and includes stable work/commitment/publication references, observation window, acceptance outcome, and evidence pointer.
+- Attention and cost measurements declare capture coverage; missing measurements remain unknown rather than zero.
+- Retry emits one logical event; correction supersedes a prior version; end-to-end receipt and correction are demonstrated in Vuoro.
+- Raw transactions, source rows, and credentials are excluded. HLA retains domain decisions and observations; Home Assistant retains device authority.
+- APP-15's read-only assistant boundary is preserved; this requirement does not authorize a write-capable assistant or device control.
+
+**Dependencies:** ANA-10, APP-03, existing identity/authorization boundary, VU-K09; HLA-K04 follows HLA-K03 live outcome evidence.
+
+**Traceability:** HLA-K01/HLA-K04 lifecycle and feedback contract tests, including stopped commitment, unknown capture, duplicate delivery, and superseding correction cases.
