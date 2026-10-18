@@ -29,6 +29,7 @@ from packages.application.use_cases.morning_brief import (
 )
 from packages.application.use_cases.morning_brief_sections import (
     ATTENTION_ITEMS_KEY,
+    BATTERY_PLAN_OUTCOME_KEY,
     MONTHLY_CASHFLOW_KEY,
     RECENT_CHANGES_KEY,
     UPCOMING_FIXED_COSTS_KEY,
@@ -433,10 +434,11 @@ def test_unconfigured_sources_degrade_the_section() -> None:
 def test_brief_headline_and_counts() -> None:
     brief = compose_morning_brief(_inputs())
     assert brief.overall_severity == BriefSeverity.CRITICAL
-    assert brief.counts["withheld"] == 1
+    # The battery outcome is not gathered in these inputs, so it is withheld.
+    assert brief.counts["withheld"] == 2
     assert brief.headline.startswith(f"{brief.counts['warning'] + brief.counts['critical']} items need attention")
     assert [s.key for s in brief.sections] == [
-        "money", "attention", "changes", "upcoming", "policies", "sources",
+        "money", "attention", "changes", "upcoming", "battery", "policies", "sources",
     ]
 
 
@@ -455,16 +457,16 @@ def test_registry_rejects_duplicate_keys() -> None:
 
 def test_extension_section_slots_in_by_order_and_declares_publications() -> None:
     def build(inputs: BriefInputs) -> SectionDraft:
-        publication = inputs.publication("mart_battery_outcome")
+        publication = inputs.publication("mart_extension_outcome")
         assessment = assess_claim(publication)
         return SectionDraft(
-            summary="battery",
+            summary="extension",
             items=(
                 BriefItem(
-                    item_id="battery:outcome",
+                    item_id="extension:outcome",
                     severity=BriefSeverity.INFO,
                     claim_status=assessment.status,
-                    headline="Battery outcome",
+                    headline="Extension outcome",
                     remediation=assessment.remediation,
                 ),
             ),
@@ -472,13 +474,13 @@ def test_extension_section_slots_in_by_order_and_declares_publications() -> None
 
     registry = default_brief_section_registry()
     registry.register(
-        FunctionSectionProvider("battery", "Battery", 45, ("mart_battery_outcome",), build)
+        FunctionSectionProvider("extension", "Extension", 55, ("mart_extension_outcome",), build)
     )
-    assert "mart_battery_outcome" in registry.publication_keys()
+    assert "mart_extension_outcome" in registry.publication_keys()
     brief = compose_morning_brief(_inputs(), registry)
-    assert [s.key for s in brief.sections].index("battery") == 4
+    assert [s.key for s in brief.sections].index("extension") == 6
     # Not gathered → withheld, not invented.
-    assert _section(brief, "battery").items[0].claim_status == ClaimStatus.WITHHELD
+    assert _section(brief, "extension").items[0].claim_status == ClaimStatus.WITHHELD
 
 
 def test_failing_section_degrades_without_hiding_others() -> None:
@@ -492,3 +494,90 @@ def test_failing_section_degrades_without_hiding_others() -> None:
     assert broken.status == SectionStatus.UNAVAILABLE
     assert "RuntimeError" in broken.items[0].caveats[0]
     assert _section(brief, "money").items[0].claim_status == ClaimStatus.CONFIRMED
+
+
+# ---------------------------------------------------------------------------
+# Battery outcome (order 45)
+# ---------------------------------------------------------------------------
+
+
+def _battery_inputs(rows: tuple[dict[str, Any], ...] | None, **confidence: Any) -> BriefInputs:
+    publications = dict(_publications())
+    publications[BATTERY_PLAN_OUTCOME_KEY] = PublicationInput(
+        BATTERY_PLAN_OUTCOME_KEY,
+        rows,
+        _confidence(BATTERY_PLAN_OUTCOME_KEY, **confidence),
+    )
+    return _inputs(publications=publications)
+
+
+def _battery_row(**overrides: Any) -> dict[str, Any]:
+    row = {
+        "decision_month": "2026-09",
+        "verdict": "benefit_estimated",
+        "estimated_savings_eur": "52.10",
+        "effective_monthly_cost_eur": "49.00",
+        "coverage_pct": "100",
+        "freshness_status": "fresh",
+        "remediation": None,
+    }
+    row.update(overrides)
+    return row
+
+
+def test_battery_section_is_registered_at_order_45() -> None:
+    providers = {p.key: p for p in default_brief_section_registry().providers()}
+    assert providers["battery"].order == 45
+    assert providers["battery"].publication_keys == (BATTERY_PLAN_OUTCOME_KEY,)
+
+
+def test_battery_benefit_is_confirmed_estimate_with_caveat() -> None:
+    old = _battery_row(decision_month="2026-08", verdict="no_benefit_estimated")
+    brief = compose_morning_brief(_battery_inputs((old, _battery_row())))
+    [item] = _section(brief, "battery").items
+    assert item.claim_status == ClaimStatus.CONFIRMED
+    assert item.severity == BriefSeverity.INFO
+    assert item.headline.startswith("Battery plan September 2026: estimated savings 52.10 EUR")
+    assert any("not realized savings" in caveat for caveat in item.caveats)
+    assert item.lineage_publication_key == BATTERY_PLAN_OUTCOME_KEY
+
+
+def test_battery_insufficient_evidence_states_no_claim_and_remediation() -> None:
+    row = _battery_row(
+        verdict="insufficient_evidence",
+        estimated_savings_eur=None,
+        coverage_pct="97.5",
+        remediation="Backfill the missing windows.",
+    )
+    brief = compose_morning_brief(_battery_inputs((row,)))
+    [item] = _section(brief, "battery").items
+    assert item.severity == BriefSeverity.NOTICE
+    assert "no savings claim" in item.headline
+    assert item.remediation == "Backfill the missing windows."
+    assert "97.5%" in (item.detail or "")
+
+
+def test_battery_below_cost_is_a_notice() -> None:
+    row = _battery_row(verdict="no_benefit_estimated", estimated_savings_eur="30")
+    [item] = _section(compose_morning_brief(_battery_inputs((row,))), "battery").items
+    assert item.severity == BriefSeverity.NOTICE
+    assert "stay below" in item.headline
+
+
+def test_battery_provisional_and_withheld_follow_confidence() -> None:
+    provisional = compose_morning_brief(
+        _battery_inputs((_battery_row(),), verdict="degraded", freshness_state="due_soon")
+    )
+    [item] = _section(provisional, "battery").items
+    assert item.claim_status == ClaimStatus.PROVISIONAL
+    assert _section(provisional, "battery").summary.endswith("(provisional)")
+
+    withheld = compose_morning_brief(_battery_inputs((_battery_row(),), freshness_state="stale"))
+    [item] = _section(withheld, "battery").items
+    assert item.claim_status == ClaimStatus.WITHHELD
+    assert "52.10" not in item.headline
+
+    empty = compose_morning_brief(_battery_inputs(()))
+    [item] = _section(empty, "battery").items
+    assert item.item_id == "battery:none"
+    assert "refresh-battery-plan-outcome" in (item.remediation or "")

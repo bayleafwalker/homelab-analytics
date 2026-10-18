@@ -2245,6 +2245,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/control/decisions/definitions/{decision_key}/subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Decision Subject Evidence */
+        get: operations["list_decision_subject_evidence_control_decisions_definitions__decision_key__subjects_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/decisions/evidence-trace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trace Decision Evidence
+         * @description Mark decisions whose evidence was corrected since they were recorded.
+         */
+        post: operations["trace_decision_evidence_control_decisions_evidence_trace_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/decisions/outcome-references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Outcome References */
+        get: operations["list_outcome_references_control_decisions_outcome_references_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/decisions/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Decision Reviews
+         * @description Commitments whose review is due or required; stopped ones never appear.
+         */
+        get: operations["list_decision_reviews_control_decisions_reviews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/control/decisions/{decision_id}": {
         parameters: {
             query?: never;
@@ -2273,6 +2347,57 @@ export interface paths {
         put?: never;
         /** Create Decision Follow Up */
         post: operations["create_decision_follow_up_control_decisions__decision_id__follow_ups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/decisions/{decision_id}/outcome-reference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Outcome Reference */
+        get: operations["get_outcome_reference_control_decisions__decision_id__outcome_reference_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/decisions/{decision_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reopen Decision Commitment */
+        post: operations["reopen_decision_commitment_control_decisions__decision_id__reopen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/decisions/{decision_id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop Decision Commitment */
+        post: operations["stop_decision_commitment_control_decisions__decision_id__stop_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4370,6 +4495,18 @@ export interface components {
          * @enum {string}
          */
         ColumnType: "string" | "integer" | "decimal" | "date" | "datetime" | "boolean";
+        /** CommitmentReopenRequest */
+        CommitmentReopenRequest: {
+            /** Reason */
+            reason: string;
+        };
+        /** CommitmentStopRequest */
+        CommitmentStopRequest: {
+            /** Reason */
+            reason: string;
+            /** Stop Condition Key */
+            stop_condition_key: string;
+        };
         /** ConfiguredIngestionProcessResponseModel */
         ConfiguredIngestionProcessResponseModel: {
             /** Promotions */
@@ -4564,7 +4701,10 @@ export interface components {
             decision_key: string;
             /** Evidence Gaps Acknowledged */
             evidence_gaps_acknowledged?: string[];
-            /** Follow Up Due On */
+            /**
+             * Follow Up Due On
+             * @description Optional review date; may not fall before the observation window closes.
+             */
             follow_up_due_on?: string | null;
             /** Outcome */
             outcome: string;
@@ -4572,7 +4712,7 @@ export interface components {
             rationale: string;
             /**
              * Subject Period
-             * @description Period of the subject publication row, e.g. 2026-01.
+             * @description Subject period of the decision (see the definition's subject_period_label).
              */
             subject_period: string;
             /**
@@ -4862,6 +5002,11 @@ export interface components {
             valid_from: string;
             /** Valid To */
             valid_to?: string | null;
+        };
+        /** EvidenceTraceRequest */
+        EvidenceTraceRequest: {
+            /** Decision Key */
+            decision_key?: string | null;
         };
         /** ExecutionScheduleRequest */
         ExecutionScheduleRequest: {
@@ -11557,6 +11702,143 @@ export interface operations {
             };
         };
     };
+    list_decision_subject_evidence_control_decisions_definitions__decision_key__subjects_get: {
+        parameters: {
+            query?: {
+                period?: string | null;
+            };
+            header?: never;
+            path: {
+                decision_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    trace_decision_evidence_control_decisions_evidence_trace_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvidenceTraceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_outcome_references_control_decisions_outcome_references_get: {
+        parameters: {
+            query?: {
+                decision_key?: string | null;
+                latest_only?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_decision_reviews_control_decisions_reviews_get: {
+        parameters: {
+            query?: {
+                decision_key?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_decision_control_decisions__decision_id__get: {
         parameters: {
             query?: never;
@@ -11602,6 +11884,113 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DecisionFollowUpCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_outcome_reference_control_decisions__decision_id__outcome_reference_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reopen_decision_commitment_control_decisions__decision_id__reopen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommitmentReopenRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_decision_commitment_control_decisions__decision_id__stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommitmentStopRequest"];
             };
         };
         responses: {

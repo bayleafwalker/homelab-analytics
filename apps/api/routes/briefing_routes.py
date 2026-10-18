@@ -26,6 +26,7 @@ from packages.application.use_cases.morning_brief import (
 )
 from packages.application.use_cases.morning_brief_sections import (
     ATTENTION_ITEMS_KEY,
+    BATTERY_PLAN_OUTCOME_KEY,
     MONTHLY_CASHFLOW_KEY,
     RECENT_CHANGES_KEY,
     UPCOMING_FIXED_COSTS_KEY,
@@ -60,6 +61,7 @@ class ReportingPublicationReader:
             ATTENTION_ITEMS_KEY: lambda svc: svc.get_open_attention_items(),
             RECENT_CHANGES_KEY: lambda svc: svc.get_recent_significant_changes(),
             UPCOMING_FIXED_COSTS_KEY: lambda svc: svc.get_upcoming_fixed_costs_30d(),
+            BATTERY_PLAN_OUTCOME_KEY: lambda svc: svc.get_battery_plan_outcome(),
         }
         if extra_readers:
             self._readers.update(extra_readers)

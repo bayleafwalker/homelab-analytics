@@ -1105,28 +1105,34 @@ def test_nextjs_frontend_exposes_deterministic_morning_brief() -> None:
 
 
 def test_nextjs_frontend_exposes_battery_plan_outcome_and_decision_ledger() -> None:
-    page_root = FRONTEND_ROOT / "app" / "utilities" / "battery-plan"
+    utilities_root = FRONTEND_ROOT / "app" / "utilities"
+    page_root = utilities_root / "battery-plan"
     page = (page_root / "page.js").read_text()
-    decision_route = (page_root / "decisions" / "route.js").read_text()
-    follow_up_route = (
-        page_root / "decisions" / "[decisionId]" / "follow-ups" / "route.js"
-    ).read_text()
+    ledger_ui = (utilities_root / "_decisions" / "decision-ledger.js").read_text()
+    handlers = (utilities_root / "_decisions" / "handlers.js").read_text()
     backend = (FRONTEND_ROOT / "lib" / "backend.ts").read_text()
-    utilities_page = (FRONTEND_ROOT / "app" / "utilities" / "page.js").read_text()
+    utilities_page = (utilities_root / "page.js").read_text()
 
     # Reads only through the typed reporting/control helpers.
     assert "getCurrentUser()" in page
     assert "getBatteryPlanOutcome(" in page
     assert "getDecisionRecords(DECISION_KEY)" in page
+    assert "getDecisionReviews(DECISION_KEY)" in page
     assert "ReportingService(" not in page
-    assert "export async function getBatteryPlanOutcome(" in backend
-    assert "export async function getDecisionRecords(" in backend
+    for helper in (
+        "getBatteryPlanOutcome(",
+        "getDecisionRecords(",
+        "getDecisionSubjects(",
+        "getDecisionReviews(",
+    ):
+        assert f"export async function {helper}" in backend
     assert (
         '"/reports/battery-plan-outcome": '
         '"get_battery_plan_outcome_reports_battery_plan_outcome_get";'
     ) in backend
     assert '"/control/decisions": "list_decisions_control_decisions_get";' in backend
     assert 'href="/utilities/battery-plan"' in utilities_page
+    assert 'href="/utilities/energy-contract"' in utilities_page
 
     # Disclosures: verdict, remediation, per-value status, missing values,
     # tariff assumptions and lineage are rendered; estimates are not cash.
@@ -1143,15 +1149,59 @@ def test_nextjs_frontend_exposes_battery_plan_outcome_and_decision_ledger() -> N
 
     # Only operators/admins see the decision forms; readers see history.
     assert 'user.role === "operator" || user.role === "admin"' in page
-    assert "evidence_gaps_acknowledged" in page
-    assert "Recording a decision authorizes nothing" in page
+    assert "evidence_gaps_acknowledged" in ledger_ui
+    assert "Recording a decision authorizes nothing" in ledger_ui
+    # Commitment lifecycle and superseded evidence are rendered (HLA-K01/K02).
+    for marker in (
+        "decision.purpose",
+        "stop_conditions",
+        "review_triggers",
+        "lifecycle.state",
+        "superseded_by",
+        "Evidence superseded",
+        "record.history",
+    ):
+        assert marker in ledger_ui
 
-    for source in (decision_route, follow_up_route):
-        assert "// @ts-check" in source
-        assert "cookieHeader" in source
-    assert 'backendRequest("post", "/control/decisions"' in decision_route
-    assert '"/control/decisions/{decision_id}/follow-ups"' in follow_up_route
-    assert "toISOString()" in follow_up_route
+    # Route handlers delegate to the shared, cookie-forwarding handlers.
+    assert "// @ts-check" in handlers
+    assert "cookieHeader" in handlers
+    assert 'backendRequest("post", "/control/decisions"' in handlers
+    assert '"/control/decisions/{decision_id}/follow-ups"' in handlers
+    assert '"/control/decisions/{decision_id}/stop"' in handlers
+    assert '"/control/decisions/{decision_id}/reopen"' in handlers
+    assert '"/control/decisions/evidence-trace"' in handlers
+    assert "toISOString()" in handlers
+    for page_dir in ("battery-plan", "energy-contract"):
+        for route in (
+            "decisions/route.js",
+            "decisions/[decisionId]/follow-ups/route.js",
+            "decisions/[decisionId]/stop/route.js",
+            "decisions/[decisionId]/reopen/route.js",
+            "evidence-trace/route.js",
+        ):
+            source = (utilities_root / page_dir / route).read_text()
+            assert "// @ts-check" in source
+            assert "_decisions/handlers" in source
+            assert f'"/utilities/{page_dir}"' in source
+
+
+def test_nextjs_frontend_exposes_energy_contract_decision_page() -> None:
+    page = (FRONTEND_ROOT / "app" / "utilities" / "energy-contract" / "page.js").read_text()
+    assert 'const DECISION_KEY = "electricity_contract_keep_or_switch";' in page
+    assert "getDecisionSubjects(DECISION_KEY" in page
+    assert "getDecisionRecords(DECISION_KEY)" in page
+    assert "ReportingService(" not in page
+    assert 'user.role === "operator" || user.role === "admin"' in page
+    for marker in (
+        "insufficient_evidence",
+        "assessment.remediation",
+        "assessment.limitations",
+        "value_disclosures",
+        "not realized cash",
+        "Nothing here can switch or cancel a contract",
+    ):
+        assert marker in page
 
 
 def test_nextjs_frontend_exposes_agent_control_surface() -> None:

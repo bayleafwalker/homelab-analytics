@@ -12,32 +12,59 @@ Rules enforced here (independent of transport):
 - The actor comes from the auth layer; with identity disabled the record says
   so (``actor_authenticated = false``) rather than inventing a decision-maker.
 - Recording a decision authorizes nothing: it holds no device or tariff action.
+
+Commitment lifecycle (HLA-K01): every record opens a commitment whose terms
+are pinned from the definition version at record time.
+
+- The authenticated actor must satisfy the definition's owner (role, and
+  principal when one is declared). Without identity the commitment records
+  ``owner_verified = false``.
+- The observation window and first review date derive from the definition;
+  an explicit follow-up date may not fall before the window closes.
+- Stop conditions met by the outcome or the evidence are flagged; only the
+  owner stops a commitment (``stop_commitment``), and may reopen it.
+- State is derived, never stored: ``stopped`` > ``review_required``
+  (evidence superseded since the last review) > ``review_due`` (next review
+  date reached) > ``active``. Stopped commitments drop out of the review
+  queue; their history stays readable.
 """
 
 from __future__ import annotations
 
 import json
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
+from packages.platform.auth.contracts import UserRole
+from packages.platform.auth.role_hierarchy import has_required_role
 from packages.platform.decision_definitions import (
     DecisionDefinition,
     DecisionSubjectEvidence,
+    DecisionSuccessMeasure,
 )
 from packages.storage.decision_ledger import (
     FOLLOW_UP_EVIDENCE_EFFECTS,
     REALIZED_VALUE_STATUSES,
     DecisionActor,
+    DecisionCommitment,
     DecisionFollowUpCreate,
     DecisionFollowUpRecord,
     DecisionLedgerStore,
+    DecisionLifecycleEvent,
+    DecisionLifecycleEventCreate,
     DecisionRecord,
     DecisionRecordCreate,
 )
+
+LIFECYCLE_STATES = ("active", "review_due", "review_required", "stopped")
+REVIEW_QUEUE_STATES = frozenset({"review_due", "review_required"})
+# Records made before commitment terms existed (definition 1.0.0) have only a
+# follow-up date; after a follow-up their next review uses this cadence.
+LEGACY_REVIEW_CADENCE_DAYS = 30
 
 
 class DecisionValidationError(ValueError):
@@ -45,6 +72,14 @@ class DecisionValidationError(ValueError):
 
 
 class DecisionSubjectConflictError(ValueError):
+    pass
+
+
+class DecisionAuthorizationError(PermissionError):
+    pass
+
+
+class DecisionStateConflictError(ValueError):
     pass
 
 
@@ -88,6 +123,35 @@ def actor_from_principal(principal: object | None) -> DecisionActor:
     )
 
 
+def check_owner(
+    *, owner_role: str, owner_principal: str | None, actor: DecisionActor
+) -> bool:
+    """Return whether the actor is a verified owner; raise if it is not one.
+
+    An unauthenticated actor (identity disabled) is recorded as unverified
+    rather than refused, so the ledger works on a single-user install without
+    pretending an authenticated household decision-maker acted.
+    """
+    if not actor.actor_authenticated:
+        return False
+    try:
+        actor_role = UserRole(actor.actor_role or "")
+        required = UserRole(owner_role)
+    except ValueError as exc:
+        raise DecisionAuthorizationError(
+            f"Actor role {actor.actor_role!r} cannot own this commitment."
+        ) from exc
+    if not has_required_role(actor_role, required):
+        raise DecisionAuthorizationError(
+            f"Only the {owner_role} role may own this commitment."
+        )
+    if owner_principal is not None and actor.actor != owner_principal:
+        raise DecisionAuthorizationError(
+            f"This commitment is owned by {owner_principal}; {actor.actor} cannot act on it."
+        )
+    return True
+
+
 def record_decision(
     store: DecisionLedgerStore,
     *,
@@ -107,6 +171,11 @@ def record_decision(
         raise DecisionValidationError(f"Unknown outcome {request.outcome!r}; allowed: {allowed}")
     if not request.rationale.strip():
         raise DecisionValidationError("A rationale is required.")
+    owner_verified = check_owner(
+        owner_role=definition.owner.role,
+        owner_principal=definition.owner.principal,
+        actor=actor,
+    )
     subject = subject_reader(request.decision_key, request.subject_period)
     if subject is None:
         raise LookupError(
@@ -124,14 +193,57 @@ def record_decision(
             f"({', '.join(subject.reason_codes) or subject.verdict}); "
             "acknowledge the evidence gaps to record a decision or non-decision."
         )
-    due = request.follow_up_due_on or (
-        created_at.date() + timedelta(days=definition.follow_up_default_days)
-    )
-    if due <= created_at.date():
+    decided_on = created_at.date()
+    window_start, window_end = definition.observation_window.window_for(decided_on)
+    due = request.follow_up_due_on or definition.observation_window.review_due_on(decided_on)
+    if due <= decided_on:
         raise DecisionValidationError("follow_up_due_on must be after the decision date.")
+    if due < window_end:
+        raise DecisionValidationError(
+            "follow_up_due_on falls before the observation window closes "
+            f"({window_end.isoformat()}); the realized result cannot be reviewed yet."
+        )
+    stop_conditions_met = [
+        condition.key
+        for condition in definition.stop_conditions
+        if condition.met_by(outcome=option.key, reason_codes=subject.reason_codes)
+    ]
+    decision_id = f"dec_{uuid.uuid4().hex}"
+    terms = definition.to_dict()
+    commitment = DecisionCommitment(
+        decision_id=decision_id,
+        purpose=definition.purpose,
+        owner_role=definition.owner.role,
+        owner_principal=definition.owner.principal,
+        owner_verified=owner_verified,
+        baseline=_json(
+            {
+                "description": definition.baseline.description,
+                "values": {
+                    key: subject.baseline.get(
+                        key, {"value": None, "status": None, "unit": None, "is_missing": True}
+                    )
+                    for key in definition.baseline.value_keys
+                },
+            }
+        ),
+        success_measure=_json(terms["success_measure"]),
+        observation_window_start=window_start,
+        observation_window_end=window_end,
+        next_review_due_on=due,
+        review_cadence_days=definition.observation_window.review_cadence_days,
+        review_triggers=_json(terms["review_triggers"]),
+        stop_conditions=_json(terms["stop_conditions"]),
+        stop_conditions_met=_json(stop_conditions_met),
+        evidence_fingerprint=subject.evidence_fingerprint,
+        evidence_components=_json(subject.evidence_components),
+        created_at=created_at,
+    )
+    lineage = dict(subject.lineage_reference)
+    lineage["evidence_fingerprint"] = subject.evidence_fingerprint
     return store.create_decision_record(
         DecisionRecordCreate(
-            decision_id=f"dec_{uuid.uuid4().hex}",
+            decision_id=decision_id,
             decision_key=definition.decision_key,
             decision_version=definition.version,
             subject_publication_key=subject.publication_key,
@@ -139,7 +251,7 @@ def record_decision(
             subject_period=subject.period,
             subject_row_ref=subject.row_ref,
             subject_verdict=subject.verdict,
-            lineage_reference=_json(subject.lineage_reference),
+            lineage_reference=_json(lineage),
             evidence_snapshot=_json(subject.snapshot),
             outcome=option.key,
             is_non_decision=option.is_non_decision,
@@ -148,6 +260,7 @@ def record_decision(
             uncertainty=(request.uncertainty or "").strip() or None,
             actor=actor,
             follow_up_due_on=due,
+            commitment=commitment,
             created_at=created_at,
         )
     )
@@ -202,8 +315,238 @@ def record_follow_up(
     )
 
 
-def serialize_follow_up(follow_up: DecisionFollowUpRecord) -> dict[str, Any]:
+# ---------------------------------------------------------------------------
+# Lifecycle: operator stop / reopen and derived state
+# ---------------------------------------------------------------------------
+
+
+def _owner_of(
+    record: DecisionRecord, definition_lookup: Callable[[str], DecisionDefinition | None]
+) -> tuple[str, str | None]:
+    if record.commitment is not None:
+        return record.commitment.owner_role, record.commitment.owner_principal
+    definition = definition_lookup(record.decision_key)
+    return (definition.owner.role, definition.owner.principal) if definition else ("operator", None)
+
+
+def _pinned_stop_condition_keys(
+    record: DecisionRecord, definition_lookup: Callable[[str], DecisionDefinition | None]
+) -> list[str]:
+    if record.commitment is not None:
+        return [item["key"] for item in json.loads(record.commitment.stop_conditions)]
+    definition = definition_lookup(record.decision_key)
+    return [condition.key for condition in definition.stop_conditions] if definition else []
+
+
+def stop_commitment(
+    store: DecisionLedgerStore,
+    *,
+    decision_id: str,
+    stop_condition_key: str,
+    reason: str,
+    actor: DecisionActor,
+    definition_lookup: Callable[[str], DecisionDefinition | None],
+    now: datetime | None = None,
+) -> DecisionLifecycleEvent:
+    """The owner ends a commitment under one of its pinned stop conditions."""
+    occurred_at = now or datetime.now(UTC)
+    record = store.get_decision_record(decision_id)
+    owner_role, owner_principal = _owner_of(record, definition_lookup)
+    check_owner(owner_role=owner_role, owner_principal=owner_principal, actor=actor)
+    allowed = _pinned_stop_condition_keys(record, definition_lookup)
+    if stop_condition_key not in allowed:
+        raise DecisionValidationError(
+            f"Unknown stop condition {stop_condition_key!r}; allowed: {', '.join(allowed)}"
+        )
+    if not reason.strip():
+        raise DecisionValidationError("A stop reason is required.")
+    events = store.list_decision_lifecycle_events(decision_id)
+    if _is_stopped(events):
+        raise DecisionStateConflictError("The commitment is already stopped.")
+    sequence = sum(1 for event in events if event.event_kind == "stopped") + 1
+    event, _ = store.append_decision_lifecycle_event(
+        DecisionLifecycleEventCreate(
+            event_id=f"dle_{uuid.uuid4().hex}",
+            decision_id=decision_id,
+            event_kind="stopped",
+            dedupe_key=f"{decision_id}:stopped:{sequence}",
+            reason_code=stop_condition_key,
+            reason=reason.strip(),
+            details=_json({"stop_condition_key": stop_condition_key}),
+            actor=actor,
+            occurred_at=occurred_at,
+            created_at=occurred_at,
+        )
+    )
+    return event
+
+
+def reopen_commitment(
+    store: DecisionLedgerStore,
+    *,
+    decision_id: str,
+    reason: str,
+    actor: DecisionActor,
+    definition_lookup: Callable[[str], DecisionDefinition | None],
+    now: datetime | None = None,
+) -> DecisionLifecycleEvent:
+    occurred_at = now or datetime.now(UTC)
+    record = store.get_decision_record(decision_id)
+    owner_role, owner_principal = _owner_of(record, definition_lookup)
+    check_owner(owner_role=owner_role, owner_principal=owner_principal, actor=actor)
+    if not reason.strip():
+        raise DecisionValidationError("A reopen reason is required.")
+    events = store.list_decision_lifecycle_events(decision_id)
+    if not _is_stopped(events):
+        raise DecisionStateConflictError("Only a stopped commitment can be reopened.")
+    sequence = sum(1 for event in events if event.event_kind == "reopened") + 1
+    event, _ = store.append_decision_lifecycle_event(
+        DecisionLifecycleEventCreate(
+            event_id=f"dle_{uuid.uuid4().hex}",
+            decision_id=decision_id,
+            event_kind="reopened",
+            dedupe_key=f"{decision_id}:reopened:{sequence}",
+            reason_code="owner_reopened",
+            reason=reason.strip(),
+            details=_json({}),
+            actor=actor,
+            occurred_at=occurred_at,
+            created_at=occurred_at,
+        )
+    )
+    return event
+
+
+def _is_stopped(events: Sequence[DecisionLifecycleEvent]) -> bool:
+    stopped = False
+    for event in events:
+        if event.event_kind == "stopped":
+            stopped = True
+        elif event.event_kind == "reopened":
+            stopped = False
+    return stopped
+
+
+def _success_measure(record: DecisionRecord) -> DecisionSuccessMeasure | None:
+    if record.commitment is None:
+        return None
+    payload = json.loads(record.commitment.success_measure)
+    return DecisionSuccessMeasure(
+        key=str(payload["key"]),
+        description=str(payload["description"]),
+        unit=str(payload["unit"]),
+        comparison=str(payload["comparison"]),
+        threshold=Decimal(str(payload["threshold"])),
+        accepted_value_statuses=tuple(payload.get("accepted_value_statuses") or ()),
+    )
+
+
+def evaluate_follow_up_success(
+    record: DecisionRecord, follow_up: DecisionFollowUpRecord
+) -> str:
+    """``met`` / ``not_met`` / ``unmeasured`` against the pinned success measure."""
+    measure = _success_measure(record)
+    if measure is None:
+        return "unmeasured"
+    return measure.evaluate(follow_up.realized_value_eur, follow_up.realized_value_status)
+
+
+def derive_commitment_state(
+    record: DecisionRecord,
+    follow_ups: Sequence[DecisionFollowUpRecord],
+    events: Sequence[DecisionLifecycleEvent],
+    *,
+    today: date,
+) -> dict[str, Any]:
+    """Derived lifecycle view: state, next review, open supersessions, reasons."""
+    commitment = record.commitment
+    if commitment is not None:
+        cadence = commitment.review_cadence_days
+        next_review = commitment.next_review_due_on
+    else:
+        cadence = LEGACY_REVIEW_CADENCE_DAYS
+        next_review = record.follow_up_due_on
+    stopped = False
+    stop_event: DecisionLifecycleEvent | None = None
+    open_supersessions: list[DecisionLifecycleEvent] = []
+    timeline: list[tuple[datetime, str, Any]] = [
+        *((follow_up.observed_at, "follow_up", follow_up) for follow_up in follow_ups),
+        *((event.occurred_at, event.event_kind, event) for event in events),
+    ]
+    timeline.sort(key=lambda item: item[0])
+    for occurred_at, kind, item in timeline:
+        if kind == "follow_up":
+            open_supersessions = []
+            next_review = max(next_review, occurred_at.date() + timedelta(days=cadence))
+        elif kind == "evidence_superseded":
+            open_supersessions.append(item)
+        elif kind == "stopped":
+            stopped = True
+            stop_event = item
+        elif kind == "reopened":
+            stopped = False
+            stop_event = None
+            next_review = max(next_review, occurred_at.date() + timedelta(days=cadence))
+    superseded_by = [json.loads(event.details) for event in events if event.event_kind == "evidence_superseded"]
+    stop_conditions_met = (
+        json.loads(commitment.stop_conditions_met) if commitment is not None else []
+    )
+    if stopped:
+        state = "stopped"
+    elif open_supersessions:
+        state = "review_required"
+    elif today >= next_review:
+        state = "review_due"
+    else:
+        state = "active"
+    if record.subject_verdict == "insufficient_evidence" or json.loads(
+        record.evidence_gaps_acknowledged
+    ):
+        evidence_status = "insufficient"
+    else:
+        evidence_status = "as_recorded"
+    if superseded_by:
+        evidence_status = "superseded"
+    reasons: list[str] = []
+    if state == "stopped" and stop_event is not None:
+        reasons.append(f"Stopped ({stop_event.reason_code}): {stop_event.reason}")
+    elif state == "review_required":
+        for event in open_supersessions:
+            reasons.append(event.reason)
+    elif state == "review_due":
+        reasons.append(
+            f"The review was due on {next_review.isoformat()} (observation window closed)."
+        )
+    else:
+        reasons.append(
+            f"Active until a stop condition is met; next review on {next_review.isoformat()}."
+        )
+    if evidence_status == "insufficient":
+        reasons.append("The decision was recorded on insufficient evidence (gaps acknowledged).")
+    if stop_conditions_met and state != "stopped":
+        reasons.append(
+            "Stop condition(s) met at record time: "
+            + ", ".join(stop_conditions_met)
+            + "; the owner may stop the commitment."
+        )
+    latest_supersession = superseded_by[-1] if superseded_by else None
     return {
+        "state": state,
+        "evidence_status": evidence_status,
+        "next_review_due_on": None if stopped else next_review.isoformat(),
+        "stop_recommended": bool(stop_conditions_met) and not stopped,
+        "stop_conditions_met": stop_conditions_met,
+        "reasons": reasons,
+        "open_supersessions": [json.loads(event.details) for event in open_supersessions],
+        "superseded_by": latest_supersession,
+        "proactive_review": state in REVIEW_QUEUE_STATES,
+    }
+
+
+def serialize_follow_up(
+    follow_up: DecisionFollowUpRecord, *, success: str | None = None
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
         "follow_up_id": follow_up.follow_up_id,
         "decision_id": follow_up.decision_id,
         "observed_at": follow_up.observed_at.isoformat(),
@@ -220,14 +563,59 @@ def serialize_follow_up(follow_up: DecisionFollowUpRecord) -> dict[str, Any]:
         "actor": _serialize_actor(follow_up.actor),
         "created_at": follow_up.created_at.isoformat(),
     }
+    if success is not None:
+        payload["success"] = success
+    return payload
+
+
+def serialize_lifecycle_event(event: DecisionLifecycleEvent) -> dict[str, Any]:
+    return {
+        "event_id": event.event_id,
+        "decision_id": event.decision_id,
+        "event_kind": event.event_kind,
+        "reason_code": event.reason_code,
+        "reason": event.reason,
+        "details": json.loads(event.details),
+        "actor": _serialize_actor(event.actor),
+        "occurred_at": event.occurred_at.isoformat(),
+    }
+
+
+def serialize_commitment(commitment: DecisionCommitment | None) -> dict[str, Any] | None:
+    if commitment is None:
+        return None
+    return {
+        "purpose": commitment.purpose,
+        "owner": {
+            "role": commitment.owner_role,
+            "principal": commitment.owner_principal,
+            "verified": commitment.owner_verified,
+        },
+        "baseline": json.loads(commitment.baseline),
+        "success_measure": json.loads(commitment.success_measure),
+        "observation_window": {
+            "start": commitment.observation_window_start.isoformat(),
+            "end": commitment.observation_window_end.isoformat(),
+            "review_cadence_days": commitment.review_cadence_days,
+        },
+        "first_review_due_on": commitment.next_review_due_on.isoformat(),
+        "review_triggers": json.loads(commitment.review_triggers),
+        "stop_conditions": json.loads(commitment.stop_conditions),
+        "stop_conditions_met": json.loads(commitment.stop_conditions_met),
+        "evidence_fingerprint": commitment.evidence_fingerprint,
+        "evidence_components": json.loads(commitment.evidence_components),
+    }
 
 
 def serialize_decision(
     record: DecisionRecord,
     follow_ups: list[DecisionFollowUpRecord],
+    lifecycle_events: list[DecisionLifecycleEvent] | None = None,
     *,
+    today: date | None = None,
     include_snapshot: bool = False,
 ) -> dict[str, Any]:
+    events = lifecycle_events or []
     payload: dict[str, Any] = {
         "decision_id": record.decision_id,
         "decision_key": record.decision_key,
@@ -250,11 +638,61 @@ def serialize_decision(
         "created_at": record.created_at.isoformat(),
         "status": "followed_up" if follow_ups else "awaiting_follow_up",
         "actuation_authorized": False,
-        "follow_ups": [serialize_follow_up(item) for item in follow_ups],
+        "commitment": serialize_commitment(record.commitment),
+        "lifecycle": derive_commitment_state(
+            record, follow_ups, events, today=today or datetime.now(UTC).date()
+        ),
+        "history": [serialize_lifecycle_event(event) for event in events],
+        "follow_ups": [
+            serialize_follow_up(item, success=evaluate_follow_up_success(record, item))
+            for item in follow_ups
+        ],
     }
     if include_snapshot:
         payload["evidence_snapshot"] = json.loads(record.evidence_snapshot)
     return payload
+
+
+def load_serialized_decision(
+    store: DecisionLedgerStore,
+    record: DecisionRecord,
+    *,
+    today: date | None = None,
+    include_snapshot: bool = False,
+) -> dict[str, Any]:
+    return serialize_decision(
+        record,
+        store.list_decision_follow_ups(record.decision_id),
+        store.list_decision_lifecycle_events(record.decision_id),
+        today=today,
+        include_snapshot=include_snapshot,
+    )
+
+
+def list_commitment_reviews(
+    store: DecisionLedgerStore,
+    *,
+    today: date,
+    decision_key: str | None = None,
+) -> list[dict[str, Any]]:
+    """The proactive review queue: due or required reviews, never stopped ones."""
+    queue: list[dict[str, Any]] = []
+    for record in store.list_decision_records(decision_key=decision_key):
+        payload = load_serialized_decision(store, record, today=today)
+        lifecycle = payload["lifecycle"]
+        if lifecycle["state"] in REVIEW_QUEUE_STATES:
+            queue.append(
+                {
+                    "decision_id": record.decision_id,
+                    "decision_key": record.decision_key,
+                    "subject_period": record.subject_period,
+                    "state": lifecycle["state"],
+                    "next_review_due_on": lifecycle["next_review_due_on"],
+                    "reasons": lifecycle["reasons"],
+                    "evidence_status": lifecycle["evidence_status"],
+                }
+            )
+    return queue
 
 
 def _serialize_actor(actor: DecisionActor) -> dict[str, Any]:

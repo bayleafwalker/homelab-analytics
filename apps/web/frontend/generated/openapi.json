@@ -2529,6 +2529,39 @@
         "title": "ColumnType",
         "type": "string"
       },
+      "CommitmentReopenRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "CommitmentReopenRequest",
+        "type": "object"
+      },
+      "CommitmentStopRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "stop_condition_key": {
+            "title": "Stop Condition Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stop_condition_key",
+          "reason"
+        ],
+        "title": "CommitmentStopRequest",
+        "type": "object"
+      },
       "ConfiguredIngestionProcessResponseModel": {
         "additionalProperties": false,
         "properties": {
@@ -3140,6 +3173,7 @@
                 "type": "null"
               }
             ],
+            "description": "Optional review date; may not fall before the observation window closes.",
             "title": "Follow Up Due On"
           },
           "outcome": {
@@ -3151,7 +3185,7 @@
             "type": "string"
           },
           "subject_period": {
-            "description": "Period of the subject publication row, e.g. 2026-01.",
+            "description": "Subject period of the decision (see the definition's subject_period_label).",
             "title": "Subject Period",
             "type": "string"
           },
@@ -4321,6 +4355,24 @@
           "status"
         ],
         "title": "ElectricityPriceCurrentRow",
+        "type": "object"
+      },
+      "EvidenceTraceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "decision_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Key"
+          }
+        },
+        "title": "EvidenceTraceRequest",
         "type": "object"
       },
       "ExecutionScheduleRequest": {
@@ -16672,6 +16724,211 @@
         "summary": "List Decision Definitions"
       }
     },
+    "/control/decisions/definitions/{decision_key}/subjects": {
+      "get": {
+        "operationId": "list_decision_subject_evidence_control_decisions_definitions__decision_key__subjects_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_key",
+            "required": true,
+            "schema": {
+              "title": "Decision Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Decision Subject Evidence Control Decisions Definitions  Decision Key  Subjects Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Decision Subject Evidence"
+      }
+    },
+    "/control/decisions/evidence-trace": {
+      "post": {
+        "description": "Mark decisions whose evidence was corrected since they were recorded.",
+        "operationId": "trace_decision_evidence_control_decisions_evidence_trace_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceTraceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Trace Decision Evidence Control Decisions Evidence Trace Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Trace Decision Evidence"
+      }
+    },
+    "/control/decisions/outcome-references": {
+      "get": {
+        "operationId": "list_outcome_references_control_decisions_outcome_references_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "decision_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Decision Key"
+            }
+          },
+          {
+            "in": "query",
+            "name": "latest_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Latest Only",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Outcome References Control Decisions Outcome References Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Outcome References"
+      }
+    },
+    "/control/decisions/reviews": {
+      "get": {
+        "description": "Commitments whose review is due or required; stopped ones never appear.",
+        "operationId": "list_decision_reviews_control_decisions_reviews_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "decision_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Decision Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Decision Reviews Control Decisions Reviews Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Decision Reviews"
+      }
+    },
     "/control/decisions/{decision_id}": {
       "get": {
         "operationId": "get_decision_control_decisions__decision_id__get",
@@ -16762,6 +17019,149 @@
           }
         },
         "summary": "Create Decision Follow Up"
+      }
+    },
+    "/control/decisions/{decision_id}/outcome-reference": {
+      "get": {
+        "operationId": "get_outcome_reference_control_decisions__decision_id__outcome_reference_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_id",
+            "required": true,
+            "schema": {
+              "title": "Decision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Outcome Reference Control Decisions  Decision Id  Outcome Reference Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Outcome Reference"
+      }
+    },
+    "/control/decisions/{decision_id}/reopen": {
+      "post": {
+        "operationId": "reopen_decision_commitment_control_decisions__decision_id__reopen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_id",
+            "required": true,
+            "schema": {
+              "title": "Decision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitmentReopenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reopen Decision Commitment Control Decisions  Decision Id  Reopen Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reopen Decision Commitment"
+      }
+    },
+    "/control/decisions/{decision_id}/stop": {
+      "post": {
+        "operationId": "stop_decision_commitment_control_decisions__decision_id__stop_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_id",
+            "required": true,
+            "schema": {
+              "title": "Decision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitmentStopRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Stop Decision Commitment Control Decisions  Decision Id  Stop Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop Decision Commitment"
       }
     },
     "/control/lineage/downstream": {

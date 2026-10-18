@@ -330,6 +330,45 @@ def initialize_sqlite_control_plane_schema(connection: sqlite3.Connection) -> No
         CREATE INDEX IF NOT EXISTS idx_decision_follow_ups_decision
             ON decision_follow_ups (decision_id, observed_at);
 
+        CREATE TABLE IF NOT EXISTS decision_commitments (
+            decision_id TEXT PRIMARY KEY REFERENCES decision_records (decision_id),
+            purpose TEXT NOT NULL,
+            owner_role TEXT NOT NULL,
+            owner_principal TEXT,
+            owner_verified INTEGER NOT NULL,
+            baseline TEXT NOT NULL,
+            success_measure TEXT NOT NULL,
+            observation_window_start TEXT NOT NULL,
+            observation_window_end TEXT NOT NULL,
+            next_review_due_on TEXT NOT NULL,
+            review_cadence_days INTEGER NOT NULL,
+            review_triggers TEXT NOT NULL,
+            stop_conditions TEXT NOT NULL,
+            stop_conditions_met TEXT NOT NULL,
+            evidence_fingerprint TEXT NOT NULL,
+            evidence_components TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS decision_lifecycle_events (
+            event_id TEXT PRIMARY KEY,
+            decision_id TEXT NOT NULL REFERENCES decision_records (decision_id),
+            event_kind TEXT NOT NULL,
+            dedupe_key TEXT NOT NULL UNIQUE,
+            reason_code TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            details TEXT NOT NULL,
+            actor TEXT NOT NULL,
+            actor_role TEXT,
+            actor_auth_provider TEXT NOT NULL,
+            actor_authenticated INTEGER NOT NULL,
+            occurred_at TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_decision_lifecycle_events_decision
+            ON decision_lifecycle_events (decision_id, occurred_at);
+
         CREATE TABLE IF NOT EXISTS pack_installations (
             pack_key TEXT PRIMARY KEY,
             display_name TEXT NOT NULL,
