@@ -3458,6 +3458,8 @@ export interface components {
             created_by?: string | null;
             /** Dismissed At */
             dismissed_at?: string | null;
+            /** History */
+            history?: components["schemas"]["ProposalHistoryEventModel"][];
             /** Metadata */
             metadata?: {
                 [key: string]: unknown;
@@ -3469,6 +3471,10 @@ export interface components {
             /** Policy Name */
             policy_name: string;
             provenance?: components["schemas"]["ProposalProvenanceModel"] | null;
+            /** Resolution Reason */
+            resolution_reason?: string | null;
+            /** Resolved By */
+            resolved_by?: string | null;
             /** Source Key */
             source_key?: string | null;
             /**
@@ -5396,6 +5402,20 @@ export interface components {
             /** Skipped */
             skipped: boolean;
         };
+        /** ProposalHistoryEventModel */
+        ProposalHistoryEventModel: {
+            /** Actor */
+            actor?: string | null;
+            /** At */
+            at: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "drafted" | "refreshed" | "approved" | "dismissed";
+            /** Reason */
+            reason?: string | null;
+        };
         /** ProposalProvenanceModel */
         ProposalProvenanceModel: {
             /** Assessed At */
@@ -5406,6 +5426,11 @@ export interface components {
             freshness_state_at_draft?: string | null;
             /** Publication Keys */
             publication_keys?: string[];
+        };
+        /** ProposalResolutionModel */
+        ProposalResolutionModel: {
+            /** Reason */
+            reason?: string | null;
         };
         /** PublicationColumnContractModel */
         PublicationColumnContractModel: {
@@ -6471,7 +6496,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ProposalResolutionModel"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -6502,7 +6531,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ProposalResolutionModel"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -6880,7 +6913,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ProposalResolutionModel"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -6911,7 +6948,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ProposalResolutionModel"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

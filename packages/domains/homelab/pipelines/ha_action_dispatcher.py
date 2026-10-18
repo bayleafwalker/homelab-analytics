@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     )
     from packages.domains.homelab.pipelines.ha_policy import HaPolicyEvaluator, PolicyResult
 
+from packages.platform.action_proposals import ProposalTransitionError
 from packages.platform.adapter_runtime_status import AdapterRuntimeStatus
 
 logger = logging.getLogger("homelab_analytics.ha_action_dispatcher")
@@ -488,8 +489,12 @@ class HaActionDispatcher:
                     )
                 else:
                     try:
-                        self._proposal_registry.dismiss(target)
-                    except KeyError:
+                        self._proposal_registry.dismiss(
+                            target,
+                            resolved_by="ha_action_dispatcher",
+                            reason="Policy condition cleared.",
+                        )
+                    except (KeyError, ProposalTransitionError):
                         logger.debug(
                             "Approval proposal missing during dismiss",
                             extra={"policy_id": result.id, "target": target},
