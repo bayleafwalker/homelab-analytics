@@ -1,32 +1,20 @@
-ID:     575
-Name:   ledger-proof-dawn — Outcome Evidence, Honest Confidence, Operable Baseline
-Goal:   Close the household outcome evidence loop with a decision ledger, make confidence and briefs evidence-honest, finish the domain-move refactor, add backup/restore, and ship v0.1.3
+ID:     576
+Name:   grid-watch-close — Backlog Completion Wave
+Goal:   Implement the remaining backlog: ops console, wallboard adapters, thin transform facade, finance operator loop, as-of history and DuckDB lineage, agent platform and ops follow-ups; ship v0.1.4 observability to appservice
 Dates:  2026-10-18 to 2026-11-01
 Status: closed
 Kind:   active_sprint
 
-ID     STATUS  PRI  TRACK     ASSIGNEE  TITLE                                                   
------  ------  ---  --------  --------  --------------------------------------------------------
-#2697  done    -    gate      -         Verify gate integrity                                   
-#2698  done    -    docs      -         Roadmap truth pass                                      
-#2699  done    -    trust     -         Real publication confidence                             
-#2700  done    -    trust     -         B1 deterministic morning brief                          
-#2701  done    -    ops       -         Worker backup/verify/restore (B8)                       
-#2702  done    -    refactor  -         Finish domain move                                      
-#2703  done    -    tooling   -         kctl served extra install                               
-#2704  done    -    outcome   -         Household outcome evidence loop                         
-#2705  done    -    agentic   -         Agentic UX + vuoro alignment                            
-#2706  done    -    ui        -         UI/UX innovation                                        
-#2707  done    -    ops       -         Release v0.1.3                                          
-#2708  done    -    ops       -         Deploy v0.1.3 to appservice                             
-#2709  done    -    ops       -         Scheduled warehouse backup in cluster                   
-#2710  done    -    refactor  -         Split transformation_service.py                         
-#2711  done    -    refactor  -         Dedupe control-plane SQL dialects                       
-#2712  done    -    agentic   -         Persist proposal queue                                  
-#2718  done    -    trust     -         Confidence key unification                              
-#2719  done    -    agentic   -         Agent drafting scopes + permission alignment            
-#2720  done    -    agentic   -         OIDC auth mode (Authentik)                              
-#2721  done    -    ops       -         Observability + SLOs (B11/B12)                          
-#2722  done    -    ui        -         UI wave 3                                               
-#2723  done    -    outcome   -         Battery outcome brief section + energy-contract decision
-#2724  done    -    packs     -         Pack lifecycle operator surface (Stage 8)               
+ID     STATUS  PRI  TRACK         ASSIGNEE  TITLE                                                              
+-----  ------  ---  ------------  --------  -------------------------------------------------------------------
+#2792  done    -    ops           -         Release v0.1.4 + appservice observability PR                       
+#2793  done    -    agentic       -         Agent platform follow-ups (W3-6, PR #47)                           
+#2794  done    -    ops           -         Ops follow-ups (W3-7, PR #48)                                      
+#2795  done    -    finance       -         Finance operator loop (W3-4, PR #49)                               
+#2796  done    -    refactor      -         Thin transform facade (W3-3)                                       
+#2797  done    -    ui            -         Ops console (W3-1)                                                 
+#2798  done    -    ui            -         Wallboard adapters (W3-2)                                          
+#2799  done    -    trust         -         As-of history + DuckDB lineage (W3-5)                              
+#2800  done    -    reporting     -         Seed pub_budgets_envelope_drift on Postgres                        
+#2801  done    -    trust         -         DuckDB-path confidence matches runs to freshness by source_asset_id
+#2802  done    -    verification  -         Refresh S3/Postgres integration expected publication set           
