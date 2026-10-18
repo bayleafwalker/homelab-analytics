@@ -7,30 +7,23 @@ runtime would otherwise initialize first.
 from __future__ import annotations
 
 from argparse import Namespace
+from dataclasses import replace
 from pathlib import Path
 from typing import TextIO
 
+from apps.worker.ops import (
+    backup_policy_from_settings,
+    backup_sources_from_settings,
+)
 from apps.worker.serialization import _write_json
 from packages.shared.settings import AppSettings
 from packages.storage.backup_bundle import (
     BackupError,
-    BackupSources,
     create_backup,
     restore_backup,
     verify_backup,
 )
-
-
-def backup_sources_from_settings(settings: AppSettings) -> BackupSources:
-    """Map settings to store locations without carrying DSNs or credentials."""
-    return BackupSources(
-        control_plane_backend=settings.resolved_control_plane_backend,
-        reporting_backend=settings.reporting_backend.lower(),
-        blob_backend=settings.blob_backend.lower(),
-        control_plane_database_path=settings.resolved_config_database_path,
-        warehouse_database_path=settings.resolved_analytics_database_path,
-        landing_root=settings.landing_root,
-    )
+from packages.storage.backup_schedule import run_scheduled_backup
 
 
 def handle_backup(
@@ -89,4 +82,33 @@ def handle_restore(
     _write_json(output, {"restore": result})
     for warning in result["warnings"]:
         error_output.write(f"warning: {warning}\n")
+    return 0
+
+
+def handle_scheduled_backup(
+    args: Namespace, settings: AppSettings, output: TextIO, error_output: TextIO
+) -> int:
+    """One retained, verified bundle under the backup root, regardless of interval.
+
+    Same staging/verify/prune/status path as the worker-loop schedule, for
+    one-off runs (operator, restore drill, single-process deployments).
+    """
+    policy = backup_policy_from_settings(settings)
+    if getattr(args, "backup_dir", ""):
+        policy = replace(policy, destination_root=Path(args.backup_dir))
+    result = run_scheduled_backup(backup_sources_from_settings(settings), policy)
+    _write_json(
+        output,
+        {
+            "scheduled_backup": {
+                "succeeded": result.succeeded,
+                "bundle_dir": str(result.bundle_dir) if result.bundle_dir else None,
+                "pruned": [str(path) for path in result.pruned],
+                "status": result.status.as_dict(),
+            }
+        },
+    )
+    if not result.succeeded:
+        error_output.write(f"{result.error}\n")
+        return 1
     return 0

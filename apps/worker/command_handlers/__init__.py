@@ -22,7 +22,12 @@ from .admin_commands import (
     handle_revoke_service_token,
     handle_verify_config,
 )
-from .backup_commands import handle_backup, handle_restore, handle_verify_backup
+from .backup_commands import (
+    handle_backup,
+    handle_restore,
+    handle_scheduled_backup,
+    handle_verify_backup,
+)
 from .ingest_commands import (
     handle_generate_demo_data,
     handle_ingest_account_transactions,
@@ -76,6 +81,7 @@ def build_settings_command_handlers() -> dict[str, SettingsCommandHandler]:
         "backup": handle_backup,
         "restore": handle_restore,
         "verify-backup": handle_verify_backup,
+        "scheduled-backup": handle_scheduled_backup,
     }
 
 

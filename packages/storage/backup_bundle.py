@@ -40,6 +40,7 @@ from typing import Any
 
 import duckdb
 
+from packages.storage.blob import PARTIAL_WRITE_SUFFIX
 from packages.storage.migration_runner import resolve_migrations_dir
 
 __all__ = [
@@ -312,6 +313,10 @@ def _iter_regular_files(root: Path) -> Iterable[Path]:
         for name in filenames:
             candidate = current / name
             if candidate.is_symlink() or not candidate.is_file():
+                continue
+            if name.endswith(PARTIAL_WRITE_SUFFIX):
+                # In-flight blob write; the payload appears under its final
+                # name only once complete (FilesystemBlobStore.write_bytes).
                 continue
             yield candidate
 

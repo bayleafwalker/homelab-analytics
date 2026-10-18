@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import date
@@ -82,6 +83,7 @@ if TYPE_CHECKING:
         HomelabCostBenefitComparison,
     )
 from packages.shared.extensions import ExtensionRegistry
+from packages.shared.metrics import metrics_registry
 from packages.storage.control_plane import (
     PublicationAuditCreate,
     PublicationAuditStore,
@@ -125,13 +127,40 @@ class ScalarMetricSnapshot:
     unit: str
 
 
+PUBLICATION_REFRESH_DURATION_METRIC = (
+    "homelab_analytics_publication_refresh_duration_seconds"
+)
+_PUBLICATION_REFRESH_DURATION_HELP = (
+    "Duration of publishing a promotion's publications to the reporting layer, "
+    "by outcome."
+)
+
+
 def publish_promotion_reporting(
     reporting_service: "ReportingService | None",
     promotion: PromotionResult | None,
 ) -> list[str]:
     if reporting_service is None or promotion is None:
         return []
+    started = time.perf_counter()
+    outcome = "error"
+    try:
+        published = _publish_promotion_reporting(reporting_service, promotion)
+        outcome = "success"
+        return published
+    finally:
+        metrics_registry.observe(
+            PUBLICATION_REFRESH_DURATION_METRIC,
+            time.perf_counter() - started,
+            help_text=_PUBLICATION_REFRESH_DURATION_HELP,
+            labels={"outcome": outcome},
+        )
 
+
+def _publish_promotion_reporting(
+    reporting_service: "ReportingService",
+    promotion: PromotionResult,
+) -> list[str]:
     try:
         published = reporting_service.publish_publications(
             promotion.publication_keys,

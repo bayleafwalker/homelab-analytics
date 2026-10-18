@@ -9,6 +9,11 @@ import threading
 from datetime import UTC, datetime, timedelta
 from typing import Any, Callable, TextIO
 
+from apps.worker.ops import (
+    ScheduledBackupRunner,
+    record_dispatch_outcome,
+    record_loop_heartbeat,
+)
 from apps.worker.runtime import build_reporting_service, build_transformation_service
 from apps.worker.serialization import _json_default, _write_json
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
@@ -217,27 +222,33 @@ def _promote_configured_ingestion_runs(
         transformation_service,
         extension_registry,
     )
-    ingestion_definition = config_repository.get_ingestion_definition(
-        process_result.ingestion_definition_id
-    )
-    source_asset = config_repository.get_source_asset(ingestion_definition.source_asset_id)
-    promotions: list[PromotionResult] = [
-        promote_source_asset_run(
-            run_id,
-            source_asset=source_asset,
-            config_repository=config_repository,
-            landing_root=settings.landing_root,
-            metadata_repository=service.metadata_repository,
-            transformation_service=transformation_service,
-            blob_store=service.blob_store,
-            extension_registry=extension_registry,
-            promotion_handler_registry=promotion_handler_registry,
+    try:
+        ingestion_definition = config_repository.get_ingestion_definition(
+            process_result.ingestion_definition_id
         )
-        for run_id in process_result.run_ids
-    ]
-    for promotion in promotions:
-        publish_promotion_reporting(reporting_service, promotion)
-    return promotions
+        source_asset = config_repository.get_source_asset(ingestion_definition.source_asset_id)
+        promotions: list[PromotionResult] = [
+            promote_source_asset_run(
+                run_id,
+                source_asset=source_asset,
+                config_repository=config_repository,
+                landing_root=settings.landing_root,
+                metadata_repository=service.metadata_repository,
+                transformation_service=transformation_service,
+                blob_store=service.blob_store,
+                extension_registry=extension_registry,
+                promotion_handler_registry=promotion_handler_registry,
+            )
+            for run_id in process_result.run_ids
+        ]
+        for promotion in promotions:
+            publish_promotion_reporting(reporting_service, promotion)
+        return promotions
+    finally:
+        # Release the DuckDB write lock deterministically: the idle yield
+        # point of the dispatch loop (scheduled backup) must find no
+        # warehouse handle open in this process.
+        transformation_service.store.close()
 
 
 def _process_configured_ingestion_definition(
@@ -436,6 +447,7 @@ def _process_schedule_dispatch(
             processing_error = exc
 
     if processing_error is None:
+        record_dispatch_outcome("completed")
         _set_worker_queue_depth(config_repository)
         heartbeat = _record_worker_heartbeat(
             config_repository,
@@ -486,6 +498,7 @@ def _process_schedule_dispatch(
         )
     except ValueError:
         failed_dispatch = config_repository.get_schedule_dispatch(dispatch_id)
+    record_dispatch_outcome("failed")
     _set_worker_queue_depth(config_repository)
     heartbeat = _record_worker_heartbeat(
         config_repository,
@@ -519,6 +532,7 @@ def _watch_schedule_dispatches(
     enqueue_limit: int | None = None,
     recover_limit: int | None = None,
     shutdown_event: threading.Event | None = None,
+    backup_runner: ScheduledBackupRunner | None = None,
 ) -> int:
     iterations = 0
     observed_failure = False
@@ -563,9 +577,26 @@ def _watch_schedule_dispatches(
                     ),
                 )
             _set_worker_queue_depth(config_repository)
+            record_loop_heartbeat(now=now)
             payload["recovered_dispatches"] = recovered_dispatches
             payload["enqueued_dispatches"] = enqueued_dispatches
             if claimed_dispatch is None:
+                # Idle yield point: no dispatch is in flight and promotions
+                # have closed their warehouse handles, so a due backup sees a
+                # quiescent warehouse and landing tree from this process.
+                if backup_runner is not None and not resolved_shutdown_event.is_set():
+                    backup_result = backup_runner.maybe_run(now=now)
+                    if backup_result is not None:
+                        payload["scheduled_backup"] = {
+                            "succeeded": backup_result.succeeded,
+                            "bundle": (
+                                backup_result.bundle_dir.name
+                                if backup_result.bundle_dir is not None
+                                else None
+                            ),
+                            "pruned": [path.name for path in backup_result.pruned],
+                            "error": backup_result.error,
+                        }
                 payload["worker_heartbeat"] = _record_worker_heartbeat(
                     config_repository,
                     worker_id=worker_id,
