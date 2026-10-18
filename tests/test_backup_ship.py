@@ -235,6 +235,23 @@ _NEEDS_SHELL = pytest.mark.skipif(
 
 
 @_NEEDS_SHELL
+def test_sidecar_records_a_pass_before_the_backup_dir_exists(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    assert not backups.exists()
+
+    def passed() -> bool:
+        status = read_ship_status(backups)
+        return status is not None and status.last_pass_at is not None
+
+    _run_sidecar_until(tmp_path, passed)
+
+    status = read_ship_status(backups)
+    assert status is not None
+    assert status.shipped_total == 0
+    assert status.consecutive_failures == 0
+
+
+@_NEEDS_SHELL
 def test_sidecar_script_round_trips_status_through_reader(tmp_path: Path) -> None:
     backups = tmp_path / "backups"
     _bundle(backups, "backup-20261017T000000Z")
