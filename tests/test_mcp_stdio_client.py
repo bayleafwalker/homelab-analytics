@@ -27,6 +27,7 @@ from apps.api.app import create_app
 from packages.domains.finance.pipelines.account_transaction_service import (
     AccountTransactionService,
 )
+from packages.domains.finance.pipelines.transformation_transactions import refresh_monthly_cashflow
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.ingestion_config import IngestionConfigRepository
@@ -58,7 +59,7 @@ def _client(tmp: str) -> TestClient:
         ],
         run_id="run-mcp-stdio",
     )
-    transformation.refresh_monthly_cashflow()
+    refresh_monthly_cashflow(transformation.store)
     return TestClient(
         create_app(
             service,

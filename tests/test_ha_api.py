@@ -11,7 +11,14 @@ from typing import Any, Callable, cast
 from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
+from packages.domains.finance.pipelines.transformation_loans import refresh_loan_schedule_projected
+from packages.domains.finance.pipelines.transformation_transactions import refresh_monthly_cashflow
 from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
+from packages.domains.overview.pipelines.transformation_overview import refresh_household_overview
+from packages.domains.utilities.pipelines.transformation_utilities import (
+    refresh_utility_cost_summary,
+    refresh_utility_cost_trend_monthly,
+)
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
@@ -127,8 +134,8 @@ def _seed_metric_reporting(ts: TransformationService) -> None:
         ],
         run_id="txn-001",
     )
-    ts.refresh_monthly_cashflow()
-    ts.refresh_household_overview()
+    refresh_monthly_cashflow(ts.store)
+    refresh_household_overview(ts.store)
 
     ts.load_utility_usage(
         [
@@ -165,9 +172,9 @@ def _seed_metric_reporting(ts: TransformationService) -> None:
         ],
         run_id="bill-001",
     )
-    ts.refresh_utility_cost_summary()
-    ts.refresh_utility_cost_trend_monthly()
-    ts.refresh_household_overview()
+    refresh_utility_cost_summary(ts.store)
+    refresh_utility_cost_trend_monthly(ts.store)
+    refresh_household_overview(ts.store)
 
     ts.load_loan_repayments(
         [
@@ -192,7 +199,7 @@ def _seed_metric_reporting(ts: TransformationService) -> None:
         ],
         run_id="loan-001",
     )
-    ts.refresh_loan_schedule_projected()
+    refresh_loan_schedule_projected(ts.store)
 
 
 class HaIngestAPITests(unittest.TestCase):

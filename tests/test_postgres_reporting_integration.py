@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.transformation_transactions import refresh_monthly_cashflow
 from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
@@ -69,7 +70,7 @@ def test_reporting_service_reads_published_marts_and_dimensions_from_postgres() 
         ],
         run_id="run-001",
     )
-    transformation_service.refresh_monthly_cashflow()
+    refresh_monthly_cashflow(transformation_service.store)
     transformation_service.load_home_automation_state(
         [
             {
@@ -210,7 +211,7 @@ def test_reporting_service_reads_extension_publication_relations_from_postgres()
         ],
         run_id="run-001",
     )
-    transformation_service.refresh_monthly_cashflow()
+    refresh_monthly_cashflow(transformation_service.store)
     registry = ExtensionRegistry()
     registry.register(
         LayerExtension(

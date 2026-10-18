@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from datetime import date, datetime, timezone
 
+from packages.domains.finance.pipelines.transformation_transactions import get_transactions
 from packages.pipelines.normalization import (
     MeasurementUnit,
     normalize_currency_code,
@@ -55,7 +56,7 @@ class TransformationNormalizationTests(unittest.TestCase):
         )
 
         self.assertEqual(2, inserted)
-        facts = service.get_transactions()
+        facts = get_transactions(service.store)
         first = next(
             row for row in facts if row["counterparty_name"] == "Electric Utility"
         )

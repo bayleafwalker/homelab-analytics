@@ -4,6 +4,17 @@ import unittest
 from datetime import date
 from decimal import Decimal
 
+from packages.domains.finance.pipelines.transformation_contract_prices import (
+    refresh_contract_price_current,
+)
+from packages.domains.homelab.pipelines.transformation_infrastructure import (
+    get_cluster_utilization,
+    get_infra_cost,
+    get_uptime_summary,
+    refresh_cluster_utilization,
+    refresh_infra_cost,
+    refresh_uptime_summary,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -57,8 +68,8 @@ class InfrastructureDomainTests(unittest.TestCase):
 
         self.assertEqual(3, inserted)
         self.assertEqual(3, service.count_cluster_metric_rows())
-        self.assertEqual(2, len(service.get_current_nodes()))
-        current = {row["hostname"]: row for row in service.get_current_nodes()}
+        self.assertEqual(2, len(service.get_current_dimension_rows("dim_node")))
+        current = {row["hostname"]: row for row in service.get_current_dimension_rows("dim_node")}
         self.assertEqual("node-01 v2", current["node-01"]["node_name"])
         self.assertEqual("node-02", current["node-02"]["node_name"])
 
@@ -101,7 +112,7 @@ class InfrastructureDomainTests(unittest.TestCase):
 
         self.assertEqual(3, inserted)
         self.assertEqual(3, service.count_power_consumption_rows())
-        devices = {row["device_id"]: row for row in service.get_current_devices()}
+        devices = {row["device_id"]: row for row in service.get_current_dimension_rows("dim_device")}
         self.assertEqual(2, len(devices))
         self.assertEqual("UPS Rack A v2", devices["ups-01"]["device_name"])
 
@@ -149,10 +160,10 @@ class InfrastructureDomainTests(unittest.TestCase):
             source_system="prometheus",
         )
 
-        count = service.refresh_cluster_utilization()
+        count = refresh_cluster_utilization(service.store)
 
         self.assertEqual(3, count)
-        rows = service.get_cluster_utilization()
+        rows = get_cluster_utilization(service.store)
         by_key = {(row["hostname"], row["resource_type"]): row for row in rows}
         self.assertEqual(
             {("node-01", "cpu"), ("node-01", "storage"), ("node-02", "memory")},
@@ -165,7 +176,7 @@ class InfrastructureDomainTests(unittest.TestCase):
         self.assertEqual(Decimal("42.5000"), Decimal(cpu_row["max_value"]))
         self.assertEqual(2, cpu_row["sample_count"])
 
-        filtered = service.get_cluster_utilization(
+        filtered = get_cluster_utilization(service.store, 
             hostname="node-01", resource_type="storage"
         )
         self.assertEqual(1, len(filtered))
@@ -204,10 +215,10 @@ class InfrastructureDomainTests(unittest.TestCase):
             run_id="homelab-run-001",
         )
 
-        count = service.refresh_uptime_summary()
+        count = refresh_uptime_summary(service.store)
 
         self.assertEqual(2, count)
-        node_rows = service.get_uptime_summary(subject_type="node")
+        node_rows = get_uptime_summary(service.store, subject_type="node")
         self.assertEqual(1, len(node_rows))
         node_row = node_rows[0]
         self.assertEqual("2026-03", node_row["period_month"])
@@ -216,7 +227,7 @@ class InfrastructureDomainTests(unittest.TestCase):
         self.assertEqual(3, node_row["up_samples"])
         self.assertEqual(4, node_row["total_samples"])
 
-        service_rows = service.get_uptime_summary(subject_type="service")
+        service_rows = get_uptime_summary(service.store, subject_type="service")
         self.assertEqual(1, len(service_rows))
         service_row = service_rows[0]
         self.assertEqual("svc-grafana", service_row["subject_id"])
@@ -261,7 +272,7 @@ class InfrastructureDomainTests(unittest.TestCase):
             ],
             run_id="price-run-001",
         )
-        service.refresh_contract_price_current()
+        refresh_contract_price_current(service.store)
         # Acquisition in the current month keeps the amortisation window
         # time-robust: exactly one month has elapsed, so exactly one row.
         current_month_start = date.today().replace(day=1)
@@ -287,10 +298,10 @@ class InfrastructureDomainTests(unittest.TestCase):
             run_id="asset-run-001",
         )
 
-        count = service.refresh_infra_cost()
+        count = refresh_infra_cost(service.store)
 
         self.assertEqual(2, count)
-        electricity_rows = service.get_infra_cost(cost_type="electricity")
+        electricity_rows = get_infra_cost(service.store, cost_type="electricity")
         self.assertEqual(1, len(electricity_rows))
         electricity_row = electricity_rows[0]
         self.assertEqual("2026-03", electricity_row["billing_month"])
@@ -301,7 +312,7 @@ class InfrastructureDomainTests(unittest.TestCase):
         self.assertEqual("EUR", electricity_row["currency"])
 
         # Only infrastructure-typed assets amortise; the appliance is excluded.
-        amortisation_rows = service.get_infra_cost(cost_type="hardware_amortisation")
+        amortisation_rows = get_infra_cost(service.store, cost_type="hardware_amortisation")
         self.assertEqual(1, len(amortisation_rows))
         amortisation_row = amortisation_rows[0]
         self.assertEqual("Homelab Server", amortisation_row["subject_name"])
@@ -326,10 +337,10 @@ class InfrastructureDomainTests(unittest.TestCase):
             run_id="infra-run-006",
         )
 
-        count = service.refresh_infra_cost()
+        count = refresh_infra_cost(service.store)
 
         self.assertEqual(1, count)
-        row = service.get_infra_cost()[0]
+        row = get_infra_cost(service.store)[0]
         self.assertEqual(Decimal("297.6000"), Decimal(row["est_kwh"]))
         self.assertIsNone(row["est_cost"])
         self.assertEqual("metered_power_no_tariff", row["cost_basis"])

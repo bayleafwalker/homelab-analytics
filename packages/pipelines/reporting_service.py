@@ -562,7 +562,7 @@ class ReportingService:
         to make operator writes visible immediately instead of waiting for the
         next publication of ``rpt_current_dim_category``.
         """
-        return self._transformation_service.get_current_categories()
+        return self._transformation_service.get_current_dimension_rows("dim_category")
 
     # ------------------------------------------------------------------
     # Scenario read models
@@ -588,24 +588,27 @@ class ReportingService:
     def get_scenario_assumptions(self, scenario_id: str) -> list[dict[str, Any]]:
         return self._transformation_service.get_scenario_assumptions(scenario_id)
 
-    def get_scenario_comparison(self, scenario_id: str) -> ComparisonResult | None:
-        return self._transformation_service.get_scenario_comparison(scenario_id)
-
-    def get_income_scenario_comparison(
-        self, scenario_id: str
-    ) -> IncomeCashflowComparison | None:
-        return self._transformation_service.get_income_scenario_comparison(scenario_id)
-
-    def get_homelab_cost_benefit_comparison(
+    def get_scenario_view(
         self,
         scenario_id: str,
         *,
+        view: str,
         current_baseline_run_id: str | None = None,
-    ) -> HomelabCostBenefitComparison | None:
-        return self._transformation_service.get_homelab_cost_benefit_comparison(
+    ) -> ComparisonResult | IncomeCashflowComparison | HomelabCostBenefitComparison | None:
+        """Render a scenario's ``comparison`` or ``cashflow`` view.
+
+        The scenario registry picks the domain-pack view for the stored
+        scenario type; ``current_baseline_run_id`` is used only by types that
+        compare against a live baseline (homelab cost/benefit).
+        """
+        result: (
+            ComparisonResult | IncomeCashflowComparison | HomelabCostBenefitComparison | None
+        ) = self._transformation_service.get_scenario_view(
             scenario_id,
+            view=view,
             current_baseline_run_id=current_baseline_run_id,
         )
+        return result
 
     def get_transformation_audit(
         self,

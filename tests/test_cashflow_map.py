@@ -14,6 +14,11 @@ from packages.domains.finance.pipelines.cashflow_map import (
     cashflow_map_window,
     match_internal_transfers,
 )
+from packages.domains.finance.pipelines.transformation_transactions import (
+    refresh_monthly_cashflow,
+    refresh_monthly_cashflow_by_counterparty,
+    refresh_spend_by_category_monthly,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository
@@ -223,9 +228,9 @@ def test_cashflow_map_endpoint_reads_reporting_publications() -> None:
             ],
             run_id="run-001",
         )
-        transformation_service.refresh_monthly_cashflow()
-        transformation_service.refresh_monthly_cashflow_by_counterparty()
-        transformation_service.refresh_spend_by_category_monthly()
+        refresh_monthly_cashflow(transformation_service.store)
+        refresh_monthly_cashflow_by_counterparty(transformation_service.store)
+        refresh_spend_by_category_monthly(transformation_service.store)
         client = TestClient(
             create_app(
                 AccountTransactionService(

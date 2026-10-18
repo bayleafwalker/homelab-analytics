@@ -4,6 +4,12 @@ import unittest
 from datetime import date
 from decimal import Decimal
 
+from packages.domains.finance.pipelines.transformation_assets import (
+    get_asset_value,
+    get_depreciation_schedule,
+    refresh_asset_value,
+    refresh_depreciation_schedule,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -30,7 +36,7 @@ class AssetDomainTests(unittest.TestCase):
 
         self.assertEqual(1, inserted)
         self.assertEqual(1, service.count_asset_event_rows())
-        assets = service.get_current_assets()
+        assets = service.get_current_dimension_rows("dim_asset")
         self.assertEqual(1, len(assets))
         asset = assets[0]
         self.assertEqual("UPS Rack A", asset["asset_name"])
@@ -55,7 +61,7 @@ class AssetDomainTests(unittest.TestCase):
             source_system="manual-upload",
         )
 
-        asset_id = service.get_current_assets()[0]["asset_id"]
+        asset_id = service.get_current_dimension_rows("dim_asset")[0]["asset_id"]
         appended = service.load_asset_events(
             [
                 {
@@ -74,7 +80,7 @@ class AssetDomainTests(unittest.TestCase):
 
         self.assertEqual(1, appended)
         self.assertEqual(2, service.count_asset_event_rows())
-        assets = service.get_current_assets()
+        assets = service.get_current_dimension_rows("dim_asset")
         self.assertEqual(1, len(assets))
         self.assertEqual("NAS Rack B", assets[0]["asset_name"])
 
@@ -111,7 +117,7 @@ class AssetDomainTests(unittest.TestCase):
             ],
             run_id="asset-run-010",
         )
-        assets = {row["asset_name"]: row["asset_id"] for row in service.get_current_assets()}
+        assets = {row["asset_name"]: row["asset_id"] for row in service.get_current_dimension_rows("dim_asset")}
         service.load_asset_events(
             [
                 # NAS switches to recorded-events valuation
@@ -136,10 +142,10 @@ class AssetDomainTests(unittest.TestCase):
             run_id="asset-run-011",
         )
 
-        count = service.refresh_asset_value()
+        count = refresh_asset_value(service.store)
 
         self.assertEqual(3, count)
-        rows = {row["asset_name"]: row for row in service.get_asset_value()}
+        rows = {row["asset_name"]: row for row in get_asset_value(service.store)}
 
         server = rows["Homelab Server"]
         self.assertEqual("straight_line_60m", server["valuation_basis"])
@@ -157,7 +163,7 @@ class AssetDomainTests(unittest.TestCase):
         self.assertTrue(laptop["is_disposed"])
         self.assertEqual(Decimal("0.0000"), Decimal(laptop["estimated_value"]))
 
-        typed = service.get_asset_value(asset_type="server")
+        typed = get_asset_value(service.store, asset_type="server")
         self.assertEqual(1, len(typed))
 
     def test_refresh_depreciation_schedule_projects_annual_amounts(self) -> None:
@@ -177,7 +183,7 @@ class AssetDomainTests(unittest.TestCase):
             ],
             run_id="asset-run-020",
         )
-        asset_id = service.get_current_assets()[0]["asset_id"]
+        asset_id = service.get_current_dimension_rows("dim_asset")[0]["asset_id"]
         service.load_asset_events(
             [
                 # a second asset with explicit depreciation only contributes
@@ -195,9 +201,9 @@ class AssetDomainTests(unittest.TestCase):
         )
         self.assertNotEqual("manual-asset", asset_id)
 
-        count = service.refresh_depreciation_schedule()
+        count = refresh_depreciation_schedule(service.store)
 
-        rows = service.get_depreciation_schedule()
+        rows = get_depreciation_schedule(service.store)
         self.assertEqual(count, len(rows))
         by_year_type = {
             (row["depreciation_year"], row["asset_type"]): row for row in rows
@@ -221,7 +227,7 @@ class AssetDomainTests(unittest.TestCase):
         self.assertEqual(Decimal("150.0000"), Decimal(recorded["annual_depreciation"]))
         self.assertEqual(1, recorded["asset_count"])
 
-        filtered = service.get_depreciation_schedule(
+        filtered = get_depreciation_schedule(service.store, 
             asset_type="server", depreciation_year=2024
         )
         self.assertEqual(1, len(filtered))

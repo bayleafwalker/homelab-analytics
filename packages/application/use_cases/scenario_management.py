@@ -1,6 +1,9 @@
 """Application use-cases for scenario creation and retrieval.
 
 Surfaces call these functions; they do not call TransformationService directly.
+Scenario-type logic is owned by the domain packs and dispatched through
+``packages.pipelines.scenario_registry``; these functions keep the typed,
+per-type entrypoints that routes call.
 Scenario writes take the TransformationService; scenario reads take the
 ReportingService so app-facing reads stay on the reporting layer.
 Decimal parsing and HTTP error mapping remain in the calling route.
@@ -8,7 +11,12 @@ Decimal parsing and HTTP error mapping remain in the calling route.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
+
+from packages.pipelines.scenario_registry import (
+    SCENARIO_VIEW_CASHFLOW,
+    SCENARIO_VIEW_COMPARISON,
+)
 
 if TYPE_CHECKING:
     from packages.domains.finance.pipelines.scenario_service import (
@@ -45,8 +53,9 @@ def create_loan_what_if(
     annual_rate: Decimal | None = None,
     term_months: int | None = None,
 ) -> "ScenarioResult":
-    return svc.create_loan_what_if_scenario(
-        loan_id,
+    return svc.create_scenario(
+        "loan_what_if",
+        loan_id=loan_id,
         label=label,
         extra_repayment=extra_repayment,
         annual_rate=annual_rate,
@@ -62,7 +71,8 @@ def create_income_change(
     label: str | None = None,
     projection_months: int = 12,
 ) -> "IncomeScenarioResult":
-    return svc.create_income_change_scenario(
+    return svc.create_scenario(
+        "income_change",
         monthly_income_delta=monthly_income_delta,
         currency=currency,
         label=label,
@@ -77,7 +87,8 @@ def create_expense_shock(
     label: str | None = None,
     projection_months: int = 12,
 ) -> "ExpenseShockResult":
-    return svc.create_expense_shock_scenario(
+    return svc.create_scenario(
+        "expense_shock",
         expense_pct_delta=expense_pct_delta,
         label=label,
         projection_months=projection_months,
@@ -92,7 +103,8 @@ def create_tariff_shock(
     label: str | None = None,
     projection_months: int = 12,
 ) -> "TariffShockResult":
-    return svc.create_tariff_shock_scenario(
+    return svc.create_scenario(
+        "tariff_shock",
         tariff_pct_delta=tariff_pct_delta,
         utility_type=utility_type,
         label=label,
@@ -107,7 +119,8 @@ def create_homelab_cost_benefit(
     label: str | None = None,
     homelab_baseline: "HomelabCostBenefitBaseline | None" = None,
 ) -> "HomelabCostBenefitResult":
-    return svc.create_homelab_cost_benefit_scenario(
+    return svc.create_scenario(
+        "homelab_cost_benefit",
         monthly_cost_delta=monthly_cost_delta,
         label=label,
         service_rows=None if homelab_baseline is None else homelab_baseline.service_rows,
@@ -151,8 +164,12 @@ def archive_scenario(
 
 
 # ---------------------------------------------------------------------------
-# Scenario comparison — branches on scenario_type so the route stays thin
+# Scenario views — the scenario registry dispatches on the stored scenario type
 # ---------------------------------------------------------------------------
+
+
+def _baseline_run_id(homelab_baseline: "HomelabCostBenefitBaseline | None") -> str | None:
+    return None if homelab_baseline is None else homelab_baseline.signature
 
 
 def load_scenario_comparison(
@@ -161,16 +178,15 @@ def load_scenario_comparison(
     *,
     homelab_baseline: "HomelabCostBenefitBaseline | None" = None,
 ) -> "HomelabCostBenefitComparison | ComparisonResult | None":
-    scenario = reporting.get_scenario(scenario_id)
-    if scenario is None:
-        return None
-    if scenario["scenario_type"] == "homelab_cost_benefit":
-        baseline_run_id = None if homelab_baseline is None else homelab_baseline.signature
-        return reporting.get_homelab_cost_benefit_comparison(
+    # Registered comparison views return a loan or homelab comparison model.
+    return cast(
+        "HomelabCostBenefitComparison | ComparisonResult | None",
+        reporting.get_scenario_view(
             scenario_id,
-            current_baseline_run_id=baseline_run_id,
-        )
-    return reporting.get_scenario_comparison(scenario_id)
+            view=SCENARIO_VIEW_COMPARISON,
+            current_baseline_run_id=_baseline_run_id(homelab_baseline),
+        ),
+    )
 
 
 def load_scenario_cashflow(
@@ -179,16 +195,15 @@ def load_scenario_cashflow(
     *,
     homelab_baseline: "HomelabCostBenefitBaseline | None" = None,
 ) -> "HomelabCostBenefitComparison | IncomeCashflowComparison | None":
-    scenario = reporting.get_scenario(scenario_id)
-    if scenario is None:
-        return None
-    if scenario["scenario_type"] == "homelab_cost_benefit":
-        baseline_run_id = None if homelab_baseline is None else homelab_baseline.signature
-        return reporting.get_homelab_cost_benefit_comparison(
+    # Registered cashflow views return an income-cashflow or homelab model.
+    return cast(
+        "HomelabCostBenefitComparison | IncomeCashflowComparison | None",
+        reporting.get_scenario_view(
             scenario_id,
-            current_baseline_run_id=baseline_run_id,
-        )
-    return reporting.get_income_scenario_comparison(scenario_id)
+            view=SCENARIO_VIEW_CASHFLOW,
+            current_baseline_run_id=_baseline_run_id(homelab_baseline),
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------

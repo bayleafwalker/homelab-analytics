@@ -12,6 +12,9 @@ from __future__ import annotations
 
 import pytest
 
+from packages.domains.finance.pipelines.transformation_transactions import (
+    refresh_spend_by_category_monthly,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -124,7 +127,7 @@ class TestCategoryResolution:
         svc.add_category_rule(rule_id="r1", pattern="supermarket", category="groceries")
         svc.load_transactions(LANDING_ROWS, run_id="run-001")
 
-        counterparties = svc.get_current_counterparties()
+        counterparties = svc.get_current_dimension_rows("dim_counterparty")
         by_name = {c["counterparty_name"]: c for c in counterparties}
         assert by_name["REWE Supermarket"]["category"] == "groceries"
         assert by_name["ALDI Supermarket"]["category"] == "groceries"
@@ -132,7 +135,7 @@ class TestCategoryResolution:
     def test_no_rule_leaves_category_none(self, svc: TransformationService) -> None:
         svc.load_transactions(LANDING_ROWS, run_id="run-001")
 
-        counterparties = svc.get_current_counterparties()
+        counterparties = svc.get_current_dimension_rows("dim_counterparty")
         by_name = {c["counterparty_name"]: c for c in counterparties}
         assert by_name["Shell Gas Station"]["category"] is None
 
@@ -143,7 +146,7 @@ class TestCategoryResolution:
         )
         svc.load_transactions(LANDING_ROWS, run_id="run-001")
 
-        counterparties = svc.get_current_counterparties()
+        counterparties = svc.get_current_dimension_rows("dim_counterparty")
         by_name = {c["counterparty_name"]: c for c in counterparties}
         # Override wins for REWE
         assert by_name["REWE Supermarket"]["category"] == "preferred-grocer"
@@ -159,7 +162,7 @@ class TestCategoryResolution:
         )
         svc.load_transactions(LANDING_ROWS, run_id="run-001")
 
-        counterparties = svc.get_current_counterparties()
+        counterparties = svc.get_current_dimension_rows("dim_counterparty")
         by_name = {c["counterparty_name"]: c for c in counterparties}
         # REWE matches both rules — higher priority wins
         assert by_name["REWE Supermarket"]["category"] == "rewe-specific"
@@ -179,7 +182,7 @@ class TestCategoryInSpendReport:
         svc.add_category_rule(rule_id="r1", pattern="supermarket", category="groceries")
         svc.add_category_rule(rule_id="r2", pattern="gas station", category="transport")
         svc.load_transactions(LANDING_ROWS, run_id="run-001")
-        svc.refresh_spend_by_category_monthly()
+        refresh_spend_by_category_monthly(svc.store)
 
         rows = svc.get_spend_by_category_monthly()
         categories = {r["counterparty_name"]: r["category"] for r in rows}
@@ -191,7 +194,7 @@ class TestCategoryInSpendReport:
         svc.add_category_rule(rule_id="r1", pattern="supermarket", category="groceries")
         svc.add_category_rule(rule_id="r2", pattern="gas station", category="transport")
         svc.load_transactions(LANDING_ROWS, run_id="run-001")
-        svc.refresh_spend_by_category_monthly()
+        refresh_spend_by_category_monthly(svc.store)
 
         groceries = svc.get_spend_by_category_monthly(category="groceries")
         assert len(groceries) == 2

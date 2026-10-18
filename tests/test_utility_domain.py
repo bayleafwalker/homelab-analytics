@@ -14,6 +14,11 @@ from fastapi.testclient import TestClient
 from apps.api.app import create_app
 from apps.worker.main import main
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.utilities.pipelines.transformation_utilities import (
+    get_energy_daily,
+    refresh_energy_daily,
+    refresh_utility_cost_summary,
+)
 from packages.domains.utilities.pipelines.utility_bills import (
     CanonicalUtilityBill,
     load_canonical_utility_bills_bytes,
@@ -180,7 +185,7 @@ class UtilityTransformationTests(unittest.TestCase):
         service.load_utility_usage(self._make_usage_rows(), run_id="run-usage-001")
         service.load_bills(self._make_bill_rows(), run_id="run-bill-001")
 
-        count = service.refresh_utility_cost_summary()
+        count = refresh_utility_cost_summary(service.store)
         rows = service.get_utility_cost_summary()
 
         self.assertEqual(4, count)
@@ -204,13 +209,13 @@ class UtilityTransformationTests(unittest.TestCase):
         service = TransformationService(DuckDBStore.memory())
         service.load_utility_usage(self._make_usage_rows(), run_id="run-usage-001")
 
-        count = service.refresh_energy_daily()
+        count = refresh_energy_daily(service.store)
 
         self.assertEqual(3, count)
-        rows = service.get_energy_daily()
+        rows = get_energy_daily(service.store)
         self.assertEqual(3, len(rows))
 
-        electricity_rows = service.get_energy_daily(utility_type="electricity")
+        electricity_rows = get_energy_daily(service.store, utility_type="electricity")
         self.assertEqual(2, len(electricity_rows))
         january_electricity = electricity_rows[0]
         self.assertEqual("2026-01-01", january_electricity["usage_day"].isoformat())
@@ -218,7 +223,7 @@ class UtilityTransformationTests(unittest.TestCase):
         self.assertEqual(Decimal("320.5000"), Decimal(january_electricity["total_quantity"]))
         self.assertEqual(1, january_electricity["reading_count"])
 
-        january_rows = service.get_energy_daily(
+        january_rows = get_energy_daily(service.store, 
             from_day="2026-01-01",
             to_day="2026-01-31",
         )
@@ -232,7 +237,7 @@ class UtilityTransformationTests(unittest.TestCase):
         service = TransformationService(DuckDBStore.memory())
         service.load_utility_usage(self._make_usage_rows(), run_id="run-usage-001")
         service.load_bills(self._make_bill_rows(), run_id="run-bill-001")
-        service.refresh_utility_cost_summary()
+        refresh_utility_cost_summary(service.store)
 
         electricity_rows = service.get_utility_cost_summary(utility_type="electricity")
         self.assertEqual(2, len(electricity_rows))
@@ -289,7 +294,7 @@ class UtilityTransformationTests(unittest.TestCase):
             effective_date=date(2026, 2, 1),
         )
 
-        current = service.get_current_meters()
+        current = service.get_current_dimension_rows("dim_meter")
         history = service.store.fetchall_dicts(
             f"SELECT * FROM {DIM_METER.table_name} ORDER BY valid_from"
         )

@@ -64,10 +64,9 @@ READ_NAMED_WRITE_METHODS = frozenset(
     {
         "get_ha_entities",
         "get_ha_entity_history",
-        "get_homelab_cost_benefit_comparison",
         "get_scenario",
         "get_scenario_assumptions",
-        "get_scenario_comparison",
+        "get_scenario_view",
         "list_scenario_compare_sets",
         "list_scenarios",
     }

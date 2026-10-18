@@ -1,8 +1,12 @@
 """Transformation service facade over domain-specific warehouse processors.
 
-Domain operations live in per-concern facets under
-``packages.pipelines.transformation_facets``; this module owns construction,
-schema bootstrap, domain-registry dispatch, and publication confidence wiring.
+This module owns construction, schema bootstrap, registry dispatch (domain
+loads/counts, publication refresh, scenario types, current dimensions), and
+publication confidence wiring. Domain packs own the behaviour behind those
+registries. The facets under ``packages.pipelines.transformation_facets`` hold
+the remaining ingestion/lineage entrypoints and the getters ReportingService
+consumes; tests/test_transformation_facade_boundary.py stops that surface
+from growing.
 """
 
 from __future__ import annotations
@@ -99,8 +103,16 @@ from packages.domains.utilities.pipelines.utility_models import (
     CURRENT_DIM_METER_VIEW,
     DIM_METER,
 )
+from packages.pipelines.current_dimension_registry import (
+    CurrentDimensionRegistry,
+    get_default_current_dimension_registry,
+)
 from packages.pipelines.publication_confidence_service import (
     compute_and_record_publication_confidence,
+)
+from packages.pipelines.scenario_registry import (
+    ScenarioRegistry,
+    get_default_scenario_registry,
 )
 from packages.pipelines.transformation_domain_registry import (
     TransformationDomainRegistry,
@@ -151,6 +163,8 @@ class TransformationService(
         control_plane_store: ControlPlaneStore | None = None,
         publication_refresh_registry: PublicationRefreshRegistry | None = None,
         domain_registry: TransformationDomainRegistry | None = None,
+        scenario_registry: ScenarioRegistry | None = None,
+        current_dimension_registry: CurrentDimensionRegistry | None = None,
         run_metadata_store: RunMetadataStore | None = None,
         battery_plan_profile_loader: Callable[[], BatteryPlanProfileResolution]
         | None = None,
@@ -171,6 +185,10 @@ class TransformationService(
             publication_refresh_registry or get_default_publication_refresh_registry()
         )
         self._domain_registry = domain_registry or get_default_transformation_domain_registry()
+        self._scenario_registry = scenario_registry or get_default_scenario_registry()
+        self._current_dimension_registry = (
+            current_dimension_registry or get_default_current_dimension_registry()
+        )
         self._ensure_schema()
 
     def _ensure_schema(self) -> None:
@@ -301,37 +319,21 @@ class TransformationService(
         )
 
     def get_current_dimension_rows(self, dimension_name: str) -> list[dict[str, Any]]:
-        if dimension_name == "dim_account":
-            return self.get_current_accounts()
-        if dimension_name == "dim_counterparty":
-            return self.get_current_counterparties()
-        if dimension_name == "dim_contract":
-            return self.get_current_contracts()
-        if dimension_name == "dim_category":
-            return self.get_current_categories()
-        if dimension_name == "dim_meter":
-            return self.get_current_meters()
-        if dimension_name == "dim_budget":
-            return self.get_current_budgets()
-        if dimension_name == "dim_loan":
-            return self.get_current_loans()
-        if dimension_name == "dim_asset":
-            return self.get_current_assets()
-        if dimension_name == "dim_entity":
-            return self.get_current_entities()
-        if dimension_name == "dim_node":
-            return self.get_current_nodes()
-        if dimension_name == "dim_device":
-            return self.get_current_devices()
-        if dimension_name == "dim_service":
-            return self.get_current_services()
-        if dimension_name == "dim_workload":
-            return self.get_current_workloads()
-        raise KeyError(f"Unknown current dimension: {dimension_name}")
+        return self._current_dimension_registry.read(self._store, dimension_name)
 
     @property
     def store(self) -> DuckDBStore:
         return self._store
+
+    @property
+    def clock(self) -> Callable[[], datetime]:
+        """Injected clock; refresh handlers stamp assessments with it."""
+        return self._clock
+
+    @property
+    def battery_plan_profile_loader(self) -> Callable[[], BatteryPlanProfileResolution]:
+        """Injected battery-plan profile source for the utilities refresh handler."""
+        return self._battery_plan_profile_loader
 
     def get_household_members(self) -> list[dict[str, Any]]:
         return get_household_members(self._store)

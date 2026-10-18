@@ -19,6 +19,13 @@ from packages.domains.finance.pipelines.loan_service import (
     LoanService,
     load_canonical_loan_repayments_bytes,
 )
+from packages.domains.finance.pipelines.transformation_loans import (
+    get_debt_overview,
+    refresh_debt_overview,
+    refresh_loan_overview,
+    refresh_loan_repayment_variance,
+    refresh_loan_schedule_projected,
+)
 from packages.pipelines.household_promotion_handlers import promote_loan_repayment_run
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
@@ -176,38 +183,38 @@ class LoanTransformationTests(unittest.TestCase):
     def test_load_loan_repayments_upserts_dim_loan(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_loan_repayments(self._make_rows(), run_id="run-001")
-        loans = svc.get_current_loans()
+        loans = svc.get_current_dimension_rows("dim_loan")
         loan_ids = {row["loan_id"] for row in loans}
         self.assertIn("loan-001", loan_ids)
 
     def test_refresh_loan_schedule_projected(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_loan_repayments(self._make_rows(), run_id="run-001")
-        count = svc.refresh_loan_schedule_projected()
+        count = refresh_loan_schedule_projected(svc.store)
         # 240-month mortgage should produce 240 schedule rows
         self.assertEqual(240, count)
 
     def test_refresh_loan_repayment_variance(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_loan_repayments(self._make_rows(), run_id="run-001")
-        svc.refresh_loan_schedule_projected()
-        count = svc.refresh_loan_repayment_variance()
+        refresh_loan_schedule_projected(svc.store)
+        count = refresh_loan_repayment_variance(svc.store)
         self.assertGreater(count, 0)
 
     def test_refresh_loan_overview(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_loan_repayments(self._make_rows(), run_id="run-001")
-        svc.refresh_loan_schedule_projected()
-        svc.refresh_loan_repayment_variance()
-        count = svc.refresh_loan_overview()
+        refresh_loan_schedule_projected(svc.store)
+        refresh_loan_repayment_variance(svc.store)
+        count = refresh_loan_overview(svc.store)
         self.assertEqual(1, count)
 
     def test_get_loan_overview_returns_rows(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_loan_repayments(self._make_rows(), run_id="run-001")
-        svc.refresh_loan_schedule_projected()
-        svc.refresh_loan_repayment_variance()
-        svc.refresh_loan_overview()
+        refresh_loan_schedule_projected(svc.store)
+        refresh_loan_repayment_variance(svc.store)
+        refresh_loan_overview(svc.store)
         rows = svc.get_loan_overview()
         self.assertEqual(1, len(rows))
         self.assertEqual("loan-001", rows[0]["loan_id"])
@@ -248,10 +255,10 @@ class LoanTransformationTests(unittest.TestCase):
             run_id="run-002",
         )
 
-        count = svc.refresh_debt_overview()
+        count = refresh_debt_overview(svc.store)
 
         self.assertEqual(2, count)
-        rows = svc.get_debt_overview()
+        rows = get_debt_overview(svc.store)
         by_type = {row["debt_type"]: row for row in rows}
         self.assertEqual({"mortgage", "account_credit"}, set(by_type))
 
@@ -272,36 +279,36 @@ class LoanTransformationTests(unittest.TestCase):
         total_share = sum(Decimal(row["share_of_total_pct"]) for row in rows)
         self.assertAlmostEqual(100.0, float(total_share), places=2)
 
-        filtered = svc.get_debt_overview(debt_type="account_credit")
+        filtered = get_debt_overview(svc.store, debt_type="account_credit")
         self.assertEqual(1, len(filtered))
 
     def test_get_loan_schedule_filtered_by_loan_id(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_loan_repayments(self._make_rows(), run_id="run-001")
-        svc.refresh_loan_schedule_projected()
+        refresh_loan_schedule_projected(svc.store)
         rows = svc.get_loan_schedule_projected(loan_id="loan-001")
         self.assertEqual(240, len(rows))
 
     def test_get_loan_schedule_unknown_loan_id_returns_empty(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_loan_repayments(self._make_rows(), run_id="run-001")
-        svc.refresh_loan_schedule_projected()
+        refresh_loan_schedule_projected(svc.store)
         rows = svc.get_loan_schedule_projected(loan_id="unknown")
         self.assertEqual([], rows)
 
     def test_get_loan_repayment_variance_filtered_by_loan_id(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_loan_repayments(self._make_rows(), run_id="run-001")
-        svc.refresh_loan_schedule_projected()
-        svc.refresh_loan_repayment_variance()
+        refresh_loan_schedule_projected(svc.store)
+        refresh_loan_repayment_variance(svc.store)
         rows = svc.get_loan_repayment_variance(loan_id="loan-001")
         self.assertGreater(len(rows), 0)
 
     def test_loan_overview_balance_estimate(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_loan_repayments(self._make_rows(), run_id="run-001")
-        svc.refresh_loan_schedule_projected()
-        svc.refresh_loan_overview()
+        refresh_loan_schedule_projected(svc.store)
+        refresh_loan_overview(svc.store)
         rows = svc.get_loan_overview()
         self.assertGreater(Decimal(str(rows[0]["current_balance_estimate"])), Decimal("0"))
 

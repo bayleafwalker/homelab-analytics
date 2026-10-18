@@ -10,6 +10,9 @@ from packages.domains.finance.pipelines.contract_prices import (
     CanonicalContractPrice,
     load_canonical_contract_prices_bytes,
 )
+from packages.domains.finance.pipelines.transformation_contract_prices import (
+    refresh_contract_price_current,
+)
 from packages.pipelines.promotion import promote_contract_price_run
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
@@ -97,7 +100,7 @@ class ContractPriceTransformationTests(unittest.TestCase):
     def test_refresh_current_price_marts(self) -> None:
         service = TransformationService(DuckDBStore.memory())
         service.load_contract_prices(self._make_rows(), run_id="run-price-001")
-        service.refresh_contract_price_current()
+        refresh_contract_price_current(service.store)
 
         current_rows = service.get_contract_price_current()
         self.assertEqual(2, len(current_rows))

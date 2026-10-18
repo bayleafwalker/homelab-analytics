@@ -18,6 +18,9 @@ from packages.application.use_cases.decision_ledger import actor_from_principal
 from packages.domains.finance.pipelines.account_transaction_service import (
     AccountTransactionService,
 )
+from packages.domains.utilities.pipelines.publication_refresh import (
+    refresh_battery_plan_publication,
+)
 from packages.platform.auth.contracts import UserRole
 from packages.platform.auth.permission_registry import (
     KNOWN_PERMISSIONS,
@@ -122,7 +125,7 @@ def test_actor_reflects_auth_identity_or_its_absence() -> None:
 def _client(temp_dir: str, **history: Any) -> tuple[TestClient, dict[str, Any]]:
     store, assessed_at = _store_with_history(**history)
     transformation = _service(store, assessed_at=assessed_at)
-    transformation.refresh_battery_plan_outcome()
+    refresh_battery_plan_publication(transformation)
     [row] = transformation.get_battery_plan_outcome()
     service = AccountTransactionService(
         landing_root=Path(temp_dir) / "landing",

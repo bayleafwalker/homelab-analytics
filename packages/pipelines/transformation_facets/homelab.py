@@ -10,8 +10,6 @@ from packages.domains.homelab.pipelines.transformation_homelab import (
     count_storage_sensor_rows,
     count_workload_sensor_rows,
     get_backup_freshness,
-    get_current_services,
-    get_current_workloads,
     get_service_health_current,
     get_storage_risk,
     get_workload_cost_7d,
@@ -19,24 +17,12 @@ from packages.domains.homelab.pipelines.transformation_homelab import (
     load_service_health_rows,
     load_storage_sensor_rows,
     load_workload_sensor_rows,
-    refresh_backup_freshness,
-    refresh_service_health_current,
-    refresh_storage_risk,
-    refresh_workload_cost_7d,
 )
 from packages.domains.homelab.pipelines.transformation_infrastructure import (
     count_cluster_metric_rows,
     count_power_consumption_rows,
-    get_cluster_utilization,
-    get_current_devices,
-    get_current_nodes,
-    get_infra_cost,
-    get_uptime_summary,
     load_cluster_metric_rows,
     load_power_consumption_rows,
-    refresh_cluster_utilization,
-    refresh_infra_cost,
-    refresh_uptime_summary,
 )
 from packages.pipelines.transformation_facets.base import TransformationFacetBase
 
@@ -104,18 +90,6 @@ class HomelabTransformationMixin(TransformationFacetBase):
             source_system=source_system,
         )
 
-    def refresh_service_health_current(self) -> int:
-        return refresh_service_health_current(self._store)
-
-    def refresh_backup_freshness(self) -> int:
-        return refresh_backup_freshness(self._store)
-
-    def refresh_storage_risk(self) -> int:
-        return refresh_storage_risk(self._store)
-
-    def refresh_workload_cost_7d(self) -> int:
-        return refresh_workload_cost_7d(self._store)
-
     def get_service_health_current(self) -> list[dict[str, Any]]:
         return get_service_health_current(self._store)
 
@@ -127,46 +101,6 @@ class HomelabTransformationMixin(TransformationFacetBase):
 
     def get_workload_cost_7d(self) -> list[dict[str, Any]]:
         return get_workload_cost_7d(self._store)
-
-    def refresh_cluster_utilization(self) -> int:
-        return refresh_cluster_utilization(self._store)
-
-    def refresh_uptime_summary(self) -> int:
-        return refresh_uptime_summary(self._store)
-
-    def refresh_infra_cost(self) -> int:
-        return refresh_infra_cost(self._store)
-
-    def get_cluster_utilization(
-        self,
-        *,
-        hostname: str | None = None,
-        resource_type: str | None = None,
-    ) -> list[dict[str, Any]]:
-        return get_cluster_utilization(
-            self._store,
-            hostname=hostname,
-            resource_type=resource_type,
-        )
-
-    def get_uptime_summary(
-        self,
-        *,
-        subject_type: str | None = None,
-    ) -> list[dict[str, Any]]:
-        return get_uptime_summary(self._store, subject_type=subject_type)
-
-    def get_infra_cost(
-        self,
-        *,
-        cost_type: str | None = None,
-        billing_month: str | None = None,
-    ) -> list[dict[str, Any]]:
-        return get_infra_cost(
-            self._store,
-            cost_type=cost_type,
-            billing_month=billing_month,
-        )
 
     def load_cluster_metrics(
         self,
@@ -197,18 +131,6 @@ class HomelabTransformationMixin(TransformationFacetBase):
             run_id=run_id,
             source_system=source_system,
         )
-
-    def get_current_nodes(self) -> list[dict[str, Any]]:
-        return get_current_nodes(self._store)
-
-    def get_current_devices(self) -> list[dict[str, Any]]:
-        return get_current_devices(self._store)
-
-    def get_current_services(self) -> list[dict[str, Any]]:
-        return get_current_services(self._store)
-
-    def get_current_workloads(self) -> list[dict[str, Any]]:
-        return get_current_workloads(self._store)
 
     def count_cluster_metric_rows(self, run_id: str | None = None) -> int:
         return count_cluster_metric_rows(self._store, run_id=run_id)

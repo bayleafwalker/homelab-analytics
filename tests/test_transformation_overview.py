@@ -14,6 +14,31 @@ from datetime import date, timedelta
 
 import pytest
 
+from packages.domains.finance.pipelines.transformation_subscriptions import (
+    refresh_subscription_summary,
+    refresh_upcoming_fixed_costs_30d,
+)
+from packages.domains.finance.pipelines.transformation_transactions import (
+    refresh_account_balance_trend,
+    refresh_monthly_cashflow,
+    refresh_spend_by_category_monthly,
+    refresh_transaction_anomalies_current,
+)
+from packages.domains.homelab.pipelines.transformation_homelab import (
+    refresh_service_health_current,
+    refresh_workload_cost_7d,
+)
+from packages.domains.overview.pipelines.transformation_overview import (
+    refresh_current_operating_baseline,
+    refresh_homelab_roi,
+    refresh_household_overview,
+    refresh_open_attention_items,
+    refresh_recent_significant_changes,
+)
+from packages.domains.utilities.pipelines.transformation_utilities import (
+    refresh_utility_cost_summary,
+    refresh_utility_cost_trend_monthly,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from tests.test_homelab_domain import _service_rows, _workload_rows
@@ -138,20 +163,20 @@ def svc() -> TransformationService:
 
     # Finance
     s.load_transactions(TRANSACTION_ROWS, run_id="run-tx-001")
-    s.refresh_monthly_cashflow()
-    s.refresh_spend_by_category_monthly()
-    s.refresh_account_balance_trend()
-    s.refresh_transaction_anomalies_current()
+    refresh_monthly_cashflow(s.store)
+    refresh_spend_by_category_monthly(s.store)
+    refresh_account_balance_trend(s.store)
+    refresh_transaction_anomalies_current(s.store)
 
     # Subscriptions
     s.load_subscriptions(SUBSCRIPTION_ROWS, run_id="run-sub-001")
-    s.refresh_subscription_summary()
-    s.refresh_upcoming_fixed_costs_30d()
+    refresh_subscription_summary(s.store)
+    refresh_upcoming_fixed_costs_30d(s.store)
 
     # Utilities
     s.load_bills(BILL_ROWS, run_id="run-bill-001")
-    s.refresh_utility_cost_summary()
-    s.refresh_utility_cost_trend_monthly()
+    refresh_utility_cost_summary(s.store)
+    refresh_utility_cost_trend_monthly(s.store)
 
     return s
 
@@ -163,11 +188,11 @@ def svc() -> TransformationService:
 
 class TestHouseholdOverview:
     def test_refresh_returns_one_row(self, svc: TransformationService) -> None:
-        count = svc.refresh_household_overview()
+        count = refresh_household_overview(svc.store)
         assert count == 1
 
     def test_overview_fields_populated(self, svc: TransformationService) -> None:
-        svc.refresh_household_overview()
+        refresh_household_overview(svc.store)
         rows = svc.get_household_overview()
         assert len(rows) == 1
         row = rows[0]
@@ -177,8 +202,8 @@ class TestHouseholdOverview:
         assert row["account_balance_direction"] in ("up", "down", "flat")
 
     def test_idempotent(self, svc: TransformationService) -> None:
-        count1 = svc.refresh_household_overview()
-        count2 = svc.refresh_household_overview()
+        count1 = refresh_household_overview(svc.store)
+        count2 = refresh_household_overview(svc.store)
         assert count1 == count2
         rows = svc.get_household_overview()
         assert len(rows) == 1
@@ -191,12 +216,12 @@ class TestHouseholdOverview:
 
 class TestOpenAttentionItems:
     def test_refresh_returns_items(self, svc: TransformationService) -> None:
-        count = svc.refresh_open_attention_items()
+        count = refresh_open_attention_items(svc.store)
         # New Vendor (300, first occurrence) should produce at least 1 anomaly attention item
         assert count >= 1
 
     def test_items_have_required_fields(self, svc: TransformationService) -> None:
-        svc.refresh_open_attention_items()
+        refresh_open_attention_items(svc.store)
         rows = svc.get_open_attention_items()
         for row in rows:
             assert row["item_id"]
@@ -207,8 +232,8 @@ class TestOpenAttentionItems:
             assert row["source_domain"] in ("finance", "utilities")
 
     def test_idempotent(self, svc: TransformationService) -> None:
-        count1 = svc.refresh_open_attention_items()
-        count2 = svc.refresh_open_attention_items()
+        count1 = refresh_open_attention_items(svc.store)
+        count2 = refresh_open_attention_items(svc.store)
         assert count1 == count2
 
 
@@ -219,12 +244,12 @@ class TestOpenAttentionItems:
 
 class TestRecentSignificantChanges:
     def test_refresh_returns_rows(self, svc: TransformationService) -> None:
-        count = svc.refresh_recent_significant_changes()
+        count = refresh_recent_significant_changes(svc.store)
         # 2 months of data → at least 1 month-over-month change
         assert count >= 1
 
     def test_change_fields_populated(self, svc: TransformationService) -> None:
-        svc.refresh_recent_significant_changes()
+        refresh_recent_significant_changes(svc.store)
         rows = svc.get_recent_significant_changes()
         for row in rows:
             assert row["change_type"]
@@ -233,8 +258,8 @@ class TestRecentSignificantChanges:
             assert row["direction"] in ("up", "down")
 
     def test_idempotent(self, svc: TransformationService) -> None:
-        count1 = svc.refresh_recent_significant_changes()
-        count2 = svc.refresh_recent_significant_changes()
+        count1 = refresh_recent_significant_changes(svc.store)
+        count2 = refresh_recent_significant_changes(svc.store)
         assert count1 == count2
 
 
@@ -245,24 +270,24 @@ class TestRecentSignificantChanges:
 
 class TestCurrentOperatingBaseline:
     def test_refresh_returns_four_baseline_rows(self, svc: TransformationService) -> None:
-        count = svc.refresh_current_operating_baseline()
+        count = refresh_current_operating_baseline(svc.store)
         assert count == 4
 
     def test_baseline_types(self, svc: TransformationService) -> None:
-        svc.refresh_current_operating_baseline()
+        refresh_current_operating_baseline(svc.store)
         rows = svc.get_current_operating_baseline()
         types = {r["baseline_type"] for r in rows}
         assert types == {"monthly_spend", "recurring_costs", "utility_baseline", "account_balance"}
 
     def test_descriptions_populated(self, svc: TransformationService) -> None:
-        svc.refresh_current_operating_baseline()
+        refresh_current_operating_baseline(svc.store)
         rows = svc.get_current_operating_baseline()
         for row in rows:
             assert row["description"], f"Empty description for {row['baseline_type']}"
 
     def test_idempotent(self, svc: TransformationService) -> None:
-        count1 = svc.refresh_current_operating_baseline()
-        count2 = svc.refresh_current_operating_baseline()
+        count1 = refresh_current_operating_baseline(svc.store)
+        count2 = refresh_current_operating_baseline(svc.store)
         assert count1 == count2
 
 
@@ -276,19 +301,19 @@ def homelab_svc() -> TransformationService:
     store = DuckDBStore.memory()
     svc = TransformationService(store)
     svc.load_service_health(_service_rows(), run_id="run-homelab-services")
-    svc.refresh_service_health_current()
+    refresh_service_health_current(svc.store)
     svc.load_workload_sensors(_workload_rows(), run_id="run-homelab-workloads")
-    svc.refresh_workload_cost_7d()
+    refresh_workload_cost_7d(svc.store)
     return svc
 
 
 class TestHomelabRoi:
     def test_refresh_returns_one_row(self, homelab_svc: TransformationService) -> None:
-        count = homelab_svc.refresh_homelab_roi()
+        count = refresh_homelab_roi(homelab_svc.store)
         assert count == 1
 
     def test_roi_fields_populated(self, homelab_svc: TransformationService) -> None:
-        homelab_svc.refresh_homelab_roi()
+        refresh_homelab_roi(homelab_svc.store)
         rows = homelab_svc.get_homelab_roi()
         assert len(rows) == 1
         row = rows[0]
@@ -299,6 +324,6 @@ class TestHomelabRoi:
         assert row["monthly_workload_cost"] > 0
 
     def test_idempotent(self, homelab_svc: TransformationService) -> None:
-        count1 = homelab_svc.refresh_homelab_roi()
-        count2 = homelab_svc.refresh_homelab_roi()
+        count1 = refresh_homelab_roi(homelab_svc.store)
+        count2 = refresh_homelab_roi(homelab_svc.store)
         assert count1 == count2

@@ -52,6 +52,8 @@ Transformation facade boundary:
 - `TransformationService` may own schema/bootstrap coordination, transaction and lineage helpers, registry dispatch, and publication-confidence hooks.
 - Product-pack transformations should own domain-specific load, count, refresh, getter, and scenario implementation details.
 - New domain behavior should prefer transformation domain registries, publication refresh registries, or application use-cases over adding more direct pass-through methods to `TransformationService`.
+- Packs register their behaviour in `packages/domains/<pack>/pipelines/`: publication refresh handlers (`publication_refresh.py`, dispatched by `refresh_publications`), scenario types (`scenario_handlers.py`, dispatched by `create_scenario` / `get_scenario_view` through `packages/pipelines/scenario_registry.py`), and current-dimension readers (`current_dimensions.py`, dispatched by `get_current_dimension_rows`). The `household_*` modules in `packages/pipelines/` compose the built-in packs.
+- `tests/test_transformation_facade_boundary.py` ratchets the public facade surface: a new public method fails the test, as does a facet getter with no caller outside tests. The remaining facet getters are the ones `ReportingService` consumes; load/count methods stay as the ingestion and lineage contract that extension domain handlers call.
 - Reporting-facing reads should continue through `ReportingService` and publication contracts rather than through transformation getters in API or web surfaces.
 
 ### 3. Product packs

@@ -19,6 +19,11 @@ from packages.domains.finance.pipelines.subscriptions import (
     CanonicalSubscription,
     load_canonical_subscriptions_bytes,
 )
+from packages.domains.finance.pipelines.transformation_subscriptions import (
+    get_subscription_changes,
+    refresh_subscription_changes,
+    refresh_subscription_summary,
+)
 from packages.pipelines.promotion import promote_subscription_run
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
@@ -165,7 +170,7 @@ class SubscriptionTransformationTests(unittest.TestCase):
     def test_load_subscriptions_upserts_dim_contract(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_subscriptions(self._make_rows(), run_id="run-001")
-        contracts = svc.get_current_contracts()
+        contracts = svc.get_current_dimension_rows("dim_contract")
         names = {row["contract_name"] for row in contracts}
         self.assertIn("Netflix", names)
         self.assertIn("GitHub Pro", names)
@@ -174,7 +179,7 @@ class SubscriptionTransformationTests(unittest.TestCase):
     def test_refresh_subscription_summary_active_inactive_status(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_subscriptions(self._make_rows(), run_id="run-001")
-        count = svc.refresh_subscription_summary()
+        count = refresh_subscription_summary(svc.store)
         self.assertEqual(3, count)
 
         rows = svc.get_subscription_summary()
@@ -190,18 +195,18 @@ class SubscriptionTransformationTests(unittest.TestCase):
         svc = TransformationService(DuckDBStore.memory())
         svc.load_subscriptions(self._make_rows(), run_id="run-001")
 
-        count = svc.refresh_subscription_changes()
+        count = refresh_subscription_changes(svc.store)
 
         # three activations + one cancellation (Adobe CC has an end date)
         self.assertEqual(4, count)
 
-        activations = svc.get_subscription_changes(change_type="activated")
+        activations = get_subscription_changes(svc.store, change_type="activated")
         self.assertEqual(3, len(activations))
         netflix = next(row for row in activations if row["contract_name"] == "Netflix")
         self.assertEqual("2023-01", netflix["period_month"])
         self.assertEqual(Decimal("15.9900"), Decimal(netflix["monthly_equivalent"]))
 
-        cancellations = svc.get_subscription_changes(change_type="cancelled")
+        cancellations = get_subscription_changes(svc.store, change_type="cancelled")
         self.assertEqual(1, len(cancellations))
         adobe = cancellations[0]
         self.assertEqual("Adobe CC", adobe["contract_name"])
@@ -209,7 +214,7 @@ class SubscriptionTransformationTests(unittest.TestCase):
         # annual 660 → 55/month freed up by the cancellation
         self.assertEqual(Decimal("55.0000"), Decimal(adobe["monthly_equivalent"]))
 
-        windowed = svc.get_subscription_changes(
+        windowed = get_subscription_changes(svc.store, 
             from_month="2024-01", to_month="2024-12"
         )
         self.assertEqual(
@@ -220,7 +225,7 @@ class SubscriptionTransformationTests(unittest.TestCase):
     def test_refresh_subscription_summary_monthly_equivalent(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_subscriptions(self._make_rows(), run_id="run-001")
-        svc.refresh_subscription_summary()
+        refresh_subscription_summary(svc.store)
 
         rows = svc.get_subscription_summary()
         github = next(r for r in rows if r["contract_name"] == "GitHub Pro")
@@ -233,7 +238,7 @@ class SubscriptionTransformationTests(unittest.TestCase):
     def test_subscription_summary_status_filter(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_subscriptions(self._make_rows(), run_id="run-001")
-        svc.refresh_subscription_summary()
+        refresh_subscription_summary(svc.store)
 
         active = svc.get_subscription_summary(status="active")
         self.assertEqual(2, len(active))
@@ -244,7 +249,7 @@ class SubscriptionTransformationTests(unittest.TestCase):
     def test_subscription_summary_currency_filter(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_subscriptions(self._make_rows(), run_id="run-001")
-        svc.refresh_subscription_summary()
+        refresh_subscription_summary(svc.store)
 
         eur = svc.get_subscription_summary(currency="EUR")
         self.assertEqual(2, len(eur))

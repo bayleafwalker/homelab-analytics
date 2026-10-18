@@ -39,7 +39,7 @@ def test_list_categories_reads_through_reporting_service() -> None:
 
     assert response.status_code == 200
     assert reporting.category_reads == 1
-    assert response.json()["categories"] == ts.get_current_categories()
+    assert response.json()["categories"] == ts.get_current_dimension_rows("dim_category")
 
 
 def test_operator_category_is_visible_immediately_after_create() -> None:
@@ -76,7 +76,7 @@ def test_list_categories_without_reporting_service_falls_back_to_reporting_layer
     response = TestClient(app).get("/api/categories")
 
     assert response.status_code == 200
-    assert response.json()["categories"] == ts.get_current_categories()
+    assert response.json()["categories"] == ts.get_current_dimension_rows("dim_category")
 
 
 def test_list_categories_without_transformation_service_returns_404() -> None:

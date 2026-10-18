@@ -16,6 +16,7 @@ from packages.domains.finance.pipelines.scenario_service import (
     create_expense_shock_scenario,
     get_expense_shock_comparison,
 )
+from packages.domains.finance.pipelines.transformation_transactions import refresh_monthly_cashflow
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -52,7 +53,7 @@ def _load_fixture_cashflow(svc: TransformationService) -> None:
         ]
     # Baseline: income=3000, expense=1600, net=1400 per month
     svc.load_transactions(transactions, run_id="run-shock-001")
-    svc.refresh_monthly_cashflow()
+    refresh_monthly_cashflow(svc.store)
 
 
 class ExpenseIncreaseTests(unittest.TestCase):
@@ -241,7 +242,7 @@ class ExpenseShockStalenessTests(unittest.TestCase):
             }],
             run_id="run-shock-002",
         )
-        self.svc.refresh_monthly_cashflow()
+        refresh_monthly_cashflow(self.svc.store)
         comparison = get_expense_shock_comparison(self.store, result.scenario_id)
         self.assertTrue(comparison.is_stale)
 

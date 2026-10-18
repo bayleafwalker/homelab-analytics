@@ -16,6 +16,7 @@ from packages.domains.finance.pipelines.scenario_service import (
     create_income_change_scenario,
     get_income_scenario_comparison,
 )
+from packages.domains.finance.pipelines.transformation_transactions import refresh_monthly_cashflow
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -51,7 +52,7 @@ def _load_fixture_cashflow(svc: TransformationService) -> None:
             },
         ]
     svc.load_transactions(transactions, run_id="run-income-001")
-    svc.refresh_monthly_cashflow()
+    refresh_monthly_cashflow(svc.store)
 
 
 class IncomeIncreaseTests(unittest.TestCase):
@@ -251,7 +252,7 @@ class IncomeScenarioStalenessTests(unittest.TestCase):
             }],
             run_id="run-income-002",
         )
-        self.svc.refresh_monthly_cashflow()
+        refresh_monthly_cashflow(self.svc.store)
         comparison = get_income_scenario_comparison(self.store, result.scenario_id)
         self.assertTrue(comparison.is_stale)
 

@@ -14,6 +14,11 @@ from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
 from packages.domains.finance.pipelines.scenario_service import create_loan_what_if_scenario
+from packages.domains.finance.pipelines.transformation_loans import refresh_loan_schedule_projected
+from packages.domains.homelab.pipelines.transformation_homelab import (
+    refresh_service_health_current,
+    refresh_workload_cost_7d,
+)
 from packages.pipelines.reporting_service import HomelabCostBenefitBaseline, ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
@@ -54,7 +59,7 @@ def _build_client(temp_dir: str) -> tuple[TestClient, TransformationService]:
         ],
         run_id="run-001",
     )
-    ts.refresh_loan_schedule_projected()
+    refresh_loan_schedule_projected(ts.store)
     app = create_app(service, transformation_service=ts)
     return TestClient(app), ts
 
@@ -70,9 +75,9 @@ def _build_homelab_client(temp_dir: str) -> tuple[TestClient, TransformationServ
     )
     ts = TransformationService(DuckDBStore.memory())
     ts.load_service_health(_service_rows(), run_id="run-homelab-services")
-    ts.refresh_service_health_current()
+    refresh_service_health_current(ts.store)
     ts.load_workload_sensors(_workload_rows(), run_id="run-homelab-workloads")
-    ts.refresh_workload_cost_7d()
+    refresh_workload_cost_7d(ts.store)
     app = create_app(service, transformation_service=ts)
     return TestClient(app), ts
 
@@ -112,6 +117,10 @@ class _StubHomelabReportingService(ReportingService):
         self.scenario_reads.append(scenario_id)
         return super().get_scenario(scenario_id)
 
+    def get_scenario_view(self, scenario_id: str, **kwargs):
+        self.scenario_reads.append(scenario_id)
+        return super().get_scenario_view(scenario_id, **kwargs)
+
 
 def _build_homelab_client_with_reporting(
     temp_dir: str,
@@ -126,9 +135,9 @@ def _build_homelab_client_with_reporting(
     )
     ts = TransformationService(DuckDBStore.memory())
     ts.load_service_health(_service_rows(), run_id="run-homelab-services")
-    ts.refresh_service_health_current()
+    refresh_service_health_current(ts.store)
     ts.load_workload_sensors(_workload_rows(), run_id="run-homelab-workloads")
-    ts.refresh_workload_cost_7d()
+    refresh_workload_cost_7d(ts.store)
     reporting_service = _StubHomelabReportingService(ts)
     app = create_app(
         service,
@@ -589,12 +598,12 @@ class HomelabCostBenefitScenarioAPITests(unittest.TestCase):
                 _shift_homelab_rows(_service_rows()),
                 run_id="run-homelab-services-v2",
             )
-            ts.refresh_service_health_current()
+            refresh_service_health_current(ts.store)
             ts.load_workload_sensors(
                 _shift_homelab_rows(_workload_rows()),
                 run_id="run-homelab-workloads-v2",
             )
-            ts.refresh_workload_cost_7d()
+            refresh_workload_cost_7d(ts.store)
             resp = client.get(f"/api/scenarios/{scenario_id}/comparison")
             self.assertTrue(resp.json()["is_stale"])
 

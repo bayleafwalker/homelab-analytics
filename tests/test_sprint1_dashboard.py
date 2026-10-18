@@ -16,6 +16,14 @@ from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.transformation_transactions import (
+    refresh_monthly_cashflow,
+    refresh_spend_by_category_monthly,
+)
+from packages.domains.utilities.pipelines.transformation_utilities import (
+    refresh_utility_cost_summary,
+    refresh_utility_cost_trend_monthly,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository
@@ -148,12 +156,12 @@ USAGE_ROWS = [
 def _make_transformation_service() -> TransformationService:
     ts = TransformationService(DuckDBStore.memory())
     ts.load_transactions(TRANSACTION_ROWS, run_id="txn-001")
-    ts.refresh_monthly_cashflow()
-    ts.refresh_spend_by_category_monthly()
+    refresh_monthly_cashflow(ts.store)
+    refresh_spend_by_category_monthly(ts.store)
     ts.load_bills(BILL_ROWS, run_id="bill-001")
     ts.load_utility_usage(USAGE_ROWS, run_id="usage-001")
-    ts.refresh_utility_cost_summary()
-    ts.refresh_utility_cost_trend_monthly()
+    refresh_utility_cost_summary(ts.store)
+    refresh_utility_cost_trend_monthly(ts.store)
     return ts
 
 

@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 from uuid import uuid4
 
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.transformation_transactions import refresh_monthly_cashflow
 from packages.pipelines.extension_registries import load_pipeline_registries
 from packages.pipelines.promotion_registry import PromotionRuntime
 from packages.pipelines.reporting_service import ReportingService
@@ -244,7 +245,7 @@ class ExtensionRegistryTests(unittest.TestCase):
                 ],
                 run_id=run.run_id,
             )
-            transformation_service.refresh_monthly_cashflow()
+            refresh_monthly_cashflow(transformation_service.store)
             registry = load_extension_registry()
 
             transactions = registry.execute(

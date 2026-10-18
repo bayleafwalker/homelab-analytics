@@ -17,12 +17,7 @@ from packages.domains.finance.pipelines.category_rules import (
     set_category_override,
 )
 from packages.domains.finance.pipelines.reconciliation import reconcile_batch
-from packages.domains.finance.pipelines.subscription_models import (
-    CURRENT_DIM_CATEGORY_VIEW,
-)
 from packages.domains.finance.pipelines.transaction_models import (
-    CURRENT_DIM_ACCOUNT_VIEW,
-    CURRENT_DIM_COUNTERPARTY_VIEW,
     DIM_ACCOUNT,
     DIM_COUNTERPARTY,
 )
@@ -34,15 +29,8 @@ from packages.domains.finance.pipelines.transformation_transactions import (
     get_recent_large_transactions,
     get_spend_by_category_monthly,
     get_transaction_anomalies_current,
-    get_transactions,
     load_transactions,
     populate_counterparty_category_ids,
-    refresh_account_balance_trend,
-    refresh_monthly_cashflow,
-    refresh_monthly_cashflow_by_counterparty,
-    refresh_recent_large_transactions,
-    refresh_spend_by_category_monthly,
-    refresh_transaction_anomalies_current,
 )
 from packages.pipelines.normalization import (
     normalize_currency_code,
@@ -106,9 +94,6 @@ class TransactionTransformationMixin(TransformationFacetBase):
         reconcile_batch(self._store, batch_id, run_id=run_id)
         return inserted
 
-    def refresh_monthly_cashflow(self) -> int:
-        return refresh_monthly_cashflow(self._store)
-
     def get_monthly_cashflow(
         self,
         from_month: str | None = None,
@@ -120,14 +105,8 @@ class TransactionTransformationMixin(TransformationFacetBase):
             to_month=to_month,
         )
 
-    def get_transactions(self) -> list[dict[str, Any]]:
-        return get_transactions(self._store)
-
     def count_transactions(self, run_id: str | None = None) -> int:
         return count_transactions(self._store, run_id=run_id)
-
-    def refresh_monthly_cashflow_by_counterparty(self) -> int:
-        return refresh_monthly_cashflow_by_counterparty(self._store)
 
     def get_monthly_cashflow_by_counterparty(
         self,
@@ -141,9 +120,6 @@ class TransactionTransformationMixin(TransformationFacetBase):
             to_month=to_month,
             counterparty_name=counterparty_name,
         )
-
-    def refresh_spend_by_category_monthly(self) -> int:
-        return refresh_spend_by_category_monthly(self._store)
 
     def get_spend_by_category_monthly(
         self,
@@ -160,14 +136,8 @@ class TransactionTransformationMixin(TransformationFacetBase):
             category=category,
         )
 
-    def refresh_recent_large_transactions(self) -> int:
-        return refresh_recent_large_transactions(self._store)
-
     def get_recent_large_transactions(self) -> list[dict[str, Any]]:
         return get_recent_large_transactions(self._store)
-
-    def refresh_account_balance_trend(self) -> int:
-        return refresh_account_balance_trend(self._store)
 
     def get_account_balance_trend(
         self,
@@ -182,26 +152,8 @@ class TransactionTransformationMixin(TransformationFacetBase):
             to_month=to_month,
         )
 
-    def refresh_transaction_anomalies_current(self) -> int:
-        return refresh_transaction_anomalies_current(self._store)
-
     def get_transaction_anomalies_current(self) -> list[dict[str, Any]]:
         return get_transaction_anomalies_current(self._store)
-
-    def get_current_accounts(self) -> list[dict[str, Any]]:
-        return self._store.fetchall_dicts(
-            f"SELECT * FROM {CURRENT_DIM_ACCOUNT_VIEW} ORDER BY account_id"
-        )
-
-    def get_current_counterparties(self) -> list[dict[str, Any]]:
-        return self._store.fetchall_dicts(
-            f"SELECT * FROM {CURRENT_DIM_COUNTERPARTY_VIEW} ORDER BY counterparty_name"
-        )
-
-    def get_current_categories(self) -> list[dict[str, Any]]:
-        return self._store.fetchall_dicts(
-            f"SELECT * FROM {CURRENT_DIM_CATEGORY_VIEW} ORDER BY category_id"
-        )
 
     def add_category_rule(
         self,

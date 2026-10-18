@@ -23,6 +23,10 @@ from packages.domains.finance.pipelines.budget_service import BudgetService
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
 from packages.domains.finance.pipelines.loan_service import LoanService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
+from packages.domains.finance.pipelines.transformation_budgets import refresh_budget_variance
+from packages.domains.finance.pipelines.transformation_transactions import (
+    refresh_spend_by_category_monthly,
+)
 from packages.domains.utilities.pipelines.utility_bill_service import UtilityBillService
 from packages.pipelines.household_promotion_handlers import (
     promote_budget_run,
@@ -368,9 +372,9 @@ class BudgetCategoryOverlapTests(unittest.TestCase):
         ts.add_category_rule(rule_id="r-entertainment", pattern="netflix", category="entertainment")
         ts.add_category_rule(rule_id="r-dining", pattern="restaurant", category="dining")
         # Spend mart was built before rules existed — rebuild with proper categories.
-        ts.refresh_spend_by_category_monthly()
+        refresh_spend_by_category_monthly(ts.store)
         # Budget variance reads from the spend mart — rebuild to pick up alignment.
-        ts.refresh_budget_variance()
+        refresh_budget_variance(ts.store)
         cls.ts = ts
 
     @classmethod
@@ -428,8 +432,8 @@ class CategoryGovernancePhase2Tests(unittest.TestCase):
         ts.add_category_rule(rule_id="r-transport", pattern="metro transport", category="transport")
         ts.add_category_rule(rule_id="r-entertainment", pattern="netflix", category="entertainment")
         ts.add_category_rule(rule_id="r-dining", pattern="restaurant", category="dining")
-        ts.refresh_spend_by_category_monthly()
-        ts.refresh_budget_variance()
+        refresh_spend_by_category_monthly(ts.store)
+        refresh_budget_variance(ts.store)
         cls.ts = ts
 
     @classmethod
@@ -439,7 +443,7 @@ class CategoryGovernancePhase2Tests(unittest.TestCase):
     def test_system_categories_seeded_at_init(self) -> None:
         from packages.domains.finance.pipelines.category_seed import SYSTEM_CATEGORY_IDS
 
-        rows = self.ts.get_current_categories()
+        rows = self.ts.get_current_dimension_rows("dim_category")
         present = {r["category_id"] for r in rows}
         missing = SYSTEM_CATEGORY_IDS - present
         self.assertEqual(
@@ -449,7 +453,7 @@ class CategoryGovernancePhase2Tests(unittest.TestCase):
         )
 
     def test_system_categories_are_flagged_as_system(self) -> None:
-        rows = self.ts.get_current_categories()
+        rows = self.ts.get_current_dimension_rows("dim_category")
         system_rows = {r["category_id"]: r for r in rows if r.get("is_system")}
         # All expected system slugs should be present and marked is_system=True
         for slug in ("groceries", "transport", "utilities", "entertainment", "dining", "income"):
@@ -461,7 +465,7 @@ class CategoryGovernancePhase2Tests(unittest.TestCase):
         fact_rows = self.ts._store.fetchall_dicts(
             "SELECT DISTINCT category_id FROM fact_budget_target"
         )
-        dim_rows = self.ts.get_current_categories()
+        dim_rows = self.ts.get_current_dimension_rows("dim_category")
         dim_ids = {r["category_id"] for r in dim_rows}
 
         missing = {r["category_id"] for r in fact_rows} - dim_ids
@@ -494,7 +498,7 @@ class CategoryGovernancePhase2Tests(unittest.TestCase):
         self.assertNotIn("groceries_organic", SYSTEM_CATEGORY_IDS)
 
     def test_dim_category_has_expected_adl_columns(self) -> None:
-        rows = self.ts.get_current_categories()
+        rows = self.ts.get_current_dimension_rows("dim_category")
         self.assertGreater(len(rows), 0)
         sample = rows[0]
         for col in ("category_id", "display_name", "domain", "is_budget_eligible", "is_system"):
