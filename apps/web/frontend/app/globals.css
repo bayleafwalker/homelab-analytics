@@ -1,6 +1,7 @@
 @import "./generated/ui-tokens.css";
 @import "./shell.css";
 @import "./states.css";
+@import "./cashflow.css";
 
 * {
   box-sizing: border-box;

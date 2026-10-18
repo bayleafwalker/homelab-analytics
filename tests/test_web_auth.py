@@ -1242,6 +1242,32 @@ def test_default_shell_nav_registry_covers_every_top_level_route() -> None:
     assert 'href: "/upload", label: "Upload", group: "data", minRole: "operator"' in nav_model
 
 
+def test_cashflow_map_page_reads_reporting_api_and_discloses_provenance() -> None:
+    page = (FRONTEND_ROOT / "app" / "cashflow" / "page.js").read_text()
+    sankey = (FRONTEND_ROOT / "components" / "cashflow-sankey.js").read_text()
+    backend = (FRONTEND_ROOT / "lib" / "backend.ts").read_text()
+
+    assert '"/reports/cashflow-map": "get_cashflow_map_reports_cashflow_map_get"' in backend
+    assert "export async function getCashflowMap" in backend
+    assert "getCashflowMap({ month: requestedMonth, includeTransfers })" in page
+    # Month and drill-down state live in the URL, not component state.
+    assert "searchParams?.m" in page
+    assert "searchParams?.focus" in page
+    assert "useState" not in page
+    assert '"use client"' not in page
+    # Honest disclosure: staleness, transfers, provenance and lineage.
+    assert 'tone="stale"' in page
+    assert "payload.provenance" in page
+    assert "getPublicationLineage" in page
+    assert "Show transfers between own accounts" in page
+    # Confidence detail is an admin read; other roles must not trigger it.
+    assert "isAdmin\n      ? Promise.all(publications.map((key) => safely(getPublicationConfidenceDetail(key))))" in page
+    # No chart library; readable alternative for narrow screens.
+    assert "d3" not in sankey
+    assert "export function CashflowFlowList" in sankey
+    assert "fetch(" not in page
+
+
 def test_default_shell_has_route_level_error_loading_and_not_found_states() -> None:
     error_page = (FRONTEND_ROOT / "app" / "error.js").read_text()
     not_found = (FRONTEND_ROOT / "app" / "not-found.js").read_text()
