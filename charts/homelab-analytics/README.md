@@ -14,6 +14,21 @@ Current foundation:
 - `values.runtime-secrets-example.yaml` shows the intended workload split: API database/blob/OIDC secrets for API, OIDC secrets only for web, and worker database/blob/landing/transformation secrets for the worker
 - `values.oidc-ingress-example.yaml` shows the intended shared-deployment path with OIDC, Postgres control-plane/reporting backends, ingress, TLS, and alert rules
 
+## OIDC settings
+
+The `oidc:` values block renders the non-secret OIDC settings into the shared
+ConfigMap, only while `commonEnv.HOMELAB_ANALYTICS_IDENTITY_MODE` is `oidc`:
+`issuerUrl`, `discoveryUrl`, `redirectUri`, `postLogoutRedirectUri`
+(RP-initiated logout), `apiAudience`, `scopes`, the username/groups/permissions
+claims, `permissionGroupMappings`, `reader/operator/adminGroups` (lists, joined
+the way the app parses them), `clientSecretRef`, `jwksCacheSeconds` and
+`clockSkewSeconds`. Empty values are omitted so application defaults apply, and
+a key already set in `commonEnv` wins. Credentials (client id, client secret or
+the `HOMELAB_ANALYTICS_SECRET__*` value behind `clientSecretRef`, session
+secret) stay in the Secret named in `api/web.secretEnvFrom`; it is listed after
+the ConfigMap in `envFrom`, so a key present in both takes the Secret's value.
+See `docs/runbooks/oidc-authentik-enablement.md`.
+
 ## Image pinning
 
 `image.repository`/`image.tag` and `webImage.repository`/`webImage.tag` describe the

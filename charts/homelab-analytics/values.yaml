@@ -35,6 +35,41 @@ commonEnv:
 
 extraEnv: []
 
+# Non-secret OIDC settings, rendered into the shared ConfigMap only while
+# commonEnv.HOMELAB_ANALYTICS_IDENTITY_MODE is "oidc" (runbook:
+# docs/runbooks/oidc-authentik-enablement.md). Empty values are left out so
+# the application defaults apply. Credentials stay in the Secret(s) listed
+# under api/web.secretEnvFrom (client id, client secret, session secret);
+# envFrom lists the Secret after the ConfigMap, so a key set in both takes
+# the Secret's value.
+oidc:
+  # e.g. https://<authentik-host>/application/o/homelab-analytics/ (keep the
+  # trailing slash Authentik advertises).
+  issuerUrl: ""
+  # Overrides <issuer>/.well-known/openid-configuration.
+  discoveryUrl: ""
+  # e.g. https://analytics.<your-domain>/auth/callback
+  redirectUri: ""
+  # Optional RP-initiated logout target; must be registered with the IdP.
+  postLogoutRedirectUri: ""
+  apiAudience: ""
+  # Default: openid, profile, email.
+  scopes: []
+  usernameClaim: ""
+  groupsClaim: ""
+  permissionsClaim: ""
+  # "<group>=<permission>[,<permission>]" entries.
+  permissionGroupMappings: []
+  readerGroups: []
+  operatorGroups: []
+  adminGroups: []
+  # "<secret_name>/<secret_key>" resolved from HOMELAB_ANALYTICS_SECRET__*;
+  # set this or a literal HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET, not both.
+  clientSecretRef: ""
+  # Discovery/JWKS cache TTL and token clock-skew leeway, in seconds.
+  jwksCacheSeconds: ""
+  clockSkewSeconds: ""
+
 service:
   type: ClusterIP
 

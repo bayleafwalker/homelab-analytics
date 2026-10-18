@@ -16,6 +16,20 @@ commonEnv:
   HOMELAB_ANALYTICS_BLOB_BACKEND: s3
   HOMELAB_ANALYTICS_IDENTITY_MODE: oidc
 
+# Non-secret OIDC settings; the client id/secret and session secret stay in
+# the homelab-analytics-auth-oidc Secret.
+oidc:
+  issuerUrl: https://auth.example.internal/application/o/homelab-analytics/
+  redirectUri: https://analytics.example.internal/auth/callback
+  postLogoutRedirectUri: https://analytics.example.internal/login
+  apiAudience: homelab-analytics-api
+  readerGroups:
+    - hla-readers
+  operatorGroups:
+    - hla-operators
+  adminGroups:
+    - hla-admins
+
 api:
   secretEnvFrom:
     - homelab-analytics-api-database

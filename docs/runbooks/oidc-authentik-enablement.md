@@ -87,6 +87,8 @@ Edit it with `sops clusters/main/kubernetes/apps/homelab-analytics/runtime-auth.
 | `HOMELAB_ANALYTICS_BREAK_GLASS_ENABLED` | remove, or leave it; it is ignored outside `local_single_user` | api |
 | `HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN` | `false` | api |
 
+With the Helm chart, set the non-secret rows through the `oidc:` values block (`issuerUrl`, `redirectUri`, `postLogoutRedirectUri`, `readerGroups`, `operatorGroups`, `adminGroups`, `clientSecretRef`, …; see `charts/homelab-analytics/README.md` § OIDC settings) instead of hand-written env entries; it renders them into the ConfigMap only in `oidc` mode. Keys in the Secret override the ConfigMap.
+
 Leave the defaults for `HOMELAB_ANALYTICS_OIDC_SCOPES` (`openid,profile,email`), `_USERNAME_CLAIM` (`preferred_username`), `_GROUPS_CLAIM` (`groups`) and `_JWKS_CACHE_SECONDS` (`3600`). The api pod must reach the Authentik host over HTTPS: discovery, JWKS and the token endpoint are server-side calls. The browser only visits the authorization endpoint.
 
 ## 6. Verify

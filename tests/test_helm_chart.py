@@ -413,6 +413,108 @@ class HelmChartTests(unittest.TestCase):
         )
         self.assertNotIn("HOMELAB_ANALYTICS_BACKUP_INTERVAL_SECONDS", config["data"])
 
+    def _config_data(self, *extra_args: str) -> dict:
+        return next(
+            document["data"]
+            for document in self._rendered_documents(*extra_args)
+            if document["kind"] == "ConfigMap"
+            and document["metadata"]["name"] == "test-release-homelab-analytics-config"
+        )
+
+    def test_oidc_values_are_off_until_configured(self) -> None:
+        data = self._config_data()
+        self.assertEqual("oidc", data["HOMELAB_ANALYTICS_IDENTITY_MODE"])
+        self.assertEqual([], [key for key in data if key.startswith("HOMELAB_ANALYTICS_OIDC_")])
+
+    def test_oidc_values_render_env_the_application_parses(self) -> None:
+        from tempfile import TemporaryDirectory
+
+        from packages.shared.settings import AppSettings
+
+        oidc_values = {
+            "oidc": {
+                "issuerUrl": "https://auth.example.test/application/o/homelab-analytics/",
+                "discoveryUrl": "https://auth.example.test/discovery",
+                "redirectUri": "https://analytics.example.test/auth/callback",
+                "postLogoutRedirectUri": "https://analytics.example.test/login",
+                "apiAudience": "homelab-analytics-api",
+                "scopes": ["openid", "profile", "email", "groups"],
+                "usernameClaim": "preferred_username",
+                "groupsClaim": "groups",
+                "permissionsClaim": "hla_permissions",
+                "permissionGroupMappings": [
+                    "hla-auditors=control.policy.read",
+                    "hla-ops=reports.read,control.action_proposals.draft",
+                ],
+                "readerGroups": ["hla-readers"],
+                "operatorGroups": ["hla-operators", "hla-oncall"],
+                "adminGroups": ["hla-admins"],
+                "clientSecretRef": "authentik-hla/client_secret",
+                "jwksCacheSeconds": 600,
+                "clockSkewSeconds": "30",
+            }
+        }
+        with TemporaryDirectory() as tmp:
+            values_file = Path(tmp) / "oidc-values.yaml"
+            values_file.write_text(yaml.safe_dump(oidc_values))
+            data = self._config_data("-f", str(values_file))
+
+            # The ConfigMap carries no credentials: client id and secret stay in Secrets.
+            self.assertNotIn("HOMELAB_ANALYTICS_OIDC_CLIENT_ID", data)
+            self.assertNotIn("HOMELAB_ANALYTICS_OIDC_CLIENT_SECRET", data)
+            self.assertEqual("600", data["HOMELAB_ANALYTICS_OIDC_JWKS_CACHE_SECONDS"])
+            self.assertEqual(
+                "hla-auditors=control.policy.read;hla-ops=reports.read,control.action_proposals.draft",
+                data["HOMELAB_ANALYTICS_OIDC_PERMISSION_GROUP_MAPPINGS"],
+            )
+
+            settings = AppSettings.from_env({**data, "HOMELAB_ANALYTICS_DATA_DIR": tmp})
+        self.assertEqual(oidc_values["oidc"]["issuerUrl"], settings.oidc_issuer_url)
+        self.assertEqual("https://auth.example.test/discovery", settings.oidc_discovery_url)
+        self.assertEqual(
+            "https://analytics.example.test/auth/callback", settings.oidc_redirect_uri
+        )
+        self.assertEqual(
+            "https://analytics.example.test/login", settings.oidc_post_logout_redirect_uri
+        )
+        self.assertEqual("homelab-analytics-api", settings.oidc_api_audience)
+        self.assertEqual(("openid", "profile", "email", "groups"), settings.oidc_scopes)
+        self.assertEqual("hla_permissions", settings.oidc_permissions_claim)
+        self.assertEqual(
+            (
+                "hla-auditors=control.policy.read",
+                "hla-ops=reports.read,control.action_proposals.draft",
+            ),
+            settings.oidc_permission_group_mappings,
+        )
+        self.assertEqual(("hla-readers",), settings.oidc_reader_groups)
+        self.assertEqual(("hla-operators", "hla-oncall"), settings.oidc_operator_groups)
+        self.assertEqual(("hla-admins",), settings.oidc_admin_groups)
+        self.assertEqual("authentik-hla/client_secret", settings.oidc_client_secret_ref)
+        self.assertEqual(600, settings.oidc_jwks_cache_seconds)
+        self.assertEqual(30, settings.oidc_clock_skew_seconds)
+
+    def test_oidc_values_are_skipped_outside_oidc_mode_and_never_duplicate_common_env(
+        self,
+    ) -> None:
+        local = self._config_data(
+            "--set",
+            "commonEnv.HOMELAB_ANALYTICS_IDENTITY_MODE=local_single_user",
+            "--set",
+            "oidc.issuerUrl=https://auth.example.test/",
+        )
+        self.assertNotIn("HOMELAB_ANALYTICS_OIDC_ISSUER_URL", local)
+
+        rendered = self._render_chart(
+            "--set",
+            "commonEnv.HOMELAB_ANALYTICS_OIDC_ISSUER_URL=https://from-common-env.test/",
+            "--set",
+            "oidc.issuerUrl=https://from-oidc-values.test/",
+        )
+        self.assertEqual(1, rendered.count("HOMELAB_ANALYTICS_OIDC_ISSUER_URL:"))
+        self.assertIn("https://from-common-env.test/", rendered)
+        self.assertNotIn("https://from-oidc-values.test/", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()
