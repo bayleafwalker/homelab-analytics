@@ -79,6 +79,12 @@ These constraints must hold across all four sprints:
 
 ## 5. Sprint wave 2 — `brief-flow-mark`
 
+> **Delivery status (2026-10-18).** Most of this wave shipped, in a different shape from the one planned here.
+>
+> - **Briefing (W2-1 to W2-3).** Shipped as the deterministic morning brief (PR #32). Sections are assembled server-side, `/briefing` renders them, and `GET /api/briefing` returns the typed JSON. The by-the-numbers rail, chart-of-week and 3-column footer were dropped.
+> - **Cashflow (W2-4 to W2-6).** Shipped as the Cashflow Map (PR #35). It reads reporting marts through `GET /reports/cashflow-map`, not raw tables. A bucket ledger replaces the 4 KPI cards.
+> - **Still open (W2-7).** A Briefing story, and sparse and empty `CashflowSankey` fixtures.
+
 **Objective:** Ship two data-driven surfaces — the Morning Briefing (editorial, email-ready) and the Cashflow Map (Sankey) — as new routes that extend the default shell without changing its navigation model.
 
 **Rationale:** C3 and C4 are the two "pure data + presentation" concepts with no retro-token entanglement and no heavy HA-bridge lift. Doing them together keeps the sprint coherent: both require a new API endpoint and a new page-level component, and both exercise the shared primitives from Wave 1.
