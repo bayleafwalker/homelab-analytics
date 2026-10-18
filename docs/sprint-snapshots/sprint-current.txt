@@ -1,30 +1,32 @@
-SPRINT: slate-dial-hearth — A2 Operator Surface  [closed]
-Dates:  2026-09-01 to 2026-09-15
-ID:     555
-Items:  11 total — 11 done, 0 active, 0 pending, 0 blocked
+ID:     575
+Name:   ledger-proof-dawn — Outcome Evidence, Honest Confidence, Operable Baseline
+Goal:   Close the household outcome evidence loop with a decision ledger, make confidence and briefs evidence-honest, finish the domain-move refactor, add backup/restore, and ship v0.1.3
+Dates:  2026-10-18 to 2026-11-01
+Status: closed
+Kind:   active_sprint
 
---- Track: policy-api ---
-  health: 4 items — 4 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #2338 Explicit reason on evaluation results: add a reason field to PolicyResult distinct from value, stating why the verdict holds (observed value vs threshold and comparison for value rules, age vs threshold_hours for freshness, entity state vs expected for helper, and the stale-input cause for unavailable); expose on /api/ha/policies and the per-policy route; tests for all three rule kinds plus both unavailable paths. A2 acceptance requires the verdict be visible with its reason and no reason field exists today  (assignee: -)
-  [done    ] #2339 Policy-referenceable publication list: close the allowlist asymmetry where /contracts/publications builds contracts with current_dimension_relations/contracts (14 dim_* keys) but the POST /control/policies allowlist in app.py does not, so a picker can offer keys that 422 on save; either align the allowlist or expose a dedicated policy-referenceable endpoint the UI drives, with a test pinning that every offered key is acceptable to create  (assignee: -)
-  [done    ] #2340 Preview endpoint for unsaved policies: POST /control/policies/preview validating and evaluating a rule document against the live publication snapshot without persisting, returning a PolicyResult-shaped payload; requires plumbing the evaluator or an evaluate_document method into register_policy_routes; admin + control.policy.write; tests covering ok/breach/unavailable and stale input  (assignee: -)
-  [done    ] #2341 Rule-language honesty pass: in/not_in pass schema validation but the evaluator silently treats them as false, and verdict_mapping and allowed_freshness_states are accepted, persisted, and never read; reject or honour each rather than accepting silently, so the authoring UI cannot offer a control that does nothing; tests pinning the rejections  (assignee: -)
-
---- Track: operator-ui ---
-  health: 5 items — 5 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #2342 /control/policies list page: server component following the control-page pattern (AppShell + ControlNav + notice/error query keys), listing policies with builtin/operator/template distinction and enabled state, latest verdict and reason per policy, and an authority-mode indicator that shows a degraded banner when mode is snapshot (edits will not take effect) or unavailable; nav entry added to control-nav.js  (assignee: -)
-  [done    ] #2343 Create and edit forms plus lifecycle routes: rule-kind-aware forms for the three shipped kinds, publication picker driven by the policy-referenceable list showing the field, unit, and comparison being evaluated; co-located BFF route.js handlers for create, update, enable/disable, and delete using typed backendRequest literals; lib/backend getter and GetOperationIdByPath entry; regenerated OpenAPI types  (assignee: -)
-  [done    ] #2344 Template catalog under template discipline: templates are parameterized, never misleading; required inputs marked explicitly and enablement refused until supplied; verify each of negative-monthly-cashflow, utility-cost-above-threshold, and stale-critical-source is honestly expressible against a registered publication and drop any that is not, recording which were dropped and why; no semantically-different-field approximations  (assignee: -)
-    ref [doc] template-discipline-rule: docs/plans/kotona-operating-picture-brief.md
-  [done    ] #2345 Preview in the authoring form wired to the preview endpoint, showing the verdict and reason a rule document would produce before it is saved or enabled  (assignee: -)
-  [done    ] #2346 Frontend contract and structural tests: assertions in tests/test_web_auth.py for the new page, panels, and route handlers; codegen, token, contracts, typecheck, and build checks green; a Storybook story only if it does not disturb the CI-owned screenshot baselines  (assignee: -)
-
---- Track: docs ---
-  health: 2 items — 2 done (100%), 0 active, 0 pending, 0 blocked (0%)
-  [done    ] #2347 Documentation truth pass for A2: record the operator surface, the template discipline rule and which candidate templates shipped or were dropped, the authority-mode banner semantics, and any rule-language fields rejected as unsupported; update policy-and-automation.md and the roadmap Stage A2 status with evidence pointers  (assignee: -)
-    ref [doc] kotona-operating-picture-brief: docs/plans/kotona-operating-picture-brief.md
-    ref [doc] policy-and-automation: docs/architecture/policy-and-automation.md
-    ref [doc] roadmap-stage-a2: docs/plans/household-operating-platform-roadmap.md
-  [done    ] #2348 Record the retro-shell parity decision: /retro/control/ carries parallel admin surfaces for security, catalog, and execution but the parity test enumerates files explicitly, so a policies counterpart is not forced; decide and document whether A2 ships retro parity or defers it  (assignee: -)
-
-Rendered: 2026-09-01T09:44:33Z (source: sprintctl JSON commands)
+ID     STATUS  PRI  TRACK     ASSIGNEE  TITLE                                                   
+-----  ------  ---  --------  --------  --------------------------------------------------------
+#2697  done    -    gate      -         Verify gate integrity                                   
+#2698  done    -    docs      -         Roadmap truth pass                                      
+#2699  done    -    trust     -         Real publication confidence                             
+#2700  done    -    trust     -         B1 deterministic morning brief                          
+#2701  done    -    ops       -         Worker backup/verify/restore (B8)                       
+#2702  done    -    refactor  -         Finish domain move                                      
+#2703  done    -    tooling   -         kctl served extra install                               
+#2704  done    -    outcome   -         Household outcome evidence loop                         
+#2705  done    -    agentic   -         Agentic UX + vuoro alignment                            
+#2706  done    -    ui        -         UI/UX innovation                                        
+#2707  done    -    ops       -         Release v0.1.3                                          
+#2708  done    -    ops       -         Deploy v0.1.3 to appservice                             
+#2709  done    -    ops       -         Scheduled warehouse backup in cluster                   
+#2710  done    -    refactor  -         Split transformation_service.py                         
+#2711  done    -    refactor  -         Dedupe control-plane SQL dialects                       
+#2712  done    -    agentic   -         Persist proposal queue                                  
+#2718  done    -    trust     -         Confidence key unification                              
+#2719  done    -    agentic   -         Agent drafting scopes + permission alignment            
+#2720  done    -    agentic   -         OIDC auth mode (Authentik)                              
+#2721  done    -    ops       -         Observability + SLOs (B11/B12)                          
+#2722  done    -    ui        -         UI wave 3                                               
+#2723  done    -    outcome   -         Battery outcome brief section + energy-contract decision
+#2724  done    -    packs     -         Pack lifecycle operator surface (Stage 8)               
