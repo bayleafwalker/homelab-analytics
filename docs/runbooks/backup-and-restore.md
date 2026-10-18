@@ -137,9 +137,11 @@ A one-off `worker backup` cannot run beside the long-running worker: the DuckDB 
   .staging-...                 in progress; never ship
   backup-status.json           last attempt / success / failure
   restore-drill-status.json    last drill receipt
+  .shipped                     bundle names the backup-ship sidecar uploaded
+  ship-status.json             last ship pass / attempt / success / failure (sidecar)
 ```
 
-The local bundles share the PVC with the data, so they protect against corruption and bad releases, not volume loss. Ship them off-site: the appservice proposal adds a `backup-ship` sidecar that streams each new `backup-*` directory as `tar | age | rclone rcat` to the same Object-Lock bucket and recipients as `cnpg-pgdump-age` ([proposal](../notes/appservice-proposals/README.md)).
+The local bundles share the PVC with the data, so they protect against corruption and bad releases, not volume loss. Ship them off-site: the appservice proposal adds a `backup-ship` sidecar that streams each new `backup-*` directory as `tar | age | rclone rcat` to the same Object-Lock bucket and recipients as `cnpg-pgdump-age` ([proposal](../notes/appservice-proposals/README.md)). After every pass it rewrites `ship-status.json`; the worker and API `/metrics` export it as `homelab_analytics_backup_ship_*`, and `BackupShipStale` fires when no bundle has shipped for 26 h ([SLO](slo.md)).
 
 One-off run with the same staging, verification, retention and status path (operator, drill prep):
 
@@ -161,21 +163,29 @@ python -m apps.worker.main restore-drill --bundle /data/backups/backup-20261018T
 scripts/restore-drill.sh                # wrapper: drill + one-line summary, non-zero on failure
 ```
 
-Exit code `0` and `"passed": true` mean the bundle is restorable with this release. Run it weekly (the `RestoreDrillStale` alert fires after 8 days) and after every release that changes a DuckDB migration. For an off-site copy, first fetch and decrypt it (`rclone cat ... | age -d -i <identity> | tar -x -C /tmp/fetched`), then `restore-drill --backup-dir /tmp/fetched`.
+Exit code `0` and `"passed": true` mean the bundle is restorable with this release. Run it weekly (the `RestoreDrillStale` alert fires after 8 days) and after every release that changes a DuckDB migration. For an off-site copy, first fetch and decrypt it (`rclone cat ... | age -d -i <identity> | tar -x -C /tmp/fetched`), then `restore-drill --bundle /tmp/fetched` (the sidecar tars the bundle's contents, so the extracted directory is the bundle itself).
 
-## CNPG restore drill outline
+## CNPG restore drill
 
-The Postgres side (control plane, run metadata, reporting) is restored from the hourly `cnpg-pgdump-age` objects (`<cluster>-<db>-<UTC stamp>.dump.age` under `backups/pgdump-age/analytics/analytics-postgres/`). The estate's `cnpg-dump-drill` namespace already restores dumps daily for the clusters it covers; for homelab-analytics the drill must additionally prove the application can run on the restored data:
+The Postgres side (control plane, run metadata, reporting) is restored from the hourly `cnpg-pgdump-age` objects (`<cluster>-<db>-<UTC stamp>.dump.age` under `backups/pgdump-age/analytics/analytics-postgres/`). The estate's daily `cnpg-dump-drill` already proves those dumps decrypt and `pg_restore` cleanly; the homelab-analytics drill additionally proves this release can run on the restored data, paired with the warehouse bundle shipped closest in time.
 
-1. **Pick the dump**: newest `analytics-postgres-homelab_analytics-*.dump.age`; record its stamp (RPO evidence: age of the dump at incident time, target <= 1 h).
-2. **Scratch database**: create a throwaway CNPG `Cluster` (or a plain `postgres:16` pod) in the drill namespace; never the live `analytics-postgres`.
-3. **Restore**: `rclone cat <object> | age -d -i <drill identity> | pg_restore --no-owner --dbname <scratch DSN>`. The drill identity is the `pgdump-drill` recipient already used by `cnpg-pgdump-age`.
-4. **Schema check**: confirm the restored `schema_migrations` versions in the control schema reach the `postgres` and `postgres_run_metadata` heads this release ships (`packages.storage.backup_bundle.current_schema_heads()`); running the deployment's `migrate` initContainer against the scratch DSN must apply nothing.
-5. **App check**: run the release image against the scratch DSN with a scratch `/data`: `homelab-analytics-worker list-runs`, `list-schedule-dispatches`, `list-worker-heartbeats`; start the API and require `/ready` = 200 and one publication endpoint returning rows.
-6. **Pair with the warehouse drill**: run `restore-drill` on the bundle closest in time to the dump, so Postgres and DuckDB/landing restore together (the RPO between them is the backup interval).
-7. **Record**: dump stamp, bundle name, durations (RTO evidence), pass/fail into the drill log; delete the scratch database.
+The proposal [`cronjob-cnpg-restore-drill.yaml`](../notes/appservice-proposals/cronjob-cnpg-restore-drill.yaml) (namespace `cnpg-dump-drill`, the only place the drill age identity lives) automates it weekly:
 
-Automating steps 2-5 as a CronJob in `cnpg-dump-drill` is follow-up work for the cluster repo.
+1. **Pick the dump**: newest `analytics-postgres-homelab_analytics-*.dump.age`; fail if it is `MAX_DUMP_AGE_HOURS` (3) or older. Its stamp is the RPO evidence (target <= 1 h at incident time).
+2. **Scratch database**: a throwaway Postgres 16 in the pod's emptyDir (native sidecar, `127.0.0.1` only); never the live `analytics-postgres`.
+3. **Restore**: `rclone cat <object> | age -d -i <drill identity> | pg_restore --no-owner --no-privileges --exit-on-error`.
+4. **Schema check**: the release image applies the `postgres` and `postgres_run_metadata` migration tracks to the scratch DSN; it must apply nothing (the dump already reached this release's heads).
+5. **App check**: with the restored DSN and a scratch `/data`, `homelab-analytics-worker list-runs` must return at least one run, `list-schedule-dispatches` and `list-worker-heartbeats` must succeed, and the API must answer `/ready` with 200.
+6. **Pair with the warehouse drill**: the newest shipped `backup-*.tar.age` (under `backups/app-bundles/analytics/homelab-analytics/`, also encrypted to the drill recipient) is decrypted and checked with `restore-drill --bundle`. Fail if it is more than `MAX_BUNDLE_AGE_HOURS` (26) old.
+7. **Record**: one JSON receipt line (`cnpg_restore_drill`) with the dump object and age, the bundle name, per-step durations (RTO evidence) and `passed`; the Job fails unless every step passed. The scratch database dies with the pod.
+
+Manual run (an operator; the namespace has no agent-access binding):
+
+```bash
+kubectl -n cnpg-dump-drill create job --from=cronjob/homelab-analytics-restore-drill ha-drill-manual-$(date +%H%M)
+kubectl -n cnpg-dump-drill logs -f job/ha-drill-manual-<HHMM> -c restore
+kubectl -n cnpg-dump-drill logs -f job/ha-drill-manual-<HHMM> -c app-check
+```
 
 ## Shared Postgres deployments
 

@@ -1,0 +1,491 @@
+# PROPOSED: weekly homelab-analytics restore drill (docs/runbooks/backup-and-restore.md
+# "CNPG restore drill"). Target in appservice:
+#   clusters/main/kubernetes/system/cnpg-dump-drill/app/homelab-analytics-restore-drill.yaml
+# (add it to that directory's kustomization.yaml). It lives in cnpg-dump-drill
+# because that namespace is the only place the drill age identity exists; it
+# reuses Secrets drill-identity and drill-s3 from there and adds nothing that
+# can decrypt more than the daily cnpg-dump-drill already can.
+#
+# The daily cnpg-dump-drill proves the analytics-postgres dumps restore. This
+# one proves the release can run on them, paired with the warehouse bundle:
+#   restore    newest analytics-postgres-homelab_analytics-*.dump.age (< 3h old)
+#              -> age -d -> pg_restore into a scratch Postgres (native sidecar,
+#              127.0.0.1 only, emptyDir); newest shipped backup-*.tar.age
+#              (< 26h old) -> age -d -> /work/bundle
+#   app-check  release image: migrations must apply nothing (schema heads),
+#              worker list-runs (>= 1 run) / list-schedule-dispatches /
+#              list-worker-heartbeats, api /ready = 200 and GET /runs, then
+#              restore-drill --bundle on the unpacked bundle
+# One JSON line {"cnpg_restore_drill": {...}} in the app-check log is the
+# record (dump object + age = RPO evidence, durations = RTO evidence). A
+# failed check fails the Job (KubeJobFailed).
+#
+# Precondition: a homelab-analytics release with feat/ops-observability-backup
+# (restore-drill --bundle) and the backup-ship sidecar shipping bundles. The
+# image digest below is a placeholder on purpose: Flux rejects it until it is
+# replaced with the same digest as deployment.yaml.
+#
+# Manual run (operator; the namespace has no agent-access binding):
+#   kubectl -n cnpg-dump-drill create job --from=cronjob/homelab-analytics-restore-drill ha-drill-manual-$(date +%H%M)
+#   kubectl -n cnpg-dump-drill logs -f job/ha-drill-manual-<HHMM> -c restore
+#   kubectl -n cnpg-dump-drill logs -f job/ha-drill-manual-<HHMM> -c app-check
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homelab-analytics-restore-drill
+  namespace: cnpg-dump-drill
+  labels:
+    app.kubernetes.io/name: homelab-analytics-restore-drill
+  annotations:
+    # The scripts use shell ${...}; keep Flux postBuild envsubst off them.
+    kustomize.toolkit.fluxcd.io/substitute: disabled
+data:
+  postgres.sh: |
+    #!/bin/bash
+    # Throwaway Postgres 16 for the drill: emptyDir data, loopback only, trust
+    # auth (only this pod's containers can reach 127.0.0.1). Restarts reuse the
+    # data directory instead of failing initdb.
+    set -eu
+    export PATH=/usr/lib/postgresql/16/bin:$PATH
+    [ -f /work/pgdata/PG_VERSION ] || initdb -D /work/pgdata -U postgres --auth=trust -E UTF8 >/dev/null
+    exec postgres -D /work/pgdata -c listen_addresses=127.0.0.1 -c unix_socket_directories=/work \
+      -c fsync=off -c full_page_writes=off -c max_wal_size=4GB
+  restore.sh: |
+    #!/bin/bash
+    # Steps 1-3 and the bundle half of 6: newest analytics-postgres dump of the
+    # app database into the scratch server (sidecar on 127.0.0.1), newest
+    # shipped bundle unpacked into $WORK/bundle. Writes $WORK/drill/restore.json
+    # for app-check; exits 1 on the first failure. Plaintext only lives in the
+    # pipe, the scratch server's data directory and $WORK (pod emptyDir).
+    set -uo pipefail
+    export PATH=/usr/lib/postgresql/16/bin:/tools:$PATH
+    export PGHOST="${PGHOST:-127.0.0.1}" PGPORT="${PGPORT:-5432}" PGUSER="${PGUSER:-postgres}"
+    WORK="${WORK:-/work}"
+    IDENTITY="${IDENTITY_FILE:-/identity/identity.txt}"
+    dump_prefix="hetzner:$BUCKET/backups/pgdump-age/analytics/analytics-postgres"
+    bundle_prefix="hetzner:$BUCKET/backups/app-bundles/analytics/homelab-analytics"
+    series="analytics-postgres-$DATABASE"
+    mkdir -p "$WORK/drill" "$WORK/bundle"
+    now="$(date -u +%s)"
+
+    fail() {
+      echo "FAIL $1"
+      printf '{"passed": false, "error": "%s"}\n' "$1" > "$WORK/drill/restore.json"
+      exit 1
+    }
+    # YYYYmmddTHHMMSSZ -> epoch seconds
+    stamp_epoch() {
+      local s="$1"
+      date -u -d "${s:0:4}-${s:4:2}-${s:6:2} ${s:9:2}:${s:11:2}:${s:13:2}" +%s
+    }
+
+    for _ in $(seq 1 60); do
+      pg_isready -q && break
+      sleep 2
+    done
+    pg_isready -q || fail "scratch postgres never became ready"
+
+    # 1. Newest dump of exactly <series>-<16-char stamp>.dump.age.
+    dump="$(rclone lsf --files-only --include "$series-*.dump.age" "$dump_prefix/" | LC_ALL=C sort \
+      | awk -v s="$series-" 'index($0, s) == 1 && length($0) == length(s) + 25' | tail -n 1)"
+    [ -n "$dump" ] || fail "no $series-*.dump.age under $dump_prefix"
+    dump_stamp="${dump:${#series}+1:16}"
+    dump_age_h=$(( (now - $(stamp_epoch "$dump_stamp")) / 3600 ))
+    [ "$dump_age_h" -lt "$MAX_DUMP_AGE_HOURS" ] || fail "newest dump $dump is ${dump_age_h}h old (limit ${MAX_DUMP_AGE_HOURS}h)"
+
+    # 2-3. Restore into a fresh database on the scratch server.
+    start="$(date +%s)"
+    psql -qAtX -d postgres -c "DROP DATABASE IF EXISTS \"$DATABASE\"" -c "CREATE DATABASE \"$DATABASE\"" \
+      || fail "could not create scratch database $DATABASE"
+    rclone cat "$dump_prefix/$dump" | age -d -i "$IDENTITY" \
+      | pg_restore -d "$DATABASE" --no-owner --no-privileges --exit-on-error
+    rc=("${PIPESTATUS[@]}")
+    [ "${rc[*]}" = "0 0 0" ] || fail "restore of $dump exited rclone/age/pg_restore=${rc[*]}"
+    restore_s=$(( $(date +%s) - start ))
+    tables="$(psql -qAtX -d "$DATABASE" -c "SELECT count(*) FROM pg_stat_user_tables")"
+    [ "$tables" -gt 0 ] || fail "$dump restored but contains no tables"
+    echo "OK   restored $dump (${dump_age_h}h old) in ${restore_s}s, $tables tables"
+
+    # 6. Newest shipped warehouse/landing bundle: backup-<stamp>[-n].tar.age.
+    bundle_object="$(rclone lsf --files-only --include 'backup-*.tar.age' "$bundle_prefix/" | LC_ALL=C sort | tail -n 1)"
+    [ -n "$bundle_object" ] || fail "no backup-*.tar.age under $bundle_prefix"
+    bundle_name="${bundle_object%.tar.age}"
+    bundle_stamp="${bundle_name#backup-}"
+    bundle_age_h=$(( (now - $(stamp_epoch "${bundle_stamp:0:16}")) / 3600 ))
+    [ "$bundle_age_h" -lt "$MAX_BUNDLE_AGE_HOURS" ] || fail "newest shipped bundle $bundle_name is ${bundle_age_h}h old (limit ${MAX_BUNDLE_AGE_HOURS}h)"
+    start="$(date +%s)"
+    rclone cat "$bundle_prefix/$bundle_object" | age -d -i "$IDENTITY" | tar -x -C "$WORK/bundle"
+    rc=("${PIPESTATUS[@]}")
+    [ "${rc[*]}" = "0 0 0" ] || fail "fetch of $bundle_object exited rclone/age/tar=${rc[*]}"
+    fetch_s=$(( $(date +%s) - start ))
+    [ -f "$WORK/bundle/manifest.json" ] || fail "$bundle_object has no manifest.json"
+    echo "OK   fetched $bundle_name (${bundle_age_h}h old) in ${fetch_s}s"
+
+    cat > "$WORK/drill/restore.json" <<JSON
+    {"passed": true, "dump_object": "$dump", "dump_age_hours": $dump_age_h, "dump_restore_seconds": $restore_s, "restored_tables": $tables, "bundle": "$bundle_name", "bundle_age_hours": $bundle_age_h, "bundle_fetch_seconds": $fetch_s}
+    JSON
+  app_check.py: |
+    """homelab-analytics CNPG restore drill: application checks on the restored data.
+
+    Runs in the release image after the restore container filled the scratch
+    Postgres (127.0.0.1) and unpacked the newest shipped bundle into /work/bundle.
+    Prints one JSON receipt line {"cnpg_restore_drill": {...}} and exits 1 unless
+    every check passed.
+    """
+
+    import json
+    import os
+    import subprocess
+    import sys
+    import time
+    import urllib.request
+    from pathlib import Path
+
+    DSN = os.environ["HOMELAB_ANALYTICS_CONTROL_PLANE_DSN"]
+    SCHEMA = os.environ.get("HOMELAB_ANALYTICS_CONTROL_SCHEMA", "control")
+    WORK = Path(os.environ.get("DRILL_WORK_DIR", "/work"))
+    API_PORT = os.environ.get("HOMELAB_ANALYTICS_API_PORT", "8080")
+    READY_TIMEOUT = float(os.environ.get("DRILL_READY_TIMEOUT_SECONDS", "180"))
+
+    receipt = {"checks": {}, "durations_seconds": {}}
+    errors = []
+
+
+    def check(name, ok, detail=None):
+        receipt["checks"][name] = {"passed": bool(ok), **({"detail": detail} if detail else {})}
+        if not ok:
+            errors.append(f"{name}: {detail}")
+
+
+    def timed(name, fn):
+        started = time.monotonic()
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001 - every failure goes into the receipt
+            check(name, False, f"{type(exc).__name__}: {exc}")
+            return None
+        finally:
+            receipt["durations_seconds"][name] = round(time.monotonic() - started, 2)
+
+
+    def schema_heads():
+        import psycopg
+
+        from packages.storage.migration_runner import (
+            apply_pending_postgres_migrations,
+            resolve_migrations_dir,
+        )
+        from packages.storage.postgres_support import configure_search_path
+
+        applied = {}
+        with psycopg.connect(DSN) as connection:
+            configure_search_path(connection, SCHEMA)
+            for track in ("postgres", "postgres_run_metadata"):
+                applied[track] = apply_pending_postgres_migrations(
+                    connection, resolve_migrations_dir(track)
+                )
+        pending = {track: versions for track, versions in applied.items() if versions}
+        check("schema_heads", not pending, f"restored dump was behind this release: {pending}" if pending else None)
+
+
+    def payload(stdout, key):
+        """The command's JSON result: structured log lines share stdout with it."""
+        for line in reversed(stdout.splitlines()):
+            try:
+                document = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(document, dict) and key in document:
+                return document[key]
+        raise ValueError(f"no {key!r} result in command output")
+
+
+    def worker(key, *args):
+        result = subprocess.run(
+            ["homelab-analytics-worker", *args], capture_output=True, text=True, timeout=300
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"exit {result.returncode}: {result.stderr.strip()[-500:]}")
+        return payload(result.stdout, key)
+
+
+    def worker_checks():
+        runs = worker("runs", "list-runs")
+        check("list_runs", len(runs) > 0, None if runs else "restored control plane has no ingestion runs")
+        receipt["runs"] = len(runs)
+        worker("dispatches", "list-schedule-dispatches")
+        check("list_schedule_dispatches", True)
+        worker("workers", "list-worker-heartbeats")
+        check("list_worker_heartbeats", True)
+
+
+    def api_checks():
+        api = subprocess.Popen(["homelab-analytics-api"], stdout=sys.stderr, stderr=sys.stderr)
+        try:
+            deadline = time.monotonic() + READY_TIMEOUT
+            status = None
+            while time.monotonic() < deadline and api.poll() is None:
+                try:
+                    with urllib.request.urlopen(f"http://127.0.0.1:{API_PORT}/ready", timeout=5) as response:
+                        status = response.status
+                        break
+                except OSError:
+                    time.sleep(2)
+            check("api_ready", status == 200, None if status == 200 else f"/ready never returned 200 (last: {status}, exit: {api.poll()})")
+            if status == 200:
+                with urllib.request.urlopen(f"http://127.0.0.1:{API_PORT}/runs", timeout=30) as response:
+                    runs = json.loads(response.read()).get("runs", [])
+                check("api_runs", len(runs) > 0, None if runs else "GET /runs returned no runs")
+        finally:
+            api.terminate()
+            try:
+                api.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                api.kill()
+
+
+    def warehouse_drill():
+        result = subprocess.run(
+            [
+                "homelab-analytics-worker", "restore-drill",
+                "--bundle", str(WORK / "bundle"),
+                "--scratch-dir", str(WORK / "drill-scratch"),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=1800,
+        )
+        try:
+            drill = payload(result.stdout, "restore_drill")
+        except ValueError:
+            drill = {}
+        tables = drill.get("warehouse_tables") or {}
+        receipt["warehouse_drill"] = {
+            "bundle": drill.get("bundle"),
+            "passed": drill.get("passed"),
+            "warehouse_tables": len(tables),
+            "warehouse_rows": sum(tables.values()),
+            "landing_files": drill.get("landing_files"),
+            "errors": drill.get("errors"),
+        }
+        check("warehouse_restore_drill", result.returncode == 0 and drill.get("passed") is True,
+              None if result.returncode == 0 else (result.stderr.strip()[-500:] or "restore-drill failed"))
+
+
+    try:
+        receipt["restore"] = json.loads((WORK / "drill" / "restore.json").read_text())
+    except (OSError, ValueError) as exc:
+        receipt["restore"] = None
+        check("restore_receipt", False, str(exc))
+    else:
+        check("restore_receipt", receipt["restore"].get("passed") is True, receipt["restore"].get("error"))
+
+    if not errors:
+        # Order matters: the app applies migrations on connect, so the schema
+        # check must run before any app command touches the scratch database.
+        timed("schema_heads", schema_heads)
+        timed("worker_checks", worker_checks)
+        timed("api_checks", api_checks)
+        timed("warehouse_restore_drill", warehouse_drill)
+
+    receipt["passed"] = not errors
+    receipt["errors"] = errors
+    print(json.dumps({"cnpg_restore_drill": receipt}, sort_keys=True), flush=True)
+    sys.exit(0 if receipt["passed"] else 1)
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: homelab-analytics-restore-drill
+  namespace: cnpg-dump-drill
+  labels:
+    app.kubernetes.io/name: homelab-analytics-restore-drill
+spec:
+  # Sundays 05:31 UTC: after the daily cnpg-dump-drill (04:46), clear of the
+  # hourly dump minutes, and within 3h of the :03 analytics dump.
+  schedule: "31 5 * * 0"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 3600
+  jobTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: homelab-analytics-restore-drill
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 5400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: homelab-analytics-restore-drill
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            fsGroup: 26
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            # Same pinned, digest-checked age release as the dump jobs.
+            - name: fetch-age
+              # renovate: datasource=docker depName=curlimages/curl
+              image: curlimages/curl:8.13.0@sha256:e6ebb770fb6e2236c2e83ad6b6dbbd32cb6dff0b17a9482a7d4bca20f1c9b50a
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  cd /work
+                  curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o age.tgz "https://github.com/FiloSottile/age/releases/download/v$AGE_VERSION/age-v$AGE_VERSION-linux-amd64.tar.gz"
+                  echo "$AGE_SHA256  age.tgz" | sha256sum -c -
+                  tar -xzf age.tgz age/age
+                  install -m 0555 age/age /tools/age
+                  rm -rf age age.tgz
+              env:
+                - {name: AGE_VERSION, value: "1.3.2"}
+                - {name: AGE_SHA256, value: cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+                readOnlyRootFilesystem: true
+                runAsUser: 26
+                runAsGroup: 26
+              resources:
+                requests: {cpu: 10m, memory: 32Mi}
+                limits: {cpu: 200m, memory: 128Mi}
+              volumeMounts:
+                - {name: tools, mountPath: /tools}
+                - {name: work, mountPath: /work}
+            - name: copy-rclone
+              # renovate: datasource=docker depName=rclone/rclone
+              image: rclone/rclone:1.75.1@sha256:45401ad7410db1d67ffdb58e19059ad20b0d8e0285a60e38bbec55cc1019c7a5
+              command: ["/bin/sh", "-c"]
+              args:
+                - install -m 0555 /usr/local/bin/rclone /tools/rclone
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+                readOnlyRootFilesystem: true
+                runAsUser: 26
+                runAsGroup: 26
+              resources:
+                requests: {cpu: 10m, memory: 32Mi}
+                limits: {cpu: 200m, memory: 128Mi}
+              volumeMounts:
+                - {name: tools, mountPath: /tools}
+            # Native sidecar: starts before restore, stops when app-check exits.
+            - name: postgres
+              # Same server major/minor as the dumping pg_dump (16.15).
+              # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql
+              image: ghcr.io/cloudnative-pg/postgresql:16.15@sha256:34cd4159d07b3410a1b29da35072e2e927a0905e717a61afa3814624a2e8859a
+              restartPolicy: Always
+              command: ["/bin/bash", "/scripts/postgres.sh"]
+              startupProbe:
+                exec:
+                  command: ["/usr/lib/postgresql/16/bin/pg_isready", "-q", "-h", "127.0.0.1"]
+                periodSeconds: 2
+                failureThreshold: 60
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+                readOnlyRootFilesystem: true
+                runAsUser: 26
+                runAsGroup: 26
+              resources:
+                requests: {cpu: 100m, memory: 256Mi}
+                limits: {cpu: "2", memory: 2Gi}
+              volumeMounts:
+                - {name: work, mountPath: /work}
+                - {name: scripts, mountPath: /scripts, readOnly: true}
+            - name: restore
+              image: ghcr.io/cloudnative-pg/postgresql:16.15@sha256:34cd4159d07b3410a1b29da35072e2e927a0905e717a61afa3814624a2e8859a
+              command: ["/bin/bash", "/scripts/restore.sh"]
+              env:
+                - {name: DATABASE, value: homelab_analytics}
+                - {name: MAX_DUMP_AGE_HOURS, value: "3"}
+                - {name: MAX_BUNDLE_AGE_HOURS, value: "26"}
+                # Literal, like the etcd Object-Lock bucket: not a secret.
+                - {name: BUCKET, value: appservice-pgdump-locked}
+                - {name: HOME, value: /work}
+                - {name: RCLONE_CONFIG, value: /notfound}
+                - {name: RCLONE_CONFIG_HETZNER_TYPE, value: s3}
+                - {name: RCLONE_CONFIG_HETZNER_PROVIDER, value: Other}
+                - {name: RCLONE_CONFIG_HETZNER_ENDPOINT, value: "https://${HETZNER_S3_BUCKET_ENDPOINT}"}
+                - {name: RCLONE_CONFIG_HETZNER_REGION, value: hel1}
+                - {name: RCLONE_CONFIG_HETZNER_NO_CHECK_BUCKET, value: "true"}
+                # Read access to both prefixes through drill-s3 (shared cluster
+                # key today). If the dedicated app-bundles key replaces the
+                # writer's key, drill-s3 still needs read on app-bundles/.
+                - name: RCLONE_CONFIG_HETZNER_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef: {name: drill-s3, key: ACCESS_KEY_ID}
+                - name: RCLONE_CONFIG_HETZNER_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef: {name: drill-s3, key: SECRET_ACCESS_KEY}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+                readOnlyRootFilesystem: true
+                runAsUser: 26
+                runAsGroup: 26
+              resources:
+                requests: {cpu: 100m, memory: 256Mi}
+                limits: {cpu: "2", memory: 2Gi}
+              volumeMounts:
+                - {name: tools, mountPath: /tools, readOnly: true}
+                - {name: work, mountPath: /work}
+                - {name: scripts, mountPath: /scripts, readOnly: true}
+                - {name: identity, mountPath: /identity, readOnly: true}
+          containers:
+            - name: app-check
+              image: ghcr.io/bayleafwalker/homelab-analytics@sha256:REPLACE_WITH_RELEASE_DIGEST  # PROPOSED
+              command: ["python", "/scripts/app_check.py"]
+              env:
+                - {name: DRILL_WORK_DIR, value: /work}
+                - {name: HOME, value: /work}
+                - {name: HOMELAB_ANALYTICS_DATA_DIR, value: /work/data}
+                - {name: HOMELAB_ANALYTICS_CONTROL_PLANE_BACKEND, value: postgres}
+                - {name: HOMELAB_ANALYTICS_REPORTING_BACKEND, value: postgres}
+                - {name: HOMELAB_ANALYTICS_BLOB_BACKEND, value: filesystem}
+                - {name: HOMELAB_ANALYTICS_CONTROL_PLANE_DSN, value: "postgresql://postgres@127.0.0.1:5432/homelab_analytics"}
+                - {name: HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN, value: "postgresql://postgres@127.0.0.1:5432/homelab_analytics"}
+                # Scratch instance, reachable only inside this pod: no login.
+                - {name: HOMELAB_ANALYTICS_IDENTITY_MODE, value: disabled}
+                - {name: HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN, value: "false"}
+                - {name: HOMELAB_ANALYTICS_API_HOST, value: 127.0.0.1}
+                - {name: HOMELAB_ANALYTICS_API_PORT, value: "8080"}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+                readOnlyRootFilesystem: true
+                runAsUser: 65532
+                runAsGroup: 65532
+              resources:
+                requests: {cpu: 100m, memory: 512Mi}
+                limits: {cpu: "2", memory: 2Gi}
+              volumeMounts:
+                - {name: work, mountPath: /work}
+                - {name: tmp, mountPath: /tmp}
+                - {name: scripts, mountPath: /scripts, readOnly: true}
+          volumes:
+            - name: tools
+              emptyDir: {sizeLimit: 256Mi}
+            - name: work
+              emptyDir: {sizeLimit: 20Gi}
+            - name: tmp
+              emptyDir: {sizeLimit: 1Gi}
+            - name: scripts
+              configMap: {name: homelab-analytics-restore-drill}
+            - name: identity
+              secret:
+                secretName: drill-identity
+                defaultMode: 0440
+                items:
+                  - {key: identity.txt, path: identity.txt}
