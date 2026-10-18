@@ -451,6 +451,7 @@ def initialize_sqlite_control_plane_schema(connection: sqlite3.Connection) -> No
             actor TEXT,
             actor_auth_provider TEXT,
             reason TEXT,
+            feed_position INTEGER,
             UNIQUE (action_id, sequence)
         );
 
@@ -501,6 +502,7 @@ def initialize_sqlite_control_plane_schema(connection: sqlite3.Connection) -> No
     _ensure_execution_schedule_columns(connection)
     _ensure_schedule_dispatch_columns(connection)
     _ensure_worker_heartbeat_table(connection)
+    _ensure_action_proposal_changes_feed(connection)
     _seed_builtin_transformation_packages(connection)
 
 
@@ -632,6 +634,55 @@ def _ensure_schedule_dispatch_columns(connection: sqlite3.Connection) -> None:
         connection.execute(
             "ALTER TABLE schedule_dispatches ADD COLUMN claim_expires_at TEXT"
         )
+
+
+def _ensure_action_proposal_changes_feed(connection: sqlite3.Connection) -> None:
+    """Mirror migration 0013_action_proposal_changes_feed on existing databases."""
+    columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(action_proposal_events)")
+    }
+    if "feed_position" not in columns:
+        connection.execute("ALTER TABLE action_proposal_events ADD COLUMN feed_position INTEGER")
+    connection.execute(
+        """
+        UPDATE action_proposal_events
+        SET feed_position = (
+            SELECT ordered.position
+            FROM (
+                SELECT
+                    event_id,
+                    ROW_NUMBER() OVER (ORDER BY occurred_at, action_id, sequence) AS position
+                FROM action_proposal_events
+            ) AS ordered
+            WHERE ordered.event_id = action_proposal_events.event_id
+        )
+        WHERE feed_position IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM action_proposal_events WHERE feed_position IS NOT NULL
+          )
+        """
+    )
+    connection.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_action_proposal_events_feed_position"
+        " ON action_proposal_events (feed_position)"
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS action_proposal_feed_counter (
+            counter_key TEXT PRIMARY KEY,
+            last_position INTEGER NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO action_proposal_feed_counter (counter_key, last_position)
+        SELECT 'action_proposal_events', COALESCE(MAX(feed_position), 0)
+        FROM action_proposal_events
+        WHERE 1
+        ON CONFLICT (counter_key) DO NOTHING
+        """
+    )
 
 
 def _ensure_worker_heartbeat_table(connection: sqlite3.Connection) -> None:

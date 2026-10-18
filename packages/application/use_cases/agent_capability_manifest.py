@@ -102,6 +102,8 @@ def build_agent_capability_manifest(
         "operations": operations,
         "approval": {
             "queue_path": "/api/actions/proposals",
+            "changes_path": "/api/actions/proposals/changes",
+            "changes_schema": "resource-changes/v1",
             "resolution": "human-only",
             "states": list(PROPOSAL_STATE_TO_VUORO_EFFECT),
             "vuoro_effect_state_map": dict(PROPOSAL_STATE_TO_VUORO_EFFECT),

@@ -141,9 +141,9 @@ Do not rely on this file for the current sprint roster. Check live `sprintctl` s
 
 | Store | Latest migration | File count |
 |---|---|---|
-| `migrations/postgres/` | `0018_pack_lifecycle` | 18 |
+| `migrations/postgres/` | `0020_action_proposal_changes_feed` | 19 (`0019` reserved for a parallel stream) |
 | `migrations/duckdb/` | `0015_battery_plan_outcome_marts` | 10 (DuckDB-only subset — gaps are intentional) |
-| `migrations/sqlite/` | `0011_pack_lifecycle` | 11 |
+| `migrations/sqlite/` | `0013_action_proposal_changes_feed` | 12 (`0012` reserved for a parallel stream) |
 | `migrations/postgres_run_metadata/` | `0001_run_metadata_initial_schema` | 1 |
 
 ### Schema versions

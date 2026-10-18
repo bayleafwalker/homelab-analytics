@@ -66,6 +66,8 @@ def test_manifest_projects_every_catalog_tool_with_vuoro_conventions() -> None:
         "dismissed": "rejected",
     }
     assert manifest["approval"]["resolution"] == "human-only"
+    assert manifest["approval"]["changes_path"] == "/api/actions/proposals/changes"
+    assert manifest["approval"]["changes_schema"] == "resource-changes/v1"
 
 
 def test_manifest_never_claims_an_issued_identity() -> None:

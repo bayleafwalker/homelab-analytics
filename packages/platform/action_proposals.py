@@ -194,6 +194,27 @@ class ActionProposal:
         }
 
 
+@dataclass(frozen=True)
+class ProposalFeedEvent:
+    """One history event as the changes feed serves it.
+
+    ``position`` is the event's place in the queue-wide, commit-ordered feed
+    (``action_proposal_events.feed_position``); ``sequence`` its place in its
+    own proposal's history. The proposal fields are the ones fixed at draft
+    time, so a feed reader can route an event without a second request.
+    """
+
+    position: int
+    event_id: str
+    action_id: str
+    sequence: int
+    event: ProposalHistoryEvent
+    adapter: str
+    source_kind: str
+    policy_id: str
+    policy_name: str
+
+
 @runtime_checkable
 class ActionProposalStore(Protocol):
     """Persistence port for the proposal queue.
@@ -234,6 +255,20 @@ class ActionProposalStore(Protocol):
         """
         ...
 
+    def list_action_proposal_changes(
+        self,
+        *,
+        after_position: int,
+        limit: int,
+        action_id: str | None = None,
+    ) -> list[ProposalFeedEvent]:
+        """History events with ``position > after_position``, oldest first.
+
+        Positions are assigned in commit order, so paging by the last
+        position seen never skips an event that committed later.
+        """
+        ...
+
 
 def build_action_proposal_registry(store_candidate: object | None) -> ActionProposalRegistry:
     """Registry backed by ``store_candidate`` when it implements the store port.
@@ -263,7 +298,40 @@ class InMemoryActionProposalStore:
 
     def __init__(self) -> None:
         self._proposals: dict[str, ActionProposal] = {}
+        self._feed: list[ProposalFeedEvent] = []
         self._lock = threading.Lock()
+
+    def _append_feed(self, proposal: ActionProposal, sequence: int, event: ProposalHistoryEvent) -> None:
+        position = len(self._feed) + 1
+        self._feed.append(
+            ProposalFeedEvent(
+                position=position,
+                event_id=f"ape_memory_{position:012d}",
+                action_id=proposal.action_id,
+                sequence=sequence,
+                event=event,
+                adapter=proposal.adapter,
+                source_kind=proposal.source_kind,
+                policy_id=proposal.policy_id,
+                policy_name=proposal.policy_name,
+            )
+        )
+
+    def list_action_proposal_changes(
+        self,
+        *,
+        after_position: int,
+        limit: int,
+        action_id: str | None = None,
+    ) -> list[ProposalFeedEvent]:
+        with self._lock:
+            matching = [
+                item
+                for item in self._feed
+                if item.position > after_position
+                and (action_id is None or item.action_id == action_id)
+            ]
+        return matching[: max(limit, 0)]
 
     def get_action_proposal(self, action_id: str) -> ActionProposal | None:
         with self._lock:
@@ -296,6 +364,8 @@ class InMemoryActionProposalStore:
                     f"Idempotency key {proposal.idempotency_key} is already in use."
                 )
             self._proposals[proposal.action_id] = copy.deepcopy(proposal)
+            for sequence, event in enumerate(proposal.history, start=1):
+                self._append_feed(proposal, sequence, event)
 
     def update_action_proposal(
         self,
@@ -313,6 +383,7 @@ class InMemoryActionProposalStore:
             updated.history = list(stored.history)
             if event is not None:
                 updated.history.append(event)
+                self._append_feed(stored, len(updated.history), event)
             self._proposals[proposal.action_id] = updated
             return True
 
@@ -638,6 +709,18 @@ class ActionProposalRegistry:
 
     def get(self, action_id: str) -> ActionProposal | None:
         return self._store.get_action_proposal(action_id)
+
+    def list_changes(
+        self,
+        *,
+        after_position: int = 0,
+        limit: int = 100,
+        action_id: str | None = None,
+    ) -> list[ProposalFeedEvent]:
+        """Queue-wide (or one proposal's) history events after a feed position."""
+        return self._store.list_action_proposal_changes(
+            after_position=after_position, limit=limit, action_id=action_id
+        )
 
     def list_pending(self) -> list[ActionProposal]:
         return [proposal for proposal in self.list_all() if proposal.status == "pending"]

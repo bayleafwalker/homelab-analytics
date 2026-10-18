@@ -11,6 +11,8 @@ Routes:
 
 - ``GET  /api/actions/proposals`` — list proposals (optionally by status)
 - ``POST /api/actions/proposals`` — draft a proposal into the queue
+- ``GET  /api/actions/proposals/changes`` — cursor-paged
+  ``resource-changes/v1`` feed of history events (plan §5.3)
 - ``GET  /api/actions/proposals/{action_id}`` — fetch one proposal
 - ``POST /api/actions/proposals/{action_id}/approve`` — approve
 - ``POST /api/actions/proposals/{action_id}/dismiss`` — dismiss
@@ -46,9 +48,19 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Literal, cast
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from packages.application.use_cases.action_proposal_changes import (
+    DEFAULT_LIMIT as DEFAULT_CHANGES_LIMIT,
+)
+from packages.application.use_cases.action_proposal_changes import (
+    MAX_LIMIT as MAX_CHANGES_LIMIT,
+)
+from packages.application.use_cases.action_proposal_changes import (
+    InvalidCursorError,
+    proposal_changes_feed,
+)
 from packages.application.use_cases.agent_proposal_review import (
     build_proposal_review,
     stamp_provenance_trust,
@@ -206,6 +218,42 @@ class ActionProposalReviewModel(BaseModel):
     change_preview: list[ProposalChangeRowModel]
     evidence: list[ProposalEvidenceModel]
     trust: ProposalReviewTrustModel
+
+
+class ProposalChangeDataModel(BaseModel):
+    schema_version: Literal["hla-action-proposal-event/v1"]
+    repo_id: str
+    action_id: str
+    sequence: int
+    kind: Literal[
+        "drafted", "refreshed", "reopened", "approved", "dismissed", "release_failed"
+    ]
+    occurred_at: str
+    actor: str | None = None
+    actor_auth_provider: str | None = None
+    reason: str | None = None
+    status: Literal["pending", "approved", "dismissed"]
+    effect_state: Literal["proposed", "accepted", "rejected"]
+    adapter: str
+    source_kind: str
+    origin: str
+    title: str
+    proposal_path: str
+
+
+class ProposalChangeEventModel(BaseModel):
+    event_id: str
+    terminal: bool
+    data: ProposalChangeDataModel
+
+
+class ProposalChangesFeedModel(BaseModel):
+    """``resource-changes/v1`` page of the proposal queue's history."""
+
+    schema_version: Literal["resource-changes/v1"]
+    reference: str
+    next_cursor: str
+    events: list[ProposalChangeEventModel]
 
 
 @dataclass(frozen=True)
@@ -374,6 +422,29 @@ def register_action_proposal_routes(
                 for proposal in proposals
             ]
         )
+
+    @app.get(
+        "/api/actions/proposals/changes",
+        response_model=ProposalChangesFeedModel,
+    )
+    async def list_action_proposal_changes(
+        cursor: str | None = None,
+        limit: int = Query(default=DEFAULT_CHANGES_LIMIT, ge=1, le=MAX_CHANGES_LIMIT),
+        action_id: str | None = None,
+    ) -> ProposalChangesFeedModel:
+        """Cursor-paged ``resource-changes/v1`` feed of proposal history events.
+
+        Pass the returned ``next_cursor`` back to resume; it is always set,
+        and equals the given cursor when nothing new has happened.
+        ``action_id`` narrows the feed to one proposal.
+        """
+        try:
+            feed = proposal_changes_feed(
+                action_proposal_registry, cursor=cursor, limit=limit, action_id=action_id
+            )
+        except InvalidCursorError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return ProposalChangesFeedModel.model_validate(feed)
 
     @app.post("/api/actions/proposals", response_model=ActionProposalModel)
     async def create_action_proposal(

@@ -1780,3 +1780,97 @@ def assert_action_proposal_resolution_is_exclusive(store: Any) -> None:
     assert stored is not None
     assert [e.kind for e in stored.history].count("drafted") == 1
     assert len(stored.history) == 2
+
+
+def assert_action_proposal_changes_feed(store: Any) -> None:
+    """The changes feed serves every history event once, in commit order.
+
+    Relative to the feed's current end, so it holds on a shared database.
+    Concurrent writers draft, refresh and resolve; paging the feed with a
+    small limit must then return each new event exactly once, with strictly
+    increasing positions and each proposal's events in sequence order.
+    """
+    from packages.platform.action_proposals import (
+        ActionProposalRegistry,
+        ProposalTransitionError,
+    )
+
+    registry = ActionProposalRegistry(store=store)
+
+    def feed_end() -> int:
+        position = 0
+        while True:
+            page = registry.list_changes(after_position=position, limit=200)
+            if not page:
+                return position
+            position = page[-1].position
+
+    start = feed_end()
+    workers = 6
+    barrier = Barrier(workers)
+    created: list[str] = []
+    created_lock = Lock()
+
+    def write(index: int) -> None:
+        barrier.wait()
+        proposal = registry.register(
+            policy_id=f"feed-{index}",
+            policy_name=f"Feed {index}",
+            verdict="notify",
+            value="1",
+            notification_id=None,
+            adapter="platform",
+            source_kind="agent",
+            created_by="agent",
+        )
+        registry.register(
+            policy_id=f"feed-{index}",
+            policy_name=f"Feed {index}",
+            verdict="notify",
+            value="2",
+            notification_id=None,
+            action_id=proposal.action_id,
+            adapter="platform",
+            source_kind="agent",
+            created_by="agent",
+        )
+        try:
+            if index % 2:
+                registry.approve(proposal.action_id, resolved_by="operator")
+            else:
+                registry.dismiss(proposal.action_id, resolved_by="operator")
+        except ProposalTransitionError:
+            pass
+        with created_lock:
+            created.append(proposal.action_id)
+
+    threads = [Thread(target=write, args=(index,)) for index in range(workers)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    seen = []
+    position = start
+    while True:
+        page = registry.list_changes(after_position=position, limit=4)
+        if not page:
+            break
+        assert len(page) <= 4
+        seen.extend(page)
+        position = page[-1].position
+    positions = [item.position for item in seen]
+    assert positions == sorted(set(positions))
+    assert len({item.event_id for item in seen}) == len(seen)
+    assert {item.action_id for item in seen} == set(created)
+    for action_id in created:
+        stored = registry.get(action_id)
+        assert stored is not None
+        mine = [item for item in seen if item.action_id == action_id]
+        assert [item.sequence for item in mine] == list(range(1, len(stored.history) + 1))
+        assert [item.event.kind for item in mine] == [event.kind for event in stored.history]
+        assert [item.event.kind for item in mine] == ["drafted", "refreshed", stored.status]
+        assert all(item.adapter == "platform" and item.source_kind == "agent" for item in mine)
+        narrowed = registry.list_changes(after_position=start, limit=50, action_id=action_id)
+        assert [item.event_id for item in narrowed] == [item.event_id for item in mine]
+    assert registry.list_changes(after_position=position, limit=10) == []

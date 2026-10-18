@@ -268,6 +268,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/actions/proposals/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Action Proposal Changes
+         * @description Cursor-paged ``resource-changes/v1`` feed of proposal history events.
+         *
+         *     Pass the returned ``next_cursor`` back to resume; it is always set,
+         *     and equals the given cursor when nothing new has happened.
+         *     ``action_id`` narrows the feed to one proposal.
+         */
+        get: operations["list_action_proposal_changes_api_actions_proposals_changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/actions/proposals/{action_id}": {
         parameters: {
             query?: never;
@@ -6267,6 +6291,61 @@ export interface components {
             /** Skipped */
             skipped: boolean;
         };
+        /** ProposalChangeDataModel */
+        ProposalChangeDataModel: {
+            /** Action Id */
+            action_id: string;
+            /** Actor */
+            actor?: string | null;
+            /** Actor Auth Provider */
+            actor_auth_provider?: string | null;
+            /** Adapter */
+            adapter: string;
+            /**
+             * Effect State
+             * @enum {string}
+             */
+            effect_state: "proposed" | "accepted" | "rejected";
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "drafted" | "refreshed" | "reopened" | "approved" | "dismissed" | "release_failed";
+            /** Occurred At */
+            occurred_at: string;
+            /** Origin */
+            origin: string;
+            /** Proposal Path */
+            proposal_path: string;
+            /** Reason */
+            reason?: string | null;
+            /** Repo Id */
+            repo_id: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "hla-action-proposal-event/v1";
+            /** Sequence */
+            sequence: number;
+            /** Source Kind */
+            source_kind: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "approved" | "dismissed";
+            /** Title */
+            title: string;
+        };
+        /** ProposalChangeEventModel */
+        ProposalChangeEventModel: {
+            data: components["schemas"]["ProposalChangeDataModel"];
+            /** Event Id */
+            event_id: string;
+            /** Terminal */
+            terminal: boolean;
+        };
         /** ProposalChangeRowModel */
         ProposalChangeRowModel: {
             /** After */
@@ -6279,6 +6358,23 @@ export interface components {
             field: string;
             /** Label */
             label: string;
+        };
+        /**
+         * ProposalChangesFeedModel
+         * @description ``resource-changes/v1`` page of the proposal queue's history.
+         */
+        ProposalChangesFeedModel: {
+            /** Events */
+            events: components["schemas"]["ProposalChangeEventModel"][];
+            /** Next Cursor */
+            next_cursor: string;
+            /** Reference */
+            reference: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "resource-changes/v1";
         };
         /** ProposalEffectModel */
         ProposalEffectModel: {
@@ -7411,6 +7507,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActionProposalModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_action_proposal_changes_api_actions_proposals_changes_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+                action_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalChangesFeedModel"];
                 };
             };
             /** @description Validation Error */
