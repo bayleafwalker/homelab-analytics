@@ -304,6 +304,7 @@ def _build_transformation_service(
         control_plane_store=container.control_plane_store,
         publication_refresh_registry=container.publication_refresh_registry,
         domain_registry=container.transformation_domain_registry,
+        run_metadata_store=container.run_metadata_store,
     )
 
 

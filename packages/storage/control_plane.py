@@ -165,8 +165,9 @@ class PublicationConfidenceSnapshotCreate:
     publication_key: str
     assessed_at: datetime
     freshness_state: str
-    completeness_pct: int  # 0 or 100: binary presence flag (lineage records exist or not).
-    # TODO: replace with genuine proportional calculation (contributing runs / expected runs)
+    # 0-100 share of contributing sources with a verifiably present input run;
+    # see packages/platform/publication_confidence.py for signal semantics.
+    completeness_pct: int
     confidence_verdict: str
     quality_flags: dict | None = None
     contributing_run_ids: tuple[str, ...] | None = None
