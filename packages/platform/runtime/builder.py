@@ -26,6 +26,7 @@ from packages.shared.function_registry import FunctionRegistry, load_function_re
 from packages.shared.settings import AppSettings
 from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.duckdb_store import DuckDBStore
+from packages.storage.run_metadata import RunMetadataStore
 from packages.storage.runtime import (
     build_blob_store,
     build_config_store,
