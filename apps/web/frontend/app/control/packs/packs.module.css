@@ -1,0 +1,57 @@
+.packCard {
+  display: grid;
+  gap: 12px;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.facts dd {
+  margin: 0;
+}
+
+.versionTable td,
+.versionTable th {
+  padding-right: 12px;
+}
+
+.versionTable tr[data-relation="installed"] td {
+  font-weight: 600;
+}
+
+.diagnostics {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 0.85rem;
+}
+
+.diagnostics[data-severity="warning"] {
+  color: var(--muted);
+}
+
+.planPanel {
+  display: grid;
+  gap: 14px;
+  scroll-margin-top: 24px;
+}
+
+.actionForm {
+  display: grid;
+  gap: 10px;
+}
+
+.trustNote {
+  border-left: 3px solid var(--line);
+  padding: 4px 0 4px 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}

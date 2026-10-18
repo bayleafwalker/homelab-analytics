@@ -42,6 +42,7 @@ export const NAV_DEEP_LINKS = [
   { href: "/control/catalog", label: "Control: catalog", minRole: "admin", keywords: "sources contracts mappings" },
   { href: "/control/execution", label: "Control: execution", minRole: "admin", keywords: "schedules dispatch" },
   { href: "/control/policies", label: "Control: policies", minRole: "admin", keywords: "rules authority" },
+  { href: "/control/packs", label: "Control: packs", minRole: "admin", keywords: "extensions install upgrade rollback registry" },
   { href: "/control/freshness", label: "Control: freshness", minRole: "admin", keywords: "stale sla" },
   { href: "/control/lineage", label: "Control: lineage", minRole: "admin", keywords: "graph upstream" },
   { href: "/control/confidence", label: "Control: confidence", minRole: "admin", keywords: "trust verdict" },

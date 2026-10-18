@@ -113,6 +113,8 @@ type GetOperationIdByPath = {
   "/api/scenarios/{scenario_id}/cashflow": "get_income_scenario_cashflow_api_scenarios__scenario_id__cashflow_get";
   "/api/briefing": "get_briefing_api_briefing_get";
   "/api/lineage/publication/{publication_key}": "get_publication_lineage_api_lineage_publication__publication_key__get";
+  "/control/packs": "list_pack_catalog_control_packs_get";
+  "/control/packs/history": "list_pack_history_control_packs_history_get";
 };
 type TypedGetApiPath = keyof GetOperationIdByPath & GetApiPath;
 type GetOperationId<Path extends TypedGetApiPath> = GetOperationIdByPath[Path];
@@ -868,6 +870,47 @@ export async function getDecisionRecords(
     params: { query: definedValues({ decision_key: decisionKey }) }
   });
   return getResponseArray(payload, "decisions");
+}
+
+/**
+ * Pack catalog built from the locally cached external registry: every pack
+ * version with its compatibility badge, plus install state per pack.
+ */
+export async function getPackCatalog() {
+  return backendGet("/control/packs");
+}
+
+export async function getPackHistory(
+  packKey?: QueryValue<"/control/packs/history", "pack_key">
+) {
+  const payload = await backendGet("/control/packs/history", {
+    params: { query: definedValues({ pack_key: packKey }) }
+  });
+  return getResponseArray(payload, "events");
+}
+
+type PackPlanBody = {
+  action: "install" | "upgrade" | "rollback" | "disable" | "enable" | "pin" | "unpin";
+  version?: string | null;
+};
+
+/**
+ * Dry-run plan for one lifecycle change. The API writes nothing for a plan;
+ * a malformed request (unknown action) comes back as null.
+ */
+export async function getPackChangePlan(packKey: string, body: PackPlanBody) {
+  const { response, data } = await backendJsonRequest(
+    "post",
+    "/control/packs/{pack_key}/plan",
+    {
+      params: { path: { pack_key: packKey } },
+      body: { action: body.action, version: body.version ?? null }
+    }
+  );
+  if (response.status === 401) {
+    redirect("/login");
+  }
+  return response.ok ? data : null;
 }
 
 export async function getPolicyDefinitions() {

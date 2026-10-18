@@ -6,6 +6,7 @@ const CONTROL_ITEMS = [
   { href: "/control/execution", label: "Execution" },
   { href: "/control/policies", label: "Policies" },
   { href: "/control/agents", label: "Agents" },
+  { href: "/control/packs", label: "Packs" },
   { href: "/control/freshness", label: "Freshness" },
   { href: "/control/confidence", label: "Confidence" },
   { href: "/control/lineage", label: "Lineage" }
