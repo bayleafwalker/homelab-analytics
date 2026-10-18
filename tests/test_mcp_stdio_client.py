@@ -147,10 +147,11 @@ def test_local_mcp_client_lists_and_exercises_every_tool_over_stdio() -> None:
                         "idempotency_key": "budget-review:2026-07",
                     },
                 ),
+                _call(9, "list_proposal_changes", {"limit": 50}),
             ],
         )
 
-        assert sorted(replies) == [1, 2, 3, 4, 5, 6, 7, 8]  # the notification got no reply
+        assert sorted(replies) == [1, 2, 3, 4, 5, 6, 7, 8, 9]  # the notification got no reply
         assert "tools" in replies[1]["result"]["capabilities"]
         listed = {tool["name"] for tool in replies[2]["result"]["tools"]}
         assert listed == {tool["name"] for tool in build_tool_definitions()}
@@ -159,6 +160,7 @@ def test_local_mcp_client_lists_and_exercises_every_tool_over_stdio() -> None:
             "get_publication_summary",
             "get_publication_lineage",
             "get_proposal",
+            "list_proposal_changes",
             "propose_scenario",
             "propose_policy",
             "propose_action",
@@ -175,6 +177,12 @@ def test_local_mcp_client_lists_and_exercises_every_tool_over_stdio() -> None:
         assert drafted["status"] == "pending"
         assert (drafted["adapter"], drafted["source_kind"]) == ("platform", "agent")
         action_id = drafted["action_id"]
+        feed = _structured(replies[9])
+        assert feed["schema_version"] == "resource-changes/v1"
+        assert feed["next_cursor"].startswith("apf.")
+        assert [
+            (event["data"]["action_id"], event["data"]["kind"]) for event in feed["events"]
+        ] == [(action_id, "drafted")]
 
         # The web shell's approve form posts to the generalized route.
         assert "/api/actions/proposals/" in WEB_SHELL_APPROVE_ROUTE.read_text()
@@ -183,9 +191,25 @@ def test_local_mcp_client_lists_and_exercises_every_tool_over_stdio() -> None:
         )
         assert approved.status_code == 200
 
-        later = _session(client, [_call(1, "get_proposal", {"action_id": action_id})])
+        later = _session(
+            client,
+            [
+                _call(1, "get_proposal", {"action_id": action_id}),
+                _call(
+                    2,
+                    "list_proposal_changes",
+                    {"cursor": feed["next_cursor"], "action_id": action_id},
+                ),
+            ],
+        )
         proposal = _structured(later[1])
         proposal = proposal.get("proposal", proposal)
         assert proposal["status"] == "approved"
         assert proposal["resolution_reason"] == "looks right"
         assert [event["kind"] for event in proposal["history"]] == ["drafted", "approved"]
+        # Resuming from the earlier cursor yields only the approval, as terminal.
+        resumed = _structured(later[2])
+        assert resumed["reference"] == f"action-proposals/{action_id}"
+        assert [(event["data"]["kind"], event["terminal"]) for event in resumed["events"]] == [
+            ("approved", True)
+        ]

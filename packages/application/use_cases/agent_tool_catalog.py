@@ -38,6 +38,11 @@ VUORO_OPERATION_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){
 
 DEFAULT_PAGE_LIMIT = 20
 MAX_PAGE_LIMIT = 100
+# Page bounds of GET /api/actions/proposals/changes. Mirrored rather than
+# imported (action_proposal_changes imports the manifest, which imports this
+# catalog); tests/test_mcp_tool_contracts.py pins them to the route's values.
+DEFAULT_CHANGES_LIMIT = 100
+MAX_CHANGES_LIMIT = 500
 
 # Scenario kinds an agent may propose; keys map onto /api/scenarios/{kind}.
 SCENARIO_KINDS = (
@@ -319,6 +324,68 @@ AGENT_TOOL_SPECS: tuple[AgentToolSpec, ...] = (
         publication_scope="none",
         required_scope=SERVICE_TOKEN_SCOPE_REPORTS_READ,
         vuoro_operation="hla.proposal.get",
+        execution_semantics="read",
+        idempotency="not-allowed",
+    ),
+    AgentToolSpec(
+        name="list_proposal_changes",
+        title="List proposal changes",
+        description=(
+            "Follow the approval queue's history as a resource-changes/v1 "
+            "feed: one event per draft, refresh, reopen, approval, dismissal "
+            "or failed release, oldest first. Pass next_cursor back as cursor "
+            "to resume; it is always set and stays the same while nothing "
+            "new has happened. A page shorter than limit means you are caught "
+            "up. Pass action_id to follow one proposal. terminal=true means "
+            "that event left the proposal approved or dismissed."
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "cursor": {
+                    "type": "string",
+                    "description": "Opaque next_cursor from a previous page; omit to start.",
+                },
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": MAX_CHANGES_LIMIT,
+                    "default": DEFAULT_CHANGES_LIMIT,
+                    "description": "Page size.",
+                },
+                "action_id": {
+                    "type": "string",
+                    "description": "Only events of this proposal (action_id from propose_action).",
+                },
+            },
+            "additionalProperties": False,
+        },
+        output_schema={
+            "type": "object",
+            "properties": {
+                "schema_version": {"type": "string", "const": "resource-changes/v1"},
+                "reference": {"type": "string"},
+                "next_cursor": {"type": "string"},
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "event_id": {"type": "string"},
+                            "terminal": {"type": "boolean"},
+                            "data": {"type": "object"},
+                        },
+                        "required": ["event_id", "terminal", "data"],
+                    },
+                },
+            },
+            "required": ["schema_version", "reference", "next_cursor", "events"],
+        },
+        effect="read",
+        endpoints=(("GET", "/api/actions/proposals/changes"),),
+        publication_scope="none",
+        required_scope=SERVICE_TOKEN_SCOPE_REPORTS_READ,
+        vuoro_operation="hla.proposal.changes",
         execution_semantics="read",
         idempotency="not-allowed",
     ),

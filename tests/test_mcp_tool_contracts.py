@@ -120,6 +120,8 @@ def test_tool_definitions_are_described_annotated_and_match_catalog() -> None:
             "items must be of type string",
         ),
         ("list_publications", ["not", "an", "object"], "arguments must be an object"),
+        ("list_proposal_changes", {"limit": 501}, "must be <= 500"),
+        ("list_proposal_changes", {"since": "apf.0"}, "unknown argument 'since'"),
     ],
 )
 def test_invalid_arguments_are_rejected_before_any_endpoint_call(
@@ -246,6 +248,46 @@ def test_lineage_tool_reaches_lineage_route() -> None:
     result = _call(AgentMcpServer(caller), "get_publication_lineage", {"publication_key": "monthly_cashflow"})
     assert result["isError"] is False
     assert caller.calls[0][:2] == ("GET", "/api/lineage/publication/monthly_cashflow")
+
+
+def test_proposal_changes_tool_forwards_only_given_arguments() -> None:
+    feed = {
+        "schema_version": "resource-changes/v1",
+        "reference": "action-proposals",
+        "next_cursor": "apf.3",
+        "events": [],
+    }
+    caller = RecordingCaller(payload=feed)
+    server = AgentMcpServer(caller)
+    result = _call(server, "list_proposal_changes", {})
+    assert result["isError"] is False
+    # The strict resource-changes/v1 envelope reaches the agent unchanged.
+    assert result["structuredContent"] == feed
+    _call(server, "list_proposal_changes", {"cursor": "apf.3", "limit": 10, "action_id": "a1"})
+    assert caller.calls == [
+        ("GET", "/api/actions/proposals/changes", {}, None),
+        (
+            "GET",
+            "/api/actions/proposals/changes",
+            {"cursor": "apf.3", "limit": 10, "action_id": "a1"},
+            None,
+        ),
+    ]
+
+
+def test_proposal_changes_tool_limits_match_the_route() -> None:
+    from packages.application.use_cases import action_proposal_changes, agent_tool_catalog
+
+    assert agent_tool_catalog.DEFAULT_CHANGES_LIMIT == action_proposal_changes.DEFAULT_LIMIT
+    assert agent_tool_catalog.MAX_CHANGES_LIMIT == action_proposal_changes.MAX_LIMIT
+
+
+def test_proposal_changes_tool_reports_a_foreign_cursor_as_invalid_arguments() -> None:
+    with TemporaryDirectory() as tmp:
+        server = AgentMcpServer(InProcessCaller(_app_client(tmp)))
+        result = _call(server, "list_proposal_changes", {"cursor": "o12"})
+        assert result["isError"] is True
+        assert result["structuredContent"]["error"]["code"] == "invalid_arguments"
 
 
 def test_validator_accepts_minimal_valid_arguments() -> None:
