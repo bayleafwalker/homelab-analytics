@@ -12,6 +12,9 @@ from apps.api.auth_policies import API_ROUTE_AUTHORIZATION_LOOKUP
 from packages.domains.finance.pipelines.account_transaction_service import (
     AccountTransactionService,
 )
+from packages.domains.utilities.pipelines.publication_refresh import (
+    refresh_battery_plan_publication,
+)
 from packages.platform.auth.contracts import UserRole
 from packages.storage.run_metadata import RunMetadataRepository
 from tests.test_battery_plan_outcome import _service, _store_with_history
@@ -20,7 +23,7 @@ from tests.test_battery_plan_outcome import _service, _store_with_history
 def test_battery_plan_outcome_route_returns_verdict_values_and_decision() -> None:
     store, assessed_at = _store_with_history()
     transformation_service = _service(store, assessed_at=assessed_at)
-    transformation_service.refresh_battery_plan_outcome()
+    refresh_battery_plan_publication(transformation_service)
     with TemporaryDirectory() as temp_dir:
         service = AccountTransactionService(
             landing_root=Path(temp_dir) / "landing",

@@ -1,5 +1,19 @@
+"""Built-in publication refresh composition: each domain pack owns its handlers."""
+
 from __future__ import annotations
 
+from packages.domains.finance.pipelines.publication_refresh import (
+    FINANCE_PUBLICATION_REFRESH_HANDLERS,
+)
+from packages.domains.homelab.pipelines.publication_refresh import (
+    HOMELAB_PUBLICATION_REFRESH_HANDLERS,
+)
+from packages.domains.overview.pipelines.publication_refresh import (
+    OVERVIEW_PUBLICATION_REFRESH_HANDLERS,
+)
+from packages.domains.utilities.pipelines.publication_refresh import (
+    UTILITIES_PUBLICATION_REFRESH_HANDLERS,
+)
 from packages.pipelines.household_packages import BUILTIN_TRANSFORMATION_PACKAGE_SPECS
 from packages.pipelines.household_reporting import PUBLICATION_RELATIONS
 from packages.pipelines.transformation_refresh_registry import (
@@ -7,109 +21,27 @@ from packages.pipelines.transformation_refresh_registry import (
     PublicationRefreshRegistry,
 )
 
-BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
-    "mart_monthly_cashflow": lambda service: service.refresh_monthly_cashflow(),
-    "mart_monthly_cashflow_by_counterparty": (
-        lambda service: service.refresh_monthly_cashflow_by_counterparty()
-    ),
-    "mart_spend_by_category_monthly": (
-        lambda service: service.refresh_spend_by_category_monthly()
-    ),
-    "mart_recent_large_transactions": (
-        lambda service: service.refresh_recent_large_transactions()
-    ),
-    "mart_account_balance_trend": (
-        lambda service: service.refresh_account_balance_trend()
-    ),
-    "mart_transaction_anomalies_current": (
-        lambda service: service.refresh_transaction_anomalies_current()
-    ),
-    "mart_subscription_summary": (lambda service: service.refresh_subscription_summary()),
-    "mart_upcoming_fixed_costs_30d": (
-        lambda service: service.refresh_upcoming_fixed_costs_30d()
-    ),
-    "mart_subscription_changes": (
-        lambda service: service.refresh_subscription_changes()
-    ),
-    "mart_contract_price_current": (lambda service: service.refresh_contract_price_current()),
-    "mart_electricity_price_current": (lambda service: service.refresh_contract_price_current()),
-    "mart_utility_cost_summary": (lambda service: service.refresh_utility_cost_summary()),
-    "mart_utility_cost_trend_monthly": (
-        lambda service: service.refresh_utility_cost_trend_monthly()
-    ),
-    "mart_usage_vs_price_summary": (
-        lambda service: service.refresh_usage_vs_price_summary()
-    ),
-    "mart_energy_daily": (lambda service: service.refresh_energy_daily()),
-    "mart_battery_plan_outcome": (
-        lambda service: service.refresh_battery_plan_outcome()
-    ),
-    # Rebuilt together with mart_battery_plan_outcome; refreshing either key
-    # rebuilds both so a summary row and its value disclosures never diverge.
-    "mart_battery_plan_outcome_values": (
-        lambda service: service.refresh_battery_plan_outcome()
-    ),
-    "mart_contract_review_candidates": (
-        lambda service: service.refresh_contract_review_candidates()
-    ),
-    "mart_contract_renewal_watchlist": (
-        lambda service: service.refresh_contract_renewal_watchlist()
-    ),
-    "mart_budget_variance": (lambda service: service.refresh_budget_variance()),
-    "mart_budget_envelope_drift": (
-        lambda service: service.refresh_budget_envelope_drift()
-    ),
-    "mart_budget_progress_current": (
-        lambda service: service.refresh_budget_progress_current()
-    ),
-    "mart_loan_schedule_projected": (
-        lambda service: service.refresh_loan_schedule_projected()
-    ),
-    "mart_loan_repayment_variance": (
-        lambda service: service.refresh_loan_repayment_variance()
-    ),
-    "mart_loan_overview": (lambda service: service.refresh_loan_overview()),
-    "mart_debt_overview": (lambda service: service.refresh_debt_overview()),
-    "mart_household_overview": (lambda service: service.refresh_household_overview()),
-    "mart_homelab_roi": (lambda service: service.refresh_homelab_roi()),
-    "mart_open_attention_items": (lambda service: service.refresh_open_attention_items()),
-    "mart_recent_significant_changes": (
-        lambda service: service.refresh_recent_significant_changes()
-    ),
-    "mart_current_operating_baseline": (
-        lambda service: service.refresh_current_operating_baseline()
-    ),
-    "mart_household_cost_model": (
-        lambda service: service.refresh_household_cost_model()
-    ),
-    "mart_cost_trend_12m": (
-        lambda service: service.refresh_cost_trend_12m()
-    ),
-    "mart_affordability_ratios": (
-        lambda service: service.refresh_affordability_ratios()
-    ),
-    "mart_recurring_cost_baseline": (
-        lambda service: service.refresh_recurring_cost_baseline()
-    ),
-    "mart_service_health_current": (
-        lambda service: service.refresh_service_health_current()
-    ),
-    "mart_backup_freshness": (lambda service: service.refresh_backup_freshness()),
-    "mart_storage_risk": (lambda service: service.refresh_storage_risk()),
-    "mart_workload_cost_7d": (lambda service: service.refresh_workload_cost_7d()),
-    "mart_cluster_utilization": (lambda service: service.refresh_cluster_utilization()),
-    "mart_uptime_summary": (lambda service: service.refresh_uptime_summary()),
-    "mart_infra_cost": (lambda service: service.refresh_infra_cost()),
-    "mart_climate_summary": (lambda service: service.refresh_climate_summary()),
-    "mart_automation_reliability": (
-        lambda service: service.refresh_automation_reliability()
-    ),
-    "mart_device_battery": (lambda service: service.refresh_device_battery()),
-    "mart_asset_value": (lambda service: service.refresh_asset_value()),
-    "mart_depreciation_schedule": (
-        lambda service: service.refresh_depreciation_schedule()
-    ),
-}
+
+def _compose_domain_refresh_handlers(
+    *tables: dict[str, PublicationRefreshHandler],
+) -> dict[str, PublicationRefreshHandler]:
+    composed: dict[str, PublicationRefreshHandler] = {}
+    for table in tables:
+        overlap = sorted(set(composed) & set(table))
+        if overlap:
+            raise ValueError(f"Publication refresh handlers declared by two packs: {overlap}")
+        composed.update(table)
+    return composed
+
+
+BUILTIN_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = (
+    _compose_domain_refresh_handlers(
+        FINANCE_PUBLICATION_REFRESH_HANDLERS,
+        UTILITIES_PUBLICATION_REFRESH_HANDLERS,
+        OVERVIEW_PUBLICATION_REFRESH_HANDLERS,
+        HOMELAB_PUBLICATION_REFRESH_HANDLERS,
+    )
+)
 
 
 def register_builtin_publication_refresh_handlers(

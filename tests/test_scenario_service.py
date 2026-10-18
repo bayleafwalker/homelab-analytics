@@ -32,6 +32,11 @@ from packages.domains.finance.pipelines.scenario_service import (
     restore_scenario_compare_set,
     update_scenario_compare_set_label,
 )
+from packages.domains.finance.pipelines.transformation_loans import refresh_loan_schedule_projected
+from packages.domains.homelab.pipelines.transformation_homelab import (
+    refresh_service_health_current,
+    refresh_workload_cost_7d,
+)
 from packages.domains.overview.pipelines.scenario_service_overview import (
     create_homelab_cost_benefit_scenario,
     get_homelab_cost_benefit_comparison,
@@ -65,7 +70,7 @@ def _load_fixture_loan(svc: TransformationService, run_id: str = "run-001") -> N
         ],
         run_id=run_id,
     )
-    svc.refresh_loan_schedule_projected()
+    refresh_loan_schedule_projected(svc.store)
 
 
 def _load_fixture_homelab(
@@ -75,9 +80,9 @@ def _load_fixture_homelab(
     workload_run_id: str = "run-homelab-workloads",
 ) -> None:
     svc.load_service_health(_service_rows(), run_id=service_run_id)
-    svc.refresh_service_health_current()
+    refresh_service_health_current(svc.store)
     svc.load_workload_sensors(_workload_rows(), run_id=workload_run_id)
-    svc.refresh_workload_cost_7d()
+    refresh_workload_cost_7d(svc.store)
 
 
 def _shift_homelab_rows(rows: list[dict], *, hours: int = 1) -> list[dict]:
@@ -525,12 +530,12 @@ class HomelabCostBenefitScenarioTests(unittest.TestCase):
             _shift_homelab_rows(_service_rows()),
             run_id="run-homelab-services-v2",
         )
-        self.svc.refresh_service_health_current()
+        refresh_service_health_current(self.svc.store)
         self.svc.load_workload_sensors(
             _shift_homelab_rows(_workload_rows()),
             run_id="run-homelab-workloads-v2",
         )
-        self.svc.refresh_workload_cost_7d()
+        refresh_workload_cost_7d(self.svc.store)
 
         comparison = get_homelab_cost_benefit_comparison(self.store, result.scenario_id)
         self.assertIsNotNone(comparison)

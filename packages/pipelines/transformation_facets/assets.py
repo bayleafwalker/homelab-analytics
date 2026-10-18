@@ -12,8 +12,6 @@ from packages.domains.finance.pipelines.transformation_assets import (
     get_depreciation_schedule,
     load_asset_event_rows,
     load_asset_register_rows,
-    refresh_asset_value,
-    refresh_depreciation_schedule,
 )
 from packages.pipelines.transformation_facets.base import TransformationFacetBase
 
@@ -55,12 +53,6 @@ class AssetTransformationMixin(TransformationFacetBase):
 
     def get_current_assets(self) -> list[dict[str, Any]]:
         return get_current_assets(self._store)
-
-    def refresh_asset_value(self) -> int:
-        return refresh_asset_value(self._store)
-
-    def refresh_depreciation_schedule(self) -> int:
-        return refresh_depreciation_schedule(self._store)
 
     def get_asset_value(
         self,

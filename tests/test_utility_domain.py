@@ -14,6 +14,10 @@ from fastapi.testclient import TestClient
 from apps.api.app import create_app
 from apps.worker.main import main
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.utilities.pipelines.transformation_utilities import (
+    refresh_energy_daily,
+    refresh_utility_cost_summary,
+)
 from packages.domains.utilities.pipelines.utility_bills import (
     CanonicalUtilityBill,
     load_canonical_utility_bills_bytes,
@@ -180,7 +184,7 @@ class UtilityTransformationTests(unittest.TestCase):
         service.load_utility_usage(self._make_usage_rows(), run_id="run-usage-001")
         service.load_bills(self._make_bill_rows(), run_id="run-bill-001")
 
-        count = service.refresh_utility_cost_summary()
+        count = refresh_utility_cost_summary(service.store)
         rows = service.get_utility_cost_summary()
 
         self.assertEqual(4, count)
@@ -204,7 +208,7 @@ class UtilityTransformationTests(unittest.TestCase):
         service = TransformationService(DuckDBStore.memory())
         service.load_utility_usage(self._make_usage_rows(), run_id="run-usage-001")
 
-        count = service.refresh_energy_daily()
+        count = refresh_energy_daily(service.store)
 
         self.assertEqual(3, count)
         rows = service.get_energy_daily()
@@ -232,7 +236,7 @@ class UtilityTransformationTests(unittest.TestCase):
         service = TransformationService(DuckDBStore.memory())
         service.load_utility_usage(self._make_usage_rows(), run_id="run-usage-001")
         service.load_bills(self._make_bill_rows(), run_id="run-bill-001")
-        service.refresh_utility_cost_summary()
+        refresh_utility_cost_summary(service.store)
 
         electricity_rows = service.get_utility_cost_summary(utility_type="electricity")
         self.assertEqual(2, len(electricity_rows))

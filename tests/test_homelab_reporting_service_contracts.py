@@ -9,6 +9,12 @@ from __future__ import annotations
 import unittest
 from datetime import datetime, timedelta
 
+from packages.domains.homelab.pipelines.transformation_homelab import (
+    refresh_backup_freshness,
+    refresh_service_health_current,
+    refresh_storage_risk,
+    refresh_workload_cost_7d,
+)
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
@@ -38,7 +44,7 @@ def _seed_homelab(rs: ReportingService) -> None:
         ],
         run_id="r-1",
     )
-    ts.refresh_service_health_current()
+    refresh_service_health_current(ts.store)
 
     ts.load_backup_runs(
         [
@@ -50,7 +56,7 @@ def _seed_homelab(rs: ReportingService) -> None:
         ],
         run_id="r-2",
     )
-    ts.refresh_backup_freshness()
+    refresh_backup_freshness(ts.store)
 
     ts.load_storage_sensors(
         [
@@ -62,7 +68,7 @@ def _seed_homelab(rs: ReportingService) -> None:
         ],
         run_id="r-3",
     )
-    ts.refresh_storage_risk()
+    refresh_storage_risk(ts.store)
 
     # workload_cost_7d windows on CURRENT_TIMESTAMP - 7 days; keep samples inside it
     base = datetime.now() - timedelta(hours=2)
@@ -77,7 +83,7 @@ def _seed_homelab(rs: ReportingService) -> None:
         ],
         run_id="r-4",
     )
-    ts.refresh_workload_cost_7d()
+    refresh_workload_cost_7d(ts.store)
 
 
 class TestServiceHealthCurrentContract(unittest.TestCase):

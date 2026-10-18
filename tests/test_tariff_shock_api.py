@@ -14,6 +14,11 @@ from tempfile import TemporaryDirectory
 from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
+from packages.domains.finance.pipelines.transformation_transactions import refresh_monthly_cashflow
+from packages.domains.utilities.pipelines.transformation_utilities import (
+    refresh_utility_cost_summary,
+    refresh_utility_cost_trend_monthly,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository
@@ -121,13 +126,13 @@ def _build_client(
                 },
             ]
         ts.load_transactions(transactions, run_id="run-api-tariff-001")
-        ts.refresh_monthly_cashflow()
+        refresh_monthly_cashflow(ts.store)
 
     if load_utility_data:
         ts.load_bills(UTILITY_BILL_ROWS, run_id="run-api-bill-001")
         ts.load_utility_usage(UTILITY_USAGE_ROWS, run_id="run-api-usage-001")
-        ts.refresh_utility_cost_summary()
-        ts.refresh_utility_cost_trend_monthly()
+        refresh_utility_cost_summary(ts.store)
+        refresh_utility_cost_trend_monthly(ts.store)
 
     app = create_app(service, transformation_service=ts)
     return TestClient(app), ts

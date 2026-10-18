@@ -21,9 +21,6 @@ from packages.domains.homelab.pipelines.transformation_home_automation import (
     load_automation_events,
     load_home_automation_state_rows,
     load_sensor_readings,
-    refresh_automation_reliability,
-    refresh_climate_summary,
-    refresh_device_battery,
 )
 from packages.pipelines.transformation_facets.base import TransformationFacetBase
 
@@ -84,15 +81,6 @@ class HomeAutomationTransformationMixin(TransformationFacetBase):
 
     def get_current_entities(self) -> list[dict[str, Any]]:
         return get_current_entities(self._store)
-
-    def refresh_climate_summary(self) -> int:
-        return refresh_climate_summary(self._store)
-
-    def refresh_automation_reliability(self) -> int:
-        return refresh_automation_reliability(self._store)
-
-    def refresh_device_battery(self) -> int:
-        return refresh_device_battery(self._store)
 
     def get_climate_summary(
         self,

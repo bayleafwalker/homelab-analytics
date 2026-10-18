@@ -14,6 +14,16 @@ from datetime import date, timedelta
 
 import pytest
 
+from packages.domains.finance.pipelines.transformation_contract_prices import (
+    refresh_contract_price_current,
+)
+from packages.domains.utilities.pipelines.transformation_utilities import (
+    refresh_contract_renewal_watchlist,
+    refresh_contract_review_candidates,
+    refresh_usage_vs_price_summary,
+    refresh_utility_cost_summary,
+    refresh_utility_cost_trend_monthly,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -145,9 +155,9 @@ def svc() -> TransformationService:
     s = TransformationService(store)
     s.load_bills(BILL_ROWS, run_id="run-bill-001")
     s.load_utility_usage(USAGE_ROWS, run_id="run-usage-001")
-    s.refresh_utility_cost_summary()
+    refresh_utility_cost_summary(s.store)
     s.load_contract_prices(CONTRACT_PRICE_ROWS, run_id="run-cp-001")
-    s.refresh_contract_price_current()
+    refresh_contract_price_current(s.store)
     return s
 
 
@@ -158,23 +168,23 @@ def svc() -> TransformationService:
 
 class TestUtilityCostTrendMonthly:
     def test_refresh_returns_row_count(self, svc: TransformationService) -> None:
-        count = svc.refresh_utility_cost_trend_monthly()
+        count = refresh_utility_cost_trend_monthly(svc.store)
         assert count > 0
 
     def test_rows_grouped_by_utility_type(self, svc: TransformationService) -> None:
-        svc.refresh_utility_cost_trend_monthly()
+        refresh_utility_cost_trend_monthly(svc.store)
         rows = svc.get_utility_cost_trend_monthly()
         types = {r["utility_type"] for r in rows}
         assert "electricity" in types
 
     def test_type_filter(self, svc: TransformationService) -> None:
-        svc.refresh_utility_cost_trend_monthly()
+        refresh_utility_cost_trend_monthly(svc.store)
         elec = svc.get_utility_cost_trend_monthly(utility_type="electricity")
         assert all(r["utility_type"] == "electricity" for r in elec)
 
     def test_idempotent(self, svc: TransformationService) -> None:
-        count1 = svc.refresh_utility_cost_trend_monthly()
-        count2 = svc.refresh_utility_cost_trend_monthly()
+        count1 = refresh_utility_cost_trend_monthly(svc.store)
+        count2 = refresh_utility_cost_trend_monthly(svc.store)
         assert count1 == count2
 
 
@@ -185,23 +195,23 @@ class TestUtilityCostTrendMonthly:
 
 class TestUsageVsPriceSummary:
     def test_refresh_returns_row_count(self, svc: TransformationService) -> None:
-        svc.refresh_utility_cost_trend_monthly()
-        count = svc.refresh_usage_vs_price_summary()
+        refresh_utility_cost_trend_monthly(svc.store)
+        count = refresh_usage_vs_price_summary(svc.store)
         # Need at least 2 months of data to compute changes
         # We have 2 months for electricity, so should get >= 1 row
         assert count >= 1
 
     def test_dominant_driver_populated(self, svc: TransformationService) -> None:
-        svc.refresh_utility_cost_trend_monthly()
-        svc.refresh_usage_vs_price_summary()
+        refresh_utility_cost_trend_monthly(svc.store)
+        refresh_usage_vs_price_summary(svc.store)
         rows = svc.get_usage_vs_price_summary()
         for row in rows:
             assert row["dominant_driver"] in ("price", "usage", "unknown")
 
     def test_idempotent(self, svc: TransformationService) -> None:
-        svc.refresh_utility_cost_trend_monthly()
-        count1 = svc.refresh_usage_vs_price_summary()
-        count2 = svc.refresh_usage_vs_price_summary()
+        refresh_utility_cost_trend_monthly(svc.store)
+        count1 = refresh_usage_vs_price_summary(svc.store)
+        count2 = refresh_usage_vs_price_summary(svc.store)
         assert count1 == count2
 
 
@@ -212,19 +222,19 @@ class TestUsageVsPriceSummary:
 
 class TestContractReviewCandidates:
     def test_refresh_returns_row_count(self, svc: TransformationService) -> None:
-        count = svc.refresh_contract_review_candidates()
+        count = refresh_contract_review_candidates(svc.store)
         # With 2 electricity contracts (one above avg price), should flag at least 1
         assert count >= 1
 
     def test_reason_populated(self, svc: TransformationService) -> None:
-        svc.refresh_contract_review_candidates()
+        refresh_contract_review_candidates(svc.store)
         rows = svc.get_contract_review_candidates()
         for row in rows:
             assert row["reason"], f"Empty reason for contract {row['contract_id']}"
 
     def test_idempotent(self, svc: TransformationService) -> None:
-        count1 = svc.refresh_contract_review_candidates()
-        count2 = svc.refresh_contract_review_candidates()
+        count1 = refresh_contract_review_candidates(svc.store)
+        count2 = refresh_contract_review_candidates(svc.store)
         assert count1 == count2
 
 
@@ -236,17 +246,17 @@ class TestContractReviewCandidates:
 class TestContractRenewalWatchlist:
     def test_refresh_returns_row_count(self, svc: TransformationService) -> None:
         # Gas Fixed has valid_to in 30 days (within 90-day default lookahead)
-        count = svc.refresh_contract_renewal_watchlist()
+        count = refresh_contract_renewal_watchlist(svc.store)
         assert count >= 1
 
     def test_days_until_renewal_populated(self, svc: TransformationService) -> None:
-        svc.refresh_contract_renewal_watchlist()
+        refresh_contract_renewal_watchlist(svc.store)
         rows = svc.get_contract_renewal_watchlist()
         for row in rows:
             assert row["days_until_renewal"] is not None
             assert row["days_until_renewal"] >= 0
 
     def test_idempotent(self, svc: TransformationService) -> None:
-        count1 = svc.refresh_contract_renewal_watchlist()
-        count2 = svc.refresh_contract_renewal_watchlist()
+        count1 = refresh_contract_renewal_watchlist(svc.store)
+        count2 = refresh_contract_renewal_watchlist(svc.store)
         assert count1 == count2

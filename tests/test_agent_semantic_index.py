@@ -15,6 +15,7 @@ from tempfile import TemporaryDirectory
 from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
+from packages.domains.finance.pipelines.transformation_transactions import refresh_monthly_cashflow
 from packages.pipelines.transformation_service import TransformationService
 from packages.platform.agent_semantic_index import (
     AGENT_SEMANTIC_INDEX_SCHEMA_VERSION,
@@ -210,7 +211,7 @@ def _build_client(tmp: str, *, load_cashflow: bool = False) -> TestClient:
             ],
             run_id="run-agent-index-001",
         )
-        ts.refresh_monthly_cashflow()
+        refresh_monthly_cashflow(ts.store)
     app = create_app(service, transformation_service=ts)
     return TestClient(app)
 

@@ -4,6 +4,10 @@ import unittest
 from datetime import date
 from decimal import Decimal
 
+from packages.domains.finance.pipelines.transformation_assets import (
+    refresh_asset_value,
+    refresh_depreciation_schedule,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -136,7 +140,7 @@ class AssetDomainTests(unittest.TestCase):
             run_id="asset-run-011",
         )
 
-        count = service.refresh_asset_value()
+        count = refresh_asset_value(service.store)
 
         self.assertEqual(3, count)
         rows = {row["asset_name"]: row for row in service.get_asset_value()}
@@ -195,7 +199,7 @@ class AssetDomainTests(unittest.TestCase):
         )
         self.assertNotEqual("manual-asset", asset_id)
 
-        count = service.refresh_depreciation_schedule()
+        count = refresh_depreciation_schedule(service.store)
 
         rows = service.get_depreciation_schedule()
         self.assertEqual(count, len(rows))

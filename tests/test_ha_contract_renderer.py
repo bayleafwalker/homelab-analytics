@@ -7,6 +7,12 @@ from packages.domains.homelab.pipelines.ha_contract_renderer import (
     HaContractRenderer,
     build_ha_publication_entities,
 )
+from packages.domains.homelab.pipelines.transformation_homelab import (
+    refresh_backup_freshness,
+    refresh_service_health_current,
+    refresh_storage_risk,
+    refresh_workload_cost_7d,
+)
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
@@ -21,13 +27,13 @@ from tests.test_homelab_domain import (
 def _reporting_service() -> ReportingService:
     transformation_service = TransformationService(DuckDBStore.memory())
     transformation_service.load_service_health(_service_rows(), run_id="run-hl-services")
-    transformation_service.refresh_service_health_current()
+    refresh_service_health_current(transformation_service.store)
     transformation_service.load_backup_runs(_backup_rows(), run_id="run-hl-backups")
-    transformation_service.refresh_backup_freshness()
+    refresh_backup_freshness(transformation_service.store)
     transformation_service.load_storage_sensors(_storage_rows(), run_id="run-hl-storage")
-    transformation_service.refresh_storage_risk()
+    refresh_storage_risk(transformation_service.store)
     transformation_service.load_workload_sensors(_workload_rows(), run_id="run-hl-workloads")
-    transformation_service.refresh_workload_cost_7d()
+    refresh_workload_cost_7d(transformation_service.store)
     return ReportingService(transformation_service)
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from packages.domains.finance.pipelines.transformation_balances import refresh_balance_snapshot
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -87,7 +88,7 @@ def test_refresh_balance_snapshot_inserts_account_and_loan_rows() -> None:
     svc.load_transactions(TRANSACTION_ROWS, run_id="transactions-run")
     svc.load_loan_repayments(LOAN_ROWS, run_id="loan-run")
 
-    count = svc.refresh_balance_snapshot()
+    count = refresh_balance_snapshot(svc.store)
 
     assert count == 2
     rows = svc.get_balance_snapshot()
@@ -108,8 +109,8 @@ def test_refresh_balance_snapshot_is_idempotent() -> None:
     svc.load_transactions(TRANSACTION_ROWS)
     svc.load_loan_repayments(LOAN_ROWS)
 
-    svc.refresh_balance_snapshot()
-    svc.refresh_balance_snapshot()
+    refresh_balance_snapshot(svc.store)
+    refresh_balance_snapshot(svc.store)
 
     rows = svc.get_balance_snapshot()
     assert len(rows) == 2

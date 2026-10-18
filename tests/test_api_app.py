@@ -14,6 +14,10 @@ from packages.domains.finance.pipelines.account_transaction_service import Accou
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.domains.finance.pipelines.transaction_models import DIM_ACCOUNT
+from packages.domains.finance.pipelines.transformation_transactions import (
+    refresh_monthly_cashflow,
+    refresh_monthly_cashflow_by_counterparty,
+)
 from packages.domains.homelab.pipelines.homelab_models import DIM_SERVICE, DIM_WORKLOAD
 from packages.domains.homelab.pipelines.infrastructure_models import DIM_DEVICE, DIM_NODE
 from packages.pipelines.csv_validation import ColumnType
@@ -2250,7 +2254,7 @@ class ApiAppTests(unittest.TestCase):
                     },
                 ]
             )
-            transformation_service.refresh_monthly_cashflow()
+            refresh_monthly_cashflow(transformation_service.store)
 
             client = TestClient(
                 create_app(
@@ -2323,7 +2327,7 @@ class ApiAppTests(unittest.TestCase):
                 ],
                 run_id="run-001",
             )
-            transformation_service.refresh_monthly_cashflow_by_counterparty()
+            refresh_monthly_cashflow_by_counterparty(transformation_service.store)
 
             client = TestClient(
                 create_app(

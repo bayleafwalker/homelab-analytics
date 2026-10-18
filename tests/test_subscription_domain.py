@@ -19,6 +19,10 @@ from packages.domains.finance.pipelines.subscriptions import (
     CanonicalSubscription,
     load_canonical_subscriptions_bytes,
 )
+from packages.domains.finance.pipelines.transformation_subscriptions import (
+    refresh_subscription_changes,
+    refresh_subscription_summary,
+)
 from packages.pipelines.promotion import promote_subscription_run
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
@@ -174,7 +178,7 @@ class SubscriptionTransformationTests(unittest.TestCase):
     def test_refresh_subscription_summary_active_inactive_status(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_subscriptions(self._make_rows(), run_id="run-001")
-        count = svc.refresh_subscription_summary()
+        count = refresh_subscription_summary(svc.store)
         self.assertEqual(3, count)
 
         rows = svc.get_subscription_summary()
@@ -190,7 +194,7 @@ class SubscriptionTransformationTests(unittest.TestCase):
         svc = TransformationService(DuckDBStore.memory())
         svc.load_subscriptions(self._make_rows(), run_id="run-001")
 
-        count = svc.refresh_subscription_changes()
+        count = refresh_subscription_changes(svc.store)
 
         # three activations + one cancellation (Adobe CC has an end date)
         self.assertEqual(4, count)
@@ -220,7 +224,7 @@ class SubscriptionTransformationTests(unittest.TestCase):
     def test_refresh_subscription_summary_monthly_equivalent(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_subscriptions(self._make_rows(), run_id="run-001")
-        svc.refresh_subscription_summary()
+        refresh_subscription_summary(svc.store)
 
         rows = svc.get_subscription_summary()
         github = next(r for r in rows if r["contract_name"] == "GitHub Pro")
@@ -233,7 +237,7 @@ class SubscriptionTransformationTests(unittest.TestCase):
     def test_subscription_summary_status_filter(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_subscriptions(self._make_rows(), run_id="run-001")
-        svc.refresh_subscription_summary()
+        refresh_subscription_summary(svc.store)
 
         active = svc.get_subscription_summary(status="active")
         self.assertEqual(2, len(active))
@@ -244,7 +248,7 @@ class SubscriptionTransformationTests(unittest.TestCase):
     def test_subscription_summary_currency_filter(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_subscriptions(self._make_rows(), run_id="run-001")
-        svc.refresh_subscription_summary()
+        refresh_subscription_summary(svc.store)
 
         eur = svc.get_subscription_summary(currency="EUR")
         self.assertEqual(2, len(eur))

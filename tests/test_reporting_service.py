@@ -3,6 +3,13 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
+from packages.domains.finance.pipelines.transformation_loans import refresh_loan_schedule_projected
+from packages.domains.finance.pipelines.transformation_transactions import refresh_monthly_cashflow
+from packages.domains.overview.pipelines.transformation_overview import refresh_household_overview
+from packages.domains.utilities.pipelines.transformation_utilities import (
+    refresh_utility_cost_summary,
+    refresh_utility_cost_trend_monthly,
+)
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.shared.extensions import ExtensionPublication, ExtensionRegistry, LayerExtension
@@ -34,8 +41,8 @@ def _seed_metric_reporting(ts: TransformationService) -> None:
         ],
         run_id="txn-001",
     )
-    ts.refresh_monthly_cashflow()
-    ts.refresh_household_overview()
+    refresh_monthly_cashflow(ts.store)
+    refresh_household_overview(ts.store)
 
     ts.load_utility_usage(
         [
@@ -72,9 +79,9 @@ def _seed_metric_reporting(ts: TransformationService) -> None:
         ],
         run_id="bill-001",
     )
-    ts.refresh_utility_cost_summary()
-    ts.refresh_utility_cost_trend_monthly()
-    ts.refresh_household_overview()
+    refresh_utility_cost_summary(ts.store)
+    refresh_utility_cost_trend_monthly(ts.store)
+    refresh_household_overview(ts.store)
 
     ts.load_loan_repayments(
         [
@@ -99,7 +106,7 @@ def _seed_metric_reporting(ts: TransformationService) -> None:
         ],
         run_id="loan-001",
     )
-    ts.refresh_loan_schedule_projected()
+    refresh_loan_schedule_projected(ts.store)
 
 
 def test_reporting_service_falls_back_to_transformation_service_for_marts() -> None:
@@ -125,7 +132,7 @@ def test_reporting_service_falls_back_to_transformation_service_for_marts() -> N
         ],
         run_id="run-001",
     )
-    transformation_service.refresh_monthly_cashflow()
+    refresh_monthly_cashflow(transformation_service.store)
 
     reporting_service = ReportingService(transformation_service)
 
@@ -272,7 +279,7 @@ def test_reporting_service_supports_extension_publication_relations() -> None:
         ],
         run_id="run-001",
     )
-    transformation_service.refresh_monthly_cashflow()
+    refresh_monthly_cashflow(transformation_service.store)
     registry = ExtensionRegistry()
     registry.register(
         LayerExtension(

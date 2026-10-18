@@ -24,6 +24,9 @@ from packages.domains.finance.pipelines.account_transaction_service import (
     AccountTransactionService,
 )
 from packages.domains.homelab.pipelines.ha_models import FACT_HA_STATE_CHANGE_TABLE
+from packages.domains.utilities.pipelines.publication_refresh import (
+    refresh_battery_plan_publication,
+)
 from packages.pipelines.household_decisions import snapshot_evidence_components
 from packages.storage.decision_ledger import DecisionRecordCreate
 from packages.storage.ingestion_config import IngestionConfigRepository
@@ -220,7 +223,7 @@ def test_relanded_ha_history_supersedes_decision_through_the_api() -> None:
     with TemporaryDirectory() as temp_dir:
         store, assessed_at = _store_with_history()
         transformation = _service(store, assessed_at=assessed_at, resolution=_profile())
-        transformation.refresh_battery_plan_outcome()
+        refresh_battery_plan_publication(transformation)
         [row] = transformation.get_battery_plan_outcome()
         app = create_app(
             AccountTransactionService(
@@ -252,7 +255,7 @@ def test_relanded_ha_history_supersedes_decision_through_the_api() -> None:
             f"UPDATE {FACT_HA_STATE_CHANGE_TABLE} SET run_id = 'corrected-measurement-run'"
             " WHERE run_id = 'synthetic-measurement-run'"
         )
-        transformation.refresh_battery_plan_outcome()
+        refresh_battery_plan_publication(transformation)
         traced = client.post("/control/decisions/evidence-trace", json={"decision_key": KEY})
         assert traced.status_code == 200, traced.text
         [result] = traced.json()["trace"]["results"]

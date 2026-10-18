@@ -4,6 +4,11 @@ import unittest
 from datetime import date
 from decimal import Decimal
 
+from packages.domains.homelab.pipelines.transformation_home_automation import (
+    refresh_automation_reliability,
+    refresh_climate_summary,
+    refresh_device_battery,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -151,7 +156,7 @@ class HomeAutomationDomainTests(unittest.TestCase):
             source_system="home_assistant",
         )
 
-        count = service.refresh_climate_summary()
+        count = refresh_climate_summary(service.store)
 
         self.assertEqual(2, count)
         rows = service.get_climate_summary()
@@ -213,7 +218,7 @@ class HomeAutomationDomainTests(unittest.TestCase):
             source_system="home_assistant",
         )
 
-        count = service.refresh_automation_reliability()
+        count = refresh_automation_reliability(service.store)
 
         self.assertEqual(2, count)
         morning_rows = service.get_automation_reliability(
@@ -269,7 +274,7 @@ class HomeAutomationDomainTests(unittest.TestCase):
             source_system="home_assistant",
         )
 
-        count = service.refresh_device_battery()
+        count = refresh_device_battery(service.store)
 
         self.assertEqual(2, count)
         rows = {row["entity_id"]: row for row in service.get_device_battery()}

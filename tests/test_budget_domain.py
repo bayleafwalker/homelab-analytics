@@ -19,6 +19,11 @@ from packages.domains.finance.pipelines.budgets import (
     CanonicalBudget,
     load_canonical_budgets_bytes,
 )
+from packages.domains.finance.pipelines.transformation_budgets import (
+    refresh_budget_envelope_drift,
+    refresh_budget_progress_current,
+    refresh_budget_variance,
+)
 from packages.pipelines.household_promotion_handlers import promote_budget_run
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
@@ -180,7 +185,7 @@ class BudgetTransformationTests(unittest.TestCase):
         # actual_amount defaults to 0, status = under_budget
         svc = TransformationService(DuckDBStore.memory())
         svc.load_budget_targets(self._make_rows(), run_id="run-001")
-        count = svc.refresh_budget_variance()
+        count = refresh_budget_variance(svc.store)
         self.assertEqual(3, count)
 
         rows = svc.get_budget_variance()
@@ -192,7 +197,7 @@ class BudgetTransformationTests(unittest.TestCase):
     def test_get_budget_variance_filter_by_category(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_budget_targets(self._make_rows(), run_id="run-001")
-        svc.refresh_budget_variance()
+        refresh_budget_variance(svc.store)
 
         rows = svc.get_budget_variance(category_id="groceries")
         self.assertEqual(1, len(rows))
@@ -201,7 +206,7 @@ class BudgetTransformationTests(unittest.TestCase):
     def test_get_budget_variance_filter_by_period(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_budget_targets(self._make_rows(), run_id="run-001")
-        svc.refresh_budget_variance()
+        refresh_budget_variance(svc.store)
 
         rows = svc.get_budget_variance(period_label="2026-01")
         self.assertEqual(3, len(rows))
@@ -212,17 +217,17 @@ class BudgetTransformationTests(unittest.TestCase):
     def test_refresh_budget_progress_current(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_budget_targets(self._make_rows(), run_id="run-001")
-        svc.refresh_budget_variance()
+        refresh_budget_variance(svc.store)
         # progress_current only pulls current month; test doesn't assert count
         # since test date may not match 2026-01
-        count = svc.refresh_budget_progress_current()
+        count = refresh_budget_progress_current(svc.store)
         self.assertIsInstance(count, int)
 
     def test_refresh_budget_envelope_drift(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_budget_targets(self._make_rows(), run_id="run-001")
-        svc.refresh_budget_variance()
-        count = svc.refresh_budget_envelope_drift()
+        refresh_budget_variance(svc.store)
+        count = refresh_budget_envelope_drift(svc.store)
         self.assertEqual(3, count)
 
         rows = svc.get_budget_envelope_drift(category_id="groceries", period_label="2026-01")
@@ -237,7 +242,7 @@ class BudgetTransformationTests(unittest.TestCase):
     def test_budget_variance_variance_calculation(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_budget_targets(self._make_rows(), run_id="run-001")
-        svc.refresh_budget_variance()
+        refresh_budget_variance(svc.store)
 
         rows = svc.get_budget_variance(category_id="groceries", period_label="2026-01")
         self.assertEqual(1, len(rows))

@@ -9,6 +9,32 @@ from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.transformation_budgets import (
+    refresh_budget_envelope_drift,
+    refresh_budget_variance,
+)
+from packages.domains.finance.pipelines.transformation_subscriptions import (
+    refresh_subscription_summary,
+    refresh_upcoming_fixed_costs_30d,
+)
+from packages.domains.finance.pipelines.transformation_transactions import (
+    refresh_account_balance_trend,
+    refresh_monthly_cashflow,
+    refresh_recent_large_transactions,
+    refresh_spend_by_category_monthly,
+    refresh_transaction_anomalies_current,
+)
+from packages.domains.homelab.pipelines.transformation_homelab import (
+    refresh_service_health_current,
+    refresh_workload_cost_7d,
+)
+from packages.domains.overview.pipelines.transformation_overview import (
+    refresh_current_operating_baseline,
+    refresh_homelab_roi,
+    refresh_household_overview,
+    refresh_open_attention_items,
+    refresh_recent_significant_changes,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository
@@ -91,11 +117,11 @@ class NewReportingEndpointTests(unittest.TestCase):
             ],
             run_id="run-001",
         )
-        ts.refresh_monthly_cashflow()
-        ts.refresh_spend_by_category_monthly()
-        ts.refresh_recent_large_transactions()
-        ts.refresh_account_balance_trend()
-        ts.refresh_transaction_anomalies_current()
+        refresh_monthly_cashflow(ts.store)
+        refresh_spend_by_category_monthly(ts.store)
+        refresh_recent_large_transactions(ts.store)
+        refresh_account_balance_trend(ts.store)
+        refresh_transaction_anomalies_current(ts.store)
 
         # Load subscription data
         ts.load_subscriptions(
@@ -114,8 +140,8 @@ class NewReportingEndpointTests(unittest.TestCase):
             ],
             run_id="run-002",
         )
-        ts.refresh_subscription_summary()
-        ts.refresh_upcoming_fixed_costs_30d()
+        refresh_subscription_summary(ts.store)
+        refresh_upcoming_fixed_costs_30d(ts.store)
         ts.load_budget_targets(
             [
                 {
@@ -130,21 +156,21 @@ class NewReportingEndpointTests(unittest.TestCase):
             ],
             run_id="run-003",
         )
-        ts.refresh_budget_variance()
-        ts.refresh_budget_envelope_drift()
+        refresh_budget_variance(ts.store)
+        refresh_budget_envelope_drift(ts.store)
 
         # Load homelab data for the operator value-loop surface.
         ts.load_service_health(_service_rows(), run_id="run-hl-services")
-        ts.refresh_service_health_current()
+        refresh_service_health_current(ts.store)
         ts.load_workload_sensors(_workload_rows(), run_id="run-hl-workloads")
-        ts.refresh_workload_cost_7d()
-        ts.refresh_homelab_roi()
+        refresh_workload_cost_7d(ts.store)
+        refresh_homelab_roi(ts.store)
 
         # Refresh overview
-        ts.refresh_household_overview()
-        ts.refresh_open_attention_items()
-        ts.refresh_recent_significant_changes()
-        ts.refresh_current_operating_baseline()
+        refresh_household_overview(ts.store)
+        refresh_open_attention_items(ts.store)
+        refresh_recent_significant_changes(ts.store)
+        refresh_current_operating_baseline(ts.store)
 
         app = create_app(service, transformation_service=ts)
         return TestClient(app)

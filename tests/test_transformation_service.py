@@ -4,6 +4,12 @@ from __future__ import annotations
 
 import pytest
 
+from packages.domains.finance.pipelines.transformation_transactions import (
+    refresh_monthly_cashflow,
+    refresh_monthly_cashflow_by_counterparty,
+    refresh_recent_large_transactions,
+    refresh_spend_by_category_monthly,
+)
 from packages.pipelines.transformation_refresh_registry import (
     PublicationRefreshRegistry,
 )
@@ -138,7 +144,7 @@ def test_load_domain_rows_rejects_unknown_domain(svc: TransformationService) -> 
 
 def test_refresh_monthly_cashflow(svc: TransformationService) -> None:
     svc.load_transactions(LANDING_ROWS)
-    count = svc.refresh_monthly_cashflow()
+    count = refresh_monthly_cashflow(svc.store)
     assert count == 2  # two months
 
     mart = svc.get_monthly_cashflow()
@@ -160,14 +166,14 @@ def test_refresh_monthly_cashflow(svc: TransformationService) -> None:
 
 def test_refresh_monthly_cashflow_is_idempotent(svc: TransformationService) -> None:
     svc.load_transactions(LANDING_ROWS)
-    svc.refresh_monthly_cashflow()
-    svc.refresh_monthly_cashflow()
+    refresh_monthly_cashflow(svc.store)
+    refresh_monthly_cashflow(svc.store)
     mart = svc.get_monthly_cashflow()
     assert len(mart) == 2  # still 2, not 4
 
 
 def test_refresh_monthly_cashflow_empty(svc: TransformationService) -> None:
-    count = svc.refresh_monthly_cashflow()
+    count = refresh_monthly_cashflow(svc.store)
     assert count == 0
     assert svc.get_monthly_cashflow() == []
 
@@ -175,11 +181,11 @@ def test_refresh_monthly_cashflow_empty(svc: TransformationService) -> None:
 def test_mart_includes_additional_data_after_second_load(svc: TransformationService) -> None:
     """Loading more transactions and refreshing updates the mart."""
     svc.load_transactions(LANDING_ROWS[:2])
-    svc.refresh_monthly_cashflow()
+    refresh_monthly_cashflow(svc.store)
     assert len(svc.get_monthly_cashflow()) == 1
 
     svc.load_transactions(LANDING_ROWS[2:])
-    svc.refresh_monthly_cashflow()
+    refresh_monthly_cashflow(svc.store)
     assert len(svc.get_monthly_cashflow()) == 2
 
 
@@ -252,7 +258,7 @@ def test_load_transactions_atomic_rollback_on_failure(
 
 def test_get_monthly_cashflow_date_range_filters(svc: TransformationService) -> None:
     svc.load_transactions(LANDING_ROWS)
-    svc.refresh_monthly_cashflow()
+    refresh_monthly_cashflow(svc.store)
 
     all_months = svc.get_monthly_cashflow()
     assert len(all_months) == 2
@@ -284,7 +290,7 @@ def test_get_monthly_cashflow_date_range_filters(svc: TransformationService) -> 
 
 def test_refresh_monthly_cashflow_by_counterparty(svc: TransformationService) -> None:
     svc.load_transactions(LANDING_ROWS)
-    count = svc.refresh_monthly_cashflow_by_counterparty()
+    count = refresh_monthly_cashflow_by_counterparty(svc.store)
     # 2 counterparties × 2 months = 4 rows
     assert count == 4
 
@@ -297,7 +303,7 @@ def test_refresh_monthly_cashflow_by_counterparty(svc: TransformationService) ->
 
 def test_counterparty_breakdown_income_expense_values(svc: TransformationService) -> None:
     svc.load_transactions(LANDING_ROWS)
-    svc.refresh_monthly_cashflow_by_counterparty()
+    refresh_monthly_cashflow_by_counterparty(svc.store)
 
     rows = svc.get_monthly_cashflow_by_counterparty()
     by_key = {(r["booking_month"], r["counterparty_name"]): r for r in rows}
@@ -313,7 +319,7 @@ def test_counterparty_breakdown_income_expense_values(svc: TransformationService
 
 def test_counterparty_breakdown_filters(svc: TransformationService) -> None:
     svc.load_transactions(LANDING_ROWS)
-    svc.refresh_monthly_cashflow_by_counterparty()
+    refresh_monthly_cashflow_by_counterparty(svc.store)
 
     only_employer = svc.get_monthly_cashflow_by_counterparty(counterparty_name="Employer")
     assert all(r["counterparty_name"] == "Employer" for r in only_employer)
@@ -328,8 +334,8 @@ def test_counterparty_breakdown_filters(svc: TransformationService) -> None:
 
 def test_counterparty_breakdown_is_idempotent(svc: TransformationService) -> None:
     svc.load_transactions(LANDING_ROWS)
-    svc.refresh_monthly_cashflow_by_counterparty()
-    svc.refresh_monthly_cashflow_by_counterparty()
+    refresh_monthly_cashflow_by_counterparty(svc.store)
+    refresh_monthly_cashflow_by_counterparty(svc.store)
     assert len(svc.get_monthly_cashflow_by_counterparty()) == 4  # not 8
 
 
@@ -390,7 +396,7 @@ def test_failed_load_does_not_write_audit_record(
 
 def test_refresh_spend_by_category_monthly(svc: TransformationService) -> None:
     svc.load_transactions(LANDING_ROWS)
-    count = svc.refresh_spend_by_category_monthly()
+    count = refresh_spend_by_category_monthly(svc.store)
     # Electric Utility appears in 2 months → 2 rows (only expenses)
     assert count == 2
 
@@ -403,7 +409,7 @@ def test_refresh_spend_by_category_monthly(svc: TransformationService) -> None:
 
 def test_spend_by_category_monthly_amounts(svc: TransformationService) -> None:
     svc.load_transactions(LANDING_ROWS)
-    svc.refresh_spend_by_category_monthly()
+    refresh_spend_by_category_monthly(svc.store)
 
     rows = svc.get_spend_by_category_monthly()
     by_month = {r["booking_month"]: r for r in rows}
@@ -417,7 +423,7 @@ def test_spend_by_category_monthly_amounts(svc: TransformationService) -> None:
 def test_spend_by_category_monthly_category_is_nullable(svc: TransformationService) -> None:
     """Category is NULL until counterparty dimension is enriched."""
     svc.load_transactions(LANDING_ROWS)
-    svc.refresh_spend_by_category_monthly()
+    refresh_spend_by_category_monthly(svc.store)
 
     rows = svc.get_spend_by_category_monthly()
     assert all(r["category"] is None for r in rows)
@@ -425,7 +431,7 @@ def test_spend_by_category_monthly_category_is_nullable(svc: TransformationServi
 
 def test_spend_by_category_monthly_filters(svc: TransformationService) -> None:
     svc.load_transactions(LANDING_ROWS)
-    svc.refresh_spend_by_category_monthly()
+    refresh_spend_by_category_monthly(svc.store)
 
     jan_only = svc.get_spend_by_category_monthly(from_month="2026-01", to_month="2026-01")
     assert len(jan_only) == 1
@@ -440,8 +446,8 @@ def test_spend_by_category_monthly_filters(svc: TransformationService) -> None:
 
 def test_spend_by_category_monthly_is_idempotent(svc: TransformationService) -> None:
     svc.load_transactions(LANDING_ROWS)
-    svc.refresh_spend_by_category_monthly()
-    svc.refresh_spend_by_category_monthly()
+    refresh_spend_by_category_monthly(svc.store)
+    refresh_spend_by_category_monthly(svc.store)
     assert len(svc.get_spend_by_category_monthly()) == 2
 
 
@@ -452,7 +458,7 @@ def test_spend_by_category_monthly_is_idempotent(svc: TransformationService) -> 
 
 def test_refresh_recent_large_transactions(svc: TransformationService) -> None:
     svc.load_transactions(LANDING_ROWS)
-    count = svc.refresh_recent_large_transactions()
+    count = refresh_recent_large_transactions(svc.store)
     # Electric Utility amounts (84.15, 86.50) are below default threshold of 100
     # Employer amounts (2450.00) are above → 2 rows
     assert count == 2
@@ -466,8 +472,8 @@ def test_refresh_recent_large_transactions(svc: TransformationService) -> None:
 
 def test_recent_large_transactions_is_idempotent(svc: TransformationService) -> None:
     svc.load_transactions(LANDING_ROWS)
-    svc.refresh_recent_large_transactions()
-    svc.refresh_recent_large_transactions()
+    refresh_recent_large_transactions(svc.store)
+    refresh_recent_large_transactions(svc.store)
     assert len(svc.get_recent_large_transactions()) == 2
 
 

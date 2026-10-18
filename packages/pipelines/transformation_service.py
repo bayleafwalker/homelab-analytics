@@ -339,6 +339,16 @@ class TransformationService(
     def store(self) -> DuckDBStore:
         return self._store
 
+    @property
+    def clock(self) -> Callable[[], datetime]:
+        """Injected clock; refresh handlers stamp assessments with it."""
+        return self._clock
+
+    @property
+    def battery_plan_profile_loader(self) -> Callable[[], BatteryPlanProfileResolution]:
+        """Injected battery-plan profile source for the utilities refresh handler."""
+        return self._battery_plan_profile_loader
+
     def get_household_members(self) -> list[dict[str, Any]]:
         return get_household_members(self._store)
 

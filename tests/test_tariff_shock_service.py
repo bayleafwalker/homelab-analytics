@@ -10,9 +10,14 @@ from __future__ import annotations
 import unittest
 from decimal import Decimal
 
+from packages.domains.finance.pipelines.transformation_transactions import refresh_monthly_cashflow
 from packages.domains.overview.pipelines.scenario_service_overview import (
     create_tariff_shock_scenario,
     get_tariff_shock_comparison,
+)
+from packages.domains.utilities.pipelines.transformation_utilities import (
+    refresh_utility_cost_summary,
+    refresh_utility_cost_trend_monthly,
 )
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
@@ -104,12 +109,12 @@ def _load_fixture_data(svc: TransformationService) -> None:
             },
         ]
     svc.load_transactions(transactions, run_id="run-tariff-001")
-    svc.refresh_monthly_cashflow()
+    refresh_monthly_cashflow(svc.store)
 
     svc.load_bills(UTILITY_BILL_ROWS, run_id="run-bill-001")
     svc.load_utility_usage(UTILITY_USAGE_ROWS, run_id="run-usage-001")
-    svc.refresh_utility_cost_summary()
-    svc.refresh_utility_cost_trend_monthly()
+    refresh_utility_cost_summary(svc.store)
+    refresh_utility_cost_trend_monthly(svc.store)
 
 
 class TariffShockTests(unittest.TestCase):
@@ -221,8 +226,8 @@ class TariffShockProjectionTests(unittest.TestCase):
             ],
             run_id="run-usage-002",
         )
-        self.svc.refresh_utility_cost_summary()
-        self.svc.refresh_utility_cost_trend_monthly()
+        refresh_utility_cost_summary(self.svc.store)
+        refresh_utility_cost_trend_monthly(self.svc.store)
 
         comparison = get_tariff_shock_comparison(self.store, result.scenario_id)
         self.assertTrue(comparison.is_stale)
@@ -248,7 +253,7 @@ class TariffShockValidationTests(unittest.TestCase):
               "currency": "EUR", "description": "salary"}],
             run_id="run-guard-001",
         )
-        svc.refresh_monthly_cashflow()
+        refresh_monthly_cashflow(svc.store)
         # Should raise ValueError for missing utility data, not for invalid utility_type
         with self.assertRaises(ValueError) as ctx:
             create_tariff_shock_scenario(
@@ -272,6 +277,6 @@ class TariffShockNoUtilityTests(unittest.TestCase):
             }
         ]
         svc.load_transactions(transactions, run_id="run-no-utility-001")
-        svc.refresh_monthly_cashflow()
+        refresh_monthly_cashflow(svc.store)
         with self.assertRaises(ValueError):
             create_tariff_shock_scenario(store, tariff_pct_delta=Decimal("0.10"))

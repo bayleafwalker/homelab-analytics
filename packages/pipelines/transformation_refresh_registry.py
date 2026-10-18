@@ -1,12 +1,32 @@
+"""Publication refresh dispatch.
+
+Domain packs own their refresh handlers (``packages/domains/*/pipelines/
+publication_refresh.py``); ``household_transformation_refresh`` composes them
+and ``TransformationService.refresh_publications`` dispatches through here.
+"""
+
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
+
+from packages.storage.duckdb_store import DuckDBStore
 
 if TYPE_CHECKING:
     from packages.pipelines.transformation_service import TransformationService
 
 
 PublicationRefreshHandler = Callable[["TransformationService"], int]
+
+
+@dataclass(frozen=True)
+class StoreRefreshHandler:
+    """Adapts a domain ``refresh(store) -> int`` function to a refresh handler."""
+
+    refresh: Callable[[DuckDBStore], int]
+
+    def __call__(self, transformation_service: "TransformationService") -> int:
+        return self.refresh(transformation_service.store)
 
 
 class PublicationRefreshRegistry:

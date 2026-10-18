@@ -12,6 +12,9 @@ from __future__ import annotations
 
 import pytest
 
+from packages.domains.finance.pipelines.transformation_transactions import (
+    refresh_spend_by_category_monthly,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -179,7 +182,7 @@ class TestCategoryInSpendReport:
         svc.add_category_rule(rule_id="r1", pattern="supermarket", category="groceries")
         svc.add_category_rule(rule_id="r2", pattern="gas station", category="transport")
         svc.load_transactions(LANDING_ROWS, run_id="run-001")
-        svc.refresh_spend_by_category_monthly()
+        refresh_spend_by_category_monthly(svc.store)
 
         rows = svc.get_spend_by_category_monthly()
         categories = {r["counterparty_name"]: r["category"] for r in rows}
@@ -191,7 +194,7 @@ class TestCategoryInSpendReport:
         svc.add_category_rule(rule_id="r1", pattern="supermarket", category="groceries")
         svc.add_category_rule(rule_id="r2", pattern="gas station", category="transport")
         svc.load_transactions(LANDING_ROWS, run_id="run-001")
-        svc.refresh_spend_by_category_monthly()
+        refresh_spend_by_category_monthly(svc.store)
 
         groceries = svc.get_spend_by_category_monthly(category="groceries")
         assert len(groceries) == 2

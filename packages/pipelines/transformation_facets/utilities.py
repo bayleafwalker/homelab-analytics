@@ -10,7 +10,6 @@ from packages.domains.utilities.pipelines.battery_plan_outcome import (
     BatteryPlanProfileResolution,
     get_battery_plan_outcome,
     get_battery_plan_outcome_values,
-    refresh_battery_plan_outcome,
 )
 from packages.domains.utilities.pipelines.transformation_utilities import (
     count_bills,
@@ -23,12 +22,6 @@ from packages.domains.utilities.pipelines.transformation_utilities import (
     get_utility_cost_trend_monthly,
     load_bills,
     load_utility_usage,
-    refresh_contract_renewal_watchlist,
-    refresh_contract_review_candidates,
-    refresh_energy_daily,
-    refresh_usage_vs_price_summary,
-    refresh_utility_cost_summary,
-    refresh_utility_cost_trend_monthly,
 )
 from packages.domains.utilities.pipelines.utility_models import (
     CURRENT_DIM_METER_VIEW,
@@ -90,27 +83,11 @@ class UtilityTransformationMixin(TransformationFacetBase):
             source_system=source_system,
         )
 
-    def refresh_utility_cost_summary(self) -> int:
-        return refresh_utility_cost_summary(self._store)
-
-    def refresh_utility_cost_trend_monthly(self) -> int:
-        return refresh_utility_cost_trend_monthly(self._store)
-
     def get_utility_cost_trend_monthly(
         self,
         utility_type: str | None = None,
     ) -> list[dict[str, Any]]:
         return get_utility_cost_trend_monthly(self._store, utility_type=utility_type)
-
-    def refresh_energy_daily(self) -> int:
-        return refresh_energy_daily(self._store)
-
-    def refresh_battery_plan_outcome(self) -> int:
-        return refresh_battery_plan_outcome(
-            self._store,
-            resolution=self._battery_plan_profile_loader(),
-            assessed_at=self._clock(),
-        )
 
     def get_battery_plan_outcome(
         self, *, decision_month: str | None = None
@@ -136,23 +113,14 @@ class UtilityTransformationMixin(TransformationFacetBase):
             to_day=to_day,
         )
 
-    def refresh_usage_vs_price_summary(self) -> int:
-        return refresh_usage_vs_price_summary(self._store)
-
     def get_usage_vs_price_summary(
         self,
         utility_type: str | None = None,
     ) -> list[dict[str, Any]]:
         return get_usage_vs_price_summary(self._store, utility_type=utility_type)
 
-    def refresh_contract_review_candidates(self) -> int:
-        return refresh_contract_review_candidates(self._store)
-
     def get_contract_review_candidates(self) -> list[dict[str, Any]]:
         return get_contract_review_candidates(self._store)
-
-    def refresh_contract_renewal_watchlist(self) -> int:
-        return refresh_contract_renewal_watchlist(self._store)
 
     def get_contract_renewal_watchlist(self) -> list[dict[str, Any]]:
         return get_contract_renewal_watchlist(self._store)

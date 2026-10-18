@@ -23,6 +23,10 @@ from packages.domains.finance.pipelines.budget_service import BudgetService
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
 from packages.domains.finance.pipelines.loan_service import LoanService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
+from packages.domains.finance.pipelines.transformation_budgets import refresh_budget_variance
+from packages.domains.finance.pipelines.transformation_transactions import (
+    refresh_spend_by_category_monthly,
+)
 from packages.domains.utilities.pipelines.utility_bill_service import UtilityBillService
 from packages.pipelines.household_promotion_handlers import (
     promote_budget_run,
@@ -368,9 +372,9 @@ class BudgetCategoryOverlapTests(unittest.TestCase):
         ts.add_category_rule(rule_id="r-entertainment", pattern="netflix", category="entertainment")
         ts.add_category_rule(rule_id="r-dining", pattern="restaurant", category="dining")
         # Spend mart was built before rules existed — rebuild with proper categories.
-        ts.refresh_spend_by_category_monthly()
+        refresh_spend_by_category_monthly(ts.store)
         # Budget variance reads from the spend mart — rebuild to pick up alignment.
-        ts.refresh_budget_variance()
+        refresh_budget_variance(ts.store)
         cls.ts = ts
 
     @classmethod
@@ -428,8 +432,8 @@ class CategoryGovernancePhase2Tests(unittest.TestCase):
         ts.add_category_rule(rule_id="r-transport", pattern="metro transport", category="transport")
         ts.add_category_rule(rule_id="r-entertainment", pattern="netflix", category="entertainment")
         ts.add_category_rule(rule_id="r-dining", pattern="restaurant", category="dining")
-        ts.refresh_spend_by_category_monthly()
-        ts.refresh_budget_variance()
+        refresh_spend_by_category_monthly(ts.store)
+        refresh_budget_variance(ts.store)
         cls.ts = ts
 
     @classmethod

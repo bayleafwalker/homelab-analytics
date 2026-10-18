@@ -4,6 +4,14 @@ import unittest
 from datetime import date
 from decimal import Decimal
 
+from packages.domains.finance.pipelines.transformation_contract_prices import (
+    refresh_contract_price_current,
+)
+from packages.domains.homelab.pipelines.transformation_infrastructure import (
+    refresh_cluster_utilization,
+    refresh_infra_cost,
+    refresh_uptime_summary,
+)
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -149,7 +157,7 @@ class InfrastructureDomainTests(unittest.TestCase):
             source_system="prometheus",
         )
 
-        count = service.refresh_cluster_utilization()
+        count = refresh_cluster_utilization(service.store)
 
         self.assertEqual(3, count)
         rows = service.get_cluster_utilization()
@@ -204,7 +212,7 @@ class InfrastructureDomainTests(unittest.TestCase):
             run_id="homelab-run-001",
         )
 
-        count = service.refresh_uptime_summary()
+        count = refresh_uptime_summary(service.store)
 
         self.assertEqual(2, count)
         node_rows = service.get_uptime_summary(subject_type="node")
@@ -261,7 +269,7 @@ class InfrastructureDomainTests(unittest.TestCase):
             ],
             run_id="price-run-001",
         )
-        service.refresh_contract_price_current()
+        refresh_contract_price_current(service.store)
         # Acquisition in the current month keeps the amortisation window
         # time-robust: exactly one month has elapsed, so exactly one row.
         current_month_start = date.today().replace(day=1)
@@ -287,7 +295,7 @@ class InfrastructureDomainTests(unittest.TestCase):
             run_id="asset-run-001",
         )
 
-        count = service.refresh_infra_cost()
+        count = refresh_infra_cost(service.store)
 
         self.assertEqual(2, count)
         electricity_rows = service.get_infra_cost(cost_type="electricity")
@@ -326,7 +334,7 @@ class InfrastructureDomainTests(unittest.TestCase):
             run_id="infra-run-006",
         )
 
-        count = service.refresh_infra_cost()
+        count = refresh_infra_cost(service.store)
 
         self.assertEqual(1, count)
         row = service.get_infra_cost()[0]
