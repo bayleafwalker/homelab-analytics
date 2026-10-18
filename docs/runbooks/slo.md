@@ -81,7 +81,24 @@ Worker process (`GET /metrics` on `HOMELAB_ANALYTICS_WORKER_METRICS_PORT`):
 Backup metrics come from `backup-status.json` and `restore-drill-status.json`
 in the backup directory, so the API (sharing `/data`) and the worker export
 the same values; rules aggregate them with `max()`. The legacy unprefixed
-series (`worker_*`, `auth_*`, `ingestion_*`) are unchanged.
+series (`worker_*`, `auth_*`, `ingestion_*`) are unchanged apart from two
+naming fixes.
+
+### Deprecated metric names (removed after one release)
+
+Two legacy API series broke the Prometheus naming rules (`_total` is only for
+counters, and every counter ends in `_total`). Release 0.1.3 emits the new
+name next to the old one; the release after it drops the old name. Move any
+private dashboards or recording rules to the new names now. The chart rules
+and the ops dashboard use neither series.
+
+| Deprecated | Replacement | Type | Why |
+|---|---|---|---|
+| `auth_service_tokens_total` | `auth_service_tokens` | gauge | A token count that can go down is a gauge; `_total` implies a counter |
+| `ingestion_duration_seconds` | `ingestion_duration_seconds_total` | counter | Cumulative seconds is a counter and needs the `_total` suffix |
+
+The deprecated series carry `DEPRECATED: use <new name>` in their `# HELP`
+line.
 
 ## Scrape auth posture
 

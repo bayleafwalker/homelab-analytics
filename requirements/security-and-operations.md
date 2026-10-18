@@ -237,7 +237,7 @@ The platform must handle sensitive financial and personal data securely, deploy 
 
 **Acceptance criteria:**
 - `/metrics` endpoint returns Prometheus text format.
-- At least: `ingestion_runs_total`, `ingestion_failures_total`, `ingestion_duration_seconds`, `worker_queue_depth`.
+- At least: `ingestion_runs_total`, `ingestion_failures_total`, `ingestion_duration_seconds_total` (was `ingestion_duration_seconds`, kept as a deprecated alias for one release), `worker_queue_depth`.
 - Metrics are scrapeable by Prometheus via ServiceMonitor or annotation.
 
 **Dependencies:** none
