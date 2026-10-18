@@ -39,6 +39,7 @@ from apps.api.routes.ha_routes import register_ha_routes
 from apps.api.routes.homelab_routes import register_homelab_routes
 from apps.api.routes.ingest_routes import register_ingest_routes
 from apps.api.routes.lineage_routes import register_lineage_routes
+from apps.api.routes.pack_routes import register_pack_routes
 from apps.api.routes.policy_routes import register_policy_routes
 from apps.api.routes.report_routes import register_report_routes
 from apps.api.routes.run_routes import register_run_routes
@@ -123,6 +124,7 @@ from packages.shared.extensions import (
 )
 from packages.shared.function_registry import FunctionRegistry
 from packages.shared.metrics import metrics_registry
+from packages.shared.pack_catalog import current_platform_version
 from packages.shared.settings import AppSettings
 from packages.storage.auth_store import AuthStore
 from packages.storage.control_plane import ControlPlaneStore
@@ -657,6 +659,12 @@ def create_app(
         app,
         resolved_config_repository=resolved_config_repository,
         resolved_reporting_service=reporting_service,
+    )
+    register_pack_routes(
+        app,
+        resolved_config_repository=resolved_config_repository,
+        capability_packs=container.capability_packs,
+        platform_version=current_platform_version(),
     )
     register_control_routes(
         app,

@@ -556,6 +556,8 @@ Trust boundaries:
 
 Relationship to existing work: `docs/plans/external-registry-inclusion.md` defines the control-plane design for external sources. The platform ADR defines the capability pack model and registration contracts.
 
+The operator lifecycle (catalog over the cached registry, dry-run plans, install/upgrade/rollback/disable/enable/pin, and the safety refusals) is specified in `docs/architecture/pack-ecosystem.md`.
+
 Roadmap reference: Stage 8 in `docs/plans/household-operating-platform-roadmap.md`.
 
 ## Trust and governance layer

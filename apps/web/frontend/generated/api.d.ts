@@ -2330,6 +2330,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/control/packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Pack Catalog */
+        get: operations["list_pack_catalog_control_packs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/packs/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Pack History */
+        get: operations["list_pack_history_control_packs_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/packs/{pack_key}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Pack Lifecycle Change */
+        post: operations["apply_pack_lifecycle_change_control_packs__pack_key__actions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/control/packs/{pack_key}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Plan Pack Lifecycle Change */
+        post: operations["plan_pack_lifecycle_change_control_packs__pack_key__plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/control/policies": {
         parameters: {
             query?: never;
@@ -5657,6 +5725,339 @@ export interface components {
         OperatingBaselineResponse: {
             /** Rows */
             rows: components["schemas"]["CurrentOperatingBaselineRow"][];
+        };
+        /** PackActionRequest */
+        PackActionRequest: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "install" | "upgrade" | "rollback" | "disable" | "enable" | "pin" | "unpin";
+            /**
+             * Reason
+             * @description Why the operator is making this change; stored in the history.
+             */
+            reason: string;
+            /**
+             * Version
+             * @description Target version for install/upgrade; defaults to the newest cached version.
+             */
+            version?: string | null;
+        };
+        /** PackActionResultModel */
+        PackActionResultModel: {
+            event: components["schemas"]["PackLifecycleEventModel"];
+            installation: components["schemas"]["PackInstallationRecordModel"];
+            plan: components["schemas"]["PackPlanModel"];
+        };
+        /** PackCatalogItemModel */
+        PackCatalogItemModel: {
+            /** Description */
+            description: string;
+            /** Display Name */
+            display_name: string;
+            installation: components["schemas"]["PackInstallationModel"] | null;
+            /** Installed Version Cached */
+            installed_version_cached: boolean;
+            /** Latest Version */
+            latest_version: string | null;
+            /** Pack Key */
+            pack_key: string;
+            /** Pack Kind */
+            pack_kind: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "not_installed" | "enabled" | "disabled";
+            /** Trust Level */
+            trust_level: string;
+            /** Upgrade Available */
+            upgrade_available: boolean;
+            /** Versions */
+            versions: components["schemas"]["PackVersionModel"][];
+        };
+        /** PackCatalogModel */
+        PackCatalogModel: {
+            /** Packs */
+            packs: components["schemas"]["PackCatalogItemModel"][];
+            /** Platform Packs */
+            platform_packs: components["schemas"]["PlatformPackModel"][];
+            /** Platform Version */
+            platform_version: string;
+            registry: components["schemas"]["PackRegistrySummaryModel"];
+        };
+        /** PackCompatibilitySnapshotModel */
+        PackCompatibilitySnapshotModel: {
+            /** Checked At */
+            checked_at: string;
+            /** Issues */
+            issues: string[];
+            /** Platform Version */
+            platform_version: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "compatible" | "warning" | "incompatible";
+            /** Warnings */
+            warnings: string[];
+        };
+        /** PackDiagnosticModel */
+        PackDiagnosticModel: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /** Pack Key */
+            pack_key?: string | null;
+            /** Publication Key */
+            publication_key?: string | null;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "blocking" | "warning";
+        };
+        /** PackHistoryModel */
+        PackHistoryModel: {
+            /** Events */
+            events: components["schemas"]["PackLifecycleEventModel"][];
+        };
+        /** PackInstallationModel */
+        PackInstallationModel: {
+            /** Available Versions */
+            available_versions: string[];
+            compatibility_snapshot: components["schemas"]["PackCompatibilitySnapshotModel"];
+            /** Enabled */
+            enabled: boolean;
+            /** Entry Digest */
+            entry_digest: string;
+            /** Extension Registry Revision Id */
+            extension_registry_revision_id: string;
+            /** Extension Registry Source Id */
+            extension_registry_source_id: string;
+            /** Installed At */
+            installed_at: string;
+            /** Installed Version */
+            installed_version: string;
+            /** Pinned Version */
+            pinned_version: string | null;
+            /** Previous Version */
+            previous_version: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "enabled" | "disabled";
+            /** Updated At */
+            updated_at: string;
+        };
+        /** PackInstallationRecordModel */
+        PackInstallationRecordModel: {
+            /** Available Versions */
+            available_versions: string[];
+            compatibility_snapshot: components["schemas"]["PackCompatibilitySnapshotModel"];
+            /** Enabled */
+            enabled: boolean;
+            /** Entry Digest */
+            entry_digest: string;
+            /** Extension Registry Revision Id */
+            extension_registry_revision_id: string;
+            /** Extension Registry Source Id */
+            extension_registry_source_id: string;
+            /** Installed At */
+            installed_at: string;
+            /** Installed Version */
+            installed_version: string;
+            /** Pack Key */
+            pack_key: string;
+            /** Pinned Version */
+            pinned_version: string | null;
+            /** Previous Version */
+            previous_version: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "enabled" | "disabled";
+            /** Updated At */
+            updated_at: string;
+        };
+        /** PackLifecycleEventModel */
+        PackLifecycleEventModel: {
+            /** Action */
+            action: string;
+            /** Actor */
+            actor: string;
+            /** Actor Auth Provider */
+            actor_auth_provider: string;
+            /** Actor Authenticated */
+            actor_authenticated: boolean;
+            /** Actor Role */
+            actor_role: string | null;
+            compatibility_snapshot: components["schemas"]["PackCompatibilitySnapshotModel"];
+            /** Entry Digest */
+            entry_digest: string | null;
+            /** Event Id */
+            event_id: string;
+            /** Extension Registry Revision Id */
+            extension_registry_revision_id: string | null;
+            /** Extension Registry Source Id */
+            extension_registry_source_id: string | null;
+            /** From Version */
+            from_version: string | null;
+            /** Occurred At */
+            occurred_at: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "applied" | "refused";
+            /** Pack Key */
+            pack_key: string;
+            plan: components["schemas"]["PackPlanModel"];
+            /** Reason */
+            reason: string;
+            /** To Version */
+            to_version: string | null;
+        };
+        /** PackPlanModel */
+        PackPlanModel: {
+            /** Action */
+            action: string;
+            /** Allowed */
+            allowed: boolean;
+            /** Checked At */
+            checked_at: string;
+            /**
+             * Compatibility Status
+             * @enum {string}
+             */
+            compatibility_status: "compatible" | "warning" | "incompatible";
+            /** Contracts Affected */
+            contracts_affected: string[];
+            /** Diagnostics */
+            diagnostics: components["schemas"]["PackDiagnosticModel"][];
+            /** From Enabled */
+            from_enabled: boolean | null;
+            /** From Version */
+            from_version: string | null;
+            /** Pack Key */
+            pack_key: string;
+            /** Platform Version */
+            platform_version: string;
+            /** Publication Changes */
+            publication_changes: components["schemas"]["PackPublicationChangeModel"][];
+            source: components["schemas"]["PackPlanSourceModel"] | null;
+            /** To Enabled */
+            to_enabled: boolean | null;
+            /** To Version */
+            to_version: string | null;
+        };
+        /** PackPlanRequest */
+        PackPlanRequest: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "install" | "upgrade" | "rollback" | "disable" | "enable" | "pin" | "unpin";
+            /**
+             * Version
+             * @description Target version for install/upgrade; defaults to the newest cached version.
+             */
+            version?: string | null;
+        };
+        /** PackPlanSourceModel */
+        PackPlanSourceModel: {
+            /** Entry Digest */
+            entry_digest: string;
+            /** Extension Registry Revision Id */
+            extension_registry_revision_id: string;
+            /** Extension Registry Source Id */
+            extension_registry_source_id: string;
+            /** Source Name */
+            source_name: string;
+        };
+        /** PackPublicationChangeModel */
+        PackPublicationChangeModel: {
+            /** Breaking */
+            breaking: boolean;
+            /**
+             * Change
+             * @enum {string}
+             */
+            change: "added" | "removed" | "schema_changed" | "unchanged";
+            /** Dependents */
+            dependents: string[];
+            /** From Schema Version */
+            from_schema_version: string | null;
+            /** Publication Key */
+            publication_key: string;
+            /** To Schema Version */
+            to_schema_version: string | null;
+        };
+        /** PackPublicationContractModel */
+        PackPublicationContractModel: {
+            /** Publication Key */
+            publication_key: string;
+            /** Schema Version */
+            schema_version: string;
+        };
+        /** PackRegistrySummaryModel */
+        PackRegistrySummaryModel: {
+            /** Entries */
+            entries: number;
+            /** Errors */
+            errors: string[];
+            /** Revisions Scanned */
+            revisions_scanned: number;
+            /** Sources Scanned */
+            sources_scanned: number;
+        };
+        /** PackVersionModel */
+        PackVersionModel: {
+            /**
+             * Compatibility Status
+             * @enum {string}
+             */
+            compatibility_status: "compatible" | "warning" | "incompatible";
+            /** Dependencies */
+            dependencies: string[];
+            /** Entry Digest */
+            entry_digest: string;
+            /** Extension Registry Revision Id */
+            extension_registry_revision_id: string;
+            /** Extension Registry Source Id */
+            extension_registry_source_id: string;
+            /** Issues */
+            issues: string[];
+            /** Publications */
+            publications: components["schemas"]["PackPublicationContractModel"][];
+            /**
+             * Relation
+             * @enum {string}
+             */
+            relation: "available" | "installed" | "upgrade" | "rollback" | "older";
+            /** Requires Platform Version */
+            requires_platform_version: string;
+            /** Requires Publications */
+            requires_publications: string[];
+            /** Source Name */
+            source_name: string;
+            /** Version */
+            version: string;
+            /** Warnings */
+            warnings: string[];
+        };
+        /** PlatformPackModel */
+        PlatformPackModel: {
+            /** Name */
+            name: string;
+            /** Publication Count */
+            publication_count: number;
+            /** Version */
+            version: string;
         };
         /** PolicyCreateRequest */
         PolicyCreateRequest: {
@@ -11291,6 +11692,128 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    list_pack_catalog_control_packs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackCatalogModel"];
+                };
+            };
+        };
+    };
+    list_pack_history_control_packs_history_get: {
+        parameters: {
+            query?: {
+                pack_key?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackHistoryModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_pack_lifecycle_change_control_packs__pack_key__actions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackActionResultModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_pack_lifecycle_change_control_packs__pack_key__plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pack_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackPlanModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

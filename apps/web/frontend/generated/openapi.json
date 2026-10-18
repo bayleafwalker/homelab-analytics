@@ -6856,6 +6856,1035 @@
         "title": "OperatingBaselineResponse",
         "type": "object"
       },
+      "PackActionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "install",
+              "upgrade",
+              "rollback",
+              "disable",
+              "enable",
+              "pin",
+              "unpin"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why the operator is making this change; stored in the history.",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Target version for install/upgrade; defaults to the newest cached version.",
+            "title": "Version"
+          }
+        },
+        "required": [
+          "action",
+          "reason"
+        ],
+        "title": "PackActionRequest",
+        "type": "object"
+      },
+      "PackActionResultModel": {
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/PackLifecycleEventModel"
+          },
+          "installation": {
+            "$ref": "#/components/schemas/PackInstallationRecordModel"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/PackPlanModel"
+          }
+        },
+        "required": [
+          "plan",
+          "event",
+          "installation"
+        ],
+        "title": "PackActionResultModel",
+        "type": "object"
+      },
+      "PackCatalogItemModel": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "installation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackInstallationModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "installed_version_cached": {
+            "title": "Installed Version Cached",
+            "type": "boolean"
+          },
+          "latest_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Version"
+          },
+          "pack_key": {
+            "title": "Pack Key",
+            "type": "string"
+          },
+          "pack_kind": {
+            "title": "Pack Kind",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "not_installed",
+              "enabled",
+              "disabled"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "trust_level": {
+            "title": "Trust Level",
+            "type": "string"
+          },
+          "upgrade_available": {
+            "title": "Upgrade Available",
+            "type": "boolean"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/PackVersionModel"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "pack_key",
+          "display_name",
+          "pack_kind",
+          "trust_level",
+          "description",
+          "state",
+          "installation",
+          "latest_version",
+          "upgrade_available",
+          "installed_version_cached",
+          "versions"
+        ],
+        "title": "PackCatalogItemModel",
+        "type": "object"
+      },
+      "PackCatalogModel": {
+        "properties": {
+          "packs": {
+            "items": {
+              "$ref": "#/components/schemas/PackCatalogItemModel"
+            },
+            "title": "Packs",
+            "type": "array"
+          },
+          "platform_packs": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformPackModel"
+            },
+            "title": "Platform Packs",
+            "type": "array"
+          },
+          "platform_version": {
+            "title": "Platform Version",
+            "type": "string"
+          },
+          "registry": {
+            "$ref": "#/components/schemas/PackRegistrySummaryModel"
+          }
+        },
+        "required": [
+          "platform_version",
+          "packs",
+          "platform_packs",
+          "registry"
+        ],
+        "title": "PackCatalogModel",
+        "type": "object"
+      },
+      "PackCompatibilitySnapshotModel": {
+        "properties": {
+          "checked_at": {
+            "title": "Checked At",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "platform_version": {
+            "title": "Platform Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "compatible",
+              "warning",
+              "incompatible"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "platform_version",
+          "checked_at",
+          "issues",
+          "warnings"
+        ],
+        "title": "PackCompatibilitySnapshotModel",
+        "type": "object"
+      },
+      "PackDiagnosticModel": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "pack_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Key"
+          },
+          "publication_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publication Key"
+          },
+          "severity": {
+            "enum": [
+              "blocking",
+              "warning"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "severity",
+          "message"
+        ],
+        "title": "PackDiagnosticModel",
+        "type": "object"
+      },
+      "PackHistoryModel": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/PackLifecycleEventModel"
+            },
+            "title": "Events",
+            "type": "array"
+          }
+        },
+        "required": [
+          "events"
+        ],
+        "title": "PackHistoryModel",
+        "type": "object"
+      },
+      "PackInstallationModel": {
+        "properties": {
+          "available_versions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Available Versions",
+            "type": "array"
+          },
+          "compatibility_snapshot": {
+            "$ref": "#/components/schemas/PackCompatibilitySnapshotModel"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "entry_digest": {
+            "title": "Entry Digest",
+            "type": "string"
+          },
+          "extension_registry_revision_id": {
+            "title": "Extension Registry Revision Id",
+            "type": "string"
+          },
+          "extension_registry_source_id": {
+            "title": "Extension Registry Source Id",
+            "type": "string"
+          },
+          "installed_at": {
+            "title": "Installed At",
+            "type": "string"
+          },
+          "installed_version": {
+            "title": "Installed Version",
+            "type": "string"
+          },
+          "pinned_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Version"
+          },
+          "previous_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Version"
+          },
+          "state": {
+            "enum": [
+              "enabled",
+              "disabled"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "installed_version",
+          "previous_version",
+          "pinned_version",
+          "enabled",
+          "state",
+          "extension_registry_source_id",
+          "extension_registry_revision_id",
+          "entry_digest",
+          "available_versions",
+          "compatibility_snapshot",
+          "installed_at",
+          "updated_at"
+        ],
+        "title": "PackInstallationModel",
+        "type": "object"
+      },
+      "PackInstallationRecordModel": {
+        "properties": {
+          "available_versions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Available Versions",
+            "type": "array"
+          },
+          "compatibility_snapshot": {
+            "$ref": "#/components/schemas/PackCompatibilitySnapshotModel"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "entry_digest": {
+            "title": "Entry Digest",
+            "type": "string"
+          },
+          "extension_registry_revision_id": {
+            "title": "Extension Registry Revision Id",
+            "type": "string"
+          },
+          "extension_registry_source_id": {
+            "title": "Extension Registry Source Id",
+            "type": "string"
+          },
+          "installed_at": {
+            "title": "Installed At",
+            "type": "string"
+          },
+          "installed_version": {
+            "title": "Installed Version",
+            "type": "string"
+          },
+          "pack_key": {
+            "title": "Pack Key",
+            "type": "string"
+          },
+          "pinned_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Version"
+          },
+          "previous_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Version"
+          },
+          "state": {
+            "enum": [
+              "enabled",
+              "disabled"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "installed_version",
+          "previous_version",
+          "pinned_version",
+          "enabled",
+          "state",
+          "extension_registry_source_id",
+          "extension_registry_revision_id",
+          "entry_digest",
+          "available_versions",
+          "compatibility_snapshot",
+          "installed_at",
+          "updated_at",
+          "pack_key"
+        ],
+        "title": "PackInstallationRecordModel",
+        "type": "object"
+      },
+      "PackLifecycleEventModel": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "actor_auth_provider": {
+            "title": "Actor Auth Provider",
+            "type": "string"
+          },
+          "actor_authenticated": {
+            "title": "Actor Authenticated",
+            "type": "boolean"
+          },
+          "actor_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Role"
+          },
+          "compatibility_snapshot": {
+            "$ref": "#/components/schemas/PackCompatibilitySnapshotModel"
+          },
+          "entry_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Digest"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "extension_registry_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extension Registry Revision Id"
+          },
+          "extension_registry_source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extension Registry Source Id"
+          },
+          "from_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Version"
+          },
+          "occurred_at": {
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "applied",
+              "refused"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "pack_key": {
+            "title": "Pack Key",
+            "type": "string"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/PackPlanModel"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "to_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Version"
+          }
+        },
+        "required": [
+          "event_id",
+          "pack_key",
+          "action",
+          "outcome",
+          "from_version",
+          "to_version",
+          "reason",
+          "extension_registry_source_id",
+          "extension_registry_revision_id",
+          "entry_digest",
+          "compatibility_snapshot",
+          "plan",
+          "actor",
+          "actor_role",
+          "actor_auth_provider",
+          "actor_authenticated",
+          "occurred_at"
+        ],
+        "title": "PackLifecycleEventModel",
+        "type": "object"
+      },
+      "PackPlanModel": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "allowed": {
+            "title": "Allowed",
+            "type": "boolean"
+          },
+          "checked_at": {
+            "title": "Checked At",
+            "type": "string"
+          },
+          "compatibility_status": {
+            "enum": [
+              "compatible",
+              "warning",
+              "incompatible"
+            ],
+            "title": "Compatibility Status",
+            "type": "string"
+          },
+          "contracts_affected": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Contracts Affected",
+            "type": "array"
+          },
+          "diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/PackDiagnosticModel"
+            },
+            "title": "Diagnostics",
+            "type": "array"
+          },
+          "from_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Enabled"
+          },
+          "from_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Version"
+          },
+          "pack_key": {
+            "title": "Pack Key",
+            "type": "string"
+          },
+          "platform_version": {
+            "title": "Platform Version",
+            "type": "string"
+          },
+          "publication_changes": {
+            "items": {
+              "$ref": "#/components/schemas/PackPublicationChangeModel"
+            },
+            "title": "Publication Changes",
+            "type": "array"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackPlanSourceModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "to_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Enabled"
+          },
+          "to_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Version"
+          }
+        },
+        "required": [
+          "pack_key",
+          "action",
+          "from_version",
+          "to_version",
+          "from_enabled",
+          "to_enabled",
+          "allowed",
+          "compatibility_status",
+          "platform_version",
+          "checked_at",
+          "source",
+          "diagnostics",
+          "publication_changes",
+          "contracts_affected"
+        ],
+        "title": "PackPlanModel",
+        "type": "object"
+      },
+      "PackPlanRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "install",
+              "upgrade",
+              "rollback",
+              "disable",
+              "enable",
+              "pin",
+              "unpin"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Target version for install/upgrade; defaults to the newest cached version.",
+            "title": "Version"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "PackPlanRequest",
+        "type": "object"
+      },
+      "PackPlanSourceModel": {
+        "properties": {
+          "entry_digest": {
+            "title": "Entry Digest",
+            "type": "string"
+          },
+          "extension_registry_revision_id": {
+            "title": "Extension Registry Revision Id",
+            "type": "string"
+          },
+          "extension_registry_source_id": {
+            "title": "Extension Registry Source Id",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "extension_registry_source_id",
+          "source_name",
+          "extension_registry_revision_id",
+          "entry_digest"
+        ],
+        "title": "PackPlanSourceModel",
+        "type": "object"
+      },
+      "PackPublicationChangeModel": {
+        "properties": {
+          "breaking": {
+            "title": "Breaking",
+            "type": "boolean"
+          },
+          "change": {
+            "enum": [
+              "added",
+              "removed",
+              "schema_changed",
+              "unchanged"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "dependents": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependents",
+            "type": "array"
+          },
+          "from_schema_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Schema Version"
+          },
+          "publication_key": {
+            "title": "Publication Key",
+            "type": "string"
+          },
+          "to_schema_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Schema Version"
+          }
+        },
+        "required": [
+          "publication_key",
+          "change",
+          "from_schema_version",
+          "to_schema_version",
+          "breaking",
+          "dependents"
+        ],
+        "title": "PackPublicationChangeModel",
+        "type": "object"
+      },
+      "PackPublicationContractModel": {
+        "properties": {
+          "publication_key": {
+            "title": "Publication Key",
+            "type": "string"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publication_key",
+          "schema_version"
+        ],
+        "title": "PackPublicationContractModel",
+        "type": "object"
+      },
+      "PackRegistrySummaryModel": {
+        "properties": {
+          "entries": {
+            "title": "Entries",
+            "type": "integer"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "revisions_scanned": {
+            "title": "Revisions Scanned",
+            "type": "integer"
+          },
+          "sources_scanned": {
+            "title": "Sources Scanned",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sources_scanned",
+          "revisions_scanned",
+          "entries",
+          "errors"
+        ],
+        "title": "PackRegistrySummaryModel",
+        "type": "object"
+      },
+      "PackVersionModel": {
+        "properties": {
+          "compatibility_status": {
+            "enum": [
+              "compatible",
+              "warning",
+              "incompatible"
+            ],
+            "title": "Compatibility Status",
+            "type": "string"
+          },
+          "dependencies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "entry_digest": {
+            "title": "Entry Digest",
+            "type": "string"
+          },
+          "extension_registry_revision_id": {
+            "title": "Extension Registry Revision Id",
+            "type": "string"
+          },
+          "extension_registry_source_id": {
+            "title": "Extension Registry Source Id",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "publications": {
+            "items": {
+              "$ref": "#/components/schemas/PackPublicationContractModel"
+            },
+            "title": "Publications",
+            "type": "array"
+          },
+          "relation": {
+            "enum": [
+              "available",
+              "installed",
+              "upgrade",
+              "rollback",
+              "older"
+            ],
+            "title": "Relation",
+            "type": "string"
+          },
+          "requires_platform_version": {
+            "title": "Requires Platform Version",
+            "type": "string"
+          },
+          "requires_publications": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Requires Publications",
+            "type": "array"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "version",
+          "relation",
+          "compatibility_status",
+          "issues",
+          "warnings",
+          "requires_platform_version",
+          "dependencies",
+          "publications",
+          "requires_publications",
+          "extension_registry_source_id",
+          "source_name",
+          "extension_registry_revision_id",
+          "entry_digest"
+        ],
+        "title": "PackVersionModel",
+        "type": "object"
+      },
+      "PlatformPackModel": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "publication_count": {
+            "title": "Publication Count",
+            "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "version",
+          "publication_count"
+        ],
+        "title": "PlatformPackModel",
+        "type": "object"
+      },
       "PolicyCreateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -15739,6 +16768,180 @@
           }
         },
         "summary": "Get Operational Summary"
+      }
+    },
+    "/control/packs": {
+      "get": {
+        "operationId": "list_pack_catalog_control_packs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackCatalogModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Pack Catalog"
+      }
+    },
+    "/control/packs/history": {
+      "get": {
+        "operationId": "list_pack_history_control_packs_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pack_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pack Key"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackHistoryModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Pack History"
+      }
+    },
+    "/control/packs/{pack_key}/actions": {
+      "post": {
+        "operationId": "apply_pack_lifecycle_change_control_packs__pack_key__actions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_key",
+            "required": true,
+            "schema": {
+              "title": "Pack Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackActionResultModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply Pack Lifecycle Change"
+      }
+    },
+    "/control/packs/{pack_key}/plan": {
+      "post": {
+        "operationId": "plan_pack_lifecycle_change_control_packs__pack_key__plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_key",
+            "required": true,
+            "schema": {
+              "title": "Pack Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackPlanModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Pack Lifecycle Change"
       }
     },
     "/control/policies": {

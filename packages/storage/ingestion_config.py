@@ -68,6 +68,7 @@ from packages.storage.sqlite_execution_control_plane import (
 from packages.storage.sqlite_external_registry_catalog import (
     SQLiteExternalRegistryCatalogMixin,
 )
+from packages.storage.sqlite_pack_lifecycle import SQLitePackLifecycleMixin
 from packages.storage.sqlite_policy_registry import SQLitePolicyRegistryMixin
 from packages.storage.sqlite_provenance_control_plane import (
     SQLiteProvenanceControlPlaneMixin,
@@ -135,6 +136,7 @@ class IngestionConfigRepository(
     SQLiteAuthControlPlaneMixin,
     SQLitePolicyRegistryMixin,
     SQLiteDecisionLedgerMixin,
+    SQLitePackLifecycleMixin,
 ):
     def __init__(self, database_path: Path) -> None:
         self.database_path = database_path

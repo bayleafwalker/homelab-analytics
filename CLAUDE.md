@@ -88,9 +88,9 @@ Sprint workflow:
 
 | Store | Latest migration | Count |
 |---|---|---|
-| `migrations/postgres/` | `0015_decision_ledger` | 15 |
+| `migrations/postgres/` | `0018_pack_lifecycle` | 16 (0016/0017 reserved for concurrent streams) |
 | `migrations/duckdb/` | `0015_battery_plan_outcome_marts` | 10 (gaps: DuckDB-only subset) |
-| `migrations/sqlite/` | `0008_decision_ledger` | 8 |
+| `migrations/sqlite/` | `0011_pack_lifecycle` | 9 (0009/0010 reserved for concurrent streams) |
 | `migrations/postgres_run_metadata/` | `0001_run_metadata_initial_schema` | 1 |
 
 ### Schema versions
