@@ -18,6 +18,7 @@ from packages.domains.finance.pipelines.category_rules import (
     CATEGORY_RULE_COLUMNS,
 )
 from packages.domains.finance.pipelines.transaction_models import TRANSFORMATION_AUDIT_COLUMNS
+from packages.domains.utilities.battery_plan_decision import BATTERY_PLAN_DECISION
 from packages.pipelines.household_reporting import (
     CURRENT_DIMENSION_RELATIONS,
     PUBLICATION_RELATIONS,
@@ -78,6 +79,14 @@ TRANSACTION_ANOMALIES_ROW_MODEL = _row_model(
 UPCOMING_FIXED_COSTS_ROW_MODEL = _row_model(
     "UpcomingFixedCostsRow",
     "mart_upcoming_fixed_costs_30d",
+)
+BATTERY_PLAN_OUTCOME_ROW_MODEL = _row_model(
+    "BatteryPlanOutcomeRow",
+    "mart_battery_plan_outcome",
+)
+BATTERY_PLAN_OUTCOME_VALUE_ROW_MODEL = _row_model(
+    "BatteryPlanOutcomeValueRow",
+    "mart_battery_plan_outcome_values",
 )
 UTILITY_COST_TREND_ROW_MODEL = _row_model(
     "UtilityCostTrendRow",
@@ -222,6 +231,16 @@ TRANSACTION_ANOMALIES_RESPONSE_MODEL = build_rows_response_model(
 UPCOMING_FIXED_COSTS_RESPONSE_MODEL = build_rows_response_model(
     "UpcomingFixedCostsResponse",
     UPCOMING_FIXED_COSTS_ROW_MODEL,
+)
+BATTERY_PLAN_OUTCOME_RESPONSE_MODEL = build_rows_response_model(
+    "BatteryPlanOutcomeResponse",
+    BATTERY_PLAN_OUTCOME_ROW_MODEL,
+    {
+        "decision_month": (str | None, None),
+        "decision": (dict[str, Any], ...),
+        "values": (list[BATTERY_PLAN_OUTCOME_VALUE_ROW_MODEL], ...),  # type: ignore[valid-type]
+        "publication_keys": (list[str], ...),
+    },
 )
 UTILITY_COST_TREND_RESPONSE_MODEL = build_rows_response_model(
     "UtilityCostTrendResponse",
@@ -571,6 +590,38 @@ def register_report_routes(
     # ------------------------------------------------------------------
     # Utilities: new dedicated endpoints
     # ------------------------------------------------------------------
+
+    @app.get(
+        "/reports/battery-plan-outcome",
+        response_model=BATTERY_PLAN_OUTCOME_RESPONSE_MODEL,
+    )
+    async def get_battery_plan_outcome(
+        decision_month: str | None = None,
+    ) -> dict[str, Any]:
+        """Review-only outcome for the named battery-plan decision.
+
+        ``rows`` are verdict rows (one per decision month); ``values`` are the
+        per-value disclosures. Estimates are never realized savings and the
+        response authorizes no action.
+        """
+        if resolved_reporting_service is None:
+            raise HTTPException(status_code=404, detail="Requires a transformation service.")
+        rows = resolved_reporting_service.get_battery_plan_outcome(
+            decision_month=decision_month,
+        )
+        values = resolved_reporting_service.get_battery_plan_outcome_values(
+            decision_month=decision_month,
+        )
+        return {
+            "rows": to_jsonable(rows),
+            "values": to_jsonable(values),
+            "decision_month": decision_month,
+            "decision": BATTERY_PLAN_DECISION.to_dict(),
+            "publication_keys": [
+                BATTERY_PLAN_DECISION.subject_publication_key,
+                *BATTERY_PLAN_DECISION.supporting_publication_keys,
+            ],
+        }
 
     @app.get(
         "/reports/utility-cost-trend",

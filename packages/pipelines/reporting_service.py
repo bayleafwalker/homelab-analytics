@@ -54,6 +54,10 @@ from packages.domains.overview.pipelines.overview_models import (
 from packages.domains.overview.pipelines.scenario_service_overview import (
     build_homelab_cost_benefit_baseline_signature,
 )
+from packages.domains.utilities.pipelines.battery_plan_models import (
+    MART_BATTERY_PLAN_OUTCOME_TABLE,
+    MART_BATTERY_PLAN_OUTCOME_VALUES_TABLE,
+)
 from packages.domains.utilities.pipelines.utility_models import (
     MART_CONTRACT_RENEWAL_WATCHLIST_TABLE,
     MART_CONTRACT_REVIEW_CANDIDATES_TABLE,
@@ -683,6 +687,34 @@ class ReportingService:
             ),
             _build_where_clause(("utility_type = %s", utility_type)),
             "ORDER BY billing_month, utility_type",
+        )
+
+    def get_battery_plan_outcome(
+        self,
+        *,
+        decision_month: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_BATTERY_PLAN_OUTCOME_TABLE,
+            lambda: self._transformation_service.get_battery_plan_outcome(
+                decision_month=decision_month,
+            ),
+            _build_where_clause(("decision_month = %s", decision_month)),
+            "ORDER BY decision_month DESC",
+        )
+
+    def get_battery_plan_outcome_values(
+        self,
+        *,
+        decision_month: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_BATTERY_PLAN_OUTCOME_VALUES_TABLE,
+            lambda: self._transformation_service.get_battery_plan_outcome_values(
+                decision_month=decision_month,
+            ),
+            _build_where_clause(("decision_month = %s", decision_month)),
+            "ORDER BY decision_month DESC, display_order",
         )
 
     def get_usage_vs_price_summary(
