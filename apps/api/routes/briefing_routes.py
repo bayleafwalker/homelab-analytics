@@ -78,6 +78,7 @@ def register_briefing_routes(
     control_plane: Any,
     metadata_repository: Any,
     ha_policy_evaluator: Any = None,
+    blob_store: Any = None,
     section_registry: BriefSectionRegistry | None = None,
     clock: Callable[[], datetime] | None = None,
 ) -> None:
@@ -112,7 +113,9 @@ def register_briefing_routes(
         if control_plane is None or metadata_repository is None:
             return None
         try:
-            return build_source_freshness_views(control_plane, metadata_repository, as_of=as_of)
+            return build_source_freshness_views(
+                control_plane, metadata_repository, as_of=as_of, blob_store=blob_store
+            )
         except Exception:
             _log.warning("Source freshness unavailable for the morning brief", exc_info=True)
             return None

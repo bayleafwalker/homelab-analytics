@@ -183,6 +183,7 @@ def register_control_routes(
             resolved_config_repository,
             service.metadata_repository,
             as_of=date.today(),
+            blob_store=getattr(service, "blob_store", None),
         )
         datasets = [
             {

@@ -8,9 +8,11 @@ source. Freshness is computed, not stored (see
 
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import date
 from typing import Any, Protocol
 
+from packages.pipelines.run_context import read_run_context
 from packages.platform.source_freshness import (
     SourceFreshnessRunObservation,
     SourceFreshnessState,
@@ -41,25 +43,61 @@ def build_source_freshness_views(
     metadata_repository: _RunListing,
     *,
     as_of: date,
+    blob_store: Any = None,
 ) -> list[SourceFreshnessView]:
     """Evaluate freshness for every non-archived source asset.
 
     ``config_repository`` must provide ``list_source_assets``,
     ``list_source_freshness_configs`` and ``get_dataset_contract``;
     ``metadata_repository`` must provide ``list_runs`` (newest first).
+
+    Several source assets can land into the same dataset (three bank
+    accounts all feed ``account_transactions``). Runs are attributed to an
+    asset through the ``source_asset_id`` recorded in each run's manifest
+    context, read from ``blob_store``. A run with no recorded asset is only
+    attributed when its dataset has exactly one source asset; without a
+    ``blob_store`` every run of the dataset is used (single-asset behaviour).
     """
     source_assets = config_repository.list_source_assets(include_archived=False)
     freshness_configs = {
         cfg.source_asset_id: cfg
         for cfg in config_repository.list_source_freshness_configs()
     }
-    views: list[SourceFreshnessView] = []
+    dataset_by_asset: dict[str, str] = {}
+    assets_by_dataset: dict[str, list[str]] = defaultdict(list)
     for asset in source_assets:
         dataset_contract = config_repository.get_dataset_contract(
             asset.dataset_contract_id
         )
-        dataset_name = dataset_contract.dataset_name
-        runs = list(metadata_repository.list_runs(dataset_name=dataset_name))
+        dataset_by_asset[asset.source_asset_id] = dataset_contract.dataset_name
+        assets_by_dataset[dataset_contract.dataset_name].append(asset.source_asset_id)
+
+    runs_by_dataset: dict[str, list[Any]] = {}
+    run_asset_ids: dict[str, str | None] = {}
+
+    def _dataset_runs(dataset_name: str) -> list[Any]:
+        if dataset_name not in runs_by_dataset:
+            runs = list(metadata_repository.list_runs(dataset_name=dataset_name))
+            runs_by_dataset[dataset_name] = runs
+            if blob_store is not None:
+                for run in runs:
+                    run_asset_ids[run.run_id] = _run_source_asset_id(run, blob_store)
+        return runs_by_dataset[dataset_name]
+
+    views: list[SourceFreshnessView] = []
+    for asset in source_assets:
+        dataset_name = dataset_by_asset[asset.source_asset_id]
+        dataset_runs = _dataset_runs(dataset_name)
+        if blob_store is None:
+            runs = dataset_runs
+        else:
+            sole_asset = len(assets_by_dataset[dataset_name]) == 1
+            runs = [
+                run
+                for run in dataset_runs
+                if run_asset_ids.get(run.run_id) == asset.source_asset_id
+                or (sole_asset and run_asset_ids.get(run.run_id) is None)
+            ]
         observations = [
             SourceFreshnessRunObservation(
                 status=str(run.status),
@@ -91,3 +129,12 @@ def build_source_freshness_views(
             )
         )
     return views
+
+
+def _run_source_asset_id(run: Any, blob_store: Any) -> str | None:
+    """Return the source asset a run was landed for, or ``None`` if unrecorded."""
+    try:
+        context = read_run_context(blob_store, run.manifest_path)
+    except (KeyError, OSError, ValueError):
+        return None
+    return context.source_asset_id if context is not None else None

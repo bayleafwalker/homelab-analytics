@@ -238,3 +238,62 @@ def test_dry_run_previews_file_before_committing_upload() -> None:
         assert all(d["latest_run_id"] is None for d in datasets), (
             "Dry run must not land any data"
         )
+
+
+def test_assets_sharing_a_dataset_report_their_own_latest_run() -> None:
+    """Regression: /sources showed the same run for every asset of one dataset.
+
+    A second account lands into the same dataset contract. Uploading for the
+    first asset must not make the second look loaded.
+    """
+    from packages.storage.ingestion_catalog import SourceAssetCreate
+    from packages.storage.ingestion_config import IngestionConfigRepository
+
+    with TemporaryDirectory() as temp_dir:
+        repository = IngestionConfigRepository(Path(temp_dir) / "config.db")
+        seeded = seed_source_asset_graph(repository)
+        first = seeded["source_asset"]
+        repository.create_source_asset(
+            SourceAssetCreate(
+                source_asset_id="bank_partner_savings",
+                source_system_id=first.source_system_id,
+                dataset_contract_id=first.dataset_contract_id,
+                column_mapping_id=first.column_mapping_id,
+                transformation_package_id="builtin_account_transactions",
+                name="Bank Partner Savings",
+                asset_type="dataset",
+                description="Second account on the same contract.",
+            )
+        )
+        client = TestClient(
+            create_app(
+                AccountTransactionService(
+                    landing_root=Path(temp_dir) / "landing",
+                    metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),
+                ),
+                config_repository=repository,
+                enable_unsafe_admin=True,
+            )
+        )
+
+        ingest = client.post(
+            "/ingest/configured-csv",
+            data={"source_asset_id": first.source_asset_id, "source_name": "partner-upload"},
+            files={
+                "file": (
+                    "bank-export.csv",
+                    (ACCOUNT_FIXTURES / "configured_account_transactions_source.csv").read_bytes(),
+                    "text/csv",
+                )
+            },
+        )
+        assert ingest.status_code == 201
+        run_id = ingest.json()["run"]["run_id"]
+
+        rows = {
+            row["source_asset_id"]: row
+            for row in client.get("/control/source-freshness").json()["datasets"]
+        }
+        assert rows[first.source_asset_id]["latest_run_id"] == run_id
+        assert rows["bank_partner_savings"]["latest_run_id"] is None
+        assert rows["bank_partner_savings"]["status"] is None
