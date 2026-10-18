@@ -14,10 +14,10 @@ from typing import Any, Protocol
 
 from packages.pipelines.run_context import read_run_context
 from packages.platform.source_freshness import (
-    SourceFreshnessRunObservation,
     SourceFreshnessState,
     SourceFreshnessView,
     evaluate_source_freshness,
+    run_observation,
 )
 
 
@@ -98,17 +98,17 @@ def build_source_freshness_views(
                 if run_asset_ids.get(run.run_id) == asset.source_asset_id
                 or (sole_asset and run_asset_ids.get(run.run_id) is None)
             ]
+        config = freshness_configs.get(asset.source_asset_id)
         observations = [
-            SourceFreshnessRunObservation(
+            run_observation(
+                config,
                 status=str(run.status),
                 observed_at=run.created_at,
-                covered_from=None,
-                covered_through=None,
                 dataset_name=dataset_name,
+                as_of=as_of,
             )
             for run in runs
         ]
-        config = freshness_configs.get(asset.source_asset_id)
         assessment = evaluate_source_freshness(config, observations, as_of=as_of)
         latest_run = runs[0] if runs else None
         latest_status = str(latest_run.status) if latest_run else None

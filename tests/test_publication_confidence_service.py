@@ -365,15 +365,19 @@ def _freshness_config(
     source_asset_id: str,
     *,
     expected_frequency: str = "ad_hoc",
+    due_day_of_month: int | None = None,
+    expected_window_days: int = 5,
 ) -> None:
+    if due_day_of_month is None and expected_frequency == "monthly":
+        due_day_of_month = 5
     plane.freshness_configs.append(
         SourceFreshnessConfigCreate(
             source_asset_id=source_asset_id,
             acquisition_mode="manual_export",
             expected_frequency=expected_frequency,
             coverage_kind="rolling_period",
-            due_day_of_month=5 if expected_frequency == "monthly" else None,
-            expected_window_days=5,
+            due_day_of_month=due_day_of_month,
+            expected_window_days=expected_window_days,
             freshness_sla_days=40,
             sensitivity_class="financial",
             reminder_channel="dashboard",
@@ -401,7 +405,11 @@ def test_configured_source_asset_yields_real_freshness_and_verdict(
 
 
 def test_configured_schedule_is_evaluated_for_the_asset(plane, runs) -> None:
-    """A monthly schedule is evaluated, not skipped: never CURRENT without coverage."""
+    """A monthly schedule is evaluated, not skipped.
+
+    The run landed on 30 April, so it covers March; as of 1 May the expected
+    period is April, which has not landed yet.
+    """
     _promoted(plane, runs, "run-1", "bank_asset")
     _freshness_config(plane, "bank_asset", expected_frequency="monthly")
 
@@ -556,3 +564,99 @@ def test_asset_attributed_run_without_run_metadata_stays_unknown(plane) -> None:
     assert snapshot.quality_flags["validation_unknown_runs"] == 1
     assert snapshot.quality_flags["completeness_unknown_sources"] == 1
     assert snapshot.confidence_verdict != ConfidenceVerdict.TRUSTWORTHY
+
+
+# Scheduled configs: the contributing run's landing date gives the period it
+# covers (``run_observation``), so a source that has landed its expected
+# period reads CURRENT. ``(as_of, landed_at, state)`` per case.
+_MONTHLY_CASES = [
+    # Landed 2 October: covers September, the expected period on 18 October.
+    (datetime(2026, 10, 18, tzinfo=UTC), datetime(2026, 10, 2, tzinfo=UTC), "current"),
+    # Landed 20 September: covers August. On 3 October September is due on
+    # the 5th (window 3 days), so it is due soon...
+    (datetime(2026, 10, 3, tzinfo=UTC), datetime(2026, 9, 20, tzinfo=UTC), "due_soon"),
+    # ...and past 8 October it is overdue.
+    (datetime(2026, 10, 18, tzinfo=UTC), datetime(2026, 9, 20, tzinfo=UTC), "overdue"),
+]
+_QUARTERLY_CASES = [
+    # Landed 5 October: covers Q3 (through 30 September), expected on 18 October.
+    (datetime(2026, 10, 18, tzinfo=UTC), datetime(2026, 10, 5, tzinfo=UTC), "current"),
+    # Landed 15 September: covers Q2. Q3 is due 10 December (window 3 days):
+    # due soon in November...
+    (datetime(2026, 11, 20, tzinfo=UTC), datetime(2026, 9, 15, tzinfo=UTC), "due_soon"),
+    # ...and overdue after 13 December.
+    (datetime(2026, 12, 20, tzinfo=UTC), datetime(2026, 9, 15, tzinfo=UTC), "overdue"),
+]
+_PUBLICATION_FRESHNESS = {
+    "current": FreshnessState.CURRENT,
+    "due_soon": FreshnessState.DUE_SOON,
+    "overdue": FreshnessState.STALE,
+}
+
+
+@pytest.mark.parametrize(
+    ("frequency", "due_day", "as_of", "landed_at", "expected"),
+    [("monthly", 5, *case) for case in _MONTHLY_CASES]
+    + [("quarterly", 10, *case) for case in _QUARTERLY_CASES],
+)
+def test_scheduled_config_reads_state_from_the_period_the_run_landed(
+    plane, runs, frequency, due_day, as_of, landed_at, expected
+) -> None:
+    _promoted(plane, runs, "run-1", "bank_asset", created_at=landed_at)
+    _freshness_config(
+        plane,
+        "bank_asset",
+        expected_frequency=frequency,
+        due_day_of_month=due_day,
+        expected_window_days=3,
+    )
+
+    snapshot = compute_and_record_publication_confidence(
+        PUBLICATION, plane, None, as_of=as_of, run_metadata_store=runs
+    )
+
+    state = snapshot.source_freshness_states["bank_asset"]
+    assert state.freshness_state == SourceFreshnessState(expected)
+    assert snapshot.freshness_state == _PUBLICATION_FRESHNESS[expected]
+    if expected == "current":
+        assert snapshot.confidence_verdict == ConfidenceVerdict.TRUSTWORTHY
+    else:
+        assert snapshot.confidence_verdict != ConfidenceVerdict.TRUSTWORTHY
+
+
+def test_scheduled_config_without_run_metadata_never_reads_current(plane) -> None:
+    """Unknown never upgrades: no run metadata means no landed period."""
+    _lineage(plane, "run-1", source_system=None, row_count=None)
+    _asset_lineage(plane, "run-1", "bank_asset")
+    _freshness_config(plane, "bank_asset", expected_frequency="monthly")
+
+    snapshot = compute_and_record_publication_confidence(
+        PUBLICATION,
+        plane,
+        None,
+        as_of=datetime(2026, 10, 18, tzinfo=UTC),
+        run_metadata_store=None,
+    )
+
+    state = snapshot.source_freshness_states["bank_asset"].freshness_state
+    assert state != SourceFreshnessState.CURRENT
+    assert snapshot.confidence_verdict != ConfidenceVerdict.TRUSTWORTHY
+
+
+def test_scheduled_config_ignores_a_run_landed_after_as_of(plane, runs) -> None:
+    """A run landed after the assessment date cannot vouch for it."""
+    _promoted(
+        plane, runs, "run-1", "bank_asset", created_at=datetime(2026, 10, 20, tzinfo=UTC)
+    )
+    _freshness_config(plane, "bank_asset", expected_frequency="monthly")
+
+    snapshot = compute_and_record_publication_confidence(
+        PUBLICATION,
+        plane,
+        None,
+        as_of=datetime(2026, 10, 18, tzinfo=UTC),
+        run_metadata_store=runs,
+    )
+
+    state = snapshot.source_freshness_states["bank_asset"].freshness_state
+    assert state != SourceFreshnessState.CURRENT
