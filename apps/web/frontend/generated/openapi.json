@@ -2444,6 +2444,151 @@
         "title": "DatasetContractRequest",
         "type": "object"
       },
+      "DecisionCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "decision_key": {
+            "title": "Decision Key",
+            "type": "string"
+          },
+          "evidence_gaps_acknowledged": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Gaps Acknowledged",
+            "type": "array"
+          },
+          "follow_up_due_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Follow Up Due On"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          },
+          "subject_period": {
+            "description": "Period of the subject publication row, e.g. 2026-01.",
+            "title": "Subject Period",
+            "type": "string"
+          },
+          "subject_row_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Row reference (assessment_id) the decision-maker reviewed; refused if stale.",
+            "title": "Subject Row Ref"
+          },
+          "uncertainty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uncertainty"
+          }
+        },
+        "required": [
+          "decision_key",
+          "subject_period",
+          "outcome",
+          "rationale"
+        ],
+        "title": "DecisionCreateRequest",
+        "type": "object"
+      },
+      "DecisionFollowUpCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_effect": {
+            "title": "Evidence Effect",
+            "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "observation_period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Period"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "realized_result": {
+            "title": "Realized Result",
+            "type": "string"
+          },
+          "realized_value_eur": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realized Value Eur"
+          },
+          "realized_value_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realized Value Status"
+          }
+        },
+        "required": [
+          "observed_at",
+          "realized_result",
+          "evidence_effect"
+        ],
+        "title": "DecisionFollowUpCreateRequest",
+        "type": "object"
+      },
       "DimAccountRow": {
         "properties": {
           "account_id": {
@@ -14039,6 +14184,220 @@
           }
         },
         "summary": "Get Confidence Detail"
+      }
+    },
+    "/control/decisions": {
+      "get": {
+        "operationId": "list_decisions_control_decisions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "decision_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Decision Key"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject_period",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subject Period"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Decisions Control Decisions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Decisions"
+      },
+      "post": {
+        "operationId": "create_decision_control_decisions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Decision Control Decisions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Decision"
+      }
+    },
+    "/control/decisions/definitions": {
+      "get": {
+        "operationId": "list_decision_definitions_control_decisions_definitions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Decision Definitions Control Decisions Definitions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Decision Definitions"
+      }
+    },
+    "/control/decisions/{decision_id}": {
+      "get": {
+        "operationId": "get_decision_control_decisions__decision_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_id",
+            "required": true,
+            "schema": {
+              "title": "Decision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Decision Control Decisions  Decision Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Decision"
+      }
+    },
+    "/control/decisions/{decision_id}/follow-ups": {
+      "post": {
+        "operationId": "create_decision_follow_up_control_decisions__decision_id__follow_ups_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_id",
+            "required": true,
+            "schema": {
+              "title": "Decision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionFollowUpCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Decision Follow Up Control Decisions  Decision Id  Follow Ups Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Decision Follow Up"
       }
     },
     "/control/lineage/downstream": {

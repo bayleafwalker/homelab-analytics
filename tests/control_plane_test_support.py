@@ -1325,3 +1325,99 @@ def assert_policy_registry_behaviour(store: ControlPlaneStore) -> None:
         except KeyError:
             continue
         raise AssertionError("expected KeyError for unknown policy id")
+
+
+def assert_decision_ledger_behaviour(store: Any) -> None:
+    """Append-only decision ledger: create/get/list records and follow-ups."""
+    from decimal import Decimal
+
+    from packages.storage.decision_ledger import (
+        DecisionActor,
+        DecisionFollowUpCreate,
+        DecisionLedgerStore,
+        DecisionRecordCreate,
+    )
+
+    assert isinstance(store, DecisionLedgerStore)
+    actor = DecisionActor(
+        actor="operator-a",
+        actor_role="operator",
+        actor_auth_provider="local",
+        actor_authenticated=True,
+    )
+    created_at = datetime(2026, 2, 3, 9, 30, tzinfo=UTC)
+    record = store.create_decision_record(
+        DecisionRecordCreate(
+            decision_id="dec-contract-1",
+            decision_key="kotiakku_battery_plan_review",
+            decision_version="1.0.0",
+            subject_publication_key="mart_battery_plan_outcome",
+            subject_schema_version="1.0.0",
+            subject_period="2026-01",
+            subject_row_ref="bpo_contract",
+            subject_verdict="insufficient_evidence",
+            lineage_reference='{"source_run_ids":["run-1"]}',
+            evidence_snapshot='{"outcome":{}}',
+            outcome="defer_pending_evidence",
+            is_non_decision=True,
+            rationale="Coverage incomplete.",
+            evidence_gaps_acknowledged='["measurement_window_coverage_incomplete"]',
+            uncertainty=None,
+            actor=actor,
+            follow_up_due_on=date(2026, 3, 20),
+            created_at=created_at,
+        )
+    )
+    assert record.decision_id == "dec-contract-1"
+    assert record.is_non_decision is True
+    assert record.actor == actor
+    assert record.follow_up_due_on == date(2026, 3, 20)
+    assert record.created_at == created_at
+    assert record.created_at.tzinfo is not None
+    assert store.get_decision_record("dec-contract-1") == record
+    assert store.list_decision_records(decision_key="kotiakku_battery_plan_review") == [record]
+    assert store.list_decision_records(subject_period="2025-12") == []
+
+    follow_up = store.add_decision_follow_up(
+        DecisionFollowUpCreate(
+            follow_up_id="fup-contract-1",
+            decision_id="dec-contract-1",
+            observed_at=datetime(2026, 3, 21, 8, tzinfo=UTC),
+            observation_period="2026-02",
+            realized_result="February bill matched the prior contract.",
+            realized_value_eur=Decimal("12.5000"),
+            realized_value_status="observed",
+            evidence_effect="preserved_non_decision",
+            notes=None,
+            actor=actor,
+            created_at=datetime(2026, 3, 21, 8, 5, tzinfo=UTC),
+        )
+    )
+    assert follow_up.realized_value_eur == Decimal("12.5")
+    assert follow_up.observed_at == datetime(2026, 3, 21, 8, tzinfo=UTC)
+    assert store.list_decision_follow_ups("dec-contract-1") == [follow_up]
+    try:
+        store.get_decision_record("missing")
+    except KeyError:
+        pass
+    else:
+        raise AssertionError("expected KeyError for unknown decision")
+    try:
+        store.add_decision_follow_up(
+            DecisionFollowUpCreate(
+                follow_up_id="fup-orphan",
+                decision_id="missing",
+                observed_at=datetime(2026, 3, 21, tzinfo=UTC),
+                observation_period=None,
+                realized_result="x",
+                realized_value_eur=None,
+                realized_value_status=None,
+                evidence_effect="inconclusive",
+                notes=None,
+                actor=actor,
+            )
+        )
+    except KeyError:
+        pass
+    else:
+        raise AssertionError("expected KeyError for follow-up on unknown decision")

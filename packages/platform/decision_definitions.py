@@ -17,6 +17,20 @@ from typing import Any
 
 
 @dataclass(frozen=True)
+class DecisionSubjectEvidence:
+    """The exact reporting-layer row a decision is made on."""
+
+    publication_key: str
+    schema_version: str
+    period: str
+    row_ref: str
+    verdict: str
+    reason_codes: tuple[str, ...]
+    lineage_reference: dict[str, Any]
+    snapshot: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class DecisionOutcomeOption:
     key: str
     label: str
