@@ -266,7 +266,7 @@ class AgentSemanticIndexAPITests(unittest.TestCase):
                 ],
                 run_id="run-agent-index-truncation",
             )
-            transformation.refresh_monthly_cashflow()
+            refresh_monthly_cashflow(transformation.store)
             rich = TestClient(
                 create_app(
                     AccountTransactionService(
