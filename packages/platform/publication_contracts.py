@@ -10,6 +10,10 @@ from packages.platform.capability_types import (
 )
 from packages.platform.current_dimension_contracts import CurrentDimensionContractDefinition
 from packages.platform.publication_confidence import get_latest_publication_confidence
+from packages.platform.publication_keys import (
+    PublicationKeyResolver,
+    pack_publication_relation_name,
+)
 from packages.shared.extensions import ExtensionRegistry
 
 if TYPE_CHECKING:
@@ -307,8 +311,10 @@ def _pack_publication_relations(
     publication_metadata: dict[str, tuple[CapabilityPack, PublicationDefinition]] = {}
     for pack in capability_packs:
         for publication in pack.publications:
-            relation_name = f"mart_{publication.schema_name}"
-            publication_metadata[relation_name] = (pack, publication)
+            publication_metadata[pack_publication_relation_name(publication)] = (
+                pack,
+                publication,
+            )
     return publication_metadata
 
 
@@ -589,11 +595,13 @@ def build_publication_contract_catalog(
 
     # Enrich contracts with latest confidence metadata if control_plane is available
     if control_plane is not None:
+        key_resolver = PublicationKeyResolver.from_capability_packs(capability_packs)
         enriched_contracts = []
         for contract in contracts:
             latest_confidence = get_latest_publication_confidence(
                 contract.publication_key,
                 control_plane,
+                key_resolver=key_resolver,
             )
             if latest_confidence is not None:
                 # Replace contract with enriched version

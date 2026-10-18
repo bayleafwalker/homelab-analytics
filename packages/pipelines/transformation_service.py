@@ -126,6 +126,7 @@ from packages.pipelines.transformation_refresh_registry import (
     PublicationRefreshRegistry,
     get_default_publication_refresh_registry,
 )
+from packages.platform.publication_keys import PublicationKeyResolver
 from packages.storage.control_plane import ControlPlaneStore
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataStore
@@ -154,6 +155,7 @@ class TransformationService(
         battery_plan_profile_loader: Callable[[], BatteryPlanProfileResolution]
         | None = None,
         clock: Callable[[], datetime] | None = None,
+        publication_key_resolver: PublicationKeyResolver | None = None,
     ) -> None:
         self._store = store
         self._battery_plan_profile_loader = (
@@ -163,6 +165,8 @@ class TransformationService(
         self._control_plane_store = control_plane_store
         # Landing validation outcomes feed publication confidence; optional.
         self._run_metadata_store = run_metadata_store
+        # Canonicalizes confidence-snapshot keys; identity when not injected.
+        self._publication_key_resolver = publication_key_resolver or PublicationKeyResolver()
         self._publication_refresh_registry = (
             publication_refresh_registry or get_default_publication_refresh_registry()
         )
@@ -271,6 +275,7 @@ class TransformationService(
                         self._store,
                         as_of=as_of,
                         run_metadata_store=self._run_metadata_store,
+                        key_resolver=self._publication_key_resolver,
                     )
                 except Exception:
                     # Silently skip on error; confidence snapshot is optional

@@ -37,6 +37,7 @@ from packages.pipelines.reporting_service import (
     publish_promotion_reporting,
 )
 from packages.pipelines.transformation_service import TransformationService
+from packages.platform.publication_keys import PublicationKeyResolver
 from packages.platform.runtime.builder import build_container
 from packages.platform.runtime.container import AppContainer
 from packages.shared.settings import AppSettings
@@ -305,6 +306,9 @@ def _build_transformation_service(
         publication_refresh_registry=container.publication_refresh_registry,
         domain_registry=container.transformation_domain_registry,
         run_metadata_store=container.run_metadata_store,
+        publication_key_resolver=PublicationKeyResolver.from_capability_packs(
+            container.capability_packs
+        ),
     )
 
 
