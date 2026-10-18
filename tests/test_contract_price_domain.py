@@ -11,6 +11,8 @@ from packages.domains.finance.pipelines.contract_prices import (
     load_canonical_contract_prices_bytes,
 )
 from packages.domains.finance.pipelines.transformation_contract_prices import (
+    get_contract_price_current,
+    get_electricity_price_current,
     refresh_contract_price_current,
 )
 from packages.pipelines.promotion import promote_contract_price_run
@@ -102,10 +104,10 @@ class ContractPriceTransformationTests(unittest.TestCase):
         service.load_contract_prices(self._make_rows(), run_id="run-price-001")
         refresh_contract_price_current(service.store)
 
-        current_rows = service.get_contract_price_current()
+        current_rows = get_contract_price_current(service.store)
         self.assertEqual(2, len(current_rows))
 
-        electricity_rows = service.get_electricity_price_current()
+        electricity_rows = get_electricity_price_current(service.store)
         self.assertEqual(1, len(electricity_rows))
         self.assertEqual("Helen Spot", electricity_rows[0]["contract_name"])
         self.assertEqual(Decimal("0.0825"), Decimal(electricity_rows[0]["unit_price"]))

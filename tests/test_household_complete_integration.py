@@ -23,7 +23,15 @@ from packages.domains.finance.pipelines.budget_service import BudgetService
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
 from packages.domains.finance.pipelines.loan_service import LoanService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
-from packages.domains.finance.pipelines.transformation_budgets import refresh_budget_variance
+from packages.domains.finance.pipelines.transformation_budgets import (
+    get_budget_variance,
+    refresh_budget_variance,
+)
+from packages.domains.finance.pipelines.transformation_loans import (
+    get_loan_overview,
+    get_loan_schedule_projected,
+)
+from packages.domains.finance.pipelines.transformation_subscriptions import get_subscription_summary
 from packages.domains.finance.pipelines.transformation_transactions import (
     get_monthly_cashflow,
     get_spend_by_category_monthly,
@@ -144,7 +152,7 @@ class AllDomainsMartPopulationTests(unittest.TestCase):
         self.assertGreater(len(rows), 0)
 
     def test_subscription_summary_populated(self) -> None:
-        rows = self.ts.get_subscription_summary()
+        rows = get_subscription_summary(self.ts.store)
         self.assertGreater(len(rows), 0)
 
     def test_utility_cost_trend_monthly_populated(self) -> None:
@@ -152,15 +160,15 @@ class AllDomainsMartPopulationTests(unittest.TestCase):
         self.assertGreater(len(rows), 0)
 
     def test_budget_variance_populated(self) -> None:
-        rows = self.ts.get_budget_variance()
+        rows = get_budget_variance(self.ts.store)
         self.assertGreater(len(rows), 0)
 
     def test_loan_overview_populated(self) -> None:
-        rows = self.ts.get_loan_overview()
+        rows = get_loan_overview(self.ts.store)
         self.assertGreater(len(rows), 0)
 
     def test_loan_schedule_projected_populated(self) -> None:
-        rows = self.ts.get_loan_schedule_projected()
+        rows = get_loan_schedule_projected(self.ts.store)
         self.assertGreater(len(rows), 0)
 
 
@@ -217,7 +225,7 @@ class BudgetVarianceAlignmentTests(unittest.TestCase):
         cls._temp.cleanup()
 
     def test_budget_variance_has_target_amounts(self) -> None:
-        rows = self.ts.get_budget_variance()
+        rows = get_budget_variance(self.ts.store)
         target_amounts = {r["category_id"]: r["target_amount"] for r in rows if r.get("target_amount") is not None}
         self.assertGreater(len(target_amounts), 0)
 
@@ -228,13 +236,13 @@ class BudgetVarianceAlignmentTests(unittest.TestCase):
         self.assertGreater(len(months), 0)
 
     def test_budget_variance_status_values_are_valid(self) -> None:
-        rows = self.ts.get_budget_variance()
+        rows = get_budget_variance(self.ts.store)
         valid_statuses = {"under_budget", "on_budget", "over_budget", None}
         for row in rows:
             self.assertIn(row.get("status"), valid_statuses)
 
     def test_budget_variance_state_values_are_valid(self) -> None:
-        rows = self.ts.get_budget_variance()
+        rows = get_budget_variance(self.ts.store)
         valid_states = {"good", "warning", "needs_action"}
         for row in rows:
             self.assertIn(row.get("state"), valid_states)
@@ -384,7 +392,7 @@ class BudgetCategoryOverlapTests(unittest.TestCase):
         cls._temp.cleanup()
 
     def test_budget_categories_overlap_with_spend_categories(self) -> None:
-        budget_rows = self.ts.get_budget_variance()
+        budget_rows = get_budget_variance(self.ts.store)
         spend_rows = get_spend_by_category_monthly(self.ts.store)
 
         spend_categories = {r["category"] for r in spend_rows if r.get("category") is not None}
@@ -478,7 +486,7 @@ class CategoryGovernancePhase2Tests(unittest.TestCase):
         )
 
     def test_budget_variance_joins_on_category_id(self) -> None:
-        budget_rows = self.ts.get_budget_variance()
+        budget_rows = get_budget_variance(self.ts.store)
         categories_with_spend = {
             r["category_id"]
             for r in budget_rows

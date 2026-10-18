@@ -20,6 +20,8 @@ from packages.domains.finance.pipelines.budgets import (
     load_canonical_budgets_bytes,
 )
 from packages.domains.finance.pipelines.transformation_budgets import (
+    get_budget_envelope_drift,
+    get_budget_variance,
     refresh_budget_envelope_drift,
     refresh_budget_progress_current,
     refresh_budget_variance,
@@ -188,7 +190,7 @@ class BudgetTransformationTests(unittest.TestCase):
         count = refresh_budget_variance(svc.store)
         self.assertEqual(3, count)
 
-        rows = svc.get_budget_variance()
+        rows = get_budget_variance(svc.store)
         for row in rows:
             self.assertEqual("under_budget", row["status"])
             self.assertEqual("good", row["state"])
@@ -199,7 +201,7 @@ class BudgetTransformationTests(unittest.TestCase):
         svc.load_budget_targets(self._make_rows(), run_id="run-001")
         refresh_budget_variance(svc.store)
 
-        rows = svc.get_budget_variance(category_id="groceries")
+        rows = get_budget_variance(svc.store, category_id="groceries")
         self.assertEqual(1, len(rows))
         self.assertEqual("groceries", rows[0]["category_id"])
 
@@ -208,10 +210,10 @@ class BudgetTransformationTests(unittest.TestCase):
         svc.load_budget_targets(self._make_rows(), run_id="run-001")
         refresh_budget_variance(svc.store)
 
-        rows = svc.get_budget_variance(period_label="2026-01")
+        rows = get_budget_variance(svc.store, period_label="2026-01")
         self.assertEqual(3, len(rows))
 
-        rows = svc.get_budget_variance(period_label="2099-01")
+        rows = get_budget_variance(svc.store, period_label="2099-01")
         self.assertEqual(0, len(rows))
 
     def test_refresh_budget_progress_current(self) -> None:
@@ -230,7 +232,7 @@ class BudgetTransformationTests(unittest.TestCase):
         count = refresh_budget_envelope_drift(svc.store)
         self.assertEqual(3, count)
 
-        rows = svc.get_budget_envelope_drift(category_id="groceries", period_label="2026-01")
+        rows = get_budget_envelope_drift(svc.store, category_id="groceries", period_label="2026-01")
         self.assertEqual(1, len(rows))
         row = rows[0]
         self.assertEqual("under_target", row["drift_state"])
@@ -244,7 +246,7 @@ class BudgetTransformationTests(unittest.TestCase):
         svc.load_budget_targets(self._make_rows(), run_id="run-001")
         refresh_budget_variance(svc.store)
 
-        rows = svc.get_budget_variance(category_id="groceries", period_label="2026-01")
+        rows = get_budget_variance(svc.store, category_id="groceries", period_label="2026-01")
         self.assertEqual(1, len(rows))
         row = rows[0]
         # With no spend data: variance = target - 0 = target

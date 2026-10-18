@@ -21,6 +21,9 @@ from packages.domains.finance.pipelines.loan_service import (
 )
 from packages.domains.finance.pipelines.transformation_loans import (
     get_debt_overview,
+    get_loan_overview,
+    get_loan_repayment_variance,
+    get_loan_schedule_projected,
     refresh_debt_overview,
     refresh_loan_overview,
     refresh_loan_repayment_variance,
@@ -215,7 +218,7 @@ class LoanTransformationTests(unittest.TestCase):
         refresh_loan_schedule_projected(svc.store)
         refresh_loan_repayment_variance(svc.store)
         refresh_loan_overview(svc.store)
-        rows = svc.get_loan_overview()
+        rows = get_loan_overview(svc.store)
         self.assertEqual(1, len(rows))
         self.assertEqual("loan-001", rows[0]["loan_id"])
         self.assertEqual("Test Mortgage", rows[0]["loan_name"])
@@ -286,14 +289,14 @@ class LoanTransformationTests(unittest.TestCase):
         svc = TransformationService(DuckDBStore.memory())
         svc.load_loan_repayments(self._make_rows(), run_id="run-001")
         refresh_loan_schedule_projected(svc.store)
-        rows = svc.get_loan_schedule_projected(loan_id="loan-001")
+        rows = get_loan_schedule_projected(svc.store, loan_id="loan-001")
         self.assertEqual(240, len(rows))
 
     def test_get_loan_schedule_unknown_loan_id_returns_empty(self) -> None:
         svc = TransformationService(DuckDBStore.memory())
         svc.load_loan_repayments(self._make_rows(), run_id="run-001")
         refresh_loan_schedule_projected(svc.store)
-        rows = svc.get_loan_schedule_projected(loan_id="unknown")
+        rows = get_loan_schedule_projected(svc.store, loan_id="unknown")
         self.assertEqual([], rows)
 
     def test_get_loan_repayment_variance_filtered_by_loan_id(self) -> None:
@@ -301,7 +304,7 @@ class LoanTransformationTests(unittest.TestCase):
         svc.load_loan_repayments(self._make_rows(), run_id="run-001")
         refresh_loan_schedule_projected(svc.store)
         refresh_loan_repayment_variance(svc.store)
-        rows = svc.get_loan_repayment_variance(loan_id="loan-001")
+        rows = get_loan_repayment_variance(svc.store, loan_id="loan-001")
         self.assertGreater(len(rows), 0)
 
     def test_loan_overview_balance_estimate(self) -> None:
@@ -309,7 +312,7 @@ class LoanTransformationTests(unittest.TestCase):
         svc.load_loan_repayments(self._make_rows(), run_id="run-001")
         refresh_loan_schedule_projected(svc.store)
         refresh_loan_overview(svc.store)
-        rows = svc.get_loan_overview()
+        rows = get_loan_overview(svc.store)
         self.assertGreater(Decimal(str(rows[0]["current_balance_estimate"])), Decimal("0"))
 
 
@@ -381,10 +384,10 @@ class PromoteLoanRepaymentRunTests(unittest.TestCase):
                 transformation_service=ts,
             )
 
-            schedule = ts.get_loan_schedule_projected()
+            schedule = get_loan_schedule_projected(ts.store)
             self.assertGreater(len(schedule), 0)
 
-            overview = ts.get_loan_overview()
+            overview = get_loan_overview(ts.store)
             self.assertEqual(2, len(overview))  # mortgage-001 + personal-001
 
 

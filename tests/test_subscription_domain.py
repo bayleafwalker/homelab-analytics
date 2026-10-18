@@ -21,6 +21,7 @@ from packages.domains.finance.pipelines.subscriptions import (
 )
 from packages.domains.finance.pipelines.transformation_subscriptions import (
     get_subscription_changes,
+    get_subscription_summary,
     refresh_subscription_changes,
     refresh_subscription_summary,
 )
@@ -182,7 +183,7 @@ class SubscriptionTransformationTests(unittest.TestCase):
         count = refresh_subscription_summary(svc.store)
         self.assertEqual(3, count)
 
-        rows = svc.get_subscription_summary()
+        rows = get_subscription_summary(svc.store)
         statuses = {r["contract_name"]: r["status"] for r in rows}
         self.assertEqual("active", statuses["Netflix"])
         self.assertEqual("active", statuses["GitHub Pro"])
@@ -227,7 +228,7 @@ class SubscriptionTransformationTests(unittest.TestCase):
         svc.load_subscriptions(self._make_rows(), run_id="run-001")
         refresh_subscription_summary(svc.store)
 
-        rows = svc.get_subscription_summary()
+        rows = get_subscription_summary(svc.store)
         github = next(r for r in rows if r["contract_name"] == "GitHub Pro")
         # 48 / 12 = 4
         self.assertEqual(Decimal("4.0000"), Decimal(github["monthly_equivalent"]))
@@ -240,10 +241,10 @@ class SubscriptionTransformationTests(unittest.TestCase):
         svc.load_subscriptions(self._make_rows(), run_id="run-001")
         refresh_subscription_summary(svc.store)
 
-        active = svc.get_subscription_summary(status="active")
+        active = get_subscription_summary(svc.store, status="active")
         self.assertEqual(2, len(active))
 
-        inactive = svc.get_subscription_summary(status="inactive")
+        inactive = get_subscription_summary(svc.store, status="inactive")
         self.assertEqual(1, len(inactive))
 
     def test_subscription_summary_currency_filter(self) -> None:
@@ -251,10 +252,10 @@ class SubscriptionTransformationTests(unittest.TestCase):
         svc.load_subscriptions(self._make_rows(), run_id="run-001")
         refresh_subscription_summary(svc.store)
 
-        eur = svc.get_subscription_summary(currency="EUR")
+        eur = get_subscription_summary(svc.store, currency="EUR")
         self.assertEqual(2, len(eur))
 
-        usd = svc.get_subscription_summary(currency="USD")
+        usd = get_subscription_summary(svc.store, currency="USD")
         self.assertEqual(1, len(usd))
 
 

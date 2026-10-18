@@ -366,7 +366,8 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_SUBSCRIPTION_SUMMARY_TABLE,
-            lambda: self._transformation_service.get_subscription_summary(
+            lambda: self._read_mart(
+                MART_SUBSCRIPTION_SUMMARY_TABLE,
                 status=status,
                 currency=currency,
             ),
@@ -385,7 +386,8 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_CONTRACT_PRICE_CURRENT_TABLE,
-            lambda: self._transformation_service.get_contract_price_current(
+            lambda: self._read_mart(
+                MART_CONTRACT_PRICE_CURRENT_TABLE,
                 contract_type=contract_type,
                 status=status,
             ),
@@ -399,7 +401,7 @@ class ReportingService:
     def get_electricity_price_current(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_ELECTRICITY_PRICE_CURRENT_TABLE,
-            self._transformation_service.get_electricity_price_current,
+            lambda: self._read_mart(MART_ELECTRICITY_PRICE_CURRENT_TABLE),
             ("", []),
             "ORDER BY contract_name, price_component, valid_from",
         )
@@ -410,9 +412,7 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_LOAN_SCHEDULE_PROJECTED_TABLE,
-            lambda: self._transformation_service.get_loan_schedule_projected(
-                loan_id=loan_id
-            ),
+            lambda: self._read_mart(MART_LOAN_SCHEDULE_PROJECTED_TABLE, loan_id=loan_id),
             _build_where_clause(("loan_id = %s", loan_id)),
             "ORDER BY loan_id, period",
         )
@@ -420,7 +420,7 @@ class ReportingService:
     def get_loan_overview(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_LOAN_OVERVIEW_TABLE,
-            self._transformation_service.get_loan_overview,
+            lambda: self._read_mart(MART_LOAN_OVERVIEW_TABLE),
             ("", []),
             "ORDER BY loan_name",
         )
@@ -431,9 +431,7 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_LOAN_REPAYMENT_VARIANCE_TABLE,
-            lambda: self._transformation_service.get_loan_repayment_variance(
-                loan_id=loan_id
-            ),
+            lambda: self._read_mart(MART_LOAN_REPAYMENT_VARIANCE_TABLE, loan_id=loan_id),
             _build_where_clause(("loan_id = %s", loan_id)),
             "ORDER BY loan_id, repayment_month",
         )
@@ -764,7 +762,7 @@ class ReportingService:
     def get_upcoming_fixed_costs_30d(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_UPCOMING_FIXED_COSTS_30D_TABLE,
-            self._transformation_service.get_upcoming_fixed_costs_30d,
+            lambda: self._read_mart(MART_UPCOMING_FIXED_COSTS_30D_TABLE),
             ("", []),
             "ORDER BY expected_date, contract_name",
         )
@@ -945,7 +943,8 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_BUDGET_VARIANCE_TABLE,
-            lambda: self._transformation_service.get_budget_variance(
+            lambda: self._read_mart(
+                MART_BUDGET_VARIANCE_TABLE,
                 budget_name=budget_name,
                 category_id=category_id,
                 period_label=period_label,
@@ -967,7 +966,8 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_BUDGET_ENVELOPE_DRIFT_TABLE,
-            lambda: self._transformation_service.get_budget_envelope_drift(
+            lambda: self._read_mart(
+                MART_BUDGET_ENVELOPE_DRIFT_TABLE,
                 budget_name=budget_name,
                 category_id=category_id,
                 period_label=period_label,
@@ -983,7 +983,7 @@ class ReportingService:
     def get_budget_progress_current(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
             MART_BUDGET_PROGRESS_CURRENT_TABLE,
-            self._transformation_service.get_budget_progress_current,
+            lambda: self._read_mart(MART_BUDGET_PROGRESS_CURRENT_TABLE),
             ("", []),
             "ORDER BY budget_name, category_id",
         )
