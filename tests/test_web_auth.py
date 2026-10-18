@@ -1268,6 +1268,31 @@ def test_cashflow_map_page_reads_reporting_api_and_discloses_provenance() -> Non
     assert "fetch(" not in page
 
 
+def test_wallboard_page_is_ambient_and_degrades_per_tile() -> None:
+    page = (FRONTEND_ROOT / "app" / "wallboard" / "page.js").read_text()
+    live = (FRONTEND_ROOT / "components" / "wallboard-live.js").read_text()
+    view = (FRONTEND_ROOT / "components" / "wallboard-view.js").read_text()
+    css = (FRONTEND_ROOT / "app" / "wallboard.css").read_text()
+
+    assert "await getCurrentUser()" in page
+    assert 'searchParams?.compact === "1"' in page
+    assert "optional(getHomelabServices(), [])" in page
+    assert "optional(getHaBridgeStatus(), null)" in page
+    assert "AppShell" not in page
+    # Refresh pauses when hidden or hovered; no streaming.
+    assert "router.refresh()" in live
+    assert "document.hidden" in live
+    assert "pointerenter" in live
+    assert "No services reporting" in view
+    # Mono only and readable from a distance.
+    assert "var(--retro-font-mono)" in css
+    assert "--font-display" not in css
+    import re
+
+    fixed_sizes = [int(size) for size in re.findall(r"font-size: (\d+)px", css)]
+    assert fixed_sizes and min(fixed_sizes) >= 18
+
+
 def test_default_shell_has_route_level_error_loading_and_not_found_states() -> None:
     error_page = (FRONTEND_ROOT / "app" / "error.js").read_text()
     not_found = (FRONTEND_ROOT / "app" / "not-found.js").read_text()
