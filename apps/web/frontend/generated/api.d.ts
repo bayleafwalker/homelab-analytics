@@ -3880,8 +3880,17 @@ export interface components {
         };
         /** AffordabilityRatiosResponse */
         AffordabilityRatiosResponse: {
+            /** As Of */
+            as_of?: string | null;
+            /**
+             * As Of Status
+             * @default current
+             * @enum {string}
+             */
+            as_of_status: "current" | "snapshot" | "no_history";
             /** Rows */
             rows: components["schemas"]["AffordabilityRatiosRow"][];
+            snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
         };
         /** AffordabilityRatiosRow */
         AffordabilityRatiosRow: {
@@ -4086,8 +4095,17 @@ export interface components {
         };
         /** AttentionItemsResponse */
         AttentionItemsResponse: {
+            /** As Of */
+            as_of?: string | null;
+            /**
+             * As Of Status
+             * @default current
+             * @enum {string}
+             */
+            as_of_status: "current" | "snapshot" | "no_history";
             /** Rows */
             rows: components["schemas"]["AttentionItemRow"][];
+            snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
         };
         /** BatteryPlanOutcomeResponse */
         BatteryPlanOutcomeResponse: {
@@ -5665,8 +5683,17 @@ export interface components {
         };
         /** HouseholdOverviewResponse */
         HouseholdOverviewResponse: {
+            /** As Of */
+            as_of?: string | null;
+            /**
+             * As Of Status
+             * @default current
+             * @enum {string}
+             */
+            as_of_status: "current" | "snapshot" | "no_history";
             /** Rows */
             rows: components["schemas"]["HouseholdOverviewRow"][];
+            snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
         };
         /** HouseholdOverviewRow */
         HouseholdOverviewRow: {
@@ -6358,6 +6385,8 @@ export interface components {
             skip_reason?: string | null;
             /** Skipped */
             skipped: boolean;
+            /** Source Asset Id */
+            source_asset_id?: string | null;
         };
         /** ProposalChangeDataModel */
         ProposalChangeDataModel: {
@@ -6648,6 +6677,22 @@ export interface components {
             /** Ui Descriptor Key */
             ui_descriptor_key?: string | null;
         };
+        /**
+         * PublicationSnapshotModel
+         * @description Which dated snapshot an as-of read was served from.
+         */
+        PublicationSnapshotModel: {
+            /** Captured At */
+            captured_at: string;
+            /** Publication Key */
+            publication_key: string;
+            /** Reference Month */
+            reference_month: string;
+            /** Row Count */
+            row_count: number;
+            /** Run Id */
+            run_id?: string | null;
+        };
         /** PublicationTrustModel */
         PublicationTrustModel: {
             /** Assessed At */
@@ -6674,8 +6719,17 @@ export interface components {
         };
         /** RecentChangesResponse */
         RecentChangesResponse: {
+            /** As Of */
+            as_of?: string | null;
+            /**
+             * As Of Status
+             * @default current
+             * @enum {string}
+             */
+            as_of_status: "current" | "snapshot" | "no_history";
             /** Rows */
             rows: components["schemas"]["RecentSignificantChangeRow"][];
+            snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
         };
         /** RecentLargeTransactionsResponse */
         RecentLargeTransactionsResponse: {
@@ -6722,8 +6776,17 @@ export interface components {
         };
         /** RecurringCostBaselineResponse */
         RecurringCostBaselineResponse: {
+            /** As Of */
+            as_of?: string | null;
+            /**
+             * As Of Status
+             * @default current
+             * @enum {string}
+             */
+            as_of_status: "current" | "snapshot" | "no_history";
             /** Rows */
             rows: components["schemas"]["RecurringCostBaselineRow"][];
+            snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
         };
         /** RecurringCostBaselineRow */
         RecurringCostBaselineRow: {
@@ -6965,10 +7028,19 @@ export interface components {
         };
         /** SubscriptionSummaryResponse */
         SubscriptionSummaryResponse: {
+            /** As Of */
+            as_of?: string | null;
+            /**
+             * As Of Status
+             * @default current
+             * @enum {string}
+             */
+            as_of_status: "current" | "snapshot" | "no_history";
             /** Currency */
             currency?: string | null;
             /** Rows */
             rows: components["schemas"]["SubscriptionSummaryRow"][];
+            snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
             /** Status */
             status?: string | null;
         };
@@ -13538,7 +13610,10 @@ export interface operations {
     };
     get_affordability_ratios_reports_affordability_ratios_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history. */
+                as_of?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -13554,11 +13629,23 @@ export interface operations {
                     "application/json": components["schemas"]["AffordabilityRatiosResponse"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     get_attention_items_reports_attention_items_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history. */
+                as_of?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -13572,6 +13659,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AttentionItemsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -13922,7 +14018,10 @@ export interface operations {
     };
     get_household_overview_reports_household_overview_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history. */
+                as_of?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -13936,6 +14035,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HouseholdOverviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -14109,7 +14217,10 @@ export interface operations {
     };
     get_recent_changes_reports_recent_changes_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history. */
+                as_of?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -14123,6 +14234,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecentChangesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -14149,7 +14269,10 @@ export interface operations {
     };
     get_recurring_cost_baseline_reports_recurring_cost_baseline_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history. */
+                as_of?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -14163,6 +14286,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecurringCostBaselineResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -14206,6 +14338,8 @@ export interface operations {
             query?: {
                 status?: string | null;
                 currency?: string | null;
+                /** @description YYYY-MM. Return the publication as it was published when this was the newest published month (dated snapshot), or as_of_status=no_history. */
+                as_of?: string | null;
             };
             header?: never;
             path?: never;

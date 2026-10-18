@@ -53,3 +53,13 @@ export function monthsBetween(older, newer) {
   if (!a || !b) return null;
   return (Number(b[1]) * 12 + Number(b[2])) - (Number(a[1]) * 12 + Number(a[2]));
 }
+
+// "2026-03-09T00:00:00+00:00" -> "9 Mar 2026" (UTC calendar day, so the
+// same instant reads the same on the server and in the browser).
+export function formatDay(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ""));
+  if (!match) return value ? String(value) : "—";
+  const name = MONTHS_LONG[Number(match[2]) - 1];
+  if (!name) return String(value);
+  return `${Number(match[3])} ${name.slice(0, 3)} ${match[1]}`;
+}

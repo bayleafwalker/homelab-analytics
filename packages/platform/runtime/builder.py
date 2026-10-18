@@ -157,6 +157,7 @@ def build_reporting_service(
         extension_registry=extension_registry,
         access_mode=access_mode,
         control_plane_store=control_plane_store or build_config_store(settings),
+        snapshot_retention_months=settings.reporting_snapshot_retention_months,
     )
 
 

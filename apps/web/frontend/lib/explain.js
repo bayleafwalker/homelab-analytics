@@ -39,25 +39,41 @@ const confidenceIndex = cache(async () => {
   }
 });
 
-const NODE_TYPES = ["source", "run", "relation"];
-
-// Collapse a lineage graph into what a person reading one number needs: how
-// many sources, runs and relations stand behind it, and the runs themselves.
+// Collapse a lineage graph into what a person reading one number needs: the
+// chain behind it, mart ← transformation relations ← runs ← source assets ←
+// source systems, with counts and names per step. The publication's own
+// reporting relation is the figure itself, so it is not counted as an input.
 export function summariseLineage(graph) {
   const nodes = graph?.nodes || [];
-  const counts = { source: 0, run: 0, relation: 0 };
+  const publicationKey = graph?.publication_key || null;
+  const counts = { relation: 0, run: 0, asset: 0, source: 0 };
   const runs = [];
   const sources = [];
+  const relations = [];
+  const assets = [];
+  let reportingRecorded = false;
   for (const node of nodes) {
-    if (NODE_TYPES.includes(node.type)) counts[node.type] += 1;
+    const attributes = node.attributes || {};
     if (node.type === "run") {
-      runs.push(node.attributes?.run_id || String(node.id).replace(/^run:/, ""));
-    }
-    if (node.type === "source") {
-      sources.push(node.attributes?.source_system || String(node.id).replace(/^source:/, ""));
+      counts.run += 1;
+      runs.push(attributes.run_id || String(node.id).replace(/^run:/, ""));
+    } else if (node.type === "source") {
+      counts.source += 1;
+      sources.push(attributes.source_system || String(node.id).replace(/^source:/, ""));
+    } else if (node.type === "relation") {
+      if (attributes.layer === "landing") {
+        counts.asset += 1;
+        assets.push(attributes.name);
+      } else if (attributes.layer === "reporting" && (!publicationKey || attributes.name === publicationKey)) {
+        reportingRecorded = true;
+      } else {
+        counts.relation += 1;
+        relations.push(attributes.name);
+      }
     }
   }
-  return { counts, runs, sources, recorded: counts.source + counts.run + counts.relation > 0 };
+  const recorded = reportingRecorded || Object.values(counts).some((count) => count > 0);
+  return { counts, runs, sources, relations, assets, recorded };
 }
 
 /**

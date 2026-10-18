@@ -9,13 +9,15 @@ Design
 ------
 - Node types: ``publication``, ``run``, ``relation``, ``source``.
 - Edge types: ``publishes`` (run → publication), ``produces`` (run → relation),
-  ``sources`` (source → run).
+  ``sources`` (source → run), ``feeds`` (transformation relation → the
+  reporting relation the same run rebuilt).
 - Relations carry their ``layer`` field ("landing", "transformation",
   "reporting", …) so a viewer can lay them out by pipeline stage.
-- The graph is intentionally shallow: the current lineage schema records
-  each hop as a flat (source_run_id → target) row, so we render the fan-out
-  from a publication rather than walking further upstream than the recorded
-  ``source_run_id`` allows.
+- The lineage schema records each hop as a flat (run → target) row. From the
+  runs behind a publication the graph also walks each run's landing
+  (source asset) and transformation rows, so a publication shows the real
+  chain source asset → run → transformation relations → mart. It never walks
+  past the runs themselves.
 """
 
 from __future__ import annotations
@@ -34,6 +36,11 @@ NODE_SOURCE = "source"
 EDGE_PUBLISHES = "publishes"
 EDGE_PRODUCES = "produces"
 EDGE_SOURCES = "sources"
+EDGE_FEEDS = "feeds"
+
+LAYER_LANDING = "landing"
+LAYER_TRANSFORMATION = "transformation"
+UPSTREAM_LAYERS = (LAYER_LANDING, LAYER_TRANSFORMATION)
 
 
 @runtime_checkable
@@ -175,7 +182,18 @@ def build_publication_lineage_graph(
         relation_names.add(record.relation_name)
 
     lineage_records = _collect_lineage_for_relations(store, relation_names)
-    for lineage_record in lineage_records:
+    run_ids = {record.run_id for record in audit_records if record.run_id}
+    run_ids.update(record.input_run_id for record in lineage_records if record.input_run_id)
+    known_ids = {record.lineage_id for record in lineage_records}
+    upstream_records = [
+        record
+        for record in _collect_upstream_lineage(store, run_ids)
+        if record.lineage_id not in known_ids
+    ]
+    # run node id -> upstream (landing/transformation) and reporting relation ids
+    upstream_by_run: dict[str, list[str]] = {}
+    reporting_by_run: dict[str, list[str]] = {}
+    for lineage_record in [*lineage_records, *upstream_records]:
         if not lineage_record.input_run_id:
             continue
         run_id = _run_node_id(lineage_record.input_run_id)
@@ -208,6 +226,10 @@ def build_publication_lineage_graph(
                     "recorded_at": _iso(lineage_record.recorded_at),
                 },
             )
+        if lineage_record.target_layer == LAYER_TRANSFORMATION:
+            upstream_by_run.setdefault(run_id, []).append(relation_id)
+        elif lineage_record.target_name in relation_names:
+            reporting_by_run.setdefault(run_id, []).append(relation_id)
         if lineage_record.source_system:
             source_id = _source_node_id(lineage_record.source_system)
             if source_id not in nodes:
@@ -224,6 +246,24 @@ def build_publication_lineage_graph(
                     type=EDGE_SOURCES,
                     attributes={"source_run_id": lineage_record.source_run_id},
                 )
+
+    # Transformation relations a run produced feed the publication relations
+    # that same run rebuilt (or the publication itself when only the audit
+    # row exists).
+    for run_id, upstream_ids in upstream_by_run.items():
+        targets = reporting_by_run.get(run_id) or (
+            [publication_id] if (run_id, publication_id, EDGE_PUBLISHES) in edges else []
+        )
+        for upstream_id in upstream_ids:
+            for target_id in targets:
+                feed_key = (upstream_id, target_id, EDGE_FEEDS)
+                if feed_key not in edges:
+                    edges[feed_key] = LineageEdge(
+                        from_id=upstream_id,
+                        to_id=target_id,
+                        type=EDGE_FEEDS,
+                        attributes={"run_id": nodes[run_id].attributes.get("run_id")},
+                    )
 
     sorted_nodes = tuple(sorted(nodes.values(), key=lambda n: (n.type, n.id)))
     sorted_edges = tuple(
@@ -252,4 +292,24 @@ def _collect_lineage_for_relations(
                 continue
             seen.add(record.lineage_id)
             collected.append(record)
+    return collected
+
+
+def _collect_upstream_lineage(
+    store: LineageStore, run_ids: Iterable[str]
+) -> list[SourceLineageRecord]:
+    """Landing and transformation rows recorded by the runs behind a publication.
+
+    These carry the source asset a run landed for and the facts/dimensions it
+    loaded, so the graph reads source asset → run → transformation → mart.
+    """
+    seen: set[str] = set()
+    collected: list[SourceLineageRecord] = []
+    for run_id in sorted(run_ids):
+        for layer in UPSTREAM_LAYERS:
+            for record in store.list_source_lineage(input_run_id=run_id, target_layer=layer):
+                if record.lineage_id in seen:
+                    continue
+                seen.add(record.lineage_id)
+                collected.append(record)
     return collected

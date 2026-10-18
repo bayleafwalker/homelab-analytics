@@ -88,9 +88,9 @@ Sprint workflow:
 
 | Store | Latest migration | Count |
 |---|---|---|
-| `migrations/postgres/` | `0020_action_proposal_changes_feed` | 19 (`0019` reserved for a parallel stream) |
-| `migrations/duckdb/` | `0015_battery_plan_outcome_marts` | 10 (gaps: DuckDB-only subset) |
-| `migrations/sqlite/` | `0013_action_proposal_changes_feed` | 12 (`0012` reserved for a parallel stream) |
+| `migrations/postgres/` | `0020_action_proposal_changes_feed` | 19 (`0019` unused: reserved for the as-of/lineage stream, which needed no control-plane migration; free) |
+| `migrations/duckdb/` | `0016_reporting_publication_snapshot` | 11 (gaps: DuckDB-only subset) |
+| `migrations/sqlite/` | `0013_action_proposal_changes_feed` | 12 (`0012` unused: reserved for the as-of/lineage stream; free) |
 | `migrations/postgres_run_metadata/` | `0001_run_metadata_initial_schema` | 1 |
 
 ### Schema versions

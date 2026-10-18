@@ -205,6 +205,8 @@ Reporting publication forms:
 
 When published reporting is configured, API and web workloads should read from those published relations rather than querying the DuckDB warehouse directly. Warehouse reads remain a worker/local-development contract.
 
+As-of history: month-keyed marts carry their own history. The current-only publications (household overview, attention items, recent changes, affordability ratios, recurring cost baseline, subscription summary) are captured at every publication refresh into `reporting_publication_snapshot`, keyed by the newest published `booking_month` (DuckDB `0016`; the Postgres reporting store holds a copy when configured). Their API endpoints take `as_of=YYYY-MM` and answer `as_of_status` `current`, `snapshot` or `no_history`; a month with no snapshot returns no rows rather than today's. Retention keeps the newest `HOMELAB_ANALYTICS_REPORTING_SNAPSHOT_RETENTION_MONTHS` reference months (default 24) per publication. Code: `packages/pipelines/reporting_snapshots.py`.
+
 Reporting extensibility:
 
 - keep primary marts and shared metrics in the application repository

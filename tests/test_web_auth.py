@@ -1538,13 +1538,39 @@ def test_as_of_scrubber_only_offers_published_months() -> None:
     assert "use client" not in scrubber
     assert 'aria-current={month === selected ? "true" : undefined}' in scrubber
     assert "no published data" in scrubber
-    # The dashboard rewinds month-keyed publications only and marks snapshot
-    # publications as current; state is in the URL.
+    # The dashboard rewinds month-keyed publications by month and reads the
+    # current-only publications from their dated snapshots; state is in the URL.
     assert "searchParams?.asof" in dashboard
     assert "publishedMonths.includes(requestedAsOf)" in dashboard
     assert "visibleCashflow" in dashboard
-    assert '<span className="pill" data-tone="neutral">Today</span>' in dashboard
     assert '"mart_monthly_cashflow"' in dashboard
+    # Nothing is marked "Today" any more: every current-only panel has history.
+    assert ">Today</span>" not in dashboard
+
+
+def test_dashboard_reads_current_only_panels_from_snapshots() -> None:
+    dashboard = (FRONTEND_ROOT / "app" / "page.js").read_text()
+    history = (FRONTEND_ROOT / "components" / "as-of-history.js").read_text()
+    backend = (FRONTEND_ROOT / "lib" / "backend.ts").read_text()
+
+    for helper in (
+        "getHouseholdOverviewAsOf",
+        "getAttentionItemsAsOf",
+        "getRecentChangesAsOf",
+        "getSubscriptionSummaryAsOf",
+        "getAffordabilityRatiosAsOf",
+        "getRecurringCostBaselineAsOf",
+    ):
+        assert f"{helper}(month)" in dashboard
+        assert f"export async function {helper}(asOf: string)" in backend
+    assert "params: { query: { as_of: asOf } }" in backend
+    # Honest gaps: a month without a snapshot shows "No history", not today.
+    for read in ("ratios", "baseline", "subscriptions", "attention", "changes"):
+        assert f"noHistory(reads.{read})" in dashboard
+        assert f"<HistoryTag read={{reads.{read}}} />" in dashboard
+    assert 'read.status === "no_history"' in dashboard
+    assert "No history for ${formatMonth(month)}" in history
+    assert "As published ${day}" in history
 
 
 def test_responsive_table_keeps_table_semantics_at_phone_width() -> None:

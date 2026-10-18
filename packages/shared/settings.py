@@ -142,6 +142,8 @@ class AppSettings:
     worker_metrics_port: int = 0
     backup_interval_seconds: int = 0
     backup_retention_count: int = 7
+    # As-of history: reference months of snapshots kept per publication.
+    reporting_snapshot_retention_months: int = 24
     backup_dir: Path | None = None
     # API warehouse access: read-only, short-lived DuckDB handles.
     api_warehouse_idle_seconds: float = 5.0
@@ -523,6 +525,13 @@ class AppSettings:
         )
         if backup_retention_count < 1:
             raise ValueError("HOMELAB_ANALYTICS_BACKUP_RETENTION_COUNT must be at least 1.")
+        reporting_snapshot_retention_months = int(
+            env.get("HOMELAB_ANALYTICS_REPORTING_SNAPSHOT_RETENTION_MONTHS", "24")
+        )
+        if reporting_snapshot_retention_months < 1:
+            raise ValueError(
+                "HOMELAB_ANALYTICS_REPORTING_SNAPSHOT_RETENTION_MONTHS must be at least 1."
+            )
         backup_dir_override = env.get("HOMELAB_ANALYTICS_BACKUP_DIR")
         backup_dir = Path(backup_dir_override) if backup_dir_override else None
         api_warehouse_idle_seconds = float(
@@ -633,6 +642,7 @@ class AppSettings:
             worker_metrics_port=worker_metrics_port,
             backup_interval_seconds=backup_interval_seconds,
             backup_retention_count=backup_retention_count,
+            reporting_snapshot_retention_months=reporting_snapshot_retention_months,
             backup_dir=backup_dir,
             api_warehouse_idle_seconds=api_warehouse_idle_seconds,
             warehouse_lock_retry_attempts=warehouse_lock_retry_attempts,

@@ -11,7 +11,7 @@ import type {
   SuccessResponseJSON
 } from "openapi-typescript-helpers";
 
-import type { operations, paths } from "../generated/api";
+import type { components, operations, paths } from "../generated/api";
 
 const API_BASE_URL =
   process.env.HOMELAB_ANALYTICS_API_BASE_URL || "http://127.0.0.1:8080";
@@ -1374,6 +1374,67 @@ export async function getHomelabRoi() {
 export async function getRecurringCostBaseline() {
   const payload = await backendGet("/reports/recurring-cost-baseline");
   return getResponseArray(payload, "rows");
+}
+
+// As-of reads of the current-only publications. The reporting layer keeps a
+// dated snapshot per publication for each month that was the newest published
+// month; `status` is "snapshot" when one exists for `asOf` and "no_history"
+// when it does not (rows are then empty, never today's).
+type PublicationSnapshotMeta = components["schemas"]["PublicationSnapshotModel"];
+export type AsOfStatus = "current" | "snapshot" | "no_history";
+type AsOfPayload = {
+  as_of_status?: AsOfStatus;
+  snapshot?: PublicationSnapshotMeta | null;
+} | null;
+
+function asOfResult<Row>(rows: Row[], payload: AsOfPayload) {
+  return {
+    rows,
+    status: (payload?.as_of_status ?? "no_history") as AsOfStatus,
+    snapshot: payload?.snapshot ?? null
+  };
+}
+
+export async function getHouseholdOverviewAsOf(asOf: string) {
+  const payload = await backendGet("/reports/household-overview", {
+    params: { query: { as_of: asOf } }
+  });
+  return asOfResult(getResponseArray(payload, "rows"), payload);
+}
+
+export async function getAttentionItemsAsOf(asOf: string) {
+  const payload = await backendGet("/reports/attention-items", {
+    params: { query: { as_of: asOf } }
+  });
+  return asOfResult(getResponseArray(payload, "rows"), payload);
+}
+
+export async function getRecentChangesAsOf(asOf: string) {
+  const payload = await backendGet("/reports/recent-changes", {
+    params: { query: { as_of: asOf } }
+  });
+  return asOfResult(getResponseArray(payload, "rows"), payload);
+}
+
+export async function getAffordabilityRatiosAsOf(asOf: string) {
+  const payload = await backendGet("/reports/affordability-ratios", {
+    params: { query: { as_of: asOf } }
+  });
+  return asOfResult(getResponseArray(payload, "rows"), payload);
+}
+
+export async function getRecurringCostBaselineAsOf(asOf: string) {
+  const payload = await backendGet("/reports/recurring-cost-baseline", {
+    params: { query: { as_of: asOf } }
+  });
+  return asOfResult(getResponseArray(payload, "rows"), payload);
+}
+
+export async function getSubscriptionSummaryAsOf(asOf: string) {
+  const payload = await backendGet("/reports/subscription-summary", {
+    params: { query: { as_of: asOf } }
+  });
+  return asOfResult(getResponseArray(payload, "rows"), payload);
 }
 
 export async function getScenarios({ includeArchived = false } = {}) {
