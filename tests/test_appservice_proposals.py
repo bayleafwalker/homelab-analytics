@@ -63,3 +63,21 @@ def test_rules_proposal_carries_new_slo_alerts() -> None:
         "HomelabAnalyticsHaBridgeSilent",
     ):
         assert name in alerts
+
+
+def test_dedicated_key_templates_hold_placeholders_only() -> None:
+    secret = yaml.safe_load((PROPOSALS / "secret-app-bundles-s3.template.yaml").read_text())
+    policy = json.loads((PROPOSALS / "bucket-policy-app-bundles.template.json").read_text())
+
+    assert secret["metadata"]["name"] == "homelab-analytics-bundles-s3"
+    assert secret["stringData"] == {
+        "ACCESS_KEY_ID": "REPLACE_WITH_ACCESS_KEY_ID",
+        "SECRET_ACCESS_KEY": "REPLACE_WITH_SECRET_ACCESS_KEY",
+    }
+    assert "data" not in secret
+    statements = policy["Statement"]
+    assert {statement["Effect"] for statement in statements} == {"Deny"}
+    for statement in statements:
+        assert statement["Principal"] == {"AWS": ["REPLACE_WITH_PRINCIPAL_OF_APP_BUNDLES_KEY"]}
+    confined = statements[0]["NotResource"]
+    assert "arn:aws:s3:::appservice-pgdump-locked/backups/app-bundles/analytics/homelab-analytics/*" in confined
