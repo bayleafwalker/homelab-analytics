@@ -2,7 +2,7 @@ const { test, expect } = require("@playwright/test");
 const AxeBuilder = require("@axe-core/playwright").default;
 
 async function gotoStory(page, storyId) {
-  await page.goto(`/iframe.html?id=${storyId}&viewMode=story`);
+  await page.goto(`/iframe.html?id=${storyId}&viewMode=story&globals=a11y.manual:!true`);
   await expect(page.locator("#storybook-root")).toBeVisible();
   await expect(page.locator("#storybook-root")).not.toContainText(
     "The component failed to render properly"

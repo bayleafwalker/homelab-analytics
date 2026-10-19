@@ -5,7 +5,7 @@ const AxeBuilder = require("@axe-core/playwright").default;
 // hand-off and accessibility. No screenshot baselines (CI-owned).
 
 async function gotoStory(page, storyId) {
-  await page.goto(`/iframe.html?id=${storyId}&viewMode=story`);
+  await page.goto(`/iframe.html?id=${storyId}&viewMode=story&globals=a11y.manual:!true`);
   await expect(page.locator("#storybook-root")).toBeVisible();
   await expect(page.locator("#storybook-root")).not.toContainText(
     "The component failed to render properly"

@@ -6,7 +6,7 @@ const AxeBuilder = require("@axe-core/playwright").default;
 // CI-owned and these surfaces are still moving.
 
 async function gotoStory(page, storyId) {
-  await page.goto(`/iframe.html?id=${storyId}&viewMode=story`);
+  await page.goto(`/iframe.html?id=${storyId}&viewMode=story&globals=a11y.manual:!true`);
   await expect(page.locator("#storybook-root")).toBeVisible();
   await expect(page.locator("#storybook-root")).not.toContainText(
     "The component failed to render properly"
