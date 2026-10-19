@@ -370,12 +370,19 @@ def _python_type_for_storage_type(storage_type: str) -> Any:
 def build_row_model(
     model_name: str,
     columns: Sequence[tuple[str, str]],
+    *,
+    nullable: bool = False,
 ) -> type[BaseModel]:
+    """Row model for ``columns``.
+
+    ``nullable=True`` keeps NOT NULL columns required but lets them be null:
+    the shape of a dated snapshot row projected onto columns it predates.
+    """
     fields: dict[str, tuple[Any, Any]] = {}
     for column_name, storage_type in columns:
         python_type = _python_type_for_storage_type(storage_type)
         if "NOT NULL" in storage_type.upper():
-            fields[column_name] = (python_type, ...)
+            fields[column_name] = (python_type | None, ...) if nullable else (python_type, ...)
         else:
             fields[column_name] = (python_type | None, None)
     return cast(type[BaseModel], create_model(model_name, __base__=BaseModel, **cast(Any, fields)))

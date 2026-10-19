@@ -28,6 +28,7 @@ PUBLISHED access mode reads.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -114,6 +115,41 @@ class PublicationSnapshot:
             "run_id": self.run_id,
             "row_count": self.row_count,
         }
+
+
+@dataclass(frozen=True)
+class SnapshotProjection:
+    """Snapshot rows fitted to the publication's current columns.
+
+    A snapshot keeps the rows exactly as they were published, so one taken
+    before a mart gained or lost a column no longer matches the current
+    model. ``missing_columns`` are current columns some snapshot row lacks
+    (they read as null); ``dropped_columns`` are snapshot columns the mart no
+    longer has (they are left out).
+    """
+
+    rows: list[dict[str, Any]]
+    missing_columns: tuple[str, ...]
+    dropped_columns: tuple[str, ...]
+
+    @property
+    def projected(self) -> bool:
+        return bool(self.missing_columns or self.dropped_columns)
+
+
+def project_snapshot_rows(
+    rows: list[dict[str, Any]], columns: Sequence[str]
+) -> SnapshotProjection:
+    """Project snapshot rows onto ``columns``, in column order."""
+    names = list(columns)
+    wanted = set(names)
+    missing = [name for name in names if any(name not in row for row in rows)]
+    dropped = sorted({key for row in rows for key in row} - wanted)
+    return SnapshotProjection(
+        rows=[{name: row.get(name) for name in names} for row in rows],
+        missing_columns=tuple(missing),
+        dropped_columns=tuple(dropped),
+    )
 
 
 class PublicationSnapshotStore:

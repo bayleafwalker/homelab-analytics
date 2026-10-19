@@ -436,6 +436,38 @@ class HelmChartTests(unittest.TestCase):
             and document["metadata"]["name"] == "test-release-homelab-analytics-config"
         )
 
+    def test_reporting_snapshot_retention_renders_env_the_application_parses(self) -> None:
+        from tempfile import TemporaryDirectory
+
+        from packages.shared.settings import AppSettings
+
+        key = "HOMELAB_ANALYTICS_REPORTING_SNAPSHOT_RETENTION_MONTHS"
+        default = self._config_data()
+        self.assertEqual("24", default[key])
+
+        data = self._config_data("--set", "reporting.snapshotRetentionMonths=36")
+        self.assertEqual("36", data[key])
+        with TemporaryDirectory() as tmp:
+            settings = AppSettings.from_env({**data, "HOMELAB_ANALYTICS_DATA_DIR": tmp})
+        self.assertEqual(36, settings.reporting_snapshot_retention_months)
+
+        # A key already in commonEnv wins and is never duplicated.
+        overridden = self._config_data("--set-string", f"commonEnv.{key}=12")
+        self.assertEqual("12", overridden[key])
+
+        rejected = subprocess.run(
+            [
+                "helm", "template", "test-release", str(CHART_DIR),
+                "--set", "reporting.snapshotRetentionMonths=0",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(0, rejected.returncode)
+        self.assertIn("snapshotRetentionMonths must be at least 1", rejected.stderr)
+
     def test_oidc_values_are_off_until_configured(self) -> None:
         data = self._config_data()
         self.assertEqual("oidc", data["HOMELAB_ANALYTICS_IDENTITY_MODE"])

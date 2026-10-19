@@ -87,6 +87,29 @@ export const RecordedLineage = {
   ),
 };
 
+export const TruncatedLineage = {
+  render: () => (
+    <main style={{ minHeight: 560 }}>
+      <Card label="Top categories" figure="€1,868.37">
+        <ExplainBox
+          explanation={{
+            ...recorded,
+            lineage: {
+              ...recorded.lineage,
+              counts: { ...recorded.lineage.counts, run: 50 },
+              truncated: true,
+              totalRuns: 212,
+            },
+          }}
+          label="Top categories, December 2025"
+          field="total_expense"
+          placement="start"
+        />
+      </Card>
+    </main>
+  ),
+};
+
 export const LineageUnavailable = {
   render: () => (
     <main style={{ minHeight: 400 }}>

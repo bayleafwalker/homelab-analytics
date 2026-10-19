@@ -520,7 +520,14 @@
           },
           "rows": {
             "items": {
-              "$ref": "#/components/schemas/AffordabilityRatiosRow"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/AffordabilityRatiosRow"
+                },
+                {
+                  "$ref": "#/components/schemas/AffordabilityRatiosSnapshotRow"
+                }
+              ]
             },
             "title": "Rows",
             "type": "array"
@@ -588,6 +595,110 @@
           "currency"
         ],
         "title": "AffordabilityRatiosRow",
+        "type": "object"
+      },
+      "AffordabilityRatiosSnapshotRow": {
+        "properties": {
+          "assessment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "denominator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Denominator"
+          },
+          "numerator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numerator"
+          },
+          "period_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Label"
+          },
+          "ratio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ratio"
+          },
+          "ratio_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ratio Name"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          }
+        },
+        "required": [
+          "ratio_name",
+          "numerator",
+          "denominator",
+          "ratio",
+          "period_label",
+          "assessment",
+          "state",
+          "currency"
+        ],
+        "title": "AffordabilityRatiosSnapshotRow",
         "type": "object"
       },
       "AgentColumnGlossaryModel": {
@@ -1468,6 +1579,86 @@
         "title": "AttentionItemRow",
         "type": "object"
       },
+      "AttentionItemSnapshotRow": {
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "item_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Id"
+          },
+          "item_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Type"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "source_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Domain"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "item_id",
+          "item_type",
+          "title",
+          "detail",
+          "severity",
+          "source_domain"
+        ],
+        "title": "AttentionItemSnapshotRow",
+        "type": "object"
+      },
       "AttentionItemsResponse": {
         "properties": {
           "as_of": {
@@ -1493,7 +1684,14 @@
           },
           "rows": {
             "items": {
-              "$ref": "#/components/schemas/AttentionItemRow"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/AttentionItemRow"
+                },
+                {
+                  "$ref": "#/components/schemas/AttentionItemSnapshotRow"
+                }
+              ]
             },
             "title": "Rows",
             "type": "array"
@@ -6579,7 +6777,14 @@
           },
           "rows": {
             "items": {
-              "$ref": "#/components/schemas/HouseholdOverviewRow"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/HouseholdOverviewRow"
+                },
+                {
+                  "$ref": "#/components/schemas/HouseholdOverviewSnapshotRow"
+                }
+              ]
             },
             "title": "Rows",
             "type": "array"
@@ -6652,6 +6857,122 @@
           "currency"
         ],
         "title": "HouseholdOverviewRow",
+        "type": "object"
+      },
+      "HouseholdOverviewSnapshotRow": {
+        "properties": {
+          "account_balance_direction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Balance Direction"
+          },
+          "balance_net_change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance Net Change"
+          },
+          "cashflow_expense": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cashflow Expense"
+          },
+          "cashflow_income": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cashflow Income"
+          },
+          "cashflow_net": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cashflow Net"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "current_month": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Month"
+          },
+          "subscription_total_monthly": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subscription Total Monthly"
+          },
+          "utility_cost_total": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Utility Cost Total"
+          }
+        },
+        "required": [
+          "current_month",
+          "cashflow_income",
+          "cashflow_expense",
+          "cashflow_net",
+          "utility_cost_total",
+          "subscription_total_monthly",
+          "account_balance_direction",
+          "balance_net_change",
+          "currency"
+        ],
+        "title": "HouseholdOverviewSnapshotRow",
         "type": "object"
       },
       "IncomeChangeRequest": {
@@ -9712,6 +10033,35 @@
             "title": "Captured At",
             "type": "string"
           },
+          "dropped_columns": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Dropped Columns",
+            "type": "array"
+          },
+          "incompatible_columns": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Incompatible Columns",
+            "type": "array"
+          },
+          "missing_columns": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Columns",
+            "type": "array"
+          },
+          "projected": {
+            "default": false,
+            "title": "Projected",
+            "type": "boolean"
+          },
           "publication_key": {
             "title": "Publication Key",
             "type": "string"
@@ -9865,7 +10215,14 @@
           },
           "rows": {
             "items": {
-              "$ref": "#/components/schemas/RecentSignificantChangeRow"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/RecentSignificantChangeRow"
+                },
+                {
+                  "$ref": "#/components/schemas/RecentSignificantChangeSnapshotRow"
+                }
+              ]
             },
             "title": "Rows",
             "type": "array"
@@ -10011,6 +10368,97 @@
         "title": "RecentSignificantChangeRow",
         "type": "object"
       },
+      "RecentSignificantChangeSnapshotRow": {
+        "properties": {
+          "change_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Pct"
+          },
+          "change_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Type"
+          },
+          "current_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Value"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          },
+          "previous_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Value"
+          }
+        },
+        "required": [
+          "change_type",
+          "period",
+          "description",
+          "current_value",
+          "previous_value",
+          "direction"
+        ],
+        "title": "RecentSignificantChangeSnapshotRow",
+        "type": "object"
+      },
       "RecurringCostBaselineResponse": {
         "properties": {
           "as_of": {
@@ -10036,7 +10484,14 @@
           },
           "rows": {
             "items": {
-              "$ref": "#/components/schemas/RecurringCostBaselineRow"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/RecurringCostBaselineRow"
+                },
+                {
+                  "$ref": "#/components/schemas/RecurringCostBaselineSnapshotRow"
+                }
+              ]
             },
             "title": "Rows",
             "type": "array"
@@ -10100,6 +10555,85 @@
           "currency"
         ],
         "title": "RecurringCostBaselineRow",
+        "type": "object"
+      },
+      "RecurringCostBaselineSnapshotRow": {
+        "properties": {
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "cost_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Source"
+          },
+          "counterparty_or_contract": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterparty Or Contract"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "last_occurrence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Occurrence"
+          },
+          "monthly_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Amount"
+          }
+        },
+        "required": [
+          "cost_source",
+          "counterparty_or_contract",
+          "monthly_amount",
+          "confidence",
+          "currency"
+        ],
+        "title": "RecurringCostBaselineSnapshotRow",
         "type": "object"
       },
       "RequestHeaderRequest": {
@@ -11035,7 +11569,14 @@
           },
           "rows": {
             "items": {
-              "$ref": "#/components/schemas/SubscriptionSummaryRow"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SubscriptionSummaryRow"
+                },
+                {
+                  "$ref": "#/components/schemas/SubscriptionSummarySnapshotRow"
+                }
+              ]
             },
             "title": "Rows",
             "type": "array"
@@ -11130,6 +11671,133 @@
           "status"
         ],
         "title": "SubscriptionSummaryRow",
+        "type": "object"
+      },
+      "SubscriptionSummarySnapshotRow": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "billing_cycle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Billing Cycle"
+          },
+          "contract_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Id"
+          },
+          "contract_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Name"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "monthly_equivalent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Equivalent"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "required": [
+          "contract_id",
+          "contract_name",
+          "provider",
+          "billing_cycle",
+          "amount",
+          "currency",
+          "start_date",
+          "monthly_equivalent",
+          "status"
+        ],
+        "title": "SubscriptionSummarySnapshotRow",
         "type": "object"
       },
       "TariffShockRequest": {
@@ -14413,6 +15081,20 @@
             "schema": {
               "title": "Publication Key",
               "type": "string"
+            }
+          },
+          {
+            "description": "Walk only this many of the most recent runs behind the publication.",
+            "in": "query",
+            "name": "run_limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Walk only this many of the most recent runs behind the publication.",
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Run Limit",
+              "type": "integer"
             }
           }
         ],

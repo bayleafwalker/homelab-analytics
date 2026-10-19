@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -119,6 +119,43 @@ class LineageGraphAPITests(unittest.TestCase):
             first = client.get("/api/lineage/publication/mart_monthly_cashflow").json()
             second = client.get("/api/lineage/publication/mart_monthly_cashflow").json()
             self.assertEqual(first, second)
+
+    def test_run_limit_caps_the_graph_and_reports_truncation(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, _ = _build_client(tmp)
+            _seed_lineage(client.app.state)
+            client.app.state.control_plane_store.record_publication_audit(
+                (
+                    PublicationAuditCreate(
+                        publication_audit_id="a2",
+                        run_id="run-200",
+                        publication_key="mart_monthly_cashflow",
+                        relation_name="mart_monthly_cashflow",
+                        status="published",
+                        # Later than L1, whose recorded_at defaults to now.
+                        published_at=datetime.now(UTC) + timedelta(days=1),
+                    ),
+                )
+            )
+
+            whole = client.get("/api/lineage/publication/mart_monthly_cashflow").json()
+            self.assertFalse(whole["truncated"])
+            self.assertEqual(2, whole["total_runs"])
+            self.assertEqual(50, whole["run_limit"])
+
+            capped = client.get(
+                "/api/lineage/publication/mart_monthly_cashflow", params={"run_limit": 1}
+            ).json()
+            self.assertTrue(capped["truncated"])
+            self.assertEqual(2, capped["total_runs"])
+            self.assertEqual(1, capped["run_limit"])
+            runs = [n["id"] for n in capped["nodes"] if n["type"] == "run"]
+            self.assertEqual(["run:run-200"], runs)
+
+            bad = client.get(
+                "/api/lineage/publication/mart_monthly_cashflow", params={"run_limit": 0}
+            )
+            self.assertEqual(422, bad.status_code)
 
 
 if __name__ == "__main__":

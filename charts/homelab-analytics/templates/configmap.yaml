@@ -15,6 +15,13 @@ data:
   HOMELAB_ANALYTICS_BACKUP_DIR: {{ . | quote }}
   {{- end }}
   {{- end }}
+  {{- $snapshotRetention := (.Values.reporting | default dict).snapshotRetentionMonths }}
+  {{- if and (not (kindIs "invalid" $snapshotRetention)) (not (hasKey .Values.commonEnv "HOMELAB_ANALYTICS_REPORTING_SNAPSHOT_RETENTION_MONTHS")) }}
+  {{- if lt (int $snapshotRetention) 1 }}
+  {{- fail "reporting.snapshotRetentionMonths must be at least 1" }}
+  {{- end }}
+  HOMELAB_ANALYTICS_REPORTING_SNAPSHOT_RETENTION_MONTHS: {{ int $snapshotRetention | toString | quote }}
+  {{- end }}
   {{- /* Non-secret OIDC settings (values.oidc), only in oidc identity mode.
          Empty values are skipped; a key already in commonEnv wins. */}}
   {{- if eq (toString (index .Values.commonEnv "HOMELAB_ANALYTICS_IDENTITY_MODE")) "oidc" }}

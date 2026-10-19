@@ -183,3 +183,43 @@ def test_without_blob_store_every_dataset_run_is_used() -> None:
         as_of=date(2026, 10, 18),
     )
     assert views[0].latest_run_id == "run-common-1"
+
+
+def test_monthly_source_that_landed_its_expected_period_reads_current() -> None:
+    """/sources derives the period a run covers the same way confidence does."""
+    from packages.platform.source_freshness import SourceFreshnessState
+    from packages.storage.ingestion_catalog import SourceFreshnessConfigCreate
+
+    monthly = SourceFreshnessConfigCreate(
+        source_asset_id="personal",
+        acquisition_mode="manual_export",
+        expected_frequency="monthly",
+        coverage_kind="rolling_period",
+        due_day_of_month=5,
+        expected_window_days=3,
+        freshness_sla_days=40,
+        sensitivity_class="financial",
+        reminder_channel="dashboard",
+        requires_human_action=True,
+    )
+
+    class _Configured(_ConfigRepo):
+        def list_source_freshness_configs(self) -> list[Any]:
+            return [monthly]
+
+    blob = InMemoryBlobStore()
+    config = _Configured([("personal", "account_transactions")])
+
+    landed_in_october = _Metadata(
+        [_run(blob, "run-1", "account_transactions", 2, "personal")]
+    )
+    (view,) = build_source_freshness_views(
+        config, landed_in_october, as_of=date(2026, 10, 18), blob_store=blob
+    )
+    assert view.freshness_state == SourceFreshnessState.CURRENT
+    assert view.covered_through == date(2026, 9, 30)
+
+    (later,) = build_source_freshness_views(
+        config, landed_in_october, as_of=date(2026, 11, 18), blob_store=blob
+    )
+    assert later.freshness_state == SourceFreshnessState.OVERDUE

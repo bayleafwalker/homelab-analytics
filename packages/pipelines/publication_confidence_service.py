@@ -25,6 +25,12 @@ Inputs per publication:
   run is verifiably present: found in run metadata, passed validation and
   landed at least one row (and loaded at least one row when lineage records
   a row count).
+- **Freshness** evaluates each configured source's contributing run against
+  its freshness config. Runs record no coverage period, so for a scheduled
+  (weekly/monthly/quarterly/annual) config the period the run covers is
+  derived from its landing date with ``run_observation``, the same helper
+  ``/control/source-freshness`` and ``/sources`` use. A scheduled source
+  whose contributing run landed its expected period reads ``current``.
 
 When run metadata is not available for a run, the validation and
 completeness signals record it as unknown in ``quality_flags`` rather than
@@ -50,9 +56,9 @@ from packages.platform.publication_confidence import (
     compute_publication_freshness_state,
 )
 from packages.platform.source_freshness import (
-    SourceFreshnessRunObservation,
     SourceFreshnessState,
     evaluate_source_freshness,
+    run_observation,
 )
 from packages.storage.control_plane import PublicationConfidenceSnapshotCreate
 
@@ -343,13 +349,17 @@ def compute_and_record_publication_confidence(
             continue
 
         run = resolver.get(source.run_id)
+        # The run's landing date gives the period it covers for a scheduled
+        # config (see ``run_observation``). Without run metadata there is no
+        # observation, so the state comes from the schedule alone and an
+        # unknown run can never read current.
         observations = (
             [
-                SourceFreshnessRunObservation(
+                run_observation(
+                    freshness_config,
                     status=_status_value(run.status),
                     observed_at=run.created_at,
-                    covered_from=None,
-                    covered_through=None,
+                    as_of=as_of,
                 )
             ]
             if run is not None

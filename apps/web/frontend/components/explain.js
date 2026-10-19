@@ -141,6 +141,13 @@ export function ExplainPanel({ explanation, label, field, filter, note }) {
         </ol>
       )}
 
+      {!lineageError && lineage?.truncated ? (
+        <p className="explainNote" data-testid="explain-lineage-truncated">
+          Showing the <span className="numMono">{lineage.counts.run}</span> most recent runs of{" "}
+          <span className="numMono">{lineage.totalRuns}</span>. Older runs are left out.
+        </p>
+      ) : null}
+
       {note ? <p className="explainNote">{note}</p> : null}
 
       <p className="explainLinks">

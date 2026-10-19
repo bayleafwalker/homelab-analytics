@@ -148,6 +148,14 @@ backup:
   retentionCount: 7
   dir: ""
 
+reporting:
+  # Dated as-of snapshots of the current-only reporting publications (household
+  # overview, attention items, ...). Keeps the newest N reference months per
+  # publication; must be at least 1. Rendered as
+  # HOMELAB_ANALYTICS_REPORTING_SNAPSHOT_RETENTION_MONTHS unless commonEnv
+  # already sets that key.
+  snapshotRetentionMonths: 24
+
 persistence:
   enabled: true
   existingClaim: ""

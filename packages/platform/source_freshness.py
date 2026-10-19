@@ -5,7 +5,7 @@ from __future__ import annotations
 from calendar import monthrange
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
@@ -93,6 +93,73 @@ class SourceFreshnessView:
     next_expected_at: datetime | None
     covered_through: date | None
     suggested_action: str
+
+
+def derive_run_covered_through(
+    config: SourceFreshnessConfigLike | None,
+    *,
+    status: str,
+    observed_at: datetime,
+    as_of: date | datetime | None = None,
+) -> date | None:
+    """The period end a successful scheduled run is taken to cover.
+
+    Runs record no coverage period of their own, so it is derived from the
+    run's landing date: an export landed for a scheduled source covers the
+    last complete period of its schedule before that date. A ``monthly`` run
+    landed on 5 October covers through 30 September, a ``quarterly`` one
+    through 30 September (the end of Q3), an ``annual`` one through 31
+    December of the previous year. A ``weekly`` run covers through its
+    landing date.
+
+    Returns ``None`` (coverage unknown, so it can never read ``current``) for
+    an unconfigured or ``ad_hoc`` source, a run that did not succeed, and a
+    run landed after ``as_of``.
+    """
+    if config is None or config.expected_frequency == "ad_hoc":
+        return None
+    if not _is_success_status(status):
+        return None
+    observed_date = _utc_date(observed_at)
+    if as_of is not None:
+        as_of_date = _utc_date(as_of) if isinstance(as_of, datetime) else as_of
+        if observed_date > as_of_date:
+            return None
+    if config.expected_frequency == "weekly":
+        return observed_date
+    if config.expected_frequency not in {"monthly", "quarterly", "annual"}:
+        return None
+    return _expected_covered_through(config, observed_date)
+
+
+def run_observation(
+    config: SourceFreshnessConfigLike | None,
+    *,
+    status: str,
+    observed_at: datetime,
+    dataset_name: str | None = None,
+    as_of: date | datetime | None = None,
+) -> SourceFreshnessRunObservation:
+    """Build the observation for one run, with its derived coverage period.
+
+    Shared by ``/control/source-freshness`` (and ``/sources``) and publication
+    confidence so both read the same state for the same run.
+    """
+    return SourceFreshnessRunObservation(
+        status=status,
+        observed_at=observed_at,
+        covered_from=None,
+        covered_through=derive_run_covered_through(
+            config, status=status, observed_at=observed_at, as_of=as_of
+        ),
+        dataset_name=dataset_name,
+    )
+
+
+def _utc_date(value: datetime) -> date:
+    if value.tzinfo is not None:
+        value = value.astimezone(timezone.utc)
+    return value.date()
 
 
 def evaluate_source_freshness(
