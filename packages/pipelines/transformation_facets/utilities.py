@@ -8,17 +8,10 @@ from typing import Any
 
 from packages.domains.utilities.pipelines.battery_plan_outcome import (
     BatteryPlanProfileResolution,
-    get_battery_plan_outcome,
-    get_battery_plan_outcome_values,
 )
 from packages.domains.utilities.pipelines.transformation_utilities import (
     count_bills,
     count_utility_usage,
-    get_contract_renewal_watchlist,
-    get_contract_review_candidates,
-    get_usage_vs_price_summary,
-    get_utility_cost_summary,
-    get_utility_cost_trend_monthly,
     load_bills,
     load_utility_usage,
 )
@@ -74,50 +67,4 @@ class UtilityTransformationMixin(TransformationFacetBase):
             run_id=run_id,
             effective_date=effective_date,
             source_system=source_system,
-        )
-
-    def get_utility_cost_trend_monthly(
-        self,
-        utility_type: str | None = None,
-    ) -> list[dict[str, Any]]:
-        return get_utility_cost_trend_monthly(self._store, utility_type=utility_type)
-
-    def get_battery_plan_outcome(
-        self, *, decision_month: str | None = None
-    ) -> list[dict[str, Any]]:
-        return get_battery_plan_outcome(self._store, decision_month=decision_month)
-
-    def get_battery_plan_outcome_values(
-        self, *, decision_month: str | None = None
-    ) -> list[dict[str, Any]]:
-        return get_battery_plan_outcome_values(self._store, decision_month=decision_month)
-
-    def get_usage_vs_price_summary(
-        self,
-        utility_type: str | None = None,
-    ) -> list[dict[str, Any]]:
-        return get_usage_vs_price_summary(self._store, utility_type=utility_type)
-
-    def get_contract_review_candidates(self) -> list[dict[str, Any]]:
-        return get_contract_review_candidates(self._store)
-
-    def get_contract_renewal_watchlist(self) -> list[dict[str, Any]]:
-        return get_contract_renewal_watchlist(self._store)
-
-    def get_utility_cost_summary(
-        self,
-        *,
-        utility_type: str | None = None,
-        meter_id: str | None = None,
-        from_period: date | str | None = None,
-        to_period: date | str | None = None,
-        granularity: str = "month",
-    ) -> list[dict[str, Any]]:
-        return get_utility_cost_summary(
-            self._store,
-            utility_type=utility_type,
-            meter_id=meter_id,
-            from_period=from_period,
-            to_period=to_period,
-            granularity=granularity,
         )

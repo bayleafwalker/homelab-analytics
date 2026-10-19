@@ -60,10 +60,10 @@ _logger = logging.getLogger("homelab_analytics.warehouse_session")
 # (``ensure_*_storage`` / CREATE IF NOT EXISTS) before reading, so they need a
 # read-write handle. tests/test_api_warehouse_sessions.py scans the facets and
 # fails when a new one appears that is not listed here.
+# Mart reads that do the same are declared in the mart read registry instead
+# (``SchemaEnsuringReader``), which picks their handle mode.
 READ_NAMED_WRITE_METHODS = frozenset(
     {
-        "get_ha_entities",
-        "get_ha_entity_history",
         "get_scenario",
         "get_scenario_assumptions",
         "get_scenario_view",

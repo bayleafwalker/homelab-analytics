@@ -8,11 +8,14 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, cast
 
+from packages.domains.finance.pipelines.budget_models import MART_BUDGET_PROGRESS_CURRENT_TABLE
 from packages.domains.homelab.pipelines.ha_action_proposals import ApprovalActionRegistry
+from packages.domains.homelab.pipelines.ha_models import DIM_HA_ENTITY_TABLE
 from packages.domains.homelab.pipelines.ha_policy import (
     HaPolicyEvaluator,
     ensure_builtin_policies,
 )
+from packages.pipelines.mart_read_registry import read_warehouse_mart
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.platform.action_proposals import build_action_proposal_registry
@@ -197,11 +200,13 @@ def build_ha_startup_runtime(
 
     def _policy_fetch_fn() -> dict:
         try:
-            budget_rows = transformation_service.get_budget_progress_current()
+            budget_rows = read_warehouse_mart(
+                transformation_service, MART_BUDGET_PROGRESS_CURRENT_TABLE
+            )
         except Exception:
             budget_rows = []
         try:
-            ha_entities = transformation_service.get_ha_entities()
+            ha_entities = read_warehouse_mart(transformation_service, DIM_HA_ENTITY_TABLE)
         except Exception:
             ha_entities = []
         return {

@@ -4,7 +4,11 @@ from datetime import date
 from decimal import Decimal
 
 from packages.domains.finance.pipelines.transformation_loans import refresh_loan_schedule_projected
-from packages.domains.finance.pipelines.transformation_transactions import refresh_monthly_cashflow
+from packages.domains.finance.pipelines.transformation_transactions import (
+    get_monthly_cashflow,
+    get_transformation_audit,
+    refresh_monthly_cashflow,
+)
 from packages.domains.overview.pipelines.transformation_overview import refresh_household_overview
 from packages.domains.utilities.pipelines.transformation_utilities import (
     refresh_utility_cost_summary,
@@ -136,7 +140,7 @@ def test_reporting_service_falls_back_to_transformation_service_for_marts() -> N
 
     reporting_service = ReportingService(transformation_service)
 
-    assert reporting_service.get_monthly_cashflow() == transformation_service.get_monthly_cashflow()
+    assert reporting_service.get_monthly_cashflow() == get_monthly_cashflow(transformation_service.store)
 
 
 def test_reporting_service_metric_snapshots_use_reporting_layer_marts() -> None:
@@ -252,7 +256,7 @@ def test_reporting_service_falls_back_to_transformation_service_for_audit() -> N
     reporting_service = ReportingService(transformation_service)
 
     assert reporting_service.get_transformation_audit() == (
-        transformation_service.get_transformation_audit()
+        get_transformation_audit(transformation_service.store)
     )
 
 

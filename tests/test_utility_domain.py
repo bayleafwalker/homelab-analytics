@@ -16,6 +16,7 @@ from apps.worker.main import main
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.domains.utilities.pipelines.transformation_utilities import (
     get_energy_daily,
+    get_utility_cost_summary,
     refresh_energy_daily,
     refresh_utility_cost_summary,
 )
@@ -186,7 +187,7 @@ class UtilityTransformationTests(unittest.TestCase):
         service.load_bills(self._make_bill_rows(), run_id="run-bill-001")
 
         count = refresh_utility_cost_summary(service.store)
-        rows = service.get_utility_cost_summary()
+        rows = get_utility_cost_summary(service.store)
 
         self.assertEqual(4, count)
         self.assertEqual(4, len(rows))
@@ -239,10 +240,10 @@ class UtilityTransformationTests(unittest.TestCase):
         service.load_bills(self._make_bill_rows(), run_id="run-bill-001")
         refresh_utility_cost_summary(service.store)
 
-        electricity_rows = service.get_utility_cost_summary(utility_type="electricity")
+        electricity_rows = get_utility_cost_summary(service.store, utility_type="electricity")
         self.assertEqual(2, len(electricity_rows))
 
-        meter_rows = service.get_utility_cost_summary(
+        meter_rows = get_utility_cost_summary(service.store, 
             meter_id="water-001",
             from_period="2026-01-01",
             to_period="2026-02-28",
@@ -255,7 +256,7 @@ class UtilityTransformationTests(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(ValueError, "Unsupported granularity"):
-            service.get_utility_cost_summary(granularity="quarter")
+            get_utility_cost_summary(service.store, granularity="quarter")
 
     def test_meter_dimension_uses_scd_for_attribute_changes(self) -> None:
         service = TransformationService(DuckDBStore.memory())

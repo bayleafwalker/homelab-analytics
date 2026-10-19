@@ -3,9 +3,11 @@
 This module owns construction, schema bootstrap, registry dispatch (domain
 loads/counts, publication refresh, scenario types, current dimensions), and
 publication confidence wiring. Domain packs own the behaviour behind those
-registries. The facets under ``packages.pipelines.transformation_facets`` hold
-the remaining ingestion/lineage entrypoints and the getters ReportingService
-consumes; tests/test_transformation_facade_boundary.py stops that surface
+registries. Reporting mart reads are not on the facade: ReportingService reads
+them through ``packages.pipelines.mart_read_registry``. The facets under
+``packages.pipelines.transformation_facets`` hold the remaining
+ingestion/lineage entrypoints (load/count), category rules and scenario
+operations; tests/test_transformation_facade_boundary.py stops that surface
 from growing.
 """
 
@@ -42,7 +44,6 @@ from packages.domains.finance.pipelines.transaction_models import (
     CURRENT_DIM_COUNTERPARTY_VIEW,
     DIM_ACCOUNT,
     DIM_COUNTERPARTY,
-    TRANSFORMATION_AUDIT_TABLE,
 )
 from packages.domains.finance.pipelines.transformation_assets import (
     ensure_asset_storage,
@@ -124,13 +125,11 @@ from packages.pipelines.transformation_facets.home_automation import (
     HomeAutomationTransformationMixin,
 )
 from packages.pipelines.transformation_facets.homelab import HomelabTransformationMixin
-from packages.pipelines.transformation_facets.overview import OverviewTransformationMixin
 from packages.pipelines.transformation_facets.scenarios import ScenarioTransformationMixin
 from packages.pipelines.transformation_facets.transactions import TransactionTransformationMixin
 from packages.pipelines.transformation_facets.utilities import UtilityTransformationMixin
 from packages.pipelines.transformation_household import (
     ensure_household_member_storage,
-    get_household_members,
     seed_default_household_member,
     upsert_household_member,
 )
@@ -149,7 +148,6 @@ class TransformationService(
     CommitmentTransformationMixin,
     AssetTransformationMixin,
     UtilityTransformationMixin,
-    OverviewTransformationMixin,
     HomelabTransformationMixin,
     HomeAutomationTransformationMixin,
     ScenarioTransformationMixin,
@@ -303,21 +301,6 @@ class TransformationService(
     def count_domain_rows(self, domain_key: str, *, run_id: str | None = None) -> int:
         return self._domain_registry.count(self, domain_key, run_id=run_id)
 
-    def get_transformation_audit(
-        self,
-        input_run_id: str | None = None,
-    ) -> list[dict[str, Any]]:
-        if input_run_id is not None:
-            return self._store.fetchall_dicts(
-                f"SELECT * FROM {TRANSFORMATION_AUDIT_TABLE}"
-                " WHERE input_run_id = ?"
-                " ORDER BY started_at DESC",
-                [input_run_id],
-            )
-        return self._store.fetchall_dicts(
-            f"SELECT * FROM {TRANSFORMATION_AUDIT_TABLE} ORDER BY started_at DESC"
-        )
-
     def get_current_dimension_rows(self, dimension_name: str) -> list[dict[str, Any]]:
         return self._current_dimension_registry.read(self._store, dimension_name)
 
@@ -334,9 +317,6 @@ class TransformationService(
     def battery_plan_profile_loader(self) -> Callable[[], BatteryPlanProfileResolution]:
         """Injected battery-plan profile source for the utilities refresh handler."""
         return self._battery_plan_profile_loader
-
-    def get_household_members(self) -> list[dict[str, Any]]:
-        return get_household_members(self._store)
 
     def upsert_household_member(
         self,

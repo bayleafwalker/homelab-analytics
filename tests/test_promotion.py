@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.domains.finance.pipelines.transformation_transactions import get_monthly_cashflow
 from packages.pipelines.configured_csv_ingestion import ConfiguredCsvIngestionService
 from packages.pipelines.csv_validation import ColumnType
 from packages.pipelines.household_packages import BUILTIN_TRANSFORMATION_PACKAGE_SPECS
@@ -170,7 +171,7 @@ class PromotionTests(unittest.TestCase):
 
             self.assertFalse(result.skipped)
             self.assertEqual(2, result.facts_loaded)
-            rows = transformation_service.get_monthly_cashflow()
+            rows = get_monthly_cashflow(transformation_service.store)
             self.assertEqual(1, len(rows))
             self.assertEqual("2026-01", rows[0]["booking_month"])
 

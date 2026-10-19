@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from packages.domains.finance.pipelines.transformation_transactions import get_monthly_cashflow
+
 pytest.importorskip("reportlab")
 
 from apps.worker.main import main
@@ -231,7 +233,7 @@ def test_generated_op_and_revolut_sources_preview_and_promote(tmp_path: Path) ->
         )
         assert not promotion.skipped
 
-    assert len(transformation_service.get_monthly_cashflow()) > 0
+    assert len(get_monthly_cashflow(transformation_service.store)) > 0
 
 
 def test_seed_demo_data_populates_reporting_and_is_idempotent(tmp_path: Path) -> None:

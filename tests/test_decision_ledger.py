@@ -18,6 +18,7 @@ from packages.application.use_cases.decision_ledger import actor_from_principal
 from packages.domains.finance.pipelines.account_transaction_service import (
     AccountTransactionService,
 )
+from packages.domains.utilities.pipelines.battery_plan_outcome import get_battery_plan_outcome
 from packages.domains.utilities.pipelines.publication_refresh import (
     refresh_battery_plan_publication,
 )
@@ -126,7 +127,7 @@ def _client(temp_dir: str, **history: Any) -> tuple[TestClient, dict[str, Any]]:
     store, assessed_at = _store_with_history(**history)
     transformation = _service(store, assessed_at=assessed_at)
     refresh_battery_plan_publication(transformation)
-    [row] = transformation.get_battery_plan_outcome()
+    [row] = get_battery_plan_outcome(transformation.store)
     service = AccountTransactionService(
         landing_root=Path(temp_dir) / "landing",
         metadata_repository=RunMetadataRepository(Path(temp_dir) / "runs.db"),

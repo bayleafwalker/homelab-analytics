@@ -19,6 +19,7 @@ from packages.domains.utilities.pipelines.battery_plan_models import (
     MART_BATTERY_PLAN_OUTCOME_TABLE,
     MART_BATTERY_PLAN_OUTCOME_VALUES_TABLE,
 )
+from packages.pipelines.mart_read_registry import read_warehouse_mart
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.control_plane import SourceLineageCreate, SourceLineageStore
@@ -50,7 +51,7 @@ def publish_battery_plan_outcome(
     refreshed = transformation_service.refresh_publications(
         [MART_BATTERY_PLAN_OUTCOME_TABLE]
     )
-    rows = transformation_service.get_battery_plan_outcome()
+    rows = read_warehouse_mart(transformation_service, MART_BATTERY_PLAN_OUTCOME_TABLE)
     run_ids = sorted(
         {
             str(run_id)

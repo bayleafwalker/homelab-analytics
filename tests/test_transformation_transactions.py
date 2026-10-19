@@ -15,6 +15,10 @@ from datetime import date, timedelta
 import pytest
 
 from packages.domains.finance.pipelines.transformation_transactions import (
+    get_account_balance_trend,
+    get_recent_large_transactions,
+    get_spend_by_category_monthly,
+    get_transaction_anomalies_current,
     refresh_account_balance_trend,
     refresh_recent_large_transactions,
     refresh_spend_by_category_monthly,
@@ -114,14 +118,14 @@ class TestSpendByCategoryMonthly:
 
     def test_only_expenses_appear(self, svc: TransformationService) -> None:
         refresh_spend_by_category_monthly(svc.store)
-        rows = svc.get_spend_by_category_monthly()
+        rows = get_spend_by_category_monthly(svc.store)
         counterparties = {r["counterparty_name"] for r in rows}
         assert "Employer" not in counterparties
 
     def test_month_filter(self, svc: TransformationService) -> None:
         refresh_spend_by_category_monthly(svc.store)
-        jan = svc.get_spend_by_category_monthly(from_month=MONTH_A, to_month=MONTH_A)
-        feb = svc.get_spend_by_category_monthly(from_month=MONTH_B, to_month=MONTH_B)
+        jan = get_spend_by_category_monthly(svc.store, from_month=MONTH_A, to_month=MONTH_A)
+        feb = get_spend_by_category_monthly(svc.store, from_month=MONTH_B, to_month=MONTH_B)
         assert all(r["booking_month"] == MONTH_A for r in jan)
         assert all(r["booking_month"] == MONTH_B for r in feb)
 
@@ -141,7 +145,7 @@ class TestRecentLargeTransactions:
         from decimal import Decimal
 
         refresh_recent_large_transactions(svc.store)
-        rows = svc.get_recent_large_transactions()
+        rows = get_recent_large_transactions(svc.store)
         # Insurance (850) and One-Off Vendor (200) and Employer (2450) are >= 100
         amounts = [abs(r["amount"]) for r in rows]
         assert all(a >= Decimal("100") for a in amounts)
@@ -168,14 +172,14 @@ class TestAccountBalanceTrend:
 
     def test_two_accounts_present(self, svc: TransformationService) -> None:
         refresh_account_balance_trend(svc.store)
-        rows = svc.get_account_balance_trend()
+        rows = get_account_balance_trend(svc.store)
         accounts = {r["account_id"] for r in rows}
         assert "CHK-001" in accounts
         assert "CHK-002" in accounts
 
     def test_cumulative_balance_is_running_sum(self, svc: TransformationService) -> None:
         refresh_account_balance_trend(svc.store)
-        rows = svc.get_account_balance_trend(account_id="CHK-001")
+        rows = get_account_balance_trend(svc.store, account_id="CHK-001")
         # Should be ordered by month; cumulative balance of month N =
         # sum of net_change for months 1..N
         running = 0
@@ -185,7 +189,7 @@ class TestAccountBalanceTrend:
 
     def test_month_filter(self, svc: TransformationService) -> None:
         refresh_account_balance_trend(svc.store)
-        jan = svc.get_account_balance_trend(from_month=MONTH_A, to_month=MONTH_A)
+        jan = get_account_balance_trend(svc.store, from_month=MONTH_A, to_month=MONTH_A)
         assert all(r["booking_month"] == MONTH_A for r in jan)
 
     def test_idempotent(self, svc: TransformationService) -> None:
@@ -207,7 +211,7 @@ class TestTransactionAnomaliesCurrent:
 
     def test_first_occurrence_detected(self, svc: TransformationService) -> None:
         refresh_transaction_anomalies_current(svc.store)
-        rows = svc.get_transaction_anomalies_current()
+        rows = get_transaction_anomalies_current(svc.store)
         first_occ = [r for r in rows if r["anomaly_type"] == "first_occurrence"]
         names = {r["counterparty_name"] for r in first_occ}
         # Insurance Co (850) and One-Off Vendor (200) are single-transaction
@@ -217,7 +221,7 @@ class TestTransactionAnomaliesCurrent:
 
     def test_anomaly_reason_populated(self, svc: TransformationService) -> None:
         refresh_transaction_anomalies_current(svc.store)
-        rows = svc.get_transaction_anomalies_current()
+        rows = get_transaction_anomalies_current(svc.store)
         for row in rows:
             assert row["anomaly_reason"], f"Empty reason for {row['counterparty_name']}"
 

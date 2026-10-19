@@ -7,6 +7,7 @@ registries the facade dispatches to:
 - publication refresh: ``PublicationRefreshRegistry`` (``refresh_publications``)
 - scenario types: ``ScenarioRegistry`` (``create_scenario`` / ``get_scenario_view``)
 - current dimensions: ``CurrentDimensionRegistry`` (``get_current_dimension_rows``)
+- reporting mart reads: ``MartReadRegistry`` (``ReportingService`` via ``read_warehouse_mart``)
 
 The surface below is a ratchet. Adding a public method fails this test: put
 the behaviour in the domain pack and register it, or add an application use
@@ -44,16 +45,6 @@ FACADE_SURFACE_BASELINE: dict[str, frozenset[str]] = {
             "count_contract_prices",
             "count_loan_repayments",
             "count_subscriptions",
-            "get_budget_envelope_drift",
-            "get_budget_progress_current",
-            "get_budget_variance",
-            "get_contract_price_current",
-            "get_electricity_price_current",
-            "get_loan_overview",
-            "get_loan_repayment_variance",
-            "get_loan_schedule_projected",
-            "get_subscription_summary",
-            "get_upcoming_fixed_costs_30d",
             "load_budget_targets",
             "load_contract_prices",
             "load_loan_repayments",
@@ -65,8 +56,6 @@ FACADE_SURFACE_BASELINE: dict[str, frozenset[str]] = {
             "count_automation_event_rows",
             "count_home_automation_state_rows",
             "count_sensor_reading_rows",
-            "get_ha_entities",
-            "get_ha_entity_history",
             "ingest_ha_states",
             "load_automation_events",
             "load_home_automation_state",
@@ -81,29 +70,12 @@ FACADE_SURFACE_BASELINE: dict[str, frozenset[str]] = {
             "count_service_health_rows",
             "count_storage_sensor_rows",
             "count_workload_sensor_rows",
-            "get_backup_freshness",
-            "get_service_health_current",
-            "get_storage_risk",
-            "get_workload_cost_7d",
             "load_backup_runs",
             "load_cluster_metrics",
             "load_power_consumption",
             "load_service_health",
             "load_storage_sensors",
             "load_workload_sensors",
-        }
-    ),
-    "overview": frozenset(
-        {
-            "get_affordability_ratios",
-            "get_cost_trend_12m",
-            "get_current_operating_baseline",
-            "get_homelab_roi",
-            "get_household_cost_model",
-            "get_household_overview",
-            "get_open_attention_items",
-            "get_recent_significant_changes",
-            "get_recurring_cost_baseline",
         }
     ),
     "scenarios": frozenset(
@@ -126,12 +98,6 @@ FACADE_SURFACE_BASELINE: dict[str, frozenset[str]] = {
         {
             "add_category_rule",
             "count_transactions",
-            "get_account_balance_trend",
-            "get_monthly_cashflow",
-            "get_monthly_cashflow_by_counterparty",
-            "get_recent_large_transactions",
-            "get_spend_by_category_monthly",
-            "get_transaction_anomalies_current",
             "list_category_overrides",
             "list_category_rules",
             "load_transactions",
@@ -145,8 +111,6 @@ FACADE_SURFACE_BASELINE: dict[str, frozenset[str]] = {
         {
             "count_domain_rows",
             "get_current_dimension_rows",
-            "get_household_members",
-            "get_transformation_audit",
             "load_domain_rows",
             "record_publication_confidence",
             "refresh_publications",
@@ -157,13 +121,6 @@ FACADE_SURFACE_BASELINE: dict[str, frozenset[str]] = {
         {
             "count_bills",
             "count_utility_usage",
-            "get_battery_plan_outcome",
-            "get_battery_plan_outcome_values",
-            "get_contract_renewal_watchlist",
-            "get_contract_review_candidates",
-            "get_usage_vs_price_summary",
-            "get_utility_cost_summary",
-            "get_utility_cost_trend_monthly",
             "load_bills",
             "load_utility_usage",
         }

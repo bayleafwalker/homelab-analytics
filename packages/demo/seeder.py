@@ -14,8 +14,10 @@ from packages.demo.bundle import (
     load_demo_manifest,
 )
 from packages.domains.finance.manifest import FINANCE_PACK
+from packages.domains.finance.pipelines.budget_models import MART_BUDGET_VARIANCE_TABLE
 from packages.domains.finance.pipelines.budget_service import BudgetService
 from packages.domains.finance.pipelines.contract_price_service import ContractPriceService
+from packages.domains.finance.pipelines.loan_models import MART_LOAN_OVERVIEW_TABLE
 from packages.domains.finance.pipelines.loan_service import LoanService
 from packages.domains.finance.pipelines.subscription_service import SubscriptionService
 from packages.domains.overview.manifest import OVERVIEW_PACK
@@ -30,6 +32,7 @@ from packages.pipelines.household_promotion_handlers import (
     promote_subscription_run,
     promote_utility_bill_run,
 )
+from packages.pipelines.mart_read_registry import read_warehouse_mart
 from packages.pipelines.promotion import promote_source_asset_run
 from packages.pipelines.reporting_service import (
     ReportingAccessMode,
@@ -279,8 +282,12 @@ def seed_demo_data(
         "subscription_summary": len(reporting_service.get_subscription_summary()),
         "contract_price_current": len(reporting_service.get_contract_price_current()),
         "utility_cost_summary": len(reporting_service.get_utility_cost_summary()),
-        "budget_variance": len(transformation_service.get_budget_variance()),
-        "loan_overview": len(transformation_service.get_loan_overview()),
+        "budget_variance": len(
+            read_warehouse_mart(transformation_service, MART_BUDGET_VARIANCE_TABLE)
+        ),
+        "loan_overview": len(
+            read_warehouse_mart(transformation_service, MART_LOAN_OVERVIEW_TABLE)
+        ),
         "household_overview": len(reporting_service.get_household_overview()),
     }
 
