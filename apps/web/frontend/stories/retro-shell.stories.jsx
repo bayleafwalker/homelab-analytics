@@ -37,6 +37,7 @@ export const OperatorOverview = {
     await expect(canvas.getByLabelText("Retro navigation")).toBeInTheDocument();
     await expect(canvas.getByText("LINK: STABLE")).toBeInTheDocument();
     await expect(canvas.getByText("operator / operator")).toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Console" })).toHaveAttribute("href", "/console");
   },
 };
 

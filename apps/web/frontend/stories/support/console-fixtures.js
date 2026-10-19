@@ -19,6 +19,7 @@ function heatmapFrom(cells, untimed, overrides = {}) {
     data_through: "2026-10-18",
     currency: "EUR",
     hour_basis: "utc",
+    timezone: "UTC",
     day_labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     cells,
     counts,

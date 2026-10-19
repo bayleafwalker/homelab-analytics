@@ -138,6 +138,7 @@ from packages.shared.extensions import (
     build_builtin_extension_registry,
 )
 from packages.shared.function_registry import FunctionRegistry
+from packages.shared.household_time import household_zone
 from packages.shared.metrics import metrics_registry
 from packages.shared.pack_catalog import current_platform_version
 from packages.shared.settings import AppSettings
@@ -432,6 +433,7 @@ def create_app(
     ha_action_dispatcher: Any = None,
     ha_action_proposal_registry: ApprovalActionRegistry | None = None,
     prom_federation_worker: Any = None,
+    household_timezone: str | None = None,
 ) -> FastAPI:
     # Support both the new AppContainer-first call and the legacy
     # AccountTransactionService-first call from existing tests.
@@ -486,6 +488,11 @@ def create_app(
         )
 
     resolved_config_repository = container.control_plane_store
+    # IANA zone for hour-of-day and date reporting; validated by AppSettings,
+    # and again here for an explicit override.
+    resolved_household_timezone = household_zone(
+        household_timezone or container.settings.household_timezone
+    ).key
     resolved_external_registry_cache_root = external_registry_cache_root or (
         container.settings.landing_root.parent / "external-registry-cache"
     )
@@ -746,6 +753,7 @@ def create_app(
         transformation_service=transformation_service,
         resolved_reporting_service=reporting_service,
         to_jsonable=to_jsonable,
+        household_timezone=resolved_household_timezone,
     )
     register_assistant_routes(
         app,
@@ -762,6 +770,7 @@ def create_app(
         metadata_repository=resolved_service.metadata_repository,
         ha_policy_evaluator=ha_policy_evaluator,
         blob_store=getattr(resolved_service, "blob_store", None),
+        household_timezone=resolved_household_timezone,
     )
     register_homelab_routes(
         app,
@@ -864,6 +873,7 @@ def create_app(
         run_metadata_repository=resolved_service.metadata_repository,
         action_proposal_registry=resolved_action_proposal_registry,
         ha_action_dispatcher=ha_action_dispatcher,
+        household_timezone=resolved_household_timezone,
     )
     adapter_registry = _build_default_adapter_registry()
     adapter_instances = AdapterInstanceRegistry()

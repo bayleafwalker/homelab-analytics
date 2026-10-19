@@ -54,6 +54,17 @@ Use the profile that matches the operator posture you want to support. The fresh
 | `HOMELAB_ANALYTICS_DATA_DIR` | `.local/homelab-analytics` | Local data directory for SQLite bootstrap state, DuckDB warehouse files, and landed payloads |
 | `HOMELAB_ANALYTICS_CONFIG_DATABASE_PATH` | `<data_dir>/config.db` | SQLite local control-plane database path override for bootstrap/dev fallback |
 | `HOMELAB_ANALYTICS_ANALYTICS_DATABASE_PATH` | `<data_dir>/analytics/warehouse.duckdb` | DuckDB warehouse path override for worker and local analytical runs |
+| `HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE` | `UTC` | IANA timezone name (for example `Europe/Helsinki`) of the household clock. See [Household timezone](#household-timezone). Helm: `household.timezone` |
+
+### Household timezone
+
+Storage stays UTC. Reports that talk about hours of the day or calendar dates are read on the household clock:
+
+- **Spend heatmap** (`GET /reports/spend-heatmap`): the mart `mart_spend_by_weekday_hour` keeps UTC booking dates and UTC hours. Each timed row is converted when the report is read, so its weekday, hour and date follow the zone's offset on that day, including DST. The window and `as_of` are local dates. Date-only bookings keep their booking date. On a spring-forward day the skipped local hour is empty. On a fall-back day both UTC hours that read as the repeated local hour go into it. In zones with a fractional offset (`Asia/Kolkata`, +05:30), a UTC hour is placed in the local hour it starts in, because the mart is hour-grained.
+- **Wallboard power** (`GET /api/wallboard/power`): each bucket starts when the household clock reads HH:00 and lasts one real hour. `hour_start` and `hour_end` carry the local offset. Across DST, the skipped hour has no bucket and the repeated hour has two buckets, which are told apart by their offsets. No energy is lost or counted twice.
+- **Morning brief** (`GET /api/briefing`): `as_of` is the household date when the brief is generated, and source landing and next-expected dates are household dates. `generated_at` stays an aware UTC timestamp.
+
+Each of these responses carries a `timezone` field naming the zone it used. The API, web and worker processes refuse to start when the value is not a loadable IANA name. The zone database comes from the host's `/usr/share/zoneinfo`, or from the `tzdata` Python package on slim images that do not have one.
 
 ## Supported defaults: backend selection
 

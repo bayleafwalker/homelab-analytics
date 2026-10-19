@@ -213,6 +213,8 @@ class BriefInputs:
     policies: tuple[PolicyEvidence, ...] | None = None
     policy_authority_mode: str | None = None
     sources: tuple[SourceEvidence, ...] | None = None
+    # IANA zone of ``as_of`` and of every date a section prints.
+    timezone: str = "UTC"
 
     def publication(self, key: str) -> PublicationInput:
         found = self.publications.get(key)
@@ -340,12 +342,14 @@ class MorningBrief:
     counts: Mapping[str, int]
     sections: tuple[BriefSection, ...]
     content_hash: str
+    timezone: str = "UTC"
 
     def content_dict(self) -> dict[str, Any]:
         """Canonical content without ``generated_at`` / ``content_hash``."""
         return {
             "schema_version": self.schema_version,
             "as_of": self.as_of.isoformat(),
+            "timezone": self.timezone,
             "headline": self.headline,
             "overall_severity": str(self.overall_severity),
             "counts": dict(sorted(self.counts.items())),
@@ -719,6 +723,7 @@ def compose_morning_brief(
         counts=counts,
         sections=tuple(sections),
         content_hash="",
+        timezone=inputs.timezone,
     )
     return MorningBrief(
         schema_version=brief.schema_version,
@@ -729,6 +734,7 @@ def compose_morning_brief(
         counts=brief.counts,
         sections=brief.sections,
         content_hash=_content_hash(brief.content_dict()),
+        timezone=brief.timezone,
     )
 
 
@@ -831,6 +837,7 @@ def gather_brief_inputs(
     policy_results: Sequence[Mapping[str, Any]] | None,
     policy_authority_mode: str | None,
     source_views: Sequence[Any] | None,
+    timezone: str = "UTC",
 ) -> BriefInputs:
     """Collect every input the registered sections declare."""
     publications = {
@@ -864,4 +871,5 @@ def gather_brief_inputs(
         policies=policies,
         policy_authority_mode=policy_authority_mode,
         sources=sources,
+        timezone=timezone,
     )

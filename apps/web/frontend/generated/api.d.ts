@@ -6230,6 +6230,11 @@ export interface components {
             schema_version: string;
             /** Sections */
             sections: components["schemas"]["BriefSectionModel"][];
+            /**
+             * Timezone
+             * @description IANA zone of as_of and every date in the brief (HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE).
+             */
+            timezone: string;
         };
         /** OperatingBaselineResponse */
         OperatingBaselineResponse: {
@@ -7342,6 +7347,11 @@ export interface components {
             max_untimed: string;
             /** Publications */
             publications: string[];
+            /**
+             * Timezone
+             * @description IANA zone the hour columns, weekdays and window dates are on (HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE).
+             */
+            timezone: string;
             totals: components["schemas"]["SpendHeatmapTotals"];
             /** Untimed */
             untimed: string[];
@@ -7808,6 +7818,11 @@ export interface components {
              * @enum {string}
              */
             status: "ok" | "no_meter" | "ambiguous" | "unavailable";
+            /**
+             * Timezone
+             * @description IANA zone whose hour boundaries the buckets follow (HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE).
+             */
+            timezone: string;
             /** Total Kwh */
             total_kwh?: number | null;
             /**

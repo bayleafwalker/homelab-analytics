@@ -43,12 +43,11 @@ python -m apps.worker.main create-local-admin-user demo-admin '<choose-a-passwor
 python -m apps.api.main
 
 # 4. Web on :8081 (another shell, same environment). The launcher serves
-#    the Next.js standalone build, which needs its static assets beside it.
-npm --prefix apps/web/frontend ci
-npm --prefix apps/web/frontend run build
-cp -r apps/web/frontend/.next/static apps/web/frontend/.next/standalone/.next/static
-cp -r apps/web/frontend/public apps/web/frontend/.next/standalone/public
-python -m apps.web.main
+#    the Next.js standalone build, which needs its static assets beside it;
+#    `make web-local` installs node_modules if missing, builds, and copies
+#    .next/static and public/ into .next/standalone as the web image does.
+make web-local
+python -m apps.web.main        # or: make web-local-serve
 ```
 
 Open `http://localhost:8081/login` and sign in as `demo-admin`.
@@ -198,6 +197,22 @@ Every run is saved, so the panel ends with a **Next step**:
 ## Refreshing the proof screenshots
 
 The images under `docs/product/screenshots/finance-loop/` were captured with Playwright (Chromium, 1440×1000) against a local instance started as in section 0, after `seed-demo-data`. They are reference images for this walkthrough, not visual-test baselines. Never refresh baselines under `apps/web/frontend/playwright/*-snapshots/` for doc purposes.
+
+To recapture them, run from the repo root:
+
+```bash
+make web-local                                                # standalone build + static assets
+npx --prefix apps/web/frontend playwright install chromium   # once
+python scripts/capture_finance_loop_screenshots.py           # writes the eight images in place
+python scripts/capture_finance_loop_screenshots.py --out-dir /tmp/finance-loop   # or somewhere else
+```
+
+`scripts/capture_finance_loop_screenshots.py` repeats section 0 in a temporary data directory. It seeds the demo bundle, creates a throwaway local admin, and starts the API and web on ports 18080 and 18081 (`--api-port`, `--web-port`). It derives two upload files from the seeded OP personal export:
+
+- a January 2026 file holding the first two January rows, which lands (images 01 to 06);
+- a one-row file whose amount is empty, which the run rejects with `missing_required_value` (images 07 and 08). A file that drops the amount column is refused before any run is recorded, so it cannot produce these images.
+
+The script then runs `scripts/capture_finance_loop_screenshots.mjs`, which signs in, walks the loop and writes `01-ingest-summary.png` through `08-sources-remediation.png`. Image 04 is an element shot of the expense-shock panel; the others are 1440×1000 viewport shots. The Node script can also be pointed at an instance you started yourself; its header lists the environment variables. Use `localhost` in its base URL: the web shell redirects to the host the request named, and the session cookie only travels to that host. When the capture fails, the page it stopped on is saved to the system temp directory as `finance-loop-capture-failure.png`. The data directory is deleted afterwards unless you pass `--keep-data`.
 
 ---
 

@@ -2,8 +2,10 @@ import React from "react";
 
 import { formatMoney, toNumber } from "../lib/format";
 
-// <HeatGrid> — 7 rows (ISO weekday, Monday first) x 24 columns (UTC hour) of
-// spend from GET /reports/spend-heatmap.
+// <HeatGrid> — 7 rows (ISO weekday, Monday first) x 24 columns (hour of day)
+// of spend from GET /reports/spend-heatmap. Hours are on the household clock
+// the payload names in `timezone` (HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE); the
+// corner reads "UTC" or "local" and the caption names the zone.
 //
 // Intensity is quantised to five levels of --retro-accent; the busiest cells
 // (level 4) switch to --retro-warn so the peak reads without a legend. Empty
@@ -62,7 +64,8 @@ export function HeatGrid({ heatmap, caption = "Spend by weekday and hour", compa
   const showUntimed = (toNumber(heatmap.max_untimed) || 0) > 0;
   const note = coverageNote(heatmap);
   const amount = (value) => formatMoney(value, currency, { grouping: false });
-  const basis = heatmap.hour_basis === "utc" ? "UTC" : "";
+  const zone = heatmap.timezone || (heatmap.hour_basis === "utc" ? "UTC" : "");
+  const basis = zone === "UTC" ? "UTC" : zone ? "local" : "";
 
   return (
     <div className="heatGrid" data-compact={compact ? "true" : "false"} data-coverage={heatmap.coverage || "timed"}>
@@ -72,7 +75,7 @@ export function HeatGrid({ heatmap, caption = "Spend by weekday and hour", compa
           {heatmap.window_start && heatmap.window_end
             ? `, ${heatmap.window_start} to ${heatmap.window_end}`
             : ""}
-          {basis ? `, hours in ${basis}` : ""}
+          {zone ? `, hours in ${zone}` : ""}
         </caption>
         <thead>
           <tr>

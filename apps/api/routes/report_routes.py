@@ -4,7 +4,7 @@ from datetime import date
 from typing import Any, Callable, Literal, cast
 
 from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 import packages.application.use_cases.category_management as category_management
 from apps.api.response_models import (
@@ -26,7 +26,7 @@ from packages.domains.finance.pipelines.spend_heatmap import (
     DEFAULT_WINDOW_DAYS,
     MAX_WINDOW_DAYS,
     build_spend_heatmap,
-    spend_heatmap_window,
+    spend_heatmap_mart_range,
 )
 from packages.domains.finance.pipelines.transaction_models import TRANSFORMATION_AUDIT_COLUMNS
 from packages.domains.utilities.battery_plan_decision import BATTERY_PLAN_DECISION
@@ -512,6 +512,12 @@ class SpendHeatmapResponse(BaseModel):
     data_through: str | None
     currency: str | None
     hour_basis: str
+    timezone: str = Field(
+        description=(
+            "IANA zone the hour columns, weekdays and window dates are on "
+            "(HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE)."
+        )
+    )
     day_labels: list[str]
     cells: list[list[str]]
     counts: list[list[int]]
@@ -553,6 +559,7 @@ def register_report_routes(
     transformation_service: TransformationService | None,
     resolved_reporting_service: ReportingService | None,
     to_jsonable: Callable[[Any], Any],
+    household_timezone: str = "UTC",
 ) -> None:
     def _rows_as_of(
         relation_name: str,
@@ -1069,7 +1076,7 @@ def register_report_routes(
         # KeyError; that is "not available yet", not a server fault.
         try:
             if as_of is not None:
-                from_date, to_date = spend_heatmap_window(as_of, window)
+                from_date, to_date = spend_heatmap_mart_range(as_of, window)
                 rows = resolved_reporting_service.get_spend_by_weekday_hour(
                     from_date=from_date,
                     to_date=to_date,
@@ -1097,6 +1104,7 @@ def register_report_routes(
             window_days=window,
             end=as_of,
             currency=currency,
+            timezone=household_timezone,
         )
         return cast(dict[str, Any], to_jsonable(payload))
 

@@ -182,8 +182,10 @@ python -m apps.worker.main list-runs
 python -m apps.worker.main report-monthly-cashflow
 python -m apps.worker.main watch-schedule-dispatches
 python -m apps.api.main
-python -m apps.web.main
+make web-local && python -m apps.web.main
 ```
+
+`python -m apps.web.main` serves the Next.js standalone build, which only finds its CSS, JS chunks and `public/` files when they sit beside `server.js`. `make web-local` builds the frontend and copies `.next/static` and `public/` into `.next/standalone`, as `infra/docker/web.Dockerfile` does. Without that step the pages load unstyled. `make web-local-serve` does both steps and then starts the server.
 
 When a DuckDB transformation service is configured, built-in datasets auto-promote successful runs into the current silver/gold path through source-asset transformation bindings and publication definitions. Re-running promotion for the same run is idempotent and refreshes marts without duplicating facts.
 

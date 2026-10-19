@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from typing import Any, Callable, Literal
 
 from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from packages.application.use_cases.wallboard import (
     DEFAULT_EVENT_WINDOW,
@@ -35,6 +35,7 @@ from packages.application.use_cases.wallboard import (
 )
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
+from packages.shared.household_time import household_zone
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +115,12 @@ class WallboardPowerSeriesModel(BaseModel):
     available: bool
     status: Literal["ok", "no_meter", "ambiguous", "unavailable"]
     window_hours: int
+    timezone: str = Field(
+        description=(
+            "IANA zone whose hour boundaries the buckets follow "
+            "(HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE)."
+        )
+    )
     unit: Literal["kWh"] = "kWh"
     generated_at: str
     meter: WallboardPowerMeterModel | None = None
@@ -139,7 +146,10 @@ def register_wallboard_routes(
     action_proposal_registry: Any | None,
     ha_action_dispatcher: Any | None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
+    household_timezone: str = "UTC",
 ) -> None:
+    zone = household_zone(household_timezone)
+
     def _reporting() -> ReportingService | None:
         if resolved_reporting_service is not None:
             return resolved_reporting_service
@@ -236,13 +246,16 @@ def register_wallboard_routes(
         ),
     ) -> WallboardPowerSeriesModel:
         current = now()
-        empty_buckets = build_power_series([], unit=None, now=current, window_hours=window_hours)
+        empty_buckets = build_power_series(
+            [], unit=None, now=current, window_hours=window_hours, zone=zone
+        )
         reporting = _ha_reporting()
         if reporting is None or not hasattr(reporting, "get_ha_state_changes_since"):
             return WallboardPowerSeriesModel(
                 available=False,
                 status="unavailable",
                 window_hours=window_hours,
+                timezone=zone.key,
                 generated_at=current.isoformat(),
                 candidates=[],
                 buckets=[WallboardPowerBucketModel.model_validate(b) for b in empty_buckets],
@@ -251,18 +264,23 @@ def register_wallboard_routes(
         meter, status = select_energy_meter(candidates, entity_id=entity_id)
         buckets = empty_buckets
         if meter is not None:
-            since = power_window_start(current, window_hours) - MAX_INTERPOLATION_GAP
+            since = power_window_start(current, window_hours, zone) - MAX_INTERPOLATION_GAP
             readings = reporting.get_ha_state_changes_since(
                 [str(meter.get("entity_id"))], since=since
             )
             buckets = build_power_series(
-                readings, unit=meter.get("unit"), now=current, window_hours=window_hours
+                readings,
+                unit=meter.get("unit"),
+                now=current,
+                window_hours=window_hours,
+                zone=zone,
             )
         known = [bucket["kwh"] for bucket in buckets if bucket["kwh"] is not None]
         return WallboardPowerSeriesModel(
             available=True,
             status=status,  # type: ignore[arg-type]
             window_hours=window_hours,
+            timezone=zone.key,
             generated_at=current.isoformat(),
             meter=_meter_model(meter) if meter is not None else None,
             candidates=[_meter_model(candidate) for candidate in candidates],

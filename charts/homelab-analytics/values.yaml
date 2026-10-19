@@ -141,6 +141,13 @@ monitoring:
     labels:
       grafana_dashboard: "1"
 
+household:
+  # IANA timezone (e.g. Europe/Helsinki) for hour-of-day and calendar-date
+  # reporting: spend heatmap hours, wallboard power buckets, morning brief
+  # dates. Rendered as HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE; the API, web and
+  # worker refuse to start on a name the image's zone database cannot load.
+  timezone: UTC
+
 backup:
   # Worker-loop scheduled backups of the DuckDB warehouse + filesystem landing.
   # 0 disables; 86400 = daily. Bundles land in dir (default <data>/backups).

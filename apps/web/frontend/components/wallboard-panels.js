@@ -16,7 +16,9 @@ function formatUptime(seconds) {
   return hours > 0 ? `up ${hours}h ${minutes}m` : `up ${minutes}m`;
 }
 
-function utcHour(iso) {
+// Bucket timestamps carry the household offset (e.g. +03:00), so the wall
+// clock hour is the literal HH in the ISO string, not a browser-local one.
+function clockHour(iso) {
   return String(iso || "").slice(11, 13);
 }
 
@@ -200,20 +202,24 @@ export function EventFeed({ data, limit = 8 }) {
 }
 
 // ---------------------------------------------------------------------------
-// Power, 24 UTC hours
+// Power, 24 household-clock hours
 // ---------------------------------------------------------------------------
 
 const CHART_W = 480;
 const CHART_H = 140;
 const BAR_GAP = 3;
 
-function powerSummary(buckets, total) {
+function zoneLabel(timezone) {
+  return timezone || "UTC";
+}
+
+function powerSummary(buckets, total, timezone) {
   const known = buckets.filter((bucket) => bucket.kwh != null);
   if (!known.length) return "No energy readings in this window.";
   const peak = known.reduce((best, bucket) => (bucket.kwh > best.kwh ? bucket : best), known[0]);
   const unknown = buckets.length - known.length;
   return (
-    `${total} kWh over ${buckets.length} hours; peak ${peak.kwh} kWh at ${utcHour(peak.hour_start)}:00 UTC` +
+    `${total} kWh over ${buckets.length} hours; peak ${peak.kwh} kWh at ${clockHour(peak.hour_start)}:00 ${zoneLabel(timezone)}` +
     (unknown ? `; ${unknown} hours unknown.` : ".")
   );
 }
@@ -242,7 +248,7 @@ export function PowerChart({ data }) {
   const buckets = data.buckets || [];
   const max = Math.max(0.001, ...buckets.map((bucket) => bucket.kwh || 0));
   const barW = buckets.length ? CHART_W / buckets.length : CHART_W;
-  const summary = powerSummary(buckets, data.total_kwh);
+  const summary = powerSummary(buckets, data.total_kwh, data.timezone);
   return (
     <Panel label="Energy, 24h" area="power" note={data.meter?.name || data.meter?.entity_id}>
       <p className="wallBig">{data.total_kwh == null ? "Unknown" : `${data.total_kwh} kWh`}</p>
@@ -274,12 +280,12 @@ export function PowerChart({ data }) {
         {buckets.map((bucket, index) =>
           index % 6 === 0 ? (
             <text key={`l-${bucket.hour_start}`} className="wallPowerAxis" x={index * barW + 2} y={CHART_H + 22}>
-              {utcHour(bucket.hour_start)}
+              {clockHour(bucket.hour_start)}
             </text>
           ) : null
         )}
       </svg>
-      <p className="wallLine">Hours in UTC. Dashes are hours with no reading.</p>
+      <p className="wallLine">Hours in {zoneLabel(data.timezone)}. Dashes are hours with no reading.</p>
     </Panel>
   );
 }

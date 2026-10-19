@@ -29,6 +29,17 @@ secret) stay in the Secret named in `api/web.secretEnvFrom`; it is listed after
 the ConfigMap in `envFrom`, so a key present in both takes the Secret's value.
 See `docs/runbooks/oidc-authentik-enablement.md`.
 
+## Household timezone
+
+`household.timezone` (default `UTC`) is rendered into the shared ConfigMap as
+`HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE`. It must be an IANA name such as
+`Europe/Helsinki`: the chart fails to render anything that does not look like
+one, and the workloads refuse to start on a name the image cannot load. If
+`commonEnv` already sets the key, that value is used and the key is not
+rendered a second time. It sets the hours in the spend heatmap, the wallboard
+power buckets and the morning brief dates. See
+`docs/runbooks/configuration.md#household-timezone`.
+
 ## Image pinning
 
 `image.repository`/`image.tag` and `webImage.repository`/`webImage.tag` describe the

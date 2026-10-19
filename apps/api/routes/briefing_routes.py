@@ -36,6 +36,7 @@ from packages.application.use_cases.source_freshness_overview import (
     build_source_freshness_views,
 )
 from packages.pipelines.reporting_service import ReportingService
+from packages.shared.household_time import household_zone, local_date
 
 _log = logging.getLogger(__name__)
 
@@ -83,9 +84,16 @@ def register_briefing_routes(
     blob_store: Any = None,
     section_registry: BriefSectionRegistry | None = None,
     clock: Callable[[], datetime] | None = None,
+    household_timezone: str = "UTC",
 ) -> None:
-    """Register the morning brief route."""
+    """Register the morning brief route.
 
+    ``as_of`` and every date the brief prints are household-clock dates
+    (``household_timezone``), so a brief generated at 01:30 in Helsinki is for
+    that Helsinki day, not the previous UTC one.
+    """
+
+    zone = household_zone(household_timezone)
     registry = section_registry or default_brief_section_registry()
     now_fn = clock or (lambda: datetime.now(UTC))
     reader = (
@@ -125,7 +133,7 @@ def register_briefing_routes(
     @app.get("/api/briefing", response_model=MorningBriefResponseModel)
     async def get_briefing() -> dict[str, Any]:
         generated_at = now_fn()
-        as_of = generated_at.date()
+        as_of = local_date(generated_at, zone)
         policy_results, authority_mode = _policy_inputs()
         inputs = gather_brief_inputs(
             as_of=as_of,
@@ -136,5 +144,6 @@ def register_briefing_routes(
             policy_results=policy_results,
             policy_authority_mode=authority_mode,
             source_views=_source_views(as_of),
+            timezone=zone.key,
         )
         return compose_morning_brief(inputs, registry).as_dict()

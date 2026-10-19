@@ -133,7 +133,10 @@ export function BriefingView({ brief, renderExplain = null, surfaces = {} }) {
     <article className={styles.brief}>
       <header className={styles.masthead}>
         <div>
-          <Eyebrow>Brief for {brief.as_of}</Eyebrow>
+          <Eyebrow>
+            Brief for {brief.as_of}
+            {brief.timezone && brief.timezone !== "UTC" ? ` (${brief.timezone})` : ""}
+          </Eyebrow>
           <p className={styles.headline}>{brief.headline}</p>
         </div>
         <div className={styles.meta}>

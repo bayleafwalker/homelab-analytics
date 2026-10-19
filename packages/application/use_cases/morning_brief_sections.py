@@ -46,6 +46,7 @@ from packages.application.use_cases.morning_brief import (
     publication_evidence,
     withheld_item,
 )
+from packages.shared.household_time import household_zone, local_date
 
 MONTHLY_CASHFLOW_KEY = "mart_monthly_cashflow"
 ATTENTION_ITEMS_KEY = "mart_open_attention_items"
@@ -696,6 +697,7 @@ def build_sources_section(inputs: BriefInputs) -> SectionDraft:
         )
     items: list[BriefItem] = []
     current: list[str] = []
+    zone = household_zone(inputs.timezone)
     for source in inputs.sources:
         state = source.freshness_state
         evidence: list[BriefEvidenceRef] = [
@@ -706,9 +708,11 @@ def build_sources_section(inputs: BriefInputs) -> SectionDraft:
                 BriefEvidenceRef(EvidenceKind.RUN, source.latest_run_id, f"run {source.latest_run_id}")
             )
         next_expected = (
-            source.next_expected_at.date().isoformat() if source.next_expected_at else None
+            local_date(source.next_expected_at, zone).isoformat()
+            if source.next_expected_at
+            else None
         )
-        landed = source.landed_at.date().isoformat() if source.landed_at else "never"
+        landed = local_date(source.landed_at, zone).isoformat() if source.landed_at else "never"
         if state == "current":
             current.append(source.name)
             continue

@@ -428,6 +428,39 @@ class HelmChartTests(unittest.TestCase):
         )
         self.assertNotIn("HOMELAB_ANALYTICS_BACKUP_INTERVAL_SECONDS", config["data"])
 
+    def test_household_timezone_defaults_to_utc_and_is_configurable(self) -> None:
+        self.assertEqual(
+            "UTC", self._config_data()["HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE"]
+        )
+        self.assertEqual(
+            "Europe/Helsinki",
+            self._config_data("--set", "household.timezone=Europe/Helsinki")[
+                "HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE"
+            ],
+        )
+        # An explicit commonEnv entry wins and is not rendered twice.
+        self.assertEqual(
+            "America/New_York",
+            self._config_data(
+                "--set",
+                "commonEnv.HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE=America/New_York",
+            )["HOMELAB_ANALYTICS_HOUSEHOLD_TIMEZONE"],
+        )
+
+    def test_household_timezone_rejects_non_iana_names_at_render(self) -> None:
+        completed = subprocess.run(
+            [
+                "helm", "template", "test-release", str(CHART_DIR),
+                "--set", "household.timezone=../etc/passwd",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("household.timezone must be an IANA timezone name", completed.stderr)
+
     def _config_data(self, *extra_args: str) -> dict:
         return next(
             document["data"]
