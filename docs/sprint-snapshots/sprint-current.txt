@@ -1,20 +1,18 @@
-ID:     576
-Name:   grid-watch-close — Backlog Completion Wave
-Goal:   Implement the remaining backlog: ops console, wallboard adapters, thin transform facade, finance operator loop, as-of history and DuckDB lineage, agent platform and ops follow-ups; ship v0.1.4 observability to appservice
+ID:     577
+Name:   ember-thread-mend — Wave 3 Follow-ups
+Goal:   Close the deferred follow-ups from wave 3: trust edge cases, facade phase 2, agent surface typing, UI polish and timezone, metric deprecations
 Dates:  2026-10-18 to 2026-11-01
 Status: closed
 Kind:   active_sprint
 
-ID     STATUS  PRI  TRACK         ASSIGNEE  TITLE                                                              
------  ------  ---  ------------  --------  -------------------------------------------------------------------
-#2792  done    -    ops           -         Release v0.1.4 + appservice observability PR                       
-#2793  done    -    agentic       -         Agent platform follow-ups (W3-6, PR #47)                           
-#2794  done    -    ops           -         Ops follow-ups (W3-7, PR #48)                                      
-#2795  done    -    finance       -         Finance operator loop (W3-4, PR #49)                               
-#2796  done    -    refactor      -         Thin transform facade (W3-3)                                       
-#2797  done    -    ui            -         Ops console (W3-1)                                                 
-#2798  done    -    ui            -         Wallboard adapters (W3-2)                                          
-#2799  done    -    trust         -         As-of history + DuckDB lineage (W3-5)                              
-#2800  done    -    reporting     -         Seed pub_budgets_envelope_drift on Postgres                        
-#2801  done    -    trust         -         DuckDB-path confidence matches runs to freshness by source_asset_id
-#2802  done    -    verification  -         Refresh S3/Postgres integration expected publication set           
+ID     STATUS  PRI  TRACK     ASSIGNEE  TITLE                                                                 
+-----  ------  ---  --------  --------  ----------------------------------------------------------------------
+#2811  done    -    trust     -         Scheduled freshness configs read current in confidence                
+#2812  done    -    trust     -         Bound lineage graph and tolerate old snapshot rows                    
+#2813  done    -    trust     -         Expose snapshot retention in the Helm chart                           
+#2814  done    -    refactor  -         Facade phase 2: mart getters behind a read registry                   
+#2815  done    -    agentic   -         MCP tool for the proposal changes feed and typed semantic-index schema
+#2816  done    -    agentic   -         Adapter-neutral proposal field names                                  
+#2817  done    -    ui        -         Household timezone setting                                            
+#2818  done    -    ui        -         UI polish follow-ups                                                  
+#2819  done    -    ops       -         Remove deprecated metric names                                        
