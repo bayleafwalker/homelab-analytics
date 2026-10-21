@@ -35,7 +35,9 @@ _RECORD_COLUMNS = """
 _FOLLOW_UP_COLUMNS = """
     follow_up_id, decision_id, observed_at, observation_period, realized_result,
     realized_value_eur, realized_value_status, evidence_effect, notes, actor,
-    actor_role, actor_auth_provider, actor_authenticated, created_at
+    actor_role, actor_auth_provider, actor_authenticated, created_at,
+    estimated_baseline_eur, estimated_baseline_basis, attribution_hypothesis,
+    confounders, attribution_uncertainty, missing_evidence, attention_minutes
 """
 
 _COMMITMENT_COLUMN_NAMES: tuple[str, ...] = (
@@ -219,6 +221,30 @@ def deserialize_follow_up(row: Any) -> DecisionFollowUpRecord:
         notes=row["notes"],
         actor=_actor(row),
         created_at=coerce_datetime(row["created_at"]),
+        estimated_baseline_eur=coerce_decimal(row["estimated_baseline_eur"]),
+        estimated_baseline_basis=row["estimated_baseline_basis"],
+        attribution_hypothesis=row["attribution_hypothesis"],
+        confounders=str(row["confounders"] or "[]"),
+        attribution_uncertainty=row["attribution_uncertainty"],
+        missing_evidence=str(row["missing_evidence"] or "[]"),
+        attention_minutes=(
+            int(row["attention_minutes"]) if row["attention_minutes"] is not None else None
+        ),
+    )
+
+
+def follow_up_attribution_params(
+    follow_up: DecisionFollowUpCreate, *, decimal_as_text: bool
+) -> tuple[Any, ...]:
+    baseline = follow_up.estimated_baseline_eur
+    return (
+        str(baseline) if baseline is not None and decimal_as_text else baseline,
+        follow_up.estimated_baseline_basis,
+        follow_up.attribution_hypothesis,
+        follow_up.confounders,
+        follow_up.attribution_uncertainty,
+        follow_up.missing_evidence,
+        follow_up.attention_minutes,
     )
 
 
@@ -308,7 +334,7 @@ class SQLiteDecisionLedgerMixin:
             connection.execute(
                 f"""
                 INSERT INTO decision_follow_ups ({_FOLLOW_UP_COLUMNS})
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     follow_up.follow_up_id,
@@ -329,6 +355,7 @@ class SQLiteDecisionLedgerMixin:
                     follow_up.actor.actor_auth_provider,
                     int(follow_up.actor.actor_authenticated),
                     aware_utc(follow_up.created_at).isoformat(),
+                    *follow_up_attribution_params(follow_up, decimal_as_text=True),
                 ),
             )
             connection.commit()

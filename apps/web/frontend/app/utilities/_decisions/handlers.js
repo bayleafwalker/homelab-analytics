@@ -61,6 +61,14 @@ export function createDecisionPost(pagePath) {
   };
 }
 
+/** @param {FormDataEntryValue | null} value */
+function lines(value) {
+  return String(value || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 /** @param {string} pagePath */
 export function createFollowUpPost(pagePath) {
   /**
@@ -70,6 +78,7 @@ export function createFollowUpPost(pagePath) {
   return async function POST(request, { params }) {
     const formData = await request.formData();
     const realizedValue = String(formData.get("realized_value_eur") || "");
+    const attentionMinutes = String(formData.get("attention_minutes") || "");
     const response = await backendRequest(
       "post",
       "/control/decisions/{decision_id}/follow-ups",
@@ -81,7 +90,13 @@ export function createFollowUpPost(pagePath) {
           realized_result: String(formData.get("realized_result") || ""),
           evidence_effect: String(formData.get("evidence_effect") || ""),
           realized_value_eur: realizedValue || null,
-          realized_value_status: String(formData.get("realized_value_status") || "") || null
+          realized_value_status: String(formData.get("realized_value_status") || "") || null,
+          baseline_value_key: String(formData.get("baseline_value_key") || "") || null,
+          attribution_hypothesis: String(formData.get("attribution_hypothesis") || "") || null,
+          confounders: lines(formData.get("confounders")),
+          attribution_uncertainty: String(formData.get("attribution_uncertainty") || "") || null,
+          missing_evidence: lines(formData.get("missing_evidence")),
+          attention_minutes: attentionMinutes === "" ? null : Number(attentionMinutes)
         }
       }
     );

@@ -3963,9 +3963,95 @@
       "DecisionFollowUpCreateRequest": {
         "additionalProperties": false,
         "properties": {
+          "attention_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Operator minutes spent on this review; omit when unknown (never zero).",
+            "title": "Attention Minutes"
+          },
+          "attribution_hypothesis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attribution Hypothesis"
+          },
+          "attribution_uncertainty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attribution Uncertainty"
+          },
+          "baseline_value_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Compare with this value pinned in the decision's commitment baseline.",
+            "title": "Baseline Value Key"
+          },
+          "confounders": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Confounders",
+            "type": "array"
+          },
+          "estimated_baseline_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Baseline Basis"
+          },
+          "estimated_baseline_eur": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit estimate to compare with; requires estimated_baseline_basis.",
+            "title": "Estimated Baseline Eur"
+          },
           "evidence_effect": {
             "title": "Evidence Effect",
             "type": "string"
+          },
+          "missing_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Evidence",
+            "type": "array"
           },
           "notes": {
             "anyOf": [

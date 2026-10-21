@@ -21,10 +21,11 @@ same logical event; any correction — a follow-up, an evidence supersession, a
 stop or reopen — produces a new revision whose ``supersedes`` names the
 previous ``event_id``.
 
-Unknown stays unknown: HLA does not capture operator attention time, so
-``attention.measured_minutes`` is ``null`` with ``capture_coverage =
-not_captured``; a cost appears only when a follow-up recorded an observed or
-user-entered value.
+Unknown stays unknown: operator attention is the minutes entered on
+follow-ups. With none entered ``attention.measured_minutes`` is ``null`` with
+``capture_coverage = not_captured``; when only some follow-ups carry minutes
+the sum of the known ones is ``partial``, never padded. A cost appears only
+when a follow-up recorded an observed or user-entered value.
 """
 
 from __future__ import annotations
@@ -200,11 +201,7 @@ def _envelope(
         "lifecycle_state": lifecycle["state"],
         "evidence_status": lifecycle["evidence_status"],
         "evidence_effect": latest.evidence_effect if latest is not None else None,
-        "attention": {
-            "measured_minutes": None,
-            "capture_coverage": "not_captured",
-            "unknown_is_zero": False,
-        },
+        "attention": _attention(follow_ups),
         "cost": {
             "realized_value_eur": (
                 str(latest.realized_value_eur)
@@ -240,6 +237,22 @@ def _envelope(
     body["event_id"] = f"hla_outref_{digest[:26]}"
     body["idempotency_key"] = f"hla:outcome:{record.decision_id}:r{revision}"
     return body
+
+
+def _attention(follow_ups: Sequence[DecisionFollowUpRecord]) -> dict[str, Any]:
+    """Operator minutes entered on follow-ups; unknown minutes are never zero."""
+    known = [item.attention_minutes for item in follow_ups if item.attention_minutes is not None]
+    if not known:
+        coverage = "not_captured"
+    elif len(known) == len(follow_ups):
+        coverage = "captured"
+    else:
+        coverage = "partial"
+    return {
+        "measured_minutes": sum(known) if known else None,
+        "capture_coverage": coverage,
+        "unknown_is_zero": False,
+    }
 
 
 def _result(latest: DecisionFollowUpRecord | None, success: str | None) -> str:
