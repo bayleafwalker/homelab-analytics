@@ -159,6 +159,15 @@ class DecisionFollowUpCreate:
     notes: str | None
     actor: DecisionActor
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    # Attribution review (HLA-K03) and attention capture (HLA-K04). ``None`` /
+    # empty means not recorded; follow-ups made before these fields read back so.
+    estimated_baseline_eur: Decimal | None = None
+    estimated_baseline_basis: str | None = None
+    attribution_hypothesis: str | None = None
+    confounders: str = "[]"  # JSON list
+    attribution_uncertainty: str | None = None
+    missing_evidence: str = "[]"  # JSON list
+    attention_minutes: int | None = None
 
 
 @dataclass(frozen=True)
@@ -174,6 +183,15 @@ class DecisionFollowUpRecord:
     notes: str | None
     actor: DecisionActor
     created_at: datetime
+    # Attribution review (HLA-K03) and attention capture (HLA-K04). ``None`` /
+    # empty means not recorded; follow-ups made before these fields read back so.
+    estimated_baseline_eur: Decimal | None = None
+    estimated_baseline_basis: str | None = None
+    attribution_hypothesis: str | None = None
+    confounders: str = "[]"  # JSON list
+    attribution_uncertainty: str | None = None
+    missing_evidence: str = "[]"  # JSON list
+    attention_minutes: int | None = None
 
 
 @runtime_checkable

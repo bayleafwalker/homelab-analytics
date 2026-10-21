@@ -88,6 +88,23 @@ class DecisionFollowUpCreateRequest(BaseModel):
     realized_value_eur: Decimal | None = None
     realized_value_status: str | None = None
     notes: str | None = None
+    baseline_value_key: str | None = Field(
+        default=None,
+        description="Compare with this value pinned in the decision's commitment baseline.",
+    )
+    estimated_baseline_eur: Decimal | None = Field(
+        default=None,
+        description="Explicit estimate to compare with; requires estimated_baseline_basis.",
+    )
+    estimated_baseline_basis: str | None = None
+    attribution_hypothesis: str | None = None
+    confounders: list[str] = Field(default_factory=list)
+    attribution_uncertainty: str | None = None
+    missing_evidence: list[str] = Field(default_factory=list)
+    attention_minutes: int | None = Field(
+        default=None,
+        description="Operator minutes spent on this review; omit when unknown (never zero).",
+    )
 
 
 class CommitmentStopRequest(BaseModel):
@@ -301,6 +318,14 @@ def register_decision_routes(
                     realized_value_eur=body.realized_value_eur,
                     realized_value_status=body.realized_value_status,
                     notes=body.notes,
+                    baseline_value_key=body.baseline_value_key,
+                    estimated_baseline_eur=body.estimated_baseline_eur,
+                    estimated_baseline_basis=body.estimated_baseline_basis,
+                    attribution_hypothesis=body.attribution_hypothesis,
+                    confounders=tuple(body.confounders),
+                    attribution_uncertainty=body.attribution_uncertainty,
+                    missing_evidence=tuple(body.missing_evidence),
+                    attention_minutes=body.attention_minutes,
                 ),
                 actor=_actor(request),
             )

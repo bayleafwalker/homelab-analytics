@@ -27,6 +27,16 @@ are pinned from the definition version at record time.
   (evidence superseded since the last review) > ``review_due`` (next review
   date reached) > ``active``. Stopped commitments drop out of the review
   queue; their history stays readable.
+
+Attribution review (HLA-K03): a follow-up keeps the measured result apart
+from an estimated baseline. The estimate is either a value pinned in the
+commitment baseline (``baseline_value_key``) or an explicit value with its
+basis; the follow-up also carries the attribution hypothesis, confounders,
+uncertainty and the evidence known to be missing. Nothing here claims
+causation: the measured-minus-estimate difference is reported only when both
+sides exist, and every unrecorded part is listed rather than assumed. The
+operator's attention time on the review is captured when entered and stays
+unknown (``None``) otherwise, never zero.
 """
 
 from __future__ import annotations
@@ -104,6 +114,14 @@ class FollowUpRequest:
     realized_value_eur: Decimal | None = None
     realized_value_status: str | None = None
     notes: str | None = None
+    baseline_value_key: str | None = None
+    estimated_baseline_eur: Decimal | None = None
+    estimated_baseline_basis: str | None = None
+    attribution_hypothesis: str | None = None
+    confounders: tuple[str, ...] = ()
+    attribution_uncertainty: str | None = None
+    missing_evidence: tuple[str, ...] = ()
+    attention_minutes: int | None = None
 
 
 def actor_from_principal(principal: object | None) -> DecisionActor:
@@ -298,6 +316,9 @@ def record_follow_up(
             )
     elif request.realized_value_status is not None:
         raise DecisionValidationError("realized_value_status requires realized_value_eur.")
+    estimate, basis = _estimated_baseline(decision, request)
+    if request.attention_minutes is not None and request.attention_minutes < 0:
+        raise DecisionValidationError("attention_minutes cannot be negative.")
     return store.add_decision_follow_up(
         DecisionFollowUpCreate(
             follow_up_id=f"fup_{uuid.uuid4().hex}",
@@ -311,8 +332,69 @@ def record_follow_up(
             notes=(request.notes or "").strip() or None,
             actor=actor,
             created_at=created_at,
+            estimated_baseline_eur=estimate,
+            estimated_baseline_basis=basis,
+            attribution_hypothesis=_optional_text(request.attribution_hypothesis),
+            confounders=_json(_text_list(request.confounders)),
+            attribution_uncertainty=_optional_text(request.attribution_uncertainty),
+            missing_evidence=_json(_text_list(request.missing_evidence)),
+            attention_minutes=request.attention_minutes,
         )
     )
+
+
+def _estimated_baseline(
+    decision: DecisionRecord, request: FollowUpRequest
+) -> tuple[Decimal | None, str | None]:
+    """The estimate a follow-up compares its measured result with, and its basis."""
+    explicit_basis = _optional_text(request.estimated_baseline_basis)
+    if request.baseline_value_key is not None:
+        if request.estimated_baseline_eur is not None or explicit_basis is not None:
+            raise DecisionValidationError(
+                "Give either baseline_value_key or an explicit estimated baseline, not both."
+            )
+        if decision.commitment is None:
+            raise DecisionValidationError(
+                "This decision has no pinned commitment baseline to compare with."
+            )
+        values = json.loads(decision.commitment.baseline).get("values") or {}
+        pinned = values.get(request.baseline_value_key)
+        if pinned is None:
+            allowed = ", ".join(sorted(values)) or "none"
+            raise DecisionValidationError(
+                f"Unknown baseline_value_key; pinned baseline values: {allowed}"
+            )
+        if pinned.get("value") is None:
+            raise DecisionValidationError(
+                "The pinned baseline value is missing; record the gap in missing_evidence."
+            )
+        return (
+            Decimal(str(pinned["value"])),
+            f"Decision baseline {request.baseline_value_key} "
+            f"({pinned.get('status') or 'estimated'}, {pinned.get('unit') or 'unit unknown'}).",
+        )
+    if request.estimated_baseline_eur is not None:
+        if explicit_basis is None:
+            raise DecisionValidationError(
+                "An estimated baseline needs estimated_baseline_basis stating where it came from."
+            )
+        return request.estimated_baseline_eur, explicit_basis
+    if explicit_basis is not None:
+        raise DecisionValidationError("estimated_baseline_basis requires estimated_baseline_eur.")
+    return None, None
+
+
+def _optional_text(value: str | None) -> str | None:
+    return (value or "").strip() or None
+
+
+def _text_list(values: Sequence[str]) -> list[str]:
+    seen: list[str] = []
+    for value in values:
+        text = value.strip()
+        if text and text not in seen:
+            seen.append(text)
+    return seen
 
 
 # ---------------------------------------------------------------------------
@@ -560,6 +642,14 @@ def serialize_follow_up(
         "realized_value_status": follow_up.realized_value_status,
         "evidence_effect": follow_up.evidence_effect,
         "notes": follow_up.notes,
+        "attribution_review": serialize_attribution_review(follow_up),
+        "attention": {
+            "minutes": follow_up.attention_minutes,
+            "value_status": "user_entered" if follow_up.attention_minutes is not None else None,
+            "capture_coverage": (
+                "captured" if follow_up.attention_minutes is not None else "not_captured"
+            ),
+        },
         "actor": _serialize_actor(follow_up.actor),
         "created_at": follow_up.created_at.isoformat(),
     }
@@ -578,6 +668,45 @@ def serialize_lifecycle_event(event: DecisionLifecycleEvent) -> dict[str, Any]:
         "details": json.loads(event.details),
         "actor": _serialize_actor(event.actor),
         "occurred_at": event.occurred_at.isoformat(),
+    }
+
+
+def serialize_attribution_review(follow_up: DecisionFollowUpRecord) -> dict[str, Any]:
+    """Measured result, estimated baseline and attribution, kept apart (HLA-K03)."""
+    measured = follow_up.realized_value_eur
+    estimate = follow_up.estimated_baseline_eur
+    confounders = json.loads(follow_up.confounders or "[]")
+    missing = json.loads(follow_up.missing_evidence or "[]")
+    recorded = {
+        "measured_result": measured is not None,
+        "estimated_baseline": estimate is not None,
+        "attribution_hypothesis": follow_up.attribution_hypothesis is not None,
+        "confounders": bool(confounders),
+        "uncertainty": follow_up.attribution_uncertainty is not None,
+    }
+    return {
+        "measured": {
+            "value_eur": str(measured) if measured is not None else None,
+            "value_status": follow_up.realized_value_status,
+        },
+        "estimated_baseline": (
+            {
+                "value_eur": str(estimate),
+                "value_status": "estimated",
+                "basis": follow_up.estimated_baseline_basis,
+            }
+            if estimate is not None
+            else None
+        ),
+        "measured_minus_estimate_eur": (
+            str(measured - estimate) if measured is not None and estimate is not None else None
+        ),
+        "attribution_hypothesis": follow_up.attribution_hypothesis,
+        "confounders": confounders,
+        "uncertainty": follow_up.attribution_uncertainty,
+        "missing_evidence": missing,
+        "not_recorded": [key for key, present in recorded.items() if not present],
+        "causal_claim": False,
     }
 
 

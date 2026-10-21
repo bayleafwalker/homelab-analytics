@@ -503,6 +503,7 @@ def initialize_sqlite_control_plane_schema(connection: sqlite3.Connection) -> No
     _ensure_schedule_dispatch_columns(connection)
     _ensure_worker_heartbeat_table(connection)
     _ensure_action_proposal_changes_feed(connection)
+    _ensure_decision_follow_up_attribution_columns(connection)
     _seed_builtin_transformation_packages(connection)
 
 
@@ -683,6 +684,24 @@ def _ensure_action_proposal_changes_feed(connection: sqlite3.Connection) -> None
         ON CONFLICT (counter_key) DO NOTHING
         """
     )
+
+
+def _ensure_decision_follow_up_attribution_columns(connection: sqlite3.Connection) -> None:
+    """Mirror migration 0014_decision_follow_up_attribution on existing databases."""
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(decision_follow_ups)")}
+    for column_name, column_type in (
+        ("estimated_baseline_eur", "TEXT"),
+        ("estimated_baseline_basis", "TEXT"),
+        ("attribution_hypothesis", "TEXT"),
+        ("confounders", "TEXT NOT NULL DEFAULT '[]'"),
+        ("attribution_uncertainty", "TEXT"),
+        ("missing_evidence", "TEXT NOT NULL DEFAULT '[]'"),
+        ("attention_minutes", "INTEGER"),
+    ):
+        if column_name not in columns:
+            connection.execute(
+                f"ALTER TABLE decision_follow_ups ADD COLUMN {column_name} {column_type}"
+            )
 
 
 def _ensure_worker_heartbeat_table(connection: sqlite3.Connection) -> None:

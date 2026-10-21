@@ -28,6 +28,7 @@ from packages.storage.sqlite_decision_ledger import (
     deserialize_decision_record,
     deserialize_follow_up,
     deserialize_lifecycle_event,
+    follow_up_attribution_params,
     lifecycle_event_params,
     record_select_sql,
 )
@@ -118,7 +119,8 @@ class PostgresDecisionLedgerMixin:
             connection.execute(
                 f"""
                 INSERT INTO decision_follow_ups ({_FOLLOW_UP_COLUMNS})
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     follow_up.follow_up_id,
@@ -135,6 +137,7 @@ class PostgresDecisionLedgerMixin:
                     follow_up.actor.actor_auth_provider,
                     follow_up.actor.actor_authenticated,
                     aware_utc(follow_up.created_at),
+                    *follow_up_attribution_params(follow_up, decimal_as_text=False),
                 ),
             )
             connection.commit()

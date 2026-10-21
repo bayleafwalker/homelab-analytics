@@ -196,6 +196,10 @@ export function DecisionForm({ action, decision, period, rowRef, reasonCodes, id
 
 function FollowUpForm({ basePath, record }) {
   const id = record.decision_id;
+  const baselineValues = record.commitment?.baseline?.values || {};
+  const baselineKeys = Object.keys(baselineValues).filter(
+    (key) => baselineValues[key]?.value !== null && baselineValues[key]?.value !== undefined
+  );
   return (
     <form className="stack" action={`${basePath}/decisions/${id}/follow-ups`} method="post">
       <div className="formGrid">
@@ -230,6 +234,37 @@ function FollowUpForm({ basePath, record }) {
             <option value="user_entered">user_entered</option>
           </select>
         </div>
+        <div className="field">
+          <label htmlFor={`fu-baseline-${id}`}>Compare with estimate</label>
+          <select id={`fu-baseline-${id}`} name="baseline_value_key">
+            <option value="">— no estimate</option>
+            {baselineKeys.map((key) => (
+              <option key={key} value={key}>
+                {key} ({baselineValues[key].value} {baselineValues[key].unit || ""})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor={`fu-attention-${id}`}>Your time on this review (minutes)</label>
+          <input id={`fu-attention-${id}`} name="attention_minutes" type="number" min="0" step="1" />
+        </div>
+        <div className="field spanTwo">
+          <label htmlFor={`fu-hypothesis-${id}`}>Attribution hypothesis</label>
+          <textarea id={`fu-hypothesis-${id}`} name="attribution_hypothesis" rows={2} />
+        </div>
+        <div className="field">
+          <label htmlFor={`fu-confounders-${id}`}>Confounders (one per line)</label>
+          <textarea id={`fu-confounders-${id}`} name="confounders" rows={2} />
+        </div>
+        <div className="field">
+          <label htmlFor={`fu-missing-${id}`}>Missing evidence (one per line)</label>
+          <textarea id={`fu-missing-${id}`} name="missing_evidence" rows={2} />
+        </div>
+        <div className="field spanTwo">
+          <label htmlFor={`fu-uncertainty-${id}`}>Uncertainty</label>
+          <input id={`fu-uncertainty-${id}`} name="attribution_uncertainty" type="text" />
+        </div>
       </div>
       <div className="buttonRow">
         <button className="ghostButton" type="submit">
@@ -237,6 +272,39 @@ function FollowUpForm({ basePath, record }) {
         </button>
       </div>
     </form>
+  );
+}
+
+function AttributionReview({ followUp }) {
+  const review = followUp.attribution_review;
+  if (!review) {
+    return null;
+  }
+  const attention = followUp.attention?.minutes;
+  return (
+    <ul>
+      <li>
+        Measured:{" "}
+        {review.measured.value_eur !== null
+          ? `${review.measured.value_eur} EUR (${review.measured.value_status})`
+          : "not measured"}
+        {" · "}Estimate:{" "}
+        {review.estimated_baseline
+          ? `${review.estimated_baseline.value_eur} EUR (estimated; ${review.estimated_baseline.basis})`
+          : "none recorded"}
+        {review.measured_minus_estimate_eur !== null
+          ? ` · Measured minus estimate: ${review.measured_minus_estimate_eur} EUR (not a causal claim)`
+          : ""}
+      </li>
+      {review.attribution_hypothesis ? <li>Hypothesis: {review.attribution_hypothesis}</li> : null}
+      {review.confounders.length > 0 ? <li>Confounders: {review.confounders.join("; ")}</li> : null}
+      {review.uncertainty ? <li>Uncertainty: {review.uncertainty}</li> : null}
+      {review.missing_evidence.length > 0 ? (
+        <li>Missing evidence: {review.missing_evidence.join("; ")}</li>
+      ) : null}
+      {review.not_recorded.length > 0 ? <li>Not recorded: {review.not_recorded.join(", ")}</li> : null}
+      <li>Operator time: {attention !== null && attention !== undefined ? `${attention} min` : "not captured"}</li>
+    </ul>
   );
 }
 
@@ -380,6 +448,7 @@ export function DecisionHistory({ records, canDecide, basePath }) {
                   ? `; realized ${followUp.realized_value_eur} EUR, ${followUp.realized_value_status}`
                   : ""}
                 ) <Pill copy={SUCCESS_COPY[followUp.success]} fallback={SUCCESS_COPY.unmeasured} />
+                <AttributionReview followUp={followUp} />
               </div>
             ))}
             {record.history.length > 0 ? (

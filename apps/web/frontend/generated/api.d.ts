@@ -5056,8 +5056,33 @@ export interface components {
         };
         /** DecisionFollowUpCreateRequest */
         DecisionFollowUpCreateRequest: {
+            /**
+             * Attention Minutes
+             * @description Operator minutes spent on this review; omit when unknown (never zero).
+             */
+            attention_minutes?: number | null;
+            /** Attribution Hypothesis */
+            attribution_hypothesis?: string | null;
+            /** Attribution Uncertainty */
+            attribution_uncertainty?: string | null;
+            /**
+             * Baseline Value Key
+             * @description Compare with this value pinned in the decision's commitment baseline.
+             */
+            baseline_value_key?: string | null;
+            /** Confounders */
+            confounders?: string[];
+            /** Estimated Baseline Basis */
+            estimated_baseline_basis?: string | null;
+            /**
+             * Estimated Baseline Eur
+             * @description Explicit estimate to compare with; requires estimated_baseline_basis.
+             */
+            estimated_baseline_eur?: number | string | null;
             /** Evidence Effect */
             evidence_effect: string;
+            /** Missing Evidence */
+            missing_evidence?: string[];
             /** Notes */
             notes?: string | null;
             /** Observation Period */
