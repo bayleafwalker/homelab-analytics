@@ -84,6 +84,39 @@ Recommended rollout sequencing:
 4. Enable strict guard: `HOMELAB_ANALYTICS_AUTH_MODE_LEGACY_STRICT=true`.
 5. Remove `HOMELAB_ANALYTICS_AUTH_MODE` from workload envs once strict-guarded startup is clean.
 
+## Rotating the bootstrap admin credential
+
+`HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD` seeds the local admin the first time
+the account is created and is ignored on every startup after that. Editing it on
+a running deployment is a silent no-op — the secret updates, pods restart clean,
+nothing is logged, and the previous password stays valid. Rotate through the
+worker CLI instead:
+
+```bash
+kubectl exec deploy/<release>-homelab-analytics-worker -- \
+  homelab-analytics-worker reset-local-user-password <username> <new-password>
+```
+
+The command takes the password as a positional argument, so it lands in shell
+history and in the process list on the node. Prefer a shell where history is
+disabled, and rotate again if the value may have been captured.
+
+Notes:
+
+- Update the stored secret to match afterwards. It will not change the running
+  account, but leaving it stale means a future rebuild seeds the old password.
+- Deleting the `local_users` row and letting the API re-bootstrap also works, and
+  is the only option if no credential is known. Only the API container
+  bootstraps: the worker must keep
+  `HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN=false`, because both containers
+  share a startup path and otherwise race on the username unique constraint.
+- Verify by logging in. Under `local_single_user`, a successful login writes
+  `break_glass_activated` and `login_succeeded` to `auth_audit_events` and opens
+  a window of `HOMELAB_ANALYTICS_BREAK_GLASS_TTL_MINUTES`. Window expiry does not
+  disable the account; the next login re-opens it.
+- The `/auth/users/{user_id}/password` endpoint is gated behind
+  `require_unsafe_admin()` and is not a rotation path for shared deployments.
+
 ## Readiness and health
 
 - `/health` is liveness only.

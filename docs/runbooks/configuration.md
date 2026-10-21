@@ -155,11 +155,25 @@ Deprecation rollout:
 | `HOMELAB_ANALYTICS_BREAK_GLASS_ALLOWED_CIDRS` | — | Optional CIDR allowlist for break-glass requests (comma-separated). |
 | `HOMELAB_ANALYTICS_ENABLE_BOOTSTRAP_LOCAL_ADMIN` | `false` | Must be `true` before local bootstrap credentials are honored |
 | `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_USERNAME` | — | First local admin username (only when local auth mode is enabled and bootstrap is enabled; intended as single-user/break-glass path) |
-| `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD` | — | First local admin password (only when local auth mode is enabled and bootstrap is enabled; intended as single-user/break-glass path) |
+| `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD` | — | First local admin password, applied **only when the account is created**. Not a rotation control — see the caveat below. |
 | `HOMELAB_ANALYTICS_AUTH_FAILURE_WINDOW_SECONDS` | — | Local-auth login lockout: failure window |
 | `HOMELAB_ANALYTICS_AUTH_FAILURE_THRESHOLD` | — | Local-auth login lockout: failure count threshold |
 | `HOMELAB_ANALYTICS_AUTH_LOCKOUT_SECONDS` | — | Local-auth login lockout: lockout duration |
 | `HOMELAB_ANALYTICS_ENABLE_UNSAFE_ADMIN` | `false` | Temporary dev-only bypass for unauthenticated admin routes (not for shared deployments) |
+
+### Caveat: the bootstrap admin password is not a rotation control
+
+`maybe_bootstrap_local_admin` creates the local admin only when the username is
+absent. If the account already exists it is returned untouched, so the stored
+password hash — not the configured value — stays authoritative.
+
+Changing `HOMELAB_ANALYTICS_BOOTSTRAP_ADMIN_PASSWORD` on an existing deployment
+therefore does nothing, and it fails quietly in the worst way: the secret
+updates, pods restart clean, no error is logged, the old password keeps working,
+and the new one never starts. Treat the variable as seed-only.
+
+To actually rotate the credential, see
+[Rotating the bootstrap admin credential](operations.md#rotating-the-bootstrap-admin-credential).
 
 ### Power-user override: trusted proxy mode
 
