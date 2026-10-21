@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import time
 from argparse import Namespace
+from datetime import datetime
+from functools import partial
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from apps.api.app import serialize_promotion, serialize_run
 from apps.worker.command_handlers.decision_commands import trace_decision_evidence
@@ -23,7 +26,10 @@ from apps.worker.serialization import (
     _write_json,
 )
 from packages.demo import seed_demo_data, write_demo_bundle
+from packages.domains.homelab.pipelines.ha_history_backfill import backfill_ha_history
+from packages.domains.homelab.pipelines.ha_service import ingest_ha_history_states
 from packages.domains.utilities.battery_plan_decision import BATTERY_PLAN_DECISION_KEY
+from packages.domains.utilities.pipelines.battery_plan_outcome import load_battery_plan_profile
 from packages.pipelines.battery_plan_outcome_publication import (
     publish_battery_plan_outcome,
 )
@@ -344,6 +350,53 @@ def handle_refresh_battery_plan_outcome(args: Namespace, runtime: WorkerRuntime)
         },
     )
     return 0
+
+
+def handle_backfill_ha_history(args: Namespace, runtime: WorkerRuntime) -> int:
+    """Read closed-window HA history for the battery-plan entities (or given ones).
+
+    Idempotent: states already held for the same entity and timestamp are skipped.
+    """
+    settings = runtime.settings
+    if not settings.ha_url or not settings.ha_token:
+        runtime.error_output.write(
+            "HOMELAB_ANALYTICS_HA_URL and HOMELAB_ANALYTICS_HA_TOKEN are required.\n"
+        )
+        return 1
+    profile = load_battery_plan_profile().profile
+    entity_ids = list(getattr(args, "entity_id", None) or [])
+    if not entity_ids and profile is not None:
+        entity_ids = sorted(set(profile.entity_map.values()))
+    if not entity_ids:
+        runtime.error_output.write(
+            "No entities: pass --entity-id or configure HOMELAB_ANALYTICS_BATTERY_PLAN_PROFILE.\n"
+        )
+        return 1
+    try:
+        if getattr(args, "month", ""):
+            tz = ZoneInfo(
+                getattr(args, "timezone", "")
+                or (profile.household_timezone if profile is not None else "UTC")
+            )
+            year, month = (int(part) for part in args.month.split("-"))
+            start = datetime(year, month, 1, tzinfo=tz)
+            end = datetime(year + month // 12, month % 12 + 1, 1, tzinfo=tz)
+        else:
+            start = datetime.fromisoformat(args.start)
+            end = datetime.fromisoformat(args.end)
+        result = backfill_ha_history(
+            partial(ingest_ha_history_states, _build_reporting_runtime(runtime)[0].store),
+            ha_url=settings.ha_url,
+            ha_token=settings.ha_token,
+            entity_ids=entity_ids,
+            start=start,
+            end=end,
+        )
+    except (TypeError, ValueError, KeyError) as exc:
+        runtime.error_output.write(f"backfill-ha-history: {exc}\n")
+        return 1
+    _write_json(runtime.output, result.to_dict())
+    return 1 if result.failed_chunks else 0
 
 
 def handle_report_utility_cost_summary(args: Namespace, runtime: WorkerRuntime) -> int:

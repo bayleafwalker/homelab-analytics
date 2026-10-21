@@ -34,6 +34,7 @@ from .decision_commands import (
     handle_trace_decision_evidence,
 )
 from .ingest_commands import (
+    handle_backfill_ha_history,
     handle_generate_demo_data,
     handle_ingest_account_transactions,
     handle_ingest_configured_csv,
@@ -137,6 +138,7 @@ def build_worker_command_handlers() -> dict[str, WorkerCommandHandler]:
         "process-schedule-dispatch": handle_process_schedule_dispatch,
         "promote-run": handle_promote_run,
         "recover-stale-schedule-dispatches": handle_recover_stale_schedule_dispatches,
+        "backfill-ha-history": handle_backfill_ha_history,
         "refresh-battery-plan-outcome": handle_refresh_battery_plan_outcome,
         "trace-decision-evidence": handle_trace_decision_evidence,
         "export-outcome-references": handle_export_outcome_references,

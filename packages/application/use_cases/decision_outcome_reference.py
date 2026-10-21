@@ -176,7 +176,7 @@ def _envelope(
             "decision_id": record.decision_id,
             "outcome": record.outcome,
             "is_non_decision": record.is_non_decision,
-            "decided_at": record.created_at.isoformat(),
+            "decided_at": record.effective_decided_at.isoformat(),
         },
         # HLA does not own a vuoro work item for a household decision; the
         # link stays explicit rather than invented.

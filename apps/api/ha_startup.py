@@ -278,7 +278,7 @@ def build_ha_startup_runtime(
     ha_action_proposal_registry = build_action_proposal_registry(control_plane_store)
 
     ha_action_dispatcher = None
-    if settings.ha_url and settings.ha_token:
+    if settings.ha_url and settings.ha_token and settings.ha_actions_enabled:
         ha_action_dispatcher = HaActionDispatcher(
             ha_url=settings.ha_url,
             ha_token=settings.ha_token,

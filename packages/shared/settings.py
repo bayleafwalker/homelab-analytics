@@ -138,6 +138,8 @@ class AppSettings:
     enable_unsafe_admin: bool = False
     ha_url: str | None = None    # e.g. "http://homeassistant.local:8123"
     ha_token: str | None = None  # HA long-lived access token
+    # False keeps HA read-only: no persistent notifications, no approved service calls.
+    ha_actions_enabled: bool = True
     ha_mqtt_broker_url: str | None = None   # e.g. "mqtt://mosquitto.local:1883"
     ha_mqtt_username: str | None = None
     ha_mqtt_password: str | None = None
@@ -528,6 +530,9 @@ class AppSettings:
         ).lower() in {"1", "true", "yes", "on"}
         ha_url = env.get("HOMELAB_ANALYTICS_HA_URL") or None
         ha_token = env.get("HOMELAB_ANALYTICS_HA_TOKEN") or None
+        ha_actions_enabled = env.get("HOMELAB_ANALYTICS_HA_ACTIONS_ENABLED", "true").lower() in {
+            "1", "true", "yes", "on"
+        }
         ha_mqtt_broker_url = env.get("HOMELAB_ANALYTICS_HA_MQTT_BROKER_URL") or None
         ha_mqtt_username = env.get("HOMELAB_ANALYTICS_HA_MQTT_USERNAME") or None
         ha_mqtt_password = env.get("HOMELAB_ANALYTICS_HA_MQTT_PASSWORD") or None
@@ -655,6 +660,7 @@ class AppSettings:
             enable_unsafe_admin=enable_unsafe_admin,
             ha_url=ha_url,
             ha_token=ha_token,
+            ha_actions_enabled=ha_actions_enabled,
             ha_mqtt_broker_url=ha_mqtt_broker_url,
             ha_mqtt_username=ha_mqtt_username,
             ha_mqtt_password=ha_mqtt_password,

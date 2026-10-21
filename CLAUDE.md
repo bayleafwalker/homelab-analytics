@@ -88,9 +88,9 @@ Sprint workflow:
 
 | Store | Latest migration | Count |
 |---|---|---|
-| `migrations/postgres/` | `0023_decision_follow_up_attribution` | 22 (`0019` unused and free) |
+| `migrations/postgres/` | `0024_decision_record_decided_at` | 23 (`0019` unused and free) |
 | `migrations/duckdb/` | `0018_spend_by_weekday_hour_mart` | 12 (gaps: DuckDB-only subset; `0017` unused and free) |
-| `migrations/sqlite/` | `0014_decision_follow_up_attribution` | 13 (`0012` unused: reserved for the as-of/lineage stream; free) |
+| `migrations/sqlite/` | `0015_decision_record_decided_at` | 14 (`0012` unused: reserved for the as-of/lineage stream; free) |
 | `migrations/postgres_run_metadata/` | `0001_run_metadata_initial_schema` | 1 |
 
 ### Schema versions

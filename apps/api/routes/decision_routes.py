@@ -76,6 +76,17 @@ class DecisionCreateRequest(BaseModel):
         default=None,
         description="Optional review date; may not fall before the observation window closes.",
     )
+    decided_at: datetime | None = Field(
+        default=None,
+        description=(
+            "Retrospective entry: when the household actually decided, if earlier than now. "
+            "The observation window derives from it; requires retrospective_basis."
+        ),
+    )
+    retrospective_basis: str | None = Field(
+        default=None,
+        description="What shows the decision was made then (contract date, bill, note).",
+    )
 
 
 class DecisionFollowUpCreateRequest(BaseModel):
@@ -261,6 +272,8 @@ def register_decision_routes(
                     evidence_gaps_acknowledged=tuple(body.evidence_gaps_acknowledged),
                     uncertainty=body.uncertainty,
                     follow_up_due_on=body.follow_up_due_on,
+                    decided_at=body.decided_at,
+                    retrospective_basis=body.retrospective_basis,
                 ),
                 actor=_actor(request),
             )

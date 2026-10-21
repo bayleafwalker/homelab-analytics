@@ -172,6 +172,18 @@ export function DecisionForm({ action, decision, period, rowRef, reasonCodes, id
           <label htmlFor={`decision-uncertainty-${suffix}`}>Uncertainty</label>
           <input id={`decision-uncertainty-${suffix}`} name="uncertainty" type="text" />
         </div>
+        <div className="field">
+          <label htmlFor={`decision-decided-at-${suffix}`}>
+            Decided on <span className="muted">(only if earlier than today)</span>
+          </label>
+          <input id={`decision-decided-at-${suffix}`} name="decided_at" type="date" />
+        </div>
+        <div className="field">
+          <label htmlFor={`decision-basis-${suffix}`}>
+            Shown by <span className="muted">(required with an earlier date)</span>
+          </label>
+          <input id={`decision-basis-${suffix}`} name="retrospective_basis" type="text" />
+        </div>
       </div>
       {reasonCodes.length > 0 ? (
         <fieldset className="stack">
@@ -433,6 +445,9 @@ export function DecisionHistory({ records, canDecide, basePath }) {
               <p className="muted">Recorded before commitment terms existed (v1.0.0).</p>
             )}
             <p className="muted">
+              {record.entry_mode === "retrospective"
+                ? `Decided ${record.decided_at} (recorded later; ${record.retrospective_basis}). `
+                : ""}
               By {record.actor.actor}
               {record.actor.authenticated ? "" : " (identity disabled — unauthenticated)"} on{" "}
               {record.created_at}.

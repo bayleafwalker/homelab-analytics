@@ -5028,6 +5028,11 @@ export interface components {
         };
         /** DecisionCreateRequest */
         DecisionCreateRequest: {
+            /**
+             * Decided At
+             * @description Retrospective entry: when the household actually decided, if earlier than now. The observation window derives from it; requires retrospective_basis.
+             */
+            decided_at?: string | null;
             /** Decision Key */
             decision_key: string;
             /** Evidence Gaps Acknowledged */
@@ -5041,6 +5046,11 @@ export interface components {
             outcome: string;
             /** Rationale */
             rationale: string;
+            /**
+             * Retrospective Basis
+             * @description What shows the decision was made then (contract date, bill, note).
+             */
+            retrospective_basis?: string | null;
             /**
              * Subject Period
              * @description Subject period of the decision (see the definition's subject_period_label).

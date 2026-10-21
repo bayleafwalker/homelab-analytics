@@ -139,6 +139,9 @@ Deprecation rollout:
 | `HOMELAB_ANALYTICS_BACKUP_INTERVAL_SECONDS` | `0` (off) | Worker-loop scheduled backup interval; `86400` = daily. See [backup-and-restore.md](backup-and-restore.md#scheduled-backups-running-worker) |
 | `HOMELAB_ANALYTICS_BACKUP_RETENTION_COUNT` | `7` | Verified bundles kept under the backup directory (minimum 1) |
 | `HOMELAB_ANALYTICS_BACKUP_DIR` | `<data_dir>/backups` | Scheduled-backup root; must not be inside the landing root |
+| `HOMELAB_ANALYTICS_HA_URL` | unset | Home Assistant base URL. With a token, starts the live state bridge and lets `backfill-ha-history` read recorder history |
+| `HOMELAB_ANALYTICS_HA_TOKEN` | unset | HA long-lived access token for the bridge, history backfill and (if enabled) actions |
+| `HOMELAB_ANALYTICS_HA_ACTIONS_ENABLED` | `true` | `false` keeps HA read-only: no persistent notifications and no operator-approved service calls, while the bridge and history reads still run |
 | `HOMELAB_ANALYTICS_BATTERY_PLAN_PROFILE` | unset | Path to a JSON profile (`entity_map`, `household_timezone`, optional `decision_months`, `freshness_limit_minutes`) for the read-only Kotiakku battery-plan outcome; unset publishes an `insufficient_evidence` row with remediation. Used by `refresh-battery-plan-outcome` |
 
 ## Supported defaults: authentication

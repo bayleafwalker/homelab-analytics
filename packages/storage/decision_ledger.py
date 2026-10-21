@@ -120,6 +120,10 @@ class DecisionRecordCreate:
     follow_up_due_on: date
     commitment: DecisionCommitment | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    # Retrospective entry: when the household actually decided, if earlier than
+    # the recording time, and what record shows it. ``None`` means decided when recorded.
+    decided_at: datetime | None = None
+    retrospective_basis: str | None = None
 
 
 @dataclass(frozen=True)
@@ -144,6 +148,18 @@ class DecisionRecord:
     created_at: datetime
     # ``None`` for records made before commitment lifecycles (definition 1.0.0).
     commitment: DecisionCommitment | None = None
+    # Retrospective entry: when the household actually decided, if earlier than
+    # the recording time, and what record shows it. ``None`` means decided when recorded.
+    decided_at: datetime | None = None
+    retrospective_basis: str | None = None
+
+    @property
+    def effective_decided_at(self) -> datetime:
+        return self.decided_at or self.created_at
+
+    @property
+    def is_retrospective(self) -> bool:
+        return self.decided_at is not None and self.decided_at < self.created_at
 
 
 @dataclass(frozen=True)

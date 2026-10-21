@@ -3890,6 +3890,19 @@
       "DecisionCreateRequest": {
         "additionalProperties": false,
         "properties": {
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Retrospective entry: when the household actually decided, if earlier than now. The observation window derives from it; requires retrospective_basis.",
+            "title": "Decided At"
+          },
           "decision_key": {
             "title": "Decision Key",
             "type": "string"
@@ -3921,6 +3934,18 @@
           "rationale": {
             "title": "Rationale",
             "type": "string"
+          },
+          "retrospective_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What shows the decision was made then (contract date, bill, note).",
+            "title": "Retrospective Basis"
           },
           "subject_period": {
             "description": "Subject period of the decision (see the definition's subject_period_label).",

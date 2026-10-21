@@ -3,6 +3,7 @@
 Phase 1 scope (read-only ingest):
 - ``ensure_ha_storage``   — create tables if they don't exist (DuckDB)
 - ``ingest_ha_states``    — accept a HA /api/states batch, write dim + fact rows
+- ``ingest_ha_history_states`` — idempotent historical backfill of fact rows
 - ``get_ha_entities``     — current state per entity
 - ``get_ha_entity_history`` — historian log for one entity
 - ``get_ha_state_changes_since`` — historian rows for several entities in a window
@@ -132,6 +133,88 @@ def ingest_ha_states(
         )
 
     return len(dim_rows)
+
+
+def ingest_ha_history_states(
+    store: DuckDBStore,
+    states: list[dict[str, Any]],
+    *,
+    run_id: str,
+    source_system: str = "ha_history_backfill",
+) -> dict[str, int]:
+    """Backfill historical HA states without duplicating or regressing.
+
+    A state already held for the same ``(entity_id, changed_at)`` is skipped,
+    so re-running a backfill over the same window adds nothing. Historical
+    rows never move ``dim_ha_entity.last_seen`` / ``last_state`` backwards:
+    unknown entities are inserted, known ones are left to the live bridge.
+    """
+    ensure_ha_storage(store)
+    candidates: dict[tuple[str, str], dict[str, Any]] = {}
+    for state in states:
+        entity_id = str(state.get("entity_id", "")).strip()
+        changed_at = state.get("last_changed") or state.get("last_updated")
+        if entity_id and changed_at:
+            candidates.setdefault((entity_id, str(changed_at)), state)
+    if not candidates:
+        return {"received": len(states), "inserted": 0, "skipped_existing": 0}
+    entity_ids = sorted({entity_id for entity_id, _ in candidates})
+    placeholders = ", ".join("?" for _ in entity_ids)
+    existing = {
+        (str(entity_id), str(changed_at))
+        for entity_id, changed_at in store.fetchall(
+            f"SELECT entity_id, changed_at FROM {FACT_HA_STATE_CHANGE_TABLE}"
+            f" WHERE entity_id IN ({placeholders})",
+            entity_ids,
+        )
+    }
+    now = datetime.now(UTC).isoformat()
+    fact_rows: list[dict[str, Any]] = []
+    for (entity_id, changed_at), state in sorted(candidates.items()):
+        if (entity_id, changed_at) in existing:
+            continue
+        attrs = state.get("attributes") or {}
+        if isinstance(attrs, str):
+            try:
+                attrs = json.loads(attrs)
+            except (json.JSONDecodeError, ValueError):
+                attrs = {}
+        fact_rows.append({
+            "entity_id":    entity_id,
+            "canonical_id": entity_id,
+            "state":        str(state.get("state", "unknown")),
+            "attributes":   json.dumps(attrs) if attrs else None,
+            "changed_at":   changed_at,
+            "ingested_at":  now,
+            "run_id":       run_id,
+        })
+    if fact_rows:
+        store.insert_rows(FACT_HA_STATE_CHANGE_TABLE, fact_rows)
+    latest: dict[str, dict[str, Any]] = {}
+    for row in fact_rows:
+        latest[row["entity_id"]] = row
+    for entity_id, row in latest.items():
+        attrs = json.loads(row["attributes"]) if row["attributes"] else {}
+        store.execute(
+            f"""
+            INSERT INTO {DIM_HA_ENTITY_TABLE}
+                (entity_id, canonical_id, entity_class, friendly_name, area, unit,
+                 last_seen, last_state, source_system, ingested_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (entity_id) DO NOTHING
+            """,
+            [
+                entity_id, entity_id, entity_class_from_id(entity_id),
+                attrs.get("friendly_name") or None, attrs.get("area_id") or None,
+                attrs.get("unit_of_measurement") or None, row["changed_at"],
+                row["state"], source_system, now,
+            ],
+        )
+    return {
+        "received": len(states),
+        "inserted": len(fact_rows),
+        "skipped_existing": len(candidates) - len(fact_rows),
+    }
 
 
 def get_ha_entities(store: DuckDBStore) -> list[dict[str, Any]]:
