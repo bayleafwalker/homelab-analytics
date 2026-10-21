@@ -65,9 +65,10 @@ def _store_with_history(
     monthly_cost: str = "49.0",
     drop_measurements: int = 0,
     skipped_windows: int = 0,
+    extra_attrs: dict[str, Any] | None = None,
 ) -> tuple[DuckDBStore, datetime]:
     source_rows, measurement_rows = _synthetic_histories(
-        savings=savings, monthly_cost=monthly_cost
+        savings=savings, monthly_cost=monthly_cost, extra_attrs=extra_attrs
     )
     if skipped_windows:
         attrs = json.loads(str(source_rows[0]["attributes"]))
@@ -183,6 +184,67 @@ def test_qualified_month_covering_cost_is_benefit_estimate_not_realized_savings(
     assert row["claim_basis"] == "source_estimate"
     limitations = json.loads(row["limitations_json"])
     assert any("not observed bill savings" in item for item in limitations)
+
+
+def test_legacy_source_records_fallback_cost_method() -> None:
+    store, assessed_at = _store_with_history()
+    service = _service(store, assessed_at=assessed_at)
+    refresh_battery_plan_publication(service)
+
+    [row] = get_battery_plan_outcome(service.store)
+    assert row["cost_basis_method"] == "direct_monthly_cost"
+    assert float(row["effective_monthly_cost_eur"]) == pytest.approx(49.0)
+
+
+@pytest.mark.parametrize(
+    ("savings", "expected_verdict"),
+    [
+        ("7.52", "no_benefit_estimated"),
+        ("13.90", "no_benefit_estimated"),
+        ("21.78", "benefit_estimated"),
+    ],
+)
+def test_published_effective_cost_drives_verdict(
+    savings: str, expected_verdict: str
+) -> None:
+    store, assessed_at = _store_with_history(
+        savings=savings,
+        monthly_cost="65.82",
+        extra_attrs={
+            "effective_monthly_cost_eur": 15.82,
+            "battery_cost_basis": "instalment",
+        },
+    )
+    service = _service(store, assessed_at=assessed_at)
+    refresh_battery_plan_publication(service)
+
+    [row] = get_battery_plan_outcome(service.store)
+    assert row["verdict"] == expected_verdict
+    assert row["cost_basis_method"] == "source_effective_monthly_cost"
+    assert float(row["effective_monthly_cost_eur"]) == pytest.approx(15.82)
+    values = _values(service)
+    cost_value = values["effective_monthly_cost_eur"]
+    assert cost_value["value_status"] == "derived"
+    assert "basis instalment" in cost_value["note"]
+    assert float(values["battery_monthly_cost_eur"]["value_numeric"]) == pytest.approx(65.82)
+
+
+def test_published_negative_effective_cost_is_a_benefit() -> None:
+    store, assessed_at = _store_with_history(
+        savings="0.0",
+        monthly_cost="0.0",
+        extra_attrs={
+            "effective_monthly_cost_eur": -50.0,
+            "battery_cost_basis": "instalment",
+        },
+    )
+    service = _service(store, assessed_at=assessed_at)
+    refresh_battery_plan_publication(service)
+
+    [row] = get_battery_plan_outcome(service.store)
+    assert row["verdict"] == "benefit_estimated"
+    assert float(row["effective_monthly_cost_eur"]) == pytest.approx(-50.0)
+    assert float(row["estimated_net_benefit_eur"]) == pytest.approx(50.0)
 
 
 def test_stale_source_cannot_produce_positive_claim_and_gives_remediation() -> None:
