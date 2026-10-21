@@ -519,6 +519,19 @@ def _guarded_verdict(
     return "benefit_estimated" if savings >= cost else "no_benefit_estimated"
 
 
+def _cost_note(method: object, source_basis: object) -> str | None:
+    """Explain how the effective monthly cost the verdict uses was obtained."""
+    if method == "source_effective_monthly_cost":
+        basis = source_basis if isinstance(source_basis, str) and source_basis else "unknown"
+        return (
+            "Published by the source as its effective monthly cost "
+            f"(basis {basis}: gross basis cost minus akkureservihyvitys; may be negative)."
+        )
+    if method == "total_cost_over_120_months_minus_compensation":
+        return "Derived as total cost / 120 months minus akkureservihyvitys compensation."
+    return None
+
+
 def _value_rows(
     *,
     assessment_id: str,
@@ -615,11 +628,7 @@ def _value_rows(
         status="user_entered" if method == "direct_monthly_cost" else "derived",
         role="assumption",
         source=f"{savings_source}#battery_cost_basis" if savings_source else None,
-        note=(
-            "Derived as total cost / 120 months minus akkureservihyvitys compensation."
-            if method == "total_cost_over_120_months_minus_compensation"
-            else None
-        ),
+        note=_cost_note(method, cost_basis.get("battery_cost_basis")),
     )
     add(
         "estimated_net_benefit_eur",

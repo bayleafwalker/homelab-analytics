@@ -57,6 +57,7 @@ def _synthetic_histories(
     monthly_cost: str = "49.0",
     decision_month: str = _DECISION_MONTH,
     timezone_name: str = _TIMEZONE,
+    extra_attrs: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Build explicitly synthetic, complete January source histories."""
     timezone = ZoneInfo(timezone_name)
@@ -128,6 +129,7 @@ def _synthetic_histories(
                     "battery_total_cost_eur": "6000.0",
                     "akkureservihyvitys_monthly_eur": "10.0",
                     "skipped_windows": 0,
+                    **(extra_attrs or {}),
                 }
             ),
             "changed_at": last_period_end.isoformat(),
@@ -236,6 +238,66 @@ def test_stale_source_freshness_refuses_recommendation() -> None:
     )
     assert result["recommendation"] == "insufficient_evidence"
     assert "source_measurements_stale" in result["reason_codes"]
+
+
+def test_legacy_source_without_published_cost_uses_fallback_derivation() -> None:
+    """Integrations before 1.6.0 publish no effective cost; HLA derives it."""
+    source_rows, measurement_rows = _synthetic_histories()
+    result = _assess(source_rows, measurement_rows)
+    assert result["effective_monthly_battery_cost_eur"] == 49.0
+    assert result["battery_cost_basis"]["method"] == "direct_monthly_cost"
+    assert result["battery_cost_basis"]["battery_cost_basis"] is None
+
+
+def test_published_effective_cost_is_preferred_over_derivation() -> None:
+    """Kotiakku >= 1.6.0: the gross instalment is not used as the cost."""
+    source_rows, measurement_rows = _synthetic_histories(
+        savings="21.78",
+        monthly_cost="65.82",
+        extra_attrs={
+            "effective_monthly_cost_eur": 15.82,
+            "battery_cost_basis": "instalment",
+        },
+    )
+    result = _assess(source_rows, measurement_rows)
+    assert result["evidence_status"] == "qualified"
+    assert result["effective_monthly_battery_cost_eur"] == 15.82
+    assert result["recommendation"] == "no_review_indicated"
+    basis = result["battery_cost_basis"]
+    assert basis["method"] == "source_effective_monthly_cost"
+    assert basis["battery_cost_basis"] == "instalment"
+    assert basis["battery_monthly_cost_eur"] == 65.82
+
+
+def test_published_negative_effective_cost_is_kept() -> None:
+    """A paid-off instalment nets to -compensation; zero savings still covers it."""
+    source_rows, measurement_rows = _synthetic_histories(
+        savings="0.0",
+        monthly_cost="0.0",
+        extra_attrs={
+            "effective_monthly_cost_eur": -50.0,
+            "battery_cost_basis": "instalment",
+        },
+    )
+    result = _assess(source_rows, measurement_rows)
+    assert result["effective_monthly_battery_cost_eur"] == -50.0
+    assert result["recommendation"] == "no_review_indicated"
+    assert result["battery_cost_basis"]["method"] == "source_effective_monthly_cost"
+
+
+def test_published_null_effective_cost_does_not_fall_back() -> None:
+    """A source that publishes an unknown cost is not re-derived by HLA."""
+    source_rows, measurement_rows = _synthetic_histories(
+        extra_attrs={
+            "effective_monthly_cost_eur": None,
+            "battery_cost_basis": "total_cost",
+        },
+    )
+    result = _assess(source_rows, measurement_rows)
+    assert result["effective_monthly_battery_cost_eur"] is None
+    assert result["recommendation"] == "insufficient_evidence"
+    assert "battery_cost_basis_missing" in result["reason_codes"]
+    assert result["battery_cost_basis"]["method"] is None
 
 
 def test_missing_battery_cost_basis_refuses_recommendation() -> None:

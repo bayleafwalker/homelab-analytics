@@ -520,19 +520,36 @@ def _observed_flow_totals(
     return totals
 
 
+SOURCE_EFFECTIVE_MONTHLY_COST_KEY = "effective_monthly_cost_eur"
+SOURCE_BATTERY_COST_BASIS_KEY = "battery_cost_basis"
+
+
+def _source_publishes_effective_cost(attrs: dict[str, Any]) -> bool:
+    """Kotiakku >= 1.6.0 publishes its own effective monthly cost (may be null)."""
+    return SOURCE_EFFECTIVE_MONTHLY_COST_KEY in attrs
+
+
 def _cost_basis(attrs: dict[str, Any]) -> dict[str, Any]:
     """Expose the user-entered cost inputs behind the effective monthly cost."""
     direct_cost = _finite_decimal(attrs.get("battery_monthly_cost_eur"))
     total_cost = _finite_decimal(attrs.get("battery_total_cost_eur"))
     compensation = _finite_decimal(attrs.get("akkureservihyvitys_monthly_eur"))
-    if direct_cost is not None and direct_cost > 0:
-        method: str | None = "direct_monthly_cost"
+    source_basis = attrs.get(SOURCE_BATTERY_COST_BASIS_KEY)
+    method: str | None
+    if _source_publishes_effective_cost(attrs):
+        source_cost = _finite_decimal(attrs.get(SOURCE_EFFECTIVE_MONTHLY_COST_KEY))
+        method = "source_effective_monthly_cost" if source_cost is not None else None
+    elif direct_cost is not None and direct_cost > 0:
+        method = "direct_monthly_cost"
     elif total_cost is not None and total_cost > 0 and compensation is not None:
         method = "total_cost_over_120_months_minus_compensation"
     else:
         method = None
     return {
         "method": method,
+        "battery_cost_basis": (
+            str(source_basis) if isinstance(source_basis, str) and source_basis else None
+        ),
         "battery_monthly_cost_eur": (
             float(direct_cost) if direct_cost is not None else None
         ),
@@ -544,6 +561,15 @@ def _cost_basis(attrs: dict[str, Any]) -> dict[str, Any]:
 
 
 def _effective_monthly_cost(attrs: dict[str, Any]) -> Decimal | None:
+    """Return the net monthly battery cost the verdict is measured against.
+
+    Prefer the source's published ``effective_monthly_cost_eur`` (Kotiakku
+    >= 1.6.0: gross basis cost minus akkureservihyvitys; may be negative).
+    Only when the attribute is absent (older integrations) re-derive it with
+    the pre-1.6.0 rule, where a positive monthly cost was already net.
+    """
+    if _source_publishes_effective_cost(attrs):
+        return _finite_decimal(attrs.get(SOURCE_EFFECTIVE_MONTHLY_COST_KEY))
     direct_cost = _finite_decimal(attrs.get("battery_monthly_cost_eur"))
     if direct_cost is not None and direct_cost > 0:
         return direct_cost
