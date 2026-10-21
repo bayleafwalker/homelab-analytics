@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -63,10 +64,19 @@ def _store_with_history(
     savings: str = "30.0",
     monthly_cost: str = "49.0",
     drop_measurements: int = 0,
+    skipped_windows: int = 0,
 ) -> tuple[DuckDBStore, datetime]:
     source_rows, measurement_rows = _synthetic_histories(
         savings=savings, monthly_cost=monthly_cost
     )
+    if skipped_windows:
+        attrs = json.loads(str(source_rows[0]["attributes"]))
+        counters = attrs["monthly_battery_evidence"]["2026-01"]
+        counters["skipped_savings_window_count"] = skipped_windows
+        counters["savings_window_count"] = (
+            counters["processed_window_count"] - skipped_windows
+        )
+        source_rows[0]["attributes"] = json.dumps(attrs)
     if drop_measurements:
         measurement_rows = measurement_rows[drop_measurements:]
     store = DuckDBStore.memory()
@@ -189,17 +199,41 @@ def test_stale_source_cannot_produce_positive_claim_and_gives_remediation() -> N
     assert "freshness limit" in row["remediation"]
 
 
-def test_incomplete_coverage_cannot_produce_positive_claim() -> None:
-    store, assessed_at = _store_with_history(savings="60.0", drop_measurements=6)
+def test_incomplete_source_coverage_cannot_produce_positive_claim() -> None:
+    store, assessed_at = _store_with_history(savings="60.0", skipped_windows=1)
     service = _service(store, assessed_at=assessed_at)
     refresh_battery_plan_publication(service)
 
     [row] = get_battery_plan_outcome(service.store)
     assert row["verdict"] == "insufficient_evidence"
+    assert "monthly_window_counters_incomplete" in json.loads(row["reason_codes_json"])
+    assert "skipped or missed five-minute windows" in row["remediation"]
+
+
+def test_ha_sample_gap_does_not_block_a_source_attested_month() -> None:
+    store, assessed_at = _store_with_history(savings="60.0", drop_measurements=6)
+    service = _service(store, assessed_at=assessed_at)
+    refresh_battery_plan_publication(service)
+
+    [row] = get_battery_plan_outcome(service.store)
+    assert row["verdict"] == "benefit_estimated"
     assert row["missing_window_count"] == 1
-    assert "Backfill the missing five-minute" in row["remediation"]
     flow = _values(service)["grid_to_house_kwh"]
     assert f"{row['complete_window_count']} of {row['expected_window_count']}" in flow["note"]
+
+
+def test_declared_skip_tolerance_reaches_the_verdict() -> None:
+    store, assessed_at = _store_with_history(savings="60.0", skipped_windows=2)
+    resolution = _profile(max_skipped_window_ratio=0.001)
+    assert resolution.profile is not None
+    assert resolution.profile.max_skipped_window_ratio == Decimal("0.001")
+    service = _service(store, assessed_at=assessed_at, resolution=resolution)
+    refresh_battery_plan_publication(service)
+
+    [row] = get_battery_plan_outcome(service.store)
+    assert row["verdict"] == "benefit_estimated"
+    assert _profile(max_skipped_window_ratio=0.5).status == "invalid"
+    assert _profile(max_skipped_window_ratio=True).status == "invalid"
 
 
 def test_missing_cost_basis_stays_missing_not_zero() -> None:

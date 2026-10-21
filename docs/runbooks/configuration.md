@@ -142,7 +142,7 @@ Deprecation rollout:
 | `HOMELAB_ANALYTICS_HA_URL` | unset | Home Assistant base URL. With a token, starts the live state bridge and lets `backfill-ha-history` read recorder history |
 | `HOMELAB_ANALYTICS_HA_TOKEN` | unset | HA long-lived access token for the bridge, history backfill and (if enabled) actions |
 | `HOMELAB_ANALYTICS_HA_ACTIONS_ENABLED` | `true` | `false` keeps HA read-only: no persistent notifications and no operator-approved service calls, while the bridge and history reads still run |
-| `HOMELAB_ANALYTICS_BATTERY_PLAN_PROFILE` | unset | Path to a JSON profile (`entity_map`, `household_timezone`, optional `decision_months`, `freshness_limit_minutes`) for the read-only Kotiakku battery-plan outcome; unset publishes an `insufficient_evidence` row with remediation. Used by `refresh-battery-plan-outcome` |
+| `HOMELAB_ANALYTICS_BATTERY_PLAN_PROFILE` | unset | Path to a JSON profile (`entity_map`, `household_timezone`, optional `decision_months`, `freshness_limit_minutes`, `max_skipped_window_ratio`) for the read-only Kotiakku battery-plan outcome. `entity_map` needs only `battery_savings`: month coverage is attested by the integration's monthly window counters, and mapped HA measurement entities (`grid_power_kw`, flows, `spot_price_cents_per_kwh`) are optional corroboration that never gates a month. `max_skipped_window_ratio` (default `0`, at most `0.01`) is the declared share of a month's windows the source may have skipped; the verdict discloses the skipped count; unset publishes an `insufficient_evidence` row with remediation. Used by `refresh-battery-plan-outcome` |
 
 ## Supported defaults: authentication
 

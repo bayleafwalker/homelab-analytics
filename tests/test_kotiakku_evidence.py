@@ -5,8 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
+
+import pytest
 
 from packages.domains.homelab.pipelines.ha_service import ensure_ha_storage, ingest_ha_states
 from packages.domains.utilities.pipelines.kotiakku_evidence import (
@@ -206,19 +209,22 @@ def test_spring_dst_month_uses_local_calendar_window_count() -> None:
     assert quality["complete_window_count"] == 8_916
 
 
-def test_missing_measurement_window_refuses_savings_recommendation() -> None:
+def test_missing_ha_sample_window_is_corroboration_not_a_gate() -> None:
     source_rows, measurement_rows = _synthetic_histories()
     measurement_rows.pop(0)
 
     result = _assess(source_rows, measurement_rows)
 
-    assert result["evidence_status"] == "insufficient"
-    assert result["recommendation"] == "insufficient_evidence"
-    assert "measurement_window_coverage_incomplete" in result["reason_codes"]
+    assert result["evidence_status"] == "qualified"
+    assert "measurement_window_coverage_incomplete" not in result["reason_codes"]
     assert result["actuation_authorized"] is False
     source_quality = result["source_quality"]
     assert isinstance(source_quality, dict)
     assert source_quality["missing_window_count"] == 1
+    assert source_quality["coverage_basis"] == "source_window_counters"
+    assert "measurement_window_coverage_incomplete" in source_quality[
+        "corroboration_reason_codes"
+    ]
 
 
 def test_stale_source_freshness_refuses_recommendation() -> None:
@@ -388,8 +394,10 @@ def test_measurement_with_unknown_scope_timestamp_preserves_uncertainty() -> Non
         }
     )
     result = _assess(source_rows, measurement_rows)
-    assert result["evidence_status"] == "insufficient"
-    assert "measurement_scope_timestamp_unknown" in result["reason_codes"]
+    assert "measurement_scope_timestamp_unknown" not in result["reason_codes"]
+    assert "measurement_scope_timestamp_unknown" in result["source_quality"][
+        "corroboration_reason_codes"
+    ]
 
 
 def test_source_snapshot_with_unknown_ingestion_scope_preserves_uncertainty() -> None:
@@ -417,7 +425,7 @@ def test_incomplete_monthly_window_counters_refuse_recommendation() -> None:
     assert "monthly_window_counters_incomplete" in result["reason_codes"]
 
 
-def test_conflicting_duplicate_period_refuses_savings_recommendation() -> None:
+def test_conflicting_ha_samples_are_reported_as_corroboration() -> None:
     source_rows, measurement_rows = _synthetic_histories()
     conflicting = dict(measurement_rows[0])
     conflicting["state"] = "9.9"
@@ -425,17 +433,87 @@ def test_conflicting_duplicate_period_refuses_savings_recommendation() -> None:
 
     result = _assess(source_rows, measurement_rows)
 
-    assert result["evidence_status"] == "insufficient"
-    assert "conflicting_duplicate_measurements" in result["reason_codes"]
+    assert "conflicting_duplicate_measurements" not in result["reason_codes"]
+    assert "conflicting_duplicate_measurements" in result["source_quality"][
+        "corroboration_reason_codes"
+    ]
     assert result["actuation_authorized"] is False
+
+
+def test_summary_entity_alone_qualifies_on_source_counters() -> None:
+    source_rows, _ = _synthetic_histories()
+
+    result = assess_kotiakku_battery_plan_evidence(
+        source_rows=source_rows,
+        measurement_rows=[],
+        entity_map={"battery_savings": _ENTITY_MAP["battery_savings"]},
+        decision_month=_DECISION_MONTH,
+        household_timezone=_TIMEZONE,
+        assessed_at=datetime(2026, 2, 1, 0, 5, tzinfo=ZoneInfo(_TIMEZONE)),
+    )
+
+    assert result["evidence_status"] == "qualified", result["reason_codes"]
+    quality = result["source_quality"]
+    assert quality["sample_corroboration"] == "not_mapped"
+    assert quality["corroboration_reason_codes"] == []
+    assert quality["source_coverage_pct"] == 100.0
+
+
+def _with_skipped(source_rows: list[dict[str, object]], skipped: int) -> None:
+    attrs = json.loads(str(source_rows[0]["attributes"]))
+    counters = attrs["monthly_battery_evidence"][_DECISION_MONTH]
+    counters["skipped_savings_window_count"] = skipped
+    counters["savings_window_count"] = counters["processed_window_count"] - skipped
+    source_rows[0]["attributes"] = json.dumps(attrs)
+
+
+@pytest.mark.parametrize(("skipped", "status"), [(8, "qualified"), (9, "insufficient")])
+def test_declared_skip_tolerance_bounds_qualification(skipped: int, status: str) -> None:
+    source_rows, measurement_rows = _synthetic_histories()
+    _with_skipped(source_rows, skipped)
+
+    result = assess_kotiakku_battery_plan_evidence(
+        source_rows=source_rows,
+        measurement_rows=measurement_rows,
+        entity_map=_ENTITY_MAP,
+        decision_month=_DECISION_MONTH,
+        household_timezone=_TIMEZONE,
+        assessed_at=datetime(2026, 2, 1, 0, 5, tzinfo=ZoneInfo(_TIMEZONE)),
+        max_skipped_window_ratio=Decimal("0.001"),
+    )
+
+    assert result["evidence_status"] == status
+    assert result["source_quality"]["allowed_skipped_window_count"] == 8
+    if status == "qualified":
+        assert any("excludes 8 source window" in line for line in result["estimate_limitations"])
+    else:
+        assert "monthly_window_counters_incomplete" in result["reason_codes"]
+
+
+def test_savings_count_must_equal_processed_minus_skipped() -> None:
+    source_rows, measurement_rows = _synthetic_histories()
+    _with_skipped(source_rows, 2)
+    attrs = json.loads(str(source_rows[0]["attributes"]))
+    attrs["monthly_battery_evidence"][_DECISION_MONTH]["savings_window_count"] += 1
+    source_rows[0]["attributes"] = json.dumps(attrs)
+
+    result = assess_kotiakku_battery_plan_evidence(
+        source_rows=source_rows,
+        measurement_rows=measurement_rows,
+        entity_map=_ENTITY_MAP,
+        decision_month=_DECISION_MONTH,
+        household_timezone=_TIMEZONE,
+        assessed_at=datetime(2026, 2, 1, 0, 5, tzinfo=ZoneInfo(_TIMEZONE)),
+        max_skipped_window_ratio=Decimal("0.001"),
+    )
+
+    assert "monthly_window_counters_incomplete" in result["reason_codes"]
 
 
 def test_unmapped_source_is_unknown_and_has_no_recommendation() -> None:
     source_rows, measurement_rows = _synthetic_histories()
     incomplete_map = {
-        key: value
-        for key, value in _ENTITY_MAP.items()
-        if key != "spot_price_cents_per_kwh"
+        key: value for key, value in _ENTITY_MAP.items() if key != "battery_savings"
     }
 
     result = assess_kotiakku_battery_plan_evidence(
@@ -505,7 +583,10 @@ def test_from_store_reads_ha_history_and_refuses_partial_month() -> None:
     )
 
     assert result["recommendation"] == "insufficient_evidence"
-    assert "measurement_window_coverage_incomplete" in result["reason_codes"]
+    assert "monthly_window_counters_missing" in result["reason_codes"]
+    assert "measurement_window_coverage_incomplete" in result["source_quality"][
+        "corroboration_reason_codes"
+    ]
     lineage = result["lineage"]
     assert isinstance(lineage, dict)
     assert lineage["source_run_ids"] == ["synthetic-ha-run"]
