@@ -40,6 +40,7 @@ export function createDecisionPost(pagePath) {
   return async function POST(request) {
     const formData = await request.formData();
     const followUpDueOn = String(formData.get("follow_up_due_on") || "");
+    const decidedOn = String(formData.get("decided_at") || "");
     const response = await backendRequest("post", "/control/decisions", {
       cookieHeader: request.headers.get("cookie") || "",
       body: {
@@ -52,7 +53,9 @@ export function createDecisionPost(pagePath) {
           .getAll("evidence_gaps_acknowledged")
           .map((value) => String(value)),
         uncertainty: String(formData.get("uncertainty") || "") || null,
-        follow_up_due_on: followUpDueOn || null
+        follow_up_due_on: followUpDueOn || null,
+        decided_at: decidedOn ? `${decidedOn}T00:00:00Z` : null,
+        retrospective_basis: String(formData.get("retrospective_basis") || "") || null
       }
     });
     return response.ok

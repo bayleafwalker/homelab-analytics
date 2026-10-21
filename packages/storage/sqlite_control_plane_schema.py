@@ -504,6 +504,7 @@ def initialize_sqlite_control_plane_schema(connection: sqlite3.Connection) -> No
     _ensure_worker_heartbeat_table(connection)
     _ensure_action_proposal_changes_feed(connection)
     _ensure_decision_follow_up_attribution_columns(connection)
+    _ensure_decision_record_retrospective_columns(connection)
     _seed_builtin_transformation_packages(connection)
 
 
@@ -702,6 +703,15 @@ def _ensure_decision_follow_up_attribution_columns(connection: sqlite3.Connectio
             connection.execute(
                 f"ALTER TABLE decision_follow_ups ADD COLUMN {column_name} {column_type}"
             )
+
+
+
+def _ensure_decision_record_retrospective_columns(connection: sqlite3.Connection) -> None:
+    """Mirror migration 0015_decision_record_decided_at on existing databases."""
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(decision_records)")}
+    for column_name in ("decided_at", "retrospective_basis"):
+        if column_name not in columns:
+            connection.execute(f"ALTER TABLE decision_records ADD COLUMN {column_name} TEXT")
 
 
 def _ensure_worker_heartbeat_table(connection: sqlite3.Connection) -> None:

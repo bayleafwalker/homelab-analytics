@@ -103,6 +103,8 @@ class DecisionRequest:
     uncertainty: str | None = None
     subject_row_ref: str | None = None
     follow_up_due_on: date | None = None
+    decided_at: datetime | None = None
+    retrospective_basis: str | None = None
 
 
 @dataclass(frozen=True)
@@ -211,7 +213,8 @@ def record_decision(
             f"({', '.join(subject.reason_codes) or subject.verdict}); "
             "acknowledge the evidence gaps to record a decision or non-decision."
         )
-    decided_on = created_at.date()
+    decided_at, retrospective_basis = _decision_time(request, created_at)
+    decided_on = (decided_at or created_at).date()
     window_start, window_end = definition.observation_window.window_for(decided_on)
     due = request.follow_up_due_on or definition.observation_window.review_due_on(decided_on)
     if due <= decided_on:
@@ -280,8 +283,30 @@ def record_decision(
             follow_up_due_on=due,
             commitment=commitment,
             created_at=created_at,
+            decided_at=decided_at,
+            retrospective_basis=retrospective_basis,
         )
     )
+
+
+def _decision_time(
+    request: DecisionRequest, created_at: datetime
+) -> tuple[datetime | None, str | None]:
+    """Retrospective entry: an earlier decision time needs the record that shows it."""
+    basis = (request.retrospective_basis or "").strip() or None
+    if request.decided_at is None:
+        if basis is not None:
+            raise DecisionValidationError("retrospective_basis requires decided_at.")
+        return None, None
+    if request.decided_at.tzinfo is None:
+        raise DecisionValidationError("decided_at must include a timezone offset.")
+    if request.decided_at.astimezone(UTC) > created_at.astimezone(UTC):
+        raise DecisionValidationError("decided_at cannot be in the future.")
+    if basis is None:
+        raise DecisionValidationError(
+            "A retrospective decision needs retrospective_basis: what shows it was decided then."
+        )
+    return request.decided_at, basis
 
 
 def record_follow_up(
@@ -303,7 +328,7 @@ def record_follow_up(
         )
     if request.observed_at.tzinfo is None:
         raise DecisionValidationError("observed_at must include a timezone offset.")
-    if request.observed_at.astimezone(UTC) < decision.created_at.astimezone(UTC):
+    if request.observed_at.astimezone(UTC) < decision.effective_decided_at.astimezone(UTC):
         raise DecisionValidationError("A follow-up cannot be observed before the decision.")
     if request.observed_at.astimezone(UTC) > created_at.astimezone(UTC):
         raise DecisionValidationError("observed_at cannot be in the future.")
@@ -763,6 +788,9 @@ def serialize_decision(
         "evidence_gaps_acknowledged": json.loads(record.evidence_gaps_acknowledged),
         "uncertainty": record.uncertainty,
         "actor": _serialize_actor(record.actor),
+        "decided_at": record.effective_decided_at.isoformat(),
+        "entry_mode": "retrospective" if record.is_retrospective else "contemporaneous",
+        "retrospective_basis": record.retrospective_basis,
         "follow_up_due_on": record.follow_up_due_on.isoformat(),
         "created_at": record.created_at.isoformat(),
         "status": "followed_up" if follow_ups else "awaiting_follow_up",

@@ -44,7 +44,7 @@ class PostgresDecisionLedgerMixin:
                 f"""
                 INSERT INTO decision_records ({_RECORD_COLUMNS})
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     record.decision_id,
@@ -68,6 +68,8 @@ class PostgresDecisionLedgerMixin:
                     record.actor.actor_authenticated,
                     record.follow_up_due_on,
                     aware_utc(record.created_at),
+                    aware_utc(record.decided_at) if record.decided_at is not None else None,
+                    record.retrospective_basis,
                 ),
             )
             if record.commitment is not None:

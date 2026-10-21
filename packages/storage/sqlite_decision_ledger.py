@@ -30,7 +30,8 @@ _RECORD_COLUMNS = """
     subject_schema_version, subject_period, subject_row_ref, subject_verdict,
     lineage_reference, evidence_snapshot, outcome, is_non_decision, rationale,
     evidence_gaps_acknowledged, uncertainty, actor, actor_role,
-    actor_auth_provider, actor_authenticated, follow_up_due_on, created_at
+    actor_auth_provider, actor_authenticated, follow_up_due_on, created_at,
+    decided_at, retrospective_basis
 """
 _FOLLOW_UP_COLUMNS = """
     follow_up_id, decision_id, observed_at, observation_period, realized_result,
@@ -205,6 +206,10 @@ def deserialize_decision_record(row: Any) -> DecisionRecord:
         follow_up_due_on=coerce_date(row["follow_up_due_on"]),
         created_at=coerce_datetime(row["created_at"]),
         commitment=deserialize_commitment(row),
+        decided_at=(
+            coerce_datetime(row["decided_at"]) if row["decided_at"] is not None else None
+        ),
+        retrospective_basis=row["retrospective_basis"],
     )
 
 
@@ -257,7 +262,7 @@ class SQLiteDecisionLedgerMixin:
             connection.execute(
                 f"""
                 INSERT INTO decision_records ({_RECORD_COLUMNS})
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.decision_id,
@@ -281,6 +286,12 @@ class SQLiteDecisionLedgerMixin:
                     int(record.actor.actor_authenticated),
                     record.follow_up_due_on.isoformat(),
                     aware_utc(record.created_at).isoformat(),
+                    (
+                        aware_utc(record.decided_at).isoformat()
+                        if record.decided_at is not None
+                        else None
+                    ),
+                    record.retrospective_basis,
                 ),
             )
             if record.commitment is not None:
