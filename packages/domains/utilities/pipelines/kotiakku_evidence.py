@@ -13,7 +13,7 @@ import json
 import math
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_FLOOR, Decimal, InvalidOperation
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -30,9 +30,11 @@ KOTIAKKU_SAMPLE_FIELDS = (
     "battery_to_house_kw",
     "spot_price_cents_per_kwh",
 )
-KOTIAKKU_REQUIRED_ENTITY_MAP_KEYS = frozenset(
-    (*KOTIAKKU_SAMPLE_FIELDS, "battery_savings")
-)
+# Only the source summary entity is required. Coverage is attested by the
+# source's own monthly window counters; mapped HA measurement entities are
+# optional corroboration (HA's recorder keeps days, not months).
+KOTIAKKU_REQUIRED_ENTITY_MAP_KEYS = frozenset(("battery_savings",))
+KOTIAKKU_OPTIONAL_ENTITY_MAP_KEYS = frozenset(KOTIAKKU_SAMPLE_FIELDS)
 _EXPECTED_UNITS = {
     "grid_power_kw": "kW",
     "solar_to_grid_kw": "kW",
@@ -54,13 +56,17 @@ def assess_kotiakku_battery_plan_evidence(
     household_timezone: str,
     assessed_at: datetime,
     freshness_limit: timedelta = timedelta(minutes=15),
+    max_skipped_window_ratio: Decimal = Decimal(0),
 ) -> dict[str, Any]:
     """Return a traceable review assessment or decline an unqualified claim.
 
     ``source_rows`` contains history for the mapped ``battery_savings`` HA
-    entity. ``measurement_rows`` contains history for the six mapped source
-    measurement entities. The caller supplies IDs from source-asset
-    configuration, never inferred from display names.
+    entity. ``measurement_rows`` contains history for any mapped source
+    measurement entities; they corroborate but never gate coverage. The
+    source's monthly window counters gate coverage, allowing at most
+    ``max_skipped_window_ratio`` of the month's windows to be skipped. The
+    caller supplies IDs from source-asset configuration, never inferred from
+    display names.
     """
     reasons: list[str] = []
     profile_error = _validate_profile(entity_map, decision_month, assessed_at)
@@ -152,7 +158,23 @@ def assess_kotiakku_battery_plan_evidence(
         assessed_at=assessed_at,
     )
     quality["source_window_counters"] = month_evidence
-    reasons.extend(quality["reason_codes"])
+    corroboration_mapped = bool(KOTIAKKU_OPTIONAL_ENTITY_MAP_KEYS & set(entity_map))
+    corroboration_codes: list[str] = (
+        list(quality["reason_codes"]) if corroboration_mapped else []
+    )
+    expected_windows = quality["expected_window_count"]
+    allowed_skipped = int(
+        (Decimal(expected_windows) * max_skipped_window_ratio).to_integral_value(
+            rounding=ROUND_FLOOR
+        )
+    )
+    quality["coverage_basis"] = "source_window_counters"
+    quality["max_skipped_window_ratio"] = str(max_skipped_window_ratio)
+    quality["allowed_skipped_window_count"] = allowed_skipped
+    quality["sample_corroboration"] = (
+        "mapped" if corroboration_mapped else "not_mapped"
+    )
+    skipped_windows: int | None = None
     if isinstance(month_evidence, dict):
         counter_fields = (
             "processed_window_count",
@@ -165,12 +187,24 @@ def assess_kotiakku_battery_plan_evidence(
             for value in counters.values()
         ):
             reasons.append("monthly_window_counters_invalid")
-        elif (
-            counters["processed_window_count"] != quality["expected_window_count"]
-            or counters["savings_window_count"] != quality["expected_window_count"]
-            or counters["skipped_savings_window_count"] != 0
-        ):
-            reasons.append("monthly_window_counters_incomplete")
+        else:
+            skipped = counters["skipped_savings_window_count"]
+            assert isinstance(skipped, int)
+            skipped_windows = skipped
+            if expected_windows:
+                quality["source_coverage_pct"] = round(
+                    counters["savings_window_count"] / expected_windows * 100, 4
+                )
+                quality["source_coverage_floor_pct"] = round(
+                    (expected_windows - allowed_skipped) / expected_windows * 100, 4
+                )
+            if (
+                counters["processed_window_count"] != expected_windows
+                or skipped > allowed_skipped
+                or counters["savings_window_count"]
+                != counters["processed_window_count"] - skipped
+            ):
+                reasons.append("monthly_window_counters_incomplete")
 
     local_month_start = datetime.strptime(decision_month, "%Y-%m").replace(
         tzinfo=timezone
@@ -180,10 +214,14 @@ def assess_kotiakku_battery_plan_evidence(
         reasons.append("decision_month_not_closed")
 
     source_last_period = quality.get("latest_source_period_end")
-    if period_end and source_last_period and _as_utc(period_end) != _as_utc(
-        _parse_datetime(source_last_period)
+    if (
+        corroboration_mapped
+        and period_end
+        and source_last_period
+        and _as_utc(period_end) != _as_utc(_parse_datetime(source_last_period))
     ):
-        reasons.append("source_summary_and_measurement_periods_disagree")
+        corroboration_codes.append("source_summary_and_measurement_periods_disagree")
+    quality["corroboration_reason_codes"] = list(dict.fromkeys(corroboration_codes))
 
     # Preserve reason order while avoiding duplicate messages from repeated
     # history rows or multiple inputs failing the same check.
@@ -239,7 +277,15 @@ def assess_kotiakku_battery_plan_evidence(
         },
         "estimate_limitations": [
             "Battery savings are source-calculated estimates, not observed bill savings.",
-            "Backfill status is not established by HA entity state history.",
+            "Window coverage is attested by the source's own monthly counters.",
+            *(
+                [
+                    f"The savings estimate excludes {skipped_windows} source window(s) "
+                    "with missing directional flows or prices."
+                ]
+                if skipped_windows
+                else []
+            ),
             "A single month may not represent seasonal battery or tariff behavior.",
             "A review recommendation is not a tariff change, battery command, or authorization.",
             "Kotiakku reports an estimated battery-versus-no-battery site-cost comparison; it does not establish causal savings.",
@@ -255,6 +301,7 @@ def assess_kotiakku_battery_plan_from_store(
     household_timezone: str,
     assessed_at: datetime,
     freshness_limit: timedelta = timedelta(minutes=15),
+    max_skipped_window_ratio: Decimal = Decimal(0),
 ) -> dict[str, Any]:
     """Read the configured HA histories and assess one closed month."""
     if _validate_profile(entity_map, decision_month, assessed_at):
@@ -266,6 +313,7 @@ def assess_kotiakku_battery_plan_from_store(
             household_timezone=household_timezone,
             assessed_at=assessed_at,
             freshness_limit=freshness_limit,
+            max_skipped_window_ratio=max_skipped_window_ratio,
         )
 
     table_exists = store.fetchall(
@@ -296,6 +344,7 @@ def assess_kotiakku_battery_plan_from_store(
         household_timezone=household_timezone,
         assessed_at=assessed_at,
         freshness_limit=freshness_limit,
+        max_skipped_window_ratio=max_skipped_window_ratio,
     )
 
 
@@ -573,8 +622,14 @@ def _tariff_snapshot_id(snapshot: dict[str, Any]) -> str:
 def _validate_profile(
     entity_map: dict[str, str], decision_month: str, assessed_at: datetime
 ) -> str | None:
-    if set(entity_map) != KOTIAKKU_REQUIRED_ENTITY_MAP_KEYS:
+    if not KOTIAKKU_REQUIRED_ENTITY_MAP_KEYS <= set(entity_map):
         return "source_entity_mapping_incomplete"
+    if (
+        set(entity_map)
+        - KOTIAKKU_REQUIRED_ENTITY_MAP_KEYS
+        - KOTIAKKU_OPTIONAL_ENTITY_MAP_KEYS
+    ):
+        return "source_entity_mapping_invalid"
     entity_ids = list(entity_map.values())
     if any(not entity_id.strip() for entity_id in entity_ids):
         return "source_entity_mapping_invalid"

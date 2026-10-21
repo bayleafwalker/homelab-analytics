@@ -163,6 +163,9 @@ class BatteryPlanEvidenceProfile:
     household_timezone: str
     decision_months: tuple[str, ...] = ()
     freshness_limit_minutes: int = BATTERY_PLAN_FRESHNESS_LIMIT_MINUTES
+    # Share of a month's source windows that may be skipped (missing flows or
+    # prices) while the month still qualifies; declared, never inferred.
+    max_skipped_window_ratio: Decimal = Decimal(0)
 
 
 @dataclass(frozen=True)
@@ -193,6 +196,7 @@ def parse_battery_plan_profile(document: object) -> BatteryPlanProfileResolution
     timezone_name = document.get("household_timezone")
     months = document.get("decision_months", [])
     freshness = document.get("freshness_limit_minutes", BATTERY_PLAN_FRESHNESS_LIMIT_MINUTES)
+    skip_ratio = _skip_ratio(document.get("max_skipped_window_ratio", 0))
     if (
         not isinstance(entity_map, dict)
         or not all(isinstance(k, str) and isinstance(v, str) for k, v in entity_map.items())
@@ -202,6 +206,7 @@ def parse_battery_plan_profile(document: object) -> BatteryPlanProfileResolution
         or not isinstance(freshness, int)
         or isinstance(freshness, bool)
         or freshness <= 0
+        or skip_ratio is None
     ):
         return BatteryPlanProfileResolution(None, "invalid")
     return BatteryPlanProfileResolution(
@@ -210,9 +215,20 @@ def parse_battery_plan_profile(document: object) -> BatteryPlanProfileResolution
             household_timezone=timezone_name,
             decision_months=tuple(months),
             freshness_limit_minutes=freshness,
+            max_skipped_window_ratio=skip_ratio,
         ),
         "configured",
     )
+
+
+def _skip_ratio(value: object) -> Decimal | None:
+    """Accept a declared ratio in [0, 0.01]; anything looser is refused."""
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        return None
+    ratio = _decimal(value)
+    if ratio is None or ratio < 0 or ratio > Decimal("0.01"):
+        return None
+    return ratio
 
 
 def ensure_battery_plan_storage(store: DuckDBStore) -> None:
@@ -313,6 +329,7 @@ def _assessments(
             household_timezone=profile.household_timezone,
             assessed_at=assessed_at,
             freshness_limit=timedelta(minutes=profile.freshness_limit_minutes),
+            max_skipped_window_ratio=profile.max_skipped_window_ratio,
         )
         results.append((month, assessment, profile.freshness_limit_minutes))
     return results
@@ -357,7 +374,12 @@ def build_battery_plan_outcome_rows(
     reasons = [str(code) for code in assessment.get("reason_codes") or []]
     savings = _decimal(assessment.get("estimated_monthly_battery_savings_eur"))
     cost = _decimal(assessment.get("effective_monthly_battery_cost_eur"))
-    coverage_pct = float(quality.get("coverage_pct") or 0.0)
+    # Coverage is the source's counter-attested share of savings-qualified
+    # windows; HA sample coverage is corroboration only.
+    coverage_pct = float(quality.get("source_coverage_pct") or 0.0)
+    coverage_floor_pct = float(
+        quality.get("source_coverage_floor_pct") or BATTERY_PLAN_MIN_COVERAGE_PCT
+    )
     period_end = _parse_aware(assessment.get("source_last_period_end"))
     assessed_utc = assessed_at.astimezone(UTC)
     freshness_age = (
@@ -377,6 +399,7 @@ def build_battery_plan_outcome_rows(
         reasons=reasons,
         freshness_status=freshness_status,
         coverage_pct=coverage_pct,
+        coverage_floor_pct=coverage_floor_pct,
         savings=savings,
         cost=cost,
     )
@@ -479,6 +502,7 @@ def _guarded_verdict(
     reasons: list[str],
     freshness_status: str,
     coverage_pct: float,
+    coverage_floor_pct: float,
     savings: Decimal | None,
     cost: Decimal | None,
 ) -> str:
@@ -487,7 +511,7 @@ def _guarded_verdict(
         evidence_status != "qualified"
         or reasons
         or freshness_status != "fresh"
-        or coverage_pct < BATTERY_PLAN_MIN_COVERAGE_PCT
+        or coverage_pct < coverage_floor_pct
         or savings is None
         or cost is None
     ):

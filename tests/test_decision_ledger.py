@@ -210,7 +210,7 @@ def test_record_decision_links_exact_publication_and_lineage_then_follow_up() ->
 
 def test_insufficient_evidence_requires_acknowledged_gaps_and_allows_non_decision() -> None:
     with TemporaryDirectory() as temp_dir:
-        client, row = _client(temp_dir, drop_measurements=6)
+        client, row = _client(temp_dir, skipped_windows=1)
         assert row["verdict"] == "insufficient_evidence"
 
         refused = client.post(
