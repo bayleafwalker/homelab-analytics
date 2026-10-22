@@ -665,7 +665,7 @@ requires-dist = [
     { name = "aiomqtt", specifier = ">=2.0" },
     { name = "bcrypt", specifier = ">=4.2" },
     { name = "boto3", specifier = ">=1.36" },
-    { name = "duckdb", specifier = ">=1.0" },
+    { name = "duckdb", specifier = "==1.5.1" },
     { name = "fastapi", specifier = ">=0.100" },
     { name = "httpx", specifier = ">=0.24" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.11" },

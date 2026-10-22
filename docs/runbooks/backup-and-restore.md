@@ -13,6 +13,10 @@ State lives in four places. Which tool backs each one up depends on the backend:
 
 `worker backup` is the app-level bundle. It covers the file-backed stores that `pg_dump` does not. It does not replace Postgres backup policy. Postgres and S3 stores are listed in the manifest as excluded components, with the reason.
 
+Before changing the DuckDB engine or restoring with a different engine version,
+follow [DuckDB compatibility](duckdb-compatibility.md). A matching application
+schema head and file checksum do not prove engine-format compatibility.
+
 Not covered by any app command: the `inbox/`, `processed/` and `failed/` watched-folder directories, the external-registry cache (rebuilt on sync), and secret values (environment variables, mounted secret files, Kubernetes Secrets). Back those up with your platform tooling.
 
 ## Worker backup bundle
