@@ -278,6 +278,10 @@ The platform must handle sensitive financial and personal data securely, deploy 
 - DuckDB replaces in-memory computation for analytical queries.
 - Postgres adapter passes all existing metadata store tests.
 - `pyproject.toml` declares production dependencies.
+- DuckDB has an exact version pin matching `uv.lock` and the tested runtime, so
+  pip-built images cannot silently move to a different warehouse engine.
+  Engine changes follow `docs/runbooks/duckdb-compatibility.md`, including a
+  shadow run and a verified restore path before deployment.
 - Existing tests continue to pass after migration.
 
 **Dependencies:** PLT-14

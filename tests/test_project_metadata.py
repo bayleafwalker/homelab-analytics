@@ -3,6 +3,7 @@ import tomllib
 import unittest
 from pathlib import Path
 
+import duckdb
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -70,6 +71,34 @@ class ProjectMetadataTests(unittest.TestCase):
             any(dep.startswith("python-multipart") for dep in dependencies)
         )
         self.assertTrue(any(dep.startswith("uvicorn") for dep in dependencies))
+
+    def test_duckdb_runtime_matches_exact_dependency_and_lock(self) -> None:
+        # Container/CI pip installs do not consume uv.lock. The declaration must
+        # independently constrain them to the same engine as locked development.
+        pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+        lock = tomllib.loads((ROOT / "uv.lock").read_text())
+        declarations = [
+            dep for dep in pyproject["project"]["dependencies"] if dep.startswith("duckdb")
+        ]
+        self.assertEqual(len(declarations), 1)
+        pin = re.fullmatch(r"duckdb==([0-9]+\.[0-9]+\.[0-9]+)", declarations[0])
+        self.assertIsNotNone(pin, "DuckDB needs an exact version pin for warehouse compatibility")
+        assert pin is not None
+        pinned_version = pin.group(1)
+
+        locked_engines = [package for package in lock["package"] if package["name"] == "duckdb"]
+        self.assertEqual(len(locked_engines), 1)
+        self.assertEqual(locked_engines[0]["version"], pinned_version)
+        root_package = next(
+            package for package in lock["package"] if package["name"] == pyproject["project"]["name"]
+        )
+        locked_declarations = [
+            dependency["specifier"]
+            for dependency in root_package["metadata"]["requires-dist"]
+            if dependency["name"] == "duckdb"
+        ]
+        self.assertEqual(locked_declarations, [f"=={pinned_version}"])
+        self.assertEqual(duckdb.__version__, pinned_version)
 
     def test_runtime_bootstrap_files_exist(self) -> None:
         expected_files = [
