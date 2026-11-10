@@ -75,26 +75,41 @@ def _candidate_with_preview(
     return enriched
 
 
-def _resolve_publication_preview(
-    candidate: dict[str, object],
+def publications_for_source(
+    source_asset: SourceAssetRecord | None,
     *,
-    source_assets_by_id: dict[str, SourceAssetRecord],
-    dataset_contracts_by_id: dict[str, DatasetContractConfigRecord],
-) -> dict[str, object]:
-    package_id = _resolve_package_id(
-        candidate,
-        source_assets_by_id=source_assets_by_id,
-        dataset_contracts_by_id=dataset_contracts_by_id,
-    )
+    dataset_name: str,
+) -> list[dict[str, str]]:
+    """Return the publications that recover once ``source_asset`` refreshes.
+
+    Resolution mirrors the upload-time preview: the source asset's
+    ``transformation_package_id`` wins when set, then the dataset name is
+    inferred. An unresolvable source returns ``[]``.
+    """
+    package_id = _resolve_source_package_id(source_asset, dataset_name=dataset_name)
     if not package_id:
-        return {"transformation_package_id": None, "direct": [], "derived": []}
+        return []
+    direct, derived = _publication_entries(package_id)
+    return direct + derived
+
+
+def _resolve_source_package_id(
+    source_asset: SourceAssetRecord | None,
+    *,
+    dataset_name: str,
+) -> str | None:
+    if source_asset is not None and source_asset.transformation_package_id:
+        return source_asset.transformation_package_id
+    return _infer_package_id_from_dataset_name(dataset_name)
+
+
+def _publication_entries(
+    package_id: str,
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """Return ``(direct, derived)`` publication entries for a resolved package."""
     spec = BUILTIN_TRANSFORMATION_PACKAGE_SPECS_BY_ID.get(package_id)
     if spec is None:
-        return {
-            "transformation_package_id": package_id,
-            "direct": [],
-            "derived": [],
-        }
+        return [], []
 
     direct = [
         {
@@ -116,6 +131,30 @@ def _resolve_publication_preview(
         }
         for key in derived_keys
     ]
+    return direct, derived
+
+
+def _resolve_publication_preview(
+    candidate: dict[str, object],
+    *,
+    source_assets_by_id: dict[str, SourceAssetRecord],
+    dataset_contracts_by_id: dict[str, DatasetContractConfigRecord],
+) -> dict[str, object]:
+    package_id = _resolve_package_id(
+        candidate,
+        source_assets_by_id=source_assets_by_id,
+        dataset_contracts_by_id=dataset_contracts_by_id,
+    )
+    if not package_id:
+        return {"transformation_package_id": None, "direct": [], "derived": []}
+    spec = BUILTIN_TRANSFORMATION_PACKAGE_SPECS_BY_ID.get(package_id)
+    if spec is None:
+        return {
+            "transformation_package_id": package_id,
+            "direct": [],
+            "derived": [],
+        }
+    direct, derived = _publication_entries(package_id)
     return {
         "transformation_package_id": package_id,
         "direct": direct,
