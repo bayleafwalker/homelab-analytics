@@ -86,18 +86,23 @@ def publications_for_source(
     ``transformation_package_id`` wins when set, then the dataset name is
     inferred. An unresolvable source returns ``[]``.
     """
-    package_id = _resolve_source_package_id(source_asset, dataset_name=dataset_name)
+    package_id = resolve_source_package_id(source_asset, dataset_name=dataset_name)
     if not package_id:
         return []
     direct, derived = _publication_entries(package_id)
     return direct + derived
 
 
-def _resolve_source_package_id(
+def resolve_source_package_id(
     source_asset: SourceAssetRecord | None,
     *,
     dataset_name: str,
 ) -> str | None:
+    """Return the transformation package a source asset feeds, if resolvable.
+
+    The source asset's ``transformation_package_id`` wins when set, then the
+    dataset name is inferred. Returns ``None`` when neither resolves.
+    """
     if source_asset is not None and source_asset.transformation_package_id:
         return source_asset.transformation_package_id
     return _infer_package_id_from_dataset_name(dataset_name)

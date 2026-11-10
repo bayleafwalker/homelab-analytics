@@ -10,70 +10,18 @@ from packages.application.use_cases.source_freshness_overview import (
     build_source_freshness_views,
 )
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
-from packages.pipelines.publication_preview import publications_for_source
+from packages.pipelines.publication_preview import (
+    publications_for_source,
+    resolve_source_package_id,
+)
+from packages.platform.domain_freshness import (
+    domain_for_package,
+    is_stale_publication,
+    summarize_domains,
+)
 from packages.platform.publication_confidence import FreshnessState
 from packages.shared.metrics import metrics_registry
 from packages.storage.control_plane import ControlPlaneAdminStore
-
-
-def _worst_case_verdict(verdict1: str, verdict2: str) -> str:
-    """Return the worst case verdict between two verdicts.
-
-    Verdict severity order: unavailable > unreliable > degraded > trustworthy
-    """
-    severity = {
-        "trustworthy": 1,
-        "degraded": 2,
-        "unreliable": 3,
-        "unavailable": 4,
-    }
-    normalized_1 = verdict1.lower()
-    normalized_2 = verdict2.lower()
-    return (
-        verdict1
-        if severity.get(normalized_1, 0) >= severity.get(normalized_2, 0)
-        else verdict2
-    )
-
-
-def _publication_domain(transformation_package_id: str | None) -> str:
-    """Return a dashboard domain label from the reporting publication package."""
-    if not transformation_package_id:
-        return "platform"
-    package_id = transformation_package_id.lower()
-    if any(token in package_id for token in ("utility", "contract_price")):
-        return "utilities"
-    if any(
-        token in package_id
-        for token in ("homelab", "infrastructure", "home_automation")
-    ):
-        return "homelab"
-    if "overview" in package_id:
-        return "overview"
-    if any(
-        token in package_id
-        for token in (
-            "account",
-            "asset",
-            "balance",
-            "budget",
-            "cashflow",
-            "contract",
-            "finance",
-            "loan",
-            "subscription",
-            "transaction",
-        )
-    ):
-        return "finance"
-    return transformation_package_id.removeprefix("builtin_").replace("_", " ")
-
-
-def _is_stale_publication(freshness_state: str) -> bool:
-    return freshness_state.lower() in {
-        str(FreshnessState.STALE),
-        str(FreshnessState.UNAVAILABLE),
-    }
 
 
 def register_control_routes(
@@ -197,6 +145,12 @@ def register_control_routes(
                 "source_asset_id": view.source_asset_id,
                 "dataset_name": view.dataset_name,
                 "name": view.name,
+                "domain": domain_for_package(
+                    resolve_source_package_id(
+                        source_assets.get(view.source_asset_id),
+                        dataset_name=view.dataset_name,
+                    )
+                ),
                 "freshness_state": str(view.freshness_state),
                 "latest_run_id": view.latest_run_id,
                 "status": view.status,
@@ -238,10 +192,9 @@ def register_control_routes(
                 "publication_definition_id": pub_def.publication_definition_id,
                 "publication_name": pub_def.name,
                 "description": pub_def.description,
-                "domain": _publication_domain(pub_def.transformation_package_id),
+                "domain": domain_for_package(pub_def.transformation_package_id),
             }
 
-        domain_summaries: dict[str, dict[str, Any]] = {}
         publications: list[dict[str, Any]] = []
         all_publication_keys = sorted(set(pub_metadata) | set(latest_snapshots))
         requested_verdict = verdict.lower() if verdict else None
@@ -276,7 +229,7 @@ def register_control_routes(
                 assessed_at = snapshot.assessed_at.isoformat()
                 quality_flags = snapshot.quality_flags or {}
 
-            if stale_only and not _is_stale_publication(freshness_state):
+            if stale_only and not is_stale_publication(freshness_state):
                 continue
             if requested_verdict and confidence_verdict.lower() != requested_verdict:
                 continue
@@ -297,33 +250,9 @@ def register_control_routes(
             }
             publications.append(pub_data)
 
-            domain = pub_data["domain"]
-
-            if domain not in domain_summaries:
-                domain_summaries[domain] = {
-                    "domain": domain,
-                    "verdict": confidence_verdict,
-                    "count": 0,
-                    "degraded_count": 0,
-                    "stale_count": 0,
-                }
-            else:
-                current_verdict = domain_summaries[domain]["verdict"]
-                worst_case = _worst_case_verdict(current_verdict, confidence_verdict)
-                domain_summaries[domain]["verdict"] = worst_case
-
-            domain_summaries[domain]["count"] += 1
-            if confidence_verdict.lower() != "trustworthy":
-                domain_summaries[domain]["degraded_count"] += 1
-            if _is_stale_publication(freshness_state):
-                domain_summaries[domain]["stale_count"] += 1
-
         return {
             "publications": publications,
-            "domain_summaries": sorted(
-                domain_summaries.values(),
-                key=lambda item: item["domain"],
-            ),
+            "domain_summaries": summarize_domains(publications),
             "filters": {
                 "stale_only": stale_only,
                 "verdict": requested_verdict,
