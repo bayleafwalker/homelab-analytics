@@ -10,6 +10,7 @@ from packages.application.use_cases.source_freshness_overview import (
     build_source_freshness_views,
 )
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
+from packages.pipelines.publication_preview import publications_for_source
 from packages.platform.publication_confidence import FreshnessState
 from packages.shared.metrics import metrics_registry
 from packages.storage.control_plane import ControlPlaneAdminStore
@@ -185,6 +186,12 @@ def register_control_routes(
             as_of=date.today(),
             blob_store=getattr(service, "blob_store", None),
         )
+        source_assets = {
+            asset.source_asset_id: asset
+            for asset in resolved_config_repository.list_source_assets(
+                include_archived=False
+            )
+        }
         datasets = [
             {
                 "source_asset_id": view.source_asset_id,
@@ -201,6 +208,10 @@ def register_control_routes(
                     view.covered_through.isoformat() if view.covered_through else None
                 ),
                 "suggested_action": view.suggested_action,
+                "recovers_publications": publications_for_source(
+                    source_assets.get(view.source_asset_id),
+                    dataset_name=view.dataset_name,
+                ),
             }
             for view in views
         ]
