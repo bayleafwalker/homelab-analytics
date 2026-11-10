@@ -1,0 +1,19 @@
+# lanectl dev train deploys (lanectl docs/plans/2026-11-10-stage3-gate-jobs-and-train-deploys.md).
+# Layered after compose-smoke.override.yaml by scripts/lane-dev-deploy.sh. Images are tagged per
+# namespace so a train never replaces homelab-analytics:latest, and host ports are ephemeral on
+# loopback so parallel stacks do not collide. Example credentials only; no production secrets.
+services:
+  postgres:
+    ports: !reset []
+  minio:
+    ports: !reset []
+  api:
+    image: homelab-analytics:${LANE_NAMESPACE:?set by lanectl deploy}
+    ports: !override
+      - "127.0.0.1::8080"
+  web:
+    image: homelab-analytics-web:${LANE_NAMESPACE:?set by lanectl deploy}
+    ports: !override
+      - "127.0.0.1::8081"
+  worker:
+    image: homelab-analytics:${LANE_NAMESPACE:?set by lanectl deploy}
