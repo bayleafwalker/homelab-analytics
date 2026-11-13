@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
 
 from packages.domains.finance.pipelines.subscription_models import subscription_charge_id
+from packages.pipelines.household_packages import (
+    BUILTIN_TRANSFORMATION_PACKAGE_SPECS_BY_HANDLER_KEY,
+)
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
@@ -15,7 +18,7 @@ MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations/duckdb"
 
 
 def _seed(s: TransformationService) -> tuple[set[str], list[str]]:
-    today = date.today()
+    today = s.store.fetchall("SELECT CURRENT_DATE")[0][0]
     # Seven days apart gives the same next weekly occurrence, with distinct IDs.
     starts = [today - timedelta(days=14), today - timedelta(days=7)]
     subscriptions = [
@@ -64,8 +67,11 @@ def test_identity_survives_reporting_and_exact_component_duplicates_collapse() -
     assert {r["charge_id"] for r in upcoming} == ids
     assert len({(r["contract_name"], r["expected_date"], r["expected_amount"]) for r in upcoming}) == 1
     attention = reporting.get_open_attention_items()
+    assert len({row["item_id"] for row in attention}) == len(attention)
     payments = [r for r in attention if r["item_type"] == "upcoming_cost"]
-    assert {r["item_id"] for r in payments} == {f"upcoming_{i}_{date.today()}" for i in ids}
+    assert {r["item_id"] for r in payments} == {
+        f"upcoming_{r['charge_id']}_{r['expected_date']}" for r in upcoming
+    }
     reviews = [r for r in attention if r["item_type"] == "contract_review"
                and r["item_id"].startswith("review_utility_")]
     assert len(reviews) == 1
@@ -82,7 +88,8 @@ def test_identity_survives_reporting_and_exact_component_duplicates_collapse() -
     assert {r["source_domain"] for r in attention} == {"finance", "utilities"}
 
 
-def test_populated_prechange_marts_require_canonical_rebuild(tmp_path: Path) -> None:
+@pytest.mark.parametrize("refresh_kind", ["finance", "overview"])
+def test_refresh_rebuilds_populated_prechange_marts(tmp_path: Path, refresh_kind: str) -> None:
     old = tmp_path / "old"
     old.mkdir()
     for migration in sorted(MIGRATIONS.glob("*.sql")):
@@ -102,7 +109,24 @@ def test_populated_prechange_marts_require_canonical_rebuild(tmp_path: Path) -> 
         "0019_subscription_charge_identity"
     ]
     assert all(r["charge_id"] is None for r in ReportingService(s).get_upcoming_fixed_costs_30d())
-    with pytest.raises(ValueError, match="Refresh subscription summary"):
-        s.refresh_publications(["mart_open_attention_items"])
-    _refresh(s)
+    store.execute("""INSERT INTO reporting_publication_snapshot VALUES
+        ('mart_subscription_summary', '2025-01', '2025-02-01T00:00:00+00:00',
+         'old', 1, '[{"contract_name":"legacy"}]')""")
+    before_snapshot = ReportingService(s).get_publication_snapshot(
+        "mart_subscription_summary", "2025-01"
+    )
+    assert before_snapshot is not None
+    assert before_snapshot.rows == [{"contract_name": "legacy"}]
+    facts_before = store.fetchall("SELECT * FROM fact_subscription_charge ORDER BY charge_id")
+    package = BUILTIN_TRANSFORMATION_PACKAGE_SPECS_BY_HANDLER_KEY["account_transactions"]
+    keys = package.refresh_publication_keys if refresh_kind == "finance" else ("mart_open_attention_items",)
+    refreshed = s.refresh_publications(keys)
+    assert refreshed[:2] == ["mart_subscription_summary", "mart_upcoming_fixed_costs_30d"]
+    assert ReportingService(s).get_publication_snapshot(
+        "mart_subscription_summary", "2025-01"
+    ) == before_snapshot
+    assert store.fetchall("SELECT * FROM fact_subscription_charge ORDER BY charge_id") == facts_before
+    assert {r["charge_id"] for r in ReportingService(s).get_subscription_summary()} == ids
+    assert len([r for r in ReportingService(s).get_open_attention_items()
+                if r["item_type"] == "upcoming_cost"]) == 2
     assert {r["charge_id"] for r in ReportingService(s).get_upcoming_fixed_costs_30d()} == ids

@@ -38,6 +38,8 @@ from packages.domains.finance.pipelines.subscription_models import (
     CURRENT_DIM_CONTRACT_VIEW,
     DIM_CATEGORY,
     DIM_CONTRACT,
+    MART_SUBSCRIPTION_SUMMARY_TABLE,
+    MART_UPCOMING_FIXED_COSTS_30D_TABLE,
 )
 from packages.domains.finance.pipelines.transaction_models import (
     CURRENT_DIM_ACCOUNT_VIEW,
@@ -272,6 +274,19 @@ class TransformationService(
         snapshots in the control plane for upstream consumption by dashboards,
         APIs, and other confidence-aware features.
         """
+        # Legacy marts contain no charge identity after migration 0019. Rebuild
+        # both from facts before any attention refresh, including finance-only
+        # promotions and direct overview refreshes.
+        if "mart_open_attention_items" in publication_keys and self._store.fetchall(
+            f"SELECT 1 FROM {MART_SUBSCRIPTION_SUMMARY_TABLE} WHERE charge_id IS NULL "
+            f"UNION ALL SELECT 1 FROM {MART_UPCOMING_FIXED_COSTS_30D_TABLE} "
+            "WHERE charge_id IS NULL LIMIT 1"
+        ):
+            publication_keys = (
+                MART_SUBSCRIPTION_SUMMARY_TABLE,
+                MART_UPCOMING_FIXED_COSTS_30D_TABLE,
+                *publication_keys,
+            )
         refreshed = self._publication_refresh_registry.refresh(self, publication_keys)
         self.record_publication_confidence(refreshed)
         return refreshed

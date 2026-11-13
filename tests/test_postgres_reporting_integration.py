@@ -441,6 +441,7 @@ def test_existing_subscription_publication_upgrades_on_republication() -> None:
         # Existing published rows win over the warehouse and remain identity-less.
         assert reporting.get_subscription_summary()[0].get("charge_id") is None
         assert reporting.get_publication_snapshot("mart_subscription_summary", "2025-01").rows == [{"contract_name": "old"}]
+        # Concurrent publication smoke test: scheduling is not forced to overlap.
         racing = PostgresReportingStore(dsn, schema="race")
         racing.execute_statements([
             ("CREATE TABLE mart_subscription_summary (contract_name TEXT)", []),
