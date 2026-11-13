@@ -406,6 +406,8 @@ def test_configured_source_asset_publications_can_include_extension_relations() 
 def test_existing_subscription_publication_upgrades_on_republication() -> None:
     from concurrent.futures import ThreadPoolExecutor
     from datetime import date, timedelta
+    from threading import Event
+    from time import monotonic, sleep
 
     import psycopg
 
@@ -441,20 +443,55 @@ def test_existing_subscription_publication_upgrades_on_republication() -> None:
         # Existing published rows win over the warehouse and remain identity-less.
         assert reporting.get_subscription_summary()[0].get("charge_id") is None
         assert reporting.get_publication_snapshot("mart_subscription_summary", "2025-01").rows == [{"contract_name": "old"}]
-        # Concurrent publication smoke test: scheduling is not forced to overlap.
         racing = PostgresReportingStore(dsn, schema="race")
         racing.execute_statements([
             ("CREATE TABLE mart_subscription_summary (contract_name TEXT)", []),
             ("INSERT INTO mart_subscription_summary VALUES (%s)", ["keep"]),
         ])
-        def evolve() -> None:
-            try:
-                racing.ensure_table("mart_subscription_summary", MART_SUBSCRIPTION_SUMMARY_COLUMNS)
-            except psycopg.errors.DuplicateColumn:
-                # A concurrent ADD may race; the failure is visible and retryable.
-                racing.ensure_table("mart_subscription_summary", MART_SUBSCRIPTION_SUMMARY_COLUMNS)
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            list(pool.map(lambda _: evolve(), range(2)))
+        connected = Event()
+        worker_pid: list[int] = []
+
+        class ObservedStore(PostgresReportingStore):
+            def _connect(self, *, row_factory=None):
+                connection = super()._connect(row_factory=row_factory)
+                connection.execute("SET lock_timeout = '10s'")
+                worker_pid.append(connection.info.backend_pid)
+                connected.set()
+                return connection
+
+        observed = ObservedStore(dsn, schema="race")
+        with psycopg.connect(dsn) as blocker, psycopg.connect(dsn) as monitor:
+            blocker.execute(
+                "ALTER TABLE race.mart_subscription_summary ADD COLUMN charge_id TEXT"
+            )
+            blocker_pid = blocker.info.backend_pid
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(
+                    observed.ensure_table,
+                    "mart_subscription_summary",
+                    MART_SUBSCRIPTION_SUMMARY_COLUMNS,
+                )
+                try:
+                    assert connected.wait(timeout=5), "publisher never connected"
+                    deadline = monotonic() + 5
+                    while monotonic() < deadline:
+                        blockers = monitor.execute(
+                            "SELECT pg_blocking_pids(%s)", (worker_pid[0],)
+                        ).fetchone()[0]
+                        if blocker_pid in blockers:
+                            break
+                        if future.done():
+                            future.result()
+                            pytest.fail("publisher finished before the held lock was released")
+                        sleep(0.05)
+                    else:
+                        pytest.fail("publisher did not block on the held schema lock")
+                finally:
+                    # Rollback removes the uncommitted column; the waiting production
+                    # path must actually add it rather than observe a completed upgrade.
+                    blocker.rollback()
+                future.result(timeout=10)
+        racing.ensure_table("mart_subscription_summary", MART_SUBSCRIPTION_SUMMARY_COLUMNS)
         assert racing.fetchall_dicts("SELECT * FROM mart_subscription_summary") == [
             {"contract_name": "keep", "charge_id": None}
         ]
