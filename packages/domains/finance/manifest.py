@@ -109,6 +109,9 @@ FINANCE_PACK = CapabilityPack(
             lineage_required=True,
             retention_policy="indefinite",
             field_semantics={
+                "charge_id": identifier_field(
+                    "Canonical identifier for the recurring charge."
+                ),
                 "contract_id": identifier_field(
                     "Stable contract identifier for the recurring charge."
                 ),
@@ -341,6 +344,9 @@ FINANCE_PACK = CapabilityPack(
             lineage_required=True,
             retention_policy="rolling_12_months",
             field_semantics={
+                "charge_id": identifier_field(
+                    "Canonical identifier for the recurring charge."
+                ),
                 "contract_name": dimension_field(
                     "Human-readable contract or subscription name."
                 ),

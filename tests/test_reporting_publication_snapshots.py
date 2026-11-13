@@ -444,3 +444,24 @@ def test_as_of_read_of_a_current_shape_snapshot_is_not_flagged(tmp_path: Path) -
     assert snapshot["missing_columns"] == []
     assert snapshot["dropped_columns"] == []
     assert snapshot["incompatible_columns"] == []
+
+
+def test_pre_identity_subscription_snapshot_projects_unknown_charge_id(tmp_path: Path) -> None:
+    client, ts = _client(tmp_path)
+    _load_month(ts, "2026-04", run_id="run-apr")
+    ts.load_subscriptions([{
+        "contract_id": "sub", "service_name": "Stream", "provider": "P",
+        "billing_cycle": "monthly", "amount": "10", "currency": "EUR",
+        "start_date": "2025-01-15", "end_date": None,
+    }], run_id="subscriptions")
+    ts.refresh_publications(["mart_subscription_summary"])
+    _capture(ReportingService(ts), run_id="sub", at=datetime(2026, 5, 1, tzinfo=UTC))
+    def without_identity(row: dict) -> dict:
+        row.pop("charge_id")
+        return row
+    _rewrite_snapshot_rows(ts, "mart_subscription_summary", without_identity)
+    body = client.get("/reports/subscription-summary", params={"as_of": "2026-04"}).json()
+    assert body["rows"][0]["charge_id"] is None
+    assert body["snapshot"]["projected"] is True
+    assert "charge_id" in body["snapshot"]["missing_columns"]
+    assert client.get("/reports/subscription-summary").json()["rows"][0]["charge_id"]

@@ -591,3 +591,7 @@ Operator confidence:
 - the platform should default to safe: stale data should be visibly stale, incomplete models should be visibly incomplete, and automation should fail open (recommend rather than act) when confidence is low
 
 Roadmap reference: Stage 9 in `docs/plans/household-operating-platform-roadmap.md`.
+
+Subscription summary and upcoming fixed costs carry the canonical `charge_id` from the charge fact. DuckDB migration 0019 adds nullable columns because pre-existing rows do not contain enough information to determine that identity. After upgrading, rebuild `mart_subscription_summary`, then `mart_upcoming_fixed_costs_30d`, then `mart_open_attention_items` through the normal reporting refresh and republish those relations. Attention refresh rejects legacy upcoming rows until rebuilt. The Postgres publisher adds the missing nullable columns on republication; until then existing published rows remain authoritative and may lack `charge_id`. Historical snapshots cannot be reconstructed from display values; their missing identities project as null with the existing `snapshot.projected` indication.
+
+Upcoming attention IDs now use charge ID and expected date; renewal attention IDs now include the renewal date. These are intentional stable-key changes: consumers must discard stored old upcoming and renewal IDs and obtain current IDs after regeneration. Anomaly IDs are unchanged. Exact duplicate utility attention rows caused by multiple price components collapse; component facts and distinct renewal dates remain intact.

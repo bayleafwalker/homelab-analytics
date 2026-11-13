@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from psycopg import sql
 from psycopg.rows import dict_row
 
 from packages.storage.postgres_support import (
     configure_search_path,
     connect_with_retry,
     initialize_schema,
+    validate_identifier,
 )
 
 
@@ -38,13 +40,35 @@ class PostgresReportingStore:
         return row is not None and row[0] is not None
 
     def ensure_table(self, table_name: str, columns: list[tuple[str, str]]) -> None:
-        ddl_columns = ", ".join(
-            f"{name} {_postgres_dtype(dtype)}" for name, dtype in columns
+        table_name = validate_identifier(table_name, kind="table")
+        for name, _ in columns:
+            validate_identifier(name, kind="column")
+        ddl_columns = sql.SQL(", ").join(
+            sql.SQL("{} {}").format(sql.Identifier(name), sql.SQL(_postgres_dtype(dtype)))
+            for name, dtype in columns
         )
         with self._connect() as connection:
             connection.execute(
-                f"CREATE TABLE IF NOT EXISTS {table_name} ({ddl_columns})"
+                sql.SQL("CREATE TABLE IF NOT EXISTS {}.{} ({})").format(
+                    sql.Identifier(self.schema), sql.Identifier(table_name), ddl_columns
+                )
             )
+            if table_name in {"mart_subscription_summary", "mart_upcoming_fixed_costs_30d"} and any(
+                name == "charge_id" for name, _ in columns
+            ):
+                connection.execute(
+                    sql.SQL("ALTER TABLE {}.{} ADD COLUMN IF NOT EXISTS {} TEXT").format(
+                        sql.Identifier(self.schema), sql.Identifier(table_name),
+                        sql.Identifier("charge_id"),
+                    )
+                )
+                row = connection.execute(
+                    "SELECT data_type FROM information_schema.columns "
+                    "WHERE table_schema = %s AND table_name = %s AND column_name = %s",
+                    (self.schema, table_name, "charge_id"),
+                ).fetchone()
+                if row is None or row[0] != "text":
+                    raise ValueError(f"Incompatible charge_id column in {self.schema}.{table_name}")
 
     def replace_rows(
         self,

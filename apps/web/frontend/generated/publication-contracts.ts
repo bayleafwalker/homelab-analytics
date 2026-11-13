@@ -7899,6 +7899,19 @@ export const publicationContractMap = {
     "columns": [
       {
         "aggregation": null,
+        "description": "Canonical identifier for the recurring charge.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "charge_id",
+        "nullable": true,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
+      {
+        "aggregation": null,
         "description": "Stable contract identifier for the recurring charge.",
         "filterable": true,
         "grain": null,
@@ -8298,6 +8311,19 @@ export const publicationContractMap = {
   "upcoming_fixed_costs_30d": {
     "assessed_at": null,
     "columns": [
+      {
+        "aggregation": null,
+        "description": "Canonical identifier for the recurring charge.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "charge_id",
+        "nullable": true,
+        "semantic_role": "identifier",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
+      },
       {
         "aggregation": null,
         "description": "Human-readable contract or subscription name.",
