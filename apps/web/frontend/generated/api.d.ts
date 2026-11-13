@@ -7440,6 +7440,8 @@ export interface components {
             amount: string;
             /** Billing Cycle */
             billing_cycle: string;
+            /** Charge Id */
+            charge_id?: string | null;
             /** Contract Id */
             contract_id: string;
             /** Contract Name */
@@ -7463,6 +7465,8 @@ export interface components {
             amount: string | null;
             /** Billing Cycle */
             billing_cycle: string | null;
+            /** Charge Id */
+            charge_id?: string | null;
             /** Contract Id */
             contract_id: string | null;
             /** Contract Name */
@@ -7640,6 +7644,8 @@ export interface components {
         };
         /** UpcomingFixedCostsRow */
         UpcomingFixedCostsRow: {
+            /** Charge Id */
+            charge_id?: string | null;
             /** Confidence */
             confidence: string;
             /** Contract Name */

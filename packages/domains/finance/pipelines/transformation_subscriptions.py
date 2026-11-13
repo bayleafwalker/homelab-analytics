@@ -104,10 +104,11 @@ def refresh_subscription_summary(store: DuckDBStore) -> int:
     store.execute(
         f"""
         INSERT INTO {MART_SUBSCRIPTION_SUMMARY_TABLE} (
-            contract_id, contract_name, provider, billing_cycle, amount, currency,
+            charge_id, contract_id, contract_name, provider, billing_cycle, amount, currency,
             start_date, end_date, monthly_equivalent, status
         )
         SELECT
+            charge_id,
             contract_id,
             contract_name,
             provider,
@@ -246,10 +247,11 @@ def refresh_upcoming_fixed_costs_30d(store: DuckDBStore) -> int:
     store.execute(
         f"""
         INSERT INTO {MART_UPCOMING_FIXED_COSTS_30D_TABLE}
-            (contract_name, provider, frequency, expected_amount, currency,
+            (charge_id, contract_name, provider, frequency, expected_amount, currency,
              expected_date, confidence)
         WITH next_charges AS (
             SELECT
+                charge_id,
                 contract_name,
                 provider,
                 billing_cycle,
@@ -300,6 +302,7 @@ def refresh_upcoming_fixed_costs_30d(store: DuckDBStore) -> int:
             WHERE status = 'active'
         )
         SELECT
+            charge_id,
             contract_name,
             provider,
             billing_cycle AS frequency,

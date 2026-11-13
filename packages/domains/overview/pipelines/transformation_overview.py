@@ -279,6 +279,10 @@ def get_homelab_roi(store: DuckDBStore) -> list[dict[str, Any]]:
 
 
 def refresh_open_attention_items(store: DuckDBStore) -> int:
+    if store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_UPCOMING_FIXED_COSTS_30D_TABLE} WHERE charge_id IS NULL"
+    )[0][0]:
+        raise ValueError("Refresh subscription summary and upcoming fixed costs before attention items")
     store.execute(f"DELETE FROM {MART_OPEN_ATTENTION_ITEMS_TABLE}")
     store.execute(
         f"""
@@ -296,7 +300,7 @@ def refresh_open_attention_items(store: DuckDBStore) -> int:
             FROM {MART_TRANSACTION_ANOMALIES_CURRENT_TABLE}
         ),
         review_candidates AS (
-            SELECT
+            SELECT DISTINCT
                 'review_' || contract_id || '_' || reason        AS item_id,
                 'contract_review'                                AS item_type,
                 'Review contract: ' || provider                  AS title,
@@ -306,8 +310,9 @@ def refresh_open_attention_items(store: DuckDBStore) -> int:
             FROM {MART_CONTRACT_REVIEW_CANDIDATES_TABLE}
         ),
         upcoming_renewals AS (
-            SELECT
-                'renewal_' || contract_id                        AS item_id,
+            SELECT DISTINCT
+                'renewal_' || contract_id
+                    || '_' || CAST(renewal_date AS VARCHAR)      AS item_id,
                 'contract_renewal'                               AS item_type,
                 'Upcoming renewal: ' || provider                 AS title,
                 'Renews in ' || days_until_renewal || ' days on '
@@ -323,7 +328,7 @@ def refresh_open_attention_items(store: DuckDBStore) -> int:
         ),
         upcoming_payments AS (
             SELECT
-                'upcoming_' || contract_name
+                'upcoming_' || charge_id
                     || '_' || CAST(expected_date AS VARCHAR)     AS item_id,
                 'upcoming_cost'                                  AS item_type,
                 'Upcoming payment: ' || contract_name           AS title,

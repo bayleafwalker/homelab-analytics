@@ -401,3 +401,112 @@ def test_configured_source_asset_publications_can_include_extension_relations() 
             "net": Decimal("2365.8500"),
         }
     ]
+
+
+def test_existing_subscription_publication_upgrades_on_republication() -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    from datetime import date, timedelta
+    from threading import Event
+    from time import monotonic, sleep
+
+    import psycopg
+
+    from packages.domains.finance.pipelines.subscription_models import (
+        MART_SUBSCRIPTION_SUMMARY_COLUMNS,
+        MART_UPCOMING_FIXED_COSTS_30D_COLUMNS,
+    )
+
+    today = date.today()
+    ts = TransformationService(DuckDBStore.memory())
+    ts.load_subscriptions([{
+        "contract_id": "synthetic", "service_name": "Synthetic", "provider": "P",
+        "billing_cycle": "weekly", "amount": "10", "currency": "EUR",
+        "start_date": str(today - timedelta(days=7)), "end_date": None,
+    }], run_id="synthetic")
+    ts.refresh_publications(["mart_subscription_summary", "mart_upcoming_fixed_costs_30d"])
+    with running_postgres_container() as dsn:
+        store = PostgresReportingStore(dsn)
+        # Simulate pre-upgrade populated relations and a historical snapshot.
+        for table, columns in (("mart_subscription_summary", MART_SUBSCRIPTION_SUMMARY_COLUMNS),
+                               ("mart_upcoming_fixed_costs_30d", MART_UPCOMING_FIXED_COSTS_30D_COLUMNS)):
+            store.ensure_table(table, [(name, dtype.replace("NOT NULL", ""))
+                                       for name, dtype in columns if name != "charge_id"])
+            store.execute_statements([(f"INSERT INTO {table} (contract_name) VALUES (%s)", ["old"])])
+        store.execute_statements([
+            ("CREATE TABLE unrelated (value TEXT)", []),
+            ("INSERT INTO unrelated VALUES (%s)", ["keep"]),
+            ("CREATE TABLE reporting_publication_snapshot (publication_key TEXT, reference_month TEXT, captured_at TEXT, run_id TEXT, row_count INTEGER, rows_json TEXT)", []),
+            ("INSERT INTO reporting_publication_snapshot VALUES (%s, %s, %s, %s, %s, %s)",
+             ["mart_subscription_summary", "2025-01", "2025-02-01T00:00:00+00:00", None, 1, '[{"contract_name":"old"}]']),
+        ])
+        reporting = ReportingService(ts, publication_store=store)
+        # Existing published rows win over the warehouse and remain identity-less.
+        assert reporting.get_subscription_summary()[0].get("charge_id") is None
+        assert reporting.get_publication_snapshot("mart_subscription_summary", "2025-01").rows == [{"contract_name": "old"}]
+        racing = PostgresReportingStore(dsn, schema="race")
+        racing.execute_statements([
+            ("CREATE TABLE mart_subscription_summary (contract_name TEXT)", []),
+            ("INSERT INTO mart_subscription_summary VALUES (%s)", ["keep"]),
+        ])
+        connected = Event()
+        worker_pid: list[int] = []
+
+        class ObservedStore(PostgresReportingStore):
+            def _connect(self, *, row_factory=None):
+                connection = super()._connect(row_factory=row_factory)
+                connection.execute("SET lock_timeout = '10s'")
+                worker_pid.append(connection.info.backend_pid)
+                connected.set()
+                return connection
+
+        observed = ObservedStore(dsn, schema="race")
+        with psycopg.connect(dsn) as blocker, psycopg.connect(dsn) as monitor:
+            blocker.execute(
+                "ALTER TABLE race.mart_subscription_summary ADD COLUMN charge_id TEXT"
+            )
+            blocker_pid = blocker.info.backend_pid
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(
+                    observed.ensure_table,
+                    "mart_subscription_summary",
+                    MART_SUBSCRIPTION_SUMMARY_COLUMNS,
+                )
+                try:
+                    assert connected.wait(timeout=5), "publisher never connected"
+                    deadline = monotonic() + 5
+                    while monotonic() < deadline:
+                        blockers = monitor.execute(
+                            "SELECT pg_blocking_pids(%s)", (worker_pid[0],)
+                        ).fetchone()[0]
+                        if blocker_pid in blockers:
+                            break
+                        if future.done():
+                            future.result()
+                            pytest.fail("publisher finished before the held lock was released")
+                        sleep(0.05)
+                    else:
+                        pytest.fail("publisher did not block on the held schema lock")
+                finally:
+                    # Rollback removes the uncommitted column; the waiting production
+                    # path must actually add it rather than observe a completed upgrade.
+                    blocker.rollback()
+                future.result(timeout=10)
+        racing.ensure_table("mart_subscription_summary", MART_SUBSCRIPTION_SUMMARY_COLUMNS)
+        assert racing.fetchall_dicts("SELECT * FROM mart_subscription_summary") == [
+            {"contract_name": "keep", "charge_id": None}
+        ]
+        other = PostgresReportingStore(dsn, schema="other")
+        other.execute_statements([("CREATE TABLE mart_subscription_summary (charge_id INTEGER)", [])])
+        reporting.publish_publications(["mart_subscription_summary", "mart_upcoming_fixed_costs_30d"])
+        assert other.fetchall_dicts("SELECT * FROM mart_subscription_summary") == []
+        with pytest.raises(ValueError, match="Incompatible charge_id"):
+            other.ensure_table("mart_subscription_summary", MART_SUBSCRIPTION_SUMMARY_COLUMNS)
+        before = reporting.get_subscription_summary()
+        invalid = dict(before[0], amount="not a number")
+        with pytest.raises(psycopg.Error):
+            store.replace_rows("mart_subscription_summary", MART_SUBSCRIPTION_SUMMARY_COLUMNS, [invalid])
+        assert reporting.get_subscription_summary() == before
+        assert reporting.get_subscription_summary()[0]["charge_id"]
+        assert reporting.get_upcoming_fixed_costs_30d()[0]["charge_id"] == reporting.get_subscription_summary()[0]["charge_id"]
+        assert store.fetchall_dicts("SELECT * FROM unrelated") == [{"value": "keep"}]
+        assert reporting.get_publication_snapshot("mart_subscription_summary", "2025-01").rows == [{"contract_name": "old"}]

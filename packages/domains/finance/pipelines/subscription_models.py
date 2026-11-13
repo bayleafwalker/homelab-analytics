@@ -84,6 +84,7 @@ FACT_SUBSCRIPTION_CHARGE_COLUMNS: list[tuple[str, str]] = [
 MART_SUBSCRIPTION_SUMMARY_TABLE = "mart_subscription_summary"
 
 MART_SUBSCRIPTION_SUMMARY_COLUMNS: list[tuple[str, str]] = [
+    ("charge_id", "VARCHAR"),
     ("contract_id", "VARCHAR NOT NULL"),
     ("contract_name", "VARCHAR NOT NULL"),
     ("provider", "VARCHAR NOT NULL"),
@@ -114,6 +115,7 @@ MART_SUBSCRIPTION_CHANGES_COLUMNS: list[tuple[str, str]] = [
 MART_UPCOMING_FIXED_COSTS_30D_TABLE = "mart_upcoming_fixed_costs_30d"
 
 MART_UPCOMING_FIXED_COSTS_30D_COLUMNS: list[tuple[str, str]] = [
+    ("charge_id", "VARCHAR"),
     ("contract_name", "VARCHAR NOT NULL"),
     ("provider", "VARCHAR NOT NULL"),
     ("frequency", "VARCHAR NOT NULL"),       # billing_cycle of source subscription

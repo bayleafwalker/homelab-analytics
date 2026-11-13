@@ -11742,6 +11742,17 @@
             "title": "Billing Cycle",
             "type": "string"
           },
+          "charge_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Charge Id"
+          },
           "contract_id": {
             "title": "Contract Id",
             "type": "string"
@@ -11819,6 +11830,17 @@
               }
             ],
             "title": "Billing Cycle"
+          },
+          "charge_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Charge Id"
           },
           "contract_id": {
             "anyOf": [
@@ -12391,6 +12413,17 @@
       },
       "UpcomingFixedCostsRow": {
         "properties": {
+          "charge_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Charge Id"
+          },
           "confidence": {
             "title": "Confidence",
             "type": "string"
