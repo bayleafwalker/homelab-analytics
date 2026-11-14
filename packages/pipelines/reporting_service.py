@@ -48,6 +48,7 @@ from packages.domains.homelab.pipelines.homelab_models import (
     MART_STORAGE_RISK_TABLE,
     MART_WORKLOAD_COST_7D_TABLE,
 )
+from packages.domains.overview.pipelines import attention_records
 from packages.domains.overview.pipelines.overview_models import (
     MART_AFFORDABILITY_RATIOS_TABLE,
     MART_COST_TREND_12M_TABLE,
@@ -874,12 +875,10 @@ class ReportingService:
         )
 
     def get_open_attention_items(self) -> list[dict[str, Any]]:
-        return self._fetch_published_or_fallback(
-            MART_OPEN_ATTENTION_ITEMS_TABLE,
-            lambda: self._read_mart(MART_OPEN_ATTENTION_ITEMS_TABLE),
-            ("", []),
-            "ORDER BY severity, item_type",
-        )
+        return attention_records.get_open_attention_items(self)
+
+    def get_attention_record(self, item_type: str, item_id: str) -> list[dict[str, Any]]:
+        return attention_records.get_attention_record(self, item_type, item_id)
 
     def get_recent_significant_changes(self) -> list[dict[str, Any]]:
         return self._fetch_published_or_fallback(
