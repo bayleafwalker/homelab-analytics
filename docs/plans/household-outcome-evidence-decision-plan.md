@@ -83,6 +83,19 @@ available to HLA yet, and HLA does not hold a Vuoro work reference, so
 `work_ref` stays `null`). Attention is captured only when the operator enters
 minutes on a follow-up; there is no passive time capture.
 
+### Basis revalidation qualification (2026-11-14)
+
+The accepted [qualification packet](2026-11-14-basis-tracked-revalidation.md)
+uses the existing electricity-contract assessment and HLA-K02 correction trace.
+It distinguishes unchanged source evidence from the applicability of an assessment
+after its method, criteria or semantic contract changes. Twelve preregistered cases
+compare proposed selection with full recomputation; all production checks continue
+to run. Implementation and results are pending, with an explicit stop condition if
+selection overhead outweighs useful avoided work. Reconcile existing #2694 before
+registering additional scope. HLA-K03's live gate and HLA-K04's Vuoro receipt gate
+remain open; this qualification cannot satisfy them. The packet records the current
+served-workspace blocker without inventing live status or a sprint snapshot.
+
 ## Decision definition
 
 `kotiakku_battery_plan_review`, version `1.1.0`
