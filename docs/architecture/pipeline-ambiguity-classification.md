@@ -2,7 +2,7 @@
 
 **Classification:** CROSS-CUTTING
 **Status:** accepted
-**Last updated:** 2026-04-22
+**Last updated:** 2026-11-14
 
 This note closes WP-1e for the current seam pass by classifying the remaining
 ambiguous files still living under `packages/pipelines/`.
@@ -16,6 +16,7 @@ ambiguous files still living under `packages/pipelines/`.
 | `packages/domains/finance/pipelines/asset_register_service.py` | APP (moved) | Service wrapper over household asset registration. Moved in sprint #56; shim retired in sprint #57. |
 | `packages/domains/finance/pipelines/transformation_assets.py` | APP (moved) | Asset-domain transform/load path. Moved in sprint #56; shim retired in sprint #57. |
 | `packages/pipelines/contracts.py` | JUSTIFIED-MIXED | Small reusable contract-id helper still shared by multiple domain modules; kept in `packages/pipelines/` until a dedicated domain-neutral home is selected. |
+| `packages/domains/overview/pipelines/attention_records.py` | APP (overview) | Household attention-record source reads (anomaly / contract review / contract renewal / upcoming fixed cost) plus the public attention exceptions. The identity composition spans finance, utilities and subscriptions, so it belongs to the overview seam, not the generic kernel. |
 
 ## Working rule
 
