@@ -130,6 +130,7 @@ Use `docs/sprints/TRACKER.md` for the live sprint index. Keep this section to du
 
 ## Plans
 - `plans/household-outcome-evidence-decision-plan.md` — one household battery/tariff outcome with source-quality, realized-decision, and read-only/authorization acceptance.
+- `plans/2026-11-14-basis-tracked-revalidation.md` — accepted qualification packet for source and method basis, twelve preregistered change cases, full-recompute comparison, and an economics gate; implementation and live backlog registration remain pending.
 
 - `plans/household-operating-platform-roadmap.md` — 11-stage roadmap from analytics platform to household operating platform, with stage descriptions, dependencies, and phase-to-stage mapping.
 - `plans/2026-04-backlog-refinement.md` — bounded next-backlog recommendation: execution posture, priority items, parked work, anti-backlog, and sprint packaging for the next planning cycle.

@@ -198,7 +198,7 @@ observed consequences from estimated benefit and attribution hypotheses.
 observation to establish household value.
 
 **Phase:** 10
-**Status:** not-started (planned HLA-K01–HLA-K03 in the [household outcome plan](../docs/plans/household-outcome-evidence-decision-plan.md); source evaluator availability is not live outcome acceptance)
+**Status:** in-progress (HLA-K01 lifecycle, HLA-K02 source correction tracing and HLA-K03 attribution-review code are implemented with synthetic tests in the [household outcome plan](../docs/plans/household-outcome-evidence-decision-plan.md); HLA-K03's actual follow-up and second-review gate remains open)
 
 **Acceptance criteria:**
 - Authorized owner, purpose, baseline, success window, review triggers, stop conditions, and historical decisions are persisted; stopped commitments emit no new proactive proposals.
@@ -209,7 +209,7 @@ observation to establish household value.
 
 **Dependencies:** ANA-05, ANA-09, APP-18; AO-K02 baseline; actual authorized source history.
 
-**Traceability:** HLA-K01–HLA-K03; planned domain, transformation/reporting, lifecycle and invalidation tests as specified in the household outcome plan.
+**Traceability:** HLA-K01–HLA-K03; existing lifecycle, correction and attribution-review code/tests are listed below. [Basis-tracked revalidation qualification](../docs/plans/2026-11-14-basis-tracked-revalidation.md) is separately planned: method/criteria/schema changes must be distinguished from source evidence identity before reuse can be qualified. It enables no production skips and establishes no live outcome acceptance.
 
 ---
 
@@ -226,3 +226,4 @@ observation to establish household value.
 | ANA-07 | Reporting | `packages/domains/finance/pipelines/subscription_models.py`, `packages/pipelines/transformation_service.py` | `tests/test_subscription_domain.py` |
 | ANA-08 | API and dashboard publication | `packages/domains/homelab/pipelines/ha_contract_renderer.py`, `packages/domains/homelab/pipelines/ha_mqtt_publisher.py`, `apps/api/routes/ha_routes.py`, `apps/api/main.py` | `tests/test_ha_contract_renderer.py`, `tests/test_ha_mqtt_publisher.py`, `tests/test_ha_api.py` |
 | ANA-09 | Reporting | `packages/domains/finance/pipelines/contract_price_models.py`, `packages/pipelines/transformation_service.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_contract_price_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py` |
+| ANA-10 | Household outcome plan; source and method basis qualification | `packages/platform/decision_definitions.py`, `packages/application/use_cases/decision_ledger.py`, `packages/application/use_cases/decision_evidence_trace.py`, `packages/domains/utilities/energy_contract_decision.py` | `tests/test_decision_commitment_lifecycle.py`, `tests/test_decision_evidence_trace.py`, `tests/test_decision_attribution_review.py`, `tests/test_energy_contract_decision.py` |
