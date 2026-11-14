@@ -3237,6 +3237,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reports/contract-renewal-watchlist/records/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Contract Renewal Watchlist Record */
+        get: operations["get_contract_renewal_watchlist_record_reports_contract_renewal_watchlist_records__item_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reports/contract-review-candidates": {
         parameters: {
             query?: never;
@@ -3246,6 +3263,23 @@ export interface paths {
         };
         /** Get Contract Review Candidates */
         get: operations["get_contract_review_candidates_reports_contract_review_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/contract-review-candidates/records/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Contract Review Candidate Record */
+        get: operations["get_contract_review_candidate_record_reports_contract_review_candidates_records__item_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3577,6 +3611,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reports/transaction-anomalies/records/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Transaction Anomaly Record */
+        get: operations["get_transaction_anomaly_record_reports_transaction_anomalies_records__item_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reports/upcoming-fixed-costs": {
         parameters: {
             query?: never;
@@ -3586,6 +3637,23 @@ export interface paths {
         };
         /** Get Upcoming Fixed Costs */
         get: operations["get_upcoming_fixed_costs_reports_upcoming_fixed_costs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/upcoming-fixed-costs/records/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Upcoming Fixed Cost Record */
+        get: operations["get_upcoming_fixed_cost_record_reports_upcoming_fixed_costs_records__item_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4893,6 +4961,13 @@ export interface components {
             /** Valid To */
             valid_to?: string | null;
         };
+        /** ContractRenewalWatchlistRecordResponse */
+        ContractRenewalWatchlistRecordResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Rows */
+            rows: components["schemas"]["ContractRenewalWatchlistRow"][];
+        };
         /** ContractRenewalWatchlistResponse */
         ContractRenewalWatchlistResponse: {
             /** Rows */
@@ -4918,6 +4993,13 @@ export interface components {
             renewal_date: string;
             /** Utility Type */
             utility_type: string;
+        };
+        /** ContractReviewCandidatesRecordResponse */
+        ContractReviewCandidatesRecordResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Rows */
+            rows: components["schemas"]["ContractReviewCandidatesRow"][];
         };
         /** ContractReviewCandidatesResponse */
         ContractReviewCandidatesResponse: {
@@ -7546,6 +7628,13 @@ export interface components {
         TerminalExecutionResponseModel: {
             execution: components["schemas"]["TerminalExecutionModel"];
         };
+        /** TransactionAnomaliesRecordResponse */
+        TransactionAnomaliesRecordResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Rows */
+            rows: components["schemas"]["TransactionAnomaliesRow"][];
+        };
         /** TransactionAnomaliesResponse */
         TransactionAnomaliesResponse: {
             /** Rows */
@@ -7636,6 +7725,13 @@ export interface components {
         UiDescriptorsResponse: {
             /** Ui Descriptors */
             ui_descriptors: components["schemas"]["UiDescriptorContractModel"][];
+        };
+        /** UpcomingFixedCostsRecordResponse */
+        UpcomingFixedCostsRecordResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Rows */
+            rows: components["schemas"]["UpcomingFixedCostsRow"][];
         };
         /** UpcomingFixedCostsResponse */
         UpcomingFixedCostsResponse: {
@@ -14296,6 +14392,37 @@ export interface operations {
             };
         };
     };
+    get_contract_renewal_watchlist_record_reports_contract_renewal_watchlist_records__item_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractRenewalWatchlistRecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_contract_review_candidates_reports_contract_review_candidates_get: {
         parameters: {
             query?: never;
@@ -14312,6 +14439,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ContractReviewCandidatesResponse"];
+                };
+            };
+        };
+    };
+    get_contract_review_candidate_record_reports_contract_review_candidates_records__item_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractReviewCandidatesRecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -14842,6 +15000,37 @@ export interface operations {
             };
         };
     };
+    get_transaction_anomaly_record_reports_transaction_anomalies_records__item_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionAnomaliesRecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_upcoming_fixed_costs_reports_upcoming_fixed_costs_get: {
         parameters: {
             query?: never;
@@ -14858,6 +15047,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UpcomingFixedCostsResponse"];
+                };
+            };
+        };
+    };
+    get_upcoming_fixed_cost_record_reports_upcoming_fixed_costs_records__item_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpcomingFixedCostsRecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

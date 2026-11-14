@@ -3482,6 +3482,27 @@
         "title": "ContractPriceCurrentRow",
         "type": "object"
       },
+      "ContractRenewalWatchlistRecordResponse": {
+        "properties": {
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ContractRenewalWatchlistRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "item_id",
+          "rows"
+        ],
+        "title": "ContractRenewalWatchlistRecordResponse",
+        "type": "object"
+      },
       "ContractRenewalWatchlistResponse": {
         "properties": {
           "rows": {
@@ -3555,6 +3576,27 @@
           "currency"
         ],
         "title": "ContractRenewalWatchlistRow",
+        "type": "object"
+      },
+      "ContractReviewCandidatesRecordResponse": {
+        "properties": {
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ContractReviewCandidatesRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "item_id",
+          "rows"
+        ],
+        "title": "ContractReviewCandidatesRecordResponse",
         "type": "object"
       },
       "ContractReviewCandidatesResponse": {
@@ -12124,6 +12166,27 @@
         "title": "TerminalExecutionResponseModel",
         "type": "object"
       },
+      "TransactionAnomaliesRecordResponse": {
+        "properties": {
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/TransactionAnomaliesRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "item_id",
+          "rows"
+        ],
+        "title": "TransactionAnomaliesRecordResponse",
+        "type": "object"
+      },
       "TransactionAnomaliesResponse": {
         "properties": {
           "rows": {
@@ -12393,6 +12456,27 @@
           "ui_descriptors"
         ],
         "title": "UiDescriptorsResponse",
+        "type": "object"
+      },
+      "UpcomingFixedCostsRecordResponse": {
+        "properties": {
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/UpcomingFixedCostsRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "item_id",
+          "rows"
+        ],
+        "title": "UpcomingFixedCostsRecordResponse",
         "type": "object"
       },
       "UpcomingFixedCostsResponse": {
@@ -21612,6 +21696,45 @@
         "summary": "Get Contract Renewal Watchlist"
       }
     },
+    "/reports/contract-renewal-watchlist/records/{item_id}": {
+      "get": {
+        "operationId": "get_contract_renewal_watchlist_record_reports_contract_renewal_watchlist_records__item_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractRenewalWatchlistRecordResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Contract Renewal Watchlist Record"
+      }
+    },
     "/reports/contract-review-candidates": {
       "get": {
         "operationId": "get_contract_review_candidates_reports_contract_review_candidates_get",
@@ -21628,6 +21751,45 @@
           }
         },
         "summary": "Get Contract Review Candidates"
+      }
+    },
+    "/reports/contract-review-candidates/records/{item_id}": {
+      "get": {
+        "operationId": "get_contract_review_candidate_record_reports_contract_review_candidates_records__item_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractReviewCandidatesRecordResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Contract Review Candidate Record"
       }
     },
     "/reports/cost-trend": {
@@ -22457,6 +22619,45 @@
         "summary": "Get Transaction Anomalies"
       }
     },
+    "/reports/transaction-anomalies/records/{item_id}": {
+      "get": {
+        "operationId": "get_transaction_anomaly_record_reports_transaction_anomalies_records__item_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionAnomaliesRecordResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Transaction Anomaly Record"
+      }
+    },
     "/reports/upcoming-fixed-costs": {
       "get": {
         "operationId": "get_upcoming_fixed_costs_reports_upcoming_fixed_costs_get",
@@ -22473,6 +22674,45 @@
           }
         },
         "summary": "Get Upcoming Fixed Costs"
+      }
+    },
+    "/reports/upcoming-fixed-costs/records/{item_id}": {
+      "get": {
+        "operationId": "get_upcoming_fixed_cost_record_reports_upcoming_fixed_costs_records__item_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpcomingFixedCostsRecordResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Upcoming Fixed Cost Record"
       }
     },
     "/reports/usage-vs-price": {

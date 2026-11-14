@@ -27,6 +27,7 @@ from apps.api.routes.agent_routes import (
     register_agent_routes,
 )
 from apps.api.routes.assistant_routes import register_assistant_routes
+from apps.api.routes.attention_record_routes import register_attention_record_routes
 from apps.api.routes.auth_routes import register_auth_routes
 from apps.api.routes.briefing_routes import register_briefing_routes
 from apps.api.routes.category_routes import register_category_routes
@@ -754,6 +755,11 @@ def create_app(
         resolved_reporting_service=reporting_service,
         to_jsonable=to_jsonable,
         household_timezone=resolved_household_timezone,
+    )
+    register_attention_record_routes(
+        app,
+        resolved_reporting_service=reporting_service,
+        to_jsonable=to_jsonable,
     )
     register_assistant_routes(
         app,
