@@ -66,12 +66,23 @@ export SPRINTCTL_INSTANCE_ID SPRINTCTL_RUNTIME_SESSION_ID CODEX_THREAD_ID
 	web-ui-test web-local web-local-serve first-run hooks-install \
 	contract-export-check contract-compat-report contract-release-artifacts \
 	agent-preflight sprintctl-health sprintctl-preflight sprintctl-close \
+	dev-setup dev-check dev-smoke \
 	sprint-resume claim-recover claim-heartbeat item-verify-auth snapshot-refresh knowledge-publish
 
 hooks-install:
 	@git config core.hooksPath githooks
 	@chmod +x githooks/* 2>/dev/null || true
 	@echo "Installed git hooks from githooks/ (core.hooksPath=githooks): pre-commit lint + commit-msg convention."
+
+# Reproducible, checkout-owned development environment and focused checks.
+dev-setup:
+	@./tools/dev-setup.sh
+
+dev-check:
+	@./tools/dev-check.sh
+
+dev-smoke:
+	@./tools/dev-smoke.sh
 
 lint:
 	$(RUFF) check .
