@@ -6,6 +6,10 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT/tools/dev-env.sh"
 source "$ROOT/tools/dev-smoke-process.sh"
 dev_prepare_env "$ROOT"
+dev_require_owned_path "$ROOT" ".venv" "Python environment"
+dev_require_owned_path "$ROOT" "apps/web/frontend" "frontend checkout"
+dev_require_owned_path "$ROOT" "apps/web/frontend/node_modules" "frontend dependencies"
+dev_require_owned_path "$ROOT" "apps/web/frontend/.next" "Next.js build output"
 dev_require_python_env "$ROOT"
 [[ -x "$ROOT/apps/web/frontend/node_modules/.bin/next" ]] \
   || dev_fail "frontend dependencies are missing; run 'make dev-setup'"
@@ -23,11 +27,13 @@ PY
 )"
 BASE_URL="http://127.0.0.1:$PORT"
 LOG="$(mktemp)"
+BUILD_LOG="$(mktemp)"
 SMOKE_HOME="$ROOT/.tooling/smoke-home"
 SMOKE_TMPDIR="$ROOT/.tooling/smoke-tmp"
 mkdir -p "$SMOKE_HOME" "$SMOKE_TMPDIR"
 server_pid=""
 backend_pid=""
+build_pid=""
 BACKEND_LOG="$(mktemp)"
 BACKEND_ENDPOINT_FILE="$SMOKE_TMPDIR/backend-endpoint-$$"
 dev_smoke_install_traps
@@ -48,8 +54,22 @@ done
 SMOKE_API_BASE_URL="http://127.0.0.1:$(<"$BACKEND_ENDPOINT_FILE")"
 
 printf 'Building existing standalone web target...\n'
-dev_smoke_env "$SMOKE_HOME" "$SMOKE_TMPDIR" "$SMOKE_API_BASE_URL" \
-  npm --prefix apps/web/frontend run build
+dev_smoke_launch "$ROOT" "$SMOKE_HOME" "$SMOKE_TMPDIR" "$SMOKE_API_BASE_URL" \
+  npm --prefix apps/web/frontend run build >"$BUILD_LOG" 2>&1 &
+build_pid=$!
+if wait "$build_pid"; then
+  build_status=0
+else
+  build_status=$?
+fi
+if ! dev_stop_process_group "$build_pid"; then
+  cat "$BUILD_LOG" >&2
+  dev_fail "frontend build process group did not settle after bounded cleanup"
+fi
+wait "$build_pid" 2>/dev/null || true
+build_pid=""
+cat "$BUILD_LOG"
+[[ "$build_status" == 0 ]] || dev_fail "Next.js standalone build failed"
 standalone="apps/web/frontend/.next/standalone"
 [[ -f "$standalone/server.js" ]] || dev_fail "Next.js build did not create the standalone server"
 mkdir -p "$standalone/.next"

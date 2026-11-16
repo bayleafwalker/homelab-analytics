@@ -10,6 +10,32 @@ dev_fail() {
   exit 1
 }
 
+dev_require_owned_path() {
+  local root="$1" relative="$2" label="${3:-$2}"
+  local current component path resolved
+  local -a components
+  [[ "$relative" != /* && "$relative" != *..* ]] \
+    || dev_fail "invalid checkout-owned path: $relative"
+  current="$(cd "$root" && pwd -P)"
+  IFS='/' read -r -a components <<< "$relative"
+  for component in "${components[@]}"; do
+    [[ -n "$component" && "$component" != "." ]] || continue
+    path="$current/$component"
+    [[ ! -L "$path" ]] \
+      || dev_fail "$label contains a symlink at $path; use a real directory owned by this checkout"
+    if [[ -e "$path" ]]; then
+      resolved="$(realpath -e "$path" 2>/dev/null)" \
+        || dev_fail "could not resolve checkout-owned $label at $path"
+      [[ "$resolved" == "$path" ]] \
+        || dev_fail "$label resolves outside this checkout at $path"
+    fi
+    current="$path"
+  done
+  if [[ -e "$current" && ! -d "$current" ]]; then
+    dev_fail "$label exists but is not a directory: $current"
+  fi
+}
+
 dev_prepare_env() {
   local root="$1"
   local node_home="$root/.tooling/node-v20.20.1-linux-x64"

@@ -23,6 +23,7 @@ def _copy_entrypoints(root: Path) -> None:
         "dev-check-runtime-probe.py",
         "dev-smoke-process.sh",
         "dev-smoke-backend-stub.py",
+        "dev-smoke.sh",
     ):
         shutil.copy2(REPO_ROOT / "tools" / name, root / "tools" / name)
 
@@ -32,6 +33,43 @@ def _add_node_provenance(node_dir: Path) -> None:
         "archive=node-v20.20.1-linux-x64.tar.gz "
         "sha256=6362e50804cdcc110592201f67beda93bcd702fdcbe1c42840a50d590e3af0ce\n"
     )
+
+
+def _setup_fixture(root: Path) -> Path:
+    _copy_entrypoints(root)
+    (root / "uv.lock").touch()
+    frontend = root / "apps/web/frontend"
+    frontend.mkdir(parents=True)
+    (frontend / "package.json").write_text('{"name":"fixture"}\n')
+    (frontend / "package-lock.json").write_text(
+        '{"name":"fixture","lockfileVersion":3,"requires":true,'
+        '"packages":{"":{"name":"fixture"}}}\n'
+    )
+    return frontend
+
+
+def _write_fake_owned_runtime(root: Path) -> None:
+    node_home = root / ".tooling/node-v20.20.1-linux-x64"
+    node_dir = node_home / "bin"
+    node_dir.mkdir(parents=True)
+    _add_node_provenance(node_dir)
+    node = node_dir / "node"
+    node.write_text(
+        "#!/bin/sh\n"
+        "if [ \"$1\" = --version ]; then echo v20.20.1; "
+        "elif [ \"$2\" = --version ]; then \"$@\"; else exit 1; fi\n"
+    )
+    npm = node_dir / "npm"
+    npm.write_text("#!/bin/sh\n[ \"$1\" = --version ] && echo 10.8.2\n")
+    node.chmod(0o755)
+    npm.chmod(0o755)
+
+
+def _write_fake_project_python(root: Path) -> None:
+    python = root / ".venv/bin/python"
+    python.parent.mkdir(parents=True)
+    python.write_text("#!/bin/sh\nexit 0\n")
+    python.chmod(0o755)
 
 
 def _run(
@@ -74,8 +112,61 @@ def test_setup_refuses_symlinked_tooling_before_bootstrap(tmp_path: Path) -> Non
 
     result = _run("dev-setup.sh", tmp_path)
     assert result.returncode != 0
-    assert "checkout .tooling is a symlink" in result.stderr
+    assert "tooling directory contains a symlink" in result.stderr
     assert list(external_tooling.iterdir()) == []
+
+
+def test_setup_refuses_foreign_python_environment_before_uv(tmp_path: Path) -> None:
+    _setup_fixture(tmp_path)
+    foreign = tmp_path / "foreign-venv"
+    foreign.mkdir()
+    sentinel = foreign / "sentinel"
+    sentinel.write_text("unchanged\n")
+    (tmp_path / ".venv").symlink_to(foreign, target_is_directory=True)
+
+    result = _run("dev-setup.sh", tmp_path)
+    assert result.returncode != 0
+    assert "Python environment contains a symlink" in result.stderr
+    assert sentinel.read_text() == "unchanged\n"
+    assert not (foreign / "pyvenv.cfg").exists()
+
+
+def test_setup_refuses_foreign_frontend_dependency_and_build_targets(tmp_path: Path) -> None:
+    for target_name in ("node_modules", ".next"):
+        checkout = tmp_path / target_name
+        checkout.mkdir()
+        frontend = _setup_fixture(checkout)
+        foreign = checkout / f"foreign-{target_name}"
+        foreign.mkdir()
+        sentinel = foreign / "sentinel"
+        sentinel.write_text("unchanged\n")
+        (frontend / target_name).symlink_to(foreign, target_is_directory=True)
+
+        result = _run("dev-setup.sh", checkout)
+        assert result.returncode != 0
+        expected_label = "frontend dependencies" if target_name == "node_modules" else "Next.js build output"
+        assert f"{expected_label} contains a symlink" in result.stderr
+        assert sentinel.read_text() == "unchanged\n"
+
+
+def test_setup_rejects_ambient_package_manager_target_overrides(tmp_path: Path) -> None:
+    _setup_fixture(tmp_path)
+    for variable, value, message in (
+        ("UV_PROJECT_ENVIRONMENT", str(tmp_path / "foreign-venv"), "UV_PROJECT_ENVIRONMENT redirects"),
+        ("npm_config_prefix", str(tmp_path / "foreign-npm"), "npm_config_prefix redirects"),
+    ):
+        result = subprocess.run(
+            [shutil.which("bash") or "/bin/bash", str(tmp_path / "tools/dev-setup.sh")],
+            cwd=tmp_path,
+            env={**os.environ, variable: value},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode != 0
+        assert message in result.stderr
+        assert not (tmp_path / "foreign-venv/pyvenv.cfg").exists()
+        assert not (tmp_path / "foreign-npm/node_modules").exists()
 
 
 def test_check_fails_actionably_without_owned_node_even_if_ambient_node_exists(tmp_path: Path) -> None:
@@ -357,6 +448,88 @@ def test_smoke_term_cancellation_settles_owned_child_group(tmp_path: Path) -> No
         leader.wait(timeout=2)
         assert manager.returncode == expected_status, stderr.decode()
         assert not _process_is_running(child_pid)
+
+
+def test_smoke_cancellation_during_build_settles_build_and_backend_groups(
+    tmp_path: Path,
+) -> None:
+    _copy_entrypoints(tmp_path)
+    backend, backend_child = _start_smoke_group(tmp_path, ignore_child_term=False)
+    smoke_home = tmp_path / "smoke-home"
+    smoke_tmp = tmp_path / "smoke-tmp"
+    smoke_home.mkdir()
+    smoke_tmp.mkdir()
+    build_pid_file = tmp_path / "build.pid"
+    manager_script = (
+        'source "$1"; backend_pid="$2"; '
+        'dev_smoke_install_traps; '
+        'dev_smoke_launch "$3" "$4" "$5" http://127.0.0.1:1 sleep 30 & '
+        'build_pid=$!; printf "%s\\n" "$build_pid" > "$6"; wait "$build_pid"'
+    )
+    manager = subprocess.Popen(
+        [
+            shutil.which("bash") or "/bin/bash",
+            "-c",
+            manager_script,
+            "smoke-build-cancellation-test",
+            str(tmp_path / "tools/dev-smoke-process.sh"),
+            str(backend.pid),
+            str(tmp_path),
+            str(smoke_home),
+            str(smoke_tmp),
+            str(build_pid_file),
+        ],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+    )
+    deadline = time.monotonic() + 5
+    while not build_pid_file.exists() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert build_pid_file.exists(), "smoke manager did not start its build process group"
+    build_pid = int(build_pid_file.read_text())
+    deadline = time.monotonic() + 5
+    while not _process_is_running(build_pid) and time.monotonic() < deadline:
+        time.sleep(0.01)
+
+    started = time.monotonic()
+    manager.send_signal(signal.SIGTERM)
+    _, stderr = manager.communicate(timeout=8)
+    assert manager.returncode == 143, stderr.decode()
+    assert time.monotonic() - started < 5
+    assert not _process_is_running(build_pid)
+    assert not _process_is_running(backend_child)
+    backend.wait(timeout=2)
+
+
+def test_smoke_refuses_foreign_node_modules_and_next_before_build(tmp_path: Path) -> None:
+    for target_name in ("node_modules", ".next"):
+        checkout = tmp_path / target_name
+        checkout.mkdir()
+        _copy_entrypoints(checkout)
+        _write_fake_owned_runtime(checkout)
+        _write_fake_project_python(checkout)
+        frontend = checkout / "apps/web/frontend"
+        frontend.mkdir(parents=True, exist_ok=True)
+        foreign = checkout / f"foreign-{target_name}"
+        foreign.mkdir()
+        sentinel = foreign / "sentinel"
+        sentinel.write_text("unchanged\n")
+        if target_name == "node_modules":
+            (foreign / ".bin").mkdir()
+            (foreign / ".bin/next").write_text("#!/bin/sh\nexit 0\n")
+            (foreign / ".bin/next").chmod(0o755)
+        else:
+            (frontend / "node_modules/.bin").mkdir(parents=True)
+            (frontend / "node_modules/.bin/next").write_text("#!/bin/sh\nexit 0\n")
+            (frontend / "node_modules/.bin/next").chmod(0o755)
+        (frontend / target_name).symlink_to(foreign, target_is_directory=True)
+
+        result = _run("dev-smoke.sh", checkout)
+        assert result.returncode != 0
+        expected = "frontend dependencies" if target_name == "node_modules" else "Next.js build output"
+        assert f"{expected} contains a symlink" in result.stderr
+        assert sentinel.read_text() == "unchanged\n"
 
 
 def test_smoke_environment_ignores_ambient_backend_and_identity(tmp_path: Path) -> None:

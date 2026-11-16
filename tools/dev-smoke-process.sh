@@ -91,7 +91,7 @@ dev_smoke_launch() {
 dev_smoke_cleanup() {
   local status=$? cleanup_failed=0 pgid
   trap - EXIT INT TERM
-  for pgid in "${server_pid:-}" "${backend_pid:-}"; do
+  for pgid in "${build_pid:-}" "${server_pid:-}" "${backend_pid:-}"; do
     [[ -n "$pgid" ]] || continue
     if dev_stop_process_group "$pgid"; then
       wait "$pgid" 2>/dev/null || true
@@ -101,6 +101,7 @@ dev_smoke_cleanup() {
   done
   [[ -z "${LOG:-}" ]] || rm -f "$LOG"
   [[ -z "${BACKEND_LOG:-}" ]] || rm -f "$BACKEND_LOG"
+  [[ -z "${BUILD_LOG:-}" ]] || rm -f "$BUILD_LOG"
   [[ -z "${BACKEND_ENDPOINT_FILE:-}" ]] || rm -f "$BACKEND_ENDPOINT_FILE"
   if [[ "$cleanup_failed" == 1 ]]; then
     status=1

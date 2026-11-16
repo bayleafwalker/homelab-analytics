@@ -17,7 +17,8 @@ The Node runtime is stored in `.tooling/`; Python packages use `.venv/`; fronten
 packages use `apps/web/frontend/node_modules/`. These are ignored, checkout-local
 directories and are never shared with another checkout. Package-manager write
 caches are also kept under `.tooling/` so warm setup does not require writes to a
-user-wide cache.
+user-wide cache. Setup refuses symlinked `.venv`, `node_modules`, and `.next`
+targets, plus package-manager settings that redirect installation elsewhere.
 
 After setup, focused development checks run independently of the setup shell:
 
@@ -43,7 +44,7 @@ The smoke command starts an owned loopback stub that returns only a synthetic
 builds Next.js, places static assets beside the existing standalone server
 entrypoint, launches the app on a temporary loopback port, fetches the rendered
 page, and fetches one referenced `/_next/static/` asset. It ignores inherited
-HLA backend and identity variables. The server and stub process groups are
+HLA backend and identity variables. Build, server, and stub process groups are
 settled with bounded TERM then KILL cleanup, including on cancellation. The first
 setup needs network access to the Python package index, npm registry, and Node.js
 release archive.

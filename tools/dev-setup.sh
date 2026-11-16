@@ -11,7 +11,17 @@ command -v uv >/dev/null 2>&1 || fail "uv is required to prepare the locked Pyth
 [[ -f "$ROOT/uv.lock" ]] || fail "uv.lock is missing; this checkout cannot install a locked Python environment"
 [[ -f "$ROOT/apps/web/frontend/package.json" ]] || fail "frontend package.json is missing"
 [[ -f "$ROOT/apps/web/frontend/package-lock.json" ]] || fail "frontend package-lock.json is missing; commit a lockfile before setup"
-[[ ! -L "$ROOT/.tooling" ]] || fail "checkout .tooling is a symlink; setup only writes to this checkout's owned tool directory"
+dev_require_owned_path "$ROOT" ".tooling" "tooling directory"
+dev_require_owned_path "$ROOT" ".venv" "Python environment"
+dev_require_owned_path "$ROOT" "apps/web/frontend" "frontend checkout"
+dev_require_owned_path "$ROOT" "apps/web/frontend/node_modules" "frontend dependencies"
+dev_require_owned_path "$ROOT" "apps/web/frontend/.next" "Next.js build output"
+[[ -z "${UV_PROJECT_ENVIRONMENT:-}" ]] \
+  || fail "UV_PROJECT_ENVIRONMENT redirects the Python environment; unset it to keep setup inside this checkout"
+for npm_target_setting in npm_config_prefix NPM_CONFIG_PREFIX npm_config_global NPM_CONFIG_GLOBAL; do
+  [[ -z "${!npm_target_setting:-}" ]] \
+    || fail "$npm_target_setting redirects npm installation; unset it to keep dependencies inside this checkout"
+done
 
 NODE_DIR="$ROOT/.tooling/node-v20.20.1-linux-x64/bin"
 if [[ ! -x "$NODE_DIR/node" || ! -f "$NODE_DIR/npm" ]]; then
@@ -53,6 +63,7 @@ dev_prepare_env "$ROOT"
 mkdir -p "$ROOT/.tooling"
 # Keep package-manager write caches inside the checkout, so warm setup does not
 # depend on mutating a user-wide cache or reuse another checkout's cache.
+export UV_PROJECT_ENVIRONMENT="$ROOT/.venv"
 export UV_CACHE_DIR="$ROOT/.tooling/uv-cache"
 printf 'Preparing locked Python dependencies...\n'
 (cd "$ROOT" && uv sync --locked --extra dev) \
