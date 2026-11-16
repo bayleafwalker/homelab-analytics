@@ -11,6 +11,7 @@ command -v uv >/dev/null 2>&1 || fail "uv is required to prepare the locked Pyth
 [[ -f "$ROOT/uv.lock" ]] || fail "uv.lock is missing; this checkout cannot install a locked Python environment"
 [[ -f "$ROOT/apps/web/frontend/package.json" ]] || fail "frontend package.json is missing"
 [[ -f "$ROOT/apps/web/frontend/package-lock.json" ]] || fail "frontend package-lock.json is missing; commit a lockfile before setup"
+[[ ! -L "$ROOT/.tooling" ]] || fail "checkout .tooling is a symlink; setup only writes to this checkout's owned tool directory"
 
 NODE_DIR="$ROOT/.tooling/node-v20.20.1-linux-x64/bin"
 if [[ ! -x "$NODE_DIR/node" || ! -f "$NODE_DIR/npm" ]]; then
@@ -22,8 +23,8 @@ if [[ ! -x "$NODE_DIR/node" || ! -f "$NODE_DIR/npm" ]]; then
   command -v sha256sum >/dev/null 2>&1 || fail "sha256sum is required to verify the pinned Node.js runtime"
   command -v tar >/dev/null 2>&1 || fail "tar is required to unpack the pinned Node.js runtime"
 
-  archive_name="node-v20.20.1-linux-x64.tar.gz"
-  archive_sha256="6362e50804cdcc110592201f67beda93bcd702fdcbe1c42840a50d590e3af0ce"
+  archive_name="$HLA_NODE_ARCHIVE"
+  archive_sha256="$HLA_NODE_ARCHIVE_SHA256"
   archive_url="https://nodejs.org/dist/v20.20.1/$archive_name"
   mkdir -p "$ROOT/.tooling"
   install_tmp="$(mktemp -d "$ROOT/.tooling/.node-install.XXXXXX")"
@@ -41,6 +42,7 @@ if [[ ! -x "$NODE_DIR/node" || ! -f "$NODE_DIR/npm" ]]; then
     || fail "verified Node.js archive did not contain runtime v20.20.1"
   "$install_tmp/runtime/bin/node" "$install_tmp/runtime/bin/npm" --version >/dev/null \
     || fail "verified Node.js archive contains an unusable npm runtime"
+  printf '%s\n' "$HLA_NODE_PROVENANCE" > "$install_tmp/runtime/.hla-node-provenance"
   mv "$install_tmp/runtime" "$ROOT/.tooling/node-v20.20.1-linux-x64"
   rm -f "$install_tmp/$archive_name"
   rmdir "$install_tmp"

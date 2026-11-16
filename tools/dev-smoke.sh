@@ -4,11 +4,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=tools/dev-env.sh
 source "$ROOT/tools/dev-env.sh"
+source "$ROOT/tools/dev-smoke-process.sh"
 dev_prepare_env "$ROOT"
 dev_require_python_env "$ROOT"
 [[ -x "$ROOT/apps/web/frontend/node_modules/.bin/next" ]] \
   || dev_fail "frontend dependencies are missing; run 'make dev-setup'"
-command -v setsid >/dev/null 2>&1 || dev_fail "setsid is required to clean up the smoke server and its Node child"
+command -v setsid >/dev/null 2>&1 || dev_fail "setsid is required to isolate the smoke server process group"
+command -v ps >/dev/null 2>&1 || dev_fail "ps is required to verify smoke server process cleanup"
 
 cd "$ROOT"
 PORT="$(.venv/bin/python - <<'PY'
@@ -21,18 +23,33 @@ PY
 )"
 BASE_URL="http://127.0.0.1:$PORT"
 LOG="$(mktemp)"
+SMOKE_HOME="$ROOT/.tooling/smoke-home"
+SMOKE_TMPDIR="$ROOT/.tooling/smoke-tmp"
+mkdir -p "$SMOKE_HOME" "$SMOKE_TMPDIR"
 server_pid=""
-cleanup() {
-  if [[ -n "$server_pid" ]]; then
-    kill -- "-$server_pid" 2>/dev/null || true
-    wait "$server_pid" 2>/dev/null || true
+backend_pid=""
+BACKEND_LOG="$(mktemp)"
+BACKEND_ENDPOINT_FILE="$SMOKE_TMPDIR/backend-endpoint-$$"
+dev_smoke_install_traps
+
+dev_smoke_launch "$ROOT" "$SMOKE_HOME" "$SMOKE_TMPDIR" \
+  http://127.0.0.1:1 .venv/bin/python tools/dev-smoke-backend-stub.py "$BACKEND_ENDPOINT_FILE" \
+  >"$BACKEND_LOG" 2>&1 &
+backend_pid=$!
+for attempt in $(seq 1 50); do
+  [[ -s "$BACKEND_ENDPOINT_FILE" ]] && break
+  if ! kill -0 "$backend_pid" 2>/dev/null; then
+    cat "$BACKEND_LOG" >&2
+    dev_fail "synthetic smoke backend stub exited before binding loopback"
   fi
-  rm -f "$LOG"
-}
-trap cleanup EXIT
+  sleep 0.1
+done
+[[ -s "$BACKEND_ENDPOINT_FILE" ]] || { cat "$BACKEND_LOG" >&2; dev_fail "synthetic smoke backend did not bind loopback"; }
+SMOKE_API_BASE_URL="http://127.0.0.1:$(<"$BACKEND_ENDPOINT_FILE")"
 
 printf 'Building existing standalone web target...\n'
-npm --prefix apps/web/frontend run build
+dev_smoke_env "$SMOKE_HOME" "$SMOKE_TMPDIR" "$SMOKE_API_BASE_URL" \
+  npm --prefix apps/web/frontend run build
 standalone="apps/web/frontend/.next/standalone"
 [[ -f "$standalone/server.js" ]] || dev_fail "Next.js build did not create the standalone server"
 mkdir -p "$standalone/.next"
@@ -40,9 +57,8 @@ rm -rf "$standalone/.next/static" "$standalone/public"
 cp -R apps/web/frontend/.next/static "$standalone/.next/static"
 cp -R apps/web/frontend/public "$standalone/public"
 
-setsid env \
-  HOMELAB_ANALYTICS_WEB_HOST=127.0.0.1 \
-  HOMELAB_ANALYTICS_WEB_PORT="$PORT" \
+dev_smoke_launch "$ROOT" "$SMOKE_HOME" "$SMOKE_TMPDIR" "$SMOKE_API_BASE_URL" \
+  env HOMELAB_ANALYTICS_WEB_HOST=127.0.0.1 HOMELAB_ANALYTICS_WEB_PORT="$PORT" \
   .venv/bin/python -m apps.web.main >"$LOG" 2>&1 &
 server_pid=$!
 ready=0

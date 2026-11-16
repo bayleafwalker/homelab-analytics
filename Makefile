@@ -76,13 +76,13 @@ hooks-install:
 
 # Reproducible, checkout-owned development environment and focused checks.
 dev-setup:
-	@./tools/dev-setup.sh
+	@bash ./tools/dev-setup.sh
 
 dev-check:
-	@./tools/dev-check.sh
+	@bash ./tools/dev-check.sh
 
 dev-smoke:
-	@./tools/dev-smoke.sh
+	@bash ./tools/dev-smoke.sh
 
 lint:
 	$(RUFF) check .
