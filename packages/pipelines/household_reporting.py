@@ -156,6 +156,7 @@ from packages.domains.utilities.pipelines.utility_models import (
     MART_USAGE_VS_PRICE_SUMMARY_COLUMNS,
     MART_USAGE_VS_PRICE_SUMMARY_TABLE,
     MART_UTILITY_COST_SUMMARY_COLUMNS,
+    MART_UTILITY_COST_SUMMARY_STORAGE_COLUMNS,
     MART_UTILITY_COST_SUMMARY_TABLE,
     MART_UTILITY_COST_TREND_MONTHLY_COLUMNS,
     MART_UTILITY_COST_TREND_MONTHLY_TABLE,
@@ -173,6 +174,7 @@ class PublicationRelation:
     columns: list[tuple[str, str]]
     order_by: str
     source_query: str | None = None
+    storage_columns: list[tuple[str, str]] | None = None
 
 
 def _current_dimension_columns(defn: DimensionDefinition) -> list[tuple[str, str]]:
@@ -248,6 +250,9 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         relation_name=MART_UTILITY_COST_SUMMARY_TABLE,
         columns=MART_UTILITY_COST_SUMMARY_COLUMNS,
         order_by="period_start, meter_id, currency",
+        # Publish the observation map for store-local rollups, without
+        # exposing its keys or values through the public relation contract.
+        storage_columns=MART_UTILITY_COST_SUMMARY_STORAGE_COLUMNS,
     ),
     MART_UTILITY_COST_TREND_MONTHLY_TABLE: PublicationRelation(
         relation_name=MART_UTILITY_COST_TREND_MONTHLY_TABLE,

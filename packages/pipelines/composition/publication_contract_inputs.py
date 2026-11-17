@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-from packages.domains.utilities.pipelines.utility_models import MART_UTILITY_COST_SUMMARY_TABLE
 from packages.pipelines.composition.current_dimension_contracts import (
     CURRENT_DIMENSION_CONTRACTS,
 )
@@ -32,18 +31,8 @@ class PublicationContractRegistrations:
     ]
 
 
-# The usage observation map is transported to the published store for exact
-# period rollups. Only the aggregate fields belong in the public contract.
-_utility_storage_relation = PUBLICATION_RELATIONS[MART_UTILITY_COST_SUMMARY_TABLE]
-_utility_public_relation = replace(
-    _utility_storage_relation,
-    columns=[column for column in _utility_storage_relation.columns if column[0] != "usage_observations"],
-)
 HOUSEHOLD_PUBLICATION_CONTRACT_REGISTRATIONS = PublicationContractRegistrations(
-    publication_relations={
-        **PUBLICATION_RELATIONS,
-        MART_UTILITY_COST_SUMMARY_TABLE: _utility_public_relation,
-    },
+    publication_relations=PUBLICATION_RELATIONS,
     current_dimension_relations=CURRENT_DIMENSION_RELATIONS,
     current_dimension_contracts=CURRENT_DIMENSION_CONTRACTS,
 )

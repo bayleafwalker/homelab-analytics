@@ -1442,7 +1442,7 @@ class ReportingService:
         rows = self._rows_from_relation_source(relation)
         self._publication_store.replace_rows(
             relation.relation_name,
-            relation.columns,
+            relation.storage_columns if relation.storage_columns is not None else relation.columns,
             rows,
         )
 

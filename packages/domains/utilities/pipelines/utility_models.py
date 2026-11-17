@@ -71,6 +71,10 @@ MART_UTILITY_COST_SUMMARY_COLUMNS: list[tuple[str, str]] = [
     ("bill_count", "INTEGER NOT NULL"),
     ("usage_record_count", "INTEGER NOT NULL"),
     ("coverage_status", "VARCHAR NOT NULL"),
+]
+
+MART_UTILITY_COST_SUMMARY_STORAGE_COLUMNS = [
+    *MART_UTILITY_COST_SUMMARY_COLUMNS,
     ("usage_observations", "VARCHAR"),
 ]
 
