@@ -111,3 +111,53 @@ def test_materializer_refuses_foreign_font_output_before_copy(tmp_path: Path) ->
     assert "contains a symlink" in result.stderr
     assert sentinel.read_text() == "untouched\n"
     assert list(foreign.iterdir()) == [sentinel]
+
+
+def test_materialized_verification_rejects_and_setup_cleans_unbound_inputs(tmp_path: Path) -> None:
+    helper, assets = _fixture(tmp_path)
+
+    def run(*args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, str(helper), *args],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    assert run("materialize", str(assets)).returncode == 0
+    font_extra = tmp_path / ".tooling/playwright-fonts/truetype/test/Unbound.ttf"
+    rule_extra = tmp_path / ".tooling/playwright-fontconfig/conf.d/99-unbound.conf"
+    home_extra = tmp_path / ".tooling/playwright-home/.fonts.conf"
+    xdg_extra = tmp_path / ".tooling/playwright-xdg-config/fontconfig/fonts.conf"
+    font_extra.write_bytes(b"unbound font")
+    rule_extra.write_text('<fontconfig><dir>/tmp/ambient-host-fonts</dir></fontconfig>\n')
+    home_extra.write_text('<fontconfig><dir>/tmp/ambient-home-fonts</dir></fontconfig>\n')
+    xdg_extra.parent.mkdir(parents=True)
+    xdg_extra.write_text('<fontconfig><dir>/tmp/ambient-xdg-fonts</dir></fontconfig>\n')
+    assert run("materialized-matches").returncode != 0
+
+    assert run("materialize", str(assets)).returncode == 0
+    assert run("materialized-matches").returncode == 0
+    assert not font_extra.exists()
+    assert not rule_extra.exists()
+    assert not home_extra.exists()
+    assert not xdg_extra.exists()
+
+
+def test_materialized_provenance_binds_its_generator(tmp_path: Path) -> None:
+    helper, assets = _fixture(tmp_path)
+    result = subprocess.run(
+        [sys.executable, str(helper), "materialize", str(assets)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    helper.write_text(helper.read_text() + "\n# changed materializer\n")
+    result = subprocess.run(
+        [sys.executable, str(helper), "materialized-matches"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode != 0

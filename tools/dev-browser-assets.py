@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
 import sys
@@ -55,6 +56,17 @@ def ensure_checkout_file(path: Path) -> None:
         raise SystemExit(f"checkout-owned browser asset path is not a regular file: {path}")
 
 
+def clear_checkout_directory(path: Path) -> None:
+    ensure_checkout_directory(path)
+    for child in path.iterdir():
+        if child.is_symlink() or child.is_file():
+            child.unlink()
+        elif child.is_dir():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
+
+
 def verify_checkout_file(path: Path, expected: str) -> bool:
     try:
         ensure_checkout_file(path)
@@ -96,8 +108,13 @@ def materialize_sources(
     config_target = ROOT / ".tooling/playwright-fontconfig"
     rules_target = config_target / "conf.d"
     cache_target = ROOT / ".tooling/fontconfig-cache"
-    for directory in (fonts_target, rules_target, cache_target):
+    home_target = ROOT / ".tooling/playwright-home"
+    xdg_target = ROOT / ".tooling/playwright-xdg-config"
+    for directory in (fonts_target, config_target, cache_target, home_target, xdg_target):
         ensure_checkout_directory(directory)
+    for directory in (fonts_target, config_target, home_target, xdg_target):
+        clear_checkout_directory(directory)
+    ensure_checkout_directory(rules_target)
 
     ignored = set(data["generated_metadata"])
     for entry in data["fonts"]:
@@ -142,6 +159,7 @@ def materialize_sources(
     config_path.write_text(config)
     provenance = {
         "manifest_sha256": sha256(MANIFEST),
+        "materializer_sha256": sha256(Path(__file__).resolve()),
         "base_config_sha256": data["base_config_sha256"],
         "materialized_config_sha256": sha256(config_path),
         "font_payload_count": len(data["fonts"]) - len(ignored),
@@ -179,6 +197,9 @@ def materialized_matches() -> bool:
     config_target = ROOT / ".tooling/playwright-fontconfig"
     provenance_path = config_target / ".hla-assets-provenance.json"
     config_path = config_target / "fonts.conf"
+    rules_target = config_target / "conf.d"
+    home_target = ROOT / ".tooling/playwright-home"
+    xdg_target = ROOT / ".tooling/playwright-xdg-config"
     try:
         ensure_checkout_file(provenance_path)
         ensure_checkout_file(config_path)
@@ -192,9 +213,21 @@ def materialized_matches() -> bool:
         return False
     if provenance.get("manifest_sha256") != sha256(MANIFEST):
         return False
+    if provenance.get("materializer_sha256") != sha256(Path(__file__).resolve()):
+        return False
     if provenance.get("materialized_config_sha256") != sha256(config_path):
         return False
     ignored = set(data["generated_metadata"])
+    expected_fonts = {entry["path"] for entry in data["fonts"] if entry["path"] not in ignored}
+    if directory_files(fonts_target) != expected_fonts:
+        return False
+    expected_rules = {rule["name"] for rule in data["rules"]}
+    if directory_files(rules_target) != expected_rules:
+        return False
+    if directory_entries(config_target) != {"fonts.conf", ".hla-assets-provenance.json", "conf.d"}:
+        return False
+    if directory_entries(home_target) or directory_entries(xdg_target):
+        return False
     for entry in data["fonts"]:
         if entry["path"] in ignored:
             continue
@@ -204,6 +237,36 @@ def materialized_matches() -> bool:
         if not verify_checkout_file(config_target / "conf.d" / rule["name"], rule["sha256"]):
             return False
     return True
+
+
+def directory_entries(path: Path) -> set[str] | None:
+    try:
+        if path.is_symlink() or not path.is_dir():
+            return None
+        if any(child.is_symlink() for child in path.iterdir()):
+            return None
+        return {child.name for child in path.iterdir()}
+    except OSError:
+        return None
+
+
+def directory_files(path: Path) -> set[str] | None:
+    entries: set[str] = set()
+    try:
+        if path.is_symlink() or not path.is_dir():
+            return None
+        for current, directories, files in os.walk(path, followlinks=False):
+            current_path = Path(current)
+            if any((current_path / name).is_symlink() for name in directories):
+                return None
+            for name in files:
+                file_path = current_path / name
+                if file_path.is_symlink() or not file_path.is_file():
+                    return None
+                entries.add(file_path.relative_to(path).as_posix())
+    except OSError:
+        return None
+    return entries
 
 
 if __name__ == "__main__":

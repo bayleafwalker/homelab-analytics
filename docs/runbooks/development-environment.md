@@ -31,9 +31,11 @@ generated metadata and are not part of Chromium's Fontconfig font lookup. The
 runtime output link keeps the Nix library closure alive; provenance binds the
 flake, lockfile, and asset manifest. No host packages or system configuration
 are changed. On Linux systems that already contain the exact verified font and
-rule bytes, the host assets are used directly. `make web-ui-test` checks the
-browser and runs a launch, page, and close preflight before starting the full UI
-suite.
+rule bytes, the host assets are used directly. UI checks use checkout-owned
+`HOME` and `XDG_CONFIG_HOME` directories and reject extra font or rule files, so
+per-user Fontconfig settings cannot change font selection. `make web-ui-test`
+checks the browser and runs a launch, page, and close preflight before starting
+the full UI suite.
 
 After setup, focused development checks run independently of the setup shell:
 

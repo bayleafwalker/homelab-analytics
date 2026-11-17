@@ -16,7 +16,7 @@ dev_browser_runtime_path() {
 
 dev_browser_runtime_fingerprint() {
   cat "$1/tools/dev-browser-runtime/flake.nix" "$1/tools/dev-browser-runtime/flake.lock" \
-    "$1/tools/dev-browser-assets.json" \
+    "$1/tools/dev-browser-assets.json" "$1/tools/dev-browser-assets.py" \
     | sha256sum | awk '{print $1}'
 }
 
@@ -213,4 +213,7 @@ dev_prepare_browser_env() {
   export FONTCONFIG_FILE="$root/.tooling/playwright-fontconfig/fonts.conf"
   export FONTCONFIG_PATH="$root/.tooling/playwright-fontconfig"
   export XDG_CACHE_HOME="$root/.tooling/fontconfig-cache"
+  export XDG_CONFIG_HOME="$root/.tooling/playwright-xdg-config"
+  export HOME="$root/.tooling/playwright-home"
+  unset FONTCONFIG_SYSROOT
 }
