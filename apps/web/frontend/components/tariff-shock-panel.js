@@ -138,19 +138,21 @@ export function TariffShockPanel() {
                 </div>
                 <div className="metaItem">
                   <div className="metricLabel">Baseline utility cost</div>
-                  <div className="metricValue">{fmt(result.baseline_monthly_utility_cost)}</div>
+                  <div className="metricValue">
+                    {fmt(result.baseline_monthly_utility_cost)} {result.currency || ""}
+                  </div>
                 </div>
                 <div className="metaItem">
                   <div className="metricLabel">New utility cost</div>
                   <div className={`metricValue ${isIncrease ? "status-failed" : ""}`}>
-                    {fmt(result.new_monthly_utility_cost)}
+                    {fmt(result.new_monthly_utility_cost)} {result.currency || ""}
                   </div>
                 </div>
                 <div className="metaItem">
                   <div className="metricLabel">Annual additional cost</div>
                   <div className={`metricValue ${Number(result.annual_additional_cost) > 0 ? "status-failed" : ""}`}>
                     {Number(result.annual_additional_cost) > 0 ? "+" : ""}
-                    {fmt(result.annual_additional_cost)}
+                    {fmt(result.annual_additional_cost)} {result.currency || ""}
                   </div>
                 </div>
                 {result.months_until_deficit != null && (

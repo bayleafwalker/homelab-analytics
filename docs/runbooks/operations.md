@@ -182,6 +182,13 @@ Stores come from the usual `HOMELAB_ANALYTICS_ANALYTICS_DATABASE_PATH`,
 `HOMELAB_ANALYTICS_REPORTING_SCHEMA`. The command needs no control plane. Stop the API and
 worker first (DuckDB allows one writer).
 
+- **Machine-readable output contract:** `upgrade-reporting` writes **exactly one** JSON
+  completion object to stdout (parse it with `json.loads(stdout)`; no logs, banners or
+  trailing bytes), and its worker/runtime logs (and the refusal detail) go to **stderr**.
+  `--check` follows the same contract with `status: check_ok`. Ordinary worker commands are
+  unchanged: their logs stay on stdout. The exit code is the machine signal — `0` complete,
+  `1` failed part-way (`status: incomplete`), `2` refused (`status: refused`).
+
 - **Order:** preflight both stores, add columns to DuckDB (one transaction), rebuild marts from
   facts, add columns to PostgreSQL (one transaction; `ALTER` keeps owner, privileges and
   dependants), republish the rebuilt marts that exist, verify.

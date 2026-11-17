@@ -48,13 +48,16 @@ _RESERVED_LOG_FIELDS = {
 }
 
 
-def configure_logging(level: int = logging.INFO) -> None:
-    root = logging.getLogger()
-    if getattr(root, "_homelab_json_logging", False):
-        root.setLevel(level)
-        return
+def configure_logging(level: int = logging.INFO, *, stream: Any = None) -> None:
+    """Install (or redirect) root JSON logging.
 
-    handler = logging.StreamHandler(sys.stdout)
+    Logs default to stdout for ordinary observability. A machine-readable
+    command passes ``stream=sys.stderr`` so its stdout carries only a single
+    JSON result while worker/runtime logs stay on stderr.
+    """
+    root = logging.getLogger()
+    target = stream if stream is not None else sys.stdout
+    handler = logging.StreamHandler(target)
     handler.setFormatter(JsonLogFormatter())
     root.handlers.clear()
     root.addHandler(handler)

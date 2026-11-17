@@ -829,22 +829,36 @@ def _is_income_scenario_stale(store: DuckDBStore, scenario_id: str) -> bool:
     return baseline_run_id != current_run_id
 
 
-def get_baseline_cashflow(store: DuckDBStore) -> tuple[Decimal, Decimal]:
-    """Return (avg_income, avg_expense) from the last _LOOKUP_MONTHS months of cashflow."""
+def get_cashflow_currency(store: DuckDBStore) -> str:
+    """Return the single denomination of the cashflow mart, or raise.
+
+    A scenario projects one unitless baseline; blending denominations would
+    silently relabel the result, and no conversion is performed. A NULL
+    currency is no denomination, not another one.
+    """
     store.ensure_table(MART_MONTHLY_CASHFLOW_TABLE, MART_MONTHLY_CASHFLOW_COLUMNS)
     currencies = {
-        row[0]
+        str(row[0])
         for row in store.fetchall(
             f"SELECT DISTINCT currency FROM {MART_MONTHLY_CASHFLOW_TABLE}"
         )
+        if row[0]
     }
+    if not currencies:
+        raise ValueError(
+            "No cashflow data available. Load transactions before creating income scenarios."
+        )
     if len(currencies) > 1:
-        # A scenario projects one unitless baseline; blending denominations
-        # would silently relabel the result, and no conversion is performed.
         raise ValueError(
             "Income scenarios need a single denomination; cashflow holds "
-            + ", ".join(sorted(str(c) for c in currencies))
+            + ", ".join(sorted(currencies))
         )
+    return next(iter(currencies))
+
+
+def get_baseline_cashflow(store: DuckDBStore) -> tuple[Decimal, Decimal]:
+    """Return (avg_income, avg_expense) from the last _LOOKUP_MONTHS months of cashflow."""
+    get_cashflow_currency(store)
     rows = store.fetchall_dicts(
         f"SELECT income, expense FROM {MART_MONTHLY_CASHFLOW_TABLE}"
         " ORDER BY booking_month DESC"

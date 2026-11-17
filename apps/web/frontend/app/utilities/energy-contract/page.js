@@ -40,8 +40,8 @@ const VERDICT_COPY = {
   }
 };
 
-function eur(value) {
-  return value == null ? "missing" : `${value} EUR`;
+function money(value, currency) {
+  return value == null ? "missing" : `${value} ${currency || ""}`.trim();
 }
 
 function SubjectCard({ subject, decision, canDecide }) {
@@ -64,7 +64,9 @@ function SubjectCard({ subject, decision, canDecide }) {
         </article>
         <article className="panel metricCard">
           <div className="metricLabel">Estimated annual cost (current)</div>
-          <div className="metricValue">{eur(assessment.estimated_annual_cost_current_eur)}</div>
+          <div className="metricValue">
+            {money(assessment.estimated_annual_cost_current_eur, assessment.currency)}
+          </div>
           <div className="muted">
             Energy {assessment.energy_unit_price ?? "missing"} {assessment.currency}/
             {assessment.quantity_unit || "unit"} + base fee {assessment.monthly_base_fee ?? "0"}
@@ -74,11 +76,11 @@ function SubjectCard({ subject, decision, canDecide }) {
         <article className="panel metricCard">
           <div className="metricLabel">Best recorded alternative</div>
           <div className="metricValue">
-            {eur(assessment.estimated_annual_cost_best_alternative_eur)}
+            {money(assessment.estimated_annual_cost_best_alternative_eur, assessment.currency)}
           </div>
           <div className="muted">
             {assessment.best_alternative_provider || "none"} · difference{" "}
-            {eur(assessment.estimated_annual_difference_eur)} per year (
+            {money(assessment.estimated_annual_difference_eur, assessment.currency)} per year (
             {disclosures.estimated_annual_difference_eur}).
           </div>
         </article>

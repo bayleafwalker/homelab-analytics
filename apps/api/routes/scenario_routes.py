@@ -328,6 +328,7 @@ def register_scenario_routes(
             "baseline_monthly_utility_cost": str(result.baseline_monthly_utility_cost),
             "new_monthly_utility_cost": str(result.new_monthly_utility_cost),
             "annual_additional_cost": str(result.annual_additional_cost),
+            "currency": result.currency,
             "months_until_deficit": result.months_until_deficit,
             "is_stale": result.is_stale,
             "assumptions_summary": assumptions_summary,

@@ -80,6 +80,10 @@ _REMEDIATION: dict[str, str] = {
     "currency_or_unit_mismatch": (
         "Record alternatives in the same currency and quantity unit as the current contract."
     ),
+    "base_fee_currency_mismatch": (
+        "Record the base fee in the same currency as the energy price component so the "
+        "annual cost is a single denomination."
+    ),
     "usage_history_incomplete": (
         f"Land at least {ENERGY_CONTRACT_MIN_USAGE_MONTHS} months of electricity bills or "
         "usage so annual cost can be estimated across seasons."
@@ -258,6 +262,15 @@ def assess_energy_contract_review(
         reasons.append("contract_not_active")
     if contract_rows and current["energy_unit_price"] is None:
         reasons.append("energy_price_missing")
+    if (
+        contract_rows
+        and current["energy_unit_price"] is not None
+        and current["base_fee_currency"] is not None
+        and current["base_fee_currency"] != current["currency"]
+    ):
+        # The contract's own terms span two denominations; no single-currency
+        # annual estimate exists and the difference must not blend them.
+        reasons.append("base_fee_currency_mismatch")
 
     alternatives_by_id: dict[str, list[Mapping[str, Any]]] = {}
     for row in price_rows:
@@ -271,6 +284,7 @@ def assess_energy_contract_review(
         if alt["energy_unit_price"] is not None
         and alt["currency"] == current["currency"]
         and alt["quantity_unit"] == current["quantity_unit"]
+        and alt["base_fee_currency"] in (None, alt["currency"])
     ]
     if contract_rows and not alternatives:
         reasons.append("no_comparable_alternative")
@@ -392,11 +406,13 @@ def assess_energy_contract_review(
 
 
 def energy_contract_baseline(assessment: Mapping[str, Any]) -> dict[str, Any]:
+    currency = assessment.get("currency")
+    unit = f"{currency}/year" if currency else "currency/year"
     return {
         key: {
             "value": assessment.get(key),
             "status": "estimated",
-            "unit": "EUR/year",
+            "unit": unit,
             "is_missing": assessment.get(key) is None,
         }
         for key in ENERGY_CONTRACT_BASELINE_VALUE_KEYS
@@ -438,6 +454,7 @@ def _contract_terms(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "quantity_unit": energy.get("quantity_unit") if energy else None,
         "energy_unit_price": _decimal(energy.get("unit_price")) if energy else None,
         "monthly_base_fee": _decimal(base_fee.get("unit_price")) if base_fee else Decimal(0),
+        "base_fee_currency": base_fee.get("currency") if base_fee else None,
     }
 
 

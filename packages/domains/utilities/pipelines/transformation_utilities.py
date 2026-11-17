@@ -491,39 +491,21 @@ def refresh_utility_cost_trend_monthly(store: DuckDBStore) -> int:
         INSERT INTO {MART_UTILITY_COST_TREND_MONTHLY_TABLE}
             (billing_month, utility_type, total_cost, usage_amount,
              unit_price_effective, currency, meter_count)
-        WITH currency_scope AS (
-            SELECT period_month, utility_type,
-                   COUNT(DISTINCT currency) AS currency_count,
-                   MIN(currency) AS only_currency
-            FROM {MART_UTILITY_COST_SUMMARY_TABLE}
-            GROUP BY period_month, utility_type
-        ),
-        scoped AS (
-            SELECT s.*,
-                   COALESCE(
-                       s.currency,
-                       CASE WHEN c.currency_count = 1 THEN c.only_currency END
-                   ) AS group_currency
-            FROM {MART_UTILITY_COST_SUMMARY_TABLE} s
-            JOIN currency_scope c
-              ON c.period_month = s.period_month
-             AND c.utility_type = s.utility_type
-        )
         SELECT
             period_month                                AS billing_month,
             utility_type,
             SUM(billed_amount)                          AS total_cost,
             SUM(usage_quantity)                         AS usage_amount,
             CASE
-                WHEN SUM(usage_quantity) > 0
+                WHEN currency IS NOT NULL AND SUM(usage_quantity) > 0
                 THEN CAST(ROUND(SUM(billed_amount) / SUM(usage_quantity), 4) AS DECIMAL(18,4))
                 ELSE NULL
             END                                         AS unit_price_effective,
-            group_currency                              AS currency,
+            currency                                    AS currency,
             COUNT(DISTINCT meter_id)                    AS meter_count
-        FROM scoped
-        GROUP BY period_month, utility_type, group_currency
-        ORDER BY period_month, utility_type, group_currency
+        FROM {MART_UTILITY_COST_SUMMARY_TABLE}
+        GROUP BY period_month, utility_type, currency
+        ORDER BY period_month, utility_type, currency
         """
     )
     return store.fetchall(
@@ -556,55 +538,37 @@ def refresh_usage_vs_price_summary(store: DuckDBStore) -> int:
         INSERT INTO {MART_USAGE_VS_PRICE_SUMMARY_TABLE}
             (utility_type, period, usage_change_pct, price_change_pct,
              cost_change_pct, dominant_driver, currency)
-        WITH currency_scope AS (
-            SELECT period_month, utility_type,
-                   COUNT(DISTINCT currency) AS currency_count,
-                   MIN(currency) AS only_currency
-            FROM {MART_UTILITY_COST_SUMMARY_TABLE}
-            GROUP BY period_month, utility_type
-        ),
-        scoped AS (
-            SELECT s.*,
-                   COALESCE(
-                       s.currency,
-                       CASE WHEN c.currency_count = 1 THEN c.only_currency END
-                   ) AS group_currency
-            FROM {MART_UTILITY_COST_SUMMARY_TABLE} s
-            JOIN currency_scope c
-              ON c.period_month = s.period_month
-             AND c.utility_type = s.utility_type
-        ),
-        monthly_agg AS (
+        WITH monthly_agg AS (
             SELECT
                 period_month,
                 utility_type,
-                group_currency,
+                currency,
                 SUM(usage_quantity)  AS usage_amount,
                 SUM(billed_amount)   AS total_cost,
                 CASE
-                    WHEN SUM(usage_quantity) > 0
+                    WHEN currency IS NOT NULL AND SUM(usage_quantity) > 0
                     THEN SUM(billed_amount) / SUM(usage_quantity)
                     ELSE NULL
                 END AS unit_price
-            FROM scoped
-            GROUP BY period_month, utility_type, group_currency
+            FROM {MART_UTILITY_COST_SUMMARY_TABLE}
+            GROUP BY period_month, utility_type, currency
         ),
         with_prev AS (
             SELECT
                 period_month,
                 utility_type,
-                group_currency,
+                currency,
                 usage_amount,
                 total_cost,
                 unit_price,
                 LAG(usage_amount) OVER (
-                    PARTITION BY utility_type, group_currency ORDER BY period_month
+                    PARTITION BY utility_type, currency ORDER BY period_month
                 ) AS prev_usage,
                 LAG(total_cost) OVER (
-                    PARTITION BY utility_type, group_currency ORDER BY period_month
+                    PARTITION BY utility_type, currency ORDER BY period_month
                 ) AS prev_cost,
                 LAG(unit_price) OVER (
-                    PARTITION BY utility_type, group_currency ORDER BY period_month
+                    PARTITION BY utility_type, currency ORDER BY period_month
                 ) AS prev_unit_price
             FROM monthly_agg
         )
@@ -635,10 +599,10 @@ def refresh_usage_vs_price_summary(store: DuckDBStore) -> int:
                 WHEN prev_usage IS NOT NULL AND prev_usage > 0 THEN 'usage'
                 ELSE 'unknown'
             END AS dominant_driver,
-            group_currency AS currency
+            currency AS currency
         FROM with_prev
         WHERE prev_usage IS NOT NULL
-        ORDER BY utility_type, period, group_currency
+        ORDER BY utility_type, period, currency
         """
     )
     return store.fetchall(

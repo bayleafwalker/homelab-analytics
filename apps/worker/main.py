@@ -32,13 +32,20 @@ def main(
     stderr: TextIO | None = None,
     settings: AppSettings | None = None,
 ) -> int:
-    configure_logging()
-    logger = logging.getLogger("homelab_analytics.worker")
     output = stdout or sys.stdout
     error_output = stderr or sys.stderr
-    resolved_settings = settings or AppSettings.from_env()
     parser = _build_parser()
     args = parser.parse_args(argv)
+    # ``upgrade-reporting`` is a machine-readable maintenance command: its
+    # stdout carries exactly one completion JSON object, so worker/runtime logs
+    # go to stderr for this command only. Ordinary commands keep logs on
+    # stdout for normal observability.
+    if args.command == "upgrade-reporting":
+        configure_logging(stream=error_output)
+    else:
+        configure_logging()
+    logger = logging.getLogger("homelab_analytics.worker")
+    resolved_settings = settings or AppSettings.from_env()
     logger.info("worker command starting", extra={"command": args.command})
     try:
         settings_exit_code = dispatch_settings_command(

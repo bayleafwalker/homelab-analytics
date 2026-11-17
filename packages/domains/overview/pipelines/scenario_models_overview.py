@@ -24,6 +24,8 @@ class TariffShockResult:
     annual_additional_cost: Decimal
     months_until_deficit: int | None
     is_stale: bool
+    # ISO 4217 code of the (single) denomination the scenario was computed in.
+    currency: str
     assumptions_summary: list[SourceFreshnessSummary] | None = None
 
 

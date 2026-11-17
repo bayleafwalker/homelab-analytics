@@ -133,7 +133,9 @@ def test_first_invocation_reports_full_completion(tmp_path: Path) -> None:
 
     receipt = json.loads(stdout.getvalue())
     assert code == 0, (stderr.getvalue(), receipt)
-    assert stderr.getvalue() == ""
+    # stdout is exactly one completion JSON object; the worker start log is on
+    # stderr for this machine-readable command (never mixed into stdout).
+    assert "worker command starting" in stderr.getvalue()
     assert receipt["status"] == "complete" and receipt["phase"] == "done"
     assert receipt["facts"]["before"] == receipt["facts"]["after"]
     assert "mart_monthly_cashflow" in receipt["rebuilt_marts"]
