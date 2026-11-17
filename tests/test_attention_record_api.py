@@ -105,6 +105,12 @@ class DuckPublicationStore:
         )
         return bool(rows)
 
+    def column_names(self, table_name: str) -> list[str]:
+        if not self.table_exists(table_name):
+            return []
+        rows = self.store.fetchall(f"PRAGMA table_info('{table_name}')")
+        return [str(row[1]) for row in rows]
+
     def ensure_table(self, table_name: str, columns: list[tuple[str, str]]) -> None:
         self.store.ensure_table(table_name, columns)
 

@@ -29,6 +29,7 @@ from packages.domains.finance.pipelines.scenario_service import (
     attach_projection_assumption_sets,
     ensure_scenario_storage,
     get_baseline_cashflow,
+    get_cashflow_currency,
     get_latest_transaction_run_id,
     get_scenario,
 )
@@ -45,6 +46,7 @@ from packages.domains.utilities.pipelines.utility_models import (
     KNOWN_UTILITY_TYPES,
     MART_UTILITY_COST_TREND_MONTHLY_TABLE,
 )
+from packages.pipelines.normalization import normalize_currency_code
 from packages.storage.duckdb_store import DuckDBStore
 
 _DEFAULT_PROJECTION_MONTHS = 12
@@ -459,38 +461,72 @@ def _get_latest_utility_snapshot_signature(
     *,
     utility_type: str,
 ) -> str | None:
-    rows = store.fetchall_dicts(
-        f"SELECT billing_month, total_cost, usage_amount, meter_count"
-        f" FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}"
+    month_rows = store.fetchall_dicts(
+        f"SELECT billing_month FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}"
         " WHERE utility_type = ?"
         " ORDER BY billing_month DESC LIMIT 1",
         [utility_type],
     )
-    if not rows:
+    if not month_rows:
         return None
-    row = rows[0]
-    return (
-        f"{row.get('billing_month')}|{row.get('total_cost')}|"
+    latest_month = month_rows[0]["billing_month"]
+    # Include every denomination of the latest month (ordered) so a change to
+    # any currency marks the scenario stale; never reduce a month to one row.
+    rows = store.fetchall_dicts(
+        f"SELECT billing_month, total_cost, usage_amount, meter_count, currency"
+        f" FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}"
+        " WHERE utility_type = ? AND billing_month = ?"
+        " ORDER BY currency",
+        [utility_type, latest_month],
+    )
+    return "|".join(
+        f"{row.get('billing_month')}|{row.get('currency')}|{row.get('total_cost')}|"
         f"{row.get('usage_amount')}|{row.get('meter_count')}"
+        for row in rows
     )
 
 
-def _get_latest_utility_monthly_cost(
+def _get_latest_utility_cost_and_currency(
     store: DuckDBStore,
     *,
     utility_type: str,
-) -> Decimal:
-    rows = store.fetchall_dicts(
-        f"SELECT total_cost FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}"
+) -> tuple[Decimal, str]:
+    """The latest month's billed utility cost and its single denomination.
+
+    A usage-only month (rows with no currency) is not a monetary observation,
+    so it is refused rather than treated as a zero bill. Several denominations
+    in the latest month are refused rather than blended or arbitrarily reduced
+    to one row. An observed zero bill keeps its currency and returns zero.
+    """
+    month_rows = store.fetchall_dicts(
+        f"SELECT billing_month FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}"
         " WHERE utility_type = ?"
         " ORDER BY billing_month DESC LIMIT 1",
         [utility_type],
     )
-    if not rows:
+    if not month_rows:
         raise ValueError(
             f"No utility trend data available for utility_type={utility_type!r}."
         )
-    return Decimal(str(rows[0]["total_cost"]))
+    latest_month = month_rows[0]["billing_month"]
+    rows = store.fetchall_dicts(
+        f"SELECT total_cost, currency FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}"
+        " WHERE utility_type = ? AND billing_month = ?",
+        [utility_type, latest_month],
+    )
+    billed = [row for row in rows if row.get("currency")]
+    if not billed:
+        raise ValueError(
+            f"No billed utility cost for utility_type={utility_type!r}; usage "
+            "without a bill is not a monetary observation."
+        )
+    currencies = {str(row["currency"]) for row in billed}
+    if len(currencies) > 1:
+        raise ValueError(
+            f"Tariff shock needs a single denomination for utility_type={utility_type!r}; "
+            f"cost holds {', '.join(sorted(currencies))}."
+        )
+    return Decimal(str(billed[0]["total_cost"])), next(iter(currencies))
 
 
 def _is_tariff_scenario_stale(
@@ -531,10 +567,16 @@ def create_tariff_shock_scenario(
     ensure_scenario_storage(store)
 
     baseline_income, baseline_expense = get_baseline_cashflow(store)
-    baseline_utility_cost = _get_latest_utility_monthly_cost(
+    cashflow_currency = get_cashflow_currency(store)
+    baseline_utility_cost, utility_currency = _get_latest_utility_cost_and_currency(
         store,
         utility_type=utility_type,
     )
+    if utility_currency != cashflow_currency:
+        raise ValueError(
+            f"Tariff shock cannot combine a {cashflow_currency} cashflow baseline with "
+            f"a {utility_currency} utility cost; no conversion is performed."
+        )
     new_monthly_utility_cost = baseline_utility_cost * (1 + tariff_pct_delta)
     utility_delta = new_monthly_utility_cost - baseline_utility_cost
     new_monthly_expense = baseline_expense + utility_delta
@@ -571,7 +613,7 @@ def create_tariff_shock_scenario(
             "assumption_key": "baseline_utility_cost",
             "baseline_value": str(baseline_utility_cost.quantize(q)),
             "override_value": str(new_monthly_utility_cost.quantize(q)),
-            "unit": "currency",
+            "unit": utility_currency,
         },
     ])
 
@@ -600,7 +642,31 @@ def create_tariff_shock_scenario(
         annual_additional_cost=(utility_delta * 12).quantize(q),
         months_until_deficit=months_until_deficit,
         is_stale=False,
+        currency=utility_currency,
     )
+
+
+def _tariff_shock_currency(store: DuckDBStore, scenario_id: str) -> str | None:
+    """The recorded denomination of a tariff-shock scenario, or None if absent.
+
+    A scenario persisted without a concrete single currency (for example an
+    older build that wrote the generic ``"currency"`` token, or a blended
+    projection) has no usable denomination and its comparison is unavailable.
+    """
+    rows = store.fetchall_dicts(
+        f"SELECT unit FROM {FACT_SCENARIO_ASSUMPTION_TABLE} "
+        "WHERE scenario_id = ? AND assumption_key = 'baseline_utility_cost'",
+        [scenario_id],
+    )
+    if not rows:
+        return None
+    unit = rows[0].get("unit")
+    if not unit:
+        return None
+    try:
+        return normalize_currency_code(str(unit))
+    except ValueError:
+        return None
 
 
 def get_tariff_shock_comparison(
@@ -609,7 +675,18 @@ def get_tariff_shock_comparison(
     *,
     control_plane_store: Any | None = None,
 ) -> IncomeCashflowComparison | None:
-    """Return projected cashflow rows + assumptions for a tariff_shock scenario."""
+    """Return projected cashflow rows + assumptions for a tariff_shock scenario.
+
+    ``None`` means the scenario does not exist, is not a tariff shock, or was
+    persisted without a concrete single denomination: its household projection
+    cannot be truthfully compared, so it is unavailable rather than served as a
+    blended or unlabelled result.
+    """
+    scenario = get_scenario(store, scenario_id)
+    if scenario is None or scenario["scenario_type"] != "tariff_shock":
+        return None
+    if _tariff_shock_currency(store, scenario_id) is None:
+        return None
     return _get_income_cashflow_comparison_impl(
         store,
         scenario_id,

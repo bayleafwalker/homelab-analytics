@@ -35,31 +35,58 @@ export function OperatingPictureView({
   affordabilityRatios,
   topCategories,
   recentChanges,
+  // Money panels per currency: [{ currency, latestCashflow, heroSummary,
+  // netSeriesValues, netSeriesLabels, topCategories, affordabilityRatios }].
+  // Nothing is converted or summed across groups. When omitted the single-
+  // denomination props above are used as one group.
+  moneyGroups = null,
 }) {
+  const groups = moneyGroups ?? [
+    { currency: null, latestCashflow, heroSummary, netSeriesValues, netSeriesLabels, topCategories, affordabilityRatios },
+  ];
+  const labelled = groups.length > 1;
   return (
     <section className="stack">
-      {/* Hero: one big number, one trend, one summary */}
+      {/* Hero: one big number, one trend, one summary per currency */}
       <article className="panel section heroPicture">
         <div className="heroPictureCopy">
           <Eyebrow>{`Household Intelligence${monthLabel ? ` — ${monthLabel}` : ""}`}</Eyebrow>
-          <h1 className="heroNumber">
-            {latestCashflow ? (
-              <>
-                Net <NumMono>{formatMoney(latestCashflow.net)}</NumMono>
-              </>
-            ) : (
-              "No data"
-            )}
-          </h1>
-          {heroSummary && <p className="heroPictureSummary">{heroSummary}</p>}
+          {groups.map((group, index) => {
+            const Heading = index === 0 ? "h1" : "p";
+            return (
+              <React.Fragment key={group.currency || "none"}>
+                <Heading className="heroNumber">
+                  {group.latestCashflow ? (
+                    <>
+                      Net{labelled && group.currency ? ` (${group.currency})` : ""}{" "}
+                      <NumMono>{formatMoney(group.latestCashflow.net, group.currency || group.latestCashflow.currency)}</NumMono>
+                    </>
+                  ) : (
+                    "No data"
+                  )}
+                </Heading>
+                {group.heroSummary && <p className="heroPictureSummary">{group.heroSummary}</p>}
+              </React.Fragment>
+            );
+          })}
         </div>
-        {netSeriesValues && netSeriesValues.length > 0 && (
-          <div className="heroPictureSpark">
-            <div className="eyebrow" style={{ color: "var(--muted)" }}>
-              Cashflow · last {netSeriesValues.length} months
-            </div>
-            <Spark values={netSeriesValues} labels={netSeriesLabels} color="var(--accent)" width={280} height={80} />
-          </div>
+        {groups.map(
+          (group) =>
+            group.netSeriesValues &&
+            group.netSeriesValues.length > 0 && (
+              <div className="heroPictureSpark" key={group.currency || "none"}>
+                <div className="eyebrow" style={{ color: "var(--muted)" }}>
+                  Cashflow{labelled && group.currency ? ` (${group.currency})` : ""} · last {group.netSeriesValues.length} months
+                </div>
+                <Spark
+                  values={group.netSeriesValues}
+                  labels={group.netSeriesLabels}
+                  color="var(--accent)"
+                  width={280}
+                  height={80}
+                />
+              </div>
+            )
         )}
       </article>
 
@@ -133,16 +160,19 @@ export function OperatingPictureView({
           <article className="panel section">
             <Eyebrow>Affordability</Eyebrow>
             <div className="ratioList">
-              {affordabilityRatios.length === 0 ? (
+              {groups.every((g) => g.affordabilityRatios.length === 0) ? (
                 <div className="empty">No ratios yet.</div>
               ) : (
-                affordabilityRatios.slice(0, 4).map((r) => {
+                groups.flatMap((group) => group.affordabilityRatios.slice(0, 4).map((r) => {
                   const state = stateIndicatorBadge(r.state ?? r.assessment);
                   const pct = Number(r.ratio) * 100;
                   return (
-                    <div className="ratioRow" key={r.ratio_name}>
+                    <div className="ratioRow" key={`${r.ratio_name}-${group.currency || r.currency || "none"}`}>
                       <div className="ratioRowHead">
-                        <span>{r.ratio_name.replace(/_/g, " ")}</span>
+                        <span>
+                          {r.ratio_name.replace(/_/g, " ")}
+                          {labelled && group.currency ? ` (${group.currency})` : ""}
+                        </span>
                         <NumMono style={{ fontWeight: 700, color: state.color }}>
                           {pct.toFixed(1)}%
                         </NumMono>
@@ -155,27 +185,30 @@ export function OperatingPictureView({
                       </div>
                     </div>
                   );
-                })
+                }))
               )}
             </div>
           </article>
 
           <article className="panel section">
             <Eyebrow>Top categories{monthLabel ? ` · ${monthLabel}` : ""}</Eyebrow>
-            {topCategories.length === 0 ? (
+            {groups.every((g) => g.topCategories.length === 0) ? (
               <div className="empty">No category spend yet.</div>
             ) : (
-              <div className="categoryList">
-                {topCategories.map((c) => (
-                  <div className="categoryRow" key={c.category}>
-                    <span>{c.category}</span>
-                    <NumMono className="muted categoryDelta">
-                      {c.delta === 0 ? "·" : `${c.delta > 0 ? "▲" : "▼"} ${Math.abs(c.delta).toFixed(1)}%`}
-                    </NumMono>
-                    <NumMono style={{ fontWeight: 700 }}>{formatMoney(c.amount)}</NumMono>
-                  </div>
-                ))}
-              </div>
+              groups.map((group) => (
+                <div className="categoryList" key={group.currency || "none"}>
+                  {labelled && group.currency ? <div className="muted">{group.currency}</div> : null}
+                  {group.topCategories.map((c) => (
+                    <div className="categoryRow" key={c.category}>
+                      <span>{c.category}</span>
+                      <NumMono className="muted categoryDelta">
+                        {c.delta === 0 ? "·" : `${c.delta > 0 ? "▲" : "▼"} ${Math.abs(c.delta).toFixed(1)}%`}
+                      </NumMono>
+                      <NumMono style={{ fontWeight: 700 }}>{formatMoney(c.amount, group.currency)}</NumMono>
+                    </div>
+                  ))}
+                </div>
+              ))
             )}
           </article>
         </div>
@@ -196,8 +229,8 @@ export function OperatingPictureView({
                 <Pill tone="cool">{row.change_type}</Pill>
                 <span>{row.metric_name}</span>
                 <NumMono>
-                  {row.direction === "up" ? "▲" : "▼"} {formatMoney(row.current_value)}
-                  {row.previous_value != null && <span className="muted"> / {formatMoney(row.previous_value)}</span>}
+                  {row.direction === "up" ? "▲" : "▼"} {formatMoney(row.current_value, row.currency)}
+                  {row.previous_value != null && <span className="muted"> / {formatMoney(row.previous_value, row.currency)}</span>}
                 </NumMono>
                 <span className="muted">{row.booking_month || row.period_label || "—"}</span>
               </div>

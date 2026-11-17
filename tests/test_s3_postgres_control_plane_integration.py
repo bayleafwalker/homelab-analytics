@@ -126,6 +126,7 @@ def test_s3_landing_postgres_control_plane_and_postgres_publication_work_end_to_
                 "expense": Decimal("84.1500"),
                 "net": Decimal("2365.8500"),
                 "transaction_count": 2,
+                "currency": "EUR",
             }
         ]
 

@@ -2,10 +2,12 @@ import Link from "next/link";
 
 import { RetroShell } from "@/components/retro-shell";
 import { SparklineChart } from "@/components/sparkline-chart";
+import { splitByCurrency, sumField } from "@/lib/currency-groups";
+import { formatMoney } from "@/lib/format";
 import {
   getAttentionItems,
   getCurrentUser,
-  getHouseholdOverview,
+  getHouseholdOverviewRows,
   getMonthlyCashflow,
   getRecentChanges,
   getRecurringCostBaseline,
@@ -125,7 +127,7 @@ export default async function RetroDashboardPage() {
   const [
     discovery,
     cashflowRows,
-    overview,
+    overviewRows,
     attentionItems,
     recentChanges,
     runs,
@@ -135,7 +137,7 @@ export default async function RetroDashboardPage() {
   ] = await Promise.all([
     optionalPanelData(getWebRendererDiscovery(), EMPTY_DISCOVERY),
     optionalPanelData(getMonthlyCashflow(), []),
-    optionalPanelData(getHouseholdOverview(), null),
+    optionalPanelData(getHouseholdOverviewRows(), []),
     optionalPanelData(getAttentionItems(), []),
     optionalPanelData(getRecentChanges(), []),
     optionalPanelData(getRuns(6), []),
@@ -144,33 +146,32 @@ export default async function RetroDashboardPage() {
     optionalPanelData(getSubscriptionSummary(), []),
   ]);
   const modules = buildLauncherModules(discovery, user);
-  const latestCashflow = cashflowRows.at(-1);
-  const recurringTotal = subscriptions
-    .filter((row) => row.status === "active")
-    .reduce((sum, row) => sum + Number(row.monthly_equivalent || 0), 0);
-  const trendLabels = cashflowRows.slice(-12).map((row) => row.booking_month);
-  const trendSeries = [
-    {
-      label: "Income",
-      color: "var(--retro-ok)",
-      values: cashflowRows.slice(-12).map((row) => Number(row.income || 0)),
-    },
-    {
-      label: "Expense",
-      color: "var(--retro-warn)",
-      values: cashflowRows.slice(-12).map((row) => Number(row.expense || 0)),
-    },
-    {
-      label: "Net",
-      color: "var(--retro-accent)",
-      values: cashflowRows.slice(-12).map((row) => Number(row.net || 0)),
-    },
-  ];
-  const utilityMonths = [...new Set(utilityTrend.map((row) => row.billing_month))].sort();
-  const latestUtilityMonth = utilityMonths.at(-1);
-  const utilitySnapshot = utilityTrend
-    .filter((row) => row.billing_month === latestUtilityMonth)
-    .reduce((sum, row) => sum + Number(row.total_cost || 0), 0);
+  // Every figure stays inside its own currency (no conversion, no blending).
+  const latestMonth = [...new Set(cashflowRows.map((row) => row.booking_month))].sort().at(-1);
+  const amountsText = (amounts) => amounts.map((a) => formatMoney(a.value, a.currency)).join(" · ");
+  const recurringAmounts = splitByCurrency(subscriptions.filter((row) => row.status === "active")).map(
+    ({ currency, rows }) => ({ currency, value: sumField(rows, "monthly_equivalent") })
+  );
+  const trendCharts = splitByCurrency(cashflowRows).map(({ currency, rows }) => {
+    const recent = rows.slice(-12);
+    return {
+      currency,
+      labels: recent.map((row) => row.booking_month),
+      series: [
+        { label: "Income", color: "var(--retro-ok)", values: recent.map((row) => Number(row.income || 0)) },
+        { label: "Expense", color: "var(--retro-warn)", values: recent.map((row) => Number(row.expense || 0)) },
+        { label: "Net", color: "var(--retro-accent)", values: recent.map((row) => Number(row.net || 0)) },
+      ],
+    };
+  });
+  const utilityAmounts = splitByCurrency(utilityTrend.filter((row) => row.currency)).map(
+    ({ currency, rows }) => {
+      const months = [...new Set(rows.map((row) => row.billing_month))].sort();
+      const month = months.at(-1);
+      return { currency, month, value: sumField(rows.filter((row) => row.billing_month === month), "total_cost") };
+    }
+  );
+  const overviewWithCashflow = overviewRows.filter((row) => row.currency && row.cashflow_net != null);
 
   return (
     <RetroShell
@@ -183,25 +184,34 @@ export default async function RetroDashboardPage() {
       <section className="retroHero retroPanel">
         <div>
           <div className="retroEyebrow">Operating Picture</div>
-          <h2>{overview?.net != null ? `NET ${overview.net}` : "SIGNAL ACQUIRED"}</h2>
+          <h2>
+            {overviewWithCashflow.length > 0
+              ? `NET ${amountsText(overviewWithCashflow.map((row) => ({ value: row.cashflow_net, currency: row.currency })))}`
+              : "SIGNAL ACQUIRED"}
+          </h2>
           <p className="retroLede">
-            {overview?.income != null && overview?.expense != null
-              ? `Income ${overview.income} // Expense ${overview.expense} // This shell stays API-backed and reads reporting outputs only.`
+            {overviewWithCashflow.length > 0
+              ? `${overviewWithCashflow
+                  .map(
+                    (row) =>
+                      `${row.currency}: income ${formatMoney(row.cashflow_income, row.currency)} // expense ${formatMoney(row.cashflow_expense, row.currency)}`
+                  )
+                  .join(" | ")} // This shell stays API-backed and reads reporting outputs only.`
               : "The retro overview stays thin: reporting snapshots, recent runs, and launcher modules over the existing web/API contracts."}
           </p>
         </div>
         <div className="retroMetricStrip">
           <div className="retroMetricBox">
             <span className="retroMetricLabel">Latest Month</span>
-            <strong>{latestCashflow?.booking_month || "NO DATA"}</strong>
+            <strong>{latestMonth || "NO DATA"}</strong>
           </div>
           <div className="retroMetricBox">
             <span className="retroMetricLabel">Recurring / Mo</span>
-            <strong>{subscriptions.length > 0 ? recurringTotal.toFixed(2) : "0.00"}</strong>
+            <strong>{recurringAmounts.length > 0 ? amountsText(recurringAmounts) : "0.00"}</strong>
           </div>
           <div className="retroMetricBox">
             <span className="retroMetricLabel">Utility Snapshot</span>
-            <strong>{latestUtilityMonth ? utilitySnapshot.toFixed(2) : "0.00"}</strong>
+            <strong>{utilityAmounts.length > 0 ? amountsText(utilityAmounts) : "0.00"}</strong>
           </div>
           <div className="retroMetricBox">
             <span className="retroMetricLabel">Recent Runs</span>
@@ -238,18 +248,18 @@ export default async function RetroDashboardPage() {
         ))}
       </section>
 
-      {cashflowRows.length > 0 ? (
-        <article className="retroPanel">
+      {trendCharts.map((chart) => (
+        <article className="retroPanel" key={chart.currency || "none"}>
           <div className="retroSectionHeader">
             <div>
-              <div className="retroEyebrow">Trend Bus</div>
+              <div className="retroEyebrow">Trend Bus{chart.currency ? ` / ${chart.currency}` : ""}</div>
               <h2>Cashflow Signal / Last 12 Months</h2>
             </div>
             <span className="retroTag">REPORTING LAYER</span>
           </div>
-          <SparklineChart series={trendSeries} labels={trendLabels} height={132} width={720} />
+          <SparklineChart series={chart.series} labels={chart.labels} height={132} width={720} />
         </article>
-      ) : null}
+      ))}
 
       <section className="retroSplit">
         <article className="retroPanel">

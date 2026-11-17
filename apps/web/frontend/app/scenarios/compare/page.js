@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
 import { SavedScenarioCompareSets } from "@/components/saved-scenario-compare-sets";
+import { scenarioCurrency } from "@/lib/currency-groups";
 import {
   getCurrentUser,
   getScenarioCashflow,
@@ -87,6 +88,7 @@ function ComparisonPanel({ snapshot, title }) {
   const { scenario, comparison, cashflow } = snapshot;
   const isStale = comparison?.is_stale || cashflow?.is_stale;
   const assumptions = comparison?.assumptions || cashflow?.assumptions || [];
+  const currency = scenarioCurrency(cashflow?.assumptions);
   const summaryRows = cashflow?.summary_rows || [];
 
   return (
@@ -181,6 +183,9 @@ function ComparisonPanel({ snapshot, title }) {
             </div>
             <div className="tableWrap">
               <table>
+                <caption>
+                  {currency ? `All amounts in ${currency}` : "Currency unknown"}
+                </caption>
                 <thead>
                   <tr>
                     <th>Period</th>

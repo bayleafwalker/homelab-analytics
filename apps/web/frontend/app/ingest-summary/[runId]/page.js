@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
+import { latestMonthRows, splitByCurrency, sumField } from "@/lib/currency-groups";
+import { formatMoney } from "@/lib/format";
 import {
   getCurrentUser,
   getMonthlyCashflow,
@@ -40,7 +42,9 @@ export default async function IngestSummaryPage({ params }) {
       getAttentionItems(),
     ]);
 
-  const latestCashflow = cashflowRows.at(-1);
+  // Newest month: one row per currency, never a single arbitrary one.
+  const latestCashflowRows = latestMonthRows(cashflowRows, "booking_month");
+  const latestCashflow = latestCashflowRows[0];
   const publishedRelations = publicationAudit.filter(
     (r) => r.status === "published" || r.status === "refreshed"
   );
@@ -162,14 +166,17 @@ export default async function IngestSummaryPage({ params }) {
               <div className="eyebrow">Cashflow snapshot</div>
               <h3 style={{ margin: "4px 0 8px" }}>
                 {latestCashflow
-                  ? `${latestCashflow.booking_month}: net ${latestCashflow.net}`
+                  ? `${latestCashflow.booking_month}: net ${latestCashflowRows
+                      .map((r) => formatMoney(r.net, r.currency))
+                      .join(" · ")}`
                   : "No cashflow data yet"}
               </h3>
-              {latestCashflow && (
-                <div className="muted" style={{ fontSize: "0.85rem" }}>
-                  Income: {latestCashflow.income} &nbsp;·&nbsp; Expense: {latestCashflow.expense}
+              {latestCashflowRows.map((r) => (
+                <div className="muted" style={{ fontSize: "0.85rem" }} key={r.currency}>
+                  {r.currency}: income {formatMoney(r.income, r.currency)} &nbsp;·&nbsp; expense{" "}
+                  {formatMoney(r.expense, r.currency)}
                 </div>
-              )}
+              ))}
               <div style={{ marginTop: "12px" }}>
                 <Link className="inlineLink" href="/reports">
                   Open monthly finance
@@ -185,9 +192,9 @@ export default async function IngestSummaryPage({ params }) {
                 </h3>
                 <div className="muted" style={{ fontSize: "0.85rem" }}>
                   Total:{" "}
-                  {recurringBaseline
-                    .reduce((sum, r) => sum + Number(r.monthly_amount || 0), 0)
-                    .toFixed(2)}{" "}
+                  {splitByCurrency(recurringBaseline)
+                    .map((g) => formatMoney(sumField(g.rows, "monthly_amount"), g.currency))
+                    .join(" · ")}{" "}
                   / mo
                 </div>
                 <div style={{ marginTop: "12px" }}>
@@ -206,9 +213,9 @@ export default async function IngestSummaryPage({ params }) {
                 </h3>
                 <div className="stack compactStack">
                   {affordabilityRatios.slice(0, 2).map((r) => (
-                    <div key={r.ratio_name} style={{ fontSize: "0.85rem" }}>
+                    <div key={`${r.ratio_name}-${r.currency}`} style={{ fontSize: "0.85rem" }}>
                       <span className="muted">
-                        {r.ratio_name.replace(/_/g, " ")}:{" "}
+                        {r.ratio_name.replace(/_/g, " ")} ({r.currency}):{" "}
                       </span>
                       {(Number(r.ratio) * 100).toFixed(1)}%
                     </div>

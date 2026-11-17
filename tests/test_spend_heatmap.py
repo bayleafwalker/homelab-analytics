@@ -26,6 +26,9 @@ from packages.storage.run_metadata import RunMetadataRepository
 MIGRATION = Path(__file__).resolve().parents[1] / "migrations" / "duckdb" / (
     "0018_spend_by_weekday_hour_mart.sql"
 )
+CURRENCY_MIGRATION = Path(__file__).resolve().parents[1] / "migrations" / "duckdb" / (
+    "0020_currency_separated_marts.sql"
+)
 
 
 def _row(booked_at: str, hour: int | None, amount: str, count: int = 1) -> dict[str, object]:
@@ -142,9 +145,12 @@ def test_publication_is_registered_on_the_reporting_layer() -> None:
     assert "mart_spend_by_weekday_hour" in spec.publication_keys
     assert "mart_spend_by_weekday_hour" in spec.refresh_publication_keys
     migration = MIGRATION.read_text()
+    currency_migration = CURRENCY_MIGRATION.read_text()
     assert migration.count("CREATE TABLE IF NOT EXISTS mart_spend_by_weekday_hour") == 1
+    # The mart is created in 0018 and gains ``currency`` in 0020; the
+    # historical 0018 bytes stay intact and the full chain covers every column.
     for column, _ in PUBLICATION_RELATIONS["mart_spend_by_weekday_hour"].columns:
-        assert column in migration
+        assert column in migration or column in currency_migration
 
 
 def test_mart_refresh_keeps_time_of_day_and_flags_date_only_rows() -> None:

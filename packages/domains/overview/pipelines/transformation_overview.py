@@ -9,7 +9,7 @@ from packages.domains.finance.pipelines.subscription_models import (
     MART_UPCOMING_FIXED_COSTS_30D_TABLE,
 )
 from packages.domains.finance.pipelines.transaction_models import (
-    MART_ACCOUNT_BALANCE_TREND_TABLE,
+    FACT_TRANSACTION_CURRENT_TABLE,
     MART_MONTHLY_CASHFLOW_TABLE,
     MART_RECENT_LARGE_TRANSACTIONS_TABLE,
     MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
@@ -96,49 +96,73 @@ def refresh_household_overview(store: DuckDBStore) -> int:
             utility_cost_total, subscription_total_monthly,
             account_balance_direction, balance_net_change, currency
         )
+        -- One row per denomination. A currency appears when any source
+        -- observed it; a source that did not observe it contributes numeric
+        -- zero, so consumers must read ``currency`` with each amount. Usage with
+        -- no bill has no currency and never creates a (zero-bill) row.
         WITH
-        latest_cashflow AS (
-            SELECT booking_month, income, expense, net
+        latest_month AS (
+            SELECT MAX(booking_month) AS booking_month
             FROM {MART_MONTHLY_CASHFLOW_TABLE}
-            ORDER BY booking_month DESC
-            LIMIT 1
+        ),
+        latest_cashflow AS (
+            SELECT currency, income, expense, net
+            FROM {MART_MONTHLY_CASHFLOW_TABLE}
+            WHERE booking_month = (SELECT booking_month FROM latest_month)
         ),
         latest_utility AS (
-            SELECT SUM(total_cost) AS utility_total, ANY_VALUE(currency) AS currency
+            SELECT currency, SUM(total_cost) AS utility_total
             FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}
-            WHERE billing_month = (
+            WHERE currency IS NOT NULL
+              AND billing_month = (
                 SELECT MAX(billing_month) FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}
-            )
+                WHERE currency IS NOT NULL
+              )
+            GROUP BY currency
         ),
         active_subscriptions AS (
-            SELECT COALESCE(SUM(monthly_equivalent), 0) AS subscription_total
+            SELECT currency, SUM(monthly_equivalent) AS subscription_total
             FROM {MART_SUBSCRIPTION_SUMMARY_TABLE}
-            WHERE status = 'active'
+            WHERE status = 'active' AND currency IS NOT NULL
+            GROUP BY currency
         ),
         latest_balance AS (
-            SELECT
-                SUM(net_change) AS net_change,
-                CASE
-                    WHEN SUM(net_change) > 0 THEN 'up'
-                    WHEN SUM(net_change) < 0 THEN 'down'
-                    ELSE 'flat'
-                END AS direction
-            FROM {MART_ACCOUNT_BALANCE_TREND_TABLE}
+            SELECT normalized_currency AS currency, SUM(amount) AS net_change
+            FROM {FACT_TRANSACTION_CURRENT_TABLE}
             WHERE booking_month = (
-                SELECT MAX(booking_month) FROM {MART_ACCOUNT_BALANCE_TREND_TABLE}
+                SELECT MAX(booking_month) FROM {FACT_TRANSACTION_CURRENT_TABLE}
             )
+            GROUP BY normalized_currency
+        ),
+        currencies AS (
+            SELECT currency FROM latest_cashflow
+            UNION SELECT currency FROM latest_utility
+            UNION SELECT currency FROM active_subscriptions
+            UNION SELECT currency FROM latest_balance
         )
         SELECT
-            COALESCE((SELECT booking_month  FROM latest_cashflow), '')    AS current_month,
-            COALESCE((SELECT income         FROM latest_cashflow), 0)     AS cashflow_income,
-            COALESCE((SELECT expense        FROM latest_cashflow), 0)     AS cashflow_expense,
-            COALESCE((SELECT net            FROM latest_cashflow), 0)     AS cashflow_net,
-            COALESCE((SELECT utility_total  FROM latest_utility),  0)     AS utility_cost_total,
-            COALESCE((SELECT subscription_total FROM active_subscriptions), 0)
-                                                                          AS subscription_total_monthly,
-            COALESCE((SELECT direction      FROM latest_balance),  'flat') AS account_balance_direction,
-            COALESCE((SELECT net_change     FROM latest_balance),  0)     AS balance_net_change,
-            COALESCE((SELECT currency       FROM latest_utility),  '')    AS currency
+            COALESCE((SELECT booking_month FROM latest_month), '')        AS current_month,
+            COALESCE(cf.income, 0)                                        AS cashflow_income,
+            COALESCE(cf.expense, 0)                                       AS cashflow_expense,
+            COALESCE(cf.net, 0)                                           AS cashflow_net,
+            COALESCE(lu.utility_total, 0)                                 AS utility_cost_total,
+            COALESCE(sub.subscription_total, 0)                           AS subscription_total_monthly,
+            CASE
+                WHEN COALESCE(lb.net_change, 0) > 0 THEN 'up'
+                WHEN COALESCE(lb.net_change, 0) < 0 THEN 'down'
+                ELSE 'flat'
+            END                                                           AS account_balance_direction,
+            COALESCE(lb.net_change, 0)                                    AS balance_net_change,
+            c.currency                                                    AS currency
+        FROM currencies c
+        LEFT JOIN latest_cashflow cf ON cf.currency = c.currency
+        LEFT JOIN latest_utility lu ON lu.currency = c.currency
+        LEFT JOIN active_subscriptions sub ON sub.currency = c.currency
+        LEFT JOIN latest_balance lb ON lb.currency = c.currency
+        UNION ALL
+        SELECT '', 0, 0, 0, 0, 0, 'flat', 0, ''
+        WHERE NOT EXISTS (SELECT 1 FROM currencies)
+        ORDER BY currency
         """
     )
     return store.fetchall(f"SELECT COUNT(*) FROM {MART_HOUSEHOLD_OVERVIEW_TABLE}")[0][0]
@@ -366,15 +390,21 @@ def refresh_recent_significant_changes(store: DuckDBStore) -> int:
         f"""
         INSERT INTO {MART_RECENT_SIGNIFICANT_CHANGES_TABLE}
             (change_type, period, description, current_value, previous_value,
-             change_pct, direction)
+             change_pct, direction, currency)
         WITH
+        -- Changes compare amounts of one denomination only; each currency is
+        -- ranked on its own and labelled in the description when the
+        -- household has more than one.
         cashflow_changes AS (
             SELECT
                 'cashflow_net'                          AS change_type,
                 booking_month                           AS period,
                 'Net cashflow'                          AS description,
                 net                                     AS current_value,
-                LAG(net) OVER (ORDER BY booking_month)  AS previous_value
+                LAG(net) OVER (
+                    PARTITION BY currency ORDER BY booking_month
+                )                                       AS previous_value,
+                currency
             FROM {MART_MONTHLY_CASHFLOW_TABLE}
         ),
         category_changes AS (
@@ -384,9 +414,10 @@ def refresh_recent_significant_changes(store: DuckDBStore) -> int:
                 'Spend: ' || counterparty_name          AS description,
                 total_expense                           AS current_value,
                 LAG(total_expense) OVER (
-                    PARTITION BY counterparty_name
+                    PARTITION BY counterparty_name, currency
                     ORDER BY booking_month
-                )                                       AS previous_value
+                )                                       AS previous_value,
+                currency
             FROM {MART_SPEND_BY_CATEGORY_MONTHLY_TABLE}
         ),
         utility_changes AS (
@@ -396,10 +427,12 @@ def refresh_recent_significant_changes(store: DuckDBStore) -> int:
                 'Utility: ' || utility_type             AS description,
                 total_cost                              AS current_value,
                 LAG(total_cost) OVER (
-                    PARTITION BY utility_type
+                    PARTITION BY utility_type, currency
                     ORDER BY billing_month
-                )                                       AS previous_value
+                )                                       AS previous_value,
+                currency
             FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}
+            WHERE currency IS NOT NULL
         ),
         all_changes AS (
             SELECT * FROM cashflow_changes  WHERE previous_value IS NOT NULL
@@ -408,11 +441,18 @@ def refresh_recent_significant_changes(store: DuckDBStore) -> int:
             UNION ALL
             SELECT * FROM utility_changes   WHERE previous_value IS NOT NULL
         ),
+        currency_count AS (
+            SELECT COUNT(DISTINCT currency) AS n FROM all_changes
+        ),
         ranked AS (
             SELECT
                 change_type,
                 period,
-                description,
+                CASE
+                    WHEN (SELECT n FROM currency_count) > 1
+                    THEN description || ' (' || currency || ')'
+                    ELSE description
+                END AS description,
                 current_value,
                 previous_value,
                 CASE
@@ -426,8 +466,9 @@ def refresh_recent_significant_changes(store: DuckDBStore) -> int:
                     WHEN current_value >= previous_value THEN 'up'
                     ELSE 'down'
                 END AS direction,
+                currency,
                 ROW_NUMBER() OVER (
-                    PARTITION BY change_type
+                    PARTITION BY change_type, currency
                     ORDER BY ABS(
                         CASE
                             WHEN previous_value <> 0
@@ -440,11 +481,10 @@ def refresh_recent_significant_changes(store: DuckDBStore) -> int:
         )
         SELECT
             change_type, period, description, current_value, previous_value,
-            change_pct, direction
+            change_pct, direction, currency
         FROM ranked
         WHERE rn = 1
-        ORDER BY ABS(COALESCE(change_pct, 0)) DESC
-        LIMIT 10
+        ORDER BY ABS(COALESCE(change_pct, 0)) DESC, currency, change_type
         """
     )
     return store.fetchall(
@@ -465,66 +505,111 @@ def refresh_current_operating_baseline(store: DuckDBStore) -> int:
         f"""
         INSERT INTO {MART_CURRENT_OPERATING_BASELINE_TABLE}
             (baseline_type, description, value, period_label, currency)
+        -- Every baseline is computed per denomination (one row per currency).
+        -- A baseline with no observation at all keeps a single numeric zero
+        -- row with an empty currency, as before.
         WITH
         recent_cashflow AS (
-            SELECT expense, booking_month
-            FROM {MART_MONTHLY_CASHFLOW_TABLE}
-            ORDER BY booking_month DESC
-            LIMIT 3
+            SELECT currency, expense, booking_month
+            FROM (
+                SELECT
+                    currency, expense, booking_month,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY currency ORDER BY booking_month DESC
+                    ) AS rn
+                FROM {MART_MONTHLY_CASHFLOW_TABLE}
+            ) ranked_cashflow
+            WHERE rn <= 3
         ),
         active_subs AS (
-            SELECT
-                SUM(monthly_equivalent) AS total,
-                ANY_VALUE(currency)     AS currency
+            SELECT currency, SUM(monthly_equivalent) AS total
             FROM {MART_SUBSCRIPTION_SUMMARY_TABLE}
-            WHERE status = 'active'
+            WHERE status = 'active' AND currency IS NOT NULL
+            GROUP BY currency
         ),
         recent_utility AS (
+            SELECT currency, total_cost, billing_month
+            FROM (
+                SELECT
+                    currency,
+                    SUM(total_cost) AS total_cost,
+                    billing_month,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY currency ORDER BY billing_month DESC
+                    ) AS rn
+                FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}
+                WHERE currency IS NOT NULL
+                GROUP BY currency, billing_month
+            ) ranked_utility
+            WHERE rn <= 3
+        ),
+        account_monthly AS (
             SELECT
-                SUM(total_cost) AS total_cost,
-                billing_month,
-                ANY_VALUE(currency) AS currency
-            FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}
-            GROUP BY billing_month
-            ORDER BY billing_month DESC
-            LIMIT 3
+                booking_month,
+                normalized_currency AS currency,
+                SUM(SUM(amount)) OVER (
+                    PARTITION BY account_id, normalized_currency
+                    ORDER BY booking_month
+                ) AS cumulative_balance
+            FROM {FACT_TRANSACTION_CURRENT_TABLE}
+            GROUP BY booking_month, account_id, normalized_currency
         ),
         latest_balance AS (
             SELECT
+                currency,
                 SUM(cumulative_balance) AS total,
                 MAX(booking_month)      AS month
-            FROM {MART_ACCOUNT_BALANCE_TREND_TABLE}
-            WHERE booking_month = (
-                SELECT MAX(booking_month) FROM {MART_ACCOUNT_BALANCE_TREND_TABLE}
-            )
+            FROM account_monthly
+            WHERE booking_month = (SELECT MAX(booking_month) FROM account_monthly)
+            GROUP BY currency
         )
         SELECT
             'monthly_spend'                          AS baseline_type,
             'Average monthly expense (last 3 months)' AS description,
-            COALESCE(ROUND((SELECT AVG(expense)         FROM recent_cashflow), 2), 0) AS value,
-            COALESCE((SELECT MAX(booking_month)         FROM recent_cashflow), '')    AS period_label,
-            ''                                                                        AS currency
+            ROUND(AVG(expense), 2)                   AS value,
+            MAX(booking_month)                       AS period_label,
+            currency
+        FROM recent_cashflow
+        GROUP BY currency
+        UNION ALL
+        SELECT 'monthly_spend', 'Average monthly expense (last 3 months)', 0, '', ''
+        WHERE NOT EXISTS (SELECT 1 FROM recent_cashflow)
         UNION ALL
         SELECT
             'recurring_costs',
             'Total active monthly subscriptions',
-            COALESCE(ROUND((SELECT total    FROM active_subs), 2), 0),
+            ROUND(total, 2),
             STRFTIME(CURRENT_DATE, '%Y-%m'),
-            COALESCE((SELECT currency       FROM active_subs), '')
+            currency
+        FROM active_subs
+        UNION ALL
+        SELECT
+            'recurring_costs', 'Total active monthly subscriptions', 0,
+            STRFTIME(CURRENT_DATE, '%Y-%m'), ''
+        WHERE NOT EXISTS (SELECT 1 FROM active_subs)
         UNION ALL
         SELECT
             'utility_baseline',
             'Average monthly utility cost (last 3 months)',
-            COALESCE(ROUND((SELECT AVG(total_cost)      FROM recent_utility), 2), 0),
-            COALESCE((SELECT MAX(billing_month)         FROM recent_utility), ''),
-            COALESCE((SELECT ANY_VALUE(currency)        FROM recent_utility), '')
+            ROUND(AVG(total_cost), 2),
+            MAX(billing_month),
+            currency
+        FROM recent_utility
+        GROUP BY currency
+        UNION ALL
+        SELECT 'utility_baseline', 'Average monthly utility cost (last 3 months)', 0, '', ''
+        WHERE NOT EXISTS (SELECT 1 FROM recent_utility)
         UNION ALL
         SELECT
             'account_balance',
             'Current account balance',
-            COALESCE(ROUND((SELECT total    FROM latest_balance), 2), 0),
-            COALESCE((SELECT month          FROM latest_balance), ''),
-            ''
+            ROUND(total, 2),
+            month,
+            currency
+        FROM latest_balance
+        UNION ALL
+        SELECT 'account_balance', 'Current account balance', 0, '', ''
+        WHERE NOT EXISTS (SELECT 1 FROM latest_balance)
         """
     )
     return store.fetchall(
@@ -535,7 +620,7 @@ def refresh_current_operating_baseline(store: DuckDBStore) -> int:
 def get_current_operating_baseline(store: DuckDBStore) -> list[dict[str, Any]]:
     return store.fetchall_dicts(
         f"SELECT * FROM {MART_CURRENT_OPERATING_BASELINE_TABLE}"
-        " ORDER BY baseline_type"
+        " ORDER BY baseline_type, currency"
     )
 
 
@@ -561,10 +646,10 @@ def refresh_household_cost_model(store: DuckDBStore) -> int:
                 END                                                AS cost_type,
                 SUM(total_expense)                                 AS amount,
                 'finance'                                          AS source_domain,
-                ''                                                 AS currency
+                currency                                           AS currency
             FROM {MART_SPEND_BY_CATEGORY_MONTHLY_TABLE}
             WHERE total_expense > 0
-            GROUP BY booking_month,
+            GROUP BY booking_month, currency,
                 CASE LOWER(COALESCE(category, counterparty_name))
                     WHEN 'groceries'     THEN 'food'
                     WHEN 'food'          THEN 'food'
@@ -581,9 +666,10 @@ def refresh_household_cost_model(store: DuckDBStore) -> int:
                 'subscriptions'                                    AS cost_type,
                 SUM(monthly_equivalent)                            AS amount,
                 'subscriptions'                                    AS source_domain,
-                ANY_VALUE(currency)                                AS currency
+                currency                                           AS currency
             FROM {MART_SUBSCRIPTION_SUMMARY_TABLE}
             WHERE status = 'active' AND monthly_equivalent > 0
+            GROUP BY currency
         ),
         -- Utilities: monthly cost by type
         utility_costs AS (
@@ -592,10 +678,10 @@ def refresh_household_cost_model(store: DuckDBStore) -> int:
                 'utilities'                                        AS cost_type,
                 SUM(total_cost)                                    AS amount,
                 'utilities'                                        AS source_domain,
-                ANY_VALUE(currency)                                AS currency
+                currency                                           AS currency
             FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}
-            WHERE total_cost > 0
-            GROUP BY billing_month
+            WHERE total_cost > 0 AND currency IS NOT NULL
+            GROUP BY billing_month, currency
         ),
         -- Loans: monthly payment (most recent)
         loan_costs AS (
@@ -604,9 +690,10 @@ def refresh_household_cost_model(store: DuckDBStore) -> int:
                 'loans'                                            AS cost_type,
                 SUM(monthly_payment)                               AS amount,
                 'loans'                                            AS source_domain,
-                ANY_VALUE(currency)                                AS currency
+                currency                                           AS currency
             FROM {MART_LOAN_OVERVIEW_TABLE}
             WHERE monthly_payment > 0
+            GROUP BY currency
         )
         SELECT * FROM category_costs   WHERE amount > 0
         UNION ALL
@@ -657,17 +744,19 @@ def refresh_cost_trend_12m(store: DuckDBStore) -> int:
                 period_label,
                 cost_type,
                 SUM(amount)             AS amount,
-                ANY_VALUE(currency)     AS currency
+                currency
             FROM {MART_HOUSEHOLD_COST_MODEL_TABLE}
             WHERE period_label >= STRFTIME(CURRENT_DATE - INTERVAL '12 months', '%Y-%m')
-            GROUP BY period_label, cost_type
+            GROUP BY period_label, cost_type, currency
         ),
         with_lag AS (
             SELECT
                 period_label,
                 cost_type,
                 amount,
-                LAG(amount) OVER (PARTITION BY cost_type ORDER BY period_label) AS prev_amount,
+                LAG(amount) OVER (
+                    PARTITION BY cost_type, currency ORDER BY period_label
+                ) AS prev_amount,
                 currency
             FROM recent
         )
@@ -683,7 +772,7 @@ def refresh_cost_trend_12m(store: DuckDBStore) -> int:
             END AS change_pct,
             currency
         FROM with_lag
-        ORDER BY period_label, cost_type
+        ORDER BY period_label, cost_type, currency
         """
     )
     return store.fetchall(
@@ -694,22 +783,42 @@ def refresh_cost_trend_12m(store: DuckDBStore) -> int:
 def get_cost_trend_12m(store: DuckDBStore) -> list[dict[str, Any]]:
     return store.fetchall_dicts(
         f"SELECT * FROM {MART_COST_TREND_12M_TABLE}"
-        " ORDER BY period_label, cost_type"
+        " ORDER BY period_label, cost_type, currency"
     )
 
 
 def refresh_affordability_ratios(store: DuckDBStore) -> int:
     """Compute housing, total-cost, and debt-service affordability ratios."""
     store.execute(f"DELETE FROM {MART_AFFORDABILITY_RATIOS_TABLE}")
+    # Ratios divide amounts, so numerator and income must share a denomination:
+    # compute the three ratios once per currency that has income in the latest
+    # month (one pass with an empty currency when there is no cashflow).
+    currencies = [
+        str(row[0])
+        for row in store.fetchall(
+            f"SELECT DISTINCT currency FROM {MART_MONTHLY_CASHFLOW_TABLE}"
+            f" WHERE booking_month = (SELECT MAX(booking_month) FROM {MART_MONTHLY_CASHFLOW_TABLE})"
+            " AND currency IS NOT NULL ORDER BY currency"
+        )
+    ] or [""]
+    for currency in currencies:
+        _insert_affordability_ratios(store, currency)
+    return store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_AFFORDABILITY_RATIOS_TABLE}"
+    )[0][0]
+
+
+def _insert_affordability_ratios(store: DuckDBStore, currency: str) -> None:
     store.execute(
         f"""
         INSERT INTO {MART_AFFORDABILITY_RATIOS_TABLE}
             (ratio_name, numerator, denominator, ratio, period_label, assessment, state, currency)
         WITH
         latest_cashflow AS (
-            SELECT income, booking_month, 'EUR' AS currency
+            SELECT income, booking_month, currency
             FROM {MART_MONTHLY_CASHFLOW_TABLE}
-            ORDER BY booking_month DESC
+            WHERE currency = ?
+              AND booking_month = (SELECT MAX(booking_month) FROM {MART_MONTHLY_CASHFLOW_TABLE})
             LIMIT 1
         ),
         housing_cost AS (
@@ -717,6 +826,7 @@ def refresh_affordability_ratios(store: DuckDBStore) -> int:
                 COALESCE(SUM(amount), 0) AS amount
             FROM {MART_HOUSEHOLD_COST_MODEL_TABLE}
             WHERE cost_type IN ('housing', 'loans')
+              AND currency = ?
               AND period_label = (
                 SELECT booking_month FROM {MART_MONTHLY_CASHFLOW_TABLE}
                 ORDER BY booking_month DESC LIMIT 1
@@ -725,7 +835,8 @@ def refresh_affordability_ratios(store: DuckDBStore) -> int:
         total_cost AS (
             SELECT COALESCE(SUM(amount), 0) AS amount
             FROM {MART_HOUSEHOLD_COST_MODEL_TABLE}
-            WHERE period_label = (
+            WHERE currency = ?
+              AND period_label = (
                 SELECT booking_month FROM {MART_MONTHLY_CASHFLOW_TABLE}
                 ORDER BY booking_month DESC LIMIT 1
               )
@@ -733,6 +844,7 @@ def refresh_affordability_ratios(store: DuckDBStore) -> int:
         debt_cost AS (
             SELECT COALESCE(SUM(monthly_payment), 0) AS amount
             FROM {MART_LOAN_OVERVIEW_TABLE}
+            WHERE currency = ?
         )
         SELECT
             'housing_to_income'                                        AS ratio_name,
@@ -823,16 +935,14 @@ def refresh_affordability_ratios(store: DuckDBStore) -> int:
                 ELSE 'needs_action'
             END,
             COALESCE((SELECT currency FROM latest_cashflow), '')
-        """
+        """,
+        [currency] * 4,
     )
-    return store.fetchall(
-        f"SELECT COUNT(*) FROM {MART_AFFORDABILITY_RATIOS_TABLE}"
-    )[0][0]
 
 
 def get_affordability_ratios(store: DuckDBStore) -> list[dict[str, Any]]:
     return store.fetchall_dicts(
-        f"SELECT * FROM {MART_AFFORDABILITY_RATIOS_TABLE} ORDER BY ratio_name"
+        f"SELECT * FROM {MART_AFFORDABILITY_RATIOS_TABLE} ORDER BY ratio_name, currency"
     )
 
 

@@ -107,6 +107,7 @@ from packages.pipelines.promotion_registry import (
     PromotionHandlerRegistry,
     get_default_promotion_handler_registry,
 )
+from packages.pipelines.reporting_currency import StaleReportingSchemaError
 from packages.pipelines.reporting_service import (
     ReportingService,
     publish_promotion_reporting,
@@ -240,6 +241,15 @@ def _register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(ValueError)
     async def handle_value_error(_, exc: ValueError) -> JSONResponse:
         return JSONResponse(status_code=400, content={"error": str(exc)})
+
+    @app.exception_handler(StaleReportingSchemaError)
+    async def handle_stale_reporting_schema(
+        _, exc: StaleReportingSchemaError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            content={"error": str(exc), "relation": exc.relation_name},
+        )
 
 
 def _register_base_routes(

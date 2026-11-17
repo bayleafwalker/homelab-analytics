@@ -27,7 +27,7 @@ export default async function ConsolePage() {
   const isAdmin = user?.role === "admin";
   const [overview, cashflowRows, heatmap, attentionItems, runs, categoryRows, ratios, confidence] =
     await Promise.all([
-      optional(getHouseholdOverview(), null),
+      optional(getHouseholdOverview(), null), // sole row only; null when several currencies
       optional(getMonthlyCashflow(), []),
       optional(getSpendHeatmap({ window: 28 }), null),
       optional(getAttentionItems(), []),
@@ -36,6 +36,17 @@ export default async function ConsolePage() {
       optional(getAffordabilityRatios(), []),
       isAdmin ? optional(getPublicationConfidence(), null) : Promise.resolve(null),
     ]);
+  // With several currencies the first call returns an empty grid plus the
+  // currency list; fetch one heatmap per currency instead of choosing one.
+  const heatmapCurrencies = heatmap?.currencies || [];
+  const heatmaps =
+    !heatmap?.currency && heatmapCurrencies.length > 1
+      ? (
+          await Promise.all(
+            heatmapCurrencies.map((code) => optional(getSpendHeatmap({ window: 28, currency: code }), null))
+          )
+        ).filter(Boolean)
+      : null;
   const currency = overview?.currency || heatmap?.currency || null;
   const cashflowExplanation =
     cashflowRows.length > 0 ? await optional(loadExplanation("mart_monthly_cashflow", { user }), null) : null;
@@ -48,6 +59,7 @@ export default async function ConsolePage() {
         currency={currency}
         cashflowRows={cashflowRows}
         heatmap={heatmap}
+        heatmaps={heatmaps}
         attentionItems={attentionItems}
         runs={runs}
         categoryRows={categoryRows}

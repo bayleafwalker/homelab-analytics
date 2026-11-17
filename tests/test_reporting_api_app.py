@@ -56,6 +56,7 @@ class _StubReportingService:
                 "expense": "900.0000",
                 "net": "1600.0000",
                 "transaction_count": 2,
+                "currency": "EUR",
             }
         ]
 
@@ -416,6 +417,7 @@ class ReportingApiAppTests(unittest.TestCase):
                     "expense": "900.0000",
                     "net": "1600.0000",
                     "transaction_count": 2,
+                    "currency": "EUR",
                 }
             ],
             response.json()["rows"],
@@ -486,6 +488,7 @@ class ReportingApiAppTests(unittest.TestCase):
                     "expense": "900.0000",
                     "net": "1600.0000",
                     "transaction_count": 2,
+                    "currency": "EUR",
                 }
             ],
             response.json()["result"],

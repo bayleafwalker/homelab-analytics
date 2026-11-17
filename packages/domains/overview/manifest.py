@@ -25,7 +25,7 @@ OVERVIEW_PACK = CapabilityPack(
         PublicationDefinition(
             key="household_overview",
             schema_name="household_overview",
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             display_name="Household Overview",
             description="Top-line summary of current cashflow, utility spend, subscriptions, and account balance direction.",
             visibility="public",
@@ -108,7 +108,7 @@ OVERVIEW_PACK = CapabilityPack(
         PublicationDefinition(
             key="recent_significant_changes",
             schema_name="recent_significant_changes",
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             display_name="Recent Significant Changes",
             description="Biggest month-over-month changes in cashflow, category spend, and utility costs.",
             visibility="public",
@@ -144,12 +144,16 @@ OVERVIEW_PACK = CapabilityPack(
                 "direction": status_field(
                     "Directional interpretation of the significant change."
                 ),
+                "currency": dimension_field(
+                    "ISO currency code of current_value and previous_value; a change is "
+                    "never computed across currencies."
+                ),
             },
         ),
         PublicationDefinition(
             key="current_operating_baseline",
             schema_name="current_operating_baseline",
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             display_name="Current Operating Baseline",
             description="Household financial baseline — average monthly spend, recurring costs, utility baseline, and current account balance.",
             visibility="public",

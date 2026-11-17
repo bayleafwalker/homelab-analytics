@@ -106,12 +106,13 @@ def test_refresh_rebuilds_populated_prechange_marts(tmp_path: Path, refresh_kind
         SELECT contract_name, provider, billing_cycle, amount, currency, CURRENT_DATE, 'high'
         FROM fact_subscription_charge""")
     assert apply_pending_duckdb_migrations(store.connection, MIGRATIONS) == [
-        "0019_subscription_charge_identity"
+        "0019_subscription_charge_identity",
+        "0020_currency_separated_marts",
     ]
     assert all(r["charge_id"] is None for r in ReportingService(s).get_upcoming_fixed_costs_30d())
     store.execute("""INSERT INTO reporting_publication_snapshot VALUES
         ('mart_subscription_summary', '2025-01', '2025-02-01T00:00:00+00:00',
-         'old', 1, '[{"contract_name":"legacy"}]')""")
+         'old', 1, '[{"contract_name":"legacy"}]', NULL)""")
     before_snapshot = ReportingService(s).get_publication_snapshot(
         "mart_subscription_summary", "2025-01"
     )

@@ -73,6 +73,11 @@ MART_UTILITY_COST_SUMMARY_COLUMNS: list[tuple[str, str]] = [
     ("coverage_status", "VARCHAR NOT NULL"),
 ]
 
+MART_UTILITY_COST_SUMMARY_STORAGE_COLUMNS = [
+    *MART_UTILITY_COST_SUMMARY_COLUMNS,
+    ("usage_observations", "VARCHAR"),
+]
+
 MART_UTILITY_COST_TREND_MONTHLY_TABLE = "mart_utility_cost_trend_monthly"
 
 MART_UTILITY_COST_TREND_MONTHLY_COLUMNS: list[tuple[str, str]] = [
@@ -94,6 +99,9 @@ MART_USAGE_VS_PRICE_SUMMARY_COLUMNS: list[tuple[str, str]] = [
     ("price_change_pct", "DECIMAL(18,4)"),
     ("cost_change_pct", "DECIMAL(18,4)"),
     ("dominant_driver", "VARCHAR"),   # price | usage | unknown
+    # Percent changes are only meaningful within one denomination. NULL marks
+    # usage with no bill. Legacy tables lack the column (see upgrade-reporting).
+    ("currency", "VARCHAR"),
 ]
 
 MART_ENERGY_DAILY_TABLE = "mart_energy_daily"

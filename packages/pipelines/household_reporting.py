@@ -156,6 +156,7 @@ from packages.domains.utilities.pipelines.utility_models import (
     MART_USAGE_VS_PRICE_SUMMARY_COLUMNS,
     MART_USAGE_VS_PRICE_SUMMARY_TABLE,
     MART_UTILITY_COST_SUMMARY_COLUMNS,
+    MART_UTILITY_COST_SUMMARY_STORAGE_COLUMNS,
     MART_UTILITY_COST_SUMMARY_TABLE,
     MART_UTILITY_COST_TREND_MONTHLY_COLUMNS,
     MART_UTILITY_COST_TREND_MONTHLY_TABLE,
@@ -173,6 +174,7 @@ class PublicationRelation:
     columns: list[tuple[str, str]]
     order_by: str
     source_query: str | None = None
+    storage_columns: list[tuple[str, str]] | None = None
 
 
 def _current_dimension_columns(defn: DimensionDefinition) -> list[tuple[str, str]]:
@@ -187,17 +189,17 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
     MART_MONTHLY_CASHFLOW_TABLE: PublicationRelation(
         relation_name=MART_MONTHLY_CASHFLOW_TABLE,
         columns=MART_MONTHLY_CASHFLOW_COLUMNS,
-        order_by="booking_month",
+        order_by="booking_month, currency",
     ),
     MART_CASHFLOW_BY_COUNTERPARTY_TABLE: PublicationRelation(
         relation_name=MART_CASHFLOW_BY_COUNTERPARTY_TABLE,
         columns=MART_CASHFLOW_BY_COUNTERPARTY_COLUMNS,
-        order_by="booking_month, counterparty_name",
+        order_by="booking_month, counterparty_name, currency",
     ),
     MART_SPEND_BY_CATEGORY_MONTHLY_TABLE: PublicationRelation(
         relation_name=MART_SPEND_BY_CATEGORY_MONTHLY_TABLE,
         columns=MART_SPEND_BY_CATEGORY_MONTHLY_COLUMNS,
-        order_by="booking_month, total_expense DESC",
+        order_by="booking_month, total_expense DESC, currency",
     ),
     MART_RECENT_LARGE_TRANSACTIONS_TABLE: PublicationRelation(
         relation_name=MART_RECENT_LARGE_TRANSACTIONS_TABLE,
@@ -207,7 +209,7 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
     MART_ACCOUNT_BALANCE_TREND_TABLE: PublicationRelation(
         relation_name=MART_ACCOUNT_BALANCE_TREND_TABLE,
         columns=MART_ACCOUNT_BALANCE_TREND_COLUMNS,
-        order_by="booking_month, account_id",
+        order_by="booking_month, account_id, currency",
     ),
     MART_TRANSACTION_ANOMALIES_CURRENT_TABLE: PublicationRelation(
         relation_name=MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
@@ -217,7 +219,7 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
     MART_SPEND_BY_WEEKDAY_HOUR_TABLE: PublicationRelation(
         relation_name=MART_SPEND_BY_WEEKDAY_HOUR_TABLE,
         columns=MART_SPEND_BY_WEEKDAY_HOUR_COLUMNS,
-        order_by="booked_at, hour_of_day NULLS FIRST",
+        order_by="booked_at, hour_of_day NULLS FIRST, currency",
     ),
     MART_SUBSCRIPTION_SUMMARY_TABLE: PublicationRelation(
         relation_name=MART_SUBSCRIPTION_SUMMARY_TABLE,
@@ -247,17 +249,20 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
     MART_UTILITY_COST_SUMMARY_TABLE: PublicationRelation(
         relation_name=MART_UTILITY_COST_SUMMARY_TABLE,
         columns=MART_UTILITY_COST_SUMMARY_COLUMNS,
-        order_by="period_start, meter_id",
+        order_by="period_start, meter_id, currency",
+        # Publish the observation map for store-local rollups, without
+        # exposing its keys or values through the public relation contract.
+        storage_columns=MART_UTILITY_COST_SUMMARY_STORAGE_COLUMNS,
     ),
     MART_UTILITY_COST_TREND_MONTHLY_TABLE: PublicationRelation(
         relation_name=MART_UTILITY_COST_TREND_MONTHLY_TABLE,
         columns=MART_UTILITY_COST_TREND_MONTHLY_COLUMNS,
-        order_by="billing_month, utility_type",
+        order_by="billing_month, utility_type, currency",
     ),
     MART_USAGE_VS_PRICE_SUMMARY_TABLE: PublicationRelation(
         relation_name=MART_USAGE_VS_PRICE_SUMMARY_TABLE,
         columns=MART_USAGE_VS_PRICE_SUMMARY_COLUMNS,
-        order_by="utility_type, period",
+        order_by="utility_type, period, currency",
     ),
     MART_ENERGY_DAILY_TABLE: PublicationRelation(
         relation_name=MART_ENERGY_DAILY_TABLE,
@@ -407,7 +412,7 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
     MART_HOUSEHOLD_OVERVIEW_TABLE: PublicationRelation(
         relation_name=MART_HOUSEHOLD_OVERVIEW_TABLE,
         columns=MART_HOUSEHOLD_OVERVIEW_COLUMNS,
-        order_by="current_month",
+        order_by="current_month, currency",
     ),
     MART_HOMELAB_ROI_TABLE: PublicationRelation(
         relation_name=MART_HOMELAB_ROI_TABLE,
@@ -427,7 +432,7 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
     MART_CURRENT_OPERATING_BASELINE_TABLE: PublicationRelation(
         relation_name=MART_CURRENT_OPERATING_BASELINE_TABLE,
         columns=MART_CURRENT_OPERATING_BASELINE_COLUMNS,
-        order_by="baseline_type",
+        order_by="baseline_type, currency",
     ),
     MART_HOUSEHOLD_COST_MODEL_TABLE: PublicationRelation(
         relation_name=MART_HOUSEHOLD_COST_MODEL_TABLE,
@@ -437,12 +442,12 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
     MART_COST_TREND_12M_TABLE: PublicationRelation(
         relation_name=MART_COST_TREND_12M_TABLE,
         columns=MART_COST_TREND_12M_COLUMNS,
-        order_by="period_label, cost_type",
+        order_by="period_label, cost_type, currency",
     ),
     MART_AFFORDABILITY_RATIOS_TABLE: PublicationRelation(
         relation_name=MART_AFFORDABILITY_RATIOS_TABLE,
         columns=MART_AFFORDABILITY_RATIOS_COLUMNS,
-        order_by="ratio_name",
+        order_by="ratio_name, currency",
     ),
     MART_RECURRING_COST_BASELINE_TABLE: PublicationRelation(
         relation_name=MART_RECURRING_COST_BASELINE_TABLE,

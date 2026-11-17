@@ -36,6 +36,8 @@ MART_RECENT_SIGNIFICANT_CHANGES_COLUMNS: list[tuple[str, str]] = [
     ("previous_value", "DECIMAL(18,4) NOT NULL"),
     ("change_pct", "DECIMAL(18,4)"),
     ("direction", "VARCHAR NOT NULL"),     # up | down
+    # Denomination of current_value / previous_value; changes never cross currencies.
+    ("currency", "VARCHAR NOT NULL"),
 ]
 
 MART_CURRENT_OPERATING_BASELINE_TABLE = "mart_current_operating_baseline"

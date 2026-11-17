@@ -42,6 +42,7 @@ from packages.domains.finance.pipelines.transaction_models import (
     MART_MONTHLY_CASHFLOW_COLUMNS,
     MART_MONTHLY_CASHFLOW_TABLE,
 )
+from packages.pipelines.normalization import normalize_currency_code
 from packages.platform.source_freshness import SourceFreshnessState, SourceFreshnessSummary
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -68,6 +69,7 @@ class IncomeScenarioResult:
     annual_net_change: Decimal
     months_until_deficit: int | None
     is_stale: bool
+    currency: str
     assumptions_summary: list[SourceFreshnessSummary] | None = None
 
 
@@ -81,6 +83,7 @@ class ExpenseShockResult:
     annual_additional_cost: Decimal
     months_until_deficit: int | None
     is_stale: bool
+    currency: str
     assumptions_summary: list[SourceFreshnessSummary] | None = None
 
 
@@ -829,9 +832,36 @@ def _is_income_scenario_stale(store: DuckDBStore, scenario_id: str) -> bool:
     return baseline_run_id != current_run_id
 
 
+def get_cashflow_currency(store: DuckDBStore) -> str:
+    """Return the single denomination of the cashflow mart, or raise.
+
+    A scenario projects one unitless baseline; blending denominations would
+    silently relabel the result, and no conversion is performed. A NULL
+    currency is no denomination, not another one.
+    """
+    store.ensure_table(MART_MONTHLY_CASHFLOW_TABLE, MART_MONTHLY_CASHFLOW_COLUMNS)
+    currencies = {
+        str(row[0])
+        for row in store.fetchall(
+            f"SELECT DISTINCT currency FROM {MART_MONTHLY_CASHFLOW_TABLE}"
+        )
+        if row[0]
+    }
+    if not currencies:
+        raise ValueError(
+            "No cashflow data available. Load transactions before creating income scenarios."
+        )
+    if len(currencies) > 1:
+        raise ValueError(
+            "Income scenarios need a single denomination; cashflow holds "
+            + ", ".join(sorted(currencies))
+        )
+    return next(iter(currencies))
+
+
 def get_baseline_cashflow(store: DuckDBStore) -> tuple[Decimal, Decimal]:
     """Return (avg_income, avg_expense) from the last _LOOKUP_MONTHS months of cashflow."""
-    store.ensure_table(MART_MONTHLY_CASHFLOW_TABLE, MART_MONTHLY_CASHFLOW_COLUMNS)
+    get_cashflow_currency(store)
     rows = store.fetchall_dicts(
         f"SELECT income, expense FROM {MART_MONTHLY_CASHFLOW_TABLE}"
         " ORDER BY booking_month DESC"
@@ -897,7 +927,7 @@ def create_income_change_scenario(
     store: DuckDBStore,
     *,
     monthly_income_delta: Decimal,
-    currency: str = "GBP",
+    currency: str | None = None,
     label: str | None = None,
     projection_months: int = _DEFAULT_PROJECTION_MONTHS,
 ) -> IncomeScenarioResult:
@@ -911,6 +941,19 @@ def create_income_change_scenario(
     ensure_scenario_storage(store)
 
     baseline_income, baseline_expense = get_baseline_cashflow(store)
+    baseline_currency = get_cashflow_currency(store)
+    if currency is None:
+        resolved_currency = baseline_currency
+    else:
+        try:
+            resolved_currency = normalize_currency_code(currency)
+        except ValueError as exc:
+            raise ValueError(f"Invalid income-change currency: {currency!r}") from exc
+        if resolved_currency != baseline_currency:
+            raise ValueError(
+                f"Income scenario currency {currency!r} does not match the single "
+                f"cashflow denomination {baseline_currency}; no conversion is performed."
+            )
     new_monthly_income = baseline_income + monthly_income_delta
     baseline_run_id = get_latest_transaction_run_id(store)
 
@@ -928,13 +971,22 @@ def create_income_change_scenario(
     )
 
     q = Decimal("0.01")
-    store.insert_rows(FACT_SCENARIO_ASSUMPTION_TABLE, [{
-        "scenario_id": scenario_id,
-        "assumption_key": "monthly_income_delta",
-        "baseline_value": "0",
-        "override_value": str(monthly_income_delta.quantize(q)),
-        "unit": currency,
-    }])
+    store.insert_rows(FACT_SCENARIO_ASSUMPTION_TABLE, [
+        {
+            "scenario_id": scenario_id,
+            "assumption_key": "monthly_income_delta",
+            "baseline_value": "0",
+            "override_value": str(monthly_income_delta.quantize(q)),
+            "unit": resolved_currency,
+        },
+        {
+            "scenario_id": scenario_id,
+            "assumption_key": "cashflow_currency",
+            "baseline_value": baseline_currency,
+            "override_value": resolved_currency,
+            "unit": resolved_currency,
+        },
+    ])
 
     proj_rows, months_until_deficit = _project_cashflow_rows(
         scenario_id=scenario_id,
@@ -961,6 +1013,7 @@ def create_income_change_scenario(
         annual_net_change=(monthly_income_delta * 12).quantize(q),
         months_until_deficit=months_until_deficit,
         is_stale=False,
+        currency=resolved_currency,
     )
 
 
@@ -982,6 +1035,7 @@ def create_expense_shock_scenario(
     ensure_scenario_storage(store)
 
     baseline_income, baseline_expense = get_baseline_cashflow(store)
+    baseline_currency = get_cashflow_currency(store)
     new_monthly_expense = baseline_expense * (1 + expense_pct_delta)
     baseline_run_id = get_latest_transaction_run_id(store)
 
@@ -1000,13 +1054,23 @@ def create_expense_shock_scenario(
     )
 
     q = Decimal("0.0001")
-    store.insert_rows(FACT_SCENARIO_ASSUMPTION_TABLE, [{
-        "scenario_id": scenario_id,
-        "assumption_key": "expense_pct_delta",
-        "baseline_value": "0",
-        "override_value": str(expense_pct_delta.quantize(q)),
-        "unit": "%",
-    }])
+    money_q = Decimal("0.01")
+    store.insert_rows(FACT_SCENARIO_ASSUMPTION_TABLE, [
+        {
+            "scenario_id": scenario_id,
+            "assumption_key": "expense_pct_delta",
+            "baseline_value": "0",
+            "override_value": str(expense_pct_delta.quantize(q)),
+            "unit": "%",
+        },
+        {
+            "scenario_id": scenario_id,
+            "assumption_key": "baseline_expense",
+            "baseline_value": str(baseline_expense.quantize(money_q)),
+            "override_value": str(new_monthly_expense.quantize(money_q)),
+            "unit": baseline_currency,
+        },
+    ])
 
     proj_rows, months_until_deficit = _project_cashflow_rows(
         scenario_id=scenario_id,
@@ -1033,6 +1097,7 @@ def create_expense_shock_scenario(
         annual_additional_cost=((new_monthly_expense - baseline_expense) * 12).quantize(Decimal("0.01")),
         months_until_deficit=months_until_deficit,
         is_stale=False,
+        currency=baseline_currency,
     )
 
 
@@ -1042,13 +1107,18 @@ def get_expense_shock_comparison(
     *,
     control_plane_store: Any | None = None,
 ) -> IncomeCashflowComparison | None:
-    """Return projected cashflow rows for an expense_shock scenario.
+    """Return projected cashflow rows + assumptions for an expense_shock scenario.
 
-    Delegates to the same storage queries as get_income_scenario_comparison
-    since both types use proj_income_cashflow.
+    Historical amounts are returned unchanged when their saved currency is unknown.
     """
-    return get_income_scenario_comparison(
-        store, scenario_id, control_plane_store=control_plane_store
+    scenario = get_scenario(store, scenario_id)
+    if scenario is None or scenario["scenario_type"] != "expense_shock":
+        return None
+    return _get_income_cashflow_comparison_impl(
+        store,
+        scenario_id,
+        is_stale_fn=lambda s, sid, _sc: _is_income_scenario_stale(s, sid),
+        control_plane_store=control_plane_store,
     )
 
 
@@ -1105,7 +1175,13 @@ def get_income_scenario_comparison(
     *,
     control_plane_store: Any | None = None,
 ) -> IncomeCashflowComparison | None:
-    """Return projected cashflow rows + assumptions for an income_change scenario."""
+    """Return projected cashflow rows + assumptions for an income_change scenario.
+
+    Historical amounts are returned unchanged when their saved currency is unknown.
+    """
+    scenario = get_scenario(store, scenario_id)
+    if scenario is None or scenario["scenario_type"] != "income_change":
+        return None
     return _get_income_cashflow_comparison_impl(
         store,
         scenario_id,

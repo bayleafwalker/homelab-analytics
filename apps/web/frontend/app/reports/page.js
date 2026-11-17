@@ -86,9 +86,14 @@ export default async function ReportsPage() {
   const subscriptionsDescriptor = descriptorByKey.subscriptions;
   const utilityTrendDescriptor = descriptorByKey["utility-cost-trend"];
 
-  const balanceAccounts = [...new Set(balanceTrend.map((row) => row.account_id))];
+  // One balance series per (account, currency): balances in different
+  // denominations are never drawn as, or summed into, a single line.
+  const balanceKeys = [
+    ...new Set(balanceTrend.map((row) => `${row.account_id}|${row.currency ?? ""}`)),
+  ];
   const balanceMonths = [...new Set(balanceTrend.map((row) => row.booking_month))].sort();
-  const balanceSeries = balanceAccounts.map((account, index) => {
+  const balanceSeries = balanceKeys.map((key, index) => {
+    const [account, currency] = key.split("|");
     const colors = [
       "var(--ok)",
       "var(--accent)",
@@ -96,18 +101,23 @@ export default async function ReportsPage() {
       "var(--accent-warm)",
     ];
     return {
-      label: account,
+      label: currency ? `${account} (${currency})` : account,
       color: colors[index % colors.length],
       values: balanceMonths.map((month) => {
         const row = balanceTrend.find(
-          (entry) => entry.account_id === account && entry.booking_month === month
+          (entry) =>
+            entry.account_id === account &&
+            (entry.currency ?? "") === currency &&
+            entry.booking_month === month
         );
         return row ? Number(row.cumulative_balance) : null;
       }),
     };
   });
 
-  const utilityTypes = [...new Set(utilityTrend.map((row) => row.utility_type))];
+  const utilityGroups = [
+    ...new Set(utilityTrend.map((row) => `${row.utility_type}|${row.currency ?? ""}`)),
+  ];
 
   return (
     <AppShell
@@ -189,10 +199,11 @@ export default async function ReportsPage() {
           <ResponsiveTable
             label="Monthly cashflow"
             rows={rows}
-            rowKey="booking_month"
+            rowKey={(row) => `${row.booking_month}|${row.currency ?? ""}`}
             empty={<div className="empty">No published rows yet.</div>}
             columns={[
               { key: "booking_month", header: "Booking month", primary: true },
+              { key: "currency", header: "Currency" },
               { key: "income", header: "Income", align: "end" },
               { key: "expense", header: "Expense", align: "end" },
               { key: "net", header: "Net", align: "end" },
@@ -249,6 +260,7 @@ export default async function ReportsPage() {
             columns={[
               { key: "category", header: "Category", primary: true },
               { key: "booking_month", header: "Month" },
+              { key: "currency", header: "Currency" },
               { key: "counterparty_name", header: "Counterparty" },
               { key: "total_expense", header: "Total Expense", align: "end" },
               { key: "transaction_count", header: "Count", align: "end" },
@@ -278,6 +290,7 @@ export default async function ReportsPage() {
               { key: "contract_name", header: "Name", primary: true },
               { key: "provider", header: "Provider" },
               { key: "billing_cycle", header: "Billing cycle" },
+              { key: "currency", header: "Currency" },
               { key: "monthly_equivalent", header: "Monthly equiv", align: "end" },
               {
                 key: "status",
@@ -302,16 +315,22 @@ export default async function ReportsPage() {
               </div>
             </div>
             <div style={{ display: "grid", gap: "18px" }}>
-              {utilityTypes.map((utilityType) => {
+              {utilityGroups.map((groupKey) => {
+                const [utilityType, groupCurrency] = groupKey.split("|");
+                const groupLabel = groupCurrency
+                  ? `${utilityType} (${groupCurrency})`
+                  : utilityType;
                 const typeRows = utilityTrend.filter(
-                  (row) => row.utility_type === utilityType
+                  (row) =>
+                    row.utility_type === utilityType &&
+                    (row.currency ?? "") === groupCurrency
                 );
                 const months = [
                   ...new Set(typeRows.map((row) => row.billing_month)),
                 ].sort();
                 const series = [
                   {
-                    label: utilityType,
+                    label: groupLabel,
                     color: "var(--accent-warm)",
                     values: months.map((month) => {
                       const row = typeRows.find(
@@ -322,12 +341,12 @@ export default async function ReportsPage() {
                   },
                 ];
                 return (
-                  <section key={utilityType}>
+                  <section key={groupKey}>
                     <div
                       className="metricLabel"
                       style={{ marginBottom: "10px" }}
                     >
-                      {utilityType}
+                      {groupLabel}
                     </div>
                     <SparklineChart
                       series={series}

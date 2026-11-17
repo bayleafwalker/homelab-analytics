@@ -31,6 +31,10 @@
             "title": "Cumulative Balance",
             "type": "string"
           },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
           "net_change": {
             "title": "Net Change",
             "type": "string"
@@ -45,7 +49,8 @@
           "account_id",
           "net_change",
           "cumulative_balance",
-          "transaction_count"
+          "transaction_count",
+          "currency"
         ],
         "title": "AccountBalanceTrendRow",
         "type": "object"
@@ -513,7 +518,8 @@
             "enum": [
               "current",
               "snapshot",
-              "no_history"
+              "no_history",
+              "legacy_denomination_unavailable"
             ],
             "title": "As Of Status",
             "type": "string"
@@ -1677,7 +1683,8 @@
             "enum": [
               "current",
               "snapshot",
-              "no_history"
+              "no_history",
+              "legacy_denomination_unavailable"
             ],
             "title": "As Of Status",
             "type": "string"
@@ -6923,7 +6930,8 @@
             "enum": [
               "current",
               "snapshot",
-              "no_history"
+              "no_history",
+              "legacy_denomination_unavailable"
             ],
             "title": "As Of Status",
             "type": "string"
@@ -7131,9 +7139,15 @@
       "IncomeChangeRequest": {
         "properties": {
           "currency": {
-            "default": "GBP",
-            "title": "Currency",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
           },
           "label": {
             "anyOf": [
@@ -7804,6 +7818,10 @@
             "title": "Counterparty Name",
             "type": "string"
           },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
           "expense": {
             "title": "Expense",
             "type": "string"
@@ -7827,7 +7845,8 @@
           "income",
           "expense",
           "net",
-          "transaction_count"
+          "transaction_count",
+          "currency"
         ],
         "title": "MonthlyCashflowByCounterpartyRow",
         "type": "object"
@@ -7876,6 +7895,10 @@
             "title": "Booking Month",
             "type": "string"
           },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
           "expense": {
             "title": "Expense",
             "type": "string"
@@ -7898,7 +7921,8 @@
           "income",
           "expense",
           "net",
-          "transaction_count"
+          "transaction_count",
+          "currency"
         ],
         "title": "MonthlyCashflowRow",
         "type": "object"
@@ -10367,7 +10391,8 @@
             "enum": [
               "current",
               "snapshot",
-              "no_history"
+              "no_history",
+              "legacy_denomination_unavailable"
             ],
             "title": "As Of Status",
             "type": "string"
@@ -10495,6 +10520,10 @@
             "title": "Change Type",
             "type": "string"
           },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
           "current_value": {
             "title": "Current Value",
             "type": "string"
@@ -10522,7 +10551,8 @@
           "description",
           "current_value",
           "previous_value",
-          "direction"
+          "direction",
+          "currency"
         ],
         "title": "RecentSignificantChangeRow",
         "type": "object"
@@ -10550,6 +10580,17 @@
               }
             ],
             "title": "Change Type"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
           },
           "current_value": {
             "anyOf": [
@@ -10613,7 +10654,8 @@
           "description",
           "current_value",
           "previous_value",
-          "direction"
+          "direction",
+          "currency"
         ],
         "title": "RecentSignificantChangeSnapshotRow",
         "type": "object"
@@ -10636,7 +10678,8 @@
             "enum": [
               "current",
               "snapshot",
-              "no_history"
+              "no_history",
+              "legacy_denomination_unavailable"
             ],
             "title": "As Of Status",
             "type": "string"
@@ -11492,6 +11535,10 @@
             "title": "Counterparty Name",
             "type": "string"
           },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
           "total_expense": {
             "title": "Total Expense",
             "type": "string"
@@ -11505,7 +11552,8 @@
           "booking_month",
           "counterparty_name",
           "total_expense",
-          "transaction_count"
+          "transaction_count",
+          "currency"
         ],
         "title": "SpendByCategoryMonthlyRow",
         "type": "object"
@@ -11535,6 +11583,13 @@
           "coverage": {
             "title": "Coverage",
             "type": "string"
+          },
+          "currencies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Currencies",
+            "type": "array"
           },
           "currency": {
             "anyOf": [
@@ -11716,7 +11771,8 @@
             "enum": [
               "current",
               "snapshot",
-              "no_history"
+              "no_history",
+              "legacy_denomination_unavailable"
             ],
             "title": "As Of Status",
             "type": "string"
@@ -12225,6 +12281,10 @@
             "title": "Counterparty Name",
             "type": "string"
           },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
           "direction": {
             "title": "Direction",
             "type": "string"
@@ -12241,7 +12301,8 @@
           "amount",
           "direction",
           "anomaly_type",
-          "anomaly_reason"
+          "anomaly_reason",
+          "currency"
         ],
         "title": "TransactionAnomaliesRow",
         "type": "object"
@@ -12588,6 +12649,17 @@
               }
             ],
             "title": "Cost Change Pct"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
           },
           "dominant_driver": {
             "anyOf": [
@@ -21589,6 +21661,22 @@
               "title": "Include Transfers",
               "type": "boolean"
             }
+          },
+          {
+            "in": "query",
+            "name": "currency",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Currency"
+            }
           }
         ],
         "responses": {
@@ -22493,6 +22581,22 @@
                 }
               ],
               "title": "As Of"
+            }
+          },
+          {
+            "in": "query",
+            "name": "currency",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Currency"
             }
           }
         ],

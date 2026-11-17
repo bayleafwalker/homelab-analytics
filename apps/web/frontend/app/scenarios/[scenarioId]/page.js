@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
+import { scenarioCurrency } from "@/lib/currency-groups";
 import {
   getCurrentUser,
   getScenarioCashflow,
@@ -47,6 +48,7 @@ export default async function ScenarioDetailPage({ params }) {
 
   const isStale = comparison?.is_stale || cashflow?.is_stale;
   const assumptions = comparison?.assumptions || cashflow?.assumptions || [];
+  const currency = scenarioCurrency(cashflow?.assumptions);
   const summaryRows = cashflow?.summary_rows || [];
 
   return (
@@ -124,6 +126,9 @@ export default async function ScenarioDetailPage({ params }) {
             </div>
             <div className="tableWrap">
               <table>
+                <caption>
+                  {currency ? `All amounts in ${currency}` : "Currency unknown"}
+                </caption>
                 <thead>
                   <tr>
                     <th>Period</th>

@@ -57,7 +57,14 @@ SNAPSHOT_COLUMNS: list[tuple[str, str]] = [
     ("run_id", "VARCHAR"),
     ("row_count", "INTEGER NOT NULL"),
     ("rows_json", "VARCHAR NOT NULL"),
+    # NULL marks a snapshot written before monetary publications kept one
+    # row per currency. Its bytes are never rewritten; see
+    # ``is_legacy_denomination_snapshot``.
+    ("contract_version", "VARCHAR"),
 ]
+
+# Version recorded on every snapshot written with currency-separated rows.
+SNAPSHOT_CONTRACT_VERSION = "2.0.0"
 
 # Publications with no history of their own. Month-keyed marts are not
 # snapshotted: their rows already carry the month.
@@ -73,6 +80,20 @@ SNAPSHOT_PUBLICATIONS: frozenset[str] = frozenset(
 )
 
 DEFAULT_SNAPSHOT_RETENTION_MONTHS = 24
+
+# Snapshotted publications whose pre-change rows could blend or omit a
+# denomination: the overview, affordability and change marts summed across
+# currencies, and attention items quote amounts in free text without one.
+# Subscription summary and recurring baseline rows already carried their own
+# ``currency`` per row, so their old snapshots stay readable.
+MONETARY_SNAPSHOT_PUBLICATIONS: frozenset[str] = frozenset(
+    {
+        MART_HOUSEHOLD_OVERVIEW_TABLE,
+        MART_OPEN_ATTENTION_ITEMS_TABLE,
+        MART_RECENT_SIGNIFICANT_CHANGES_TABLE,
+        MART_AFFORDABILITY_RATIOS_TABLE,
+    }
+)
 
 
 def is_reference_month(value: object) -> bool:
@@ -102,6 +123,8 @@ class PublicationSnapshot:
     captured_at: str
     run_id: str | None
     rows: list[dict[str, Any]]
+    # None: written before currency-separated publications (legacy).
+    contract_version: str | None = None
 
     @property
     def row_count(self) -> int:
@@ -115,6 +138,23 @@ class PublicationSnapshot:
             "run_id": self.run_id,
             "row_count": self.row_count,
         }
+
+
+def is_legacy_denomination_snapshot(
+    relation_name: str, snapshot: PublicationSnapshot
+) -> bool:
+    """True when ``snapshot`` holds monetary rows of unknown denomination.
+
+    Old snapshots blended currencies into one row, so their amounts cannot be
+    attributed to any currency and must never be shown with another
+    snapshot's, today's or another domain's currency. A legacy snapshot with
+    no rows asserted no monetary value, so it stays a valid empty snapshot.
+    """
+    return (
+        snapshot.contract_version is None
+        and relation_name in MONETARY_SNAPSHOT_PUBLICATIONS
+        and snapshot.row_count > 0
+    )
 
 
 @dataclass(frozen=True)
@@ -229,8 +269,9 @@ class PublicationSnapshotStore:
             ),
             (
                 f"INSERT INTO {SNAPSHOT_TABLE} "
-                "(publication_key, reference_month, captured_at, run_id, row_count, rows_json) "
-                f"VALUES ({p}, {p}, {p}, {p}, {p}, {p})",
+                "(publication_key, reference_month, captured_at, run_id, row_count, "
+                "rows_json, contract_version) "
+                f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p})",
                 [
                     snapshot.publication_key,
                     snapshot.reference_month,
@@ -238,6 +279,7 @@ class PublicationSnapshotStore:
                     snapshot.run_id,
                     snapshot.row_count,
                     payload,
+                    snapshot.contract_version or SNAPSHOT_CONTRACT_VERSION,
                 ],
             ),
         ]
@@ -264,8 +306,8 @@ class PublicationSnapshotStore:
             return None
         p = self._p
         rows = self._store.fetchall_dicts(
-            f"SELECT publication_key, reference_month, captured_at, run_id, rows_json "
-            f"FROM {SNAPSHOT_TABLE} "
+            # ``*``: a legacy table has no contract_version column yet.
+            f"SELECT * FROM {SNAPSHOT_TABLE} "
             f"WHERE publication_key = {p} AND reference_month = {p} "
             "ORDER BY captured_at DESC LIMIT 1",
             [publication_key, reference_month],
@@ -280,6 +322,11 @@ class PublicationSnapshotStore:
             captured_at=str(row["captured_at"]),
             run_id=str(row["run_id"]) if row.get("run_id") is not None else None,
             rows=[dict(item) for item in decoded] if isinstance(decoded, list) else [],
+            contract_version=(
+                str(row["contract_version"])
+                if row.get("contract_version") is not None
+                else None
+            ),
         )
 
     def months(self, publication_key: str) -> list[str]:

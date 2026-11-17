@@ -52,16 +52,25 @@ export default async function RetroUtilitiesPage({ searchParams }) {
   const utilityTypes = [...new Set(trend.map((row) => row.utility_type))].sort();
   const trendMonths = [...new Set(trend.map((row) => row.billing_month))].sort();
   const colors = ["var(--retro-warn)", "var(--retro-ok)", "var(--retro-accent)", "#ff8f8f"];
-  const trendSeries = utilityTypes.map((type, index) => ({
-    label: type,
-    color: colors[index % colors.length],
-    values: trendMonths.map((month) => {
-      const row = trend.find(
-        (entry) => entry.utility_type === type && entry.billing_month === month
-      );
-      return row ? Number(row.total_cost) : null;
-    }),
-  }));
+  const seriesKeys = [
+    ...new Set(trend.map((row) => `${row.utility_type}|${row.currency ?? ""}`)),
+  ].sort();
+  const trendSeries = seriesKeys.map((key, index) => {
+    const [type, currency] = key.split("|");
+    return {
+      label: currency ? `${type} (${currency})` : type,
+      color: colors[index % colors.length],
+      values: trendMonths.map((month) => {
+        const row = trend.find(
+          (entry) =>
+            entry.utility_type === type &&
+            (entry.currency ?? "") === currency &&
+            entry.billing_month === month
+        );
+        return row ? Number(row.total_cost) : null;
+      }),
+    };
+  });
   const meterIds = [...new Set(summary.map((row) => row.meter_id).filter(Boolean))].sort();
 
   return (

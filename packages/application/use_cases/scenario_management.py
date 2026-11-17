@@ -67,7 +67,7 @@ def create_income_change(
     svc: "TransformationService",
     *,
     monthly_income_delta: Decimal,
-    currency: str = "GBP",
+    currency: str | None = None,
     label: str | None = None,
     projection_months: int = 12,
 ) -> "IncomeScenarioResult":

@@ -32,6 +32,7 @@ class _StubReportingService:
                 "expense": "900.00",
                 "net": "1600.00",
                 "transaction_count": 2,
+                "currency": "EUR",
             }
         ]
 

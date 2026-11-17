@@ -673,7 +673,7 @@ class ApiAppTests(unittest.TestCase):
             self.assertEqual(200, single_contract_response.status_code)
             single_contract_payload = single_contract_response.json()
             self.assertEqual("monthly_cashflow", single_contract_payload["publication_key"])
-            self.assertEqual("1.0.0", single_contract_payload["schema_version"])
+            self.assertEqual("2.0.0", single_contract_payload["schema_version"])
             self.assertEqual(
                 "time",
                 single_contract_payload["columns"][0]["semantic_role"],

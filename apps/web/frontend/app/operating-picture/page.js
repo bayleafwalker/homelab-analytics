@@ -58,18 +58,18 @@ function formatMonthLabel(bookingMonth) {
   });
 }
 
-function buildHeroSummary({ latestCashflow, recurringTotal, utilityDelta, prevUtilityMonth }) {
+function buildHeroSummary({ latestCashflow, recurringTotal, utilityDelta, prevUtilityMonth, currency = null, label = null }) {
   if (!latestCashflow) {
     return "No cashflow data yet. Upload account transactions to populate the operating picture.";
   }
   const net = Number(latestCashflow.net);
   const parts = [
-    `${formatMonth(latestCashflow.booking_month)}: income ${formatMoney(latestCashflow.income)} against expense ${formatMoney(latestCashflow.expense)}, net ${
+    `${label ? `${label}, ` : ""}${formatMonth(latestCashflow.booking_month)}: income ${formatMoney(latestCashflow.income, currency)} against expense ${formatMoney(latestCashflow.expense, currency)}, net ${
       net >= 0 ? "positive" : "negative"
     }.`,
   ];
   if (recurringTotal > 0) {
-    parts.push(`Recurring subscriptions add ${formatMoney(recurringTotal)} per month.`);
+    parts.push(`Recurring subscriptions add ${formatMoney(recurringTotal, currency)} per month.`);
   }
   if (utilityDelta !== null) {
     parts.push(
@@ -172,29 +172,52 @@ export default async function OperatingPicturePage() {
     getSpendByCategoryMonthly(),
   ]);
 
-  const latestCashflow = cashflowRows.at(-1);
-  const recurringTotal = subscriptions
-    .filter((r) => r.status === "active")
-    .reduce((sum, r) => sum + Number(r.monthly_equivalent || 0), 0);
-
-  // Utility snapshot
-  const utilityMonths = [...new Set(utilityTrend.map((r) => r.billing_month))].sort();
-  const latestUtilityMonth = utilityMonths.at(-1);
-  const prevUtilityMonth = utilityMonths.at(-2);
-  const utilityLatestTotal = utilityTrend
-    .filter((r) => r.billing_month === latestUtilityMonth)
-    .reduce((sum, r) => sum + Number(r.total_cost || 0), 0);
-  const utilityPrevTotal = utilityTrend
-    .filter((r) => r.billing_month === prevUtilityMonth)
-    .reduce((sum, r) => sum + Number(r.total_cost || 0), 0);
-  const utilityDelta =
-    utilityPrevTotal > 0 ? ((utilityLatestTotal - utilityPrevTotal) / utilityPrevTotal) * 100 : null;
-
-  // Hero: net + 12-month sparkline
-  const netSeriesValues = cashflowRows.slice(-12).map((r) => Number(r.net));
-  const netSeriesLabels = cashflowRows.slice(-12).map((r) => r.booking_month);
-  const heroSummary = buildHeroSummary({ latestCashflow, recurringTotal, utilityDelta, prevUtilityMonth });
-  const monthLabel = formatMonthLabel(latestCashflow?.booking_month);
+  // Money is built per currency: each group has its own newest month,
+  // recurring total, utility delta, trend, categories and ratios. Nothing is
+  // converted or summed across currencies.
+  const currencyList = [
+    ...new Set(
+      [...cashflowRows, ...subscriptions, ...utilityTrend, ...categorySpend, ...affordabilityRatios]
+        .map((r) => r.currency)
+        .filter(Boolean)
+    ),
+  ].sort();
+  const moneyGroups = (currencyList.length > 0 ? currencyList : [null]).map((currency) => {
+    const own = (rows) => (currency ? rows.filter((r) => r.currency === currency) : rows);
+    const groupCashflow = own(cashflowRows);
+    const latestCashflow = groupCashflow.at(-1);
+    const recurringTotal = own(subscriptions)
+      .filter((r) => r.status === "active")
+      .reduce((sum, r) => sum + Number(r.monthly_equivalent || 0), 0);
+    const groupUtility = own(utilityTrend);
+    const utilityMonths = [...new Set(groupUtility.map((r) => r.billing_month))].sort();
+    const latestUtilityMonth = utilityMonths.at(-1);
+    const prevUtilityMonth = utilityMonths.at(-2);
+    const sumMonth = (month) =>
+      groupUtility.filter((r) => r.billing_month === month).reduce((sum, r) => sum + Number(r.total_cost || 0), 0);
+    const utilityLatestTotal = sumMonth(latestUtilityMonth);
+    const utilityPrevTotal = sumMonth(prevUtilityMonth);
+    const utilityDelta =
+      utilityPrevTotal > 0 ? ((utilityLatestTotal - utilityPrevTotal) / utilityPrevTotal) * 100 : null;
+    return {
+      currency,
+      latestCashflow,
+      heroSummary: buildHeroSummary({
+        latestCashflow,
+        recurringTotal,
+        utilityDelta,
+        prevUtilityMonth,
+        currency,
+        label: currencyList.length > 1 ? currency : null,
+      }),
+      netSeriesValues: groupCashflow.slice(-12).map((r) => Number(r.net)),
+      netSeriesLabels: groupCashflow.slice(-12).map((r) => r.booking_month),
+      topCategories: buildTopCategories(own(categorySpend)),
+      affordabilityRatios: own(affordabilityRatios),
+    };
+  });
+  const newestMonth = [...new Set(cashflowRows.map((r) => r.booking_month))].sort().at(-1);
+  const monthLabel = formatMonthLabel(newestMonth);
 
   // Freshness pulse — one place, five domains, no duplicate table.
   const freshnessDomains = [
@@ -211,9 +234,6 @@ export default async function OperatingPicturePage() {
   // Urgency-ranked attention queue
   const rankedAttention = [...attentionItems].sort((a, b) => (a.severity ?? 9) - (b.severity ?? 9));
 
-  // Right rail: ratios + top categories
-  const topCategories = buildTopCategories(categorySpend);
-
   return (
     <AppShell
       currentPath="/operating-picture"
@@ -224,15 +244,10 @@ export default async function OperatingPicturePage() {
     >
       <OperatingPictureView
         monthLabel={monthLabel}
-        latestCashflow={latestCashflow}
-        heroSummary={heroSummary}
-        netSeriesValues={netSeriesValues}
-        netSeriesLabels={netSeriesLabels}
+        moneyGroups={moneyGroups}
         freshnessDomains={freshnessDomains}
         horizonDays={horizonDays}
         rankedAttention={rankedAttention}
-        affordabilityRatios={affordabilityRatios}
-        topCategories={topCategories}
         recentChanges={recentChanges}
       />
       {/* recurringBaseline is intentionally unused today; the fetch is kept

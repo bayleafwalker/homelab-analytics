@@ -1260,9 +1260,9 @@ class MqttSyntheticStateTests(unittest.TestCase):
         class _Reporting:
             def get_utility_cost_summary(self, **kwargs):
                 return [
-                    {"period_day": "2026-03-24", "billed_amount": "4.50"},
-                    {"period_day": "2026-03-25", "billed_amount": "3.25"},
-                    {"period_day": "2026-03-25", "billed_amount": "1.75"},
+                    {"period_day": "2026-03-24", "billed_amount": "4.50", "currency": "EUR"},
+                    {"period_day": "2026-03-25", "billed_amount": "3.25", "currency": "EUR"},
+                    {"period_day": "2026-03-25", "billed_amount": "1.75", "currency": "EUR"},
                 ]
 
             def get_utility_cost_trend_monthly(self, **kwargs):
@@ -1284,7 +1284,7 @@ class MqttSyntheticStateTests(unittest.TestCase):
                 return []
 
             def get_utility_cost_trend_monthly(self, **kwargs):
-                return [{"billing_month": "2026-03", "total_cost": "31.00"}]
+                return [{"billing_month": "2026-03", "total_cost": "31.00", "currency": "EUR"}]
 
         self.assertEqual(
             "1",

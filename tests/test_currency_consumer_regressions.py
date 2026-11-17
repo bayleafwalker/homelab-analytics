@@ -1,0 +1,745 @@
+"""Owned currency-correctness regressions for the monetary consumers.
+
+Covers the four consumer paths the independent review flagged:
+
+1. Finance/scenario tariff shock must refuse mixed denominations and
+   usage-only (no bill) evidence instead of blending or returning a silent
+   zero, while keeping the same-currency and observed-zero controls.
+2. Electricity contract decision must refuse a contract whose energy price and
+   base fee are in different currencies, with an explicit reason code.
+3. The electricity contract estimate units follow the assessment currency
+   (USD stays USD/year), never a hard-coded EUR.
+4. The utilities cost trend keeps an unbilled meter as its own
+   usage-only/null-currency group instead of folding it into the sole billed
+   denomination.
+"""
+
+from __future__ import annotations
+
+from decimal import Decimal
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+from apps.api.app import create_app
+from packages.domains.finance.pipelines.account_transaction_service import (
+    AccountTransactionService,
+)
+from packages.domains.finance.pipelines.scenario_service import (
+    create_expense_shock_scenario,
+    create_income_change_scenario,
+)
+from packages.domains.finance.pipelines.transformation_transactions import (
+    refresh_monthly_cashflow,
+)
+from packages.domains.overview.pipelines.scenario_service_overview import (
+    create_tariff_shock_scenario,
+    get_tariff_shock_comparison,
+)
+from packages.domains.utilities.energy_contract_decision import (
+    assess_energy_contract_review,
+    energy_contract_baseline,
+)
+from packages.domains.utilities.pipelines.transformation_utilities import (
+    get_utility_cost_summary,
+    get_utility_cost_trend_monthly,
+    refresh_utility_cost_summary,
+    refresh_utility_cost_trend_monthly,
+)
+from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
+from packages.pipelines.transformation_service import TransformationService
+from packages.storage.duckdb_store import DuckDBStore
+from packages.storage.run_metadata import RunMetadataRepository
+
+
+def _service() -> TransformationService:
+    return TransformationService(DuckDBStore.memory())
+
+
+def _load_finance(svc: TransformationService, currency: str = "EUR") -> None:
+    svc.load_transactions(
+        [
+            {
+                "booked_at": "2026-01-03T08:00:00+00:00",
+                "account_id": "checking",
+                "counterparty_name": "Employer",
+                "amount": "3000.00",
+                "currency": currency,
+                "description": "salary",
+            }
+        ],
+        run_id="run-finance",
+    )
+    refresh_monthly_cashflow(svc.store)
+
+
+def _bill(meter_id: str, amount: str, currency: str, month: str = "2026-01") -> dict:
+    return {
+        "meter_id": meter_id,
+        "meter_name": meter_id,
+        "provider": "City Power",
+        "utility_type": "electricity",
+        "location": "home",
+        "billing_period_start": f"{month}-01",
+        "billing_period_end": f"{month}-31",
+        "billed_amount": amount,
+        "currency": currency,
+        "billed_quantity": "100",
+        "usage_unit": "kWh",
+        "invoice_date": f"{month}-05",
+    }
+
+
+def _usage(meter_id: str, quantity: str = "100", month: str = "2026-01") -> dict:
+    return {
+        "meter_id": meter_id,
+        "meter_name": meter_id,
+        "utility_type": "electricity",
+        "location": "home",
+        "usage_start": f"{month}-01",
+        "usage_end": f"{month}-31",
+        "usage_quantity": quantity,
+        "usage_unit": "kWh",
+        "reading_source": "smart-meter",
+    }
+
+
+def _refresh_utilities(svc: TransformationService) -> None:
+    refresh_utility_cost_summary(svc.store)
+    refresh_utility_cost_trend_monthly(svc.store)
+
+
+# ---------------------------------------------------------------------------
+# 1. Tariff shock
+# ---------------------------------------------------------------------------
+
+
+def test_tariff_shock_refuses_usd_utility_against_eur_cashflow() -> None:
+    svc = _service()
+    _load_finance(svc, currency="EUR")
+    svc.load_bills([_bill("m1", "100", "USD")], run_id="run-bill")
+    svc.load_utility_usage([_usage("m1")], run_id="run-usage")
+    _refresh_utilities(svc)
+
+    with pytest.raises(ValueError) as excinfo:
+        create_tariff_shock_scenario(svc.store, tariff_pct_delta=Decimal("0.10"))
+
+    message = str(excinfo.value).lower()
+    assert "eur" in message and "usd" in message
+
+
+def test_tariff_shock_refuses_mixed_denominations_in_the_latest_month() -> None:
+    svc = _service()
+    _load_finance(svc, currency="EUR")
+    svc.load_bills(
+        [_bill("m1", "100", "EUR"), _bill("m2", "200", "USD")], run_id="run-bill"
+    )
+    _refresh_utilities(svc)
+
+    with pytest.raises(ValueError) as excinfo:
+        create_tariff_shock_scenario(svc.store, tariff_pct_delta=Decimal("0.10"))
+
+    assert "single denomination" in str(excinfo.value)
+
+
+def test_tariff_shock_refuses_usage_only_without_a_bill() -> None:
+    svc = _service()
+    _load_finance(svc, currency="EUR")
+    svc.load_utility_usage([_usage("m1")], run_id="run-usage")
+    _refresh_utilities(svc)
+
+    with pytest.raises(ValueError) as excinfo:
+        create_tariff_shock_scenario(svc.store, tariff_pct_delta=Decimal("0.10"))
+
+    assert "usage without a bill" in str(excinfo.value)
+
+
+def test_tariff_shock_same_currency_eur_control() -> None:
+    svc = _service()
+    _load_finance(svc, currency="EUR")
+    svc.load_bills([_bill("m1", "100", "EUR")], run_id="run-bill")
+    svc.load_utility_usage([_usage("m1")], run_id="run-usage")
+    _refresh_utilities(svc)
+
+    result = create_tariff_shock_scenario(svc.store, tariff_pct_delta=Decimal("0.10"))
+
+    assert result.baseline_monthly_utility_cost == Decimal("100")
+    assert result.new_monthly_utility_cost == Decimal("110")
+    assert result.annual_additional_cost == Decimal("120")
+
+
+def test_tariff_shock_observed_zero_eur_bill_remains_zero() -> None:
+    svc = _service()
+    _load_finance(svc, currency="EUR")
+    svc.load_bills([_bill("m1", "0", "EUR")], run_id="run-bill")
+    svc.load_utility_usage([_usage("m1")], run_id="run-usage")
+    _refresh_utilities(svc)
+
+    result = create_tariff_shock_scenario(svc.store, tariff_pct_delta=Decimal("0.10"))
+
+    assert result.baseline_monthly_utility_cost == Decimal("0")
+    assert result.new_monthly_utility_cost == Decimal("0")
+    assert result.annual_additional_cost == Decimal("0")
+
+
+def test_tariff_shock_result_and_assumption_carry_the_actual_currency() -> None:
+    svc = _service()
+    _load_finance(svc, currency="USD")
+    svc.load_bills([_bill("m1", "100", "USD")], run_id="run-bill")
+    svc.load_utility_usage([_usage("m1")], run_id="run-usage")
+    _refresh_utilities(svc)
+
+    result = create_tariff_shock_scenario(svc.store, tariff_pct_delta=Decimal("0.10"))
+    assert result.currency == "USD"
+
+    comparison = get_tariff_shock_comparison(svc.store, result.scenario_id)
+    assert comparison is not None
+    assumption = next(
+        row
+        for row in comparison.assumptions
+        if row["assumption_key"] == "baseline_utility_cost"
+    )
+    assert assumption["unit"] == "USD"
+
+
+def test_tariff_shock_public_cashflow_refuses_an_incompatible_persisted_scenario(
+    tmp_path: Path,
+) -> None:
+    service = AccountTransactionService(
+        landing_root=tmp_path / "landing",
+        metadata_repository=RunMetadataRepository(tmp_path / "runs.db"),
+    )
+    svc = _service()
+    _load_finance(svc, currency="EUR")
+    svc.load_bills([_bill("m1", "100", "EUR")], run_id="run-bill")
+    svc.load_utility_usage([_usage("m1")], run_id="run-usage")
+    _refresh_utilities(svc)
+
+    result = create_tariff_shock_scenario(svc.store, tariff_pct_delta=Decimal("0.10"))
+
+    # Simulate a scenario persisted by an older build that recorded the generic
+    # "currency" token (or a blended projection) instead of a concrete single
+    # denomination. The public projection must refuse it, not serve it blended.
+    svc.store.execute(
+        "UPDATE fact_scenario_assumption SET unit = 'currency' "
+        "WHERE scenario_id = ? AND assumption_key = 'baseline_utility_cost'",
+        [result.scenario_id],
+    )
+
+    assert get_tariff_shock_comparison(svc.store, result.scenario_id) is None
+
+    client = TestClient(create_app(service, transformation_service=svc))
+    response = client.get(f"/api/scenarios/{result.scenario_id}/cashflow")
+    assert response.status_code == 404
+
+
+def _client(tmp_path: Path) -> tuple[TestClient, TransformationService]:
+    service = AccountTransactionService(
+        landing_root=tmp_path / "landing",
+        metadata_repository=RunMetadataRepository(tmp_path / "runs.db"),
+    )
+    svc = _service()
+    return TestClient(create_app(service, transformation_service=svc)), svc
+
+
+def _scenario_ids(client: TestClient) -> set[str]:
+    return {row["scenario_id"] for row in client.get("/api/scenarios").json()["rows"]}
+
+
+def test_tariff_shock_public_catalogue_rejects_mixed_without_a_persisted_blend(
+    tmp_path: Path,
+) -> None:
+    client, svc = _client(tmp_path)
+    _load_finance(svc, currency="EUR")
+    svc.load_bills([_bill("m1", "100", "USD")], run_id="run-bill")
+    svc.load_utility_usage([_usage("m1")], run_id="run-usage")
+    _refresh_utilities(svc)
+
+    before = _scenario_ids(client)
+
+    response = client.post(
+        "/api/scenarios/tariff-shock",
+        json={"tariff_pct_delta": "0.10"},
+    )
+
+    # Rejected cleanly: no ID, no nulled-but-served monetary fields, and no
+    # new catalogue record (so no persisted-blend projection to expose).
+    assert response.status_code == 422
+    body = response.json()
+    assert "scenario_id" not in body
+    assert "months_until_deficit" not in body
+    assert _scenario_ids(client) == before
+
+
+@pytest.mark.parametrize("currency", ["EUR", "USD"])
+def test_tariff_shock_valid_currency_publishes_truthful_views(
+    tmp_path: Path, currency: str
+) -> None:
+    client, svc = _client(tmp_path)
+    _load_finance(svc, currency=currency)
+    svc.load_bills([_bill("m1", "100", currency)], run_id="run-bill")
+    svc.load_utility_usage([_usage("m1")], run_id="run-usage")
+    _refresh_utilities(svc)
+
+    before = _scenario_ids(client)
+
+    response = client.post(
+        "/api/scenarios/tariff-shock",
+        json={"tariff_pct_delta": "0.10"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    sid = body["scenario_id"]
+    assert body["currency"] == currency
+    assert float(body["baseline_monthly_utility_cost"]) == 100.0
+
+    # The new record is visible and its projection/assumptions are truthful.
+    after = _scenario_ids(client)
+    assert after - before == {sid}
+
+    cashflow = client.get(f"/api/scenarios/{sid}/cashflow")
+    assert cashflow.status_code == 200
+    cashflow_body = cashflow.json()
+    assert len(cashflow_body["cashflow_rows"]) == 12
+    assumption = next(
+        row
+        for row in cashflow_body["assumptions"]
+        if row["assumption_key"] == "baseline_utility_cost"
+    )
+    assert assumption["unit"] == currency
+
+    comparison = client.get(f"/api/scenarios/{sid}/comparison")
+    assert comparison.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# 2 + 3. Electricity contract decision
+# ---------------------------------------------------------------------------
+
+
+def _price(contract_id: str, component: str, price: str, currency: str) -> dict:
+    return {
+        "contract_id": contract_id,
+        "contract_name": contract_id.title(),
+        "provider": f"{contract_id}-provider",
+        "contract_type": "electricity",
+        "price_component": component,
+        "billing_cycle": "per_kwh" if component == "energy" else "monthly",
+        "unit_price": price,
+        "currency": currency,
+        "quantity_unit": "kWh" if component == "energy" else None,
+        "valid_from": "2025-01-01",
+        "valid_to": None,
+        "status": "active",
+    }
+
+
+def _usage_months(currency: str, months: int = 12) -> list[dict]:
+    return [
+        {
+            "billing_month": f"2025-{index:02d}",
+            "utility_type": "electricity",
+            "usage_amount": "400",
+            "total_cost": "60.00",
+            "currency": currency,
+        }
+        for index in range(1, months + 1)
+    ]
+
+
+def test_energy_contract_refuses_mixed_base_fee_currency() -> None:
+    price_rows = [
+        _price("current", "energy", "0.0825", "EUR"),
+        _price("current", "base_fee", "5.99", "USD"),
+        _price("quote", "energy", "0.06", "EUR"),
+        _price("quote", "base_fee", "3.99", "EUR"),
+    ]
+    assessment = assess_energy_contract_review(
+        contract_id="current",
+        price_rows=price_rows,
+        review_candidates=[],
+        renewal_watchlist=[],
+        cost_trend_rows=_usage_months("EUR"),
+    )
+
+    assert assessment["verdict"] == "insufficient_evidence"
+    assert "base_fee_currency_mismatch" in assessment["reason_codes"]
+    assert assessment["estimated_annual_cost_current_eur"] is None
+    assert assessment["estimated_annual_difference_eur"] is None
+    assert assessment["remediation"]
+
+
+def test_energy_contract_eur_same_currency_still_compares() -> None:
+    price_rows = [
+        _price("current", "energy", "0.0825", "EUR"),
+        _price("current", "base_fee", "5.99", "EUR"),
+        _price("quote", "energy", "0.06", "EUR"),
+        _price("quote", "base_fee", "3.99", "EUR"),
+    ]
+    assessment = assess_energy_contract_review(
+        contract_id="current",
+        price_rows=price_rows,
+        review_candidates=[],
+        renewal_watchlist=[],
+        cost_trend_rows=_usage_months("EUR"),
+    )
+
+    assert assessment["verdict"] == "alternative_estimated_cheaper"
+    assert assessment["reason_codes"] == []
+    assert assessment["currency"] == "EUR"
+
+
+def test_energy_contract_usd_baseline_units_follow_the_currency() -> None:
+    price_rows = [
+        _price("current", "energy", "0.0825", "USD"),
+        _price("current", "base_fee", "5.99", "USD"),
+        _price("quote", "energy", "0.06", "USD"),
+        _price("quote", "base_fee", "3.99", "USD"),
+    ]
+    assessment = assess_energy_contract_review(
+        contract_id="current",
+        price_rows=price_rows,
+        review_candidates=[],
+        renewal_watchlist=[],
+        cost_trend_rows=_usage_months("USD"),
+    )
+
+    assert assessment["currency"] == "USD"
+    assert assessment["verdict"] == "alternative_estimated_cheaper"
+
+    # The `_eur` key names are compatibility API keys; the unit is what must be
+    # truthful, and for a USD assessment it is USD/year (never EUR/year).
+    baseline = energy_contract_baseline(assessment)
+    for key in (
+        "estimated_annual_cost_current_eur",
+        "estimated_annual_cost_best_alternative_eur",
+        "estimated_annual_difference_eur",
+    ):
+        assert baseline[key]["unit"] == "USD/year", key
+        assert baseline[key]["value"] is not None
+
+
+# ---------------------------------------------------------------------------
+# 4. Utilities cost trend
+# ---------------------------------------------------------------------------
+
+
+def test_utility_trend_keeps_unbilled_meter_out_of_the_billed_denomination() -> None:
+    svc = _service()
+    svc.load_bills([_bill("billed", "100", "EUR")], run_id="run-bill")
+    svc.load_utility_usage(
+        [_usage("billed", "100"), _usage("unbilled", "100")], run_id="run-usage"
+    )
+    _refresh_utilities(svc)
+
+    rows = get_utility_cost_trend_monthly(svc.store, utility_type="electricity")
+
+    billed = [row for row in rows if row["currency"] == "EUR"]
+    unbilled = [row for row in rows if row["currency"] is None]
+
+    assert len(billed) == 1
+    assert Decimal(str(billed[0]["total_cost"])) == 100
+    assert Decimal(str(billed[0]["usage_amount"])) == 100
+    assert Decimal(str(billed[0]["unit_price_effective"])) == 1
+    assert billed[0]["meter_count"] == 1
+
+    assert len(unbilled) == 1
+    assert Decimal(str(unbilled[0]["total_cost"])) == 0
+    assert Decimal(str(unbilled[0]["usage_amount"])) == 100
+    assert unbilled[0]["unit_price_effective"] is None
+    assert unbilled[0]["meter_count"] == 1
+
+
+# ---------------------------------------------------------------------------
+# 6. Utility cost summary must not fan out bill amounts across usage rows
+# ---------------------------------------------------------------------------
+
+
+def test_utility_summary_does_not_fan_out_bill_amount_across_usage_observations() -> None:
+    svc = _service()
+    svc.load_bills([_bill("m1", "200", "EUR")], run_id="run-bill")
+    svc.load_utility_usage(
+        [
+            {**_usage("m1", "50"), "usage_start": "2026-01-04", "usage_end": "2026-01-04"},
+            {**_usage("m1", "50"), "usage_start": "2026-01-05", "usage_end": "2026-01-05"},
+        ],
+        run_id="run-usage",
+    )
+    refresh_utility_cost_summary(svc.store)
+
+    rows = get_utility_cost_summary(svc.store, utility_type="electricity")
+    assert len(rows) == 1
+    row = rows[0]
+    assert Decimal(str(row["billed_amount"])) == 200
+    assert Decimal(str(row["usage_quantity"])) == 100
+    assert row["bill_count"] == 1
+    assert row["usage_record_count"] == 2
+    assert row["coverage_status"] == "matched"
+    assert Decimal(str(row["unit_cost"])) == 2
+
+
+def test_utility_summary_sums_distinct_genuine_bills_without_fan_out() -> None:
+    svc = _service()
+    svc.load_bills(
+        [_bill("m1", "200", "EUR"), _bill("m1", "300", "EUR")],
+        run_id="run-bill",
+    )
+    svc.load_utility_usage(
+        [
+            {**_usage("m1", "40"), "usage_start": "2026-01-04", "usage_end": "2026-01-04"},
+            {**_usage("m1", "60"), "usage_start": "2026-01-05", "usage_end": "2026-01-05"},
+        ],
+        run_id="run-usage",
+    )
+    refresh_utility_cost_summary(svc.store)
+
+    rows = get_utility_cost_summary(svc.store, utility_type="electricity")
+    assert len(rows) == 1
+    row = rows[0]
+    assert Decimal(str(row["billed_amount"])) == 500
+    assert Decimal(str(row["usage_quantity"])) == 100
+    assert row["bill_count"] == 2
+    assert row["usage_record_count"] == 2
+
+
+def test_overlapping_bills_keep_each_usage_observation_once_per_month() -> None:
+    svc = _service()
+    svc.load_bills(
+        [
+            {**_bill("m1", "200", "EUR"), "billing_period_end": "2026-01-20"},
+            {**_bill("m1", "60", "EUR"), "billing_period_start": "2026-01-10"},
+        ],
+        run_id="run-bill",
+    )
+    svc.load_utility_usage(
+        [
+            {**_usage("m1", "50"), "usage_start": day, "usage_end": day}
+            for day in ("2026-01-15", "2026-01-17")
+        ],
+        run_id="run-usage",
+    )
+    refresh_utility_cost_summary(svc.store)
+    refresh_utility_cost_trend_monthly(svc.store)
+
+    (summary,) = get_utility_cost_summary(svc.store, utility_type="electricity")
+    assert summary["currency"] == "EUR"
+    assert summary["billed_amount"] == Decimal("260")
+    assert summary["usage_quantity"] == Decimal("100")
+    assert summary["unit_cost"] == Decimal("2.6")
+    assert summary["bill_count"] == 2
+    assert summary["usage_record_count"] == 2
+
+    for granularity in ("month", "day"):
+        (selected,) = get_utility_cost_summary(
+            svc.store, utility_type="electricity", granularity=granularity,
+            from_period="2026-01-10", to_period="2026-01-31",
+        )
+        assert selected["billed_amount"] == Decimal("60")
+        assert selected["usage_quantity"] == Decimal("100")
+        assert selected["unit_cost"] == Decimal("0.6")
+        assert selected["usage_record_count"] == 2
+        assert selected["coverage_status"] == "matched"
+
+    (trend,) = get_utility_cost_trend_monthly(svc.store, utility_type="electricity")
+    assert trend["currency"] == "EUR"
+    assert trend["total_cost"] == Decimal("260")
+    assert trend["usage_amount"] == Decimal("100")
+    assert trend["unit_price_effective"] == Decimal("2.6")
+
+
+def test_selected_period_with_missing_or_malformed_usage_provenance_is_unavailable(
+    tmp_path: Path,
+) -> None:
+    client, svc = _client(tmp_path)
+    svc.load_bills(
+        [
+            _bill("m1", "60", "EUR"),
+            {**_bill("m1", "20", "EUR", month="2026-02"), "billing_period_end": "2026-02-28"},
+        ],
+        run_id="bill",
+    )
+    svc.load_utility_usage([_usage("m1", "100")], run_id="usage")
+    refresh_utility_cost_summary(svc.store)
+    route = "/reports/utility-cost-summary"
+    january = {"from_period": "2026-01-01", "to_period": "2026-01-31"}
+    february = {"from_period": "2026-02-01", "to_period": "2026-02-28"}
+    assert Decimal(str(client.get(route, params=january).json()["rows"][0]["usage_quantity"])) == 100
+
+    for invalid in (None, "not json", "[]", "{}", '{"wrong":"quantity"}'):
+        svc.store.execute(
+            "UPDATE mart_utility_cost_summary SET usage_observations = ? "
+            "WHERE period_month = '2026-01'",
+            [invalid],
+        )
+        for granularity in ("day", "month"):
+            stale = client.get(route, params={**january, "granularity": granularity})
+            assert stale.status_code == 503, stale.text
+        unrelated = client.get(route, params=february)
+        assert unrelated.status_code == 200, unrelated.text
+        assert unrelated.json()["rows"][0]["coverage_status"] == "bill_only"
+
+    empty = client.get(route, params={"from_period": "2026-03-01"})
+    assert empty.status_code == 200
+    assert empty.json()["rows"] == []
+
+
+def test_income_change_resolves_and_validates_the_single_baseline_currency() -> None:
+    svc = _service()
+    _load_finance(svc, currency="USD")  # sole USD baseline
+
+    # A mismatched explicit currency is refused, never silently relabelled.
+    with pytest.raises(ValueError, match="single cashflow denomination"):
+        create_income_change_scenario(
+            svc.store, monthly_income_delta=Decimal("10"), currency="EUR"
+        )
+
+    # Omitted currency resolves to the baseline; explicit matching is accepted.
+    omitted = create_income_change_scenario(svc.store, monthly_income_delta=Decimal("10"))
+    assert omitted.currency == "USD"
+
+    matching = create_income_change_scenario(
+        svc.store, monthly_income_delta=Decimal("10"), currency="USD"
+    )
+    assert matching.currency == "USD"
+
+    expense = create_expense_shock_scenario(svc.store, expense_pct_delta=Decimal("0.10"))
+    assert expense.currency == "USD"
+
+
+@pytest.mark.parametrize("currency", ["EUR", "USD"])
+def test_income_change_reopen_serves_the_persisted_currency(
+    tmp_path: Path, currency: str
+) -> None:
+    client, svc = _client(tmp_path)
+    _load_finance(svc, currency=currency)
+
+    response = client.post(
+        "/api/scenarios/income-change",
+        json={"monthly_income_delta": "10.00"},
+    )
+    assert response.status_code == 200
+    sid = response.json()["scenario_id"]
+    assert response.json()["currency"] == currency
+
+    cashflow = client.get(f"/api/scenarios/{sid}/cashflow")
+    assert cashflow.status_code == 200
+    assumption = next(
+        row
+        for row in cashflow.json()["assumptions"]
+        if row["assumption_key"] == "cashflow_currency"
+    )
+    assert assumption["unit"] == currency
+
+
+@pytest.mark.parametrize("currency", ["EUR", "USD"])
+def test_expense_shock_reopen_serves_the_persisted_currency(
+    tmp_path: Path, currency: str
+) -> None:
+    client, svc = _client(tmp_path)
+    _load_finance(svc, currency=currency)
+
+    response = client.post(
+        "/api/scenarios/expense-shock",
+        json={"expense_pct_delta": "0.10"},
+    )
+    assert response.status_code == 200
+    sid = response.json()["scenario_id"]
+    assert response.json()["currency"] == currency
+
+    cashflow = client.get(f"/api/scenarios/{sid}/cashflow")
+    assert cashflow.status_code == 200
+    assumption = next(
+        row
+        for row in cashflow.json()["assumptions"]
+        if row["assumption_key"] == "baseline_expense"
+    )
+    assert assumption["unit"] == currency
+
+
+def test_historical_income_delta_does_not_supply_a_projection_currency(tmp_path: Path) -> None:
+    client, svc = _client(tmp_path)
+    _load_finance(svc, currency="USD")
+    result = create_income_change_scenario(svc.store, monthly_income_delta=Decimal("10"))
+    svc.store.execute(
+        "DELETE FROM fact_scenario_assumption "
+        "WHERE scenario_id = ? AND assumption_key = 'cashflow_currency'",
+        [result.scenario_id],
+    )
+    svc.store.execute(
+        "UPDATE fact_scenario_assumption SET unit = 'EUR' "
+        "WHERE scenario_id = ? AND assumption_key = 'monthly_income_delta'",
+        [result.scenario_id],
+    )
+
+    response = client.get(f"/api/scenarios/{result.scenario_id}/cashflow")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["cashflow_rows"]
+    assert {row["assumption_key"] for row in body["assumptions"]} == {"monthly_income_delta"}
+
+
+def test_historical_expense_percentage_does_not_supply_a_projection_currency(
+    tmp_path: Path,
+) -> None:
+    client, svc = _client(tmp_path)
+    _load_finance(svc, currency="EUR")
+    result = create_expense_shock_scenario(svc.store, expense_pct_delta=Decimal("0.10"))
+    svc.store.execute(
+        "DELETE FROM fact_scenario_assumption "
+        "WHERE scenario_id = ? AND assumption_key = 'baseline_expense'",
+        [result.scenario_id],
+    )
+
+    response = client.get(f"/api/scenarios/{result.scenario_id}/cashflow")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["cashflow_rows"]
+    assert {row["assumption_key"] for row in body["assumptions"]} == {"expense_pct_delta"}
+
+
+# ---------------------------------------------------------------------------
+# 5. Strict PUBLISHED never inspects the warehouse
+# ---------------------------------------------------------------------------
+
+
+class _MissingPublishedStore:
+    """A published store with no relation, asserting it is never inspected."""
+
+    def table_exists(self, table_name: str) -> bool:
+        return False
+
+    def column_names(self, table_name: str) -> list[str]:
+        raise AssertionError("a missing published relation must not be inspected")
+
+
+def test_strict_published_missing_relation_is_unavailable_never_a_warehouse_shape() -> None:
+    # A legacy-shaped warehouse (no currency column) must not leak a 503.
+    legacy = _service()
+    legacy.store.ensure_table(
+        "mart_monthly_cashflow",
+        [
+            ("booking_month", "VARCHAR NOT NULL"),
+            ("income", "DECIMAL(18,4) NOT NULL"),
+            ("expense", "DECIMAL(18,4) NOT NULL"),
+            ("net", "DECIMAL(18,4) NOT NULL"),
+            ("transaction_count", "INTEGER NOT NULL"),
+        ],
+    )
+    reporting = ReportingService(
+        legacy,
+        publication_store=_MissingPublishedStore(),
+        access_mode=ReportingAccessMode.PUBLISHED,
+    )
+    with pytest.raises(KeyError, match="unavailable"):
+        reporting.get_monthly_cashflow()
+
+    # A missing warehouse table must not leak a raw CatalogException either.
+    empty = _service()
+    reporting_empty = ReportingService(
+        empty,
+        publication_store=_MissingPublishedStore(),
+        access_mode=ReportingAccessMode.PUBLISHED,
+    )
+    with pytest.raises(KeyError, match="unavailable"):
+        reporting_empty.get_monthly_cashflow()

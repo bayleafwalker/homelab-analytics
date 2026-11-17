@@ -201,10 +201,6 @@ type ResponseArrayField<Response, Field extends string> =
   PresentResponseField<Response, Field> extends ReadonlyArray<unknown>
     ? PresentResponseField<Response, Field>
     : unknown[];
-type FirstResponseArrayItem<Response, Field extends string> =
-  ResponseArrayField<Response, Field> extends ReadonlyArray<infer Item>
-    ? Item | null
-    : unknown | null;
 type DefinedValues<T extends Record<string, unknown>> = {
   [Key in keyof T as Exclude<T[Key], undefined> extends never ? never : Key]?: Exclude<
     T[Key],
@@ -505,14 +501,6 @@ function getResponseArray<Response, Field extends string>(
     : ([] as ResponseArrayField<Response, Field>);
 }
 
-function getFirstResponseArrayItem<Response, Field extends string>(
-  response: Response,
-  field: Field
-): FirstResponseArrayItem<Response, Field> {
-  const value = getResponseArray(response, field);
-  return (value[0] ?? null) as FirstResponseArrayItem<Response, Field>;
-}
-
 function definedValues<T extends Record<string, unknown>>(values: T): DefinedValues<T> {
   return Object.fromEntries(
     Object.entries(values).filter(([, value]) => value !== undefined && value !== "")
@@ -585,9 +573,18 @@ export async function getRun(runId: PathValue<"/runs/{run_id}", "run_id">) {
   return getResponseField(payload, "run");
 }
 
-export async function getHouseholdOverview() {
+// One overview row per currency; never summed or reduced to one.
+export async function getHouseholdOverviewRows() {
   const payload = await backendGet("/reports/household-overview");
-  return getFirstResponseArrayItem(payload, "rows");
+  return getResponseArray(payload, "rows");
+}
+
+// Scalar view for consumers that can only show one denomination: the single
+// row, or null when there are none or several currencies (unavailable rather
+// than an arbitrary pick). Use getHouseholdOverviewRows to show every group.
+export async function getHouseholdOverview() {
+  const rows = await getHouseholdOverviewRows();
+  return (rows.length === 1 ? rows[0] : null) as (typeof rows)[number] | null;
 }
 type CashflowMapOptions = {
   month?: QueryValue<"/reports/cashflow-map", "month">;
@@ -608,16 +605,19 @@ export async function getCashflowMap({ month, includeTransfers }: CashflowMapOpt
 type SpendHeatmapOptions = {
   window?: QueryValue<"/reports/spend-heatmap", "window">;
   asOf?: QueryValue<"/reports/spend-heatmap", "as_of">;
+  // Select one denomination when the mart holds several; never converted.
+  currency?: QueryValue<"/reports/spend-heatmap", "currency">;
 };
 
 // Day-of-week x hour spend matrix (7x24, household timezone) from the reporting mart
 // mart_spend_by_weekday_hour; date-only bookings come back as `untimed`.
-export async function getSpendHeatmap({ window = 28, asOf }: SpendHeatmapOptions = {}) {
+export async function getSpendHeatmap({ window = 28, asOf, currency }: SpendHeatmapOptions = {}) {
   return backendGet("/reports/spend-heatmap", {
     params: {
       query: definedValues({
         window,
-        as_of: asOf
+        as_of: asOf,
+        currency
       })
     }
   });
@@ -1400,7 +1400,11 @@ export async function getRecurringCostBaseline() {
 // month; `status` is "snapshot" when one exists for `asOf` and "no_history"
 // when it does not (rows are then empty, never today's).
 type PublicationSnapshotMeta = components["schemas"]["PublicationSnapshotModel"];
-export type AsOfStatus = "current" | "snapshot" | "no_history";
+export type AsOfStatus =
+  | "current"
+  | "snapshot"
+  | "no_history"
+  | "legacy_denomination_unavailable";
 type AsOfPayload = {
   as_of_status?: AsOfStatus;
   snapshot?: PublicationSnapshotMeta | null;

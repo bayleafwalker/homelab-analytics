@@ -8,6 +8,11 @@ import { formatDay, formatMonth } from "@/lib/format";
 //   current     today's publication, no marking
 //   snapshot    rows as published when that month was the newest one
 //   no_history  no snapshot for that month; rows are empty, never today's
+//   legacy_denomination_unavailable
+//               snapshot predates per-currency totals; rows are empty and the
+//               denomination is never guessed
+
+const LEGACY_DENOMINATION = "legacy_denomination_unavailable";
 
 export function currentRead(rows) {
   return { rows: rows || [], status: "current", snapshot: null };
@@ -24,6 +29,13 @@ export function HistoryTag({ read }) {
       </span>
     );
   }
+  if (read.status === LEGACY_DENOMINATION) {
+    return (
+      <span className="pill" data-tone="warn">
+        Currency unavailable
+      </span>
+    );
+  }
   return (
     <span className="pill" data-tone="warn">
       No history
@@ -31,8 +43,26 @@ export function HistoryTag({ read }) {
   );
 }
 
-// Body shown instead of rows when a month has no snapshot.
-export function NoHistory({ month, what }) {
+// True when the read has no rows to show: no snapshot for the month, or a
+// snapshot written before currencies were kept separate.
+export function isUnavailable(read) {
+  return read?.status === "no_history" || read?.status === LEGACY_DENOMINATION;
+}
+
+// Body shown instead of rows when a month has no snapshot. A legacy monetary
+// snapshot is reported as unavailable, never shown with a guessed currency.
+export function NoHistory({ month, what, read }) {
+  if (read?.status === LEGACY_DENOMINATION) {
+    return (
+      <StatePanel tone="empty" compact title={`Currency unavailable for ${formatMonth(month)}`}>
+        <p>
+          The snapshot of {what} from {formatMonth(month)} was published before monetary totals were
+          kept separate per currency. Its denomination is unknown, so the monetary figures are
+          unavailable rather than shown with a guessed currency.
+        </p>
+      </StatePanel>
+    );
+  }
   return (
     <StatePanel tone="empty" compact title={`No history for ${formatMonth(month)}`}>
       <p>

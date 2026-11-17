@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
 import { AsOfScrubber } from "@/components/as-of-scrubber";
-import { HistoryTag, NoHistory, currentRead, historyNote } from "@/components/as-of-history";
+import { HistoryTag, NoHistory, currentRead, historyNote, isUnavailable } from "@/components/as-of-history";
 import { Explain } from "@/components/explain-server";
 import { ResponsiveTable } from "@/components/responsive-table";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
@@ -10,6 +10,7 @@ import { ONBOARDING_SOURCES } from "@/lib/onboarding-sources";
 import { SparklineChart } from "@/components/sparkline-chart";
 import { stateIndicatorBadge } from "@/lib/state-indicators";
 import { StatePanel } from "@/components/state-panel";
+import { latestMonthRows, splitByCurrency, sumField } from "@/lib/currency-groups";
 import { formatMoney, formatMonth, monthsBetween } from "@/lib/format";
 import {
   getAffordabilityRatios,
@@ -17,8 +18,8 @@ import {
   getAttentionItems,
   getAttentionItemsAsOf,
   getCurrentUser,
-  getHouseholdOverview,
   getHouseholdOverviewAsOf,
+  getHouseholdOverviewRows,
   getMonthlyCashflow,
   getRecentChanges,
   getRecentChangesAsOf,
@@ -63,11 +64,11 @@ function snapshotReads(month) {
 export default async function DashboardPage({ searchParams }) {
   const requestedAsOf = MONTH_RE.test(searchParams?.asof || "") ? searchParams.asof : null;
   const user = await getCurrentUser();
-  const [cashflowRows, runs, liveOverview, liveAttention, liveChanges, spendByCategory, liveSubscriptions, utilityTrend, liveRatios, liveBaseline, freshnessDatasets, pastReads] =
+  const [cashflowRows, runs, liveOverviewRows, liveAttention, liveChanges, spendByCategory, liveSubscriptions, utilityTrend, liveRatios, liveBaseline, freshnessDatasets, pastReads] =
     await Promise.all([
       getMonthlyCashflow(),
       getRuns(8),
-      getHouseholdOverview(),
+      getHouseholdOverviewRows(),
       getAttentionItems(),
       getRecentChanges(),
       getSpendByCategoryMonthly(),
@@ -86,32 +87,36 @@ export default async function DashboardPage({ searchParams }) {
   // subscriptions, ratios, recurring baseline) are read from the reporting
   // layer's dated snapshot for that month; a month without one shows
   // "No history" instead of today's rows.
-  const publishedMonths = cashflowRows.map((r) => r.booking_month);
-  const newest = cashflowRows.at(-1);
-  const asOf = requestedAsOf && publishedMonths.includes(requestedAsOf) ? requestedAsOf : newest?.booking_month || null;
-  const viewingPast = Boolean(newest && asOf && asOf !== newest.booking_month && pastReads);
+  // Monetary publications hold one row per month AND currency: months are
+  // unique, and every figure below stays inside its own currency.
+  const publishedMonths = [...new Set(cashflowRows.map((r) => r.booking_month))].sort();
+  const newestMonth = publishedMonths.at(-1) || null;
+  const newestRows = latestMonthRows(cashflowRows, "booking_month");
+  const newest = newestRows[0] ? { ...newestRows[0], transaction_count: sumField(newestRows, "transaction_count") } : undefined;
+  const asOf = requestedAsOf && publishedMonths.includes(requestedAsOf) ? requestedAsOf : newestMonth;
+  const viewingPast = Boolean(newestMonth && asOf && asOf !== newestMonth && pastReads);
   const reads = viewingPast
     ? pastReads
     : {
-        overview: currentRead(liveOverview ? [liveOverview] : []),
+        overview: currentRead(liveOverviewRows),
         attention: currentRead(liveAttention),
         changes: currentRead(liveChanges),
         subscriptions: currentRead(liveSubscriptions),
         ratios: currentRead(liveRatios),
         baseline: currentRead(liveBaseline),
       };
-  const overview = reads.overview.rows[0] || null;
+  const overviewRows = reads.overview.rows;
   const attentionItems = reads.attention.rows;
   const recentChanges = reads.changes.rows;
   const subscriptions = reads.subscriptions.rows;
   const affordabilityRatios = reads.ratios.rows;
   const recurringBaseline = reads.baseline.rows;
-  const noHistory = (read) => read.status === "no_history";
-  const asOfIndex = cashflowRows.findIndex((r) => r.booking_month === asOf);
-  const visibleCashflow = asOfIndex >= 0 ? cashflowRows.slice(0, asOfIndex + 1) : cashflowRows;
-  const latest = visibleCashflow.at(-1);
-  const currency = overview?.currency || liveOverview?.currency || null;
-  const money = (value) => formatMoney(value, currency);
+  const noHistory = isUnavailable;
+  const visibleCashflow = asOf ? cashflowRows.filter((r) => r.booking_month <= asOf) : cashflowRows;
+  // Newest visible month: every currency's row, never one of them.
+  const latestRows = latestMonthRows(visibleCashflow, "booking_month");
+  const latest = latestRows[0];
+  const money = (value, currency) => formatMoney(value, currency);
   const now = new Date();
   const dataLagMonths = newest
     ? monthsBetween(newest.booking_month, `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`)
@@ -119,36 +124,48 @@ export default async function DashboardPage({ searchParams }) {
 
   // Top-5 categories for current month
   const latestMonth = latest?.booking_month;
+  // Top categories are ranked and summed within each currency.
   const currentMonthSpend = spendByCategory.filter((r) => r.booking_month === latestMonth);
-  const categoryTotals = Object.values(
-    currentMonthSpend.reduce((acc, r) => {
-      const cat = r.category || "Uncategorised";
-      acc[cat] = acc[cat] || { category: cat, total: 0 };
-      acc[cat].total += Number(r.total_expense || 0);
-      return acc;
-    }, {})
-  )
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 5);
+  const categoryGroups = splitByCurrency(currentMonthSpend).map(({ currency, rows }) => ({
+    currency,
+    totals: Object.values(
+      rows.reduce((acc, r) => {
+        const cat = r.category || "Uncategorised";
+        acc[cat] = acc[cat] || { category: cat, total: 0 };
+        acc[cat].total += Number(r.total_expense || 0);
+        return acc;
+      }, {})
+    )
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5),
+  }));
 
-  // Utility snapshot: latest month total and previous month for delta
-  const utilityMonths = [...new Set(utilityTrend.map((r) => r.billing_month))]
-    .filter((m) => !asOf || !MONTH_RE.test(m || "") || m <= asOf)
-    .sort();
-  const latestUtilityMonth = utilityMonths.at(-1);
-  const prevUtilityMonth = utilityMonths.at(-2);
-  const utilityLatestTotal = utilityTrend
-    .filter((r) => r.billing_month === latestUtilityMonth)
-    .reduce((sum, r) => sum + Number(r.total_cost || 0), 0);
-  const utilityPrevTotal = utilityTrend
-    .filter((r) => r.billing_month === prevUtilityMonth)
-    .reduce((sum, r) => sum + Number(r.total_cost || 0), 0);
-  const utilityDelta = utilityPrevTotal > 0 ? ((utilityLatestTotal - utilityPrevTotal) / utilityPrevTotal) * 100 : null;
+  // Utility snapshot: per currency, latest billed month and the previous one
+  // for the delta. A usage-only period (no currency) is not a cost.
+  const billedUtility = utilityTrend.filter((r) => r.currency);
+  const utilityGroups = splitByCurrency(billedUtility).map(({ currency, rows }) => {
+    const months = [...new Set(rows.map((r) => r.billing_month))]
+      .filter((m) => !asOf || !MONTH_RE.test(m || "") || m <= asOf)
+      .sort();
+    const month = months.at(-1);
+    const prevMonth = months.at(-2);
+    const total = sumField(rows.filter((r) => r.billing_month === month), "total_cost");
+    const prevTotal = sumField(rows.filter((r) => r.billing_month === prevMonth), "total_cost");
+    return {
+      currency,
+      month,
+      prevMonth,
+      total,
+      delta: prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : null,
+    };
+  });
+  const utilityMonthsShown = [...new Set(utilityGroups.map((g) => g.month).filter(Boolean))].sort();
+  const latestUtilityMonth = utilityMonthsShown.at(-1);
 
-  // Recurring cost: sum of active subscription monthly equivalents
-  const recurringTotal = subscriptions
-    .filter((r) => r.status === "active")
-    .reduce((sum, r) => sum + Number(r.monthly_equivalent || 0), 0);
+  // Recurring cost: active subscription monthly equivalents, per currency.
+  const recurringGroups = splitByCurrency(subscriptions.filter((r) => r.status === "active")).map(
+    ({ currency, rows }) => ({ currency, total: sumField(rows, "monthly_equivalent") })
+  );
 
   // Onboarding checklist: compute fresh datasets and next suggestion
   const freshDatasetNames = freshnessDatasets
@@ -161,58 +178,60 @@ export default async function DashboardPage({ searchParams }) {
 
   const nextSuggestion = ONBOARDING_SOURCES.find((s) => !freshDatasetNames.includes(s.dataset)) || null;
 
-  const trendRows = visibleCashflow.slice(-12);
-  const trendLabels = trendRows.map((r) => r.booking_month);
-  const trendSeries = [
-    {
-      label: "Income",
-      color: "var(--ok)",
-      values: trendRows.map((r) => Number(r.income)),
-    },
-    {
-      label: "Expense",
-      color: "var(--warn)",
-      values: trendRows.map((r) => Number(r.expense)),
-    },
-    {
-      label: "Net",
-      color: "var(--accent)",
-      values: trendRows.map((r) => Number(r.net)),
-    },
-  ];
+  // One trend chart per currency; series never mix denominations.
+  const trendCharts = splitByCurrency(visibleCashflow).map(({ currency, rows }) => {
+    const trendRows = rows.slice(-12);
+    return {
+      currency,
+      months: trendRows.length,
+      labels: trendRows.map((r) => r.booking_month),
+      series: [
+        { label: "Income", color: "var(--ok)", values: trendRows.map((r) => Number(r.income)) },
+        { label: "Expense", color: "var(--warn)", values: trendRows.map((r) => Number(r.expense)) },
+        { label: "Net", color: "var(--accent)", values: trendRows.map((r) => Number(r.net)) },
+      ],
+    };
+  });
 
   // A past month's hero comes from that month's overview snapshot when one
   // exists, and from the monthly cashflow mart otherwise.
-  const pastOverview = viewingPast && overview?.cashflow_net != null && overview.current_month === asOf;
-  const hero = viewingPast && !pastOverview
-    ? latest && {
-        month: latest.booking_month,
-        net: latest.net,
-        income: latest.income,
-        expense: latest.expense,
-        subscriptions: null,
-        publication: "mart_monthly_cashflow",
-        field: "net",
-        filter: { booking_month: latest.booking_month },
-      }
-    : overview && overview.cashflow_net != null
-      ? {
-          month: overview.current_month,
-          net: overview.cashflow_net,
-          income: overview.cashflow_income,
-          expense: overview.cashflow_expense,
-          subscriptions: overview.subscription_total_monthly,
-          publication: "mart_household_overview",
-          field: "cashflow_net",
-          filter: null,
-        }
-      : null;
+  // One hero per currency: each currency keeps its own figures.
+  const overviewHeroes = overviewRows
+    .filter((r) => r.currency && r.cashflow_net != null && (!viewingPast || r.current_month === asOf))
+    .map((r) => ({
+      currency: r.currency,
+      month: r.current_month,
+      net: r.cashflow_net,
+      income: r.cashflow_income,
+      expense: r.cashflow_expense,
+      subscriptions: r.subscription_total_monthly,
+      publication: "mart_household_overview",
+      field: "cashflow_net",
+      filter: { currency: r.currency },
+    }));
+  const cashflowHeroes = latestRows.map((r) => ({
+    currency: r.currency,
+    month: r.booking_month,
+    net: r.net,
+    income: r.income,
+    expense: r.expense,
+    subscriptions: null,
+    publication: "mart_monthly_cashflow",
+    field: "net",
+    filter: { booking_month: r.booking_month, currency: r.currency },
+  }));
+  const pastOverview = viewingPast && overviewHeroes.length > 0;
+  const heroes = viewingPast && !pastOverview ? cashflowHeroes : overviewHeroes;
+  const hero = heroes[0] || null;
+  const overviewLegacy = viewingPast && reads.overview.status === "legacy_denomination_unavailable";
   const monthFilter = latest ? { booking_month: latest.booking_month } : null;
   const heroNote = !viewingPast
     ? null
     : pastOverview
       ? historyNote(reads.overview)
-      : "No household overview snapshot for this month, so the figures are read from the monthly cashflow mart.";
+      : overviewLegacy
+        ? "The household overview snapshot for this month predates per-currency totals and is unavailable; the figures are read from the monthly cashflow mart."
+        : "No household overview snapshot for this month, so the figures are read from the monthly cashflow mart.";
 
   return (
     <AppShell
@@ -240,16 +259,42 @@ export default async function DashboardPage({ searchParams }) {
           </div>
           {hero ? (
             <>
-              <h1>
-                {Number(hero.net) >= 0 ? "Kept " : "Overspent "}
-                {formatMoney(Math.abs(Number(hero.net)), currency)}
-              </h1>
-              <p className="heroCopy muted">
-                {money(hero.income)} came in and {money(hero.expense)} went out.
-                {hero.subscriptions != null
-                  ? ` Recurring subscriptions add ${money(hero.subscriptions)} a month.`
-                  : null}
-              </p>
+              {heroes.length === 1 ? (
+                <>
+                  <h1>
+                    {Number(hero.net) >= 0 ? "Kept " : "Overspent "}
+                    {formatMoney(Math.abs(Number(hero.net)), hero.currency)}
+                  </h1>
+                  <p className="heroCopy muted">
+                    {money(hero.income, hero.currency)} came in and {money(hero.expense, hero.currency)} went out.
+                    {hero.subscriptions != null
+                      ? ` Recurring subscriptions add ${money(hero.subscriptions, hero.currency)} a month.`
+                      : null}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h1>Kept or overspent, by currency</h1>
+                  {heroes.map((h) => (
+                    <p className="heroCopy muted" key={h.currency}>
+                      {h.currency}: {Number(h.net) >= 0 ? "kept " : "overspent "}
+                      {formatMoney(Math.abs(Number(h.net)), h.currency)} ({money(h.income, h.currency)} in,{" "}
+                      {money(h.expense, h.currency)} out
+                      {h.subscriptions != null
+                        ? `, ${money(h.subscriptions, h.currency)} a month in subscriptions`
+                        : ""}
+                      )
+                    </p>
+                  ))}
+                </>
+              )}
+              {overviewLegacy ? (
+                <p className="heroCopy muted" role="note">
+                  Household overview for {formatMonth(asOf)} is unavailable: its snapshot predates
+                  per-currency totals, so its currency is unknown. The cashflow figures above come from the
+                  monthly cashflow mart.
+                </p>
+              ) : null}
               <p className="heroCopy">
                 <Link className="inlineLink" href={`/cashflow?m=${hero.month}`}>
                   See where the money went
@@ -320,7 +365,15 @@ export default async function DashboardPage({ searchParams }) {
                 />
               ) : null}
             </div>
-            <div className="metricValue numMono">{latest ? money(latest[metric.key]) : "No data"}</div>
+            {latestRows.length === 0 ? (
+              <div className="metricValue numMono">No data</div>
+            ) : (
+              latestRows.map((row) => (
+                <div className="metricValue numMono" key={row.currency} title={row.currency}>
+                  {money(row[metric.key], row.currency)}
+                </div>
+              ))
+            )}
           </article>
         ))}
       </section>
@@ -328,7 +381,7 @@ export default async function DashboardPage({ searchParams }) {
       {noHistory(reads.ratios) && (
         <section className="panel section" aria-label="Affordability ratios">
           <div className="eyebrow">Affordability ratios</div>
-          <NoHistory month={asOf} what="the affordability ratios" />
+          <NoHistory month={asOf} what="the affordability ratios" read={reads.ratios} />
         </section>
       )}
 
@@ -342,9 +395,12 @@ export default async function DashboardPage({ searchParams }) {
               debt_service_ratio: "Debt service ratio",
             }[r.ratio_name] || r.ratio_name;
             return (
-              <article key={r.ratio_name} className="panel metricCard">
+              <article key={`${r.ratio_name}-${r.currency}`} className="panel metricCard">
                 <div className="metricLabel metricLabelRow">
-                  <span>{label}</span>
+                  <span>
+                    {label}
+                    {new Set(affordabilityRatios.map((x) => x.currency)).size > 1 ? ` (${r.currency})` : ""}
+                  </span>
                   <HistoryTag read={reads.ratios} />
                 </div>
                 <div className="metricValue" style={{ color: state.color }}>
@@ -368,7 +424,7 @@ export default async function DashboardPage({ searchParams }) {
             <Link className="inlineLink" href="/costs">View cost model</Link>
           </div>
           {noHistory(reads.baseline) ? (
-            <NoHistory month={asOf} what="the fixed monthly commitments" />
+            <NoHistory month={asOf} what="the fixed monthly commitments" read={reads.baseline} />
           ) : (
           <ResponsiveTable
             label="Fixed monthly commitments"
@@ -389,20 +445,21 @@ export default async function DashboardPage({ searchParams }) {
         </article>
       )}
 
-      {cashflowRows.length > 0 && (
-        <article className="panel section" style={{ marginBottom: "24px" }}>
+      {trendCharts.map((chart) => (
+        <article className="panel section" style={{ marginBottom: "24px" }} key={chart.currency}>
           <div className="sectionHeader">
             <div>
-              <div className="eyebrow">Trend</div>
+              <div className="eyebrow">Trend{trendCharts.length > 1 ? ` (${chart.currency})` : ""}</div>
               <h2>
-                Cashflow, {trendRows.length === 1 ? "1 month" : `${trendRows.length} months`} to{" "}
-                {formatMonth(latest?.booking_month, { short: true })}
+                Cashflow, {chart.months === 1 ? "1 month" : `${chart.months} months`} to{" "}
+                {formatMonth(chart.labels.at(-1), { short: true })}
+                {trendCharts.length > 1 ? ` in ${chart.currency}` : ""}
               </h2>
             </div>
           </div>
-          <SparklineChart series={trendSeries} labels={trendLabels} height={120} width={600} />
+          <SparklineChart series={chart.series} labels={chart.labels} height={120} width={600} />
         </article>
-      )}
+      ))}
 
       <section className="cards" style={{ marginBottom: "24px" }}>
         <article className="panel section">
@@ -420,17 +477,23 @@ export default async function DashboardPage({ searchParams }) {
             ) : null}
           </div>
           <h3 style={{ margin: "4px 0 12px" }}>{latestMonth ? formatMonth(latestMonth) : "—"}</h3>
-          {categoryTotals.length === 0 ? (
+          {categoryGroups.every((g) => g.totals.length === 0) ? (
             <div className="empty">No category data yet.</div>
           ) : (
-            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "8px" }}>
-              {categoryTotals.map((c) => (
-                <li key={c.category} style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>{c.category}</span>
-                  <span className="muted numMono">{money(c.total)}</span>
-                </li>
-              ))}
-            </ul>
+            categoryGroups.map((group) => (
+              <ul
+                key={group.currency || "none"}
+                aria-label={group.currency ? `Top categories in ${group.currency}` : "Top categories"}
+                style={{ listStyle: "none", margin: "0 0 8px", padding: 0, display: "grid", gap: "8px" }}
+              >
+                {group.totals.map((c) => (
+                  <li key={c.category} style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>{c.category}</span>
+                    <span className="muted numMono">{money(c.total, group.currency)}</span>
+                  </li>
+                ))}
+              </ul>
+            ))
           )}
         </article>
 
@@ -447,13 +510,24 @@ export default async function DashboardPage({ searchParams }) {
               />
             ) : null}
           </div>
-          <h3 style={{ margin: "4px 0 4px" }}>
-            {latestUtilityMonth ? `${formatMonth(latestUtilityMonth, { short: true })}: ${money(utilityLatestTotal)}` : "No data"}
-          </h3>
-          {utilityDelta !== null && (
-            <div className="muted" style={{ fontSize: "0.85rem" }}>
-              {utilityDelta >= 0 ? "▲" : "▼"} {Math.abs(utilityDelta).toFixed(1)}% vs {prevUtilityMonth}
-            </div>
+          {utilityGroups.length === 0 || !latestUtilityMonth ? (
+            <h3 style={{ margin: "4px 0 4px" }}>No data</h3>
+          ) : (
+            utilityGroups
+              .filter((g) => g.month)
+              .map((g) => (
+                <div key={g.currency} style={{ margin: "4px 0 8px" }}>
+                  <h3 style={{ margin: 0, display: "flex", gap: "8px", alignItems: "baseline" }}>
+                    <span className="muted">{formatMonth(g.month, { short: true })}</span>
+                    <span className="numMono">{money(g.total, g.currency)}</span>
+                  </h3>
+                  {g.delta !== null && (
+                    <div className="muted" style={{ fontSize: "0.85rem" }}>
+                      {g.delta >= 0 ? "▲" : "▼"} {Math.abs(g.delta).toFixed(1)}% vs {g.prevMonth}
+                    </div>
+                  )}
+                </div>
+              ))
           )}
         </article>
 
@@ -478,12 +552,18 @@ export default async function DashboardPage({ searchParams }) {
             ) : null}
           </div>
           {noHistory(reads.subscriptions) ? (
-            <NoHistory month={asOf} what="the subscriptions" />
+            <NoHistory month={asOf} what="the subscriptions" read={reads.subscriptions} />
           ) : (
             <>
-              <h3 style={{ margin: "4px 0 4px" }}>
-                {subscriptions.length > 0 ? `${money(recurringTotal)} / mo` : "No data"}
-              </h3>
+              {recurringGroups.length > 0 ? (
+                recurringGroups.map((g) => (
+                  <h3 key={g.currency || "none"} style={{ margin: "4px 0 4px" }}>
+                    {`${money(g.total, g.currency)} / mo`}
+                  </h3>
+                ))
+              ) : (
+                <h3 style={{ margin: "4px 0 4px" }}>No data</h3>
+              )}
               <div className="muted" style={{ fontSize: "0.85rem" }}>
                 {subscriptions.filter((r) => r.status === "active").length} active subscriptions
               </div>
@@ -503,7 +583,7 @@ export default async function DashboardPage({ searchParams }) {
           <ResponsiveTable
             label="Monthly cashflow"
             rows={visibleCashflow.slice().reverse()}
-            rowKey="booking_month"
+            rowKey={(row) => `${row.booking_month}-${row.currency}`}
             empty={<div className="empty">No successful imports yet.</div>}
             columns={[
               {
@@ -520,9 +600,10 @@ export default async function DashboardPage({ searchParams }) {
                   </Link>
                 ),
               },
-              { key: "income", header: "Income", align: "end", cell: (row) => <span className="numMono">{money(row.income)}</span> },
-              { key: "expense", header: "Expense", align: "end", cell: (row) => <span className="numMono">{money(row.expense)}</span> },
-              { key: "net", header: "Net", align: "end", cell: (row) => <span className="numMono">{money(row.net)}</span> },
+              { key: "currency", header: "Currency" },
+              { key: "income", header: "Income", align: "end", cell: (row) => <span className="numMono">{money(row.income, row.currency)}</span> },
+              { key: "expense", header: "Expense", align: "end", cell: (row) => <span className="numMono">{money(row.expense, row.currency)}</span> },
+              { key: "net", header: "Net", align: "end", cell: (row) => <span className="numMono">{money(row.net, row.currency)}</span> },
               { key: "transaction_count", header: "Rows", align: "end" },
             ]}
           />
@@ -538,7 +619,7 @@ export default async function DashboardPage({ searchParams }) {
               <Link className="inlineLink" href="/review">See all →</Link>
             </div>
             {noHistory(reads.attention) ? (
-              <NoHistory month={asOf} what="the items to review" />
+              <NoHistory month={asOf} what="the items to review" read={reads.attention} />
             ) : attentionItems.length === 0 ? (
               <div className="empty">Nothing requires attention.</div>
             ) : (
@@ -577,7 +658,7 @@ export default async function DashboardPage({ searchParams }) {
               dense
               empty={
                 noHistory(reads.changes) ? (
-                  <NoHistory month={asOf} what="the recent changes" />
+                  <NoHistory month={asOf} what="the recent changes" read={reads.changes} />
                 ) : (
                   <div className="empty">No recent changes recorded.</div>
                 )
@@ -592,7 +673,7 @@ export default async function DashboardPage({ searchParams }) {
                   align: "end",
                   cell: (row) => (
                     <span className="numMono">
-                      {row.direction === "up" ? "▲" : "▼"} {money(row.current_value)}
+                      {row.direction === "up" ? "▲" : "▼"} {money(row.current_value, row.currency)}
                     </span>
                   ),
                 },
@@ -600,7 +681,7 @@ export default async function DashboardPage({ searchParams }) {
                   key: "previous_value",
                   header: "Before",
                   align: "end",
-                  cell: (row) => <span className="numMono muted">{money(row.previous_value)}</span>,
+                  cell: (row) => <span className="numMono muted">{money(row.previous_value, row.currency)}</span>,
                 },
               ]}
             />

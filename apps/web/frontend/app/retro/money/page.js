@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { RetroShell } from "@/components/retro-shell";
 import { SparklineChart } from "@/components/sparkline-chart";
+import { latestMonthRows, splitByCurrency } from "@/lib/currency-groups";
+import { formatMoney } from "@/lib/format";
 import {
   getAccountBalanceTrend,
   getAffordabilityRatios,
@@ -59,10 +61,18 @@ export default async function RetroMoneyPage() {
     (descriptor) => !PRIMARY_DESCRIPTOR_KEYS.has(descriptor.key)
   );
   const activeSubscriptions = subscriptions.filter((row) => row.status === "active");
-  const latestCashflow = cashflowRows.at(-1);
-  const balanceAccounts = [...new Set(balanceTrend.map((row) => row.account_id))];
+  // Every figure stays inside its own currency: the newest month has one row
+  // per currency, balances are one series per (account, currency), and the
+  // cashflow trend is one chart per currency.
+  const latestCashflowRows = latestMonthRows(cashflowRows, "booking_month");
+  const latestCashflow = latestCashflowRows[0];
+  const balanceAccounts = [
+    ...new Map(
+      balanceTrend.map((row) => [`${row.account_id}|${row.currency}`, { account: row.account_id, currency: row.currency }])
+    ).values(),
+  ];
   const balanceMonths = [...new Set(balanceTrend.map((row) => row.booking_month))].sort();
-  const balanceSeries = balanceAccounts.map((account, index) => {
+  const balanceSeries = balanceAccounts.map(({ account, currency }, index) => {
     const colors = [
       "var(--retro-ok)",
       "var(--retro-accent)",
@@ -70,35 +80,32 @@ export default async function RetroMoneyPage() {
       "#ff8f8f",
     ];
     return {
-      label: account,
+      label: currency ? `${account} (${currency})` : account,
       color: colors[index % colors.length],
       values: balanceMonths.map((month) => {
         const row = balanceTrend.find(
-          (entry) => entry.account_id === account && entry.booking_month === month
+          (entry) =>
+            entry.account_id === account && entry.currency === currency && entry.booking_month === month
         );
         return row ? Number(row.cumulative_balance) : null;
       }),
     };
   });
-  const cashflowSeries = [
-    {
-      label: "Income",
-      color: "var(--retro-ok)",
-      values: cashflowRows.map((row) => Number(row.income || 0)),
-    },
-    {
-      label: "Expense",
-      color: "var(--retro-warn)",
-      values: cashflowRows.map((row) => Number(row.expense || 0)),
-    },
-    {
-      label: "Net",
-      color: "var(--retro-accent)",
-      values: cashflowRows.map((row) => Number(row.net || 0)),
-    },
-  ];
-  const affordabilityRow =
-    affordability.find((row) => row.ratio_name === "housing_to_income") || affordability[0] || null;
+  const cashflowCharts = splitByCurrency(cashflowRows).map(({ currency, rows }) => ({
+    currency,
+    labels: rows.map((row) => row.booking_month),
+    series: [
+      { label: "Income", color: "var(--retro-ok)", values: rows.map((row) => Number(row.income || 0)) },
+      { label: "Expense", color: "var(--retro-warn)", values: rows.map((row) => Number(row.expense || 0)) },
+      { label: "Net", color: "var(--retro-accent)", values: rows.map((row) => Number(row.net || 0)) },
+    ],
+  }));
+  const affordabilityRows = splitByCurrency(affordability)
+    .map(
+      ({ rows }) =>
+        rows.find((row) => row.ratio_name === "housing_to_income") || rows[0] || null
+    )
+    .filter(Boolean);
 
   return (
     <RetroShell
@@ -115,7 +122,11 @@ export default async function RetroMoneyPage() {
         </article>
         <article className="retroMetricBox retroPanel">
           <span className="retroMetricLabel">Net</span>
-          <strong>{latestCashflow?.net || "0.00"}</strong>
+          <strong>
+            {latestCashflowRows.length > 0
+              ? latestCashflowRows.map((row) => formatMoney(row.net, row.currency)).join(" · ")
+              : "0.00"}
+          </strong>
         </article>
         <article className="retroMetricBox retroPanel">
           <span className="retroMetricLabel">Active Subs</span>
@@ -128,8 +139,13 @@ export default async function RetroMoneyPage() {
         <article className="retroMetricBox retroPanel">
           <span className="retroMetricLabel">Affordability</span>
           <strong>
-            {affordabilityRow?.ratio != null
-              ? `${(Number(affordabilityRow.ratio) * 100).toFixed(1)}%`
+            {affordabilityRows.length > 0
+              ? affordabilityRows
+                  .map(
+                    (row) =>
+                      `${(Number(row.ratio) * 100).toFixed(1)}%${affordabilityRows.length > 1 ? ` ${row.currency}` : ""}`
+                  )
+                  .join(" · ")
               : "n/a"}
           </strong>
         </article>
@@ -178,17 +194,21 @@ export default async function RetroMoneyPage() {
           <div className="retroEmptyState">No published cashflow rows yet.</div>
         ) : (
           <>
-            <SparklineChart
-              series={cashflowSeries}
-              labels={cashflowRows.map((row) => row.booking_month)}
-              height={132}
-              width={720}
-            />
+            {cashflowCharts.map((chart) => (
+              <SparklineChart
+                key={chart.currency || "none"}
+                series={chart.series}
+                labels={chart.labels}
+                height={132}
+                width={720}
+              />
+            ))}
             <div className="retroTableWrap">
               <table className="retroTable">
                 <thead>
                   <tr>
                     <th>Month</th>
+                    <th>Currency</th>
                     <th>Income</th>
                     <th>Expense</th>
                     <th>Net</th>
@@ -197,8 +217,9 @@ export default async function RetroMoneyPage() {
                 </thead>
                 <tbody>
                   {cashflowRows.slice(-12).map((row) => (
-                    <tr key={row.booking_month}>
+                    <tr key={`${row.booking_month}-${row.currency}`}>
                       <td>{row.booking_month}</td>
+                      <td>{row.currency}</td>
                       <td>{row.income}</td>
                       <td>{row.expense}</td>
                       <td>{row.net}</td>

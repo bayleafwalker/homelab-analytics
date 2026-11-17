@@ -39,6 +39,17 @@ class PostgresReportingStore:
             ).fetchone()
         return row is not None and row[0] is not None
 
+    def column_names(self, table_name: str) -> list[str]:
+        """Column names of ``table_name`` in ordinal order; empty when absent."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = %s AND table_name = %s "
+                "ORDER BY ordinal_position",
+                (self.schema, table_name),
+            ).fetchall()
+        return [str(row[0]) for row in rows]
+
     def ensure_table(self, table_name: str, columns: list[tuple[str, str]]) -> None:
         table_name = validate_identifier(table_name, kind="table")
         for name, _ in columns:

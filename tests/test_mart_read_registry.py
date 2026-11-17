@@ -8,7 +8,10 @@ from pathlib import Path
 import pytest
 
 import packages.pipelines.reporting_service as reporting_service_module
-from packages.domains.finance.pipelines.transaction_models import MART_MONTHLY_CASHFLOW_TABLE
+from packages.domains.finance.pipelines.transaction_models import (
+    MART_MONTHLY_CASHFLOW_COLUMNS,
+    MART_MONTHLY_CASHFLOW_TABLE,
+)
 from packages.domains.finance.pipelines.transformation_transactions import get_monthly_cashflow
 from packages.pipelines.mart_read_registry import (
     MartReadRegistry,
@@ -65,17 +68,21 @@ def test_reporting_service_reads_the_warehouse_through_an_injected_registry() ->
 
     def _reader(store: DuckDBStore, **filters: object) -> list[dict[str, object]]:
         seen.append(filters)
-        return [{"booking_month": "2026-01"}]
+        return [{"booking_month": "2026-01", "currency": "EUR"}]
 
     registry.register(MART_MONTHLY_CASHFLOW_TABLE, _reader)
+    service = TransformationService(DuckDBStore.memory())
+    # The warehouse must expose the current currency-grouped shape so the
+    # schema-current guard passes before the injected reader is consulted.
+    service.store.ensure_table(MART_MONTHLY_CASHFLOW_TABLE, MART_MONTHLY_CASHFLOW_COLUMNS)
     reporting = ReportingService(
-        TransformationService(DuckDBStore.memory()),
+        service,
         access_mode=ReportingAccessMode.WAREHOUSE,
         mart_read_registry=registry,
     )
 
     assert reporting.get_monthly_cashflow(from_month="2026-01") == [
-        {"booking_month": "2026-01"}
+        {"booking_month": "2026-01", "currency": "EUR"}
     ]
     assert seen == [{"from_month": "2026-01", "to_month": None}]
 
