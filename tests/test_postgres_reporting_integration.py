@@ -140,6 +140,7 @@ def test_reporting_service_reads_published_marts_and_dimensions_from_postgres() 
             "expense": Decimal("900.0000"),
             "net": Decimal("1600.0000"),
             "transaction_count": 2,
+            "currency": "EUR",
         }
     ]
     assert len(account_rows) == 1
