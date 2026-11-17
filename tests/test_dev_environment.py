@@ -507,6 +507,126 @@ def test_smoke_cancellation_during_build_settles_build_and_backend_groups(
     backend.wait(timeout=2)
 
 
+def test_smoke_cancellation_before_setsid_settles_launcher_tree(tmp_path: Path) -> None:
+    _copy_entrypoints(tmp_path)
+    backend, backend_child = _start_smoke_group(tmp_path, ignore_child_term=False)
+    smoke_home = tmp_path / "smoke-home"
+    smoke_tmp = tmp_path / "smoke-tmp"
+    smoke_home.mkdir()
+    smoke_tmp.mkdir()
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+    launch_started = tmp_path / "setsid-started"
+    sleep_pid_file = tmp_path / "launcher-child.pid"
+    release = tmp_path / "release-setsid"
+    build_pid_file = tmp_path / "launcher.pid"
+    guard_pid_file = tmp_path / "caller-group-guard.pid"
+    manager_log = tmp_path / "manager.log"
+    real_setsid = shutil.which("setsid")
+    assert real_setsid is not None
+    fake_setsid = fake_bin / "setsid"
+    fake_setsid.write_text(
+        "#!/usr/bin/env bash\n"
+        f"printf '%s\\n' \"$$\" > {str(launch_started)!r}\n"
+        "bash -c 'trap \"\" TERM; exec sleep 120' & child=$!\n"
+        f"printf '%s\\n' \"$child\" > {str(sleep_pid_file)!r}\n"
+        "wait \"$child\"\n"
+        f"while [[ ! -e {str(release)!r} ]]; do sleep 0.05; done\n"
+        f"exec {real_setsid!r} \"$@\"\n"
+    )
+    fake_setsid.chmod(0o755)
+    manager_script = (
+        "python3 -c 'import signal,time; signal.signal(signal.SIGHUP,signal.SIG_IGN); time.sleep(120)' 2>/dev/null & "
+        'guard_pid=$!; printf "%s\\n" "$guard_pid" > "$7"; '
+        'source "$1"; backend_pid="$2"; '
+        'dev_smoke_install_traps; '
+        'dev_smoke_launch "$3" "$4" "$5" http://127.0.0.1:1 sleep 30 & '
+        'build_pid=$!; printf "%s\\n" "$build_pid" > "$6"; wait "$build_pid"'
+    )
+    with manager_log.open("wb") as manager_output:
+        manager = subprocess.Popen(
+            [
+                shutil.which("bash") or "/bin/bash",
+                "-c",
+                manager_script,
+                "smoke-pre-setsid-cancellation-test",
+                str(tmp_path / "tools/dev-smoke-process.sh"),
+                str(backend.pid),
+                str(tmp_path),
+                str(smoke_home),
+                str(smoke_tmp),
+                str(build_pid_file),
+                str(guard_pid_file),
+            ],
+            env={**os.environ, "PATH": f"{fake_bin}:{os.environ.get('PATH', '')}"},
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=manager_output,
+        )
+    try:
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and not (
+            launch_started.exists()
+            and sleep_pid_file.exists()
+            and build_pid_file.exists()
+            and guard_pid_file.exists()
+        ):
+            time.sleep(0.01)
+        assert (
+            launch_started.exists()
+            and sleep_pid_file.exists()
+            and build_pid_file.exists()
+            and guard_pid_file.exists()
+        )
+        build_pid = int(build_pid_file.read_text())
+        sleep_pid = int(sleep_pid_file.read_text())
+        guard_pid = int(guard_pid_file.read_text())
+        assert int(launch_started.read_text()) == build_pid
+        assert os.getpgid(build_pid) != build_pid
+        assert os.getpgid(guard_pid) == os.getpgid(manager.pid)
+        assert _process_is_running(sleep_pid)
+
+        started = time.monotonic()
+        manager.send_signal(signal.SIGTERM)
+        try:
+            manager.wait(timeout=8)
+        except subprocess.TimeoutExpired as error:
+            try:
+                os.killpg(manager.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            manager.wait()
+            raise AssertionError(
+                f"startup cancellation exceeded its bound: {manager_log.read_text()}"
+            ) from error
+        assert manager.returncode == 143, manager_log.read_text()
+        assert time.monotonic() - started < 5
+        assert not _process_is_running(build_pid)
+        assert not _process_is_running(sleep_pid)
+        assert not _process_is_running(backend_child)
+        assert _process_is_running(guard_pid)
+        backend.wait(timeout=2)
+    finally:
+        release.touch()
+        if manager.poll() is None:
+            try:
+                os.killpg(manager.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            manager.communicate()
+        if backend.poll() is None:
+            try:
+                os.killpg(backend.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            backend.wait()
+        if guard_pid_file.exists():
+            try:
+                os.kill(int(guard_pid_file.read_text()), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+
 def test_smoke_refuses_foreign_node_modules_and_next_before_build(tmp_path: Path) -> None:
     for target_name in ("node_modules", ".next"):
         checkout = tmp_path / target_name
