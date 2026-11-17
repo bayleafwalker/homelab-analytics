@@ -1339,8 +1339,11 @@ class ReportingService:
         where_clause: tuple[str, list[Any]],
         order_by_sql: str,
     ) -> list[dict[str, Any]]:
-        self._assert_currency_schema_current(relation_name)
+        # Choose the backing store first, then check that store's schema. Strict
+        # PUBLISHED never inspects the warehouse: a missing published relation
+        # is unavailable (404), never a legacy or missing warehouse shape.
         if self._access_mode == ReportingAccessMode.WAREHOUSE:
+            self._assert_warehouse_currency_schema_current(relation_name)
             return _current_rows(relation_name, fallback())
         if self._publication_store is None or not self._publication_store.table_exists(
             relation_name
@@ -1349,7 +1352,9 @@ class ReportingService:
                 raise KeyError(
                     f"Published reporting relation is unavailable: {relation_name}"
                 )
+            self._assert_warehouse_currency_schema_current(relation_name)
             return _current_rows(relation_name, fallback())
+        self._assert_published_currency_schema_current(relation_name)
         where_sql, params = where_clause
         return _current_rows(
             relation_name,
@@ -1359,22 +1364,30 @@ class ReportingService:
             ),
         )
 
-    def _assert_currency_schema_current(self, relation_name: str) -> None:
-        """Refuse a currency-grouped relation still in its legacy (no ``currency``
-        column) shape, before any rows are read. This is the only check that can
-        tell an empty legacy relation apart from a valid empty current one.
+    def _assert_published_currency_schema_current(self, relation_name: str) -> None:
+        """Refuse a published currency-grouped relation still in its legacy shape.
+
+        Only ever reads the selected published store; it never inspects the
+        warehouse, so a missing or legacy warehouse cannot leak into a strict
+        PUBLISHED read.
         """
         if relation_name not in CURRENCY_COLUMN_RELATIONS:
             return
-        if (
-            self._access_mode != ReportingAccessMode.WAREHOUSE
-            and self._publication_store is not None
-            and self._publication_store.table_exists(relation_name)
+        if self._publication_store is None or not self._publication_store.table_exists(
+            relation_name
         ):
-            columns = self._publication_store.column_names(relation_name)
-        else:
-            columns = self._warehouse_column_names(relation_name)
-        assert_currency_column_present(relation_name, columns)
+            return
+        assert_currency_column_present(
+            relation_name, self._publication_store.column_names(relation_name)
+        )
+
+    def _assert_warehouse_currency_schema_current(self, relation_name: str) -> None:
+        """Refuse a warehouse currency-grouped relation still in its legacy shape."""
+        if relation_name not in CURRENCY_COLUMN_RELATIONS:
+            return
+        assert_currency_column_present(
+            relation_name, self._warehouse_column_names(relation_name)
+        )
 
     def _warehouse_column_names(self, relation_name: str) -> list[str]:
         """Column names of ``relation_name`` in the warehouse store."""

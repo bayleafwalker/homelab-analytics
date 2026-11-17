@@ -6079,11 +6079,8 @@ export interface components {
         };
         /** IncomeChangeRequest */
         IncomeChangeRequest: {
-            /**
-             * Currency
-             * @default GBP
-             */
-            currency: string;
+            /** Currency */
+            currency?: string | null;
             /** Label */
             label?: string | null;
             /** Monthly Income Delta */

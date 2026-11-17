@@ -162,16 +162,22 @@ class IncomeProjRowsTests(unittest.TestCase):
         assumption = next(a for a in comparison.assumptions if a["assumption_key"] == "monthly_income_delta")
         self.assertEqual(assumption["baseline_value"], "0")
         self.assertEqual(Decimal(str(assumption["override_value"])), delta)
-        # unit must be an ISO currency code, not the word "currency"
-        self.assertEqual(assumption["unit"], "GBP")
+        # unit must be an ISO currency code resolved from the single baseline.
+        self.assertEqual(assumption["unit"], "EUR")
 
-    def test_assumption_unit_reflects_currency_param(self) -> None:
+    def test_assumption_unit_reflects_matching_currency_param(self) -> None:
         result = create_income_change_scenario(
-            self.store, monthly_income_delta=Decimal("200"), currency="USD"
+            self.store, monthly_income_delta=Decimal("200"), currency="EUR"
         )
         comparison = get_income_scenario_comparison(self.store, result.scenario_id)
         assumption = next(a for a in comparison.assumptions if a["assumption_key"] == "monthly_income_delta")
-        self.assertEqual(assumption["unit"], "USD")
+        self.assertEqual(assumption["unit"], "EUR")
+
+    def test_mismatched_currency_param_is_refused(self) -> None:
+        with self.assertRaises(ValueError):
+            create_income_change_scenario(
+                self.store, monthly_income_delta=Decimal("200"), currency="USD"
+            )
 
     def test_assumption_records_delta_not_absolute_income(self) -> None:
         # Reviewer P2: assumption should store the delta (0→500), not absolute income (3000→3500)

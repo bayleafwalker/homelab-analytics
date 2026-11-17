@@ -98,18 +98,22 @@ def test_classify_shape_recognises_only_known_states() -> None:
 
 
 def test_classify_shape_maps_postgres_date_columns() -> None:
-    """The PostgreSQL preflight maps DATE columns, not just text/numeric/int."""
+    """The PostgreSQL preflight maps DATE and numeric precision, not just base types."""
     relation = next(r for r in _RELATIONS if r.name == "mart_spend_by_weekday_hour")
     observed = [
         ("booked_at", "date"),
         ("day_of_week", "integer"),
         ("hour_of_day", "integer"),
-        ("total_expense", "numeric"),
+        ("total_expense", "numeric(18,4)"),
         ("transaction_count", "integer"),
         ("currency", "text"),
     ]
     assert classify_shape(observed, relation.columns, postgres=True) == "current"
     assert classify_shape(observed[:-1], relation.columns, postgres=True) == "legacy"
+    # An incompatible numeric typmod (scale 0 drops cents) is refused.
+    wrong_scale = [*observed]
+    wrong_scale[3] = ("total_expense", "numeric(18,0)")
+    assert classify_shape(wrong_scale, relation.columns, postgres=True) == "unknown"
 
 
 def test_classify_rebuild_only_shape_accepts_only_absent_or_current() -> None:

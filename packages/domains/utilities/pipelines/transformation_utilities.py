@@ -222,43 +222,63 @@ def refresh_utility_cost_summary(store: DuckDBStore) -> int:
             utility_type, usage_quantity, usage_unit, billed_amount, currency,
             unit_cost, bill_count, usage_record_count, coverage_status
         )
+        WITH bill_totals AS (
+            -- Aggregate distinct bills per (period, meter, currency) first so a
+            -- bill is counted once and its amount is never duplicated by the
+            -- usage join, while genuine same-span bills still add together.
+            SELECT
+                billing_period_start,
+                billing_period_end,
+                meter_id,
+                MIN(meter_name) AS meter_name,
+                utility_type,
+                currency,
+                SUM(billed_amount) AS billed_amount,
+                COUNT(DISTINCT bill_id) AS bill_count,
+                any_value(usage_unit) AS bill_usage_unit
+            FROM {FACT_BILL_TABLE}
+            GROUP BY billing_period_start, billing_period_end, meter_id, utility_type, currency
+        )
         SELECT
-            b.billing_period_start AS period_start,
-            b.billing_period_end AS period_end,
-            b.billing_period_start AS period_day,
-            strftime(b.billing_period_start, '%Y-%m') AS period_month,
-            b.meter_id,
-            b.meter_name,
-            b.utility_type,
+            bt.billing_period_start AS period_start,
+            bt.billing_period_end AS period_end,
+            bt.billing_period_start AS period_day,
+            strftime(bt.billing_period_start, '%Y-%m') AS period_month,
+            bt.meter_id,
+            bt.meter_name,
+            bt.utility_type,
             COALESCE(SUM(u.usage_quantity), 0) AS usage_quantity,
-            COALESCE(any_value(u.usage_unit), any_value(b.usage_unit)) AS usage_unit,
-            SUM(b.billed_amount) AS billed_amount,
-            b.currency,
+            COALESCE(any_value(u.usage_unit), bt.bill_usage_unit) AS usage_unit,
+            bt.billed_amount,
+            bt.currency,
             CASE
                 WHEN COALESCE(SUM(u.usage_quantity), 0) > 0
-                THEN CAST(ROUND(SUM(b.billed_amount) / SUM(u.usage_quantity), 4) AS DECIMAL(18,4))
+                THEN CAST(ROUND(bt.billed_amount / SUM(u.usage_quantity), 4) AS DECIMAL(18,4))
                 ELSE NULL
             END AS unit_cost,
-            COUNT(DISTINCT b.bill_id) AS bill_count,
-            COUNT(DISTINCT u.usage_id) AS usage_record_count,
+            bt.bill_count,
+            COUNT(u.usage_id) AS usage_record_count,
             CASE
-                WHEN COUNT(DISTINCT u.usage_id) > 0 THEN 'matched'
+                WHEN COUNT(u.usage_id) > 0 THEN 'matched'
                 ELSE 'bill_only'
             END AS coverage_status
-        FROM {FACT_BILL_TABLE} b
+        FROM bill_totals bt
         LEFT JOIN {FACT_UTILITY_USAGE_TABLE} u
-            ON u.meter_id = b.meter_id
-            AND u.utility_type = b.utility_type
-            AND u.usage_start >= b.billing_period_start
-            AND u.usage_end <= b.billing_period_end
+            ON u.meter_id = bt.meter_id
+            AND u.utility_type = bt.utility_type
+            AND u.usage_start >= bt.billing_period_start
+            AND u.usage_end <= bt.billing_period_end
         GROUP BY
-            b.billing_period_start,
-            b.billing_period_end,
-            b.meter_id,
-            b.meter_name,
-            b.utility_type,
-            b.currency
-        ORDER BY b.billing_period_start, b.meter_id
+            bt.billing_period_start,
+            bt.billing_period_end,
+            bt.meter_id,
+            bt.meter_name,
+            bt.utility_type,
+            bt.currency,
+            bt.billed_amount,
+            bt.bill_count,
+            bt.bill_usage_unit
+        ORDER BY bt.billing_period_start, bt.meter_id
         """
     )
 

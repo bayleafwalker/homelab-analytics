@@ -243,11 +243,18 @@ def _declared_base(declared: str) -> str:
 
 
 def _pg_type(declared: str) -> str:
-    base = _declared_base(declared).split("(")[0].strip()
+    declared = _declared_base(declared)
+    base = declared.split("(")[0].strip()
     try:
-        return _PG_TYPES[base]
+        mapped = _PG_TYPES[base]
     except KeyError as exc:  # pragma: no cover - guarded by the registry assert
         raise ValueError(f"No PostgreSQL type mapping for {declared!r}") from exc
+    if mapped == "numeric" and "(" in declared:
+        # Preserve the numeric precision/scale so an incompatible typmod (e.g.
+        # NUMERIC(18,0) where the publication declares 18,4) is refused rather
+        # than silently truncating cents.
+        return f"numeric{declared[declared.index('('):]}"
+    return mapped
 
 
 def classify_shape(
@@ -408,11 +415,18 @@ def _pg_observed(
     conn: psycopg.Connection[Any], schema: str, table: str
 ) -> list[tuple[str, str]]:
     rows = conn.execute(
-        "SELECT column_name, data_type FROM information_schema.columns "
+        "SELECT column_name, data_type, numeric_precision, numeric_scale "
+        "FROM information_schema.columns "
         "WHERE table_schema = %s AND table_name = %s ORDER BY ordinal_position",
         (schema, table),
     ).fetchall()
-    return [(str(row[0]), str(row[1])) for row in rows]
+    observed: list[tuple[str, str]] = []
+    for column_name, data_type, numeric_precision, numeric_scale in rows:
+        dtype = str(data_type)
+        if dtype == "numeric" and numeric_precision is not None and numeric_scale is not None:
+            dtype = f"numeric({int(numeric_precision)},{int(numeric_scale)})"
+        observed.append((str(column_name), dtype))
+    return observed
 
 
 def _pg_blockers(conn: psycopg.Connection[Any], schema: str, table: str) -> list[str]:
@@ -446,6 +460,57 @@ def _pg_blockers(conn: psycopg.Connection[Any], schema: str, table: str) -> list
         (
             "trigger",
             "SELECT tgname FROM pg_trigger WHERE tgrelid = %s::regclass AND NOT tgisinternal",
+        ),
+        (
+            "foreign key referencing the table",
+            "SELECT conname FROM pg_constraint WHERE confrelid = %s::regclass",
+        ),
+        (
+            "row-level security policy",
+            "SELECT polname FROM pg_policy WHERE polrelid = %s::regclass",
+        ),
+    )
+    for label, query in checks:
+        for row in conn.execute(query, (regclass,)).fetchall():
+            blockers.append(f"{schema}.{table}: {label} {row[0]}")
+    return blockers
+
+
+def _pg_republish_blockers(
+    conn: psycopg.Connection[Any], schema: str, table: str
+) -> list[str]:
+    """Reasons a TRUNCATE + INSERT republish of ``schema.table`` must be refused.
+
+    A republish does not change the schema, so dependent views and grants stay
+    compatible. It still mutates every row, so triggers, rules, row-level
+    security, referencing foreign keys, non-ordinary relations and ownership
+    are refused before any warehouse write.
+    """
+    regclass = _qualified(conn, schema, table)
+    blockers: list[str] = []
+    head = conn.execute(
+        "SELECT c.relkind, pg_has_role(current_user, c.relowner, 'MEMBER'), c.relrowsecurity "
+        "FROM pg_class c WHERE c.oid = %s::regclass",
+        (regclass,),
+    ).fetchone()
+    if head is None:
+        return [f"{schema}.{table}: not found"]
+    relkind, owns, row_security = head
+    if relkind != "r":
+        blockers.append(f"{schema}.{table}: not an ordinary table (relkind {relkind})")
+    if not owns:
+        blockers.append(f"{schema}.{table}: connected role does not own the table")
+    if row_security:
+        blockers.append(f"{schema}.{table}: row-level security is enabled")
+    checks = (
+        (
+            "trigger",
+            "SELECT tgname FROM pg_trigger WHERE tgrelid = %s::regclass AND NOT tgisinternal",
+        ),
+        (
+            "rule",
+            "SELECT rulename FROM pg_rewrite WHERE ev_class = %s::regclass "
+            "AND rulename <> '_RETURN'",
         ),
         (
             "foreign key referencing the table",
@@ -536,9 +601,11 @@ def _pg_preflight(conn: psycopg.Connection[Any], schema: str) -> _PgPlan:
                 f"{schema}.{relation.name}: unrecognised column set "
                 "(not the exact current shape); refusing to republish it"
             )
+    existing = [key for key in REBUILD_KEYS if _pg_table_exists(conn, schema, key)]
+    for key in existing:
+        problems.extend(_pg_republish_blockers(conn, schema, key))
     if problems:
         raise _Refused("; ".join(problems))
-    existing = [key for key in REBUILD_KEYS if _pg_table_exists(conn, schema, key)]
     return _PgPlan(schema=schema, states=states, alter=alter, existing_keys=existing)
 
 

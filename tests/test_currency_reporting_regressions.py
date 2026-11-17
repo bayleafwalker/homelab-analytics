@@ -918,3 +918,41 @@ def test_postgres_refuses_a_role_that_does_not_own_the_tables(
     assert "does not own" in receipt["refusals"][0]
     assert "currency" not in _pg_columns(pg_dsn, schema, "mart_monthly_cashflow")
     assert "currency" not in _columns(warehouse, "mart_monthly_cashflow")
+
+
+@pytest.mark.integration
+@pytest.mark.slow
+def test_postgres_republish_refuses_a_trigger_on_a_rebuilt_relation(
+    tmp_path: Path, pg_dsn: str
+) -> None:
+    warehouse = tmp_path / "warehouse.duckdb"
+    _legacy_warehouse(warehouse)
+    schema = _pg_legacy_schema(pg_dsn)
+    # A rebuild-only relation with its exact current shape, plus a trigger that
+    # would fire on the TRUNCATE/INSERT republish.
+    with psycopg.connect(pg_dsn, autocommit=True) as conn:
+        conn.execute(
+            f'CREATE TABLE "{schema}".mart_household_overview ('
+            "current_month TEXT NOT NULL, cashflow_income NUMERIC(18,4) NOT NULL, "
+            "cashflow_expense NUMERIC(18,4) NOT NULL, cashflow_net NUMERIC(18,4) NOT NULL, "
+            "utility_cost_total NUMERIC(18,4) NOT NULL, "
+            "subscription_total_monthly NUMERIC(18,4) NOT NULL, "
+            "account_balance_direction TEXT NOT NULL, balance_net_change NUMERIC(18,4) NOT NULL, "
+            "currency TEXT NOT NULL)"
+        )
+        conn.execute(
+            f'CREATE FUNCTION "{schema}".noop() RETURNS trigger LANGUAGE plpgsql '
+            "AS $$ BEGIN RETURN NEW; END $$"
+        )
+        conn.execute(
+            f'CREATE TRIGGER noop BEFORE INSERT ON "{schema}".mart_household_overview '
+            f'FOR EACH ROW EXECUTE FUNCTION "{schema}".noop()'
+        )
+
+    code, receipt = run_upgrade(
+        _pg_settings(tmp_path, warehouse, pg_dsn, schema), check_only=False
+    )
+
+    assert code == EXIT_REFUSED and receipt["status"] == "refused", receipt
+    assert "trigger" in receipt["refusals"][0]
+    assert "currency" not in _columns(warehouse, "mart_monthly_cashflow")

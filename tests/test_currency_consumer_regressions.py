@@ -26,6 +26,10 @@ from apps.api.app import create_app
 from packages.domains.finance.pipelines.account_transaction_service import (
     AccountTransactionService,
 )
+from packages.domains.finance.pipelines.scenario_service import (
+    create_expense_shock_scenario,
+    create_income_change_scenario,
+)
 from packages.domains.finance.pipelines.transformation_transactions import (
     refresh_monthly_cashflow,
 )
@@ -38,10 +42,12 @@ from packages.domains.utilities.energy_contract_decision import (
     energy_contract_baseline,
 )
 from packages.domains.utilities.pipelines.transformation_utilities import (
+    get_utility_cost_summary,
     get_utility_cost_trend_monthly,
     refresh_utility_cost_summary,
     refresh_utility_cost_trend_monthly,
 )
+from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.run_metadata import RunMetadataRepository
@@ -443,3 +449,125 @@ def test_utility_trend_keeps_unbilled_meter_out_of_the_billed_denomination() -> 
     assert Decimal(str(unbilled[0]["usage_amount"])) == 100
     assert unbilled[0]["unit_price_effective"] is None
     assert unbilled[0]["meter_count"] == 1
+
+
+# ---------------------------------------------------------------------------
+# 6. Utility cost summary must not fan out bill amounts across usage rows
+# ---------------------------------------------------------------------------
+
+
+def test_utility_summary_does_not_fan_out_bill_amount_across_usage_observations() -> None:
+    svc = _service()
+    svc.load_bills([_bill("m1", "200", "EUR")], run_id="run-bill")
+    svc.load_utility_usage(
+        [
+            {**_usage("m1", "50"), "usage_start": "2026-01-04", "usage_end": "2026-01-04"},
+            {**_usage("m1", "50"), "usage_start": "2026-01-05", "usage_end": "2026-01-05"},
+        ],
+        run_id="run-usage",
+    )
+    refresh_utility_cost_summary(svc.store)
+
+    rows = get_utility_cost_summary(svc.store, utility_type="electricity")
+    assert len(rows) == 1
+    row = rows[0]
+    assert Decimal(str(row["billed_amount"])) == 200
+    assert Decimal(str(row["usage_quantity"])) == 100
+    assert row["bill_count"] == 1
+    assert row["usage_record_count"] == 2
+    assert row["coverage_status"] == "matched"
+    assert Decimal(str(row["unit_cost"])) == 2
+
+
+def test_utility_summary_sums_distinct_genuine_bills_without_fan_out() -> None:
+    svc = _service()
+    svc.load_bills(
+        [_bill("m1", "200", "EUR"), _bill("m1", "300", "EUR")],
+        run_id="run-bill",
+    )
+    svc.load_utility_usage(
+        [
+            {**_usage("m1", "40"), "usage_start": "2026-01-04", "usage_end": "2026-01-04"},
+            {**_usage("m1", "60"), "usage_start": "2026-01-05", "usage_end": "2026-01-05"},
+        ],
+        run_id="run-usage",
+    )
+    refresh_utility_cost_summary(svc.store)
+
+    rows = get_utility_cost_summary(svc.store, utility_type="electricity")
+    assert len(rows) == 1
+    row = rows[0]
+    assert Decimal(str(row["billed_amount"])) == 500
+    assert Decimal(str(row["usage_quantity"])) == 100
+    assert row["bill_count"] == 2
+    assert row["usage_record_count"] == 2
+
+
+def test_income_change_resolves_and_validates_the_single_baseline_currency() -> None:
+    svc = _service()
+    _load_finance(svc, currency="USD")  # sole USD baseline
+
+    # A mismatched explicit currency is refused, never silently relabelled.
+    with pytest.raises(ValueError, match="single cashflow denomination"):
+        create_income_change_scenario(
+            svc.store, monthly_income_delta=Decimal("10"), currency="EUR"
+        )
+
+    # Omitted currency resolves to the baseline; explicit matching is accepted.
+    omitted = create_income_change_scenario(svc.store, monthly_income_delta=Decimal("10"))
+    assert omitted.currency == "USD"
+
+    matching = create_income_change_scenario(
+        svc.store, monthly_income_delta=Decimal("10"), currency="USD"
+    )
+    assert matching.currency == "USD"
+
+    expense = create_expense_shock_scenario(svc.store, expense_pct_delta=Decimal("0.10"))
+    assert expense.currency == "USD"
+
+
+# ---------------------------------------------------------------------------
+# 5. Strict PUBLISHED never inspects the warehouse
+# ---------------------------------------------------------------------------
+
+
+class _MissingPublishedStore:
+    """A published store with no relation, asserting it is never inspected."""
+
+    def table_exists(self, table_name: str) -> bool:
+        return False
+
+    def column_names(self, table_name: str) -> list[str]:
+        raise AssertionError("a missing published relation must not be inspected")
+
+
+def test_strict_published_missing_relation_is_unavailable_never_a_warehouse_shape() -> None:
+    # A legacy-shaped warehouse (no currency column) must not leak a 503.
+    legacy = _service()
+    legacy.store.ensure_table(
+        "mart_monthly_cashflow",
+        [
+            ("booking_month", "VARCHAR NOT NULL"),
+            ("income", "DECIMAL(18,4) NOT NULL"),
+            ("expense", "DECIMAL(18,4) NOT NULL"),
+            ("net", "DECIMAL(18,4) NOT NULL"),
+            ("transaction_count", "INTEGER NOT NULL"),
+        ],
+    )
+    reporting = ReportingService(
+        legacy,
+        publication_store=_MissingPublishedStore(),
+        access_mode=ReportingAccessMode.PUBLISHED,
+    )
+    with pytest.raises(KeyError, match="unavailable"):
+        reporting.get_monthly_cashflow()
+
+    # A missing warehouse table must not leak a raw CatalogException either.
+    empty = _service()
+    reporting_empty = ReportingService(
+        empty,
+        publication_store=_MissingPublishedStore(),
+        access_mode=ReportingAccessMode.PUBLISHED,
+    )
+    with pytest.raises(KeyError, match="unavailable"):
+        reporting_empty.get_monthly_cashflow()

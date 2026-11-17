@@ -33,7 +33,7 @@ class LoanWhatIfRequest(BaseModel):
 
 class IncomeChangeRequest(BaseModel):
     monthly_income_delta: str            # decimal string, may be negative e.g. "-500.00"
-    currency: str = "GBP"               # ISO 4217 code for the delta amount
+    currency: str | None = None          # optional ISO 4217 code for the delta amount
     label: str | None = None
     projection_months: int | None = None  # default 12
 
@@ -243,6 +243,7 @@ def register_scenario_routes(
             "new_monthly_income": str(result.new_monthly_income),
             "baseline_monthly_income": str(result.baseline_monthly_income),
             "annual_net_change": str(result.annual_net_change),
+            "currency": result.currency,
             "months_until_deficit": result.months_until_deficit,
             "is_stale": result.is_stale,
             "assumptions_summary": assumptions_summary,
@@ -285,6 +286,7 @@ def register_scenario_routes(
             "new_monthly_expense": str(result.new_monthly_expense),
             "baseline_monthly_expense": str(result.baseline_monthly_expense),
             "annual_additional_cost": str(result.annual_additional_cost),
+            "currency": result.currency,
             "months_until_deficit": result.months_until_deficit,
             "is_stale": result.is_stale,
             "assumptions_summary": assumptions_summary,

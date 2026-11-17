@@ -829,7 +829,7 @@ def test_nextjs_frontend_exposes_parallel_retro_shell_and_terminal_boundary() ->
     assert "{user ? (" in app_shell_source
     assert 'className="retroRoot"' in retro_layout_source
     assert "getWebRendererDiscovery()" in retro_page_source
-    assert "optionalPanelData(getHouseholdOverview(), null)" in retro_page_source
+    assert "optionalPanelData(getHouseholdOverviewRows(), [])" in retro_page_source
     assert "optionalPanelData(getAttentionItems(), [])" in retro_page_source
     assert "optionalPanelData(getRecentChanges(), [])" in retro_page_source
     assert "MODULE_ORDER" in retro_page_source
@@ -1580,7 +1580,7 @@ def test_dashboard_reads_current_only_panels_from_snapshots() -> None:
     for read in ("ratios", "baseline", "subscriptions", "attention", "changes"):
         assert f"noHistory(reads.{read})" in dashboard
         assert f"<HistoryTag read={{reads.{read}}} />" in dashboard
-    assert 'read.status === "no_history"' in dashboard
+    assert 'read?.status === "no_history"' in history
     assert "No history for ${formatMonth(month)}" in history
     assert "As published ${day}" in history
 

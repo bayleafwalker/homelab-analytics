@@ -7139,9 +7139,15 @@
       "IncomeChangeRequest": {
         "properties": {
           "currency": {
-            "default": "GBP",
-            "title": "Currency",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
           },
           "label": {
             "anyOf": [

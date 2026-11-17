@@ -42,6 +42,7 @@ from packages.domains.finance.pipelines.transaction_models import (
     MART_MONTHLY_CASHFLOW_COLUMNS,
     MART_MONTHLY_CASHFLOW_TABLE,
 )
+from packages.pipelines.normalization import normalize_currency_code
 from packages.platform.source_freshness import SourceFreshnessState, SourceFreshnessSummary
 from packages.storage.duckdb_store import DuckDBStore
 
@@ -68,6 +69,7 @@ class IncomeScenarioResult:
     annual_net_change: Decimal
     months_until_deficit: int | None
     is_stale: bool
+    currency: str
     assumptions_summary: list[SourceFreshnessSummary] | None = None
 
 
@@ -81,6 +83,7 @@ class ExpenseShockResult:
     annual_additional_cost: Decimal
     months_until_deficit: int | None
     is_stale: bool
+    currency: str
     assumptions_summary: list[SourceFreshnessSummary] | None = None
 
 
@@ -924,7 +927,7 @@ def create_income_change_scenario(
     store: DuckDBStore,
     *,
     monthly_income_delta: Decimal,
-    currency: str = "GBP",
+    currency: str | None = None,
     label: str | None = None,
     projection_months: int = _DEFAULT_PROJECTION_MONTHS,
 ) -> IncomeScenarioResult:
@@ -938,6 +941,19 @@ def create_income_change_scenario(
     ensure_scenario_storage(store)
 
     baseline_income, baseline_expense = get_baseline_cashflow(store)
+    baseline_currency = get_cashflow_currency(store)
+    if currency is None:
+        resolved_currency = baseline_currency
+    else:
+        try:
+            resolved_currency = normalize_currency_code(currency)
+        except ValueError as exc:
+            raise ValueError(f"Invalid income-change currency: {currency!r}") from exc
+        if resolved_currency != baseline_currency:
+            raise ValueError(
+                f"Income scenario currency {currency!r} does not match the single "
+                f"cashflow denomination {baseline_currency}; no conversion is performed."
+            )
     new_monthly_income = baseline_income + monthly_income_delta
     baseline_run_id = get_latest_transaction_run_id(store)
 
@@ -960,7 +976,7 @@ def create_income_change_scenario(
         "assumption_key": "monthly_income_delta",
         "baseline_value": "0",
         "override_value": str(monthly_income_delta.quantize(q)),
-        "unit": currency,
+        "unit": resolved_currency,
     }])
 
     proj_rows, months_until_deficit = _project_cashflow_rows(
@@ -988,6 +1004,7 @@ def create_income_change_scenario(
         annual_net_change=(monthly_income_delta * 12).quantize(q),
         months_until_deficit=months_until_deficit,
         is_stale=False,
+        currency=resolved_currency,
     )
 
 
@@ -1009,6 +1026,7 @@ def create_expense_shock_scenario(
     ensure_scenario_storage(store)
 
     baseline_income, baseline_expense = get_baseline_cashflow(store)
+    baseline_currency = get_cashflow_currency(store)
     new_monthly_expense = baseline_expense * (1 + expense_pct_delta)
     baseline_run_id = get_latest_transaction_run_id(store)
 
@@ -1060,6 +1078,7 @@ def create_expense_shock_scenario(
         annual_additional_cost=((new_monthly_expense - baseline_expense) * 12).quantize(Decimal("0.01")),
         months_until_deficit=months_until_deficit,
         is_stale=False,
+        currency=baseline_currency,
     )
 
 
