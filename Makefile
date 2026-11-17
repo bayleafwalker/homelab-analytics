@@ -25,7 +25,11 @@ PIP_AUDIT = $(PYTHON) -m pip_audit
 WORKFLOW_HELPER := ./tools/workflow.sh
 WEB_DIR := apps/web/frontend
 # Use the pinned Node when it has been unpacked; otherwise fall back to node on PATH.
-WEB_NODE_BIN_DIR := $(if $(wildcard .tooling/node-v20.20.1-linux-x64/bin/node),$(abspath .tooling/node-v20.20.1-linux-x64/bin),$(patsubst %/,%,$(dir $(shell command -v node))))
+# Export the selection to every recipe, including Python tests that invoke node.
+WEB_NODE_BIN_DIR := $(if $(wildcard .tooling/node-v20.20.1-linux-x64/bin/node),$(abspath .tooling/node-v20.20.1-linux-x64/bin),$(if $(shell command -v node),$(patsubst %/,%,$(dir $(shell command -v node))),))
+ifneq ($(strip $(WEB_NODE_BIN_DIR)),)
+export PATH := $(WEB_NODE_BIN_DIR):$(PATH)
+endif
 COMPOSE_FILE := infra/examples/compose.yaml
 COMPOSE_SMOKE_PROJECT ?= homelab-analytics-smoke
 COMPOSE_SMOKE_FILES := --project-name $(COMPOSE_SMOKE_PROJECT) -f $(COMPOSE_FILE) -f infra/examples/compose-smoke.override.yaml
@@ -66,12 +70,23 @@ export SPRINTCTL_INSTANCE_ID SPRINTCTL_RUNTIME_SESSION_ID CODEX_THREAD_ID
 	web-ui-test web-local web-local-serve first-run hooks-install \
 	contract-export-check contract-compat-report contract-release-artifacts \
 	agent-preflight sprintctl-health sprintctl-preflight sprintctl-close \
+	dev-setup dev-check dev-smoke \
 	sprint-resume claim-recover claim-heartbeat item-verify-auth snapshot-refresh knowledge-publish
 
 hooks-install:
 	@git config core.hooksPath githooks
 	@chmod +x githooks/* 2>/dev/null || true
 	@echo "Installed git hooks from githooks/ (core.hooksPath=githooks): pre-commit lint + commit-msg convention."
+
+# Reproducible, checkout-owned development environment and focused checks.
+dev-setup:
+	@bash ./tools/dev-setup.sh
+
+dev-check:
+	@bash ./tools/dev-check.sh
+
+dev-smoke:
+	@bash ./tools/dev-smoke.sh
 
 lint:
 	$(RUFF) check .
@@ -146,25 +161,25 @@ contract-release-artifacts:
 		--output-dir $(CONTRACT_RELEASE_DIR)
 
 web-codegen:
-	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run codegen
+	npm --prefix $(WEB_DIR) run codegen
 
 web-codegen-check:
-	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run codegen:check
+	npm --prefix $(WEB_DIR) run codegen:check
 
 web-token-check:
-	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run tokens:check
+	npm --prefix $(WEB_DIR) run tokens:check
 
 web-typecheck:
-	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run typecheck
+	npm --prefix $(WEB_DIR) run typecheck
 
 web-contracts-check:
-	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run contracts:check
+	npm --prefix $(WEB_DIR) run contracts:check
 
 web-build:
-	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run build
+	npm --prefix $(WEB_DIR) run build
 
 web-ui-test:
-	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run ui:test
+	bash tools/dev-web-ui-test.sh
 
 # Local web launch: `python -m apps.web.main` runs the Next.js standalone
 # server, which serves /_next/static and public/ only from beside server.js.
@@ -173,8 +188,8 @@ web-ui-test:
 WEB_STANDALONE_DIR := $(WEB_DIR)/.next/standalone
 
 web-local:
-	@test -d $(WEB_DIR)/node_modules || PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) ci
-	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run build
+	@test -d $(WEB_DIR)/node_modules || npm --prefix $(WEB_DIR) ci
+	npm --prefix $(WEB_DIR) run build
 	rm -rf $(WEB_STANDALONE_DIR)/.next/static $(WEB_STANDALONE_DIR)/public
 	mkdir -p $(WEB_STANDALONE_DIR)/.next
 	cp -R $(WEB_DIR)/.next/static $(WEB_STANDALONE_DIR)/.next/static

@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=tools/dev-env.sh
+source "$ROOT/tools/dev-env.sh"
+source "$ROOT/tools/dev-smoke-process.sh"
+dev_prepare_env "$ROOT"
+dev_require_owned_path "$ROOT" ".venv" "Python environment"
+dev_require_owned_path "$ROOT" "apps/web/frontend" "frontend checkout"
+dev_require_owned_path "$ROOT" "apps/web/frontend/node_modules" "frontend dependencies"
+dev_require_owned_path "$ROOT" "apps/web/frontend/.next" "Next.js build output"
+dev_require_python_env "$ROOT"
+[[ -x "$ROOT/apps/web/frontend/node_modules/.bin/next" ]] \
+  || dev_fail "frontend dependencies are missing; run 'make dev-setup'"
+command -v setsid >/dev/null 2>&1 || dev_fail "setsid is required to isolate the smoke server process group"
+command -v ps >/dev/null 2>&1 || dev_fail "ps is required to verify smoke server process cleanup"
+
+cd "$ROOT"
+PORT="$(.venv/bin/python - <<'PY'
+import socket
+
+with socket.socket() as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PY
+)"
+BASE_URL="http://127.0.0.1:$PORT"
+LOG="$(mktemp)"
+BUILD_LOG="$(mktemp)"
+SMOKE_HOME="$ROOT/.tooling/smoke-home"
+SMOKE_TMPDIR="$ROOT/.tooling/smoke-tmp"
+mkdir -p "$SMOKE_HOME" "$SMOKE_TMPDIR"
+server_pid=""
+backend_pid=""
+build_pid=""
+BACKEND_LOG="$(mktemp)"
+BACKEND_ENDPOINT_FILE="$SMOKE_TMPDIR/backend-endpoint-$$"
+dev_smoke_install_traps
+
+dev_smoke_launch "$ROOT" "$SMOKE_HOME" "$SMOKE_TMPDIR" \
+  http://127.0.0.1:1 .venv/bin/python tools/dev-smoke-backend-stub.py "$BACKEND_ENDPOINT_FILE" \
+  >"$BACKEND_LOG" 2>&1 &
+backend_pid=$!
+for attempt in $(seq 1 50); do
+  [[ -s "$BACKEND_ENDPOINT_FILE" ]] && break
+  if ! kill -0 "$backend_pid" 2>/dev/null; then
+    cat "$BACKEND_LOG" >&2
+    dev_fail "synthetic smoke backend stub exited before binding loopback"
+  fi
+  sleep 0.1
+done
+[[ -s "$BACKEND_ENDPOINT_FILE" ]] || { cat "$BACKEND_LOG" >&2; dev_fail "synthetic smoke backend did not bind loopback"; }
+SMOKE_API_BASE_URL="http://127.0.0.1:$(<"$BACKEND_ENDPOINT_FILE")"
+
+printf 'Building existing standalone web target...\n'
+dev_smoke_launch "$ROOT" "$SMOKE_HOME" "$SMOKE_TMPDIR" "$SMOKE_API_BASE_URL" \
+  npm --prefix apps/web/frontend run build >"$BUILD_LOG" 2>&1 &
+build_pid=$!
+if wait "$build_pid"; then
+  build_status=0
+else
+  build_status=$?
+fi
+if ! dev_stop_process_group "$build_pid"; then
+  cat "$BUILD_LOG" >&2
+  dev_fail "frontend build process group did not settle after bounded cleanup"
+fi
+wait "$build_pid" 2>/dev/null || true
+build_pid=""
+cat "$BUILD_LOG"
+[[ "$build_status" == 0 ]] || dev_fail "Next.js standalone build failed"
+standalone="apps/web/frontend/.next/standalone"
+[[ -f "$standalone/server.js" ]] || dev_fail "Next.js build did not create the standalone server"
+mkdir -p "$standalone/.next"
+rm -rf "$standalone/.next/static" "$standalone/public"
+cp -R apps/web/frontend/.next/static "$standalone/.next/static"
+cp -R apps/web/frontend/public "$standalone/public"
+
+dev_smoke_launch "$ROOT" "$SMOKE_HOME" "$SMOKE_TMPDIR" "$SMOKE_API_BASE_URL" \
+  env HOMELAB_ANALYTICS_WEB_HOST=127.0.0.1 HOMELAB_ANALYTICS_WEB_PORT="$PORT" \
+  .venv/bin/python -m apps.web.main >"$LOG" 2>&1 &
+server_pid=$!
+ready=0
+for attempt in $(seq 1 60); do
+  if .venv/bin/python - "$BASE_URL" <<'PY' >/dev/null 2>&1
+import sys
+from urllib.request import urlopen
+
+with urlopen(sys.argv[1], timeout=1) as response:
+    response.read(1)
+PY
+  then
+    ready=1
+    break
+  fi
+  if ! kill -0 "$server_pid" 2>/dev/null; then
+    cat "$LOG" >&2
+    dev_fail "web server exited before becoming ready"
+  fi
+  sleep 0.5
+done
+[[ "$ready" == 1 ]] || { cat "$LOG" >&2; dev_fail "web server did not become ready at $BASE_URL"; }
+
+.venv/bin/python - "$BASE_URL" <<'PY'
+import sys
+from html.parser import HTMLParser
+from urllib.parse import urljoin
+from urllib.request import urlopen
+
+base = sys.argv[1]
+with urlopen(base, timeout=5) as response:
+    html = response.read().decode("utf-8")
+    if response.status != 200:
+        raise SystemExit(f"page returned HTTP {response.status}")
+
+class Assets(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.urls = []
+
+    def handle_starttag(self, tag, attrs):
+        values = dict(attrs)
+        for key in ("src", "href"):
+            value = values.get(key, "")
+            if value.startswith("/_next/static/"):
+                self.urls.append(value)
+
+assets = Assets()
+assets.feed(html)
+if not assets.urls:
+    raise SystemExit("rendered page did not reference a Next.js static asset")
+asset_url = urljoin(base, assets.urls[0])
+with urlopen(asset_url, timeout=5) as response:
+    body = response.read()
+    if response.status != 200 or not body:
+        raise SystemExit(f"static asset failed: {asset_url} returned HTTP {response.status}")
+print(f"Standalone web smoke passed: page and {assets.urls[0]} returned HTTP 200")
+PY
