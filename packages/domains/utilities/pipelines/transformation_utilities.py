@@ -31,6 +31,7 @@ from packages.domains.utilities.pipelines.utility_models import (
     utility_usage_id,
 )
 from packages.pipelines.normalization import normalize_currency_code, normalize_unit
+from packages.pipelines.reporting_currency import StaleReportingSchemaError
 from packages.storage.duckdb_store import DuckDBStore
 
 RecordLineage = Callable[..., None]
@@ -365,6 +366,11 @@ def get_utility_cost_summary(
         params.append(_coerce_date(to_period))
     where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
 
+    if store.fetchall(
+        utility_usage_provenance_probe_sql(where_sql, postgres=False), params
+    ):
+        raise StaleReportingSchemaError(MART_UTILITY_COST_SUMMARY_TABLE)
+
     if granularity == "day":
         return store.fetchall_dicts(
             f"""
@@ -394,6 +400,39 @@ def get_utility_cost_summary(
         utility_cost_summary_monthly_sql(MART_UTILITY_COST_SUMMARY_TABLE, where_sql),
         params,
     )
+
+
+def utility_usage_provenance_probe_sql(where_sql: str, *, postgres: bool) -> str:
+    """Reject missing or unusable observation maps in selected utility periods."""
+    if postgres:
+        invalid = """
+            CASE WHEN json_typeof(CAST(usage_observations AS JSON)) = 'object' THEN
+                (SELECT COUNT(*) <> usage_record_count
+                     OR COUNT(*) FILTER (WHERE json_typeof(value) <> 'number') > 0
+                 FROM json_each(
+                     CASE WHEN json_typeof(CAST(usage_observations AS JSON)) = 'object'
+                          THEN CAST(usage_observations AS JSON) ELSE CAST('{}' AS JSON) END
+                 ))
+            ELSE TRUE END
+        """
+    else:
+        invalid = """
+            CASE WHEN json_valid(usage_observations)
+                       AND json_type(TRY_CAST(usage_observations AS JSON)) = 'OBJECT' THEN
+                (SELECT COUNT(*) <> usage_record_count
+                     OR COUNT(*) FILTER (WHERE type NOT IN ('DOUBLE', 'BIGINT', 'UBIGINT')) > 0
+                 FROM json_each(TRY_CAST(usage_observations AS JSON)))
+            ELSE TRUE END
+        """
+    return f"""
+        WITH periods AS MATERIALIZED (
+            SELECT usage_observations, usage_record_count
+            FROM {MART_UTILITY_COST_SUMMARY_TABLE} {where_sql}
+        )
+        SELECT 1 FROM periods
+        WHERE {invalid}
+        LIMIT 1
+        """
 
 
 def utility_cost_summary_monthly_sql(

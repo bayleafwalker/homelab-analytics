@@ -548,6 +548,42 @@ def test_overlapping_bills_keep_each_usage_observation_once_per_month() -> None:
     assert trend["unit_price_effective"] == Decimal("2.6")
 
 
+def test_selected_period_with_missing_or_malformed_usage_provenance_is_unavailable(
+    tmp_path: Path,
+) -> None:
+    client, svc = _client(tmp_path)
+    svc.load_bills(
+        [
+            _bill("m1", "60", "EUR"),
+            {**_bill("m1", "20", "EUR", month="2026-02"), "billing_period_end": "2026-02-28"},
+        ],
+        run_id="bill",
+    )
+    svc.load_utility_usage([_usage("m1", "100")], run_id="usage")
+    refresh_utility_cost_summary(svc.store)
+    route = "/reports/utility-cost-summary"
+    january = {"from_period": "2026-01-01", "to_period": "2026-01-31"}
+    february = {"from_period": "2026-02-01", "to_period": "2026-02-28"}
+    assert Decimal(str(client.get(route, params=january).json()["rows"][0]["usage_quantity"])) == 100
+
+    for invalid in (None, "not json", "[]", "{}", '{"wrong":"quantity"}'):
+        svc.store.execute(
+            "UPDATE mart_utility_cost_summary SET usage_observations = ? "
+            "WHERE period_month = '2026-01'",
+            [invalid],
+        )
+        for granularity in ("day", "month"):
+            stale = client.get(route, params={**january, "granularity": granularity})
+            assert stale.status_code == 503, stale.text
+        unrelated = client.get(route, params=february)
+        assert unrelated.status_code == 200, unrelated.text
+        assert unrelated.json()["rows"][0]["coverage_status"] == "bill_only"
+
+    empty = client.get(route, params={"from_period": "2026-03-01"})
+    assert empty.status_code == 200
+    assert empty.json()["rows"] == []
+
+
 def test_income_change_resolves_and_validates_the_single_baseline_currency() -> None:
     svc = _service()
     _load_finance(svc, currency="USD")  # sole USD baseline

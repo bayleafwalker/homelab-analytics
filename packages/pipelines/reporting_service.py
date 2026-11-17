@@ -9,6 +9,8 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Callable
 
+from psycopg.errors import InvalidTextRepresentation
+
 from packages.domains.finance.pipelines.budget_models import (
     MART_BUDGET_ENVELOPE_DRIFT_TABLE,
     MART_BUDGET_PROGRESS_CURRENT_TABLE,
@@ -69,6 +71,7 @@ from packages.domains.utilities.pipelines.battery_plan_models import (
 )
 from packages.domains.utilities.pipelines.transformation_utilities import (
     utility_cost_summary_monthly_sql,
+    utility_usage_provenance_probe_sql,
 )
 from packages.domains.utilities.pipelines.utility_models import (
     MART_CONTRACT_RENEWAL_WATCHLIST_TABLE,
@@ -539,6 +542,15 @@ class ReportingService:
             ("period_start >= %s", from_period),
             ("period_end <= %s", to_period),
         )
+        try:
+            invalid = self._publication_store.fetchall_dicts(
+                utility_usage_provenance_probe_sql(where_sql, postgres=True), params
+            )
+        except InvalidTextRepresentation as exc:
+            raise StaleReportingSchemaError(MART_UTILITY_COST_SUMMARY_TABLE) from exc
+        if invalid:
+            raise StaleReportingSchemaError(MART_UTILITY_COST_SUMMARY_TABLE)
+
         if granularity == "day":
             return self._publication_store.fetchall_dicts(
                 f"""
@@ -1101,12 +1113,14 @@ class ReportingService:
 
     def get_relation_rows(self, relation_name: str) -> list[dict[str, Any]]:
         relation = self._get_publication_relation(relation_name)
-        return self._fetch_published_or_fallback(
+        rows = self._fetch_published_or_fallback(
             relation.relation_name,
             lambda: self._rows_from_relation_source(relation),
             ("", []),
             f"ORDER BY {relation.order_by}",
         )
+        self._remove_storage_observation_map(relation_name, rows)
+        return rows
 
     def record_reporting_lineage(
         self,

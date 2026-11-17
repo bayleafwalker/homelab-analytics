@@ -960,6 +960,7 @@ def test_postgres_republish_refuses_a_trigger_on_a_rebuilt_relation(
     assert "trigger" in receipt["refusals"][0]
     assert "currency" not in _columns(warehouse, "mart_monthly_cashflow")
 
+
 @pytest.mark.integration
 @pytest.mark.slow
 def test_postgres_utility_overlap_preserves_selected_periods_without_warehouse(
@@ -1006,3 +1007,21 @@ def test_postgres_utility_overlap_preserves_selected_periods_without_warehouse(
         assert (selected["billed_amount"], selected["usage_quantity"]) == (60, 100)
         assert selected["usage_record_count"] == 2
         assert selected["coverage_status"] == "matched"
+
+    for row in published.get_relation_rows(mart):
+        assert "usage_observations" not in row
+
+    for invalid in (None, "not json", "[]", "{}", '{"wrong":"quantity"}'):
+        with psycopg.connect(pg_dsn) as conn:
+            conn.execute(
+                f'UPDATE "{schema}".{mart} SET usage_observations = %s '
+                "WHERE period_start = DATE '2026-01-01'",
+                (invalid,),
+            )
+        for grain in ("day", "month"):
+            with pytest.raises(StaleReportingSchemaError):
+                published.get_utility_cost_summary(granularity=grain)
+            (selected,) = published.get_utility_cost_summary(
+                granularity=grain, from_period="2026-01-10", to_period="2026-01-31"
+            )
+            assert (selected["billed_amount"], selected["usage_quantity"]) == (60, 100)
