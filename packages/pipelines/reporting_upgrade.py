@@ -166,6 +166,7 @@ _RELATIONS: tuple[_Relation, ...] = (
         MART_RECENT_SIGNIFICANT_CHANGES_TABLE, MART_RECENT_SIGNIFICANT_CHANGES_COLUMNS
     ),
     _Relation(MART_USAGE_VS_PRICE_SUMMARY_TABLE, MART_USAGE_VS_PRICE_SUMMARY_COLUMNS),
+    _Relation(MART_UTILITY_COST_SUMMARY_TABLE, MART_UTILITY_COST_SUMMARY_COLUMNS),
     _Relation(SNAPSHOT_TABLE, SNAPSHOT_COLUMNS),
 )
 assert {r.name for r in _RELATIONS if r.added == "currency"} == set(CURRENCY_COLUMN_RELATIONS)
@@ -175,7 +176,6 @@ assert {r.name for r in _RELATIONS if r.added == "currency"} == set(CURRENCY_COL
 # supported legacy shape. Unknown drift here would be silently erased by the
 # rebuild/republish, so it is refused up front just like an altered relation.
 _REBUILD_ONLY_RELATIONS: tuple[_Relation, ...] = (
-    _Relation(MART_UTILITY_COST_SUMMARY_TABLE, MART_UTILITY_COST_SUMMARY_COLUMNS),
     _Relation(MART_UTILITY_COST_TREND_MONTHLY_TABLE, MART_UTILITY_COST_TREND_MONTHLY_COLUMNS),
     _Relation(MART_HOUSEHOLD_COST_MODEL_TABLE, MART_HOUSEHOLD_COST_MODEL_COLUMNS),
     _Relation(MART_HOUSEHOLD_OVERVIEW_TABLE, MART_HOUSEHOLD_OVERVIEW_COLUMNS),
@@ -858,6 +858,14 @@ def _verify_duckdb(store: DuckDBStore) -> None:
         )[0][0]
         if missing:
             raise RuntimeError(f"{relation} still has {missing} row(s) without a currency")
+
+    missing_usage = store.fetchall(
+        f"SELECT COUNT(*) FROM {MART_UTILITY_COST_SUMMARY_TABLE} WHERE usage_observations IS NULL"
+    )[0][0]
+    if missing_usage:
+        raise RuntimeError(
+            f"{MART_UTILITY_COST_SUMMARY_TABLE} still has rows without usage provenance"
+        )
 
 
 def _verify_published(

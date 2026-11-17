@@ -38,15 +38,20 @@ export function sumField(rows, field) {
   return (rows || []).reduce((sum, row) => sum + Number(row?.[field] || 0), 0);
 }
 
-// The concrete ISO currency of a saved scenario, read from its assumptions
-// (a tariff shock records it as the unit of `baseline_utility_cost`). Returns
-// null when the scenario has no single concrete denomination, so consumers can
-// label monetary tables truthfully instead of leaving bare cells.
+// A historical income delta may have a unit different from its baseline.
 export function scenarioCurrency(assumptions) {
-  const baselineCost = (assumptions || []).find(
-    (a) => a.assumption_key === "baseline_utility_cost",
-  );
-  const unit = baselineCost?.unit;
-  return unit && unit !== "currency" ? unit : null;
+  const monetaryKeys = new Set(["cashflow_currency", "baseline_expense", "baseline_utility_cost"]);
+  const savedUnits = new Set();
+  const deltaUnits = new Set();
+  for (const assumption of assumptions || []) {
+    const key = assumption?.assumption_key;
+    if (!monetaryKeys.has(key) && key !== "monthly_income_delta") continue;
+    const unit = (assumption?.unit || "").trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(unit)) return null;
+    if (key === "monthly_income_delta") deltaUnits.add(unit);
+    else savedUnits.add(unit);
+  }
+  if (savedUnits.size !== 1) return null;
+  const [currency] = savedUnits;
+  return [...deltaUnits].every((unit) => unit === currency) ? currency : null;
 }
-

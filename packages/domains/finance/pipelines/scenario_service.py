@@ -971,13 +971,22 @@ def create_income_change_scenario(
     )
 
     q = Decimal("0.01")
-    store.insert_rows(FACT_SCENARIO_ASSUMPTION_TABLE, [{
-        "scenario_id": scenario_id,
-        "assumption_key": "monthly_income_delta",
-        "baseline_value": "0",
-        "override_value": str(monthly_income_delta.quantize(q)),
-        "unit": resolved_currency,
-    }])
+    store.insert_rows(FACT_SCENARIO_ASSUMPTION_TABLE, [
+        {
+            "scenario_id": scenario_id,
+            "assumption_key": "monthly_income_delta",
+            "baseline_value": "0",
+            "override_value": str(monthly_income_delta.quantize(q)),
+            "unit": resolved_currency,
+        },
+        {
+            "scenario_id": scenario_id,
+            "assumption_key": "cashflow_currency",
+            "baseline_value": baseline_currency,
+            "override_value": resolved_currency,
+            "unit": resolved_currency,
+        },
+    ])
 
     proj_rows, months_until_deficit = _project_cashflow_rows(
         scenario_id=scenario_id,
@@ -1045,13 +1054,23 @@ def create_expense_shock_scenario(
     )
 
     q = Decimal("0.0001")
-    store.insert_rows(FACT_SCENARIO_ASSUMPTION_TABLE, [{
-        "scenario_id": scenario_id,
-        "assumption_key": "expense_pct_delta",
-        "baseline_value": "0",
-        "override_value": str(expense_pct_delta.quantize(q)),
-        "unit": "%",
-    }])
+    money_q = Decimal("0.01")
+    store.insert_rows(FACT_SCENARIO_ASSUMPTION_TABLE, [
+        {
+            "scenario_id": scenario_id,
+            "assumption_key": "expense_pct_delta",
+            "baseline_value": "0",
+            "override_value": str(expense_pct_delta.quantize(q)),
+            "unit": "%",
+        },
+        {
+            "scenario_id": scenario_id,
+            "assumption_key": "baseline_expense",
+            "baseline_value": str(baseline_expense.quantize(money_q)),
+            "override_value": str(new_monthly_expense.quantize(money_q)),
+            "unit": baseline_currency,
+        },
+    ])
 
     proj_rows, months_until_deficit = _project_cashflow_rows(
         scenario_id=scenario_id,
@@ -1088,13 +1107,18 @@ def get_expense_shock_comparison(
     *,
     control_plane_store: Any | None = None,
 ) -> IncomeCashflowComparison | None:
-    """Return projected cashflow rows for an expense_shock scenario.
+    """Return projected cashflow rows + assumptions for an expense_shock scenario.
 
-    Delegates to the same storage queries as get_income_scenario_comparison
-    since both types use proj_income_cashflow.
+    Historical amounts are returned unchanged when their saved currency is unknown.
     """
-    return get_income_scenario_comparison(
-        store, scenario_id, control_plane_store=control_plane_store
+    scenario = get_scenario(store, scenario_id)
+    if scenario is None or scenario["scenario_type"] != "expense_shock":
+        return None
+    return _get_income_cashflow_comparison_impl(
+        store,
+        scenario_id,
+        is_stale_fn=lambda s, sid, _sc: _is_income_scenario_stale(s, sid),
+        control_plane_store=control_plane_store,
     )
 
 
@@ -1151,7 +1175,13 @@ def get_income_scenario_comparison(
     *,
     control_plane_store: Any | None = None,
 ) -> IncomeCashflowComparison | None:
-    """Return projected cashflow rows + assumptions for an income_change scenario."""
+    """Return projected cashflow rows + assumptions for an income_change scenario.
+
+    Historical amounts are returned unchanged when their saved currency is unknown.
+    """
+    scenario = get_scenario(store, scenario_id)
+    if scenario is None or scenario["scenario_type"] != "income_change":
+        return None
     return _get_income_cashflow_comparison_impl(
         store,
         scenario_id,

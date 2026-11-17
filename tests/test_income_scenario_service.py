@@ -196,11 +196,11 @@ class IncomeProjRowsTests(unittest.TestCase):
         )
         comparison = get_income_scenario_comparison(self.store, result.scenario_id)
         first_projection = comparison.cashflow_rows[0]
-        self.assertEqual(
-            ["monthly_income_delta"],
-            [row["assumption_key"] for row in first_projection["assumption_set"]],
-        )
-        self.assertEqual("EUR", first_projection["assumption_set"][0]["unit"])
+        units = {
+            row["assumption_key"]: row["unit"]
+            for row in first_projection["assumption_set"]
+        }
+        self.assertEqual({"cashflow_currency": "EUR", "monthly_income_delta": "EUR"}, units)
 
 
 class IncomeScenarioArchiveTests(unittest.TestCase):

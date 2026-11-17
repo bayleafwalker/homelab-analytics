@@ -52,6 +52,31 @@ test("scenarioCurrency reads the tariff-shock assumption unit", () => {
   assert.equal(scenarioCurrency([]), null);
 });
 
+test("scenarioCurrency reads income and expense monetary units", () => {
+  for (const currency of ["EUR", "USD"]) {
+    const delta = { assumption_key: "monthly_income_delta", unit: currency };
+    assert.equal(scenarioCurrency([delta]), null);
+    assert.equal(scenarioCurrency([delta, { assumption_key: "cashflow_currency", unit: currency }]), currency);
+  }
+  assert.equal(scenarioCurrency([{ assumption_key: "baseline_expense", unit: "USD" }]), "USD");
+  assert.equal(scenarioCurrency([{ assumption_key: "baseline_expense", unit: "EUR" }]), "EUR");
+  // The percentage delta is not a monetary unit.
+  assert.equal(scenarioCurrency([{ assumption_key: "expense_pct_delta", unit: "%" }]), null);
+});
+
+test("scenarioCurrency is unavailable for missing, generic or conflicting units", () => {
+  assert.equal(scenarioCurrency([{ assumption_key: "baseline_expense", unit: "currency" }]), null);
+  assert.equal(scenarioCurrency([{ assumption_key: "baseline_expense", unit: null }]), null);
+  assert.equal(scenarioCurrency([{ assumption_key: "monthly_income_delta", unit: null }]), null);
+  assert.equal(
+    scenarioCurrency([
+      { assumption_key: "monthly_income_delta", unit: "USD" },
+      { assumption_key: "baseline_expense", unit: "EUR" },
+    ]),
+    null,
+  );
+});
+
 function loadTariffShockPanel() {
   const state = { calls: 0 };
   const initialValues = {

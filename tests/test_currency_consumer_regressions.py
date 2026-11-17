@@ -503,6 +503,51 @@ def test_utility_summary_sums_distinct_genuine_bills_without_fan_out() -> None:
     assert row["usage_record_count"] == 2
 
 
+def test_overlapping_bills_keep_each_usage_observation_once_per_month() -> None:
+    svc = _service()
+    svc.load_bills(
+        [
+            {**_bill("m1", "200", "EUR"), "billing_period_end": "2026-01-20"},
+            {**_bill("m1", "60", "EUR"), "billing_period_start": "2026-01-10"},
+        ],
+        run_id="run-bill",
+    )
+    svc.load_utility_usage(
+        [
+            {**_usage("m1", "50"), "usage_start": day, "usage_end": day}
+            for day in ("2026-01-15", "2026-01-17")
+        ],
+        run_id="run-usage",
+    )
+    refresh_utility_cost_summary(svc.store)
+    refresh_utility_cost_trend_monthly(svc.store)
+
+    (summary,) = get_utility_cost_summary(svc.store, utility_type="electricity")
+    assert summary["currency"] == "EUR"
+    assert summary["billed_amount"] == Decimal("260")
+    assert summary["usage_quantity"] == Decimal("100")
+    assert summary["unit_cost"] == Decimal("2.6")
+    assert summary["bill_count"] == 2
+    assert summary["usage_record_count"] == 2
+
+    for granularity in ("month", "day"):
+        (selected,) = get_utility_cost_summary(
+            svc.store, utility_type="electricity", granularity=granularity,
+            from_period="2026-01-10", to_period="2026-01-31",
+        )
+        assert selected["billed_amount"] == Decimal("60")
+        assert selected["usage_quantity"] == Decimal("100")
+        assert selected["unit_cost"] == Decimal("0.6")
+        assert selected["usage_record_count"] == 2
+        assert selected["coverage_status"] == "matched"
+
+    (trend,) = get_utility_cost_trend_monthly(svc.store, utility_type="electricity")
+    assert trend["currency"] == "EUR"
+    assert trend["total_cost"] == Decimal("260")
+    assert trend["usage_amount"] == Decimal("100")
+    assert trend["unit_price_effective"] == Decimal("2.6")
+
+
 def test_income_change_resolves_and_validates_the_single_baseline_currency() -> None:
     svc = _service()
     _load_finance(svc, currency="USD")  # sole USD baseline
@@ -524,6 +569,97 @@ def test_income_change_resolves_and_validates_the_single_baseline_currency() -> 
 
     expense = create_expense_shock_scenario(svc.store, expense_pct_delta=Decimal("0.10"))
     assert expense.currency == "USD"
+
+
+@pytest.mark.parametrize("currency", ["EUR", "USD"])
+def test_income_change_reopen_serves_the_persisted_currency(
+    tmp_path: Path, currency: str
+) -> None:
+    client, svc = _client(tmp_path)
+    _load_finance(svc, currency=currency)
+
+    response = client.post(
+        "/api/scenarios/income-change",
+        json={"monthly_income_delta": "10.00"},
+    )
+    assert response.status_code == 200
+    sid = response.json()["scenario_id"]
+    assert response.json()["currency"] == currency
+
+    cashflow = client.get(f"/api/scenarios/{sid}/cashflow")
+    assert cashflow.status_code == 200
+    assumption = next(
+        row
+        for row in cashflow.json()["assumptions"]
+        if row["assumption_key"] == "cashflow_currency"
+    )
+    assert assumption["unit"] == currency
+
+
+@pytest.mark.parametrize("currency", ["EUR", "USD"])
+def test_expense_shock_reopen_serves_the_persisted_currency(
+    tmp_path: Path, currency: str
+) -> None:
+    client, svc = _client(tmp_path)
+    _load_finance(svc, currency=currency)
+
+    response = client.post(
+        "/api/scenarios/expense-shock",
+        json={"expense_pct_delta": "0.10"},
+    )
+    assert response.status_code == 200
+    sid = response.json()["scenario_id"]
+    assert response.json()["currency"] == currency
+
+    cashflow = client.get(f"/api/scenarios/{sid}/cashflow")
+    assert cashflow.status_code == 200
+    assumption = next(
+        row
+        for row in cashflow.json()["assumptions"]
+        if row["assumption_key"] == "baseline_expense"
+    )
+    assert assumption["unit"] == currency
+
+
+def test_historical_income_delta_does_not_supply_a_projection_currency(tmp_path: Path) -> None:
+    client, svc = _client(tmp_path)
+    _load_finance(svc, currency="USD")
+    result = create_income_change_scenario(svc.store, monthly_income_delta=Decimal("10"))
+    svc.store.execute(
+        "DELETE FROM fact_scenario_assumption "
+        "WHERE scenario_id = ? AND assumption_key = 'cashflow_currency'",
+        [result.scenario_id],
+    )
+    svc.store.execute(
+        "UPDATE fact_scenario_assumption SET unit = 'EUR' "
+        "WHERE scenario_id = ? AND assumption_key = 'monthly_income_delta'",
+        [result.scenario_id],
+    )
+
+    response = client.get(f"/api/scenarios/{result.scenario_id}/cashflow")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["cashflow_rows"]
+    assert {row["assumption_key"] for row in body["assumptions"]} == {"monthly_income_delta"}
+
+
+def test_historical_expense_percentage_does_not_supply_a_projection_currency(
+    tmp_path: Path,
+) -> None:
+    client, svc = _client(tmp_path)
+    _load_finance(svc, currency="EUR")
+    result = create_expense_shock_scenario(svc.store, expense_pct_delta=Decimal("0.10"))
+    svc.store.execute(
+        "DELETE FROM fact_scenario_assumption "
+        "WHERE scenario_id = ? AND assumption_key = 'baseline_expense'",
+        [result.scenario_id],
+    )
+
+    response = client.get(f"/api/scenarios/{result.scenario_id}/cashflow")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["cashflow_rows"]
+    assert {row["assumption_key"] for row in body["assumptions"]} == {"expense_pct_delta"}
 
 
 # ---------------------------------------------------------------------------

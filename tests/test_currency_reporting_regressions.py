@@ -48,7 +48,7 @@ from packages.pipelines.reporting_currency import (
     StaleReportingSchemaError,
     assert_currency_current,
 )
-from packages.pipelines.reporting_service import ReportingService
+from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
 from packages.pipelines.reporting_snapshots import (
     SNAPSHOT_COLUMNS,
     SNAPSHOT_TABLE,
@@ -69,8 +69,11 @@ from packages.pipelines.reporting_upgrade import (
 from packages.pipelines.transformation_service import TransformationService
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.migration_runner import apply_pending_duckdb_migrations
+from packages.storage.postgres_reporting import PostgresReportingStore
 from packages.storage.run_metadata import RunMetadataRepository
 from tests.postgres_test_support import running_postgres_container
+from tests.test_currency_consumer_regressions import _bill
+from tests.test_currency_consumer_regressions import _usage as _meter_usage
 from tests.test_energy_contract_decision import _assess, _usage
 from tests.test_morning_brief import _confidence, _inputs, _publications, _section
 from tests.test_reporting_upgrade import _columns, _legacy_warehouse, _settings
@@ -956,3 +959,50 @@ def test_postgres_republish_refuses_a_trigger_on_a_rebuilt_relation(
     assert code == EXIT_REFUSED and receipt["status"] == "refused", receipt
     assert "trigger" in receipt["refusals"][0]
     assert "currency" not in _columns(warehouse, "mart_monthly_cashflow")
+
+@pytest.mark.integration
+@pytest.mark.slow
+def test_postgres_utility_overlap_preserves_selected_periods_without_warehouse(
+    pg_dsn: str,
+) -> None:
+    warehouse = DuckDBStore.memory()
+    service = TransformationService(warehouse)
+    service.load_bills(
+        [
+            {**_bill("m1", "200", "EUR"), "billing_period_end": "2026-01-20"},
+            {**_bill("m1", "60", "EUR"), "billing_period_start": "2026-01-10"},
+        ],
+        run_id="bill",
+    )
+    service.load_utility_usage(
+        [
+            {**_meter_usage("m1", "50"), "usage_start": day, "usage_end": day}
+            for day in ("2026-01-15", "2026-01-17")
+        ],
+        run_id="usage",
+    )
+    mart = "mart_utility_cost_summary"
+    trend_mart = "mart_utility_cost_trend_monthly"
+    service.refresh_publications([mart, trend_mart])
+    schema = f"report_overlap_{uuid.uuid4().hex[:8]}"
+    published = ReportingService(
+        service,
+        publication_store=PostgresReportingStore(pg_dsn, schema=schema),
+        access_mode=ReportingAccessMode.PUBLISHED,
+    )
+    published.publish_publications([mart, trend_mart])
+    warehouse.execute(f"DELETE FROM {mart}")
+    warehouse.execute(f"DELETE FROM {trend_mart}")
+
+    (all_periods,) = published.get_utility_cost_summary()
+    assert (all_periods["billed_amount"], all_periods["usage_quantity"]) == (260, 100)
+    assert all_periods["usage_record_count"] == 2
+    (trend,) = published.get_utility_cost_trend_monthly()
+    assert (trend["total_cost"], trend["usage_amount"]) == (260, 100)
+    for grain in ("day", "month"):
+        (selected,) = published.get_utility_cost_summary(
+            granularity=grain, from_period="2026-01-10", to_period="2026-01-31"
+        )
+        assert (selected["billed_amount"], selected["usage_quantity"]) == (60, 100)
+        assert selected["usage_record_count"] == 2
+        assert selected["coverage_status"] == "matched"

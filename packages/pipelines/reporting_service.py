@@ -90,6 +90,7 @@ from packages.pipelines.mart_read_registry import (
 from packages.pipelines.promotion import PromotionResult
 from packages.pipelines.reporting_currency import (
     CURRENCY_COLUMN_RELATIONS,
+    StaleReportingSchemaError,
     assert_currency_column_present,
     assert_currency_current,
 )
@@ -499,6 +500,9 @@ class ReportingService:
             raise ValueError(f"Unsupported granularity: {granularity!r}")
 
         if self._access_mode == ReportingAccessMode.WAREHOUSE:
+            self._assert_utility_usage_provenance(
+                self._warehouse_column_names(MART_UTILITY_COST_SUMMARY_TABLE)
+            )
             return self._read_mart(
                 MART_UTILITY_COST_SUMMARY_TABLE,
                 utility_type=utility_type,
@@ -514,6 +518,9 @@ class ReportingService:
                 raise KeyError(
                     "Published reporting relation is unavailable: mart_utility_cost_summary"
                 )
+            self._assert_utility_usage_provenance(
+                self._warehouse_column_names(MART_UTILITY_COST_SUMMARY_TABLE)
+            )
             return self._read_mart(
                 MART_UTILITY_COST_SUMMARY_TABLE,
                 utility_type=utility_type,
@@ -523,6 +530,9 @@ class ReportingService:
                 granularity=granularity,
             )
 
+        self._assert_utility_usage_provenance(
+            self._publication_store.column_names(MART_UTILITY_COST_SUMMARY_TABLE)
+        )
         where_sql, params = _build_where_clause(
             ("utility_type = %s", utility_type),
             ("meter_id = %s", meter_id),
@@ -558,6 +568,11 @@ class ReportingService:
             utility_cost_summary_monthly_sql(MART_UTILITY_COST_SUMMARY_TABLE, where_sql),
             params,
         )
+
+    @staticmethod
+    def _assert_utility_usage_provenance(columns: list[str]) -> None:
+        if columns and "usage_observations" not in columns:
+            raise StaleReportingSchemaError(MART_UTILITY_COST_SUMMARY_TABLE)
 
     def get_current_month_electricity_cost(self) -> ScalarMetricSnapshot:
         """Electricity cost of the latest utility month, only if billed in one currency.
@@ -1312,6 +1327,7 @@ class ReportingService:
                 f"SELECT COUNT(*) AS row_count FROM {relation_name}"
             )
             total = int(counted[0]["row_count"]) if counted else None
+            self._remove_storage_observation_map(relation_name, rows)
             return rows, total
         try:
             relation = self._get_publication_relation(relation_name)
@@ -1321,7 +1337,17 @@ class ReportingService:
             # table that has not been created yet is not an error for the
             # agent index, it is simply a publication without samples.
             return None
-        return rows[:limit], len(rows)
+        sampled = rows[:limit]
+        self._remove_storage_observation_map(relation_name, sampled)
+        return sampled, len(rows)
+
+    @staticmethod
+    def _remove_storage_observation_map(
+        relation_name: str, rows: list[dict[str, Any]]
+    ) -> None:
+        if relation_name == MART_UTILITY_COST_SUMMARY_TABLE:
+            for row in rows:
+                row.pop("usage_observations", None)
 
     def _read_mart(self, relation_name: str, **filters: Any) -> list[dict[str, Any]]:
         """Warehouse read through the pack-owned mart reader, on one leased handle."""

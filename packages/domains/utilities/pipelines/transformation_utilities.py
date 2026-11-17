@@ -220,7 +220,7 @@ def refresh_utility_cost_summary(store: DuckDBStore) -> int:
         INSERT INTO {MART_UTILITY_COST_SUMMARY_TABLE} (
             period_start, period_end, period_day, period_month, meter_id, meter_name,
             utility_type, usage_quantity, usage_unit, billed_amount, currency,
-            unit_cost, bill_count, usage_record_count, coverage_status
+            unit_cost, bill_count, usage_record_count, coverage_status, usage_observations
         )
         WITH bill_totals AS (
             -- Aggregate distinct bills per (period, meter, currency) first so a
@@ -261,7 +261,14 @@ def refresh_utility_cost_summary(store: DuckDBStore) -> int:
             CASE
                 WHEN COUNT(u.usage_id) > 0 THEN 'matched'
                 ELSE 'bill_only'
-            END AS coverage_status
+            END AS coverage_status,
+            COALESCE(
+                CAST(to_json(map_from_entries(
+                    list(struct_pack(id := u.usage_id, quantity := u.usage_quantity))
+                    FILTER (WHERE u.usage_id IS NOT NULL)
+                )) AS VARCHAR),
+                '{{}}'
+            ) AS usage_observations
         FROM bill_totals bt
         LEFT JOIN {FACT_UTILITY_USAGE_TABLE} u
             ON u.meter_id = bt.meter_id
@@ -287,7 +294,7 @@ def refresh_utility_cost_summary(store: DuckDBStore) -> int:
         INSERT INTO {MART_UTILITY_COST_SUMMARY_TABLE} (
             period_start, period_end, period_day, period_month, meter_id, meter_name,
             utility_type, usage_quantity, usage_unit, billed_amount, currency,
-            unit_cost, bill_count, usage_record_count, coverage_status
+            unit_cost, bill_count, usage_record_count, coverage_status, usage_observations
         )
         SELECT
             u.usage_start AS period_start,
@@ -304,7 +311,8 @@ def refresh_utility_cost_summary(store: DuckDBStore) -> int:
             CAST(NULL AS DECIMAL(18,4)) AS unit_cost,
             0 AS bill_count,
             COUNT(*) AS usage_record_count,
-            'usage_only' AS coverage_status
+            'usage_only' AS coverage_status,
+            CAST(json_group_object(u.usage_id, u.usage_quantity) AS VARCHAR) AS usage_observations
         FROM {FACT_UTILITY_USAGE_TABLE} u
         WHERE NOT EXISTS (
             SELECT 1
@@ -388,18 +396,17 @@ def get_utility_cost_summary(
     )
 
 
-def utility_cost_summary_monthly_sql(relation: str, where_sql: str) -> str:
-    """Monthly rollup of the daily utility cost mart, one group per denomination.
+def utility_cost_summary_monthly_sql(
+    relation: str, where_sql: str, *, merge_usage_only: bool = True
+) -> str:
+    """Roll up selected billed periods without repeating shared usage observations.
 
-    Valid in DuckDB and PostgreSQL so the warehouse and a published copy
-    answer identically. Bills in different currencies are never summed
-    together and no unit price spans denominations. Usage with no bill has a
-    NULL currency; it joins the one denomination of its meter-month when that
-    is unambiguous (single-currency households keep one row) and otherwise
-    stays its own ``usage_only`` group with no monetary value.
+    Daily rows keep each period's own coverage. Monthly rows deduplicate by
+    the saved usage identity only after applying the selected period bounds.
+    The SQL also runs against the published PostgreSQL copy.
     """
-    return f"""
-        WITH currency_scope AS (
+    currency_scope = """
+        currency_scope AS (
             SELECT period_month, meter_id, utility_type,
                    COUNT(DISTINCT currency) AS currency_count,
                    MIN(currency) AS only_currency
@@ -418,33 +425,68 @@ def utility_cost_summary_monthly_sql(relation: str, where_sql: str) -> str:
              AND c.meter_id = s.meter_id
              AND c.utility_type = s.utility_type
         )
+    """ if merge_usage_only else """
+        scoped AS (
+            SELECT *, currency AS group_currency FROM {relation}
+        )
+    """
+    return f"""
+        WITH {currency_scope.format(relation=relation)},
+        selected AS (SELECT * FROM scoped {where_sql}),
+        observation_quantities AS (
+            SELECT DISTINCT period_month, meter_id, utility_type, group_currency,
+                   reading.key AS usage_id,
+                   CAST(CAST(reading.value AS VARCHAR) AS DECIMAL(18,4)) AS quantity
+            FROM selected, json_each(CAST(selected.usage_observations AS JSON)) AS reading
+        ),
+        usage AS (
+            SELECT period_month, meter_id, utility_type, group_currency,
+                   SUM(quantity) AS usage_quantity,
+                   COUNT(*) AS usage_record_count
+            FROM observation_quantities
+            GROUP BY period_month, meter_id, utility_type, group_currency
+        ),
+        amounts AS (
+            SELECT period_month, meter_id, utility_type, group_currency,
+                   MIN(period_start) AS period_start,
+                   MAX(period_end) AS period_end,
+                   MIN(meter_name) AS meter_name,
+                   MIN(usage_unit) AS usage_unit,
+                   SUM(billed_amount) AS billed_amount,
+                   SUM(bill_count) AS bill_count
+            FROM selected
+            GROUP BY period_month, meter_id, utility_type, group_currency
+        )
         SELECT
-            period_month AS period,
-            MIN(period_start) AS period_start,
-            MAX(period_end) AS period_end,
-            meter_id,
-            MIN(meter_name) AS meter_name,
-            utility_type,
-            SUM(usage_quantity) AS usage_quantity,
-            MIN(usage_unit) AS usage_unit,
-            SUM(billed_amount) AS billed_amount,
-            group_currency AS currency,
+            a.period_month AS period,
+            a.period_start,
+            a.period_end,
+            a.meter_id,
+            a.meter_name,
+            a.utility_type,
+            COALESCE(u.usage_quantity, 0) AS usage_quantity,
+            a.usage_unit,
+            a.billed_amount,
+            a.group_currency AS currency,
             CASE
-                WHEN SUM(usage_quantity) > 0
-                THEN CAST(ROUND(SUM(billed_amount) / SUM(usage_quantity), 4) AS DECIMAL(18,4))
+                WHEN u.usage_quantity > 0
+                THEN CAST(ROUND(a.billed_amount / u.usage_quantity, 4) AS DECIMAL(18,4))
                 ELSE NULL
             END AS unit_cost,
-            SUM(bill_count) AS bill_count,
-            SUM(usage_record_count) AS usage_record_count,
+            a.bill_count,
+            COALESCE(u.usage_record_count, 0) AS usage_record_count,
             CASE
-                WHEN SUM(bill_count) > 0 AND SUM(usage_record_count) > 0 THEN 'matched'
-                WHEN SUM(bill_count) > 0 THEN 'bill_only'
+                WHEN a.bill_count > 0 AND u.usage_record_count > 0 THEN 'matched'
+                WHEN a.bill_count > 0 THEN 'bill_only'
                 ELSE 'usage_only'
             END AS coverage_status
-        FROM scoped
-        {where_sql}
-        GROUP BY period_month, meter_id, utility_type, group_currency
-        ORDER BY period_month, meter_id, group_currency
+        FROM amounts a
+        LEFT JOIN usage u
+          ON u.period_month = a.period_month
+         AND u.meter_id = a.meter_id
+         AND u.utility_type = a.utility_type
+         AND u.group_currency IS NOT DISTINCT FROM a.group_currency
+        ORDER BY a.period_month, a.meter_id, a.group_currency
         """
 
 
@@ -506,13 +548,16 @@ def get_energy_daily(
 
 def refresh_utility_cost_trend_monthly(store: DuckDBStore) -> int:
     store.execute(f"DELETE FROM {MART_UTILITY_COST_TREND_MONTHLY_TABLE}")
+    monthly = utility_cost_summary_monthly_sql(
+        MART_UTILITY_COST_SUMMARY_TABLE, "", merge_usage_only=False
+    )
     store.execute(
         f"""
         INSERT INTO {MART_UTILITY_COST_TREND_MONTHLY_TABLE}
             (billing_month, utility_type, total_cost, usage_amount,
              unit_price_effective, currency, meter_count)
         SELECT
-            period_month                                AS billing_month,
+            period                                      AS billing_month,
             utility_type,
             SUM(billed_amount)                          AS total_cost,
             SUM(usage_quantity)                         AS usage_amount,
@@ -523,9 +568,9 @@ def refresh_utility_cost_trend_monthly(store: DuckDBStore) -> int:
             END                                         AS unit_price_effective,
             currency                                    AS currency,
             COUNT(DISTINCT meter_id)                    AS meter_count
-        FROM {MART_UTILITY_COST_SUMMARY_TABLE}
-        GROUP BY period_month, utility_type, currency
-        ORDER BY period_month, utility_type, currency
+        FROM ({monthly}) AS meter_months
+        GROUP BY period, utility_type, currency
+        ORDER BY period, utility_type, currency
         """
     )
     return store.fetchall(
@@ -553,6 +598,9 @@ def get_utility_cost_trend_monthly(
 
 def refresh_usage_vs_price_summary(store: DuckDBStore) -> int:
     store.execute(f"DELETE FROM {MART_USAGE_VS_PRICE_SUMMARY_TABLE}")
+    monthly = utility_cost_summary_monthly_sql(
+        MART_UTILITY_COST_SUMMARY_TABLE, "", merge_usage_only=False
+    )
     store.execute(
         f"""
         INSERT INTO {MART_USAGE_VS_PRICE_SUMMARY_TABLE}
@@ -560,7 +608,7 @@ def refresh_usage_vs_price_summary(store: DuckDBStore) -> int:
              cost_change_pct, dominant_driver, currency)
         WITH monthly_agg AS (
             SELECT
-                period_month,
+                period AS period_month,
                 utility_type,
                 currency,
                 SUM(usage_quantity)  AS usage_amount,
@@ -570,8 +618,8 @@ def refresh_usage_vs_price_summary(store: DuckDBStore) -> int:
                     THEN SUM(billed_amount) / SUM(usage_quantity)
                     ELSE NULL
                 END AS unit_price
-            FROM {MART_UTILITY_COST_SUMMARY_TABLE}
-            GROUP BY period_month, utility_type, currency
+            FROM ({monthly}) AS meter_months
+            GROUP BY period, utility_type, currency
         ),
         with_prev AS (
             SELECT

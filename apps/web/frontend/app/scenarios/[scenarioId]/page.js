@@ -48,6 +48,7 @@ export default async function ScenarioDetailPage({ params }) {
 
   const isStale = comparison?.is_stale || cashflow?.is_stale;
   const assumptions = comparison?.assumptions || cashflow?.assumptions || [];
+  const currency = scenarioCurrency(cashflow?.assumptions);
   const summaryRows = cashflow?.summary_rows || [];
 
   return (
@@ -126,9 +127,7 @@ export default async function ScenarioDetailPage({ params }) {
             <div className="tableWrap">
               <table>
                 <caption>
-                  {scenarioCurrency(assumptions)
-                    ? `All amounts in ${scenarioCurrency(assumptions)}`
-                    : "Cashflow projection"}
+                  {currency ? `All amounts in ${currency}` : "Currency unknown"}
                 </caption>
                 <thead>
                   <tr>

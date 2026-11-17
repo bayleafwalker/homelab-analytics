@@ -23,3 +23,6 @@ ALTER TABLE mart_transaction_anomalies_current ADD COLUMN IF NOT EXISTS currency
 ALTER TABLE mart_recent_significant_changes ADD COLUMN IF NOT EXISTS currency VARCHAR;
 ALTER TABLE mart_usage_vs_price_summary ADD COLUMN IF NOT EXISTS currency VARCHAR;
 ALTER TABLE reporting_publication_snapshot ADD COLUMN IF NOT EXISTS contract_version VARCHAR;
+
+-- Preserve period coverage and de-duplicate overlapping observations in rollups.
+ALTER TABLE mart_utility_cost_summary ADD COLUMN IF NOT EXISTS usage_observations VARCHAR;
