@@ -76,6 +76,7 @@ from .schedule_commands import (
     handle_recover_stale_schedule_dispatches,
     handle_watch_schedule_dispatches,
 )
+from .upgrade_commands import handle_upgrade_reporting
 
 WorkerCommandHandler = Callable[[Namespace, WorkerRuntime], int]
 SettingsCommandHandler = Callable[[Namespace, AppSettings, TextIO, TextIO], int]
@@ -89,6 +90,7 @@ def build_settings_command_handlers() -> dict[str, SettingsCommandHandler]:
         "verify-backup": handle_verify_backup,
         "scheduled-backup": handle_scheduled_backup,
         "restore-drill": handle_restore_drill,
+        "upgrade-reporting": handle_upgrade_reporting,
     }
 
 

@@ -69,6 +69,19 @@ export const publicationContractMap = {
         "sortable": true,
         "storage_type": "INTEGER NOT NULL",
         "unit": "count"
+      },
+      {
+        "aggregation": null,
+        "description": "ISO currency code of the balance series; an account holding several currencies has one series per currency.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "currency",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
       }
     ],
     "completeness_pct": null,
@@ -84,7 +97,7 @@ export const publicationContractMap = {
     "renderer_hints": {},
     "retention_policy": "indefinite",
     "schema_name": "account_balance_trend",
-    "schema_version": "1.0.0",
+    "schema_version": "2.0.0",
     "supported_renderers": [
       "web"
     ],
@@ -1659,7 +1672,7 @@ export const publicationContractMap = {
     "renderer_hints": {},
     "retention_policy": "rolling_12_months",
     "schema_name": "current_operating_baseline",
-    "schema_version": "1.0.0",
+    "schema_version": "2.0.0",
     "supported_renderers": [
       "web"
     ],
@@ -3605,7 +3618,7 @@ export const publicationContractMap = {
     "renderer_hints": {},
     "retention_policy": "rolling_12_months",
     "schema_name": "household_overview",
-    "schema_version": "1.0.0",
+    "schema_version": "2.0.0",
     "supported_renderers": [
       "web"
     ],
@@ -6102,6 +6115,19 @@ export const publicationContractMap = {
         "sortable": true,
         "storage_type": "INTEGER NOT NULL",
         "unit": "count"
+      },
+      {
+        "aggregation": null,
+        "description": "Currency",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "currency",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
       }
     ],
     "completeness_pct": null,
@@ -6588,6 +6614,19 @@ export const publicationContractMap = {
         "sortable": true,
         "storage_type": "INTEGER NOT NULL",
         "unit": "count"
+      },
+      {
+        "aggregation": null,
+        "description": "ISO currency code of the row. One row per month and currency; amounts of different currencies are never combined or converted.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "currency",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
       }
     ],
     "completeness_pct": null,
@@ -6603,7 +6642,7 @@ export const publicationContractMap = {
     "renderer_hints": {},
     "retention_policy": "indefinite",
     "schema_name": "monthly_cashflow",
-    "schema_version": "1.0.0",
+    "schema_version": "2.0.0",
     "supported_renderers": [
       "web"
     ],
@@ -7388,6 +7427,19 @@ export const publicationContractMap = {
         "sortable": true,
         "storage_type": "VARCHAR NOT NULL",
         "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "ISO currency code of current_value and previous_value; a change is never computed across currencies.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "currency",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
       }
     ],
     "completeness_pct": null,
@@ -7403,7 +7455,7 @@ export const publicationContractMap = {
     "renderer_hints": {},
     "retention_policy": "rolling_12_months",
     "schema_name": "recent_significant_changes",
-    "schema_version": "1.0.0",
+    "schema_version": "2.0.0",
     "supported_renderers": [
       "web"
     ],
@@ -7643,6 +7695,19 @@ export const publicationContractMap = {
         "sortable": true,
         "storage_type": "INTEGER NOT NULL",
         "unit": "count"
+      },
+      {
+        "aggregation": null,
+        "description": "ISO currency code of the grouped expense; groups never mix currencies.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "currency",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
       }
     ],
     "completeness_pct": null,
@@ -7658,7 +7723,7 @@ export const publicationContractMap = {
     "renderer_hints": {},
     "retention_policy": "indefinite",
     "schema_name": "spend_by_category_monthly",
-    "schema_version": "1.0.0",
+    "schema_version": "2.0.0",
     "supported_renderers": [
       "web"
     ],
@@ -7734,6 +7799,19 @@ export const publicationContractMap = {
         "sortable": true,
         "storage_type": "INTEGER NOT NULL",
         "unit": "count"
+      },
+      {
+        "aggregation": null,
+        "description": "ISO currency code of the bucket; buckets never mix currencies.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "currency",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
       }
     ],
     "completeness_pct": null,
@@ -7749,7 +7827,7 @@ export const publicationContractMap = {
     "renderer_hints": {},
     "retention_policy": "indefinite",
     "schema_name": "spend_by_weekday_hour",
-    "schema_version": "1.0.0",
+    "schema_version": "2.0.0",
     "supported_renderers": [
       "web"
     ],
@@ -8156,6 +8234,19 @@ export const publicationContractMap = {
         "sortable": true,
         "storage_type": "VARCHAR NOT NULL",
         "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "ISO currency code of the anomalous transaction amount.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "currency",
+        "nullable": false,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR NOT NULL",
+        "unit": null
       }
     ],
     "completeness_pct": null,
@@ -8171,7 +8262,7 @@ export const publicationContractMap = {
     "renderer_hints": {},
     "retention_policy": "rolling_12_months",
     "schema_name": "transaction_anomalies_current",
-    "schema_version": "1.0.0",
+    "schema_version": "2.0.0",
     "supported_renderers": [
       "web"
     ],
@@ -8518,6 +8609,19 @@ export const publicationContractMap = {
         "sortable": true,
         "storage_type": "VARCHAR",
         "unit": null
+      },
+      {
+        "aggregation": null,
+        "description": "ISO currency code the percent changes were computed in; null for usage with no bill. Changes are never computed across currencies.",
+        "filterable": true,
+        "grain": null,
+        "json_type": "string",
+        "name": "currency",
+        "nullable": true,
+        "semantic_role": "dimension",
+        "sortable": true,
+        "storage_type": "VARCHAR",
+        "unit": null
       }
     ],
     "completeness_pct": null,
@@ -8533,7 +8637,7 @@ export const publicationContractMap = {
     "renderer_hints": {},
     "retention_policy": "indefinite",
     "schema_name": "usage_vs_price_summary",
-    "schema_version": "1.0.0",
+    "schema_version": "2.0.0",
     "supported_renderers": [
       "web"
     ],
@@ -8677,7 +8781,7 @@ export const publicationContractMap = {
       },
       {
         "aggregation": null,
-        "description": "ISO currency code for the billed amount.",
+        "description": "ISO currency code for the billed amount. Null for a usage_only row (usage with no bill, billed amount 0); an observed zero bill keeps its currency.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -8754,7 +8858,7 @@ export const publicationContractMap = {
     "renderer_hints": {},
     "retention_policy": "rolling_12_months",
     "schema_name": "utility_cost_summary",
-    "schema_version": "1.0.0",
+    "schema_version": "2.0.0",
     "supported_renderers": [
       "web"
     ],
@@ -8833,7 +8937,7 @@ export const publicationContractMap = {
       },
       {
         "aggregation": null,
-        "description": "ISO currency code for the monthly cost values.",
+        "description": "ISO currency code for the monthly cost values; one row per month, utility type and currency. Null for a usage-only month.",
         "filterable": true,
         "grain": null,
         "json_type": "string",
@@ -8871,7 +8975,7 @@ export const publicationContractMap = {
     "renderer_hints": {},
     "retention_policy": "indefinite",
     "schema_name": "utility_cost_trend_monthly",
-    "schema_version": "1.0.0",
+    "schema_version": "2.0.0",
     "supported_renderers": [
       "web"
     ],

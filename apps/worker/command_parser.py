@@ -135,6 +135,8 @@ def build_parser() -> argparse.ArgumentParser:
     restore_parser = subparsers.add_parser("restore")
     restore_parser.add_argument("backup_dir")
     restore_parser.add_argument("--force", action="store_true")
+    upgrade_reporting_parser = subparsers.add_parser("upgrade-reporting")
+    upgrade_reporting_parser.add_argument("--check", action="store_true")
     verify_config_parser = subparsers.add_parser("verify-config")
     verify_config_parser.add_argument("--source-asset-id", default="")
     verify_config_parser.add_argument("--ingestion-definition-id", default="")

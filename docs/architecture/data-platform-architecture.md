@@ -147,7 +147,7 @@ The transformation layer turns source-shaped data into reusable domain models. T
 Transformation responsibilities:
 
 - normalize naming, types, and time semantics
-- standardize currencies, units, and identifiers
+- standardize currencies, units, and identifiers; original currency is always preserved
 - map source-specific columns to canonical business entities
 - build reusable fact and dimension models
 - persist slowly changing dimensions as SCD tables
@@ -185,6 +185,9 @@ Reporting responsibilities:
 - build dashboard-oriented marts and aggregates
 - materialize stable metrics tables for API and UI access
 - expose curated data products with predictable schemas
+- keep monetary marts per currency: a row, scalar or headline never blends denominations. No conversion, FX rate, preferred currency or inventory is applied; only like currencies are aggregated and every currency group is kept. A value that cannot express mixed denominations (a scalar, a single flow map) is reported as unavailable or requires an explicit `currency` selection, and usage with no bill is a numeric-zero row with a null currency (`coverage_status=usage_only`), distinct from an observed zero bill
+
+Currency-separated marts (publication contracts `2.0.0`): `mart_monthly_cashflow`, `mart_monthly_cashflow_by_counterparty`, `mart_spend_by_category_monthly`, `mart_account_balance_trend`, `mart_spend_by_weekday_hour`, `mart_transaction_anomalies_current`, `mart_recent_significant_changes` and `mart_usage_vs_price_summary` gained a trailing `currency` column; the utility cost, cost trend, household overview, cost model and operating baseline marts group by currency. The registry is `packages/pipelines/reporting_currency.py`. The tables are derived, so an installed store is upgraded in place by `python -m apps.worker.main upgrade-reporting [--check]` (`packages/pipelines/reporting_upgrade.py`): it preflights every relation (absent, exact legacy columns, exact current columns, otherwise refused), adds the columns with known-state DDL, rebuilds the marts from the untouched facts, republishes to PostgreSQL, and reports `complete` only after all of that succeeded in one invocation. Ordinary reads of a legacy-shaped relation return HTTP 503 naming the command rather than serving blended rows. `reporting_publication_snapshot` rows carry `contract_version`; rows from before the change keep NULL, are never rewritten, and are read back as `legacy_denomination_unavailable` for the publications whose amounts had no currency.
 
 Typical reporting outputs:
 

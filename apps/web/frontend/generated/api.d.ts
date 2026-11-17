@@ -3849,6 +3849,8 @@ export interface components {
             booking_month: string;
             /** Cumulative Balance */
             cumulative_balance: string;
+            /** Currency */
+            currency: string;
             /** Net Change */
             net_change: string;
             /** Transaction Count */
@@ -4022,7 +4024,7 @@ export interface components {
              * @default current
              * @enum {string}
              */
-            as_of_status: "current" | "snapshot" | "no_history";
+            as_of_status: "current" | "snapshot" | "no_history" | "legacy_denomination_unavailable";
             /** Rows */
             rows: (components["schemas"]["AffordabilityRatiosRow"] | components["schemas"]["AffordabilityRatiosSnapshotRow"])[];
             snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
@@ -4391,7 +4393,7 @@ export interface components {
              * @default current
              * @enum {string}
              */
-            as_of_status: "current" | "snapshot" | "no_history";
+            as_of_status: "current" | "snapshot" | "no_history" | "legacy_denomination_unavailable";
             /** Rows */
             rows: (components["schemas"]["AttentionItemRow"] | components["schemas"]["AttentionItemSnapshotRow"])[];
             snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
@@ -6028,7 +6030,7 @@ export interface components {
              * @default current
              * @enum {string}
              */
-            as_of_status: "current" | "snapshot" | "no_history";
+            as_of_status: "current" | "snapshot" | "no_history" | "legacy_denomination_unavailable";
             /** Rows */
             rows: (components["schemas"]["HouseholdOverviewRow"] | components["schemas"]["HouseholdOverviewSnapshotRow"])[];
             snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
@@ -6296,6 +6298,8 @@ export interface components {
             booking_month: string;
             /** Counterparty Name */
             counterparty_name: string;
+            /** Currency */
+            currency: string;
             /** Expense */
             expense: string;
             /** Income */
@@ -6318,6 +6322,8 @@ export interface components {
         MonthlyCashflowRow: {
             /** Booking Month */
             booking_month: string;
+            /** Currency */
+            currency: string;
             /** Expense */
             expense: string;
             /** Income */
@@ -7110,7 +7116,7 @@ export interface components {
              * @default current
              * @enum {string}
              */
-            as_of_status: "current" | "snapshot" | "no_history";
+            as_of_status: "current" | "snapshot" | "no_history" | "legacy_denomination_unavailable";
             /** Rows */
             rows: (components["schemas"]["RecentSignificantChangeRow"] | components["schemas"]["RecentSignificantChangeSnapshotRow"])[];
             snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
@@ -7147,6 +7153,8 @@ export interface components {
             change_pct?: string | null;
             /** Change Type */
             change_type: string;
+            /** Currency */
+            currency: string;
             /** Current Value */
             current_value: string;
             /** Description */
@@ -7164,6 +7172,8 @@ export interface components {
             change_pct?: string | null;
             /** Change Type */
             change_type: string | null;
+            /** Currency */
+            currency: string | null;
             /** Current Value */
             current_value: string | null;
             /** Description */
@@ -7184,7 +7194,7 @@ export interface components {
              * @default current
              * @enum {string}
              */
-            as_of_status: "current" | "snapshot" | "no_history";
+            as_of_status: "current" | "snapshot" | "no_history" | "legacy_denomination_unavailable";
             /** Rows */
             rows: (components["schemas"]["RecurringCostBaselineRow"] | components["schemas"]["RecurringCostBaselineSnapshotRow"])[];
             snapshot?: components["schemas"]["PublicationSnapshotModel"] | null;
@@ -7437,6 +7447,8 @@ export interface components {
             category?: string | null;
             /** Counterparty Name */
             counterparty_name: string;
+            /** Currency */
+            currency: string;
             /** Total Expense */
             total_expense: string;
             /** Transaction Count */
@@ -7450,6 +7462,8 @@ export interface components {
             counts: number[][];
             /** Coverage */
             coverage: string;
+            /** Currencies */
+            currencies?: string[];
             /** Currency */
             currency: string | null;
             /** Data Through */
@@ -7507,7 +7521,7 @@ export interface components {
              * @default current
              * @enum {string}
              */
-            as_of_status: "current" | "snapshot" | "no_history";
+            as_of_status: "current" | "snapshot" | "no_history" | "legacy_denomination_unavailable";
             /** Currency */
             currency?: string | null;
             /** Rows */
@@ -7652,6 +7666,8 @@ export interface components {
             booking_date: string;
             /** Counterparty Name */
             counterparty_name: string;
+            /** Currency */
+            currency: string;
             /** Direction */
             direction: string;
             /** Transaction Id */
@@ -7768,6 +7784,8 @@ export interface components {
         UsageVsPriceRow: {
             /** Cost Change Pct */
             cost_change_pct?: string | null;
+            /** Currency */
+            currency?: string | null;
             /** Dominant Driver */
             dominant_driver?: string | null;
             /** Period */
@@ -14313,6 +14331,7 @@ export interface operations {
             query?: {
                 month?: string | null;
                 include_transfers?: boolean;
+                currency?: string | null;
             };
             header?: never;
             path?: never;
@@ -14919,6 +14938,7 @@ export interface operations {
             query?: {
                 window?: number;
                 as_of?: string | null;
+                currency?: string | null;
             };
             header?: never;
             path?: never;

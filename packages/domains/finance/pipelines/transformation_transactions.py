@@ -261,16 +261,17 @@ def refresh_monthly_cashflow(store: DuckDBStore) -> int:
     store.execute(
         f"""
         INSERT INTO {MART_MONTHLY_CASHFLOW_TABLE}
-            (booking_month, income, expense, net, transaction_count)
+            (booking_month, income, expense, net, transaction_count, currency)
         SELECT
             booking_month,
             COALESCE(SUM(CASE WHEN amount >= 0 THEN amount ELSE 0 END), 0) AS income,
             COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) AS expense,
             COALESCE(SUM(amount), 0) AS net,
-            COUNT(*) AS transaction_count
+            COUNT(*) AS transaction_count,
+            normalized_currency AS currency
         FROM {FACT_TRANSACTION_CURRENT_TABLE}
-        GROUP BY booking_month
-        ORDER BY booking_month
+        GROUP BY booking_month, normalized_currency
+        ORDER BY booking_month, normalized_currency
         """
     )
     return store.fetchall(f"SELECT COUNT(*) FROM {MART_MONTHLY_CASHFLOW_TABLE}")[0][0]
@@ -292,7 +293,8 @@ def get_monthly_cashflow(
         params.append(to_month)
     where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     return store.fetchall_dicts(
-        f"SELECT * FROM {MART_MONTHLY_CASHFLOW_TABLE} {where_sql} ORDER BY booking_month",
+        f"SELECT * FROM {MART_MONTHLY_CASHFLOW_TABLE} {where_sql}"
+        " ORDER BY booking_month, currency",
         params,
     )
 
@@ -321,17 +323,19 @@ def refresh_monthly_cashflow_by_counterparty(store: DuckDBStore) -> int:
     store.execute(
         f"""
         INSERT INTO {MART_CASHFLOW_BY_COUNTERPARTY_TABLE}
-            (booking_month, counterparty_name, income, expense, net, transaction_count)
+            (booking_month, counterparty_name, income, expense, net, transaction_count,
+             currency)
         SELECT
             booking_month,
             counterparty_name,
             COALESCE(SUM(CASE WHEN amount >= 0 THEN amount ELSE 0 END), 0) AS income,
             COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) AS expense,
             COALESCE(SUM(amount), 0) AS net,
-            COUNT(*) AS transaction_count
+            COUNT(*) AS transaction_count,
+            normalized_currency AS currency
         FROM {FACT_TRANSACTION_CURRENT_TABLE}
-        GROUP BY booking_month, counterparty_name
-        ORDER BY booking_month, counterparty_name
+        GROUP BY booking_month, counterparty_name, normalized_currency
+        ORDER BY booking_month, counterparty_name, normalized_currency
         """
     )
     return store.fetchall(
@@ -360,7 +364,7 @@ def get_monthly_cashflow_by_counterparty(
     where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     return store.fetchall_dicts(
         f"SELECT * FROM {MART_CASHFLOW_BY_COUNTERPARTY_TABLE}"
-        f" {where_sql} ORDER BY booking_month, counterparty_name",
+        f" {where_sql} ORDER BY booking_month, counterparty_name, currency",
         params,
     )
 
@@ -370,19 +374,22 @@ def refresh_spend_by_category_monthly(store: DuckDBStore) -> int:
     store.execute(
         f"""
         INSERT INTO {MART_SPEND_BY_CATEGORY_MONTHLY_TABLE}
-            (booking_month, counterparty_name, category, total_expense, transaction_count)
+            (booking_month, counterparty_name, category, total_expense, transaction_count,
+             currency)
         SELECT
             ft.booking_month,
             ft.counterparty_name,
             dc.category,
             COALESCE(SUM(ABS(ft.amount)), 0) AS total_expense,
-            COUNT(*) AS transaction_count
+            COUNT(*) AS transaction_count,
+            ft.normalized_currency AS currency
         FROM {FACT_TRANSACTION_CURRENT_TABLE} ft
         LEFT JOIN {CURRENT_DIM_COUNTERPARTY_VIEW} dc
             ON ft.counterparty_name = dc.counterparty_name
         WHERE ft.direction = 'expense'
-        GROUP BY ft.booking_month, ft.counterparty_name, dc.category
-        ORDER BY ft.booking_month, total_expense DESC
+        GROUP BY ft.booking_month, ft.counterparty_name, dc.category,
+                 ft.normalized_currency
+        ORDER BY ft.booking_month, total_expense DESC, ft.normalized_currency
         """
     )
     return store.fetchall(
@@ -415,7 +422,7 @@ def get_spend_by_category_monthly(
     where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     return store.fetchall_dicts(
         f"SELECT * FROM {MART_SPEND_BY_CATEGORY_MONTHLY_TABLE}"
-        f" {where_sql} ORDER BY booking_month, total_expense DESC",
+        f" {where_sql} ORDER BY booking_month, total_expense DESC, currency",
         params,
     )
 
@@ -471,33 +478,37 @@ def refresh_spend_by_weekday_hour(store: DuckDBStore) -> int:
     store.execute(
         f"""
         INSERT INTO {MART_SPEND_BY_WEEKDAY_HOUR_TABLE}
-            (booked_at, day_of_week, hour_of_day, total_expense, transaction_count)
+            (booked_at, day_of_week, hour_of_day, total_expense, transaction_count,
+             currency)
         WITH timed AS (
             SELECT
                 booked_at,
                 account_id,
                 counterparty_name,
                 amount,
+                normalized_currency,
                 MIN(CAST(EXTRACT(hour FROM timezone('UTC', booked_at_utc)) AS INTEGER))
                     AS hour_of_day
             FROM {FACT_TRANSACTION_TABLE}
             WHERE timezone('UTC', booked_at_utc) <> CAST(booked_at AS TIMESTAMP)
-            GROUP BY booked_at, account_id, counterparty_name, amount
+            GROUP BY booked_at, account_id, counterparty_name, amount, normalized_currency
         )
         SELECT
             c.booked_at,
             CAST(isodow(c.booked_at) AS INTEGER) AS day_of_week,
             t.hour_of_day,
             SUM(-c.amount) AS total_expense,
-            COUNT(*) AS transaction_count
+            COUNT(*) AS transaction_count,
+            c.normalized_currency AS currency
         FROM {FACT_TRANSACTION_CURRENT_TABLE} c
         LEFT JOIN timed t
           ON t.booked_at = c.booked_at
          AND t.account_id = c.account_id
          AND t.counterparty_name = c.counterparty_name
          AND t.amount = c.amount
+         AND t.normalized_currency = c.normalized_currency
         WHERE c.amount < 0
-        GROUP BY c.booked_at, t.hour_of_day
+        GROUP BY c.booked_at, t.hour_of_day, c.normalized_currency
         """
     )
     return store.fetchall(
@@ -522,7 +533,7 @@ def get_spend_by_weekday_hour(
     where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     return store.fetchall_dicts(
         f"SELECT * FROM {MART_SPEND_BY_WEEKDAY_HOUR_TABLE}"
-        f" {where_sql} ORDER BY booked_at, hour_of_day NULLS FIRST",
+        f" {where_sql} ORDER BY booked_at, hour_of_day NULLS FIRST, currency",
         params,
     )
 
@@ -532,18 +543,20 @@ def refresh_account_balance_trend(store: DuckDBStore) -> int:
     store.execute(
         f"""
         INSERT INTO {MART_ACCOUNT_BALANCE_TREND_TABLE}
-            (booking_month, account_id, net_change, cumulative_balance, transaction_count)
+            (booking_month, account_id, net_change, cumulative_balance, transaction_count,
+             currency)
         SELECT
             booking_month,
             account_id,
             SUM(amount) AS net_change,
             SUM(SUM(amount)) OVER (
-                PARTITION BY account_id ORDER BY booking_month
+                PARTITION BY account_id, normalized_currency ORDER BY booking_month
             ) AS cumulative_balance,
-            COUNT(*) AS transaction_count
+            COUNT(*) AS transaction_count,
+            normalized_currency AS currency
         FROM {FACT_TRANSACTION_CURRENT_TABLE}
-        GROUP BY booking_month, account_id
-        ORDER BY booking_month, account_id
+        GROUP BY booking_month, account_id, normalized_currency
+        ORDER BY booking_month, account_id, normalized_currency
         """
     )
     return store.fetchall(
@@ -572,7 +585,7 @@ def get_account_balance_trend(
     where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     return store.fetchall_dicts(
         f"SELECT * FROM {MART_ACCOUNT_BALANCE_TREND_TABLE}"
-        f" {where_sql} ORDER BY booking_month, account_id",
+        f" {where_sql} ORDER BY booking_month, account_id, currency",
         params,
     )
 
@@ -589,15 +602,17 @@ def refresh_transaction_anomalies_current(
         f"""
         INSERT INTO {MART_TRANSACTION_ANOMALIES_CURRENT_TABLE}
             (transaction_id, booking_date, counterparty_name, amount, direction,
-             anomaly_type, anomaly_reason)
+             anomaly_type, anomaly_reason, currency)
         WITH counterparty_stats AS (
+            -- Statistics never mix denominations: one group per currency.
             SELECT
                 counterparty_name,
+                normalized_currency,
                 AVG(ABS(amount))    AS avg_amount,
                 STDDEV(ABS(amount)) AS stddev_amount,
                 COUNT(*)            AS tx_count
             FROM {FACT_TRANSACTION_CURRENT_TABLE}
-            GROUP BY counterparty_name
+            GROUP BY counterparty_name, normalized_currency
         ),
         flagged AS (
             SELECT
@@ -606,6 +621,7 @@ def refresh_transaction_anomalies_current(
                 t.counterparty_name,
                 t.amount,
                 t.direction,
+                t.normalized_currency AS currency,
                 cs.avg_amount,
                 cs.stddev_amount,
                 cs.tx_count,
@@ -619,7 +635,9 @@ def refresh_transaction_anomalies_current(
                     ELSE NULL
                 END AS anomaly_type
             FROM {FACT_TRANSACTION_CURRENT_TABLE} t
-            JOIN counterparty_stats cs ON t.counterparty_name = cs.counterparty_name
+            JOIN counterparty_stats cs
+                ON t.counterparty_name = cs.counterparty_name
+               AND t.normalized_currency = cs.normalized_currency
             WHERE t.booked_at >= CURRENT_DATE - INTERVAL '{lookback_days}' DAY
         )
         SELECT
@@ -634,8 +652,10 @@ def refresh_transaction_anomalies_current(
                     THEN 'First transaction with this counterparty'
                 WHEN 'amount_spike'
                     THEN 'Amount above typical average of ' || ROUND(avg_amount, 2)
+                         || ' ' || currency
                 ELSE ''
-            END AS anomaly_reason
+            END AS anomaly_reason,
+            currency
         FROM flagged
         WHERE anomaly_type IS NOT NULL
         ORDER BY booking_date DESC, ABS(amount) DESC

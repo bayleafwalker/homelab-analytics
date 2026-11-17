@@ -8,7 +8,7 @@ import {
   getDeviceReadings,
   getEventFeed,
   getHaBridgeStatus,
-  getHouseholdOverview,
+  getHouseholdOverviewRows,
   getMonthlyCashflow,
   getPowerSeries,
   getServiceHealth,
@@ -24,9 +24,9 @@ export default async function WallboardPage({ searchParams }) {
   const user = await getCurrentUser();
   // URL-only: the kiosk's bookmark decides the mode; nothing is remembered.
   const compact = searchParams?.compact === "1";
-  const [overview, attentionItems, upcomingCosts, cashflowRows, bridge, services, devices, events, power, utilityTrend] =
+  const [overviewRows, attentionItems, upcomingCosts, cashflowRows, bridge, services, devices, events, power, utilityTrend] =
     await Promise.all([
-      getHouseholdOverview(),
+      getHouseholdOverviewRows(),
       getAttentionItems(),
       getUpcomingFixedCosts(),
       getMonthlyCashflow(),
@@ -38,14 +38,16 @@ export default async function WallboardPage({ searchParams }) {
       compact ? [] : optional(getUtilityCostTrend(), []),
     ]);
   const renderedAt = new Date().toISOString();
-  const moneyExplanation = overview ? await loadExplanation("mart_household_overview", { user }) : null;
+  const moneyExplanation = overviewRows.some((row) => row.currency)
+    ? await loadExplanation("mart_household_overview", { user })
+    : null;
 
   return (
     <main id="main-content" aria-label="Household wallboard">
       <h1 className="srOnly">Household wallboard</h1>
       <WallboardView
         now={renderedAt}
-        overview={overview}
+        overviewRows={overviewRows}
         attentionItems={attentionItems}
         upcomingCosts={upcomingCosts}
         bridge={bridge}

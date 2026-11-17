@@ -19,15 +19,24 @@ import { DevicePanel, EventFeed, PowerChart, ServicesPanel } from "./wallboard-p
 
 // Latest billing month's total across utility types, from
 // /reports/utility-cost-trend rows; null when there are no bills.
+// Totals are summed within a currency only: `totals` has one entry per billed
+// currency. `total`/`currency` are set only when exactly one currency was
+// billed, so a mixed answer is never presented as a single amount. Periods
+// with no currency (usage without a bill) are not bills.
 export function latestUtilityBill(rows) {
-  const list = Array.isArray(rows) ? rows : [];
+  const list = (Array.isArray(rows) ? rows : []).filter((row) => row.currency);
   const months = [...new Set(list.map((row) => row.billing_month).filter(Boolean))].sort();
   const month = months.at(-1);
   if (!month) return null;
-  const total = list
-    .filter((row) => row.billing_month === month)
-    .reduce((sum, row) => sum + (toNumber(row.total_cost) || 0), 0);
-  return { month, total };
+  const byCurrency = new Map();
+  for (const row of list.filter((r) => r.billing_month === month)) {
+    byCurrency.set(row.currency, (byCurrency.get(row.currency) || 0) + (toNumber(row.total_cost) || 0));
+  }
+  const totals = [...byCurrency.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([currency, total]) => ({ currency, total }));
+  const single = totals.length === 1 ? totals[0] : null;
+  return { month, totals, total: single ? single.total : null, currency: single ? single.currency : null };
 }
 
 function daysUntil(dateText, today) {
@@ -73,6 +82,9 @@ function Tile({ label, tone = "neutral", children }) {
 export function WallboardView({
   now,
   overview,
+  // Every overview row, one per currency. `overview` (a single row) stays for
+  // callers that only have one denomination.
+  overviewRows = null,
   attentionItems = [],
   upcomingCosts = [],
   bridge = null,
@@ -90,8 +102,14 @@ export function WallboardView({
   explanations = {},
 }) {
   const today = now instanceof Date ? now : new Date(now);
-  const currency = overview?.currency || null;
-  const net = toNumber(overview?.cashflow_net);
+  const moneyRows = (overviewRows ?? (overview ? [overview] : [])).filter(
+    (row) => toNumber(row?.cashflow_net) != null && (row.currency || overviewRows == null)
+  );
+  const money = moneyRows[0];
+  // A fallback currency exists only when the household has exactly one.
+  const currency = moneyRows.length === 1 ? money.currency || null : null;
+  const nets = moneyRows.map((row) => toNumber(row.cashflow_net));
+  const net = nets.length ? (nets.every((n) => n >= 0) ? 1 : -1) : null;
   const thisMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
   const lag = latestMonth ? monthsBetween(latestMonth, thisMonth) : null;
   const upcoming = [...upcomingCosts]
@@ -114,26 +132,33 @@ export function WallboardView({
       </header>
 
       <div className="wallStrip">
-        <Tile label={overview?.current_month ? `Money, ${formatMonth(overview.current_month)}` : "Money"} tone={net == null ? "muted" : net >= 0 ? "ok" : "warn"}>
+        <Tile label={money?.current_month ? `Money, ${formatMonth(money.current_month)}` : "Money"} tone={net == null ? "muted" : net >= 0 ? "ok" : "warn"}>
           {net == null ? (
             <p className="wallBig">No figures yet</p>
           ) : (
             <>
-              <p className="wallBig">
-                {net >= 0 ? "+" : "−"}
-                {formatMoney(Math.abs(net), currency, { whole: true })}
-              </p>
-              <p className="wallLine">
-                {net >= 0 ? "kept" : "overspent"} from {formatMoney(overview.cashflow_income, currency, { whole: true })} in and{" "}
-                {formatMoney(overview.cashflow_expense, currency, { whole: true })} out
-              </p>
+              {moneyRows.map((row) => {
+                const rowNet = toNumber(row.cashflow_net);
+                return (
+                  <React.Fragment key={row.currency || "none"}>
+                    <p className="wallBig">
+                      {rowNet >= 0 ? "+" : "−"}
+                      {formatMoney(Math.abs(rowNet), row.currency, { whole: true })}
+                    </p>
+                    <p className="wallLine">
+                      {rowNet >= 0 ? "kept" : "overspent"} from {formatMoney(row.cashflow_income, row.currency, { whole: true })} in and{" "}
+                      {formatMoney(row.cashflow_expense, row.currency, { whole: true })} out
+                    </p>
+                  </React.Fragment>
+                );
+              })}
               {explanations.money ? (
                 <div className="wallExplain">
                   <ExplainBox
                     explanation={explanations.money}
                     tone="wall"
                     placement="start"
-                    label={`Money, ${formatMonth(overview.current_month)}`}
+                    label={`Money, ${formatMonth(money.current_month)}`}
                     field="cashflow_net"
                   />
                 </div>
@@ -184,7 +209,13 @@ export function WallboardView({
           <Tile label="Utilities" tone={utilityLatest ? "neutral" : "muted"}>
             {utilityLatest ? (
               <>
-                <p className="wallBig">{formatMoney(utilityLatest.total, currency, { whole: true })}</p>
+                {(utilityLatest.totals ?? [{ currency: utilityLatest.currency ?? currency, total: utilityLatest.total }]).map(
+                  (entry) => (
+                    <p className="wallBig" key={entry.currency || "none"}>
+                      {formatMoney(entry.total, entry.currency, { whole: true })}
+                    </p>
+                  )
+                )}
                 <p className="wallLine">billed for {formatMonth(utilityLatest.month)}</p>
               </>
             ) : (

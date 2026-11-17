@@ -83,12 +83,21 @@ def _compute_electricity_cost_forecast_today(
             )
             for row in period_rows
         )
+        latest_rows = [
+            row
+            for row in period_rows
+            if str(row.get("period_day") or row.get("period_start") or row.get("period"))
+            == latest_period
+        ]
+        # A bare number cannot carry a denomination: it is only available when
+        # every billed row of the latest period is in one currency. A
+        # usage-only period (no currency) has no cost to forecast.
+        currencies = {str(row["currency"]) for row in latest_rows if row.get("currency")}
+        if len(currencies) != 1:
+            return "unavailable"
         latest_total = Decimal("0")
-        for row in period_rows:
-            period_value = str(
-                row.get("period_day") or row.get("period_start") or row.get("period")
-            )
-            if period_value == latest_period:
+        for row in latest_rows:
+            if row.get("currency"):
                 latest_total += _decimal_from_value(row.get("billed_amount"))
         return _format_decimal(latest_total)
 
@@ -99,11 +108,20 @@ def _compute_electricity_cost_forecast_today(
     except Exception:
         trend_rows = []
 
-    if not trend_rows:
+    billed_trend = [row for row in trend_rows if row.get("currency")]
+    if not billed_trend:
         return "unavailable"
 
-    latest_row = max(trend_rows, key=lambda row: str(row.get("billing_month") or ""))
-    total_cost = _decimal_from_value(latest_row.get("total_cost"))
+    latest_month = max(str(row.get("billing_month") or "") for row in billed_trend)
+    latest_month_rows = [
+        row for row in billed_trend if str(row.get("billing_month") or "") == latest_month
+    ]
+    # Several currencies cannot be expressed as one number, and none is chosen.
+    if len({str(row["currency"]) for row in latest_month_rows}) != 1:
+        return "unavailable"
+    total_cost = sum(
+        (_decimal_from_value(row.get("total_cost")) for row in latest_month_rows), Decimal("0")
+    )
     days_in_month = monthrange(current.year, current.month)[1]
     if days_in_month <= 0:
         return "unavailable"

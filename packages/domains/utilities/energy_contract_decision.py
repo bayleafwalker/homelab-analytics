@@ -277,12 +277,26 @@ def assess_energy_contract_review(
     elif contract_rows and alternatives and not comparable:
         reasons.append("currency_or_unit_mismatch")
 
+    # The trend holds one row per billing month and currency. Usage is counted
+    # once per month: the contract's own currency row, or a usage-only row
+    # (no currency) for a month that has no bill in that currency. Rows of
+    # other currencies are another denomination's bills, never this contract's.
+    electricity_rows = [
+        row for row in cost_trend_rows if str(row.get("utility_type")) == "electricity"
+    ]
+    contract_currency = current["currency"]
+    own_rows = {
+        str(row.get("billing_month")): row
+        for row in electricity_rows
+        if row.get("currency") and row.get("currency") == contract_currency
+    }
+    usage_only_rows = {
+        str(row.get("billing_month")): row
+        for row in electricity_rows
+        if not row.get("currency") and str(row.get("billing_month")) not in own_rows
+    }
     usage_months = sorted(
-        (
-            row
-            for row in cost_trend_rows
-            if str(row.get("utility_type")) == "electricity"
-        ),
+        [*own_rows.values(), *usage_only_rows.values()],
         key=lambda row: str(row.get("billing_month")),
     )[-ENERGY_CONTRACT_MIN_USAGE_MONTHS:]
     usage_total = sum(

@@ -163,6 +163,53 @@ When to run each:
 - `db-migrate-postgres-run-metadata`: ingestion run-history and run-issue schema changes only.
 - `db-migrate-postgres`: standard operator path for normal releases or when unsure.
 
+### Upgrading an installed store to currency-separated reporting
+
+Monetary marts (monthly cashflow, by-counterparty, spend by category, usage-vs-price,
+utility summaries, the household overview family) keep **one row per currency** and never
+convert between currencies. The warehouse and published tables of an existing install keep
+the old blended shape, because table creation is create-if-missing only. Until the upgrade
+runs, reads of a legacy-shaped relation fail with `503` and name this command rather than
+serve blended totals.
+
+```bash
+python -m apps.worker.main upgrade-reporting --check   # read-only: states, would-alter, refusals
+python -m apps.worker.main upgrade-reporting           # DDL, rebuild from facts, republish, verify
+```
+
+Stores come from the usual `HOMELAB_ANALYTICS_ANALYTICS_DATABASE_PATH`,
+`HOMELAB_ANALYTICS_REPORTING_BACKEND`, `HOMELAB_ANALYTICS_REPORTING_POSTGRES_DSN` and
+`HOMELAB_ANALYTICS_REPORTING_SCHEMA`. The command needs no control plane. Stop the API and
+worker first (DuckDB allows one writer).
+
+- **Order:** preflight both stores, add columns to DuckDB (one transaction), rebuild marts from
+  facts, add columns to PostgreSQL (one transaction; `ALTER` keeps owner, privileges and
+  dependants), republish the rebuilt marts that exist, verify.
+- **Refused before any change (exit 2):** a relation whose columns are neither the legacy nor the
+  current shape; a PostgreSQL table the connected role does not own, or one with dependent views,
+  rules, triggers, policies or referencing foreign keys; a missing warehouse file or schema; a
+  held upgrade lock. Nothing is dropped or recreated.
+- **Complete (exit 0)** is reported only after every step and the verification passed: fact
+  rows and historical snapshot rows are byte-identical to preflight, published row counts match
+  the rebuilt marts.
+- **Failed part-way (exit 1, `status: incomplete`):** re-run the same command; it is idempotent.
+- **Historical snapshots** written before the upgrade are never rewritten and never gain a
+  currency; the API reports them as `legacy_denomination_unavailable`.
+- Mixed-currency scalars (current-month net cashflow, electricity cost, next loan payment) are
+  unavailable rather than summed; usage-only periods keep numeric zero with no currency.
+- **Migration bookkeeping:** installed warehouses are built by create-if-missing tables and
+  normally have no `schema_migrations` table; the command never needs or creates one. If the
+  warehouse was bootstrapped through `migrations/duckdb`, the command records
+  `0020_currency_separated_marts` in the existing `schema_migrations` (the migration is
+  idempotent either way, so replaying the chain is safe).
+- **Currency query parameters:** `GET /reports/cashflow-map?currency=<code>` and
+  `GET /reports/spend-heatmap?currency=<code>` select one denomination. A single currency in
+  the data is selected automatically. With several and none requested, the cashflow map returns
+  a `multiple_currencies` disclosure with no flows, and the heatmap returns an empty grid plus
+  `currencies` (the codes to request). Nothing is converted or combined. Dated `as_of` reads
+  that hit a snapshot from before the upgrade return `as_of_status=legacy_denomination_unavailable`
+  with no rows (distinct from `snapshot` with zero rows and from `no_history`).
+
 ## Alert signals
 
 The chart can now render `PrometheusRule` alerts for:

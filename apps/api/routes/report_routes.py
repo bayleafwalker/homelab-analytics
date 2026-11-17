@@ -36,6 +36,7 @@ from packages.pipelines.household_reporting import (
 )
 from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.reporting_snapshots import (
+    is_legacy_denomination_snapshot,
     is_reference_month,
     project_snapshot_rows,
 )
@@ -61,12 +62,16 @@ class PublicationSnapshotModel(BaseModel):
     incompatible_columns: list[str] = []
 
 
-AsOfStatus = Literal["current", "snapshot", "no_history"]
+AsOfStatus = Literal["current", "snapshot", "no_history", "legacy_denomination_unavailable"]
 
 # Extra response fields of the publications that keep dated snapshots.
 # ``as_of_status`` is "current" for a plain read, "snapshot" when rows come
 # from the snapshot for ``as_of``, and "no_history" when none exists for that
-# month (rows are then empty, never today's rows).
+# month (rows are then empty, never today's rows). "legacy_denomination_unavailable"
+# means a snapshot exists but predates currency-separated publications: its
+# monetary amounts have no known denomination, so no rows are returned (the
+# snapshot metadata still identifies it). It is distinct from a valid empty
+# snapshot ("snapshot" with no rows) and from "no_history".
 AS_OF_RESPONSE_FIELDS: dict[str, tuple[Any, Any]] = {
     "as_of": (str | None, None),
     "as_of_status": (AsOfStatus, "current"),
@@ -511,6 +516,8 @@ class SpendHeatmapResponse(BaseModel):
     window_end: str | None
     data_through: str | None
     currency: str | None
+    # Every currency present in the mart; request one with ?currency=<code>.
+    currencies: list[str] = Field(default_factory=list)
     hour_basis: str
     timezone: str = Field(
         description=(
@@ -581,6 +588,19 @@ def register_report_routes(
         snapshot = resolved_reporting_service.get_publication_snapshot(relation_name, as_of)
         if snapshot is None:
             return {"rows": [], "as_of": as_of, "as_of_status": "no_history", "snapshot": None}
+        if is_legacy_denomination_snapshot(relation_name, snapshot):
+            return {
+                "rows": [],
+                "as_of": as_of,
+                "as_of_status": "legacy_denomination_unavailable",
+                "snapshot": {
+                    **snapshot.metadata(),
+                    "projected": False,
+                    "missing_columns": [],
+                    "dropped_columns": [],
+                    "incompatible_columns": [],
+                },
+            }
         rows = [row for row in snapshot.rows if row_filter is None or row_filter(row)]
         projection = project_snapshot_rows(
             rows, [name for name, _ in PUBLICATION_RELATIONS[relation_name].columns]
@@ -1017,6 +1037,7 @@ def register_report_routes(
     async def get_cashflow_map(
         month: str | None = None,
         include_transfers: bool = False,
+        currency: str | None = None,
     ) -> dict[str, Any]:
         if resolved_reporting_service is None:
             raise HTTPException(
@@ -1027,26 +1048,64 @@ def register_report_routes(
             len(month) != 7 or month[4] != "-" or not month.replace("-", "").isdigit()
         ):
             raise HTTPException(status_code=400, detail="month must be YYYY-MM")
-        monthly_rows = resolved_reporting_service.get_monthly_cashflow()
+        all_monthly_rows = resolved_reporting_service.get_monthly_cashflow()
+        currencies = sorted(
+            {str(row["currency"]) for row in all_monthly_rows if row.get("currency")}
+        )
+        if currency is None and len(currencies) == 1:
+            currency = currencies[0]
+        if currency is None and len(currencies) > 1:
+            # One flow map cannot span denominations and nothing is converted:
+            # say so instead of choosing a currency or blending the totals.
+            payload = build_cashflow_map(
+                monthly_rows=[],
+                counterparty_rows=[],
+                category_rows=[],
+                month=month,
+                currency=None,
+                include_transfers=include_transfers,
+            )
+            payload["months_available"] = sorted(
+                {str(row["booking_month"]) for row in all_monthly_rows}
+            )
+            payload["disclosures"] = [
+                {
+                    "code": "multiple_currencies",
+                    "severity": "info",
+                    "message": (
+                        "Transactions are held in several currencies ("
+                        + ", ".join(currencies)
+                        + "); they are not combined or converted. "
+                        "Request one with ?currency=<code>."
+                    ),
+                }
+            ]
+            return cast(dict[str, Any], to_jsonable(payload))
+
+        def _of_currency(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            if currency is None:
+                return rows
+            return [row for row in rows if str(row.get("currency")) == currency]
+
+        monthly_rows = _of_currency(all_monthly_rows)
         months = sorted(str(row["booking_month"]) for row in monthly_rows)
         anchor_month = month if month in months else (months[-1] if months else None)
         counterparty_rows: list[dict[str, Any]] = []
         category_rows: list[dict[str, Any]] = []
         if anchor_month is not None:
             from_month, to_month = cashflow_map_window(anchor_month)
-            counterparty_rows = resolved_reporting_service.get_monthly_cashflow_by_counterparty(
-                from_month=to_month,
-                to_month=to_month,
+            counterparty_rows = _of_currency(
+                resolved_reporting_service.get_monthly_cashflow_by_counterparty(
+                    from_month=to_month,
+                    to_month=to_month,
+                )
             )
-            category_rows = resolved_reporting_service.get_spend_by_category_monthly(
-                from_month=from_month,
-                to_month=to_month,
+            category_rows = _of_currency(
+                resolved_reporting_service.get_spend_by_category_monthly(
+                    from_month=from_month,
+                    to_month=to_month,
+                )
             )
-        overview_rows = resolved_reporting_service.get_household_overview()
-        currency = next(
-            (str(row["currency"]) for row in overview_rows if row.get("currency")),
-            None,
-        )
         payload = build_cashflow_map(
             monthly_rows=monthly_rows,
             counterparty_rows=counterparty_rows,
@@ -1061,6 +1120,7 @@ def register_report_routes(
     async def get_spend_heatmap(
         window: int = DEFAULT_WINDOW_DAYS,
         as_of: date | None = None,
+        currency: str | None = None,
     ) -> dict[str, Any]:
         if resolved_reporting_service is None:
             raise HTTPException(
@@ -1091,21 +1151,30 @@ def register_report_routes(
                     "published yet; run an account-transactions promotion."
                 ),
             ) from exc
-        try:
-            overview_rows = resolved_reporting_service.get_household_overview()
-        except KeyError:
-            overview_rows = []
-        currency = next(
-            (str(row["currency"]) for row in overview_rows if row.get("currency")),
-            None,
-        )
+        # A heatmap carries one unit and nothing is converted: rows are kept
+        # per currency. With several currencies and none requested the grid is
+        # empty and ``currencies`` lists what can be requested.
+        currencies = sorted({str(row["currency"]) for row in rows if row.get("currency")})
+        if currency is None and len(currencies) == 1:
+            currency = currencies[0]
+        if currency is None and len(currencies) > 1:
+            payload = build_spend_heatmap(
+                [],
+                window_days=window,
+                end=as_of,
+                currency=None,
+                timezone=household_timezone,
+            )
+            payload["currencies"] = currencies
+            return cast(dict[str, Any], to_jsonable(payload))
         payload = build_spend_heatmap(
-            rows,
+            [row for row in rows if currency is None or str(row.get("currency")) == currency],
             window_days=window,
             end=as_of,
             currency=currency,
             timezone=household_timezone,
         )
+        payload["currencies"] = currencies
         return cast(dict[str, Any], to_jsonable(payload))
 
     @app.get("/reports/homelab-roi", response_model=HOMELAB_ROI_RESPONSE_MODEL)

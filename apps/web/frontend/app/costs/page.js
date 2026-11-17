@@ -39,15 +39,17 @@ export default async function CostsPage({ searchParams }) {
     getCostTrend(),
   ]);
 
-  // Aggregate by cost_type for the selected period (or all periods)
+  // Aggregate by cost_type AND currency for the selected period (or all
+  // periods). Amounts of different currencies are never added together, and
+  // each share is a percentage of its own currency's total.
   const byType = {};
+  const totalsByCurrency = {};
   for (const row of costModel) {
-    const t = row.cost_type;
-    if (!byType[t]) byType[t] = { amount: 0, currency: row.currency };
-    byType[t].amount += Number(row.amount);
+    const key = `${row.cost_type}|${row.currency ?? ""}`;
+    if (!byType[key]) byType[key] = { type: row.cost_type, amount: 0, currency: row.currency };
+    byType[key].amount += Number(row.amount);
+    totalsByCurrency[row.currency ?? ""] = (totalsByCurrency[row.currency ?? ""] || 0) + Number(row.amount);
   }
-
-  const totalAmount = Object.values(byType).reduce((s, v) => s + v.amount, 0);
 
   // Available periods from trend data
   const periods = [...new Set(trend.map((r) => r.period_label))].sort().reverse();
@@ -109,11 +111,16 @@ export default async function CostsPage({ searchParams }) {
         ) : (
           <section className="cards">
             {Object.entries(byType)
-              .sort((a, b) => b[1].amount - a[1].amount)
-              .map(([type, { amount, currency }]) => {
-                const pct = totalAmount > 0 ? (amount / totalAmount) * 100 : 0;
+              .sort(
+                (a, b) =>
+                  String(a[1].currency ?? "").localeCompare(String(b[1].currency ?? "")) ||
+                  b[1].amount - a[1].amount
+              )
+              .map(([key, { type, amount, currency }]) => {
+                const currencyTotal = totalsByCurrency[currency ?? ""] || 0;
+                const pct = currencyTotal > 0 ? (amount / currencyTotal) * 100 : 0;
                 return (
-                  <article key={type} className="panel section">
+                  <article key={key} className="panel section">
                     <div className="sectionHeader">
                       <div>
                         <div

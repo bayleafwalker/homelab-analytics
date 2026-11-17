@@ -832,6 +832,19 @@ def _is_income_scenario_stale(store: DuckDBStore, scenario_id: str) -> bool:
 def get_baseline_cashflow(store: DuckDBStore) -> tuple[Decimal, Decimal]:
     """Return (avg_income, avg_expense) from the last _LOOKUP_MONTHS months of cashflow."""
     store.ensure_table(MART_MONTHLY_CASHFLOW_TABLE, MART_MONTHLY_CASHFLOW_COLUMNS)
+    currencies = {
+        row[0]
+        for row in store.fetchall(
+            f"SELECT DISTINCT currency FROM {MART_MONTHLY_CASHFLOW_TABLE}"
+        )
+    }
+    if len(currencies) > 1:
+        # A scenario projects one unitless baseline; blending denominations
+        # would silently relabel the result, and no conversion is performed.
+        raise ValueError(
+            "Income scenarios need a single denomination; cashflow holds "
+            + ", ".join(sorted(str(c) for c in currencies))
+        )
     rows = store.fetchall_dicts(
         f"SELECT income, expense FROM {MART_MONTHLY_CASHFLOW_TABLE}"
         " ORDER BY booking_month DESC"

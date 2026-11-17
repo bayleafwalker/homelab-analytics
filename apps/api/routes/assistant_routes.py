@@ -193,6 +193,34 @@ def _coerce_text(value: Any) -> str:
     return str(value)
 
 
+def _money_text(value: Any, row: dict[str, Any]) -> str:
+    """An amount with its own denomination; never an unlabelled number."""
+    text = _coerce_text(value)
+    currency = row.get("currency")
+    return f"{text} {currency}" if currency and value is not None else text
+
+
+def _latest_period_rows(rows: list[dict[str, Any]], period_key: str) -> list[dict[str, Any]]:
+    """Every row (one per currency) of the newest period, in input order."""
+    periods = [str(row[period_key]) for row in rows if row.get(period_key)]
+    if not periods:
+        return []
+    newest = max(periods)
+    return [row for row in rows if str(row.get(period_key)) == newest]
+
+
+def _first_row_per_currency(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[Any] = set()
+    picked: list[dict[str, Any]] = []
+    for row in rows:
+        currency = row.get("currency")
+        if currency in seen:
+            continue
+        seen.add(currency)
+        picked.append(row)
+    return picked
+
+
 def _build_finance_answer(
     reporting_service: ReportingService,
     publication_index_by_key: dict[str, PublicationSemanticIndexEntry],
@@ -204,24 +232,25 @@ def _build_finance_answer(
     upcoming_rows = reporting_service.get_upcoming_fixed_costs_30d()
 
     answer_parts: list[str] = []
-    latest_cashflow = _last_non_empty_row(cashflow_rows)
-    if latest_cashflow is not None:
-        answer_parts.append(
-            "Latest monthly cashflow "
-            f"({latest_cashflow.get('booking_month')}) shows income "
-            f"{_coerce_text(latest_cashflow.get('income'))}, expense "
-            f"{_coerce_text(latest_cashflow.get('expense'))}, and net "
-            f"{_coerce_text(latest_cashflow.get('net'))}."
+    # Amounts are reported per currency: each currency keeps its own figures
+    # and none is converted, summed with another or chosen over another.
+    latest_cashflow_rows = _latest_period_rows(cashflow_rows, "booking_month")
+    if latest_cashflow_rows:
+        month = latest_cashflow_rows[0].get("booking_month")
+        per_currency = "; ".join(
+            f"income {_money_text(row.get('income'), row)}, expense "
+            f"{_money_text(row.get('expense'), row)}, net {_money_text(row.get('net'), row)}"
+            for row in latest_cashflow_rows
         )
+        answer_parts.append(f"Latest monthly cashflow ({month}) shows {per_currency}.")
     else:
         answer_parts.append("No monthly cashflow rows are available yet.")
 
-    top_spend = _first_non_empty_row(spend_rows)
-    if top_spend is not None:
+    for top_spend in _first_row_per_currency(spend_rows):
         spend_label = top_spend.get("category") or top_spend.get("counterparty_name") or "uncategorized"
         answer_parts.append(
             f"Top spend bucket is {spend_label} in {top_spend.get('booking_month')} "
-            f"at {_coerce_text(top_spend.get('total_expense'))}."
+            f"at {_money_text(top_spend.get('total_expense'), top_spend)}."
         )
 
     next_fixed_cost = _first_non_empty_row(upcoming_rows)
@@ -283,14 +312,20 @@ def _build_utilities_answer(
     electricity_price_rows = reporting_service.get_electricity_price_current()
 
     answer_parts: list[str] = []
-    latest_utility = _last_non_empty_row(utility_rows)
-    if latest_utility is not None:
-        answer_parts.append(
-            f"Latest utility cost summary for {latest_utility.get('meter_name')} "
-            f"({latest_utility.get('period')}) is billed at "
-            f"{_coerce_text(latest_utility.get('billed_amount'))} with unit cost "
-            f"{_coerce_text(latest_utility.get('unit_cost'))}."
-        )
+    # Latest billed summary per currency; a usage-only period (no currency) is
+    # not a bill and is never described as one.
+    billed_rows = [row for row in utility_rows if row.get("currency")]
+    latest_by_currency = _first_row_per_currency(list(reversed(billed_rows)))
+    if latest_by_currency:
+        for latest_utility in sorted(latest_by_currency, key=lambda row: str(row.get("currency"))):
+            answer_parts.append(
+                f"Latest utility cost summary for {latest_utility.get('meter_name')} "
+                f"({latest_utility.get('period')}) is billed at "
+                f"{_money_text(latest_utility.get('billed_amount'), latest_utility)} with unit cost "
+                f"{_money_text(latest_utility.get('unit_cost'), latest_utility)}."
+            )
+    elif utility_rows:
+        answer_parts.append("Utility usage is recorded but no bill covers it yet.")
     else:
         answer_parts.append("No utility cost summary rows are available yet.")
 

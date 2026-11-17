@@ -157,49 +157,62 @@ def build_money_section(inputs: BriefInputs) -> SectionDraft:
                 ),
             ),
         )
-    latest = months[-1]
-    month = str(latest.get("booking_month"))[:7]
-    net = _decimal(latest.get("net")) or Decimal(0)
-    income = _decimal(latest.get("income")) or Decimal(0)
-    expense = _decimal(latest.get("expense")) or Decimal(0)
+    # Cashflow is stated per currency: figures, streaks and flat bands never
+    # mix denominations, and nothing is converted. A single currency reads as
+    # before; with several, each statement names its currency.
+    by_currency: dict[str, list[dict[str, Any]]] = {}
+    for row in months:
+        by_currency.setdefault(str(row.get("currency") or ""), []).append(row)
+    multiple = len(by_currency) > 1
+    branches: list[str] = []
+    items: list[Any] = []
+    for currency, currency_months in sorted(by_currency.items()):
+        suffix = f" {currency}" if multiple and currency else ""
+        latest = currency_months[-1]
+        month = str(latest.get("booking_month"))[:7]
+        net = _decimal(latest.get("net")) or Decimal(0)
+        income = _decimal(latest.get("income")) or Decimal(0)
+        expense = _decimal(latest.get("expense")) or Decimal(0)
 
-    flat_band = max(Decimal(1), abs(income) * Decimal("0.01"))
-    streak = 0
-    for row in reversed(months):
-        if (_decimal(row.get("net")) or Decimal(0)) > flat_band:
-            streak += 1
+        flat_band = max(Decimal(1), abs(income) * Decimal("0.01"))
+        streak = 0
+        for row in reversed(currency_months):
+            if (_decimal(row.get("net")) or Decimal(0)) > flat_band:
+                streak += 1
+            else:
+                break
+        if abs(net) <= flat_band:
+            branch = f"Cashflow for {_month_label(month)} is flat at {_signed(net)}{suffix}."
+            severity = BriefSeverity.INFO
+        elif net < 0:
+            branch = f"Cashflow for {_month_label(month)} is negative at {_signed(net)}{suffix}."
+            severity = BriefSeverity.WARNING
+        elif streak >= 2:
+            branch = (
+                f"Cashflow for {_month_label(month)} is positive at {_signed(net)}{suffix}, "
+                f"{streak} positive months in a row."
+            )
+            severity = BriefSeverity.INFO
         else:
-            break
-    if abs(net) <= flat_band:
-        branch = f"Cashflow for {_month_label(month)} is flat at {_signed(net)}."
-        severity = BriefSeverity.INFO
-    elif net < 0:
-        branch = f"Cashflow for {_month_label(month)} is negative at {_signed(net)}."
-        severity = BriefSeverity.WARNING
-    elif streak >= 2:
-        branch = (
-            f"Cashflow for {_month_label(month)} is positive at {_signed(net)}, "
-            f"{streak} positive months in a row."
-        )
-        severity = BriefSeverity.INFO
-    else:
-        branch = f"Cashflow for {_month_label(month)} is positive at {_signed(net)}."
-        severity = BriefSeverity.INFO
-    detail = f"Income {_money(income)}, expense {_money(expense)}."
-    if month != as_of_month:
-        detail += f" {_month_label(month)} is the latest published month."
-    return SectionDraft(
-        summary=_claim_summary(assessment, branch),
-        items=(
+            branch = f"Cashflow for {_month_label(month)} is positive at {_signed(net)}{suffix}."
+            severity = BriefSeverity.INFO
+        detail = f"Income {_money(income)}{suffix}, expense {_money(expense)}{suffix}."
+        if month != as_of_month:
+            detail += f" {_month_label(month)} is the latest published month."
+        branches.append(branch)
+        items.append(
             _claim_item(
-                item_id="money:cashflow",
+                item_id=f"money:cashflow:{currency}" if multiple else "money:cashflow",
                 severity=severity,
                 headline=branch,
                 detail=detail,
                 publication=publication,
                 assessment=assessment,
-            ),
-        ),
+            )
+        )
+    return SectionDraft(
+        summary=_claim_summary(assessment, " ".join(branches)),
+        items=tuple(items),
     )
 
 
@@ -317,13 +330,15 @@ def build_changes_section(inputs: BriefInputs) -> SectionDraft:
         current = _decimal(row.get("current_value")) or Decimal(0)
         previous = _decimal(row.get("previous_value")) or Decimal(0)
         pct_text = f" ({pct:+.1f}%)" if pct is not None else ""
+        # Both amounts are in the row's own currency; name it when known.
+        unit = f" {row['currency']}" if row.get("currency") else ""
         items.append(
             _claim_item(
                 item_id=f"changes:{row.get('change_type')}:{row.get('period')}:{row.get('description')}",
                 severity=BriefSeverity.NOTICE,
                 headline=f"{row.get('description')}{pct_text}",
                 detail=(
-                    f"{row.get('period')}: {_money(previous)} → {_money(current)}, "
+                    f"{row.get('period')}: {_money(previous)} → {_money(current)}{unit}, "
                     f"{row.get('direction')}."
                 ),
                 publication=publication,

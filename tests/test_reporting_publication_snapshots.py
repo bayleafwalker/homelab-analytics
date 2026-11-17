@@ -262,10 +262,19 @@ def test_publish_promotion_reporting_captures_snapshots_on_the_duckdb_path() -> 
 
 
 def test_migration_matches_runtime_columns() -> None:
+    # 0016 creates the table; 0020 appends contract_version. Both must agree
+    # with the runtime column list.
     store = DuckDBStore.memory()
     store.execute(MIGRATION.read_text())
-    described = store.fetchall(f"DESCRIBE {SNAPSHOT_TABLE}")
-    assert [row[0] for row in described] == [name for name, _ in SNAPSHOT_COLUMNS]
+    assert [row[0] for row in store.fetchall(f"DESCRIBE {SNAPSHOT_TABLE}")] == [
+        name for name, _ in SNAPSHOT_COLUMNS[:-1]
+    ]
+    store.execute(
+        f"ALTER TABLE {SNAPSHOT_TABLE} ADD COLUMN IF NOT EXISTS contract_version VARCHAR"
+    )
+    assert [row[0] for row in store.fetchall(f"DESCRIBE {SNAPSHOT_TABLE}")] == [
+        name for name, _ in SNAPSHOT_COLUMNS
+    ]
 
 
 # ---------------------------------------------------------------------------

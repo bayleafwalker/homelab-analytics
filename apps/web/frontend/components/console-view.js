@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 
+import { splitByCurrency } from "../lib/currency-groups";
 import { formatMoney, formatMonth, formatPercent, toNumber } from "../lib/format";
 import { CommandPalette } from "./command-palette";
 import { ConsolePanel, ConsoleShell } from "./console-shell";
@@ -98,7 +99,7 @@ function stamp(value) {
   return String(value).replace("T", " ").slice(5, 16);
 }
 
-function CashflowTicker({ cashflowRows, currency, explanation }) {
+function CashflowTicker({ cashflowRows, currency, explanation, label = null }) {
   const summary = summariseCashflow(cashflowRows);
   if (!summary.latest) {
     return <p className="consoleEmpty">No cashflow published yet.</p>;
@@ -107,7 +108,10 @@ function CashflowTicker({ cashflowRows, currency, explanation }) {
   const tone = net >= 0 ? "ok" : "warn";
   return (
     <div className="ticker">
-      <p className="tickerMonth">{formatMonth(latest.booking_month)}</p>
+      <p className="tickerMonth">
+        {formatMonth(latest.booking_month)}
+        {label ? ` (${label})` : ""}
+      </p>
       <p className="tickerNet num" data-tone={tone}>
         {money(net, currency, { signed: true })}
       </p>
@@ -147,10 +151,16 @@ function CashflowTicker({ cashflowRows, currency, explanation }) {
   );
 }
 
-function HeatmapPanelBody({ heatmap }) {
+function HeatmapPanelBody({ heatmap, label = null }) {
   if (!heatmap) return <p className="consoleEmpty">Spend heatmap unavailable.</p>;
+  // Several currencies and none selected: the API returns an empty grid and
+  // lists the currencies; the caller renders one panel body per currency.
+  if (!heatmap.currency && (heatmap.currencies || []).length > 1) {
+    return <p className="consoleEmpty">Spend heatmap is per currency: {heatmap.currencies.join(", ")}.</p>;
+  }
   return (
     <>
+      {label ? <p className="consoleMeta">{label}</p> : null}
       <p className="consoleMeta">
         {heatmap.window_start && heatmap.window_end ? (
           <>
@@ -234,11 +244,12 @@ function RunsTail({ runs }) {
   );
 }
 
-function CategoryBars({ categoryRows, ratios, currency }) {
+function CategoryBars({ categoryRows, ratios, currency, label = null }) {
   const { month, rows, rest, restCount } = topCategories(categoryRows);
   const peak = rows[0]?.total || 0;
   return (
     <div className="categoryPanel">
+      {label ? <p className="consoleMeta">{label}</p> : null}
       {rows.length === 0 ? (
         <p className="consoleEmpty">No category spend yet.</p>
       ) : (
@@ -357,6 +368,8 @@ export function ConsoleView({
   currency,
   cashflowRows,
   heatmap,
+  // One heatmap per currency when the mart holds several; never merged.
+  heatmaps = null,
   attentionItems,
   runs,
   categoryRows,
@@ -367,6 +380,8 @@ export function ConsoleView({
   currentPath = "/console",
   explanations = {},
 }) {
+  const cashflowGroups = splitByCurrency(cashflowRows);
+  const categoryGroups = splitByCurrency(categoryRows);
   const openAttention = (attentionItems || []).length;
   const failedRuns = (runs || []).slice(0, RUNS_TAIL).filter((run) => run.status === "failed" || run.status === "rejected").length;
   return (
@@ -379,10 +394,29 @@ export function ConsoleView({
       ]}
     >
       <ConsolePanel id="cashflow" fkey="F1" title="Cashflow">
-        <CashflowTicker cashflowRows={cashflowRows} currency={currency} explanation={explanations.cashflow} />
+        {/* One ticker per currency; figures and deltas never cross currencies. */}
+        {cashflowGroups.length === 0 ? (
+          <CashflowTicker cashflowRows={[]} currency={currency} explanation={explanations.cashflow} />
+        ) : (
+          cashflowGroups.map((group, index) => (
+            <CashflowTicker
+              key={group.currency || "none"}
+              cashflowRows={group.rows}
+              currency={group.currency ?? currency}
+              label={cashflowGroups.length > 1 ? group.currency : null}
+              explanation={index === 0 ? explanations.cashflow : null}
+            />
+          ))
+        )}
       </ConsolePanel>
       <ConsolePanel id="heatmap" fkey="F2" title="Spend heatmap">
-        <HeatmapPanelBody heatmap={heatmap} />
+        {heatmaps && heatmaps.length > 1 ? (
+          heatmaps.map((entry) => (
+            <HeatmapPanelBody key={entry.currency || "none"} heatmap={entry} label={entry.currency} />
+          ))
+        ) : (
+          <HeatmapPanelBody heatmap={heatmaps?.[0] ?? heatmap} />
+        )}
       </ConsolePanel>
       <ConsolePanel id="attention" fkey="F3" title="Attention">
         <AttentionList items={attentionItems} />
@@ -391,7 +425,19 @@ export function ConsoleView({
         <RunsTail runs={runs} />
       </ConsolePanel>
       <ConsolePanel id="categories" fkey="F5" title="Categories">
-        <CategoryBars categoryRows={categoryRows} ratios={ratios} currency={currency} />
+        {categoryGroups.length === 0 ? (
+          <CategoryBars categoryRows={[]} ratios={ratios} currency={currency} />
+        ) : (
+          categoryGroups.map((group) => (
+            <CategoryBars
+              key={group.currency || "none"}
+              categoryRows={group.rows}
+              ratios={(ratios || []).filter((r) => !r.currency || !group.currency || r.currency === group.currency)}
+              currency={group.currency ?? currency}
+              label={categoryGroups.length > 1 ? group.currency : null}
+            />
+          ))
+        )}
       </ConsolePanel>
       <ConsolePanel id="command" title="Command" headerExtra={<ConsoleKeyMap />}>
         <CommandStub

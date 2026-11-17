@@ -67,6 +67,9 @@ from packages.domains.utilities.pipelines.battery_plan_models import (
     MART_BATTERY_PLAN_OUTCOME_TABLE,
     MART_BATTERY_PLAN_OUTCOME_VALUES_TABLE,
 )
+from packages.domains.utilities.pipelines.transformation_utilities import (
+    utility_cost_summary_monthly_sql,
+)
 from packages.domains.utilities.pipelines.utility_models import (
     MART_CONTRACT_RENEWAL_WATCHLIST_TABLE,
     MART_CONTRACT_REVIEW_CANDIDATES_TABLE,
@@ -85,6 +88,11 @@ from packages.pipelines.mart_read_registry import (
     read_warehouse_mart,
 )
 from packages.pipelines.promotion import PromotionResult
+from packages.pipelines.reporting_currency import (
+    CURRENCY_COLUMN_RELATIONS,
+    assert_currency_column_present,
+    assert_currency_current,
+)
 from packages.pipelines.reporting_snapshots import (
     DEFAULT_SNAPSHOT_RETENTION_MONTHS,
     SNAPSHOT_PUBLICATIONS,
@@ -327,17 +335,29 @@ class ReportingService:
                 ("booking_month >= %s", from_month),
                 ("booking_month <= %s", to_month),
             ),
-            "ORDER BY booking_month",
+            "ORDER BY booking_month, currency",
         )
 
     def get_current_month_net_cashflow(self) -> ScalarMetricSnapshot:
-        rows = self.get_household_overview()
-        latest_row = _latest_row(rows, "current_month")
-        if latest_row is None:
+        """Net cashflow of the latest booked month, only if it has one denomination.
+
+        A scalar carries one value and one unit. When the month holds several
+        currencies (or no transactions) there is no truthful single value, so
+        it is unavailable (``None``) rather than a blended or arbitrary row.
+        """
+        rows = self.get_monthly_cashflow()
+        latest_month = _latest_period(rows, "booking_month")
+        if latest_month is None:
             return ScalarMetricSnapshot(value=None, unit="")
+        month_rows = [row for row in rows if str(row.get("booking_month")) == latest_month]
+        currencies = {str(row.get("currency") or "").strip() for row in month_rows}
+        currencies.discard("")
+        if len(currencies) != 1 or len(month_rows) != 1:
+            return ScalarMetricSnapshot(value=None, unit="")
+        row = month_rows[0]
         return ScalarMetricSnapshot(
-            value=_decimal_or_none(latest_row.get("cashflow_net")),
-            unit=str(latest_row.get("currency") or ""),
+            value=_decimal_or_none(row.get("net")),
+            unit=str(row.get("currency")).strip(),
         )
 
     def get_monthly_cashflow_by_counterparty(
@@ -360,7 +380,7 @@ class ReportingService:
                 ("booking_month <= %s", to_month),
                 ("counterparty_name = %s", counterparty_name),
             ),
-            "ORDER BY booking_month, counterparty_name",
+            "ORDER BY booking_month, counterparty_name, currency",
         )
 
     def get_subscription_summary(
@@ -535,39 +555,18 @@ class ReportingService:
             )
 
         return self._publication_store.fetchall_dicts(
-            f"""
-            SELECT
-                period_month AS period,
-                MIN(period_start) AS period_start,
-                MAX(period_end) AS period_end,
-                meter_id,
-                MIN(meter_name) AS meter_name,
-                utility_type,
-                SUM(usage_quantity) AS usage_quantity,
-                MIN(usage_unit) AS usage_unit,
-                SUM(billed_amount) AS billed_amount,
-                MIN(currency) AS currency,
-                CASE
-                    WHEN SUM(usage_quantity) > 0
-                    THEN CAST(ROUND(SUM(billed_amount) / SUM(usage_quantity), 4) AS DECIMAL(18,4))
-                    ELSE NULL
-                END AS unit_cost,
-                SUM(bill_count) AS bill_count,
-                SUM(usage_record_count) AS usage_record_count,
-                CASE
-                    WHEN SUM(bill_count) > 0 AND SUM(usage_record_count) > 0 THEN 'matched'
-                    WHEN SUM(bill_count) > 0 THEN 'bill_only'
-                    ELSE 'usage_only'
-                END AS coverage_status
-            FROM {MART_UTILITY_COST_SUMMARY_TABLE}
-            {where_sql}
-            GROUP BY period_month, meter_id, utility_type
-            ORDER BY period_month, meter_id
-            """,
+            utility_cost_summary_monthly_sql(MART_UTILITY_COST_SUMMARY_TABLE, where_sql),
             params,
         )
 
     def get_current_month_electricity_cost(self) -> ScalarMetricSnapshot:
+        """Electricity cost of the latest utility month, only if billed in one currency.
+
+        Only rows with a bill observation (``bill_count > 0``) are monetary.
+        Usage with no bill is not a zero-value bill, so a month with no bills
+        is unavailable; a real observed zero bill keeps its currency and is
+        returned as zero. Several denominations have no single value or unit.
+        """
         rows = self.get_utility_cost_summary(
             utility_type="electricity",
             granularity="month",
@@ -575,18 +574,19 @@ class ReportingService:
         latest_period = _latest_period(rows, _utility_period_label)
         if latest_period is None:
             return ScalarMetricSnapshot(value=None, unit="")
-        selected_rows = [
+        billed_rows = [
             row
             for row in rows
             if _utility_period_label(row) == latest_period
+            and _decimal_or_zero(row.get("bill_count")) > 0
         ]
-        if not selected_rows:
+        if not billed_rows:
             return ScalarMetricSnapshot(value=None, unit="")
-        unit = _shared_unit(selected_rows, "currency")
-        if unit is None:
+        unit = _shared_unit(billed_rows, "currency")
+        if not unit:
             return ScalarMetricSnapshot(value=None, unit="")
         total = sum(
-            (_decimal_or_zero(row.get("billed_amount")) for row in selected_rows),
+            (_decimal_or_zero(row.get("billed_amount")) for row in billed_rows),
             Decimal("0"),
         )
         return ScalarMetricSnapshot(value=total, unit=unit)
@@ -700,7 +700,7 @@ class ReportingService:
                 ("counterparty_name = %s", counterparty_name),
                 ("category = %s", category),
             ),
-            "ORDER BY booking_month, category, counterparty_name",
+            "ORDER BY booking_month, category, counterparty_name, currency",
         )
 
     def get_recent_large_transactions(self) -> list[dict[str, Any]]:
@@ -731,7 +731,7 @@ class ReportingService:
                 ("booking_month >= %s", from_month),
                 ("booking_month <= %s", to_month),
             ),
-            "ORDER BY booking_month, account_id",
+            "ORDER BY booking_month, account_id, currency",
         )
 
     def get_spend_by_weekday_hour(
@@ -751,7 +751,7 @@ class ReportingService:
                 ("booked_at >= %s", from_date),
                 ("booked_at <= %s", to_date),
             ),
-            "ORDER BY booked_at, hour_of_day NULLS FIRST",
+            "ORDER BY booked_at, hour_of_day NULLS FIRST, currency",
         )
 
     def get_transaction_anomalies_current(self) -> list[dict[str, Any]]:
@@ -790,7 +790,7 @@ class ReportingService:
                 utility_type=utility_type,
             ),
             _build_where_clause(("utility_type = %s", utility_type)),
-            "ORDER BY billing_month, utility_type",
+            "ORDER BY billing_month, utility_type, currency",
         )
 
     def get_battery_plan_outcome(
@@ -835,7 +835,7 @@ class ReportingService:
                 utility_type=utility_type,
             ),
             _build_where_clause(("utility_type = %s", utility_type)),
-            "ORDER BY period, utility_type",
+            "ORDER BY period, utility_type, currency",
         )
 
     def get_contract_review_candidates(self) -> list[dict[str, Any]]:
@@ -863,7 +863,7 @@ class ReportingService:
             MART_HOUSEHOLD_OVERVIEW_TABLE,
             lambda: self._read_mart(MART_HOUSEHOLD_OVERVIEW_TABLE),
             ("", []),
-            "ORDER BY current_month DESC",
+            "ORDER BY current_month DESC, currency",
         )
 
     def get_homelab_roi(self) -> list[dict[str, Any]]:
@@ -893,7 +893,7 @@ class ReportingService:
             MART_CURRENT_OPERATING_BASELINE_TABLE,
             lambda: self._read_mart(MART_CURRENT_OPERATING_BASELINE_TABLE),
             ("", []),
-            "ORDER BY baseline_type",
+            "ORDER BY baseline_type, currency",
         )
 
     def get_household_cost_model(
@@ -921,7 +921,7 @@ class ReportingService:
             MART_COST_TREND_12M_TABLE,
             lambda: self._read_mart(MART_COST_TREND_12M_TABLE),
             ("", []),
-            "ORDER BY period_label, cost_type",
+            "ORDER BY period_label, cost_type, currency",
         )
 
     def get_affordability_ratios(self) -> list[dict[str, Any]]:
@@ -929,7 +929,7 @@ class ReportingService:
             MART_AFFORDABILITY_RATIOS_TABLE,
             lambda: self._read_mart(MART_AFFORDABILITY_RATIOS_TABLE),
             ("", []),
-            "ORDER BY ratio_name",
+            "ORDER BY ratio_name, currency",
         )
 
     def get_recurring_cost_baseline(self) -> list[dict[str, Any]]:
@@ -1339,8 +1339,9 @@ class ReportingService:
         where_clause: tuple[str, list[Any]],
         order_by_sql: str,
     ) -> list[dict[str, Any]]:
+        self._assert_currency_schema_current(relation_name)
         if self._access_mode == ReportingAccessMode.WAREHOUSE:
-            return fallback()
+            return _current_rows(relation_name, fallback())
         if self._publication_store is None or not self._publication_store.table_exists(
             relation_name
         ):
@@ -1348,12 +1349,38 @@ class ReportingService:
                 raise KeyError(
                     f"Published reporting relation is unavailable: {relation_name}"
                 )
-            return fallback()
+            return _current_rows(relation_name, fallback())
         where_sql, params = where_clause
-        return self._publication_store.fetchall_dicts(
-            f"SELECT * FROM {relation_name} {where_sql} {order_by_sql}",
-            params,
+        return _current_rows(
+            relation_name,
+            self._publication_store.fetchall_dicts(
+                f"SELECT * FROM {relation_name} {where_sql} {order_by_sql}",
+                params,
+            ),
         )
+
+    def _assert_currency_schema_current(self, relation_name: str) -> None:
+        """Refuse a currency-grouped relation still in its legacy (no ``currency``
+        column) shape, before any rows are read. This is the only check that can
+        tell an empty legacy relation apart from a valid empty current one.
+        """
+        if relation_name not in CURRENCY_COLUMN_RELATIONS:
+            return
+        if (
+            self._access_mode != ReportingAccessMode.WAREHOUSE
+            and self._publication_store is not None
+            and self._publication_store.table_exists(relation_name)
+        ):
+            columns = self._publication_store.column_names(relation_name)
+        else:
+            columns = self._warehouse_column_names(relation_name)
+        assert_currency_column_present(relation_name, columns)
+
+    def _warehouse_column_names(self, relation_name: str) -> list[str]:
+        """Column names of ``relation_name`` in the warehouse store."""
+        store = self._transformation_service.store
+        rows = store.fetchall(f"PRAGMA table_info('{relation_name}')")
+        return [str(row[1]) for row in rows]
 
     def _publish_relation(self, relation_name: str) -> None:
         if self._publication_store is None:
@@ -1422,6 +1449,14 @@ class ReportingService:
                 ),
             )
         )
+
+
+def _current_rows(
+    relation_name: str, rows: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Refuse (rather than serve) rows of a legacy, pre-currency relation."""
+    assert_currency_current(relation_name, rows)
+    return rows
 
 
 def _build_where_clause(

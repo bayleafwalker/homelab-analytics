@@ -66,7 +66,7 @@ FINANCE_PACK = CapabilityPack(
         PublicationDefinition(
             key="monthly_cashflow",
             schema_name="monthly_cashflow",
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             display_name="Monthly Cashflow",
             description="Aggregated monthly income and expense summary from account transactions.",
             visibility="public",
@@ -96,6 +96,10 @@ FINANCE_PACK = CapabilityPack(
                     "Number of transactions included in the monthly aggregate.",
                     aggregation="count",
                     unit="count",
+                ),
+                "currency": dimension_field(
+                    "ISO currency code of the row. One row per month and currency; "
+                    "amounts of different currencies are never combined or converted."
                 ),
             },
         ),
@@ -153,7 +157,7 @@ FINANCE_PACK = CapabilityPack(
         PublicationDefinition(
             key="spend_by_category_monthly",
             schema_name="spend_by_category_monthly",
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             display_name="Spend by Category Monthly",
             description="Monthly expense totals grouped by counterparty and category.",
             visibility="public",
@@ -179,6 +183,9 @@ FINANCE_PACK = CapabilityPack(
                     "Number of transactions contributing to the grouped expense total.",
                     aggregation="count",
                     unit="count",
+                ),
+                "currency": dimension_field(
+                    "ISO currency code of the grouped expense; groups never mix currencies."
                 ),
             },
         ),
@@ -229,7 +236,7 @@ FINANCE_PACK = CapabilityPack(
         PublicationDefinition(
             key="account_balance_trend",
             schema_name="account_balance_trend",
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             display_name="Account Balance Trend",
             description="Cumulative balance trend per account derived from transaction history.",
             visibility="public",
@@ -258,12 +265,16 @@ FINANCE_PACK = CapabilityPack(
                     aggregation="count",
                     unit="count",
                 ),
+                "currency": dimension_field(
+                    "ISO currency code of the balance series; an account holding several "
+                    "currencies has one series per currency."
+                ),
             },
         ),
         PublicationDefinition(
             key="transaction_anomalies_current",
             schema_name="transaction_anomalies_current",
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             display_name="Transaction Anomalies",
             description="Recent transactions flagged as anomalous — first-time counterparties or unusual amounts.",
             visibility="public",
@@ -295,12 +306,15 @@ FINANCE_PACK = CapabilityPack(
                     "Human-readable explanation for the anomaly classification.",
                     filterable=False,
                 ),
+                "currency": dimension_field(
+                    "ISO currency code of the anomalous transaction amount."
+                ),
             },
         ),
         PublicationDefinition(
             key="spend_by_weekday_hour",
             schema_name="spend_by_weekday_hour",
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             display_name="Spend by Weekday and Hour",
             description=(
                 "Expense totals per booking date and UTC hour, feeding the "
@@ -331,6 +345,9 @@ FINANCE_PACK = CapabilityPack(
                     "Number of expense transactions in the bucket.",
                     aggregation="count",
                     unit="count",
+                ),
+                "currency": dimension_field(
+                    "ISO currency code of the bucket; buckets never mix currencies."
                 ),
             },
         ),

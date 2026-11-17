@@ -79,13 +79,14 @@ def test_publication_contract_catalog_maps_columns_and_scalar_types() -> None:
 
     monthly_cashflow = publication_contracts["monthly_cashflow"]
     assert monthly_cashflow.relation_name == "mart_monthly_cashflow"
-    assert monthly_cashflow.schema_version == "1.0.0"
+    assert monthly_cashflow.schema_version == "2.0.0"
     assert [column.name for column in monthly_cashflow.columns] == [
         "booking_month",
         "income",
         "expense",
         "net",
         "transaction_count",
+        "currency",
     ]
     assert monthly_cashflow.columns[1].json_type == "string"
     assert monthly_cashflow.columns[4].json_type == "number"
@@ -94,6 +95,8 @@ def test_publication_contract_catalog_maps_columns_and_scalar_types() -> None:
     assert monthly_cashflow.columns[1].semantic_role == "measure"
     assert monthly_cashflow.columns[1].aggregation == "sum"
     assert monthly_cashflow.columns[1].unit == "currency"
+    assert monthly_cashflow.columns[5].name == "currency"
+    assert monthly_cashflow.columns[5].semantic_role == "dimension"
 
     backup_freshness = publication_contracts["backup_freshness"]
     backup_columns = {column.name: column for column in backup_freshness.columns}

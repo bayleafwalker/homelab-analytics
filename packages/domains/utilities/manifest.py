@@ -114,7 +114,7 @@ UTILITIES_PACK = CapabilityPack(
         PublicationDefinition(
             key="utility_cost_summary",
             schema_name="utility_cost_summary",
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             display_name="Utility Cost Summary",
             description="Monthly utility cost breakdown combining contract prices and usage.",
             visibility="public",
@@ -160,7 +160,8 @@ UTILITIES_PACK = CapabilityPack(
                     unit="currency",
                 ),
                 "currency": dimension_field(
-                    "ISO currency code for the billed amount."
+                    "ISO currency code for the billed amount. Null for a usage_only row "
+                    "(usage with no bill, billed amount 0); an observed zero bill keeps its currency."
                 ),
                 "unit_cost": measure_field(
                     "Effective cost per usage unit for the summarized period.",
@@ -237,7 +238,7 @@ UTILITIES_PACK = CapabilityPack(
         PublicationDefinition(
             key="utility_cost_trend_monthly",
             schema_name="utility_cost_trend_monthly",
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             display_name="Utility Cost Trend (Monthly)",
             description="Monthly aggregated utility costs and usage per utility type.",
             visibility="public",
@@ -267,7 +268,8 @@ UTILITIES_PACK = CapabilityPack(
                     unit="currency_per_unit",
                 ),
                 "currency": dimension_field(
-                    "ISO currency code for the monthly cost values."
+                    "ISO currency code for the monthly cost values; one row per month, "
+                    "utility type and currency. Null for a usage-only month."
                 ),
                 "meter_count": measure_field(
                     "Number of meters represented in the monthly aggregate.",
@@ -279,7 +281,7 @@ UTILITIES_PACK = CapabilityPack(
         PublicationDefinition(
             key="usage_vs_price_summary",
             schema_name="usage_vs_price_summary",
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             display_name="Usage vs Price Summary",
             description="Month-over-month comparison of usage and price changes — answers whether cost increases are driven by price or consumption.",
             visibility="public",
@@ -310,6 +312,10 @@ UTILITIES_PACK = CapabilityPack(
                 ),
                 "dominant_driver": status_field(
                     "Primary factor driving the cost change, such as price or usage."
+                ),
+                "currency": dimension_field(
+                    "ISO currency code the percent changes were computed in; null for "
+                    "usage with no bill. Changes are never computed across currencies."
                 ),
             },
         ),

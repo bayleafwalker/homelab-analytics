@@ -36,17 +36,28 @@ export default async function UtilitiesPage({ searchParams }) {
   ]);
 
   // Build per-type SparklineChart series
-  const utilityTypes = [...new Set(trend.map((r) => r.utility_type))].sort();
+  // One series per (utility type, currency); denominations never share a line.
+  const seriesKeys = [
+    ...new Set(trend.map((r) => `${r.utility_type}|${r.currency ?? ""}`)),
+  ].sort();
   const trendMonths = [...new Set(trend.map((r) => r.billing_month))].sort();
   const colors = ["var(--accent-warm)", "var(--ok)", "var(--accent)", "var(--accent-cool)"];
-  const trendSeries = utilityTypes.map((type, idx) => ({
-    label: type,
-    color: colors[idx % colors.length],
-    values: trendMonths.map((month) => {
-      const row = trend.find((r) => r.utility_type === type && r.billing_month === month);
-      return row ? Number(row.total_cost) : null;
-    }),
-  }));
+  const trendSeries = seriesKeys.map((key, idx) => {
+    const [type, currency] = key.split("|");
+    return {
+      label: currency ? `${type} (${currency})` : type,
+      color: colors[idx % colors.length],
+      values: trendMonths.map((month) => {
+        const row = trend.find(
+          (r) =>
+            r.utility_type === type &&
+            (r.currency ?? "") === currency &&
+            r.billing_month === month
+        );
+        return row ? Number(row.total_cost) : null;
+      }),
+    };
+  });
 
   // Unique meter ids from summary for filter dropdown
   const meterIds = [...new Set(summary.map((r) => r.meter_id).filter(Boolean))].sort();

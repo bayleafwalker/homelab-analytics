@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
 import { SparklineChart } from "@/components/sparkline-chart";
+import { latestMonthRows, splitByCurrency, sumField } from "@/lib/currency-groups";
+import { formatMoney } from "@/lib/format";
 import { stateIndicatorBadge } from "@/lib/state-indicators";
 import {
   getAffordabilityRatios,
@@ -37,29 +39,25 @@ export default async function FirstAnswerPage() {
       .map((ds) => ds.dataset_name)
   );
 
-  const latestCashflow = cashflowRows.at(-1);
-  const recurringTotal = subscriptions
-    .filter((r) => r.status === "active")
-    .reduce((sum, r) => sum + Number(r.monthly_equivalent || 0), 0);
-
-  const trendLabels = cashflowRows.slice(-12).map((r) => r.booking_month);
-  const trendSeries = [
-    {
-      label: "Income",
-      color: "var(--ok)",
-      values: cashflowRows.slice(-12).map((r) => Number(r.income)),
-    },
-    {
-      label: "Expense",
-      color: "var(--warn)",
-      values: cashflowRows.slice(-12).map((r) => Number(r.expense)),
-    },
-    {
-      label: "Net",
-      color: "var(--accent)",
-      values: cashflowRows.slice(-12).map((r) => Number(r.net)),
-    },
-  ];
+  // Every figure stays inside its own currency: one row per currency for the
+  // newest month, one recurring total and one trend per currency.
+  const latestCashflowRows = latestMonthRows(cashflowRows, "booking_month");
+  const latestCashflow = latestCashflowRows[0];
+  const recurringGroups = splitByCurrency(subscriptions.filter((r) => r.status === "active")).map(
+    ({ currency, rows }) => ({ currency, total: sumField(rows, "monthly_equivalent") })
+  );
+  const trendCharts = splitByCurrency(cashflowRows).map(({ currency, rows }) => {
+    const recent = rows.slice(-12);
+    return {
+      currency,
+      labels: recent.map((r) => r.booking_month),
+      series: [
+        { label: "Income", color: "var(--ok)", values: recent.map((r) => Number(r.income)) },
+        { label: "Expense", color: "var(--warn)", values: recent.map((r) => Number(r.expense)) },
+        { label: "Net", color: "var(--accent)", values: recent.map((r) => Number(r.net)) },
+      ],
+    };
+  });
 
   // Pending sources: not in freshDatasets (ONBOARDING_SOURCES already in priority order)
   const pendingSources = ONBOARDING_SOURCES
@@ -89,40 +87,52 @@ export default async function FirstAnswerPage() {
             <div className="sectionHeader">
               <div>
                 <div className="eyebrow">Cashflow</div>
-                <h2>
-                  {latestCashflow?.booking_month}: Net {latestCashflow?.net}
-                </h2>
+                <h2>{latestCashflow?.booking_month}: Net by currency</h2>
               </div>
               <Link className="inlineLink" href="/">
                 Full dashboard
               </Link>
             </div>
-            <div className="metaGrid">
-              <div className="metaItem">
-                <div className="metricLabel">Income</div>
-                <div className="metricValue" style={{ fontSize: "1.2rem" }}>
-                  {latestCashflow?.income}
+            {latestCashflowRows.map((row) => (
+              <div className="metaGrid" key={row.currency}>
+                <div className="metaItem">
+                  <div className="metricLabel">Currency</div>
+                  <div>{row.currency}</div>
+                </div>
+                <div className="metaItem">
+                  <div className="metricLabel">Income</div>
+                  <div className="metricValue" style={{ fontSize: "1.2rem" }}>
+                    {formatMoney(row.income, row.currency)}
+                  </div>
+                </div>
+                <div className="metaItem">
+                  <div className="metricLabel">Expense</div>
+                  <div className="metricValue" style={{ fontSize: "1.2rem" }}>
+                    {formatMoney(row.expense, row.currency)}
+                  </div>
+                </div>
+                <div className="metaItem">
+                  <div className="metricLabel">Net</div>
+                  <div className="metricValue" style={{ fontSize: "1.2rem" }}>
+                    {formatMoney(row.net, row.currency)}
+                  </div>
+                </div>
+                <div className="metaItem">
+                  <div className="metricLabel">Rows</div>
+                  <div>{row.transaction_count}</div>
                 </div>
               </div>
-              <div className="metaItem">
-                <div className="metricLabel">Expense</div>
-                <div className="metricValue" style={{ fontSize: "1.2rem" }}>
-                  {latestCashflow?.expense}
-                </div>
-              </div>
-              <div className="metaItem">
-                <div className="metricLabel">Net</div>
-                <div className="metricValue" style={{ fontSize: "1.2rem" }}>
-                  {latestCashflow?.net}
-                </div>
-              </div>
-              <div className="metaItem">
-                <div className="metricLabel">Rows</div>
-                <div>{latestCashflow?.transaction_count}</div>
-              </div>
-            </div>
-            {trendLabels.length > 0 && (
-              <SparklineChart series={trendSeries} labels={trendLabels} height={100} width={600} />
+            ))}
+            {trendCharts.map((chart) =>
+              chart.labels.length > 0 ? (
+                <SparklineChart
+                  key={chart.currency}
+                  series={chart.series}
+                  labels={chart.labels}
+                  height={100}
+                  width={600}
+                />
+              ) : null
             )}
           </article>
         ) : (
@@ -144,7 +154,12 @@ export default async function FirstAnswerPage() {
             <div className="sectionHeader">
               <div>
                 <div className="eyebrow">Recurring Baseline</div>
-                <h2>{recurringTotal.toFixed(2)} / mo committed</h2>
+                <h2>
+                  {recurringGroups.length > 0
+                    ? recurringGroups.map((g) => `${g.total.toFixed(2)} ${g.currency ?? ""}`.trim()).join(" · ")
+                    : "No active subscriptions"}{" "}
+                  / mo committed
+                </h2>
               </div>
               <Link className="inlineLink" href="/costs">
                 Cost model
@@ -201,8 +216,11 @@ export default async function FirstAnswerPage() {
                 debt_service_ratio: "Debt service ratio",
               }[r.ratio_name] || r.ratio_name;
               return (
-                <article key={r.ratio_name} className="panel metricCard">
-                  <div className="metricLabel">{label}</div>
+                <article key={`${r.ratio_name}-${r.currency}`} className="panel metricCard">
+                  <div className="metricLabel">
+                    {label}
+                    {new Set(affordabilityRatios.map((x) => x.currency)).size > 1 ? ` (${r.currency})` : ""}
+                  </div>
                   <div className="metricValue" style={{ color: state.color }}>
                     {(Number(r.ratio) * 100).toFixed(1)}%
                   </div>

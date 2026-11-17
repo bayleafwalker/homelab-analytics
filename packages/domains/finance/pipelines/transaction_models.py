@@ -90,12 +90,17 @@ FACT_TRANSACTION_COLUMNS: list[tuple[str, str]] = [
 
 MART_MONTHLY_CASHFLOW_TABLE = "mart_monthly_cashflow"
 
+# Monetary marts keep one row per denomination. ``currency`` is the last column
+# so an upgraded legacy table (ALTER TABLE ... ADD COLUMN) has the same column
+# order as a freshly created one. Legacy tables hold blended amounts and have
+# no currency column; ``upgrade-reporting`` rebuilds them from facts.
 MART_MONTHLY_CASHFLOW_COLUMNS: list[tuple[str, str]] = [
     ("booking_month", "VARCHAR NOT NULL"),
     ("income", "DECIMAL(18,4) NOT NULL"),
     ("expense", "DECIMAL(18,4) NOT NULL"),
     ("net", "DECIMAL(18,4) NOT NULL"),
     ("transaction_count", "INTEGER NOT NULL"),
+    ("currency", "VARCHAR NOT NULL"),
 ]
 
 MART_CASHFLOW_BY_COUNTERPARTY_TABLE = "mart_monthly_cashflow_by_counterparty"
@@ -107,6 +112,7 @@ MART_CASHFLOW_BY_COUNTERPARTY_COLUMNS: list[tuple[str, str]] = [
     ("expense", "DECIMAL(18,4) NOT NULL"),
     ("net", "DECIMAL(18,4) NOT NULL"),
     ("transaction_count", "INTEGER NOT NULL"),
+    ("currency", "VARCHAR NOT NULL"),
 ]
 
 MART_SPEND_BY_CATEGORY_MONTHLY_TABLE = "mart_spend_by_category_monthly"
@@ -117,6 +123,7 @@ MART_SPEND_BY_CATEGORY_MONTHLY_COLUMNS: list[tuple[str, str]] = [
     ("category", "VARCHAR"),
     ("total_expense", "DECIMAL(18,4) NOT NULL"),
     ("transaction_count", "INTEGER NOT NULL"),
+    ("currency", "VARCHAR NOT NULL"),
 ]
 
 MART_RECENT_LARGE_TRANSACTIONS_TABLE = "mart_recent_large_transactions"
@@ -141,6 +148,8 @@ MART_ACCOUNT_BALANCE_TREND_COLUMNS: list[tuple[str, str]] = [
     ("net_change", "DECIMAL(18,4) NOT NULL"),
     ("cumulative_balance", "DECIMAL(18,4) NOT NULL"),
     ("transaction_count", "INTEGER NOT NULL"),
+    # One balance series per (account, currency); never summed across currencies.
+    ("currency", "VARCHAR NOT NULL"),
 ]
 
 MART_TRANSACTION_ANOMALIES_CURRENT_TABLE = "mart_transaction_anomalies_current"
@@ -153,6 +162,8 @@ MART_TRANSACTION_ANOMALIES_CURRENT_COLUMNS: list[tuple[str, str]] = [
     ("direction", "VARCHAR NOT NULL"),
     ("anomaly_type", "VARCHAR NOT NULL"),
     ("anomaly_reason", "VARCHAR NOT NULL"),
+    # Denomination of ``amount``; anomaly statistics never mix currencies.
+    ("currency", "VARCHAR NOT NULL"),
 ]
 
 # Spend by ISO weekday x UTC hour, one row per booking date and hour bucket.
@@ -166,6 +177,8 @@ MART_SPEND_BY_WEEKDAY_HOUR_COLUMNS: list[tuple[str, str]] = [
     ("hour_of_day", "INTEGER"),
     ("total_expense", "DECIMAL(18,4) NOT NULL"),
     ("transaction_count", "INTEGER NOT NULL"),
+    # Separate buckets per currency; never summed across currencies.
+    ("currency", "VARCHAR NOT NULL"),
 ]
 
 TRANSFORMATION_AUDIT_TABLE = "transformation_audit"
