@@ -15,6 +15,7 @@ from packages.domains.homelab.pipelines.transformation_home_automation import (
 from packages.domains.homelab.pipelines.transformation_homelab import (
     refresh_backup_freshness,
     refresh_service_health_current,
+    refresh_service_health_history,
     refresh_storage_risk,
     refresh_workload_cost_7d,
 )
@@ -30,6 +31,7 @@ from packages.pipelines.transformation_refresh_registry import (
 
 HOMELAB_PUBLICATION_REFRESH_HANDLERS: dict[str, PublicationRefreshHandler] = {
     "mart_service_health_current": StoreRefreshHandler(refresh_service_health_current),
+    "mart_service_health_history": StoreRefreshHandler(refresh_service_health_history),
     "mart_backup_freshness": StoreRefreshHandler(refresh_backup_freshness),
     "mart_storage_risk": StoreRefreshHandler(refresh_storage_risk),
     "mart_workload_cost_7d": StoreRefreshHandler(refresh_workload_cost_7d),

@@ -44,6 +44,7 @@ HOMELAB_PACK = CapabilityPack(
             command_name="derive-homelab-publications",
             publication_keys=(
                 "service_health_current",
+                "service_health_history",
                 "backup_freshness",
                 "storage_risk",
                 "workload_cost_7d",
@@ -103,6 +104,24 @@ HOMELAB_PACK = CapabilityPack(
                     "Timestamp when the health snapshot was recorded.",
                     grain="timestamp",
                 ),
+            },
+        ),
+        PublicationDefinition(
+            key="service_health_history",
+            schema_name="service_health_history",
+            schema_version="1.0.0",
+            display_name="Service Health Observation History",
+            description="Latest observed service state in each recorded ingestion batch.",
+            visibility="public",
+            lineage_required=True,
+            retention_policy="source_fact_history",
+            field_semantics={
+                "run_id": identifier_field("Identity of the recorded ingestion batch."),
+                "recorded_at": time_field(
+                    "Latest observation timestamp in the batch.", grain="timestamp"
+                ),
+                "service_id": identifier_field("Identity of the observed service."),
+                "state": status_field("Latest recorded health state in the batch."),
             },
         ),
         PublicationDefinition(

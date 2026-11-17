@@ -3322,6 +3322,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reports/domain-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Domain Cards */
+        get: operations["get_domain_cards_reports_domain_cards_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reports/electricity-prices": {
         parameters: {
             query?: never;
@@ -5420,6 +5437,66 @@ export interface components {
             workload_id: string;
             /** Workload Type */
             workload_type?: string | null;
+        };
+        /** DomainAttention */
+        DomainAttention: {
+            /** Href */
+            href: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Priority */
+            priority: number | null;
+        };
+        /** DomainCard */
+        DomainCard: {
+            attention?: components["schemas"]["DomainAttention"] | null;
+            /**
+             * Attention State
+             * @default unavailable
+             * @enum {string}
+             */
+            attention_state: "available" | "empty" | "unavailable";
+            /**
+             * Domain Key
+             * @enum {string}
+             */
+            domain_key: "finance" | "utilities" | "homelab";
+            /** Headline */
+            headline?: components["schemas"]["DomainPoint"][];
+            /**
+             * Metric State
+             * @default unavailable
+             * @enum {string}
+             */
+            metric_state: "available" | "empty" | "unavailable";
+            /** Trend */
+            trend?: components["schemas"]["DomainPoint"][];
+            /**
+             * Trend State
+             * @default unavailable
+             * @enum {string}
+             */
+            trend_state: "available" | "insufficient_history" | "unavailable";
+        };
+        /** DomainCardsResponse */
+        DomainCardsResponse: {
+            /** Cards */
+            cards: components["schemas"]["DomainCard"][];
+        };
+        /** DomainPoint */
+        DomainPoint: {
+            /** Known Count */
+            known_count?: number | null;
+            /** Period */
+            period: string;
+            /** Run Id */
+            run_id?: string | null;
+            /** Unit */
+            unit: string;
+            /** Value */
+            value: string | number;
         };
         /** ElectricityPriceCurrentResponse */
         ElectricityPriceCurrentResponse: {
@@ -14537,6 +14614,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_domain_cards_reports_domain_cards_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainCardsResponse"];
                 };
             };
         };

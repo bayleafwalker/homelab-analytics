@@ -1,10 +1,12 @@
 import { AppShell } from "@/components/app-shell";
+import { DomainCards } from "@/components/domain-cards";
 import { OperatingPictureView } from "@/components/operating-picture-view";
 import { formatMoney, formatMonth } from "@/lib/format";
 import {
   getAffordabilityRatios,
   getAttentionItems,
   getCurrentUser,
+  getDomainCards,
   getMonthlyCashflow,
   getRecentChanges,
   getRecurringCostBaseline,
@@ -149,17 +151,10 @@ export default async function OperatingPicturePage() {
   const user = await getCurrentUser();
 
   const [
-    cashflowRows,
-    recurringBaseline,
-    affordabilityRatios,
-    attentionItems,
-    recentChanges,
-    subscriptions,
-    utilityTrend,
-    upcomingFixedCosts,
-    freshnessDatasets,
-    categorySpend,
-  ] = await Promise.all([
+    cardsResult,
+    ...existingResults
+  ] = await Promise.allSettled([
+    getDomainCards(),
     getMonthlyCashflow(),
     getRecurringCostBaseline(),
     getAffordabilityRatios(),
@@ -171,6 +166,26 @@ export default async function OperatingPicturePage() {
     getSourceFreshness(),
     getSpendByCategoryMonthly(),
   ]);
+
+  for (const result of [cardsResult, ...existingResults]) {
+    if (result.status === "rejected" && typeof result.reason?.digest === "string" && result.reason.digest.startsWith("NEXT_REDIRECT;")) {
+      throw result.reason;
+    }
+  }
+  const [
+    cashflowRows,
+    recurringBaseline,
+    affordabilityRatios,
+    attentionItems,
+    recentChanges,
+    subscriptions,
+    utilityTrend,
+    upcomingFixedCosts,
+    freshnessDatasets,
+    categorySpend,
+  ] = existingResults.map((result) => result.status === "fulfilled" ? result.value : []);
+  const cards = cardsResult.status === "fulfilled" ? cardsResult.value : null;
+  const somePanelsUnavailable = existingResults.some((result) => result.status === "rejected");
 
   // Money is built per currency: each group has its own newest month,
   // recurring total, utility delta, trend, categories and ratios. Nothing is
@@ -242,6 +257,8 @@ export default async function OperatingPicturePage() {
       eyebrow="Household Intelligence"
       lede="Structured view of your household's financial and operational state across all active domains."
     >
+      <DomainCards cards={cards} />
+      {somePanelsUnavailable && <p className="muted">Some household panels are unavailable.</p>}
       <OperatingPictureView
         monthLabel={monthLabel}
         moneyGroups={moneyGroups}
@@ -251,7 +268,7 @@ export default async function OperatingPicturePage() {
         recentChanges={recentChanges}
       />
       {/* recurringBaseline is intentionally unused today; the fetch is kept
-          so this Promise.all stays a stable superset for future panels. */}
+          so the existing household panels stay consistent. */}
     </AppShell>
   );
 }

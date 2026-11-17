@@ -47,6 +47,7 @@ from packages.domains.homelab.pipelines.ha_service import get_ha_state_changes_s
 from packages.domains.homelab.pipelines.homelab_models import (
     MART_BACKUP_FRESHNESS_TABLE,
     MART_SERVICE_HEALTH_CURRENT_TABLE,
+    MART_SERVICE_HEALTH_HISTORY_TABLE,
     MART_STORAGE_RISK_TABLE,
     MART_WORKLOAD_COST_7D_TABLE,
 )
@@ -1035,6 +1036,14 @@ class ReportingService:
             lambda: self._read_mart(MART_SERVICE_HEALTH_CURRENT_TABLE),
             ("", []),
             "ORDER BY service_id",
+        )
+
+    def get_service_health_history(self) -> list[dict[str, Any]]:
+        return self._fetch_published_or_fallback(
+            MART_SERVICE_HEALTH_HISTORY_TABLE,
+            lambda: self._read_mart(MART_SERVICE_HEALTH_HISTORY_TABLE),
+            ("", []),
+            "ORDER BY recorded_at, run_id, service_id",
         )
 
     def get_backup_freshness(self) -> list[dict[str, Any]]:

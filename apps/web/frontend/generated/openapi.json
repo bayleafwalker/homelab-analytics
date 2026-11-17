@@ -5159,6 +5159,181 @@
         "title": "DimWorkloadRow",
         "type": "object"
       },
+      "DomainAttention": {
+        "properties": {
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "priority",
+          "href"
+        ],
+        "title": "DomainAttention",
+        "type": "object"
+      },
+      "DomainCard": {
+        "properties": {
+          "attention": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DomainAttention"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attention_state": {
+            "default": "unavailable",
+            "enum": [
+              "available",
+              "empty",
+              "unavailable"
+            ],
+            "title": "Attention State",
+            "type": "string"
+          },
+          "domain_key": {
+            "enum": [
+              "finance",
+              "utilities",
+              "homelab"
+            ],
+            "title": "Domain Key",
+            "type": "string"
+          },
+          "headline": {
+            "items": {
+              "$ref": "#/components/schemas/DomainPoint"
+            },
+            "title": "Headline",
+            "type": "array"
+          },
+          "metric_state": {
+            "default": "unavailable",
+            "enum": [
+              "available",
+              "empty",
+              "unavailable"
+            ],
+            "title": "Metric State",
+            "type": "string"
+          },
+          "trend": {
+            "items": {
+              "$ref": "#/components/schemas/DomainPoint"
+            },
+            "title": "Trend",
+            "type": "array"
+          },
+          "trend_state": {
+            "default": "unavailable",
+            "enum": [
+              "available",
+              "insufficient_history",
+              "unavailable"
+            ],
+            "title": "Trend State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain_key"
+        ],
+        "title": "DomainCard",
+        "type": "object"
+      },
+      "DomainCardsResponse": {
+        "properties": {
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/DomainCard"
+            },
+            "title": "Cards",
+            "type": "array"
+          }
+        },
+        "required": [
+          "cards"
+        ],
+        "title": "DomainCardsResponse",
+        "type": "object"
+      },
+      "DomainPoint": {
+        "properties": {
+          "known_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known Count"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "period",
+          "value",
+          "unit"
+        ],
+        "title": "DomainPoint",
+        "type": "object"
+      },
       "ElectricityPriceCurrentResponse": {
         "properties": {
           "rows": {
@@ -21935,6 +22110,24 @@
           }
         },
         "summary": "Get Current Dimension Report"
+      }
+    },
+    "/reports/domain-cards": {
+      "get": {
+        "operationId": "get_domain_cards_reports_domain_cards_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainCardsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Domain Cards"
       }
     },
     "/reports/electricity-prices": {

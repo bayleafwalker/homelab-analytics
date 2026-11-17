@@ -13,12 +13,14 @@ from packages.domains.homelab.pipelines.ha_service import (
 from packages.domains.homelab.pipelines.homelab_models import (
     MART_BACKUP_FRESHNESS_TABLE,
     MART_SERVICE_HEALTH_CURRENT_TABLE,
+    MART_SERVICE_HEALTH_HISTORY_TABLE,
     MART_STORAGE_RISK_TABLE,
     MART_WORKLOAD_COST_7D_TABLE,
 )
 from packages.domains.homelab.pipelines.transformation_homelab import (
     get_backup_freshness,
     get_service_health_current,
+    get_service_health_history,
     get_storage_risk,
     get_workload_cost_7d,
 )
@@ -26,6 +28,7 @@ from packages.pipelines.mart_read_registry import MartReader, SchemaEnsuringRead
 
 HOMELAB_MART_READERS: dict[str, MartReader] = {
     MART_SERVICE_HEALTH_CURRENT_TABLE: get_service_health_current,
+    MART_SERVICE_HEALTH_HISTORY_TABLE: get_service_health_history,
     MART_BACKUP_FRESHNESS_TABLE: get_backup_freshness,
     MART_STORAGE_RISK_TABLE: get_storage_risk,
     MART_WORKLOAD_COST_7D_TABLE: get_workload_cost_7d,

@@ -213,6 +213,23 @@ observation to establish household value.
 
 ---
 
+### ANA-11: Operating Picture domain cards
+
+**Phase:** 3
+**Status:** implemented through `GET /reports/domain-cards` and `/operating-picture`.
+
+Show one card for each loaded source-owning Finance, Utilities, and Homelab capability pack.
+Finance presents observed monthly net cashflow by denomination. Utilities presents observed
+monthly billed totals by denomination, with actual zero bills and usage-only data distinguished.
+Homelab counts distinct observed services in degraded or stopped health states and compares known
+cohorts only when the service identities match across recorded ingestion batches. The service
+health history publication keeps the latest recorded observation per service and run.
+
+Each card presents its own highest-priority actionable item, with deterministic ties, and
+distinguishes unavailable evidence, genuine emptiness, insufficient comparable history,
+and an available attention feed with no actionable item.
+
+
 ## Traceability
 
 | Requirement | Architecture doc section | Implementation module | Test file |
@@ -227,3 +244,4 @@ observation to establish household value.
 | ANA-08 | API and dashboard publication | `packages/domains/homelab/pipelines/ha_contract_renderer.py`, `packages/domains/homelab/pipelines/ha_mqtt_publisher.py`, `apps/api/routes/ha_routes.py`, `apps/api/main.py`, `apps/api/ha_startup.py`, `packages/pipelines/reporting_service.py` | `tests/test_ha_contract_renderer.py`, `tests/test_ha_mqtt_publisher.py`, `tests/test_ha_api.py`, `tests/test_currency_reporting_regressions.py` |
 | ANA-09 | Reporting | `packages/domains/finance/pipelines/contract_price_models.py`, `packages/pipelines/transformation_service.py`, `apps/api/app.py`, `apps/worker/main.py` | `tests/test_contract_price_domain.py`, `tests/test_api_app.py`, `tests/test_worker_cli.py` |
 | ANA-10 | Household outcome plan; source and method basis qualification | `packages/platform/decision_definitions.py`, `packages/application/use_cases/decision_ledger.py`, `packages/application/use_cases/decision_evidence_trace.py`, `packages/domains/utilities/energy_contract_decision.py` | `tests/test_decision_commitment_lifecycle.py`, `tests/test_decision_evidence_trace.py`, `tests/test_decision_attribution_review.py`, `tests/test_energy_contract_decision.py` |
+| ANA-11 | Operating Picture | `packages/application/use_cases/domain_cards.py`, `migrations/duckdb/0021_service_health_history.sql`, `apps/web/frontend/app/operating-picture/page.js` | `tests/test_operating_picture_domain_cards.py` |

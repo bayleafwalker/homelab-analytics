@@ -5356,6 +5356,82 @@
       "columns": [
         {
           "aggregation": null,
+          "description": "Identity of the recorded ingestion batch.",
+          "filterable": true,
+          "grain": null,
+          "json_type": "string",
+          "name": "run_id",
+          "nullable": false,
+          "semantic_role": "identifier",
+          "sortable": true,
+          "storage_type": "VARCHAR NOT NULL",
+          "unit": null
+        },
+        {
+          "aggregation": null,
+          "description": "Latest observation timestamp in the batch.",
+          "filterable": true,
+          "grain": "timestamp",
+          "json_type": "string",
+          "name": "recorded_at",
+          "nullable": false,
+          "semantic_role": "time",
+          "sortable": true,
+          "storage_type": "TIMESTAMP NOT NULL",
+          "unit": null
+        },
+        {
+          "aggregation": null,
+          "description": "Identity of the observed service.",
+          "filterable": true,
+          "grain": null,
+          "json_type": "string",
+          "name": "service_id",
+          "nullable": false,
+          "semantic_role": "identifier",
+          "sortable": true,
+          "storage_type": "VARCHAR NOT NULL",
+          "unit": null
+        },
+        {
+          "aggregation": null,
+          "description": "Latest recorded health state in the batch.",
+          "filterable": true,
+          "grain": null,
+          "json_type": "string",
+          "name": "state",
+          "nullable": false,
+          "semantic_role": "status",
+          "sortable": true,
+          "storage_type": "VARCHAR NOT NULL",
+          "unit": null
+        }
+      ],
+      "completeness_pct": null,
+      "confidence_verdict": null,
+      "description": "Latest observed service state in each recorded ingestion batch.",
+      "display_name": "Service Health Observation History",
+      "freshness_state": null,
+      "lineage_required": true,
+      "pack_name": "homelab",
+      "pack_version": "0.1.0",
+      "publication_key": "service_health_history",
+      "relation_name": "mart_service_health_history",
+      "renderer_hints": {},
+      "retention_policy": "source_fact_history",
+      "schema_name": "service_health_history",
+      "schema_version": "1.0.0",
+      "supported_renderers": [
+        "web"
+      ],
+      "ui_descriptor_keys": [],
+      "visibility": "public"
+    },
+    {
+      "assessed_at": null,
+      "columns": [
+        {
+          "aggregation": null,
           "description": "Calendar month bucket for the spend aggregate.",
           "filterable": true,
           "grain": "month",
