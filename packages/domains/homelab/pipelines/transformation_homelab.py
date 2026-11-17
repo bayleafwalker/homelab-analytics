@@ -306,11 +306,14 @@ def refresh_service_health_current(store: DuckDBStore) -> int:
 
 
 def refresh_backup_freshness(store: DuckDBStore) -> int:
-    """Most recent *successful* backup per target with staleness flag (>24h = stale).
+    """Every observed target with latest attempt status and recovery point.
 
-    Staleness is based on the last successful run only — failed retries do not
-    mask a genuinely stale target.  status and size_bytes are taken from the
-    same row as the MAX(started_at) so they are always correlated.
+    Targets with observed runs stay visible even before their first success:
+    the recovery point (last_backup_at, last_size_bytes) and staleness flag
+    come from the most recent *successful* run only, while last_status reports
+    the most recent attempt of any status and backup_count_7d counts all runs
+    observed in the trailing seven days.  A target with no success yet has a
+    NULL recovery point, NULL hours_since_backup, and is_stale = TRUE.
     """
     store.execute(f"DELETE FROM {MART_BACKUP_FRESHNESS_TABLE}")
     store.execute(
@@ -319,21 +322,38 @@ def refresh_backup_freshness(store: DuckDBStore) -> int:
             target, last_backup_at, last_status, last_size_bytes,
             hours_since_backup, is_stale, backup_count_7d
         )
-        WITH last_success_per_target AS (
-            SELECT
-                target,
-                MAX(started_at) AS last_backup_at
+        WITH observed_targets AS (
+            SELECT target
             FROM {FACT_BACKUP_RUN_TABLE}
-            WHERE status = 'success'
             GROUP BY target
         ),
-        last_row AS (
-            SELECT f.target, f.started_at AS last_backup_at, f.status AS last_status, f.size_bytes AS last_size_bytes
-            FROM {FACT_BACKUP_RUN_TABLE} f
-            JOIN last_success_per_target l
-                ON f.target = l.target
-               AND f.started_at = l.last_backup_at
-               AND f.status = 'success'
+        last_success AS (
+            SELECT target, started_at AS last_backup_at, size_bytes AS last_size_bytes
+            FROM (
+                SELECT
+                    target,
+                    started_at,
+                    size_bytes,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY target ORDER BY started_at DESC
+                    ) AS rn
+                FROM {FACT_BACKUP_RUN_TABLE}
+                WHERE status = 'success'
+            ) ranked
+            WHERE rn = 1
+        ),
+        last_attempt AS (
+            SELECT target, status AS last_status
+            FROM (
+                SELECT
+                    target,
+                    status,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY target ORDER BY started_at DESC
+                    ) AS rn
+                FROM {FACT_BACKUP_RUN_TABLE}
+            ) ranked
+            WHERE rn = 1
         ),
         count_7d AS (
             SELECT
@@ -344,23 +364,28 @@ def refresh_backup_freshness(store: DuckDBStore) -> int:
             GROUP BY target
         )
         SELECT
-            l.target,
-            l.last_backup_at,
-            l.last_status,
-            l.last_size_bytes,
-            ROUND(
-                CAST(epoch(CURRENT_TIMESTAMP) - epoch(l.last_backup_at) AS DECIMAL) / 3600.0,
-                2
-            )                                                   AS hours_since_backup,
+            o.target,
+            s.last_backup_at,
+            a.last_status,
+            s.last_size_bytes,
             CASE
-                WHEN l.last_backup_at IS NULL THEN TRUE
-                WHEN (epoch(CURRENT_TIMESTAMP) - epoch(l.last_backup_at)) > 86400 THEN TRUE
+                WHEN s.last_backup_at IS NULL THEN NULL
+                ELSE ROUND(
+                    CAST(epoch(CURRENT_TIMESTAMP) - epoch(s.last_backup_at) AS DECIMAL) / 3600.0,
+                    2
+                )
+            END                                                 AS hours_since_backup,
+            CASE
+                WHEN s.last_backup_at IS NULL THEN TRUE
+                WHEN (epoch(CURRENT_TIMESTAMP) - epoch(s.last_backup_at)) > 86400 THEN TRUE
                 ELSE FALSE
             END                                                 AS is_stale,
             COALESCE(c.backup_count_7d, 0)                      AS backup_count_7d
-        FROM last_row l
-        LEFT JOIN count_7d c ON c.target = l.target
-        ORDER BY l.target
+        FROM observed_targets o
+        LEFT JOIN last_success s ON s.target = o.target
+        LEFT JOIN last_attempt a ON a.target = o.target
+        LEFT JOIN count_7d c ON c.target = o.target
+        ORDER BY o.target
         """
     )
     return store.fetchall(
