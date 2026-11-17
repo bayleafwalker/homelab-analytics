@@ -125,6 +125,12 @@ def test_materialized_verification_rejects_and_setup_cleans_unbound_inputs(tmp_p
         )
 
     assert run("materialize", str(assets)).returncode == 0
+    unrelated_home_file = tmp_path / ".tooling/playwright-home/.npm/cache-marker"
+    unrelated_home_file.parent.mkdir(parents=True)
+    unrelated_home_file.write_text("not a font config\n")
+    unrelated_xdg_file = tmp_path / ".tooling/playwright-xdg-config/not-fontconfig"
+    unrelated_xdg_file.write_text("not a font config\n")
+    assert run("materialized-matches").returncode == 0
     font_extra = tmp_path / ".tooling/playwright-fonts/truetype/test/Unbound.ttf"
     rule_extra = tmp_path / ".tooling/playwright-fontconfig/conf.d/99-unbound.conf"
     home_extra = tmp_path / ".tooling/playwright-home/.fonts.conf"
@@ -142,6 +148,8 @@ def test_materialized_verification_rejects_and_setup_cleans_unbound_inputs(tmp_p
     assert not rule_extra.exists()
     assert not home_extra.exists()
     assert not xdg_extra.exists()
+    assert unrelated_home_file.read_text() == "not a font config\n"
+    assert unrelated_xdg_file.read_text() == "not a font config\n"
 
 
 def test_materialized_provenance_binds_its_generator(tmp_path: Path) -> None:
@@ -161,3 +169,46 @@ def test_materialized_provenance_binds_its_generator(tmp_path: Path) -> None:
         check=False,
     )
     assert result.returncode != 0
+
+
+def test_materialized_verification_rejects_missing_and_foreign_user_roots(tmp_path: Path) -> None:
+    helper, assets = _fixture(tmp_path)
+
+    def run(*args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, str(helper), *args],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    assert run("materialize", str(assets)).returncode == 0
+    for target_name, poison_name in (
+        ("playwright-home", ".fonts.conf"),
+        ("playwright-xdg-config", "fontconfig"),
+    ):
+        target = tmp_path / ".tooling" / target_name
+        target.rmdir()
+        assert run("materialized-matches").returncode != 0
+        assert run("materialize", str(assets)).returncode == 0
+        assert target.is_dir() and not target.is_symlink()
+
+        foreign = tmp_path / f"foreign-{target_name}"
+        foreign.mkdir()
+        sentinel = foreign / poison_name
+        if poison_name == "fontconfig":
+            sentinel.mkdir()
+            (sentinel / "fonts.conf").write_text(
+                '<fontconfig><dir>/tmp/foreign-user-fonts</dir></fontconfig>\n'
+            )
+            sentinel = sentinel / "fonts.conf"
+        else:
+            sentinel.write_text('<fontconfig><dir>/tmp/foreign-user-fonts</dir></fontconfig>\n')
+        (tmp_path / ".tooling" / target_name).rmdir()
+        (tmp_path / ".tooling" / target_name).symlink_to(foreign, target_is_directory=True)
+        assert run("materialized-matches").returncode != 0
+        assert run("materialize", str(assets)).returncode == 0
+        assert (tmp_path / ".tooling" / target_name).is_dir()
+        assert not (tmp_path / ".tooling" / target_name).is_symlink()
+        assert sentinel.exists()
+        assert "/tmp/foreign-user-fonts" in sentinel.read_text()

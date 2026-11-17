@@ -67,6 +67,25 @@ def clear_checkout_directory(path: Path) -> None:
             child.unlink()
 
 
+def unlink_checkout_directory_link(path: Path) -> None:
+    ensure_checkout_directory(path.parent)
+    if path.is_symlink():
+        path.unlink()
+
+
+def remove_checkout_path(path: Path) -> None:
+    ensure_checkout_directory(path.parent)
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.is_dir():
+        shutil.rmtree(path)
+
+
+def clear_user_fontconfig_inputs(home: Path, xdg: Path) -> None:
+    for path in (home / ".fonts.conf", home / ".fonts.conf.d", xdg / "fontconfig"):
+        remove_checkout_path(path)
+
+
 def verify_checkout_file(path: Path, expected: str) -> bool:
     try:
         ensure_checkout_file(path)
@@ -110,10 +129,13 @@ def materialize_sources(
     cache_target = ROOT / ".tooling/fontconfig-cache"
     home_target = ROOT / ".tooling/playwright-home"
     xdg_target = ROOT / ".tooling/playwright-xdg-config"
+    for directory in (home_target, xdg_target):
+        unlink_checkout_directory_link(directory)
     for directory in (fonts_target, config_target, cache_target, home_target, xdg_target):
         ensure_checkout_directory(directory)
-    for directory in (fonts_target, config_target, home_target, xdg_target):
+    for directory in (fonts_target, config_target):
         clear_checkout_directory(directory)
+    clear_user_fontconfig_inputs(home_target, xdg_target)
     ensure_checkout_directory(rules_target)
 
     ignored = set(data["generated_metadata"])
@@ -226,7 +248,16 @@ def materialized_matches() -> bool:
         return False
     if directory_entries(config_target) != {"fonts.conf", ".hla-assets-provenance.json", "conf.d"}:
         return False
-    if directory_entries(home_target) or directory_entries(xdg_target):
+    if directory_entries(home_target) is None or directory_entries(xdg_target) is None:
+        return False
+    if any(
+        path.exists() or path.is_symlink()
+        for path in (
+            home_target / ".fonts.conf",
+            home_target / ".fonts.conf.d",
+            xdg_target / "fontconfig",
+        )
+    ):
         return False
     for entry in data["fonts"]:
         if entry["path"] in ignored:
