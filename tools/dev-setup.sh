@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=tools/dev-env.sh
 source "$ROOT/tools/dev-env.sh"
+source "$ROOT/tools/dev-browser.sh"
 
 fail() { printf 'dev setup error: %s\n' "$*" >&2; exit 1; }
 
@@ -78,4 +79,5 @@ ESBUILD="$ROOT/apps/web/frontend/node_modules/@esbuild/linux-x64/bin/esbuild"
 if [[ ! -x "$ESBUILD" ]] || ! "$ESBUILD" --version >/dev/null 2>&1; then
   fail "frontend dependencies were installed but the esbuild native executable is unusable; retry npm ci after checking platform support and package availability"
 fi
+dev_install_browser "$ROOT"
 printf 'HLA development dependencies are ready.\n'

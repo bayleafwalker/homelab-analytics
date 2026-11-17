@@ -161,25 +161,25 @@ contract-release-artifacts:
 		--output-dir $(CONTRACT_RELEASE_DIR)
 
 web-codegen:
-	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run codegen
+	npm --prefix $(WEB_DIR) run codegen
 
 web-codegen-check:
-	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run codegen:check
+	npm --prefix $(WEB_DIR) run codegen:check
 
 web-token-check:
-	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run tokens:check
+	npm --prefix $(WEB_DIR) run tokens:check
 
 web-typecheck:
-	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run typecheck
+	npm --prefix $(WEB_DIR) run typecheck
 
 web-contracts-check:
-	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run contracts:check
+	npm --prefix $(WEB_DIR) run contracts:check
 
 web-build:
-	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run build
+	npm --prefix $(WEB_DIR) run build
 
 web-ui-test:
-	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run ui:test
+	bash tools/dev-web-ui-test.sh
 
 # Local web launch: `python -m apps.web.main` runs the Next.js standalone
 # server, which serves /_next/static and public/ only from beside server.js.
@@ -188,8 +188,8 @@ web-ui-test:
 WEB_STANDALONE_DIR := $(WEB_DIR)/.next/standalone
 
 web-local:
-	@test -d $(WEB_DIR)/node_modules || PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) ci
-	PATH=$(WEB_NODE_BIN_DIR):$$PATH npm --prefix $(WEB_DIR) run build
+	@test -d $(WEB_DIR)/node_modules || npm --prefix $(WEB_DIR) ci
+	npm --prefix $(WEB_DIR) run build
 	rm -rf $(WEB_STANDALONE_DIR)/.next/static $(WEB_STANDALONE_DIR)/public
 	mkdir -p $(WEB_STANDALONE_DIR)/.next
 	cp -R $(WEB_DIR)/.next/static $(WEB_STANDALONE_DIR)/.next/static
