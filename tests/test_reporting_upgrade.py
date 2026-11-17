@@ -8,11 +8,13 @@ from pathlib import Path
 from apps.worker.main import main
 from packages.pipelines.reporting_snapshots import SNAPSHOT_TABLE
 from packages.pipelines.reporting_upgrade import (
+    _REBUILD_ONLY_RELATIONS,
     _RELATIONS,
     EXIT_COMPLETE,
     EXIT_REFUSED,
     _duck_snapshot_evidence,
     _fact_evidence,
+    classify_rebuild_only_shape,
     classify_shape,
     run_upgrade,
 )
@@ -95,6 +97,71 @@ def test_classify_shape_recognises_only_known_states() -> None:
     assert classify_shape(list(reversed(observed)), columns, postgres=False) == "unknown"
 
 
+def test_classify_shape_maps_postgres_date_columns() -> None:
+    """The PostgreSQL preflight maps DATE columns, not just text/numeric/int."""
+    relation = next(r for r in _RELATIONS if r.name == "mart_spend_by_weekday_hour")
+    observed = [
+        ("booked_at", "date"),
+        ("day_of_week", "integer"),
+        ("hour_of_day", "integer"),
+        ("total_expense", "numeric"),
+        ("transaction_count", "integer"),
+        ("currency", "text"),
+    ]
+    assert classify_shape(observed, relation.columns, postgres=True) == "current"
+    assert classify_shape(observed[:-1], relation.columns, postgres=True) == "legacy"
+
+
+def test_classify_rebuild_only_shape_accepts_only_absent_or_current() -> None:
+    relation = next(r for r in _REBUILD_ONLY_RELATIONS if r.name == "mart_household_overview")
+    observed = [(name, dtype.replace(" NOT NULL", "")) for name, dtype in relation.columns]
+    assert classify_rebuild_only_shape([], relation.columns, postgres=False) == "absent"
+    assert classify_rebuild_only_shape(observed, relation.columns, postgres=False) == "current"
+    # An extra column, a missing column, or type drift is unknown (never legacy).
+    assert (
+        classify_rebuild_only_shape([*observed, ("operator_note", "VARCHAR")],
+                                    relation.columns, postgres=False)
+        == "unknown"
+    )
+    assert classify_rebuild_only_shape(observed[:-1], relation.columns, postgres=False) == "unknown"
+
+
+def test_classify_rebuild_only_shape_ignores_runtime_optional_columns() -> None:
+    relation = next(r for r in _REBUILD_ONLY_RELATIONS if r.name == "mart_affordability_ratios")
+    observed = [(name, dtype.replace(" NOT NULL", "")) for name, dtype in relation.columns]
+    # The self-healed `state` column may be absent (pre-heal) or present with
+    # its documented VARCHAR type (post-heal).
+    assert (
+        classify_rebuild_only_shape(
+            observed, relation.columns, postgres=False, optional=relation.optional
+        )
+        == "current"
+    )
+    assert (
+        classify_rebuild_only_shape(
+            [*observed, ("state", "VARCHAR")], relation.columns, postgres=False,
+            optional=relation.optional,
+        )
+        == "current"
+    )
+    # A known optional name with a foreign type is still refused.
+    assert (
+        classify_rebuild_only_shape(
+            [*observed, ("state", "INTEGER")], relation.columns, postgres=False,
+            optional=relation.optional,
+        )
+        == "unknown"
+    )
+    # An unrelated extra column is still refused.
+    assert (
+        classify_rebuild_only_shape(
+            [*observed, ("operator_note", "VARCHAR")], relation.columns, postgres=False,
+            optional=relation.optional,
+        )
+        == "unknown"
+    )
+
+
 def test_check_is_read_only_and_reports_legacy(tmp_path: Path) -> None:
     warehouse = tmp_path / "warehouse.duckdb"
     _legacy_warehouse(warehouse)
@@ -155,6 +222,44 @@ def test_unknown_drift_is_refused_before_any_change(tmp_path: Path) -> None:
     assert code == EXIT_REFUSED and receipt["status"] == "refused"
     assert "mart_spend_by_category_monthly" in receipt["refusals"][0]
     assert {t: _columns(warehouse, t) for t in before} == before
+
+
+def test_unknown_column_on_rebuilt_relation_is_refused_and_preserved(tmp_path: Path) -> None:
+    warehouse = tmp_path / "warehouse.duckdb"
+    _legacy_warehouse(warehouse)
+    store = DuckDBStore.open(str(warehouse))
+    try:
+        for relation in _REBUILD_ONLY_RELATIONS:
+            store.ensure_table(relation.name, relation.columns)
+        store.execute("ALTER TABLE mart_household_overview ADD COLUMN operator_note VARCHAR")
+        store.execute(
+            "INSERT INTO mart_household_overview "
+            "(current_month, cashflow_income, cashflow_expense, cashflow_net, "
+            "utility_cost_total, subscription_total_monthly, account_balance_direction, "
+            "balance_net_change, currency, operator_note) "
+            "VALUES ('2025-01', 0, 0, 0, 0, 0, 'flat', 0, 'EUR', 'foreign sentinel')"
+        )
+    finally:
+        store.close()
+
+    # --check must refuse the unknown column, not report check_ok.
+    code, check = run_upgrade(_settings(tmp_path, warehouse), check_only=True)
+    assert code == EXIT_REFUSED
+    assert "mart_household_overview" in check["refusals"][0]
+
+    # The real upgrade must refuse before mutation and preserve the sentinel.
+    code, receipt = run_upgrade(_settings(tmp_path, warehouse), check_only=False)
+    assert code == EXIT_REFUSED
+    assert "mart_household_overview" in receipt["refusals"][0]
+    assert "operator_note" in _columns(warehouse, "mart_household_overview")
+    store = DuckDBStore.open(str(warehouse), read_only=True)
+    try:
+        rows = store.fetchall(
+            "SELECT operator_note FROM mart_household_overview WHERE operator_note IS NOT NULL"
+        )
+        assert [row[0] for row in rows] == ["foreign sentinel"]
+    finally:
+        store.close()
 
 
 def test_missing_warehouse_is_refused_and_not_created(tmp_path: Path) -> None:

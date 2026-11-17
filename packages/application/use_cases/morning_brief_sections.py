@@ -162,7 +162,7 @@ def build_money_section(inputs: BriefInputs) -> SectionDraft:
     # before; with several, each statement names its currency.
     by_currency: dict[str, list[dict[str, Any]]] = {}
     for row in months:
-        by_currency.setdefault(str(row.get("currency") or ""), []).append(row)
+        by_currency.setdefault(str(row.get("currency") or ""), []).append(dict(row))
     multiple = len(by_currency) > 1
     branches: list[str] = []
     items: list[Any] = []

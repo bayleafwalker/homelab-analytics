@@ -59,12 +59,26 @@ from packages.domains.finance.pipelines.transaction_models import (
     MART_TRANSACTION_ANOMALIES_CURRENT_TABLE,
 )
 from packages.domains.overview.pipelines.overview_models import (
+    MART_AFFORDABILITY_RATIOS_COLUMNS,
+    MART_AFFORDABILITY_RATIOS_TABLE,
+    MART_COST_TREND_12M_COLUMNS,
+    MART_COST_TREND_12M_TABLE,
+    MART_CURRENT_OPERATING_BASELINE_COLUMNS,
+    MART_CURRENT_OPERATING_BASELINE_TABLE,
+    MART_HOUSEHOLD_COST_MODEL_COLUMNS,
+    MART_HOUSEHOLD_COST_MODEL_TABLE,
+    MART_HOUSEHOLD_OVERVIEW_COLUMNS,
+    MART_HOUSEHOLD_OVERVIEW_TABLE,
     MART_RECENT_SIGNIFICANT_CHANGES_COLUMNS,
     MART_RECENT_SIGNIFICANT_CHANGES_TABLE,
 )
 from packages.domains.utilities.pipelines.utility_models import (
     MART_USAGE_VS_PRICE_SUMMARY_COLUMNS,
     MART_USAGE_VS_PRICE_SUMMARY_TABLE,
+    MART_UTILITY_COST_SUMMARY_COLUMNS,
+    MART_UTILITY_COST_SUMMARY_TABLE,
+    MART_UTILITY_COST_TREND_MONTHLY_COLUMNS,
+    MART_UTILITY_COST_TREND_MONTHLY_TABLE,
 )
 from packages.pipelines.reporting_currency import CURRENCY_COLUMN_RELATIONS, UPGRADE_COMMAND
 from packages.pipelines.reporting_service import ReportingAccessMode, ReportingService
@@ -118,6 +132,7 @@ _PG_TYPES = {
     "DECIMAL": "numeric",
     "NUMERIC": "numeric",
     "INTEGER": "integer",
+    "DATE": "date",
 }
 
 
@@ -127,6 +142,11 @@ class _Relation:
 
     name: str
     columns: list[tuple[str, str]]
+    # Runtime columns the storage self-heals (not part of the currency schema).
+    # Keys are column names, values their documented declared type. They may be
+    # absent; when present they must keep that type or the relation is unknown
+    # drift (never silently erased).
+    optional: dict[str, str] = field(default_factory=dict)
 
     @property
     def added(self) -> str:
@@ -149,6 +169,31 @@ _RELATIONS: tuple[_Relation, ...] = (
     _Relation(SNAPSHOT_TABLE, SNAPSHOT_COLUMNS),
 )
 assert {r.name for r in _RELATIONS if r.added == "currency"} == set(CURRENCY_COLUMN_RELATIONS)
+
+# Relations the upgrade rebuilds (and, for PostgreSQL, republishes) without an
+# in-place ALTER: their columns are the exact current list and there is no
+# supported legacy shape. Unknown drift here would be silently erased by the
+# rebuild/republish, so it is refused up front just like an altered relation.
+_REBUILD_ONLY_RELATIONS: tuple[_Relation, ...] = (
+    _Relation(MART_UTILITY_COST_SUMMARY_TABLE, MART_UTILITY_COST_SUMMARY_COLUMNS),
+    _Relation(MART_UTILITY_COST_TREND_MONTHLY_TABLE, MART_UTILITY_COST_TREND_MONTHLY_COLUMNS),
+    _Relation(MART_HOUSEHOLD_COST_MODEL_TABLE, MART_HOUSEHOLD_COST_MODEL_COLUMNS),
+    _Relation(MART_HOUSEHOLD_OVERVIEW_TABLE, MART_HOUSEHOLD_OVERVIEW_COLUMNS),
+    _Relation(MART_COST_TREND_12M_TABLE, MART_COST_TREND_12M_COLUMNS),
+    # ``state`` is self-healed by ensure_overview_storage at runtime, so it may
+    # be absent (pre-heal) or present (post-heal) with its documented type.
+    _Relation(
+        MART_AFFORDABILITY_RATIOS_TABLE,
+        [column for column in MART_AFFORDABILITY_RATIOS_COLUMNS if column[0] != "state"],
+        optional={"state": "VARCHAR"},
+    ),
+    _Relation(MART_CURRENT_OPERATING_BASELINE_TABLE, MART_CURRENT_OPERATING_BASELINE_COLUMNS),
+)
+# Every relation the upgrade rebuilds/republishes is recognised up front.
+assert set(REBUILD_KEYS) == ({r.name for r in _RELATIONS} - {SNAPSHOT_TABLE}) | {
+    r.name for r in _REBUILD_ONLY_RELATIONS
+}
+assert {r.name for r in _REBUILD_ONLY_RELATIONS}.isdisjoint({r.name for r in _RELATIONS})
 
 
 @dataclass
@@ -229,6 +274,47 @@ def classify_shape(
     return "unknown"
 
 
+def classify_rebuild_only_shape(
+    observed: list[tuple[str, str]],
+    relation_columns: list[tuple[str, str]],
+    *,
+    postgres: bool,
+    optional: dict[str, str] | None = None,
+) -> str:
+    """``absent`` | ``current`` | ``unknown`` for a relation never altered in place.
+
+    A rebuild-only relation has no supported legacy shape: anything that is not
+    the exact current column list (extra columns, missing columns, type drift)
+    is ``unknown`` and must be refused before the rebuild erases it. Columns in
+    ``optional`` are self-healed at runtime, so they may be absent; when present
+    they must keep their documented type or the relation is refused.
+    """
+    if not observed:
+        return "absent"
+
+    optional = optional or {}
+    optional_names = {name.lower() for name in optional}
+
+    def _norm_dtype(dtype: str) -> str:
+        return _pg_type(dtype) if postgres else _declared_base(dtype).lower()
+
+    def _normalise(columns: list[tuple[str, str]]) -> list[tuple[str, str]]:
+        return [(name.lower(), _norm_dtype(dtype)) for name, dtype in columns]
+
+    seen = [
+        (name.lower(), dtype.lower())
+        for name, dtype in observed
+        if name.lower() not in optional_names
+    ]
+    if seen != _normalise(relation_columns):
+        return "unknown"
+    for name, dtype in observed:
+        key = name.lower()
+        if key in optional_names and dtype.lower() != _norm_dtype(optional[key]):
+            return "unknown"
+    return "current"
+
+
 # ---------------------------------------------------------------------------
 # DuckDB side
 # ---------------------------------------------------------------------------
@@ -251,12 +337,24 @@ def _duck_observed(store: DuckDBStore, table: str) -> list[tuple[str, str]]:
 
 
 def _duck_states(store: DuckDBStore) -> dict[str, str]:
-    return {
+    states = {
         relation.name: classify_shape(
             _duck_observed(store, relation.name), relation.columns, postgres=False
         )
         for relation in _RELATIONS
     }
+    states.update(
+        {
+            relation.name: classify_rebuild_only_shape(
+                _duck_observed(store, relation.name),
+                relation.columns,
+                postgres=False,
+                optional=relation.optional,
+            )
+            for relation in _REBUILD_ONLY_RELATIONS
+        }
+    )
+    return states
 
 
 def _digest(rows: list[Any]) -> str:
@@ -425,6 +523,19 @@ def _pg_preflight(conn: psycopg.Connection[Any], schema: str) -> _PgPlan:
         elif state == "legacy":
             problems.extend(_pg_blockers(conn, schema, relation.name))
             alter.append(relation)
+    for relation in _REBUILD_ONLY_RELATIONS:
+        state = classify_rebuild_only_shape(
+            _pg_observed(conn, schema, relation.name),
+            relation.columns,
+            postgres=True,
+            optional=relation.optional,
+        )
+        states[relation.name] = state
+        if state == "unknown":
+            problems.append(
+                f"{schema}.{relation.name}: unrecognised column set "
+                "(not the exact current shape); refusing to republish it"
+            )
     if problems:
         raise _Refused("; ".join(problems))
     existing = [key for key in REBUILD_KEYS if _pg_table_exists(conn, schema, key)]

@@ -174,6 +174,9 @@ export function TariffShockPanel() {
               {cashflow && cashflow.cashflow_rows && cashflow.cashflow_rows.length > 0 && (
                 <div className="tableWrap" style={{ marginTop: "1rem" }}>
                   <table>
+                    <caption>
+                      {result.currency ? `All amounts in ${result.currency}` : "Cashflow projection"}
+                    </caption>
                     <thead>
                       <tr>
                         <th>Period</th>

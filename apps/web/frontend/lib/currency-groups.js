@@ -37,3 +37,16 @@ export function soleRow(rows) {
 export function sumField(rows, field) {
   return (rows || []).reduce((sum, row) => sum + Number(row?.[field] || 0), 0);
 }
+
+// The concrete ISO currency of a saved scenario, read from its assumptions
+// (a tariff shock records it as the unit of `baseline_utility_cost`). Returns
+// null when the scenario has no single concrete denomination, so consumers can
+// label monetary tables truthfully instead of leaving bare cells.
+export function scenarioCurrency(assumptions) {
+  const baselineCost = (assumptions || []).find(
+    (a) => a.assumption_key === "baseline_utility_cost",
+  );
+  const unit = baselineCost?.unit;
+  return unit && unit !== "currency" ? unit : null;
+}
+

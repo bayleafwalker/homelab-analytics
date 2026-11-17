@@ -56,6 +56,7 @@ from packages.pipelines.reporting_snapshots import (
     is_legacy_denomination_snapshot,
 )
 from packages.pipelines.reporting_upgrade import (
+    _REBUILD_ONLY_RELATIONS,
     _RELATIONS,
     EXIT_COMPLETE,
     EXIT_FAILED,
@@ -94,7 +95,13 @@ def test_migration_chain_matches_the_runtime_registry(tmp_path: Path) -> None:
     store = DuckDBStore.memory()
     apply_pending_duckdb_migrations(store.connection, _chain_before_0020(tmp_path / "old"))
     before = _duck_states(store)
-    assert set(before.values()) == {"legacy"}, before
+    # Before 0020 the altered relations are legacy; the rebuild-only relations
+    # already carry their current columns from the initial schema.
+    assert set(before.values()) == {"legacy", "current"}, before
+    for relation in _RELATIONS:
+        assert before[relation.name] == "legacy", relation.name
+    for relation in _REBUILD_ONLY_RELATIONS:
+        assert before[relation.name] == "current", relation.name
 
     applied = apply_pending_duckdb_migrations(store.connection, MIGRATIONS)
     assert applied == [MIGRATION_VERSION]
@@ -248,7 +255,8 @@ def test_check_reports_without_recording_anything(tmp_path: Path) -> None:
     code, receipt = run_upgrade(_settings(tmp_path, warehouse), check_only=True)
 
     assert (code, receipt["status"]) == (EXIT_COMPLETE, "check_ok")
-    assert set(receipt["duckdb"]["states"].values()) == {"legacy"}
+    assert set(receipt["duckdb"]["states"].values()) == {"legacy", "current"}
+    assert receipt["duckdb"]["states"]["mart_monthly_cashflow"] == "legacy"
     assert warehouse.read_bytes() == before
 
 

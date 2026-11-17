@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
+import { scenarioCurrency } from "@/lib/currency-groups";
 import {
   getCurrentUser,
   getScenarioCashflow,
@@ -124,6 +125,11 @@ export default async function ScenarioDetailPage({ params }) {
             </div>
             <div className="tableWrap">
               <table>
+                <caption>
+                  {scenarioCurrency(assumptions)
+                    ? `All amounts in ${scenarioCurrency(assumptions)}`
+                    : "Cashflow projection"}
+                </caption>
                 <thead>
                   <tr>
                     <th>Period</th>

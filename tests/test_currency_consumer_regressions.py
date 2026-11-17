@@ -402,6 +402,8 @@ def test_energy_contract_usd_baseline_units_follow_the_currency() -> None:
     assert assessment["currency"] == "USD"
     assert assessment["verdict"] == "alternative_estimated_cheaper"
 
+    # The `_eur` key names are compatibility API keys; the unit is what must be
+    # truthful, and for a USD assessment it is USD/year (never EUR/year).
     baseline = energy_contract_baseline(assessment)
     for key in (
         "estimated_annual_cost_current_eur",

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
 import { SavedScenarioCompareSets } from "@/components/saved-scenario-compare-sets";
+import { scenarioCurrency } from "@/lib/currency-groups";
 import {
   getCurrentUser,
   getScenarioCashflow,
@@ -181,6 +182,11 @@ function ComparisonPanel({ snapshot, title }) {
             </div>
             <div className="tableWrap">
               <table>
+                <caption>
+                  {scenarioCurrency(assumptions)
+                    ? `All amounts in ${scenarioCurrency(assumptions)}`
+                    : "Cashflow projection"}
+                </caption>
                 <thead>
                   <tr>
                     <th>Period</th>
