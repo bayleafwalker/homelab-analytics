@@ -42,7 +42,7 @@ jobs:
         with:
           version: "0.13.0"
           python-version: "3.13.16"
-          enable-cache: true
+          enable-cache: false
 
       - uses: actions/setup-node@v4
         with:
