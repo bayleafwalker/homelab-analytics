@@ -24,6 +24,7 @@ _DOMAINS: tuple[Domain, ...] = ("finance", "utilities", "homelab")
 _UNHEALTHY = {"degraded", "stopped"}
 _KNOWN = {"running", *_UNHEALTHY}
 _CRITICALITY = {"critical": 3, "standard": 2, "background": 1}
+_KNOWN_PRIORITIES = {1, 2, 3}
 _log = logging.getLogger(__name__)
 
 
@@ -86,7 +87,12 @@ def compose_domain_cards(
             _assign_attention(
                 card,
                 [
-                    DomainAttention(str(row["item_id"]), str(row["title"]), row["severity"], "/review")
+                    DomainAttention(
+                        str(row["item_id"]),
+                        str(row["title"]),
+                        row["severity"] if row["severity"] in _KNOWN_PRIORITIES else None,
+                        "/review",
+                    )
                     for row in money_attention
                     if row["source_domain"] == card.domain_key
                 ],
@@ -169,22 +175,23 @@ def _homelab_card(
         return
 
     latest = batches[max(batches)]
-    comparable = {service_id for service_id, state in latest.items() if state in _KNOWN}
-    if not comparable:
+    if not any(state in _KNOWN for state in latest.values()):
         return
+    card.trend_state = "insufficient_history"
+    if not all(state in _KNOWN for state in latest.values()):
+        return
+
     points: list[DomainPoint] = []
     for (period, run_id), observations in sorted(batches.items()):
-        cohort = {service_id for service_id, state in observations.items() if state in _KNOWN}
-        if cohort == comparable:
-            unhealthy_count = sum(observations[service_id] in _UNHEALTHY for service_id in cohort)
-            point = DomainPoint(period, unhealthy_count, "services", run_id, len(cohort))
+        if observations.keys() == latest.keys() and all(state in _KNOWN for state in observations.values()):
+            unhealthy_count = sum(state in _UNHEALTHY for state in observations.values())
+            point = DomainPoint(period, unhealthy_count, "services", run_id, len(observations))
             # Multiple runs may carry the same recorded observation time.
             # Keep one deterministic batch at that instant, not a time delta of zero.
             if points and points[-1].period == period:
                 points[-1] = point
             else:
                 points.append(point)
-    card.trend_state = "insufficient_history"
     if len(points) > 1:
         card.trend_state = "available"
         card.trend = points

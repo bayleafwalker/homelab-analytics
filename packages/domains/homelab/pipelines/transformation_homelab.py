@@ -11,7 +11,7 @@ Rates are indicative defaults; override via config in a later sprint.
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from packages.domains.homelab.pipelines.homelab_models import (
@@ -82,16 +82,19 @@ def load_service_health_rows(
     service_rows = []
     for row in rows:
         recorded_at = _coerce_ts(row["recorded_at"])
+        last_state_change = _opt_ts(row.get("last_state_change"))
         service_id = str(row["service_id"])
         fact_rows.append(
             {
                 "health_id": service_health_id(service_id, str(recorded_at)),
                 "run_id": run_id,
                 "service_id": service_id,
-                "recorded_at": recorded_at,
+                "recorded_at": _utc_storage_timestamp(recorded_at),
                 "state": str(row["state"]),
                 "uptime_seconds": _opt_int(row.get("uptime_seconds")),
-                "last_state_change": _opt_ts(row.get("last_state_change")),
+                "last_state_change": (
+                    _utc_storage_timestamp(last_state_change) if last_state_change is not None else None
+                ),
             }
         )
         service_rows.append(
@@ -576,6 +579,11 @@ def _coerce_ts(value: Any) -> datetime:
     if isinstance(value, datetime):
         return value
     return datetime.fromisoformat(str(value))
+
+
+def _utc_storage_timestamp(value: datetime) -> datetime:
+    """Encode an instant in a timezone-less UTC column, independent of the session timezone."""
+    return value.astimezone(UTC).replace(tzinfo=None) if value.tzinfo is not None else value
 
 
 def _opt_ts(value: Any) -> datetime | None:

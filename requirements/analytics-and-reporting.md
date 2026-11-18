@@ -215,20 +215,25 @@ observation to establish household value.
 
 ### ANA-11: Operating Picture domain cards
 
+**Description:** Show the observed headline, comparable trend, and highest-priority
+action for each loaded source-owning Finance, Utilities, and Homelab capability pack.
+
+**Rationale:** The Operating Picture should distinguish a missing observation from a
+healthy or zero-value result, so households can prioritize actions based on evidence.
+
 **Phase:** 3
 **Status:** implemented through `GET /reports/domain-cards` and `/operating-picture`.
 
-Show one card for each loaded source-owning Finance, Utilities, and Homelab capability pack.
-Finance presents observed monthly net cashflow by denomination. Utilities presents observed
-monthly billed totals by denomination, with actual zero bills and usage-only data distinguished.
-Homelab counts distinct observed services in degraded or stopped health states and compares known
-cohorts only when the service identities match across recorded ingestion batches. The service
-health history publication keeps the latest recorded observation per service and run.
+**Acceptance criteria:**
+- Finance presents observed monthly net cashflow by denomination.
+- Utilities presents observed monthly billed totals by denomination, distinguishing actual zero bills from usage-only data.
+- Homelab counts distinct observed degraded or stopped services and compares recorded batches only when all service states are known and the observed service identities match.
+- Each card shows the top actionable item for its domain with deterministic ties.
+- Cards distinguish unavailable evidence, genuine emptiness, insufficient comparable history, and an available feed with no actionable item.
 
-Each card presents its own highest-priority actionable item, with deterministic ties, and
-distinguishes unavailable evidence, genuine emptiness, insufficient comparable history,
-and an available attention feed with no actionable item.
+**Dependencies:** ANA-01, ANA-05, and the service health current and history publications.
 
+---
 
 ## Traceability
 

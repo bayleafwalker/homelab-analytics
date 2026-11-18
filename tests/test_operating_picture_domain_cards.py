@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import shutil
+import subprocess
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -68,6 +71,8 @@ def test_domain_cards_report_own_observed_headlines_trends_and_attention(tmp_pat
             ("a", "Finance lower", 1, "finance"),
             ("b", "Finance highest", 3, "finance"),
             ("c", "Utilities only", 2, "utilities"),
+            ("0", "Finance unknown", 99, "finance"),
+            ("1", "Utilities unknown", 99, "utilities"),
         )
     ])
 
@@ -131,3 +136,91 @@ def test_domain_cards_distinguish_empty_unknown_and_noncomparable(tmp_path: Path
     assert homelab["trend_state"] == "insufficient_history"
     assert homelab["trend"] == []
     assert homelab["attention_state"] == "empty"
+
+def test_homelab_trend_uses_the_full_known_batch_cohort(tmp_path: Path) -> None:
+    client, ts = _client(tmp_path)
+    ts.load_service_health(
+        [_service("a", 1, "degraded"), _service("b", 1, "unknown")], run_id="partial-1"
+    )
+    ts.load_service_health(
+        [_service("a", 2, "running"), _service("c", 2, "unknown")], run_id="partial-2"
+    )
+
+    def homelab() -> dict[str, Any]:
+        ts.refresh_publications(["mart_service_health_current", "mart_service_health_history"])
+        response = client.get("/reports/domain-cards")
+        assert response.status_code == 200, response.text
+        return _card_map(response.json())["homelab"]
+
+    partial = homelab()
+    assert partial["metric_state"] == "available"
+    assert partial["headline"][0]["value"] == 0
+    assert partial["headline"][0]["known_count"] == 1
+    assert partial["trend_state"] == "insufficient_history"
+    assert partial["trend"] == []
+
+    ts.load_service_health(
+        [_service("a", 3, "running"), _service("c", 3, "running")], run_id="complete-1"
+    )
+    assert homelab()["trend_state"] == "insufficient_history"
+
+    ts.load_service_health(
+        [_service("a", 4, "degraded"), _service("c", 4, "stopped")], run_id="complete-2"
+    )
+    trend = homelab()["trend"]
+    assert [(p["run_id"], p["value"], p["known_count"]) for p in trend] == [
+        ("complete-1", 0, 2), ("complete-2", 2, 2),
+    ]
+
+
+def test_unknown_attention_priorities_are_neutral_with_stable_ties(tmp_path: Path) -> None:
+    client, ts = _client(tmp_path)
+    table = "mart_open_attention_items"
+    ts.store.insert_rows(table, [
+        {
+            "item_id": key, "item_type": "anomaly", "title": f"Candidate {key}",
+            "detail": "", "severity": severity, "source_domain": "finance",
+        }
+        for key, severity in (("z", 99), ("a", -1))
+    ])
+    response = client.get("/reports/domain-cards")
+    assert response.status_code == 200, response.text
+    attention = _card_map(response.json())["finance"]["attention"]
+    assert attention["key"] == "a"
+    assert attention["priority"] is None
+
+
+def test_service_observation_instants_survive_a_non_utc_storage_session(tmp_path: Path) -> None:
+    client, ts = _client(tmp_path)
+    ts.store.execute("SET TimeZone = 'Europe/Helsinki'")
+    ts.load_service_health(
+        [{**_service("svc", 1, "running"), "recorded_at": "2026-03-16T06:03:17Z"}],
+        run_id="first",
+    )
+    ts.load_service_health(
+        [{**_service("svc", 2, "degraded"), "recorded_at": "2026-03-23T18:41:42+05:30"}],
+        run_id="second",
+    )
+    ts.refresh_publications(["mart_service_health_current", "mart_service_health_history"])
+    response = client.get("/reports/domain-cards")
+    assert response.status_code == 200, response.text
+    card = _card_map(response.json())["homelab"]
+    first = datetime(2026, 3, 16, 6, 3, 17, tzinfo=UTC)
+    second = datetime(2026, 3, 23, 13, 11, 42, tzinfo=UTC)
+    assert datetime.fromisoformat(card["headline"][0]["period"]) == second
+    assert [datetime.fromisoformat(row["period"]) for row in card["trend"]] == [first, second]
+
+
+def test_unavailable_operating_picture_panels_render_separately_from_empty() -> None:
+    frontend = Path(__file__).resolve().parents[1] / "apps" / "web" / "frontend"
+    node = shutil.which("node")
+    assert node is not None, "node is required for the Operating Picture component tests"
+    result = subprocess.run(
+        [node, "--test", str(frontend / "unit" / "operating-picture-availability.test.cjs")],
+        cwd=frontend,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
