@@ -86,17 +86,19 @@ MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations" / "duckdb"
 # ---------------------------------------------------------------------------
 
 
-def _chain_before_0020(target: Path) -> Path:
+def _currency_migration_chain(target: Path, *, include_upgrade: bool = False) -> Path:
     target.mkdir(parents=True, exist_ok=True)
     for migration in sorted(MIGRATIONS.glob("*.sql")):
-        if migration.stem < MIGRATION_VERSION:
+        if migration.stem > MIGRATION_VERSION:
+            break
+        if include_upgrade or migration.stem != MIGRATION_VERSION:
             shutil.copy(migration, target / migration.name)
     return target
 
 
 def test_migration_chain_matches_the_runtime_registry(tmp_path: Path) -> None:
     store = DuckDBStore.memory()
-    apply_pending_duckdb_migrations(store.connection, _chain_before_0020(tmp_path / "old"))
+    apply_pending_duckdb_migrations(store.connection, _currency_migration_chain(tmp_path / "old"))
     before = _duck_states(store)
     # Before 0020 the altered relations are legacy; the rebuild-only relations
     # already carry their current columns from the initial schema.
@@ -106,7 +108,9 @@ def test_migration_chain_matches_the_runtime_registry(tmp_path: Path) -> None:
     for relation in _REBUILD_ONLY_RELATIONS:
         assert before[relation.name] == "current", relation.name
 
-    applied = apply_pending_duckdb_migrations(store.connection, MIGRATIONS)
+    applied = apply_pending_duckdb_migrations(
+        store.connection, _currency_migration_chain(tmp_path / "current", include_upgrade=True)
+    )
     assert applied == [MIGRATION_VERSION]
     after = _duck_states(store)
     assert set(after.values()) == {"current"}, after
@@ -211,7 +215,7 @@ def test_upgrade_of_a_chain_built_store_records_the_migration_once(tmp_path: Pat
     warehouse = tmp_path / "warehouse.duckdb"
     store = DuckDBStore.open(str(warehouse))
     try:
-        apply_pending_duckdb_migrations(store.connection, _chain_before_0020(tmp_path / "old"))
+        apply_pending_duckdb_migrations(store.connection, _currency_migration_chain(tmp_path / "old"))
         TransformationService(store).load_transactions(
             [
                 {"booked_at": "2025-01-05", "account_id": "a", "counterparty_name": "Shop",
@@ -240,8 +244,10 @@ def test_upgrade_of_a_chain_built_store_records_the_migration_once(tmp_path: Pat
             )
         ]
         assert versions == [MIGRATION_VERSION]
-        # The migration runner now finds nothing left to apply.
-        assert apply_pending_duckdb_migrations(store.connection, MIGRATIONS) == []
+        # The migration runner finds no currency upgrade left to apply.
+        assert apply_pending_duckdb_migrations(
+            store.connection, _currency_migration_chain(tmp_path / "current", include_upgrade=True)
+        ) == []
         rows = store.fetchall("SELECT currency FROM mart_monthly_cashflow ORDER BY currency")
         assert [row[0] for row in rows] == ["EUR", "USD"]
     finally:
@@ -251,7 +257,7 @@ def test_upgrade_of_a_chain_built_store_records_the_migration_once(tmp_path: Pat
 def test_check_reports_without_recording_anything(tmp_path: Path) -> None:
     warehouse = tmp_path / "warehouse.duckdb"
     store = DuckDBStore.open(str(warehouse))
-    apply_pending_duckdb_migrations(store.connection, _chain_before_0020(tmp_path / "old"))
+    apply_pending_duckdb_migrations(store.connection, _currency_migration_chain(tmp_path / "old"))
     store.close()
     before = warehouse.read_bytes()
 
