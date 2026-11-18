@@ -765,6 +765,7 @@ def create_app(
         resolved_reporting_service=reporting_service,
         to_jsonable=to_jsonable,
         household_timezone=resolved_household_timezone,
+        capability_packs=container.capability_packs,
     )
     register_attention_record_routes(
         app,

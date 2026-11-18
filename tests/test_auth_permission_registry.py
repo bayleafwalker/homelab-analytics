@@ -267,6 +267,20 @@ def test_permission_bound_principal_uses_explicit_grants_only() -> None:
     )
 
 
+def test_domain_card_aggregate_requires_general_reporting_read_permission() -> None:
+    narrow = PrincipalAuthorizationContext(
+        role=UserRole.READER,
+        auth_provider="oidc",
+        granted_permissions=("reports.read.publication.domain-cards",),
+        permission_bound=True,
+    )
+    required = required_permission_for_path("/reports/domain-cards")
+    assert required == PERMISSION_REPORTS_READ
+    assert not has_required_permission(narrow, required)
+    reader = PrincipalAuthorizationContext(role=UserRole.READER, auth_provider="local")
+    assert has_required_permission(reader, required)
+
+
 def test_reader_role_implies_publication_read_permissions() -> None:
     reader_ctx = PrincipalAuthorizationContext(
         role=UserRole.READER,

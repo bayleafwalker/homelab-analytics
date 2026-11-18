@@ -214,9 +214,6 @@ class HomelabPackTests(unittest.TestCase):
     def test_homelab_pack_validates(self) -> None:
         HOMELAB_PACK.validate()
 
-    def test_homelab_pack_has_four_publications(self) -> None:
-        self.assertEqual(4, len(HOMELAB_PACK.publications))
-
     def test_homelab_pack_has_four_sources(self) -> None:
         self.assertEqual(4, len(HOMELAB_PACK.sources))
 
@@ -225,10 +222,10 @@ class HomelabPackTests(unittest.TestCase):
 
     def test_homelab_pack_publication_keys(self) -> None:
         keys = {p.key for p in HOMELAB_PACK.publications}
-        self.assertIn("service_health_current", keys)
-        self.assertIn("backup_freshness", keys)
-        self.assertIn("storage_risk", keys)
-        self.assertIn("workload_cost_7d", keys)
+        self.assertEqual({
+            "service_health_current", "service_health_history", "backup_freshness",
+            "storage_risk", "workload_cost_7d",
+        }, keys)
 
 
 # ---------------------------------------------------------------------------

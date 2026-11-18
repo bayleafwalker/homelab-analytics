@@ -108,6 +108,7 @@ def test_refresh_rebuilds_populated_prechange_marts(tmp_path: Path, refresh_kind
     assert apply_pending_duckdb_migrations(store.connection, MIGRATIONS) == [
         "0019_subscription_charge_identity",
         "0020_currency_separated_marts",
+        "0021_service_health_history",
     ]
     assert all(r["charge_id"] is None for r in ReportingService(s).get_upcoming_fixed_costs_30d())
     store.execute("""INSERT INTO reporting_publication_snapshot VALUES

@@ -13,6 +13,7 @@ from apps.api.response_models import (
     build_row_union_type,
     build_rows_response_model,
 )
+from packages.application.use_cases.domain_cards import DomainCard, compose_domain_cards
 from packages.domains.finance.pipelines.account_transaction_service import AccountTransactionService
 from packages.domains.finance.pipelines.cashflow_map import (
     build_cashflow_map,
@@ -41,6 +42,7 @@ from packages.pipelines.reporting_snapshots import (
     project_snapshot_rows,
 )
 from packages.pipelines.transformation_service import TransformationService
+from packages.platform.capability_types import CapabilityPack
 from packages.shared.extensions import ExtensionRegistry
 
 
@@ -558,6 +560,10 @@ def _null_incompatible_values(relation_name: str, rows: list[dict[str, Any]]) ->
     return sorted(incompatible)
 
 
+class DomainCardsResponse(BaseModel):
+    cards: list[DomainCard]
+
+
 def register_report_routes(
     app: FastAPI,
     *,
@@ -567,7 +573,12 @@ def register_report_routes(
     resolved_reporting_service: ReportingService | None,
     to_jsonable: Callable[[Any], Any],
     household_timezone: str = "UTC",
+    capability_packs: tuple[CapabilityPack, ...] = (),
 ) -> None:
+    @app.get("/reports/domain-cards", response_model=DomainCardsResponse)
+    async def get_domain_cards() -> DomainCardsResponse:
+        return DomainCardsResponse(cards=compose_domain_cards(capability_packs, resolved_reporting_service))
+
     def _rows_as_of(
         relation_name: str,
         as_of: str | None,

@@ -443,6 +443,11 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
                 name="Service health current mart",
             ),
             BuiltinPublicationSpec(
+                publication_definition_id="pub_homelab_service_health_history",
+                publication_key="mart_service_health_history",
+                name="Service health observation batches",
+            ),
+            BuiltinPublicationSpec(
                 publication_definition_id="pub_homelab_backup_freshness",
                 publication_key="mart_backup_freshness",
                 name="Backup freshness mart",
@@ -490,6 +495,7 @@ BUILTIN_TRANSFORMATION_PACKAGE_SPECS = (
         ),
         refresh_publication_keys=(
             "mart_service_health_current",
+            "mart_service_health_history",
             "mart_backup_freshness",
             "mart_storage_risk",
             "mart_workload_cost_7d",

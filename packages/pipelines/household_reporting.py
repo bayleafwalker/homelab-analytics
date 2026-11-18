@@ -101,6 +101,8 @@ from packages.domains.homelab.pipelines.homelab_models import (
     MART_BACKUP_FRESHNESS_TABLE,
     MART_SERVICE_HEALTH_CURRENT_COLUMNS,
     MART_SERVICE_HEALTH_CURRENT_TABLE,
+    MART_SERVICE_HEALTH_HISTORY_COLUMNS,
+    MART_SERVICE_HEALTH_HISTORY_TABLE,
     MART_STORAGE_RISK_COLUMNS,
     MART_STORAGE_RISK_TABLE,
     MART_WORKLOAD_COST_7D_COLUMNS,
@@ -458,6 +460,11 @@ PUBLICATION_RELATIONS: dict[str, PublicationRelation] = {
         relation_name=MART_SERVICE_HEALTH_CURRENT_TABLE,
         columns=MART_SERVICE_HEALTH_CURRENT_COLUMNS,
         order_by="service_id",
+    ),
+    MART_SERVICE_HEALTH_HISTORY_TABLE: PublicationRelation(
+        relation_name=MART_SERVICE_HEALTH_HISTORY_TABLE,
+        columns=MART_SERVICE_HEALTH_HISTORY_COLUMNS,
+        order_by="recorded_at, run_id, service_id",
     ),
     MART_BACKUP_FRESHNESS_TABLE: PublicationRelation(
         relation_name=MART_BACKUP_FRESHNESS_TABLE,

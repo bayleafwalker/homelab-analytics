@@ -1,10 +1,12 @@
 import { AppShell } from "@/components/app-shell";
+import { DomainCards } from "@/components/domain-cards";
 import { OperatingPictureView } from "@/components/operating-picture-view";
 import { formatMoney, formatMonth } from "@/lib/format";
 import {
   getAffordabilityRatios,
   getAttentionItems,
   getCurrentUser,
+  getDomainCards,
   getMonthlyCashflow,
   getRecentChanges,
   getRecurringCostBaseline,
@@ -148,9 +150,38 @@ function buildTopCategories(categoryRows, limit = 5) {
 export default async function OperatingPicturePage() {
   const user = await getCurrentUser();
 
-  const [
+  const requests = {
+    cards: getDomainCards(),
+    cashflowRows: getMonthlyCashflow(),
+    recurringBaseline: getRecurringCostBaseline(),
+    affordabilityRatios: getAffordabilityRatios(),
+    attentionItems: getAttentionItems(),
+    recentChanges: getRecentChanges(),
+    subscriptions: getSubscriptionSummary(),
+    utilityTrend: getUtilityCostTrend(undefined),
+    upcomingFixedCosts: getUpcomingFixedCosts(),
+    freshnessDatasets: getSourceFreshness(),
+    categorySpend: getSpendByCategoryMonthly(),
+  };
+  const names = Object.keys(requests);
+  const results = await Promise.allSettled(Object.values(requests));
+  const values = {};
+  const unavailable = {};
+  for (const [index, result] of results.entries()) {
+    const name = names[index];
+    if (result.status === "fulfilled") {
+      values[name] = result.value;
+    } else {
+      if (typeof result.reason?.digest === "string" && result.reason.digest.startsWith("NEXT_REDIRECT;")) {
+        throw result.reason;
+      }
+      values[name] = name === "cards" ? null : [];
+      unavailable[name] = true;
+    }
+  }
+  const {
+    cards,
     cashflowRows,
-    recurringBaseline,
     affordabilityRatios,
     attentionItems,
     recentChanges,
@@ -159,18 +190,8 @@ export default async function OperatingPicturePage() {
     upcomingFixedCosts,
     freshnessDatasets,
     categorySpend,
-  ] = await Promise.all([
-    getMonthlyCashflow(),
-    getRecurringCostBaseline(),
-    getAffordabilityRatios(),
-    getAttentionItems(),
-    getRecentChanges(),
-    getSubscriptionSummary(),
-    getUtilityCostTrend(undefined),
-    getUpcomingFixedCosts(),
-    getSourceFreshness(),
-    getSpendByCategoryMonthly(),
-  ]);
+  } = values;
+  const somePanelsUnavailable = names.some((name) => name !== "cards" && unavailable[name]);
 
   // Money is built per currency: each group has its own newest month,
   // recurring total, utility delta, trend, categories and ratios. Nothing is
@@ -242,6 +263,8 @@ export default async function OperatingPicturePage() {
       eyebrow="Household Intelligence"
       lede="Structured view of your household's financial and operational state across all active domains."
     >
+      <DomainCards cards={cards} />
+      {somePanelsUnavailable && <p className="muted">Some household panels are unavailable.</p>}
       <OperatingPictureView
         monthLabel={monthLabel}
         moneyGroups={moneyGroups}
@@ -249,9 +272,8 @@ export default async function OperatingPicturePage() {
         horizonDays={horizonDays}
         rankedAttention={rankedAttention}
         recentChanges={recentChanges}
+        unavailable={unavailable}
       />
-      {/* recurringBaseline is intentionally unused today; the fetch is kept
-          so this Promise.all stays a stable superset for future panels. */}
     </AppShell>
   );
 }

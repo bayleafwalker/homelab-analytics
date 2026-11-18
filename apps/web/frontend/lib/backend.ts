@@ -29,6 +29,7 @@ type GetOperationIdByPath = {
   "/runs": "list_runs_runs_get";
   "/runs/{run_id}": "get_run_runs__run_id__get";
   "/reports/household-overview": "get_household_overview_reports_household_overview_get";
+  "/reports/domain-cards": "get_domain_cards_reports_domain_cards_get";
   "/reports/cashflow-map": "get_cashflow_map_reports_cashflow_map_get";
   "/reports/spend-heatmap": "get_spend_heatmap_reports_spend_heatmap_get";
   "/reports/attention-items": "get_attention_items_reports_attention_items_get";
@@ -651,6 +652,11 @@ export async function getUpcomingFixedCosts() {
   const payload = await backendGet("/reports/upcoming-fixed-costs");
   return getResponseArray(payload, "rows");
 }
+export async function getDomainCards() {
+  const payload = await backendGet("/reports/domain-cards");
+  return getResponseField(payload, "cards");
+}
+
 export async function getUtilityCostTrend(
   utilityType: QueryValue<"/reports/utility-cost-trend", "utility_type">
 ) {

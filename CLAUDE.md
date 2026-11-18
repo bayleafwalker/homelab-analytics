@@ -88,8 +88,8 @@ Sprint workflow:
 
 | Store | Latest migration | Count |
 |---|---|---|
-| `migrations/postgres/` | `0024_decision_record_decided_at` | 23 (`0019` unused and free) |
-| `migrations/duckdb/` | `0020_currency_separated_marts` | 14 (gaps: DuckDB-only subset; `0017` unused and free) |
+| `migrations/postgres/` | `0025_service_health_history_publication` | 24 (`0019` unused and free) |
+| `migrations/duckdb/` | `0021_service_health_history` | 15 (gaps: DuckDB-only subset; `0017` unused and free) |
 | `migrations/sqlite/` | `0015_decision_record_decided_at` | 14 (`0012` unused: reserved for the as-of/lineage stream; free) |
 | `migrations/postgres_run_metadata/` | `0001_run_metadata_initial_schema` | 1 |
 

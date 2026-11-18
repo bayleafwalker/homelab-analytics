@@ -11,7 +11,7 @@ Rates are indicative defaults; override via config in a later sprint.
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from packages.domains.homelab.pipelines.homelab_models import (
@@ -31,6 +31,8 @@ from packages.domains.homelab.pipelines.homelab_models import (
     MART_BACKUP_FRESHNESS_TABLE,
     MART_SERVICE_HEALTH_CURRENT_COLUMNS,
     MART_SERVICE_HEALTH_CURRENT_TABLE,
+    MART_SERVICE_HEALTH_HISTORY_COLUMNS,
+    MART_SERVICE_HEALTH_HISTORY_TABLE,
     MART_STORAGE_RISK_COLUMNS,
     MART_STORAGE_RISK_TABLE,
     MART_WORKLOAD_COST_7D_COLUMNS,
@@ -55,6 +57,7 @@ def ensure_homelab_storage(store: DuckDBStore) -> None:
     store.ensure_table(FACT_STORAGE_SENSOR_TABLE, FACT_STORAGE_SENSOR_COLUMNS)
     store.ensure_table(FACT_WORKLOAD_SENSOR_TABLE, FACT_WORKLOAD_SENSOR_COLUMNS)
     store.ensure_table(MART_SERVICE_HEALTH_CURRENT_TABLE, MART_SERVICE_HEALTH_CURRENT_COLUMNS)
+    store.ensure_table(MART_SERVICE_HEALTH_HISTORY_TABLE, MART_SERVICE_HEALTH_HISTORY_COLUMNS)
     store.ensure_table(MART_BACKUP_FRESHNESS_TABLE, MART_BACKUP_FRESHNESS_COLUMNS)
     store.ensure_table(MART_STORAGE_RISK_TABLE, MART_STORAGE_RISK_COLUMNS)
     store.ensure_table(MART_WORKLOAD_COST_7D_TABLE, MART_WORKLOAD_COST_7D_COLUMNS)
@@ -79,16 +82,19 @@ def load_service_health_rows(
     service_rows = []
     for row in rows:
         recorded_at = _coerce_ts(row["recorded_at"])
+        last_state_change = _opt_ts(row.get("last_state_change"))
         service_id = str(row["service_id"])
         fact_rows.append(
             {
                 "health_id": service_health_id(service_id, str(recorded_at)),
                 "run_id": run_id,
                 "service_id": service_id,
-                "recorded_at": recorded_at,
+                "recorded_at": _utc_storage_timestamp(recorded_at),
                 "state": str(row["state"]),
                 "uptime_seconds": _opt_int(row.get("uptime_seconds")),
-                "last_state_change": _opt_ts(row.get("last_state_change")),
+                "last_state_change": (
+                    _utc_storage_timestamp(last_state_change) if last_state_change is not None else None
+                ),
             }
         )
         service_rows.append(
@@ -265,11 +271,12 @@ def refresh_service_health_current(store: DuckDBStore) -> int:
             state, uptime_seconds, last_state_change, recorded_at
         )
         WITH latest AS (
-            SELECT
-                service_id,
-                MAX(recorded_at) AS max_recorded_at
+            SELECT *
             FROM {FACT_SERVICE_HEALTH_TABLE}
-            GROUP BY service_id
+            QUALIFY ROW_NUMBER() OVER (
+                PARTITION BY service_id
+                ORDER BY recorded_at DESC, health_id ASC
+            ) = 1
         )
         SELECT
             h.service_id,
@@ -282,27 +289,32 @@ def refresh_service_health_current(store: DuckDBStore) -> int:
             h.uptime_seconds,
             h.last_state_change,
             h.recorded_at
-        FROM {FACT_SERVICE_HEALTH_TABLE} h
-        JOIN latest l
-            ON h.service_id = l.service_id
-           AND h.recorded_at = l.max_recorded_at
-        LEFT JOIN (
-            SELECT
-                service_id,
-                ANY_VALUE(service_name)  AS service_name,
-                ANY_VALUE(service_type)  AS service_type,
-                ANY_VALUE(host)          AS host,
-                ANY_VALUE(criticality)   AS criticality,
-                ANY_VALUE(managed_by)    AS managed_by
-            FROM dim_service
-            GROUP BY service_id
-        ) d ON d.service_id = h.service_id
+        FROM latest h
+        LEFT JOIN dim_service d ON d.service_id = h.service_id AND d.is_current
         ORDER BY h.service_id
         """
     )
     return store.fetchall(
         f"SELECT COUNT(*) FROM {MART_SERVICE_HEALTH_CURRENT_TABLE}"
     )[0][0]
+
+
+def refresh_service_health_history(store: DuckDBStore) -> int:
+    """One latest observation per observed service and ingestion batch."""
+    store.execute(f"DELETE FROM {MART_SERVICE_HEALTH_HISTORY_TABLE}")
+    store.execute(
+        f"""
+        INSERT INTO {MART_SERVICE_HEALTH_HISTORY_TABLE}
+            (run_id, recorded_at, service_id, state)
+        SELECT run_id, MAX(recorded_at) OVER (PARTITION BY run_id), service_id, state
+        FROM {FACT_SERVICE_HEALTH_TABLE}
+        WHERE run_id IS NOT NULL AND TRIM(run_id) <> ''
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY run_id, service_id ORDER BY recorded_at DESC, health_id ASC
+        ) = 1
+        """
+    )
+    return store.fetchall(f"SELECT COUNT(*) FROM {MART_SERVICE_HEALTH_HISTORY_TABLE}")[0][0]
 
 
 def refresh_backup_freshness(store: DuckDBStore) -> int:
@@ -498,6 +510,13 @@ def get_service_health_current(store: DuckDBStore) -> list[dict[str, Any]]:
     )
 
 
+def get_service_health_history(store: DuckDBStore) -> list[dict[str, Any]]:
+    return store.fetchall_dicts(
+        f"SELECT * FROM {MART_SERVICE_HEALTH_HISTORY_TABLE}"
+        " ORDER BY recorded_at, run_id, service_id"
+    )
+
+
 def get_backup_freshness(store: DuckDBStore) -> list[dict[str, Any]]:
     return store.fetchall_dicts(
         f"SELECT * FROM {MART_BACKUP_FRESHNESS_TABLE} ORDER BY target"
@@ -560,6 +579,11 @@ def _coerce_ts(value: Any) -> datetime:
     if isinstance(value, datetime):
         return value
     return datetime.fromisoformat(str(value))
+
+
+def _utc_storage_timestamp(value: datetime) -> datetime:
+    """Encode an instant in a timezone-less UTC column, independent of the session timezone."""
+    return value.astimezone(UTC).replace(tzinfo=None) if value.tzinfo is not None else value
 
 
 def _opt_ts(value: Any) -> datetime | None:

@@ -391,7 +391,9 @@ def _reports_read_role(context: RouteContext) -> UserRole | None:
 
 
 def _reports_read_permission(context: RouteContext) -> str | None:
-    if context.path == "/reports":
+    # Domain cards compose several reports. A grant to one publication must
+    # not unlock other domains via this aggregate route.
+    if context.path in {"/reports", "/reports/domain-cards"}:
         return PERMISSION_REPORTS_READ
     suffix = context.path.removeprefix("/reports/").strip("/")
     if not suffix:

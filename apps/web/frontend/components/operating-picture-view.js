@@ -35,6 +35,7 @@ export function OperatingPictureView({
   affordabilityRatios,
   topCategories,
   recentChanges,
+  unavailable = {},
   // Money panels per currency: [{ currency, latestCashflow, heroSummary,
   // netSeriesValues, netSeriesLabels, topCategories, affordabilityRatios }].
   // Nothing is converted or summed across groups. When omitted the single-
@@ -62,10 +63,10 @@ export function OperatingPictureView({
                       <NumMono>{formatMoney(group.latestCashflow.net, group.currency || group.latestCashflow.currency)}</NumMono>
                     </>
                   ) : (
-                    "No data"
+                    unavailable.cashflowRows ? "Cashflow unavailable" : "No data"
                   )}
                 </Heading>
-                {group.heroSummary && <p className="heroPictureSummary">{group.heroSummary}</p>}
+                {!unavailable.cashflowRows && group.heroSummary && <p className="heroPictureSummary">{group.heroSummary}</p>}
               </React.Fragment>
             );
           })}
@@ -101,7 +102,9 @@ export function OperatingPictureView({
             Manage sources →
           </Link>
         </div>
-        <FreshnessPulse domains={freshnessDomains} />
+        {unavailable.freshnessDatasets ? (
+          <p className="muted">Source freshness unavailable.</p>
+        ) : <FreshnessPulse domains={freshnessDomains} />}
       </article>
 
       {/* Horizon strip — next 7 days */}
@@ -112,7 +115,9 @@ export function OperatingPictureView({
             <h2>Horizon</h2>
           </div>
         </div>
-        <HorizonStrip days={horizonDays} />
+        {unavailable.upcomingFixedCosts ? (
+          <p className="muted">Horizon unavailable.</p>
+        ) : <HorizonStrip days={horizonDays} />}
       </article>
 
       {/* Attention queue + right rail (ratios + categories) */}
@@ -127,7 +132,9 @@ export function OperatingPictureView({
               See all →
             </Link>
           </div>
-          {rankedAttention.length === 0 ? (
+          {unavailable.attentionItems ? (
+            <p className="muted">Attention queue unavailable.</p>
+          ) : rankedAttention.length === 0 ? (
             <div className="empty">No attention items. All clear.</div>
           ) : (
             <div className="attentionList">
@@ -160,7 +167,9 @@ export function OperatingPictureView({
           <article className="panel section">
             <Eyebrow>Affordability</Eyebrow>
             <div className="ratioList">
-              {groups.every((g) => g.affordabilityRatios.length === 0) ? (
+              {unavailable.affordabilityRatios ? (
+                <p className="muted">Affordability unavailable.</p>
+              ) : groups.every((g) => g.affordabilityRatios.length === 0) ? (
                 <div className="empty">No ratios yet.</div>
               ) : (
                 groups.flatMap((group) => group.affordabilityRatios.slice(0, 4).map((r) => {
@@ -192,7 +201,9 @@ export function OperatingPictureView({
 
           <article className="panel section">
             <Eyebrow>Top categories{monthLabel ? ` · ${monthLabel}` : ""}</Eyebrow>
-            {groups.every((g) => g.topCategories.length === 0) ? (
+            {unavailable.categorySpend ? (
+              <p className="muted">Category spend unavailable.</p>
+            ) : groups.every((g) => g.topCategories.length === 0) ? (
               <div className="empty">No category spend yet.</div>
             ) : (
               groups.map((group) => (

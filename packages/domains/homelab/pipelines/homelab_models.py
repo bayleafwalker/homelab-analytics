@@ -124,6 +124,15 @@ MART_SERVICE_HEALTH_CURRENT_COLUMNS: list[tuple[str, str]] = [
     ("recorded_at", "TIMESTAMP NOT NULL"),
 ]
 
+MART_SERVICE_HEALTH_HISTORY_TABLE = "mart_service_health_history"
+
+MART_SERVICE_HEALTH_HISTORY_COLUMNS: list[tuple[str, str]] = [
+    ("run_id", "VARCHAR NOT NULL"),
+    ("recorded_at", "TIMESTAMP NOT NULL"),
+    ("service_id", "VARCHAR NOT NULL"),
+    ("state", "VARCHAR NOT NULL"),
+]
+
 # ---------------------------------------------------------------------------
 # Mart: backup_freshness
 # ---------------------------------------------------------------------------
