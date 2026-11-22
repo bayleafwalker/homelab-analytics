@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException
 
 from apps.api.models import ScheduleDispatchRequest
 from apps.api.response_models import ScheduleDispatchResponseModel
+from packages.application.use_cases.operating_horizon import build_operating_horizon
 from packages.application.use_cases.source_freshness_overview import (
     build_source_freshness_views,
 )
@@ -34,7 +36,16 @@ def register_control_routes(
     build_operational_summary: Callable[[], dict[str, Any]],
     to_jsonable: Callable[[Any], Any],
     resolved_reporting_service: Any = None,
+    action_proposal_registry: Any = None,
 ) -> None:
+    def source_freshness_views(*, as_of: date | None = None) -> list[Any]:
+        return build_source_freshness_views(
+            resolved_config_repository,
+            service.metadata_repository,
+            as_of=as_of or date.today(),
+            blob_store=getattr(service, "blob_store", None),
+        )
+
     @app.get("/control/source-lineage")
     async def get_source_lineage(
         run_id: str | None = None,
@@ -126,14 +137,8 @@ def register_control_routes(
     @app.get("/control/source-freshness")
     async def get_source_freshness() -> dict[str, Any]:
         require_unsafe_admin()
-        from datetime import date
 
-        views = build_source_freshness_views(
-            resolved_config_repository,
-            service.metadata_repository,
-            as_of=date.today(),
-            blob_store=getattr(service, "blob_store", None),
-        )
+        views = source_freshness_views()
         source_assets = {
             asset.source_asset_id: asset
             for asset in resolved_config_repository.list_source_assets(
@@ -170,6 +175,39 @@ def register_control_routes(
             for view in views
         ]
         return {"datasets": datasets}
+
+    @app.get("/control/operating-horizon")
+    async def get_operating_horizon() -> dict[str, Any]:
+        """Read-only seven-day merge of approvals, exports, costs and renewals."""
+        require_unsafe_admin()
+        if resolved_reporting_service is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Operating horizon is unavailable.",
+            )
+        try:
+            today = date.today()
+            fixed_costs = resolved_reporting_service.get_upcoming_fixed_costs_30d()
+            renewals = resolved_reporting_service.get_contract_renewal_watchlist()
+            pending_proposals = (
+                action_proposal_registry.list_pending()
+                if action_proposal_registry is not None
+                else []
+            )
+            horizon = build_operating_horizon(
+                start_date=today,
+                fixed_costs=fixed_costs,
+                contract_renewals=renewals,
+                freshness_views=source_freshness_views(as_of=today),
+                freshness_configs=resolved_config_repository.list_source_freshness_configs(),
+                pending_proposals=pending_proposals,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="Operating horizon is unavailable.",
+            ) from exc
+        return to_jsonable(horizon)
 
     @app.get("/control/confidence")
     async def get_confidence(

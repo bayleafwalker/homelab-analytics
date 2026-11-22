@@ -20210,6 +20210,27 @@
         "summary": "Get Lineage Upstream"
       }
     },
+    "/control/operating-horizon": {
+      "get": {
+        "description": "Read-only seven-day merge of approvals, exports, costs and renewals.",
+        "operationId": "get_operating_horizon_control_operating_horizon_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Operating Horizon Control Operating Horizon Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Operating Horizon"
+      }
+    },
     "/control/operational-summary": {
       "get": {
         "operationId": "get_operational_summary_control_operational_summary_get",
