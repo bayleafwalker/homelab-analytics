@@ -1,12 +1,14 @@
 """Platform domain-freshness aggregation and source-freshness domain labelling (#1553)."""
 from __future__ import annotations
 
+from datetime import UTC, date, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from fastapi.testclient import TestClient
 
 from apps.api.app import create_app
+from apps.api.routes import control_routes
 from packages.domains.finance.pipelines.account_transaction_service import (
     AccountTransactionService,
 )
@@ -17,11 +19,17 @@ from packages.platform.domain_freshness import (
     worst_case_verdict,
 )
 from packages.storage.ingestion_config import (
+    ColumnMappingCreate,
     DatasetContractConfigCreate,
     IngestionConfigRepository,
     SourceAssetCreate,
+    SourceFreshnessConfigCreate,
 )
-from packages.storage.run_metadata import RunMetadataRepository
+from packages.storage.run_metadata import (
+    IngestionRunCreate,
+    IngestionRunStatus,
+    RunMetadataRepository,
+)
 from tests.control_plane_test_support import seed_source_asset_graph
 
 
@@ -125,3 +133,72 @@ def test_source_freshness_row_without_a_resolvable_package_is_platform() -> None
         )
         (row,) = client.get("/control/source-freshness").json()["datasets"]
         assert row["domain"] == "platform"
+
+
+def test_source_freshness_preserves_stale_and_missing_sources_across_domains(
+    tmp_path, monkeypatch
+) -> None:
+    class FixedDate(date):
+        @classmethod
+        def today(cls) -> date:
+            return date(2026, 10, 22)
+
+    monkeypatch.setattr(control_routes, "date", FixedDate)
+    client, repository, finance = _client(str(tmp_path))
+    utility_contract = repository.create_dataset_contract(
+        DatasetContractConfigCreate(
+            dataset_contract_id="utility_usage_contract", dataset_name="utility_usage",
+            version=1, allow_extra_columns=True, columns=(),
+        )
+    )
+    utility_mapping = repository.create_column_mapping(
+        ColumnMappingCreate(
+            column_mapping_id="utility_usage_mapping", source_system_id=finance.source_system_id,
+            dataset_contract_id=utility_contract.dataset_contract_id, version=1, rules=(),
+        )
+    )
+    utility = repository.create_source_asset(
+        SourceAssetCreate(
+            source_asset_id="utility_meter", source_system_id=finance.source_system_id,
+            dataset_contract_id=utility_contract.dataset_contract_id,
+            column_mapping_id=utility_mapping.column_mapping_id,
+            transformation_package_id="builtin_utility_usage", name="Utility meter",
+            asset_type="dataset",
+        )
+    )
+    for asset in (finance, utility):
+        repository.create_source_freshness_config(
+            SourceFreshnessConfigCreate(
+                source_asset_id=asset.source_asset_id, acquisition_mode="manual_export",
+                expected_frequency="monthly", coverage_kind="calendar_month",
+                due_day_of_month=5, expected_window_days=2, freshness_sla_days=7,
+                sensitivity_class="low", reminder_channel="dashboard",
+                requires_human_action=True,
+            )
+        )
+    RunMetadataRepository(tmp_path / "runs.db").create_run(
+        IngestionRunCreate(
+            run_id="old-finance-run", source_name="bank-export",
+            dataset_name="household_account_transactions", file_name="old.csv",
+            raw_path="old.csv", manifest_path="missing.json", sha256="0" * 64,
+            row_count=1, header=("amount",), status=IngestionRunStatus.LANDED,
+            passed=True, created_at=datetime(2026, 9, 10, tzinfo=UTC),
+        )
+    )
+
+    with client:
+        response = client.get("/control/source-freshness")
+
+    assert response.status_code == 200, response.text
+    rows = {row["source_asset_id"]: row for row in response.json()["datasets"]}
+    assert set(rows) == {finance.source_asset_id, utility.source_asset_id}
+    stale = rows[finance.source_asset_id]
+    missing = rows[utility.source_asset_id]
+    assert (stale["domain"], stale["freshness_state"], stale["latest_run_id"]) == (
+        "finance", "overdue", "old-finance-run",
+    )
+    assert stale["covered_through"] is not None
+    assert (missing["domain"], missing["freshness_state"], missing["latest_run_id"]) == (
+        "utilities", "overdue", None,
+    )
+    assert missing["covered_through"] is None
