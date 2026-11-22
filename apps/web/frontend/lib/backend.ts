@@ -102,6 +102,7 @@ type GetOperationIdByPath = {
   "/control/operational-summary": "get_operational_summary_control_operational_summary_get";
   "/control/terminal/commands": "list_terminal_commands_control_terminal_commands_get";
   "/control/source-freshness": "get_source_freshness_control_source_freshness_get";
+  "/control/operating-horizon": "get_operating_horizon_control_operating_horizon_get";
   "/transformation-audit": "get_transformation_audit_transformation_audit_get";
   "/reports/budget-variance": "get_budget_variance_reports_budget_variance_get";
   "/reports/budget-envelopes": "get_budget_envelopes_reports_budget_envelopes_get";
@@ -651,6 +652,12 @@ export async function getTransactionAnomalies() {
 export async function getUpcomingFixedCosts() {
   const payload = await backendGet("/reports/upcoming-fixed-costs");
   return getResponseArray(payload, "rows");
+}
+
+// Read-only seven-day merge for the Operating Picture. The response carries
+// start_date, the API-owned boundary every horizon cell follows.
+export async function getOperatingHorizon() {
+  return backendGet("/control/operating-horizon");
 }
 export async function getDomainCards() {
   const payload = await backendGet("/reports/domain-cards");

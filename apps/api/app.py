@@ -715,6 +715,12 @@ def create_app(
         capability_packs=container.capability_packs,
         platform_version=current_platform_version(),
     )
+    # The approval queue is adapter-agnostic: agent and assistant proposals
+    # share it with HA-gated actions, so it exists even without HA wiring.
+    resolved_action_proposal_registry = (
+        ha_action_proposal_registry
+        or build_action_proposal_registry(resolved_config_repository)
+    )
     register_control_routes(
         app,
         service=resolved_service,
@@ -734,6 +740,7 @@ def create_app(
         ),
         to_jsonable=to_jsonable,
         resolved_reporting_service=reporting_service,
+        action_proposal_registry=resolved_action_proposal_registry,
     )
     register_control_terminal_routes(
         app,
@@ -829,12 +836,6 @@ def create_app(
         transformation_service=transformation_service,
         resolved_reporting_service=reporting_service,
         to_jsonable=to_jsonable,
-    )
-    # The approval queue is adapter-agnostic: agent and assistant proposals
-    # share it with HA-gated actions, so it exists even without HA wiring.
-    resolved_action_proposal_registry = (
-        ha_action_proposal_registry
-        or build_action_proposal_registry(resolved_config_repository)
     )
     register_ha_routes(
         app,

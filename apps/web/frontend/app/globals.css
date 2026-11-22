@@ -871,6 +871,18 @@ th {
   color: var(--muted);
 }
 
+.horizonItem {
+  display: grid;
+  gap: 2px;
+}
+
+.horizonKind {
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .horizonLabel {
   font-weight: 600;
   font-size: 0.82rem;

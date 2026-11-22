@@ -2530,6 +2530,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/control/operating-horizon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Operating Horizon
+         * @description Read-only seven-day merge of approvals, exports, costs and renewals.
+         */
+        get: operations["get_operating_horizon_control_operating_horizon_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/control/operational-summary": {
         parameters: {
             query?: never;
@@ -13213,6 +13233,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_operating_horizon_control_operating_horizon_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
