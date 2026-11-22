@@ -115,7 +115,7 @@ export function OperatingPictureView({
             <h2>Horizon</h2>
           </div>
         </div>
-        {unavailable.upcomingFixedCosts ? (
+        {unavailable.operatingHorizon || unavailable.upcomingFixedCosts ? (
           <p className="muted">Horizon unavailable.</p>
         ) : <HorizonStrip days={horizonDays} />}
       </article>

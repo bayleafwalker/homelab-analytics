@@ -8,12 +8,12 @@ import {
   getCurrentUser,
   getDomainCards,
   getMonthlyCashflow,
+  getOperatingHorizon,
   getRecentChanges,
   getRecurringCostBaseline,
   getSourceFreshness,
   getSpendByCategoryMonthly,
   getSubscriptionSummary,
-  getUpcomingFixedCosts,
   getUtilityCostTrend,
 } from "@/lib/backend";
 
@@ -81,39 +81,39 @@ function buildHeroSummary({ latestCashflow, recurringTotal, utilityDelta, prevUt
   return parts.join(" ");
 }
 
-// Heuristic tone for the horizon strip. UpcomingFixedCostsRow has no
-// cost_type field, so infer a reasonable kind from the contract/provider
-// name rather than inventing a fake field.
-function horizonTone(row) {
-  const text = `${row.contract_name || ""} ${row.provider || ""}`.toLowerCase();
-  if (/mortgage|loan/.test(text)) return "accent";
-  if (/energy|electric|gas|water|utilit/.test(text)) return "cool";
-  if (/contract|renewal|review/.test(text)) return "warm";
-  return "neutral";
+// The horizon cells come from the API's start_date, not from the browser
+// clock: every cell is an ordered day of the same seven-day window the API
+// merged. Parsing YYYY-MM-DD as local calendar parts keeps the boundary
+// stable across frontend timezones.
+function localIsoDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
-function buildHorizonDays(upcomingFixedCosts) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
+function buildHorizonDays(rows, startDate) {
+  const boundary = String(startDate || "").slice(0, 10);
+  const parts = boundary.split("-").map(Number);
+  const valid = parts.length === 3 && parts.every((part) => Number.isInteger(part));
+  if (!valid) return [];
+  const start = new Date(parts[0], parts[1] - 1, parts[2]);
+  const rowsByDate = new Map();
+  for (const row of rows || []) {
+    if (!row || !row.date) continue;
+    const iso = String(row.date).slice(0, 10);
+    const bucket = rowsByDate.get(iso);
+    if (bucket) bucket.push(row);
+    else rowsByDate.set(iso, [row]);
+  }
   const days = [];
   for (let i = 0; i < 7; i += 1) {
-    const date = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
-    const iso = date.toISOString().slice(0, 10);
-    const matches = upcomingFixedCosts.filter(
-      (row) => row.expected_date && row.expected_date.slice(0, 10) === iso
-    );
-    const first = matches[0];
+    const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    const iso = localIsoDate(date);
     days.push({
+      date: iso,
       dateLabel: date.toLocaleDateString("en-US", { weekday: "short", day: "2-digit" }),
-      empty: matches.length === 0,
-      tone: first ? horizonTone(first) : "neutral",
-      title: first ? first.contract_name || first.provider || "—" : "—",
-      amountLabel:
-        first && first.expected_amount != null
-          ? `${first.currency || ""} ${first.expected_amount}`.trim()
-          : "",
-      moreCount: Math.max(matches.length - 1, 0),
+      items: rowsByDate.get(iso) || [],
     });
   }
   return days;
@@ -159,7 +159,7 @@ export default async function OperatingPicturePage() {
     recentChanges: getRecentChanges(),
     subscriptions: getSubscriptionSummary(),
     utilityTrend: getUtilityCostTrend(undefined),
-    upcomingFixedCosts: getUpcomingFixedCosts(),
+    operatingHorizon: getOperatingHorizon(),
     freshnessDatasets: getSourceFreshness(),
     categorySpend: getSpendByCategoryMonthly(),
   };
@@ -187,7 +187,7 @@ export default async function OperatingPicturePage() {
     recentChanges,
     subscriptions,
     utilityTrend,
-    upcomingFixedCosts,
+    operatingHorizon: horizon,
     freshnessDatasets,
     categorySpend,
   } = values;
@@ -249,8 +249,11 @@ export default async function OperatingPicturePage() {
     { name: "Budgets", ...domainFreshnessBand(freshnessDatasets, ["budgets"]) },
   ];
 
-  // Horizon strip: next 7 days
-  const horizonDays = buildHorizonDays(upcomingFixedCosts);
+  // Horizon strip: the seven days starting at the API's date boundary.
+  const horizonDays =
+    horizon && horizon.start_date
+      ? buildHorizonDays(horizon.rows || [], horizon.start_date)
+      : [];
 
   // Urgency-ranked attention queue
   const rankedAttention = [...attentionItems].sort((a, b) => (a.severity ?? 9) - (b.severity ?? 9));
