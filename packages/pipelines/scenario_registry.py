@@ -14,8 +14,12 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from datetime import date, datetime
 from typing import Any
 
+from packages.platform.publication_keys import PublicationKeyResolver
+from packages.platform.source_freshness import SourceFreshnessState, SourceFreshnessSummary
+from packages.storage.control_plane import PublicationConfidenceSnapshotStore
 from packages.storage.duckdb_store import DuckDBStore
 
 SCENARIO_VIEW_COMPARISON = "comparison"
@@ -28,6 +32,41 @@ class ScenarioViewContext:
     """Caller-supplied context a view handler may use; unused fields are ignored."""
 
     current_baseline_run_id: str | None = None
+    confidence_store: PublicationConfidenceSnapshotStore | None = None
+    publication_keys: PublicationKeyResolver = field(default_factory=PublicationKeyResolver)
+
+    def assumptions_summary(self, *publications: str) -> list[SourceFreshnessSummary] | None:
+        if self.confidence_store is None:
+            return None
+        by_source: dict[str, SourceFreshnessSummary] = {}
+        assessed_at: dict[str, datetime] = {}
+        for publication in publications:
+            snapshots = [
+                snapshot
+                for key in self.publication_keys.snapshot_lookup_keys(publication)
+                for snapshot in self.confidence_store.list_publication_confidence_snapshots(
+                    publication_key=key, limit=1
+                )
+            ]
+            if not snapshots:
+                continue
+            latest = max(snapshots, key=lambda snapshot: snapshot.assessed_at)
+            for source_id, state in (latest.source_freshness_states or {}).items():
+                if source_id in assessed_at and latest.assessed_at <= assessed_at[source_id]:
+                    continue
+                try:
+                    ingest = state.get("last_ingest_at")
+                    coverage = state.get("covered_through")
+                    by_source[source_id] = SourceFreshnessSummary(
+                        source_asset_id=source_id,
+                        freshness_state=SourceFreshnessState(state["freshness_state"]),
+                        last_ingest_at=datetime.fromisoformat(ingest) if ingest else None,
+                        covered_through=date.fromisoformat(coverage) if coverage else None,
+                    )
+                except (AttributeError, KeyError, TypeError, ValueError):
+                    continue
+                assessed_at[source_id] = latest.assessed_at
+        return [by_source[source_id] for source_id in sorted(by_source)] or None
 
 
 ScenarioCreateHandler = Callable[..., Any]

@@ -18,6 +18,7 @@ from packages.domains.finance.pipelines.account_transaction_service import (
     AccountTransactionService,
 )
 from packages.pipelines.transformation_service import TransformationService
+from packages.storage.control_plane import SourceLineageCreate
 from packages.storage.duckdb_store import DuckDBStore
 from packages.storage.ingestion_config import IngestionConfigRepository
 from packages.storage.run_metadata import RunMetadataRepository
@@ -121,3 +122,33 @@ def test_refresh_publications_records_confidence_and_api_returns_verdict() -> No
         # Should be parseable as ISO datetime
         assessed_at = datetime.fromisoformat(assessed_at_str.replace("Z", "+00:00"))
         assert assessed_at is not None
+
+
+def test_refresh_persists_contributing_source_freshness(tmp_path: Path) -> None:
+    store = IngestionConfigRepository(tmp_path / "config.db")
+    publication = "mart_monthly_cashflow"
+    store.record_source_lineage((
+        SourceLineageCreate(
+            lineage_id="cashflow-input",
+            input_run_id="run-001",
+            source_run_id="run-001",
+            source_system="test_bank",
+            target_layer="reporting",
+            target_name=publication,
+            target_kind="publication",
+        ),
+    ))
+
+    service = TransformationService(DuckDBStore.memory(), control_plane_store=store)
+    service.record_publication_confidence([publication])
+
+    snapshots = store.list_publication_confidence_snapshots(
+        publication_key=publication, limit=1
+    )
+    assert snapshots[0].source_freshness_states == {
+        "test_bank": {
+            "freshness_state": "current",
+            "last_ingest_at": None,
+            "covered_through": None,
+        },
+    }

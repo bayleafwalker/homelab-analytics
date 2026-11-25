@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from packages.domains.finance.pipelines.transaction_models import MART_MONTHLY_CASHFLOW_TABLE
 from packages.domains.overview.pipelines.scenario_service_overview import (
+    MART_SERVICE_HEALTH_CURRENT_TABLE,
+    MART_UTILITY_COST_TREND_MONTHLY_TABLE,
+    MART_WORKLOAD_COST_7D_TABLE,
     create_homelab_cost_benefit_scenario,
     create_tariff_shock_scenario,
     get_homelab_cost_benefit_comparison,
@@ -23,17 +27,27 @@ from packages.storage.duckdb_store import DuckDBStore
 def homelab_cost_benefit_view(
     store: DuckDBStore, scenario_id: str, context: ScenarioViewContext
 ) -> Any:
-    return get_homelab_cost_benefit_comparison(
+    result = get_homelab_cost_benefit_comparison(
         store,
         scenario_id,
         current_baseline_run_id=context.current_baseline_run_id,
     )
+    if result is not None:
+        result.assumptions_summary = context.assumptions_summary(
+            MART_SERVICE_HEALTH_CURRENT_TABLE, MART_WORKLOAD_COST_7D_TABLE
+        )
+    return result
 
 
 def tariff_shock_cashflow_view(
     store: DuckDBStore, scenario_id: str, context: ScenarioViewContext
 ) -> Any:
-    return get_tariff_shock_comparison(store, scenario_id)
+    result = get_tariff_shock_comparison(store, scenario_id)
+    if result is not None:
+        result.assumptions_summary = context.assumptions_summary(
+            MART_MONTHLY_CASHFLOW_TABLE, MART_UTILITY_COST_TREND_MONTHLY_TABLE
+        )
+    return result
 
 
 OVERVIEW_SCENARIO_HANDLERS: tuple[ScenarioTypeHandler, ...] = (

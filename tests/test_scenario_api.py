@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import unittest
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -21,7 +21,9 @@ from packages.domains.homelab.pipelines.transformation_homelab import (
 )
 from packages.pipelines.reporting_service import HomelabCostBenefitBaseline, ReportingService
 from packages.pipelines.transformation_service import TransformationService
+from packages.storage.control_plane import PublicationConfidenceSnapshotCreate
 from packages.storage.duckdb_store import DuckDBStore
+from packages.storage.ingestion_config import IngestionConfigRepository
 from packages.storage.run_metadata import RunMetadataRepository
 from tests.test_homelab_domain import _service_rows, _workload_rows
 
@@ -257,6 +259,58 @@ class ScenarioGetAPITests(unittest.TestCase):
             self.assertIn("scenario_rows", data)
             self.assertIn("variance_rows", data)
             self.assertGreater(len(data["scenario_rows"]), 0)
+
+    def test_homelab_views_expose_only_relevant_assumption_sources(self) -> None:
+        with TemporaryDirectory() as tmp:
+            client, ts = _build_homelab_client(tmp)
+            response = client.post(
+                "/api/scenarios/homelab-cost-benefit",
+                json={"monthly_cost_delta": "1.00"},
+            )
+            self.assertEqual(200, response.status_code)
+            scenario_id = response.json()["scenario_id"]
+            endpoints = [
+                f"/api/scenarios/{scenario_id}/{view}"
+                for view in ("comparison", "cashflow")
+            ]
+            for endpoint in endpoints:
+                self.assertIsNone(client.get(endpoint).json()["assumptions_summary"])
+
+            store = IngestionConfigRepository(Path(tmp) / "freshness.db")
+            assessed_at = datetime(2026, 11, 24, tzinfo=UTC)
+            source = {
+                "freshness_state": "overdue",
+                "last_ingest_at": "2026-11-20T00:00:00+00:00",
+                "covered_through": "2026-11-19",
+            }
+            store.record_publication_confidence_snapshot(tuple(
+                PublicationConfidenceSnapshotCreate(
+                    snapshot_id=relation,
+                    publication_key=relation,
+                    assessed_at=assessed_at,
+                    freshness_state="stale",
+                    completeness_pct=100,
+                    confidence_verdict="degraded",
+                    source_freshness_states={asset: source},
+                )
+                for relation, asset in (
+                    ("mart_service_health_current", "service-probe"),
+                    ("mart_workload_cost_7d", "workload-sensors"),
+                    ("mart_monthly_cashflow", "bank-statement"),
+                )
+            ))
+            ts._control_plane_store = store
+
+            for endpoint in endpoints:
+                actual = client.get(endpoint)
+                self.assertEqual(200, actual.status_code)
+                self.assertEqual(
+                    [
+                        {"source_asset_id": "service-probe", **source},
+                        {"source_asset_id": "workload-sensors", **source},
+                    ],
+                    actual.json()["assumptions_summary"],
+                )
 
     def test_get_comparison_exposes_projection_assumption_set(self) -> None:
         with TemporaryDirectory() as tmp:

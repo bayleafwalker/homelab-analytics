@@ -144,3 +144,65 @@ test("a comparison caption names the concrete currency, never bare", () => {
     assert.ok(text(caption).includes(`All amounts in ${currency}`), text(caption));
   }
 });
+
+const shellStubs = {
+  "next/link": ({ children }) => React.createElement("a", null, children),
+  "@/components/app-shell": { AppShell: ({ children }) => children },
+};
+
+test("scenario details render attributed freshness and tolerate absent freshness", async () => {
+  let summary = [{
+    source_asset_id: "bank-statement",
+    freshness_state: "overdue",
+    last_ingest_at: "2026-11-20T00:00:00+00:00",
+    covered_through: "2026-11-19",
+  }];
+  const { default: ScenarioDetail } = compile("app/scenarios/[scenarioId]/page.js", {
+    ...shellStubs,
+    "@/lib/currency-groups": { scenarioCurrency },
+    "@/lib/backend": {
+      getCurrentUser: async () => ({ role: "admin" }),
+      getScenarioMetadata: async () => ({ scenario_type: "income_change", label: "Income" }),
+      getScenarioCashflow: async () => ({ assumptions_summary: summary }),
+    },
+  });
+  const render = async () => text(renderToStaticMarkup(
+    await ScenarioDetail({ params: { scenarioId: "income" } }),
+  ));
+  assert.match(await render(), /bank-statement overdue .*2026-11-19/);
+  summary = null;
+  assert.match(await render(), /Source freshness is unavailable/);
+});
+
+test("policy details identify the evaluated input and tolerate absent freshness", async () => {
+  let freshness = {
+    freshness_state: "current",
+    completeness_pct: 90,
+    assessed_at: "2026-11-24T00:00:00+00:00",
+  };
+  const { default: PolicyDetail } = compile("app/control/policies/[policyId]/details/page.js", {
+    ...shellStubs,
+    "next/navigation": {
+      notFound: () => assert.fail("Expected a saved policy"),
+      redirect: () => assert.fail("Expected an admin"),
+    },
+    "@/components/control-nav": { ControlNav: () => null },
+    "@/components/policy-rule-summary": { PolicyRuleSummary: () => null },
+    "@/lib/backend": {
+      getCurrentUser: async () => ({ role: "admin" }),
+      getPolicyDefinitions: async () => [{
+        policy_id: "cost",
+        rule_document: { publication_key: "monthly_cashflow" },
+      }],
+      getHaPolicyEvaluation: async () => ({
+        policies: [{ id: "cost", input_freshness: freshness }],
+      }),
+    },
+  });
+  const render = async () => text(renderToStaticMarkup(
+    await PolicyDetail({ params: { policyId: "cost" } }),
+  ));
+  assert.match(await render(), /Input monthly_cashflow Freshness current Completeness 90%/);
+  freshness = null;
+  assert.match(await render(), /Input freshness is unavailable/);
+});
