@@ -29,6 +29,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable, Literal
 
+from packages.platform.publication_keys import PublicationKeyResolver
+
 logger = logging.getLogger("homelab_analytics.ha_policy")
 
 PolicyVerdict = Literal["ok", "warning", "breach", "unavailable"]
@@ -774,9 +776,11 @@ class HaPolicyEvaluator:
         policy_registry_store: Any | None = None,
         snapshot_path: Path | None = None,
         publication_fetch_fn: PublicationFetchFn | None = None,
+        publication_key_resolver: PublicationKeyResolver | None = None,
     ) -> None:
         self._fetch_fn = fetch_fn
         self._publication_fetch_fn = publication_fetch_fn
+        self._publication_key_resolver = publication_key_resolver or PublicationKeyResolver()
         self._control_plane_store = control_plane_store
         self._policy_registry_store = policy_registry_store
         self._snapshot_path = snapshot_path
@@ -892,14 +896,18 @@ class HaPolicyEvaluator:
         if self._control_plane_store is None:
             return None
         try:
-            snapshots = self._control_plane_store.list_publication_confidence_snapshots(
-                publication_key=publication_key, limit=1
-            )
+            snapshots = [
+                snapshot
+                for key in self._publication_key_resolver.snapshot_lookup_keys(publication_key)
+                for snapshot in self._control_plane_store.list_publication_confidence_snapshots(
+                    publication_key=key, limit=1
+                )
+            ]
         except Exception:
             return None
         if not snapshots:
             return None
-        snap = snapshots[0]
+        snap = max(snapshots, key=lambda snapshot: snapshot.assessed_at)
         try:
             assessed_at = (
                 snap.assessed_at
@@ -1103,35 +1111,26 @@ class HaPolicyEvaluator:
                     "source_kind": reg_policy["source_kind"],
                     "authority_mode": self._authority_mode,
                 }
-                policy_freshness = input_freshness
+                policy_freshness = None
                 publication_key = rule_doc.get("publication_key")
-                if (
-                    rule_doc.get("rule_kind") == "publication_value_comparison"
-                    and isinstance(publication_key, str)
-                ):
+                if isinstance(publication_key, str):
                     metadata["publication_key"] = publication_key
                     if publication_key not in publication_confidence_cache:
                         publication_confidence_cache[publication_key] = (
                             self._publication_confidence(publication_key, now)
                         )
-                    publication_summary = publication_confidence_cache[
-                        publication_key
-                    ]
-                    if publication_summary is not None:
-                        policy_freshness = publication_summary
-                        if (
-                            publication_summary.freshness_state
-                            in _STALE_FRESHNESS_STATES
-                        ):
-                            # Stale input must not yield a confident verdict.
-                            # The observed value is kept as the measurement that
-                            # was read; the staleness belongs in the reason.
-                            verdict = "unavailable"
-                            reason = (
-                                "stale input: publication "
-                                f"{publication_key!r} is "
-                                f"{publication_summary.freshness_state}"
-                            )
+                    policy_freshness = publication_confidence_cache[publication_key]
+                    if (
+                        rule_doc.get("rule_kind") == "publication_value_comparison"
+                        and policy_freshness is not None
+                        and policy_freshness.freshness_state in _STALE_FRESHNESS_STATES
+                    ):
+                        # Stale input must not yield a confident verdict.
+                        verdict = "unavailable"
+                        reason = (
+                            f"stale input: publication {publication_key!r} is "
+                            f"{policy_freshness.freshness_state}"
+                        )
 
                 results.append(PolicyResult(
                     id=reg_policy["policy_id"],

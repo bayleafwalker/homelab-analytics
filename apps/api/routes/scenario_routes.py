@@ -193,6 +193,7 @@ def register_scenario_routes(
                 "label": comparison.label,
                 "is_stale": comparison.is_stale,
                 "assumptions": to_jsonable(comparison.assumptions),
+                "assumptions_summary": to_jsonable(comparison.assumptions_summary),
                 "summary_rows": to_jsonable(comparison.summary_rows),
             }
         return {
@@ -200,6 +201,7 @@ def register_scenario_routes(
             "label": comparison.label,
             "is_stale": comparison.is_stale,
             "assumptions": to_jsonable(comparison.assumptions),
+            "assumptions_summary": to_jsonable(comparison.assumptions_summary),
             "baseline_rows": to_jsonable(comparison.baseline_rows),
             "scenario_rows": to_jsonable(comparison.scenario_rows),
             "variance_rows": to_jsonable(comparison.variance_rows),
@@ -410,6 +412,7 @@ def register_scenario_routes(
                 "label": cashflow.label,
                 "is_stale": cashflow.is_stale,
                 "assumptions": to_jsonable(cashflow.assumptions),
+                "assumptions_summary": to_jsonable(cashflow.assumptions_summary),
                 "summary_rows": to_jsonable(cashflow.summary_rows),
             }
         return {
@@ -417,6 +420,7 @@ def register_scenario_routes(
             "label": cashflow.label,
             "is_stale": cashflow.is_stale,
             "assumptions": to_jsonable(cashflow.assumptions),
+            "assumptions_summary": to_jsonable(cashflow.assumptions_summary),
             "cashflow_rows": to_jsonable(cashflow.cashflow_rows),
         }
 

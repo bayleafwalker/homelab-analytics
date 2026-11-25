@@ -48,7 +48,11 @@ class ScenarioTransformationMixin(TransformationFacetBase):
             scenario_type=scenario["scenario_type"],
             scenario_id=scenario_id,
             view=view,
-            context=ScenarioViewContext(current_baseline_run_id=current_baseline_run_id),
+            context=ScenarioViewContext(
+                current_baseline_run_id=current_baseline_run_id,
+                confidence_store=self._control_plane_store,
+                publication_keys=self._publication_key_resolver,
+            ),
         )
 
     def list_scenarios(self, *, include_archived: bool = False) -> list[dict[str, Any]]:

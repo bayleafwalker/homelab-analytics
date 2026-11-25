@@ -20,6 +20,7 @@ from packages.pipelines.reporting_service import ReportingService
 from packages.pipelines.transformation_service import TransformationService
 from packages.platform.action_proposals import build_action_proposal_registry
 from packages.platform.capability_types import CapabilityPack
+from packages.platform.publication_keys import PublicationKeyResolver
 from packages.shared.settings import AppSettings
 
 
@@ -283,6 +284,7 @@ def build_ha_startup_runtime(
         policy_registry_store=control_plane_store,
         snapshot_path=settings.data_dir / "ha-policy-effective-snapshot.json",
         publication_fetch_fn=_publication_fetch_fn,
+        publication_key_resolver=PublicationKeyResolver.from_capability_packs(capability_packs),
     )
     if control_plane_store is not None:
         seed_summary = ensure_builtin_policies(

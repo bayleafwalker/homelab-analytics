@@ -336,10 +336,11 @@ def compute_and_record_publication_confidence(
                 # Lineage-declared sources without config keep the historical
                 # CURRENT default; counted so the gap stays visible.
                 unconfigured_defaulted += 1
+                run = resolver.get(source.run_id)
                 source_freshness_states[source_key] = SourceFreshnessSnapshot(
                     source_asset_id=source_key,
                     freshness_state=SourceFreshnessState.CURRENT,
-                    last_ingest_at=as_of,
+                    last_ingest_at=run.created_at if run is not None else None,
                 )
             else:
                 source_freshness_states[source_key] = SourceFreshnessSnapshot(
@@ -409,6 +410,14 @@ def compute_and_record_publication_confidence(
         confidence_verdict=str(snapshot.confidence_verdict),
         quality_flags=snapshot.quality_flags,
         contributing_run_ids=tuple(snapshot.contributing_run_ids) if snapshot.contributing_run_ids else (),
+        source_freshness_states={
+            source_id: {
+                "freshness_state": str(state.freshness_state),
+                "last_ingest_at": state.last_ingest_at.isoformat() if state.last_ingest_at else None,
+                "covered_through": state.covered_through,
+            }
+            for source_id, state in snapshot.source_freshness_states.items()
+        },
     )
     control_plane.record_publication_confidence_snapshot((create_entry,))
 

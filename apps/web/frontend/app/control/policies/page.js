@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
@@ -226,7 +227,9 @@ export default async function ControlPoliciesPage({ searchParams }) {
                 <article className="entityCard" key={definition.policy_id}>
                   <div className="entityHeader">
                     <div>
-                      <strong>{definition.display_name}</strong>
+                      <Link href={`/control/policies/${encodeURIComponent(definition.policy_id)}/details`}>
+                        {definition.display_name}
+                      </Link>
                       <div className="muted">{definition.policy_id}</div>
                     </div>
                     <div className="buttonRow">
@@ -317,7 +320,9 @@ export default async function ControlPoliciesPage({ searchParams }) {
                 <article className="entityCard" key={result.id}>
                   <div className="entityHeader">
                     <div>
-                      <strong>{result.name}</strong>
+                      <Link href={`/control/policies/${encodeURIComponent(result.id)}/details`}>
+                        {result.name}
+                      </Link>
                       <div className="muted">{result.id}</div>
                     </div>
                     <div className="buttonRow">

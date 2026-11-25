@@ -417,6 +417,11 @@ def test_configured_schedule_is_evaluated_for_the_asset(plane, runs) -> None:
 
     state = snapshot.source_freshness_states["bank_asset"].freshness_state
     assert state in {SourceFreshnessState.DUE_SOON, SourceFreshnessState.OVERDUE}
+    stored = plane.list_publication_confidence_snapshots(
+        publication_key=PUBLICATION, limit=1
+    )[0]
+    assert stored.source_freshness_states is not None
+    assert stored.source_freshness_states["bank_asset"]["covered_through"] == "2026-03-31"
     assert snapshot.confidence_verdict == ConfidenceVerdict.DEGRADED
 
 

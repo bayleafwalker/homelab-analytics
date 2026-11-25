@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from packages.domains.finance.pipelines.loan_models import MART_LOAN_SCHEDULE_PROJECTED_TABLE
 from packages.domains.finance.pipelines.scenario_service import (
     create_expense_shock_scenario,
     create_income_change_scenario,
@@ -17,6 +18,7 @@ from packages.domains.finance.pipelines.scenario_service import (
     get_income_scenario_comparison,
     get_scenario_comparison,
 )
+from packages.domains.finance.pipelines.transaction_models import MART_MONTHLY_CASHFLOW_TABLE
 from packages.pipelines.scenario_registry import (
     SCENARIO_VIEW_CASHFLOW,
     SCENARIO_VIEW_COMPARISON,
@@ -31,19 +33,28 @@ from packages.storage.duckdb_store import DuckDBStore
 def loan_comparison_view(
     store: DuckDBStore, scenario_id: str, context: ScenarioViewContext
 ) -> Any:
-    return get_scenario_comparison(store, scenario_id)
+    result = get_scenario_comparison(store, scenario_id)
+    if result is not None:
+        result.assumptions_summary = context.assumptions_summary(MART_LOAN_SCHEDULE_PROJECTED_TABLE)
+    return result
 
 
 def income_cashflow_view(
     store: DuckDBStore, scenario_id: str, context: ScenarioViewContext
 ) -> Any:
-    return get_income_scenario_comparison(store, scenario_id)
+    result = get_income_scenario_comparison(store, scenario_id)
+    if result is not None:
+        result.assumptions_summary = context.assumptions_summary(MART_MONTHLY_CASHFLOW_TABLE)
+    return result
 
 
 def expense_shock_cashflow_view(
     store: DuckDBStore, scenario_id: str, context: ScenarioViewContext
 ) -> Any:
-    return get_expense_shock_comparison(store, scenario_id)
+    result = get_expense_shock_comparison(store, scenario_id)
+    if result is not None:
+        result.assumptions_summary = context.assumptions_summary(MART_MONTHLY_CASHFLOW_TABLE)
+    return result
 
 
 GENERIC_SCENARIO_VIEWS: dict[str, ScenarioViewHandler] = {

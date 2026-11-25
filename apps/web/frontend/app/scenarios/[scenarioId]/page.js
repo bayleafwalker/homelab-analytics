@@ -48,6 +48,7 @@ export default async function ScenarioDetailPage({ params }) {
 
   const isStale = comparison?.is_stale || cashflow?.is_stale;
   const assumptions = comparison?.assumptions || cashflow?.assumptions || [];
+  const assumptionSources = (comparison ?? cashflow)?.assumptions_summary ?? null;
   const currency = scenarioCurrency(cashflow?.assumptions);
   const summaryRows = cashflow?.summary_rows || [];
 
@@ -230,6 +231,40 @@ export default async function ScenarioDetailPage({ params }) {
         )}
 
         {/* Assumptions */}
+        <article className="panel section">
+          <div className="sectionHeader">
+            <h2>Assumption sources</h2>
+          </div>
+          {assumptionSources === null ? (
+            <p className="muted">Source freshness is unavailable.</p>
+          ) : assumptionSources.length === 0 ? (
+            <p className="muted">No source dependencies were recorded for this scenario.</p>
+          ) : (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Source</th>
+                    <th scope="col">Freshness</th>
+                    <th scope="col">Last ingest</th>
+                    <th scope="col">Covered through</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {assumptionSources.map((source) => (
+                    <tr key={source.source_asset_id}>
+                      <th scope="row">{source.source_asset_id}</th>
+                      <td>{source.freshness_state}</td>
+                      <td>{source.last_ingest_at || "Unavailable"}</td>
+                      <td>{source.covered_through || "Unavailable"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
+
         {assumptions.length > 0 && (
           <article className="panel section">
             <div className="sectionHeader">
